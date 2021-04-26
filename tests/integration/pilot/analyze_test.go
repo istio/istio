@@ -305,15 +305,27 @@ func TestAllNamespaces(t *testing.T) {
 			foundCount := 0
 			for _, line := range output {
 				if strings.Contains(line, ns1.Name()) {
-					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-					foundCount++
+					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						foundCount++
+					}
+					if strings.Contains(line, msg.ConflictingGateways.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						foundCount++
+					}
 				}
 				if strings.Contains(line, ns2.Name()) {
-					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-					foundCount++
+					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						foundCount++
+					}
+					if strings.Contains(line, msg.ConflictingGateways.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						foundCount++
+					}
 				}
 			}
-			g.Expect(foundCount).To(Equal(2))
+			g.Expect(foundCount).To(Equal(4))
 		})
 }
 
