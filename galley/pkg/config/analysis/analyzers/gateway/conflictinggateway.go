@@ -24,7 +24,6 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
-
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/host"
@@ -66,22 +65,30 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
 	gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
 	sGWSelector := gwSelector.String()
+
+	// Check non-exist gateway with particular selector
+	var isExists bool = false
+	for gwmKey := range gwCMap {
+		if strings.Contains(gwmKey, sGWSelector) {
+			isExists = true
+			break
+		}
+	}
+	if !isExists {
+		m := msg.NewReferencedResourceNotFound(r, "selector", sGWSelector)
+		label := util.ExtractLabelFromSelectorString(sGWSelector)
+		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
+			m.Line = line
+		}
+		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+		return
+	}
+
 	var rmsg []string
 	conflictingGWMatch := 0
 	for _, server := range gw.Servers {
 		sPortNumber := strconv.Itoa(int(server.Port.Number))
 		mapKey := GenGatewayMapKey(sGWSelector, sPortNumber)
-
-		if _, exits := gwCMap[mapKey]; !exits {
-			m := msg.NewReferencedResourceNotFound(r, "selector", sGWSelector)
-			label := util.ExtractLabelFromSelectorString(sGWSelector)
-			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
-				m.Line = line
-			}
-			c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
-			return
-		}
-
 		for gwNameKey, gwHostsValue := range gwCMap[mapKey] {
 			for _, gwHost := range server.Hosts {
 				// both selector and portnumber are the same, then check hosts
