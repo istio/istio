@@ -388,6 +388,7 @@ func fixOnPrem(settings *resource.Settings) error {
 // 1. Keep only the artifacts/kubeconfig entries in the KUBECONFIG for baremetal
 //    by removing any others entries.
 // 2. Set required env vars that are needed for running ASM tests.
+// 3. Modify proxy's default setup
 func fixBareMetal(settings *resource.Settings) error {
 	err := filterKubeconfigFiles(settings, func(name string) bool {
 		return strings.HasSuffix(name, "artifacts/kubeconfig")
@@ -396,13 +397,31 @@ func fixBareMetal(settings *resource.Settings) error {
 		return err
 	}
 
+	sshPostprocess := func(bootstrapHostSSHKey, bootstrapHostSSHUser string) error {
+		//  Increase proxy's max connection setup to avoid too many connections error
+		sshCmd1 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/#max-client-connections.*/max-client-connections 512/' '/etc/privoxy/config'\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		sshCmd2 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/keep-alive-timeout 5/keep-alive-timeout 3000/' '/etc/privoxy/config'\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		sshCmd3 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/socket-timeout 300/socket-timeout 3000/' '/etc/privoxy/config'\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		sshCmd4 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/#default-server-timeout.*/default-server-timeout 3000/' '/etc/privoxy/config'\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		sshCmd5 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo systemctl restart privoxy.service\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		if err := exec.RunMultiple([]string{sshCmd1, sshCmd2, sshCmd3, sshCmd4, sshCmd5}); err != nil {
+			return fmt.Errorf("error running the commands to increase proxy's max connection setup: %w", err)
+		}
+		return nil
+	}
+
 	if err := injectMulticloudClusterEnvVars(settings, multicloudClusterConfig{
 		// kubeconfig has the format of "${ARTIFACTS}"/.kubetest2-tailorbird/tf97d94df28f4277/artifacts/kubeconfig
 		clusterArtifactsPath: filepath.Dir(settings.Kubeconfig),
 		scriptRelPath:        "tunnel.sh",
 		regexMatcher:         `.*\-L([0-9]*):localhost.* (root@[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*)`,
 		sshKeyRelPath:        "id_rsa",
-	}, nil); err != nil {
+	}, sshPostprocess); err != nil {
 		return err
 	}
 

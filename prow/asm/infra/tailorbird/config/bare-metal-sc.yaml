@@ -33,4 +33,8 @@ spec:
               distribution: gke
               provisionerArgs:
                 username: prowuser
-                bmctlVersion: "1.6.1-gke.8"
+                bmctlVersion: "1.7.1-gke.4"
+                passthroughEnv: |
+                  {
+                     "MANIFEST_PROFILE_ENV": "staging"
+                  }
