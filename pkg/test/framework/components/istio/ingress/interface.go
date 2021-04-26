@@ -17,14 +17,22 @@ package ingress
 import (
 	"net"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/retry"
 )
+
+type Instances []Instance
+
+func (i Instances) Callers() echo.Callers {
+	var out echo.Callers
+	for _, instance := range i {
+		out = append(out, instance)
+	}
+	return out
+}
 
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
+	echo.Caller
 	// HTTPAddress returns the external HTTP (80) address of the ingress gateway ((or the NodePort address,
 	//	// when in an environment that doesn't support LoadBalancer).
 	HTTPAddress() (string, int)
@@ -40,11 +48,6 @@ type Instance interface {
 	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer) for the given port.
 	AddressForPort(port int) (string, int)
-	// Call makes a call through ingress using the echo call and response types.
-	Call(options echo.CallOptions) (client.ParsedResponses, error)
-	CallOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses
-	CallWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
-	CallWithRetryOrFail(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses
 
 	// ProxyStats returns proxy stats, or error if failure happens.
 	ProxyStats() (map[string]int, error)

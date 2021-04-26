@@ -70,8 +70,8 @@ type TrafficTestCase struct {
 	// toN causes the test to be run for N destinations. The call will be made from instances of the first deployment
 	// in each subset in each cluster. See echotes.T's RunToN for more details.
 	toN int
-	// fromIngress makes the ingress gateway the caller for tests
-	fromIngress bool
+	// viaIngress makes the ingress gateway the caller for tests
+	viaIngress bool
 	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
 	sourceFilters []echotest.Filter
 	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
@@ -79,8 +79,7 @@ type TrafficTestCase struct {
 	// comboFilters allows conditionally filtering based on pairs of apps
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
-	templateVars     func(src echo.Instances, dest echo.Instances) map[string]interface{}
-	templateVarsForN func(src echo.Instances, dests echo.Services) map[string]interface{}
+	templateVars func(src echo.Callers, dest echo.Instances) map[string]interface{}
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -98,7 +97,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
-			SetupForServicePair(func(t framework.TestContext, src echo.Instances, dsts echo.Services) error {
+			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
 				tmplData := map[string]interface{}{
 					// tests that use simple Run only need the first
 					"dst":    dsts[0],
@@ -109,15 +108,12 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				if len(src) > 0 {
 					tmplData["src"] = src
-					tmplData["srcSvc"] = src[0].Config().Service
+					if src, ok := src[0].(echo.Instance); ok {
+						tmplData["srcSvc"] = src.Config().Service
+					}
 				}
 				if c.templateVars != nil {
 					for k, v := range c.templateVars(src, dsts[0]) {
-						tmplData[k] = v
-					}
-				}
-				if c.templateVarsForN != nil {
-					for k, v := range c.templateVarsForN(src, dsts) {
 						tmplData[k] = v
 					}
 				}
@@ -164,8 +160,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
 				doTest(t, src, dsts)
 			})
-		} else if c.fromIngress {
-			echoT.RunFromIngress(func(t framework.TestContext, src ingress.Instance, dst echo.Instances) {
+		} else if c.viaIngress {
+			echoT.RunViaIngress(func(t framework.TestContext, src ingress.Instance, dst echo.Instances) {
 				doTest(t, src, echo.Services{dst})
 			})
 		} else {

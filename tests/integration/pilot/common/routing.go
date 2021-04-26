@@ -31,6 +31,7 @@ import (
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -440,7 +441,7 @@ spec:
 			toN:           len(split),
 			sourceFilters: []echotest.Filter{noHeadless, noNaked},
 			targetFilters: []echotest.Filter{noHeadless, noExternal},
-			templateVarsForN: func(src echo.Instances, dests echo.Services) map[string]interface{} {
+			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
 				}
@@ -627,12 +628,13 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 }
 
 func gatewayCases() []TrafficTestCase {
-	templateParams := func(protocol protocol.Instance, dests echo.Instances) map[string]interface{} {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances) map[string]interface{} {
 		host, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			host, portN, cred = dest.Config().FQDN(), 443, "cred"
 		}
 		return map[string]interface{}{
+			"IngressNamespace":   src[0].(ingress.Instance).Namespace(),
 			"GatewayHost":        host,
 			"GatewayPort":        portN,
 			"GatewayPortName":    strings.ToLower(string(protocol)),
@@ -645,7 +647,7 @@ func gatewayCases() []TrafficTestCase {
 	}
 
 	// clears the Target to avoid echo internals trying to match the protocol with the port on echo.Config
-	noTarget := func(src echo.Caller, dsts echo.Instances, opts *echo.CallOptions) {
+	noTarget := func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
 		opts.Target = nil
 	}
 	// allows setting the target indirectly via the host header
@@ -665,7 +667,7 @@ func gatewayCases() []TrafficTestCase {
 			name:             "404",
 			targetFilters:    singleTarget,
 			workloadAgnostic: true,
-			fromIngress:      true,
+			viaIngress:       true,
 			config:           httpGateway("*"),
 			opts: echo.CallOptions{
 				Port: &echo.Port{
@@ -682,7 +684,7 @@ func gatewayCases() []TrafficTestCase {
 			name:             "https redirect",
 			targetFilters:    singleTarget,
 			workloadAgnostic: true,
-			fromIngress:      true,
+			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -714,7 +716,7 @@ spec:
 			name:             "https with x-forwarded-proto",
 			targetFilters:    singleTarget,
 			workloadAgnostic: true,
-			fromIngress:      true,
+			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -769,7 +771,7 @@ spec:
 				Validator: echo.ExpectOK(),
 			},
 			setupOpts: fqdnHostHeader,
-			templateVars: func(_ echo.Instances, dests echo.Instances) map[string]interface{} {
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
 				dest := dests[0]
 				return map[string]interface{}{
 					"Gateway":            "gateway",
@@ -783,15 +785,15 @@ spec:
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
 		secret := ""
 		if proto.IsTLS() {
-			secret = ingressutil.IngressKubeSecretYAML("cred", "", ingressutil.TLS, ingressutil.IngressCredentialA)
+			secret = ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA)
 		}
 		cases = append(
 			cases,
 			TrafficTestCase{
 				name:   string(proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
-				templateVars: func(_ echo.Instances, dests echo.Instances) map[string]interface{} {
-					return templateParams(proto, dests)
+				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
+					return templateParams(proto, src, dests)
 				},
 				setupOpts: fqdnHostHeader,
 				opts: echo.CallOptions{
@@ -799,15 +801,14 @@ spec:
 						Protocol: proto,
 					},
 				},
-				fromIngress:      true,
+				viaIngress:       true,
 				workloadAgnostic: true,
 			},
-			// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
 			TrafficTestCase{
 				name:   fmt.Sprintf("%s scheme match", proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
-				templateVars: func(_ echo.Instances, dests echo.Instances) map[string]interface{} {
-					params := templateParams(proto, dests)
+				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
+					params := templateParams(proto, src, dests)
 					params["MatchScheme"] = strings.ToLower(string(proto))
 					return params
 				},
@@ -826,8 +827,9 @@ spec:
 								})
 							})),
 				},
+				// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
 				targetFilters:    singleTarget,
-				fromIngress:      true,
+				viaIngress:       true,
 				workloadAgnostic: true,
 			},
 		)

@@ -20,10 +20,9 @@ import (
 )
 
 type (
-	srcSetupFn     func(ctx framework.TestContext, src echo.Instances) error
-	svcPairSetupFn func(ctx framework.TestContext, src echo.Instances, dsts echo.Services) error
+	srcSetupFn     func(ctx framework.TestContext, src echo.Callers) error
+	svcPairSetupFn func(ctx framework.TestContext, src echo.Callers, dsts echo.Services) error
 	dstSetupFn     func(ctx framework.TestContext, dsts echo.Instances) error
-	pairSetupFn    func(ctx framework.TestContext, src, dsts echo.Instances) error
 )
 
 // Setup runs the given function in the source deployment context.
@@ -42,7 +41,7 @@ func (t *T) Setup(setupFn srcSetupFn) *T {
 	return t
 }
 
-func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
+func (t *T) setup(ctx framework.TestContext, srcInstances echo.Callers) {
 	for _, setupFn := range t.sourceDeploymentSetup {
 		if err := setupFn(ctx, srcInstances); err != nil {
 			ctx.Fatal(err)
@@ -59,13 +58,13 @@ func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
 //     cleanup...
 //     a/to_b/from_cluster-2
 //     ...
-func (t *T) SetupForPair(setupFn pairSetupFn) *T {
-	return t.SetupForServicePair(func(ctx framework.TestContext, src echo.Instances, dsts echo.Services) error {
+func (t *T) SetupForPair(setupFn func(ctx framework.TestContext, src echo.Callers, dsts echo.Instances) error) *T {
+	return t.SetupForServicePair(func(ctx framework.TestContext, src echo.Callers, dsts echo.Services) error {
 		return setupFn(ctx, src, dsts.Instances())
 	})
 }
 
-// SetupForServicePair works similarly to SetupForPair, but the setup funciton accepts echo.Services, which
+// SetupForServicePair works similarly to SetupForPair, but the setup function accepts echo.Services, which
 // contains instances for multiple services and should be used in combination with RunForN.
 // The length of dsts services will alyas be N.
 func (t *T) SetupForServicePair(setupFn svcPairSetupFn) *T {
@@ -73,7 +72,7 @@ func (t *T) SetupForServicePair(setupFn svcPairSetupFn) *T {
 	return t
 }
 
-func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dsts echo.Services) {
+func (t *T) setupPair(ctx framework.TestContext, src echo.Callers, dsts echo.Services) {
 	for _, setupFn := range t.deploymentPairSetup {
 		if err := setupFn(ctx, src, dsts); err != nil {
 			ctx.Fatal(err)

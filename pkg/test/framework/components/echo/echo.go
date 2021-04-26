@@ -73,6 +73,21 @@ type Caller interface {
 	CallWithRetryOrFail(t test.Failer, options CallOptions, retryOptions ...retry.Option) client.ParsedResponses
 }
 
+type Callers []Caller
+
+// Instances returns an Instances if all callers are Instance, otherwise returns nil.
+func (c Callers) Instances() Instances {
+	var out Instances
+	for _, caller := range c {
+		c, ok := caller.(Instance)
+		if !ok {
+			return nil
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
 // Instance is a component that provides access to a deployed echo service.
 type Instance interface {
 	Caller

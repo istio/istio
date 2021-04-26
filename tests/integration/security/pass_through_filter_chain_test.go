@@ -549,7 +549,7 @@ spec:
 			}}
 			for _, tc := range cases {
 				echotest.New(t, apps.All).
-					SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
 						cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 							tc.config,
 							map[string]string{

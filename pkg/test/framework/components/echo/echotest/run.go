@@ -51,9 +51,9 @@ type (
 // clusters.
 func (t *T) Run(testFn oneToOneTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
-		t.setup(ctx, srcInstances)
+		t.setup(ctx, srcInstances.Callers())
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupPair(ctx, srcInstances, echo.Services{dstInstances})
+			t.setupPair(ctx, srcInstances.Callers(), echo.Services{dstInstances})
 			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				filteredDst := t.applyCombinationFilters(src, dstInstances)
 				if len(filteredDst) == 0 {
@@ -111,9 +111,9 @@ func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
 //
 func (t *T) RunToN(n int, testFn oneToNTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
-		t.setup(ctx, srcInstances)
+		t.setup(ctx, srcInstances.Callers())
 		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Services) {
-			t.setupPair(ctx, srcInstances, destDeployments)
+			t.setupPair(ctx, srcInstances.Callers(), destDeployments)
 			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				// reapply destination filters to only get the reachable instances for this cluster
 				// this can be done safely since toNDeployments asserts the Services won't change
@@ -124,14 +124,24 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 	})
 }
 
-func (t *T) RunFromIngress(testFn ingressTest) {
-	t.RunFromClusters(func(t framework.TestContext, src cluster.Cluster, dst echo.Instances) {
-		i := istio.GetOrFail(t, t)
-		ingr := i.IngressFor(src)
-		if ingr == nil {
-			t.Skipf("no ingress for %s", src.StableName())
+func (t *T) RunViaIngress(testFn ingressTest) {
+	i := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+		t.setupPair(ctx, i.Ingresses().Callers(), echo.Services{dstInstances})
+		doTest := func(ctx framework.TestContext, src cluster.Cluster, dst echo.Instances) {
+			ingr := i.IngressFor(src)
+			if ingr == nil {
+				ctx.Skipf("no ingress for %s", src.StableName())
+			}
+			testFn(ctx, ingr, dst)
 		}
-		testFn(t, ingr, dst)
+		if len(ctx.Clusters()) == 1 {
+			doTest(ctx, ctx.Clusters()[0], dstInstances)
+		} else {
+			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
+				doTest(ctx, c, dstInstances)
+			})
+		}
 	})
 }
 

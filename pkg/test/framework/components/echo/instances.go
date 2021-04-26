@@ -26,6 +26,15 @@ import (
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
+// Callers is a convenience method to convert Instances into Callers.
+func (i Instances) Callers() Callers {
+	var out Callers
+	for _, instance := range i {
+		out = append(out, instance)
+	}
+	return out
+}
+
 // Clusters returns a list of cluster names that the instances are deployed in
 func (i Instances) Clusters() cluster.Clusters {
 	clusters := map[string]cluster.Cluster{}
