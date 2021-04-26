@@ -1368,16 +1368,16 @@ func TestController_ExternalNameService(t *testing.T) {
 			}
 			for i, exp := range expectedSvcList {
 				if exp.Hostname != svcList[i].Hostname {
-					t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Hostname, exp.Hostname)
+					t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Hostname, exp.Hostname)
 				}
 				if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
-					t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i, svcList[i].Ports, exp.Ports)
+					t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Ports, exp.Ports)
 				}
 				if svcList[i].MeshExternal != exp.MeshExternal {
-					t.Fatalf("i=%v, MeshExternal==%v, should be %v: externalName='%s'", i, exp.MeshExternal, svcList[i].MeshExternal, k8sSvcs[i].Spec.ExternalName)
+					t.Fatalf("i=%v, MeshExternal==%v, should be %v: externalName='%s'", i+1, exp.MeshExternal, svcList[i].MeshExternal, k8sSvcs[i].Spec.ExternalName)
 				}
 				if svcList[i].Resolution != exp.Resolution {
-					t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i, svcList[i].Resolution, exp.Resolution)
+					t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i+1, svcList[i].Resolution, exp.Resolution)
 				}
 				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, labels.Collection{})
 				if len(instances) != 1 {
