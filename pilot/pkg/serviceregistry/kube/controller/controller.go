@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -710,6 +711,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		out = append(out, svc)
 	}
 	c.RUnlock()
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 	return out, nil
 }
 
