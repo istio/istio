@@ -71,6 +71,17 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	for _, server := range gw.Servers {
 		sPortNumber := strconv.Itoa(int(server.Port.Number))
 		mapKey := GenGatewayMapKey(sGWSelector, sPortNumber)
+
+		if _, exits := gwCMap[mapKey]; !exits {
+			m := msg.NewReferencedResourceNotFound(r, "selector", sGWSelector)
+			label := util.ExtractLabelFromSelectorString(sGWSelector)
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
+				m.Line = line
+			}
+			c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+			return
+		}
+
 		for gwNameKey, gwHostsValue := range gwCMap[mapKey] {
 			for _, gwHost := range server.Hosts {
 				// both selector and portnumber are the same, then check hosts
@@ -86,12 +97,6 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	if conflictingGWMatch > 0 {
 		reportMsg := fmt.Sprintf("%s to %s", gwName, strings.Join(rmsg, ","))
 		m := msg.NewConflictingGateways(r, reportMsg)
-
-		label := util.ExtractLabelFromSelectorString(sGWSelector)
-		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
-			m.Line = line
-		}
-
 		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 	}
 }
