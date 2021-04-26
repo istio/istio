@@ -25,7 +25,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 
-	// "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
@@ -86,6 +86,12 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	if conflictingGWMatch > 0 {
 		reportMsg := fmt.Sprintf("%s to %s", gwName, strings.Join(rmsg, ","))
 		m := msg.NewConflictingGateways(r, reportMsg)
+
+		label := util.ExtractLabelFromSelectorString(sGWSelector)
+		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
+			m.Line = line
+		}
+
 		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 	}
 }

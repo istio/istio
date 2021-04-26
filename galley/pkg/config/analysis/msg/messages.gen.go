@@ -636,10 +636,10 @@ func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
 }
 
 // NewConflictingGateways returns a new diag.Message based on ConflictingGateways.
-func NewConflictingGateways(r *resource.Instance, gateways string) diag.Message {
+func NewConflictingGateways(r *resource.Instance, gateway string) diag.Message {
 	return diag.NewMessage(
 		ConflictingGateways,
 		r,
-		gateways,
+		gateway,
 	)
 }
