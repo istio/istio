@@ -128,7 +128,7 @@ func constructConfig() *config.Config {
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
-	if cfg.RedirectDNS && cfg.DNSServersV4 == nil && cfg.DNSServersV6 == nil {
+	if cfg.RedirectDNS && len(cfg.DNSServersV4) == 0 && len(cfg.DNSServersV6) == 0 {
 		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
 			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
