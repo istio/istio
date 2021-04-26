@@ -134,8 +134,6 @@ type istioctlConfigFiles struct {
 }
 
 func (i *operatorComponent) Ingresses() ingress.Instances {
-	i.mu.Lock()
-	defer i.mu.Unlock()
 	var out ingress.Instances
 	for _, c := range i.ctx.Clusters() {
 		// call IngressFor in-case initialization is needed.
