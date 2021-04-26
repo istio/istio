@@ -192,15 +192,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	// Workaround for broken validation with revisions (https://github.com/istio/istio/issues/28880)
 	// TODO(Monkeyanator) remove once we have a nicer solution
 	if iArgs.revision != "" {
-		if !existingIstiodService(clientset, name.IstioDefaultNamespace) {
+		if !requiresIstiodServiceCreation(clientset, name.IstioDefaultNamespace) {
 			if err := createIstiodService(clientset, name.IstioDefaultNamespace, iArgs.revision); err != nil {
-				if !iArgs.skipConfirmation {
-					prompt := "Did not find existing istiod service and failed to create one. Proceed anyways? (y/N)"
-					if !confirm(prompt, cmd.OutOrStdout()) {
-						cmd.Print("Cancelled.\n")
-						os.Exit(1)
-					}
-				}
+				warning := "Did not find existing istiod service and failed to create one."
+				fmt.Fprintln(cmd.OutOrStderr(), warning)
 			}
 		}
 	}
@@ -372,10 +367,30 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
 }
 
-// existingIstiodService determines if there's an istiod service present in the cluster.
-func existingIstiodService(cs kubernetes.Interface, istioNs string) bool {
-	_, err := cs.CoreV1().Services(istioNs).Get(context.TODO(), "istiod", metav1.GetOptions{})
-	return !kerrors.IsNotFound(err)
+// requiresIstiodServiceCreation determines if the CP requires an istiod service to function
+func requiresIstiodServiceCreation(cs kubernetes.Interface, istioNs string) bool {
+	// First: does the istiod service exist?
+	_, err := cs.CoreV1().Services(istioNs).Get(
+		context.TODO(), "istiod", metav1.GetOptions{})
+	if !kerrors.IsNotFound(err) {
+		vwh, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+			context.TODO(), fmt.Sprintf("istiod-%s", name.IstioDefaultNamespace), metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("oops: %v", err)
+			return false
+		}
+		// Second: if it doesn't, are there webhooks in the VWHC referencing it? If so,
+		// we should create to avoid broken validation
+		for _, wh := range vwh.Webhooks {
+			if wh.ClientConfig.Service != nil {
+				if wh.ClientConfig.Service.Name == "istiod" {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // createIstiodService creates an `istiod` service pointed at the given revision
