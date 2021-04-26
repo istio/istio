@@ -237,7 +237,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
 
-	if err := t.Config().ApplyYAML(apps.Namespace.Name(), `
+	if err := t.Config().ApplyYAMLNoCleanup(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
