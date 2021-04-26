@@ -40,25 +40,36 @@ func TestRevisionTags(t *testing.T) {
 				name     string
 				tag      string
 				revision string
+				nsLabel  string
 				error    string
 			}{
 				{
-					"prod-tag-pointed-to-stable",
+					"prod tag pointed to stable",
 					"prod",
 					"stable",
+					"istio.io/rev=prod",
 					"",
 				},
 				{
-					"prod-tag-pointed-to-canary",
+					"prod tag pointed to canary",
 					"prod",
 					"canary",
+					"istio.io/rev=prod",
 					"",
 				},
 				{
-					"tag-pointed-to-non-existent-revision",
+					"tag pointed to non existent revision",
 					"prod",
 					"fake-revision",
+					"istio.io/rev=prod",
 					"cannot modify tag",
+				},
+				{
+					"default tag-injects for istio injection enabled",
+					"default",
+					"stable",
+					"istio-injection=enabled",
+					"",
 				},
 			}
 
@@ -86,20 +97,28 @@ func TestRevisionTags(t *testing.T) {
 						return
 					}
 
-					// build namespace labeled with tag and create echo in that namespace
+					// Expect the specified revision to inject for the namespace with the
+					// given injection label
 					revTagNs := namespace.NewOrFail(t, t, namespace.Config{
-						Prefix:   "rev-tag",
-						Inject:   true,
-						Revision: tc.tag,
+						Prefix: "revision-tag",
 					})
+					nsLabelParts := strings.Split(tc.nsLabel, "=")
+					if len(nsLabelParts) != 2 {
+						t.Fatalf("invalid namespace label %s", tc.nsLabel)
+					}
+					if err := revTagNs.SetLabel(nsLabelParts[0], nsLabelParts[1]); err != nil {
+						t.Fatalf("couldn't set label %q on namespace %s: %w",
+							tc.nsLabel, revTagNs.Name(), err)
+					}
+
 					echoboot.NewBuilder(t).WithConfig(echo.Config{
-						Service:   "rev-tag",
+						Service:   "revision-tag",
 						Namespace: revTagNs,
 					}).BuildOrFail(t)
 
 					fetch := kubetest.NewSinglePodFetch(t.Clusters().Default(),
 						revTagNs.Name(),
-						fmt.Sprintf("app=%s", "rev-tag"))
+						fmt.Sprintf("app=%s", "revision-tag"))
 					pods, err := fetch()
 					if err != nil {
 						t.Fatalf("error fetching pods: %v", err)
