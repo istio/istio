@@ -71,6 +71,9 @@ type Config struct {
 	// Headless (k8s only) indicates that no ClusterIP should be specified.
 	Headless bool
 
+	// StatefulSet indicates that
+	StatefulSet bool
+
 	// StaticAddress for some echo implementations is an address locally reachable within
 	// the test framework and from the echo Cluster's network.
 	StaticAddresses []string

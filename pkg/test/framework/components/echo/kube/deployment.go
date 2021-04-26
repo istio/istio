@@ -93,7 +93,11 @@ spec:
 {{- range $i, $subset := $subsets }}
 {{- range $revision, $version := $revVerMap }}
 apiVersion: apps/v1
+{{- if $.StatefulSet }}
+kind: StatefulSet
+{{- else }}
 kind: Deployment
+{{- end }}
 metadata:
 {{- if $.IsMultiVersion }}
   name: {{ $.Service }}-{{ $subset.Version }}-{{ $revision }}
@@ -101,6 +105,9 @@ metadata:
   name: {{ $.Service }}-{{ $subset.Version }}
 {{- end }}
 spec:
+  {{- if $.StatefulSet }}
+  serviceName: {{ $.Service }}
+  {{- end }}
   replicas: 1
   selector:
     matchLabels:
@@ -634,6 +641,7 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		"Service":            cfg.Service,
 		"Version":            cfg.Version,
 		"Headless":           cfg.Headless,
+		"StatefulSet":        cfg.StatefulSet,
 		"Locality":           cfg.Locality,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"Ports":              cfg.Ports,
