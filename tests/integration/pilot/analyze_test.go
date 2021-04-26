@@ -309,6 +309,7 @@ func TestAllNamespaces(t *testing.T) {
 						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 						foundCount++
 					}
+					// There are 2 conflictings can be detected, A to B and B to A
 					if strings.Contains(line, msg.ConflictingGateways.Code()) {
 						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
 						foundCount++
@@ -319,13 +320,14 @@ func TestAllNamespaces(t *testing.T) {
 						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 						foundCount++
 					}
+					// There are 2 conflictings can be detected, B to A and A to B
 					if strings.Contains(line, msg.ConflictingGateways.Code()) {
 						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
 						foundCount++
 					}
 				}
 			}
-			g.Expect(foundCount).To(Equal(4))
+			g.Expect(foundCount).To(Equal(6))
 		})
 }
 
