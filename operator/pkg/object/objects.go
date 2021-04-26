@@ -444,11 +444,11 @@ func DefaultObjectOrder() func(o *K8sObject) int {
 			return 4
 
 			// Pods might need configmap or secrets - avoid backoff by creating them first
-		case gk == "/ConfigMap" || gk == "/Secrets":
+		case gk == "/ConfigMap" || gk == "/Secret":
 			return 100
 
 			// Create the pods after we've created other things they might be waiting for
-		case gk == "extensions/Deployment" || gk == "app/Deployment":
+		case gk == "extensions/Deployment" || gk == "apps/Deployment":
 			return 1000
 
 			// Autoscalers typically act on a deployment
