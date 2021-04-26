@@ -458,7 +458,13 @@ messages:
     code: IST0145
     level: Error
     description: "Gateway should not have the same selector, port number and matched hosts of server"
-    template: "Conflicting gateways are detected for gateways %s on selector, port number and hosts."
+    template: "Conflicting gateways are detected for gateway %s on selector '%s', port number '%s' and hosts '%v'."
     args:
       - name: gateway
         type: string
+      - name: selector
+        type: string
+      - name: portnumber
+        type: string
+      - name: hosts
+        type: "[]string"

@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 
-	// v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
@@ -84,15 +83,15 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		return
 	}
 
-	var rmsg []string
-	conflictingGWMatch := 0
 	for _, server := range gw.Servers {
+		var rmsg []string
+		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.Port.Number))
 		mapKey := GenGatewayMapKey(sGWSelector, sPortNumber)
 		for gwNameKey, gwHostsValue := range gwCMap[mapKey] {
 			for _, gwHost := range server.Hosts {
 				// both selector and portnumber are the same, then check hosts
-				if IsGWsHostMatched(gwHost, gwHostsValue) {
+				if isGWsHostMatched(gwHost, gwHostsValue) {
 					if gwName != gwNameKey {
 						conflictingGWMatch++
 						rmsg = append(rmsg, gwNameKey)
@@ -100,16 +99,16 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 				}
 			}
 		}
-	}
-	if conflictingGWMatch > 0 {
-		reportMsg := fmt.Sprintf("%s to %s", gwName, strings.Join(rmsg, ","))
-		m := msg.NewConflictingGateways(r, reportMsg)
-		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+		if conflictingGWMatch > 0 {
+			reportMsg := fmt.Sprintf("%s to %s", gwName, strings.Join(rmsg, ","))
+			m := msg.NewConflictingGateways(r, reportMsg, sGWSelector, sPortNumber, server.Hosts)
+			c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+		}
 	}
 }
 
-// IsGWsHostMatched implements gateway's hosts match
-func IsGWsHostMatched(gwInstance string, gwHostList []string) bool {
+// isGWsHostMatched implements gateway's hosts match
+func isGWsHostMatched(gwInstance string, gwHostList []string) bool {
 	gwInstanceNamed := host.Name(gwInstance)
 	for _, gwElem := range gwHostList {
 		gwElemNamed := host.Name(gwElem)

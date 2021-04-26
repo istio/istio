@@ -175,7 +175,7 @@ var (
 
 	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
 	// Description: Gateway should not have the same selector, port number and matched hosts of server
-	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflicting gateways are detected for gateways %s on selector, port number and hosts.")
+	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflicting gateways are detected for gateway %s on selector '%s', port number '%s' and hosts '%v'.")
 )
 
 // All returns a list of all known message types.
@@ -636,10 +636,13 @@ func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
 }
 
 // NewConflictingGateways returns a new diag.Message based on ConflictingGateways.
-func NewConflictingGateways(r *resource.Instance, gateway string) diag.Message {
+func NewConflictingGateways(r *resource.Instance, gateway string, selector string, portnumber string, hosts []string) diag.Message {
 	return diag.NewMessage(
 		ConflictingGateways,
 		r,
 		gateway,
+		selector,
+		portnumber,
+		hosts,
 	)
 }
