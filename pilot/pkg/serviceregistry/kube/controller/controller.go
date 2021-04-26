@@ -439,11 +439,6 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			needsFullPush = c.updateServiceNodePortAddresses(svcConv)
 		}
 
-		if needsFullPush {
-			// networks are different, we need to update all eds endpoints
-			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
-		}
-
 		// instance conversion is only required when service is added/updated.
 		instances := kube.ExternalNameServiceInstances(svc, svcConv)
 		c.Lock()
@@ -452,6 +447,11 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
+
+		if needsFullPush {
+			// networks are different, we need to update all eds endpoints
+			c.xdsUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		}
 	}
 
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
@@ -712,7 +712,6 @@ func (c *Controller) Services() ([]*model.Service, error) {
 	}
 	c.RUnlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
-
 	return out, nil
 }
 
