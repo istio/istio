@@ -77,8 +77,6 @@ type Redirect struct {
 	excludeOutboundPorts string
 	kubevirtInterfaces   string
 	dnsRedirect          bool
-	dnsServersIPv4       string
-	dnsServersIPv6       string
 }
 
 type annotationValidationFunc func(value string) error
@@ -195,7 +193,7 @@ func getAnnotationOrDefault(name string, annotations map[string]string) (isFound
 }
 
 // NewRedirect returns a new Redirect Object constructed from a list of ports and annotations
-func NewRedirect(pi *PodInfo, kube Kubernetes) (*Redirect, error) {
+func NewRedirect(pi *PodInfo) (*Redirect, error) {
 	var isFound bool
 	var valErr error
 
@@ -262,8 +260,6 @@ func NewRedirect(pi *PodInfo, kube Kubernetes) (*Redirect, error) {
 		if valErr != nil {
 			log.Warnf("cannot parse DNS capture environment variable %v", valErr)
 		}
-		redir.dnsServersIPv4 = strings.Join(kube.DNSServersV4, ",")
-		redir.dnsServersIPv6 = strings.Join(kube.DNSServersV6, ",")
 	}
 
 	return redir, nil

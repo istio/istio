@@ -44,7 +44,6 @@ spec:
       nodeSelector:
         kubernetes.io/os: linux
       hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       tolerations:
         # Make sure istio-cni-node gets scheduled on all nodes.
         - effect: NoSchedule

@@ -357,8 +357,6 @@ func (iptConfigurator *IptablesConfigurator) shortCircuitKubeInternalInterface()
 }
 
 func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
-	ipv4 = make([]string, 0)
-	ipv6 = make([]string, 0)
 	for _, i := range ips {
 		parsed := net.ParseIP(i)
 		if parsed.To4() != nil {
@@ -509,21 +507,32 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	if redirectDNS {
-		for _, s := range iptConfigurator.cfg.DNSServersV4 {
-			// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
-			// in etc/resolv.conf
-			// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
-			// such as: app -> istio dns server -> dnsmasq -> upstream
-			// This ensures that we do not get requests from dnsmasq sent back to the agent dns server in a loop.
-			// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
-			// pointed to server X, this would not work. However, the assumption is that is not a common case.
+		if iptConfigurator.cfg.CaptureAllDNS {
+			// Redirect all TCP dns traffic on port 53 to the agent on port 15053
+			// This will be useful for the CNI case where pod DNS server address cannot be decided.
 			iptConfigurator.iptables.AppendRuleV4(
-				constants.ISTIOOUTPUT, constants.NAT,
+				constants.ISTIOREDIRECT, constants.NAT,
 				"-p", constants.TCP,
 				"--dport", "53",
-				"-d", s+"/32",
 				"-j", constants.REDIRECT,
 				"--to-ports", constants.IstioAgentDNSListenerPort)
+		} else {
+			for _, s := range iptConfigurator.cfg.DNSServersV4 {
+				// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
+				// in etc/resolv.conf
+				// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
+				// such as: app -> istio dns server -> dnsmasq -> upstream
+				// This ensures that we do not get requests from dnsmasq sent back to the agent dns server in a loop.
+				// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
+				// pointed to server X, this would not work. However, the assumption is that is not a common case.
+				iptConfigurator.iptables.AppendRuleV4(
+					constants.ISTIOOUTPUT, constants.NAT,
+					"-p", constants.TCP,
+					"--dport", "53",
+					"-d", s+"/32",
+					"-j", constants.REDIRECT,
+					"--to-ports", constants.IstioAgentDNSListenerPort)
+			}
 		}
 	}
 

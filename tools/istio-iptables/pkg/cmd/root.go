@@ -98,8 +98,7 @@ func constructConfig() *config.Config {
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
 		RunValidation:           viper.GetBool(constants.RunValidation),
 		RedirectDNS:             viper.GetBool(constants.RedirectDNS),
-		DNSServersV4:            viper.GetStringSlice(constants.DNSServersV4),
-		DNSServersV6:            viper.GetStringSlice(constants.DNSServersV6),
+		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -128,7 +127,9 @@ func constructConfig() *config.Config {
 
 	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
 	// case where reading /etc/resolv.conf could fail.
-	if cfg.RedirectDNS && len(cfg.DNSServersV4) == 0 && len(cfg.DNSServersV6) == 0 {
+	// If capture all DNS option is enabled, we don't need to read from the dns resolve conf. All
+	// traffic to port 53 will be captured.
+	if cfg.RedirectDNS && !cfg.CaptureAllDNS {
 		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
 			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
@@ -284,15 +285,10 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
 
-	if err := viper.BindPFlag(constants.DNSServersV4, cmd.Flags().Lookup(constants.DNSServersV4)); err != nil {
+	if err := viper.BindPFlag(constants.CaptureAllDNS, cmd.Flags().Lookup(constants.CaptureAllDNS)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.DNSServersV4, []string{})
-
-	if err := viper.BindPFlag(constants.DNSServersV6, cmd.Flags().Lookup(constants.DNSServersV6)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.DNSServersV6, []string{})
+	viper.SetDefault(constants.CaptureAllDNS, false)
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -359,9 +355,8 @@ func init() {
 
 	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
 
-	rootCmd.Flags().StringSlice(constants.DNSServersV4, []string{}, "DNS server IPv4 addresses which will be captured and redirected when DNS capture is enabled")
-
-	rootCmd.Flags().StringSlice(constants.DNSServersV6, []string{}, "DNS server IPv6 addresses which will be captured and redirected when DNS capture is enabled")
+	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
+		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
 }
 
 func GetCommand() *cobra.Command {

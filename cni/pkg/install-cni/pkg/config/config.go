@@ -64,10 +64,6 @@ type Config struct {
 
 	// The names of binaries to skip when copying
 	SkipCNIBinaries []string
-
-	// DNS server addresses which will be used for dns redirect iptable config.
-	DNSServersV4 []string
-	DNSServersV6 []string
 }
 
 func (c *Config) String() string {
@@ -91,7 +87,5 @@ func (c *Config) String() string {
 	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
 	b.WriteString("UpdateCNIBinaries: " + fmt.Sprint(c.UpdateCNIBinaries) + "\n")
 	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
-	b.WriteString("DNSServersV4: " + fmt.Sprint(c.DNSServersV4) + "\n")
-	b.WriteString("DNSServersV6: " + fmt.Sprint(c.DNSServersV6) + "\n")
 	return b.String()
 }

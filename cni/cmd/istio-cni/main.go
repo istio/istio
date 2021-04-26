@@ -53,8 +53,6 @@ type Kubernetes struct {
 	NodeName             string   `json:"node_name"`
 	ExcludeNamespaces    []string `json:"exclude_namespaces"`
 	CNIBinDir            string   `json:"cni_bin_dir"`
-	DNSServersV4         []string `json:"dns_servers_v4"`
-	DNSServersV6         []string `json:"dns_servers_v6"`
 }
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever
@@ -216,7 +214,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 				}
 				if !excludePod {
 					log.Infof("setting up redirect")
-					if redirect, redirErr := NewRedirect(pi, conf.Kubernetes); redirErr != nil {
+					if redirect, redirErr := NewRedirect(pi); redirErr != nil {
 						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
 						log.Infof("Redirect local ports: %v", redirect.includePorts)
