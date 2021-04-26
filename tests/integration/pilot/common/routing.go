@@ -783,7 +783,7 @@ spec:
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
-		secret := ""
+		proto, secret := proto, ""
 		if proto.IsTLS() {
 			secret = ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA)
 		}
