@@ -108,7 +108,7 @@ func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instan
 // TODO put this on echo.Config?
 func isRegularPod(instance echo.Instance) bool {
 	c := instance.Config()
-	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless()
+	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet()
 }
 
 // Not includes all workloads that don't match the given filter
