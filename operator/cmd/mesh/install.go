@@ -406,9 +406,13 @@ revision: "%s"
 	deserializer := codecFactory.UniversalDeserializer
 
 	svcObject, _, err := deserializer().Decode([]byte(serviceYAML), nil, &corev1.Service{})
+	if err != nil {
+		return fmt.Errorf("failed deserializing generated manifest")
+	}
+
 	svc, ok := svcObject.(*corev1.Service)
 	if !ok {
-		return fmt.Errorf("failed deserializing manifest as service")
+		return fmt.Errorf("failed casting deserialized manifest as service")
 	}
 
 	// Rename the generated service from `istiod-<revision>` to `istiod`
