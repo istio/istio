@@ -176,6 +176,10 @@ func (c Config) IsHeadless() bool {
 	return c.Headless
 }
 
+func (c Config) IsStatefulSet() bool {
+	return c.StatefulSet
+}
+
 func (c Config) IsNaked() bool {
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
 }
