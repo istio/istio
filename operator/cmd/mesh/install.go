@@ -195,7 +195,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		if requiresIstiodServiceCreation(clientset, name.IstioDefaultNamespace) {
 			if err := createIstiodService(clientset, name.IstioDefaultNamespace, iArgs.revision); err != nil {
 				const canaryUpgradeDoc = "https://istio.io/latest/docs/setup/upgrade/canary/"
-				warning := fmt.Sprintf("Validation cannot function without an istiod service but the installer failed" +
+				warning := fmt.Sprintf("Validation cannot function without an istiod service but the installer failed"+
 					" to create one. Please consider creating the istiod service manually as outlined in the canary upgrade documentation (%s).", canaryUpgradeDoc)
 				fmt.Fprintln(cmd.OutOrStderr(), warning)
 			}
