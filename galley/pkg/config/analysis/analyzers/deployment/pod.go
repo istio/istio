@@ -58,6 +58,10 @@ func (appUID *ApplicationUIDAnalyzer) Analyze(context analysis.Context) {
 
 func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Instance, context analysis.Context) {
 	p := resource.Message.(*v1.Pod)
+	// Skip analyzing control plane for IST0144
+	if util.IsIstioControlPlane(resource) {
+		return
+	}
 	message := msg.NewInvalidApplicationUID(resource)
 
 	if p.Spec.SecurityContext != nil && p.Spec.SecurityContext.RunAsUser != nil {
@@ -78,6 +82,10 @@ func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForPod(resource *resource.Ins
 
 func (appUID *ApplicationUIDAnalyzer) analyzeAppUIDForDeployment(resource *resource.Instance, context analysis.Context) {
 	d := resource.Message.(*apps_v1.Deployment)
+	// Skip analyzing control plane for IST0144
+	if util.IsIstioControlPlane(resource) {
+		return
+	}
 	message := msg.NewInvalidApplicationUID(resource)
 	spec := d.Spec.Template.Spec
 
