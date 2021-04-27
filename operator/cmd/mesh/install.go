@@ -194,7 +194,9 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if iArgs.revision != "" {
 		if requiresIstiodServiceCreation(clientset, name.IstioDefaultNamespace) {
 			if err := createIstiodService(clientset, name.IstioDefaultNamespace, iArgs.revision); err != nil {
-				warning := "Did not find existing istiod service and failed to create one."
+				const canaryUpgradeDoc = "https://istio.io/latest/docs/setup/upgrade/canary/"
+				warning := fmt.Sprintf("Validation cannot function without an istiod service but the installer failed" +
+					" to create one. Please consider creating the istiod service manually as outlined in the canary upgrade documentation (%s).", canaryUpgradeDoc)
 				fmt.Fprintln(cmd.OutOrStderr(), warning)
 			}
 		}
@@ -372,7 +374,7 @@ func requiresIstiodServiceCreation(cs kubernetes.Interface, istioNs string) bool
 	// First: does the istiod service exist?
 	_, err := cs.CoreV1().Services(istioNs).Get(
 		context.TODO(), "istiod", metav1.GetOptions{})
-	if !kerrors.IsNotFound(err) {
+	if kerrors.IsNotFound(err) {
 		vwh, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
 			context.TODO(), fmt.Sprintf("istiod-%s", name.IstioDefaultNamespace), metav1.GetOptions{})
 		if err != nil {
