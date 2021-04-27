@@ -179,6 +179,8 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingLightStep(provider.Lightstep))
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingDatadog(provider.Datadog))
+		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingOpenCensusAgent(provider.Opencensus))
 		default:
 			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v", provider))
 		}
