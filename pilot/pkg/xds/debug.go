@@ -91,7 +91,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
-	Watches      map[string][]string `json:"watches"`
+	Watches      map[string][]string `json:"watches,omitempty"`
 }
 
 // AdsClients is collection of AdsClient connected to this Istiod.
