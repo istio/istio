@@ -116,7 +116,8 @@ func setupEtcHostsFile(ingr ingress.Instance, host string) error {
 		"-i", os.Getenv("BOOTSTRAP_HOST_SSH_KEY"), os.Getenv("BOOTSTRAP_HOST_SSH_USER"),
 		"grep", host, "/etc/hosts")
 	out, _ := cmd.Output()
-	hostEntry := ingr.HTTPAddress().IP.String() + " " + host
+	addr, _ := ingr.HTTPAddress()
+	hostEntry := addr + " " + host
 	if !strings.Contains(string(out), hostEntry) {
 		cmd = exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
 			"-i", os.Getenv("BOOTSTRAP_HOST_SSH_KEY"), os.Getenv("BOOTSTRAP_HOST_SSH_USER"),
