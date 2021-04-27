@@ -608,7 +608,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	// Debug handlers are currently added on monitoring mux and readiness mux.
 	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
 	if !shouldMultiplex {
-		s.XDSServer.AddDebugHandlers(s.httpMux, args.ServerOptions.EnableProfiling, whc)
+		s.XDSServer.AddDebugHandlers(s.httpMux, nil, args.ServerOptions.EnableProfiling, whc)
 	}
 
 	// Monitoring Server.

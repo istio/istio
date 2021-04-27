@@ -139,14 +139,15 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.Controller,
 	})
-	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
+	internalMux := http.NewServeMux()
+	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
 	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
 	if ok {
-		debugGen.DebugMux = mux
+		debugGen.DebugMux = internalMux
 	}
 }
 
-func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
+func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, internalMux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
 	// Debug handlers on HTTP ports are added for backward compatibility.
 	// They will be exposed on XDS-over-TLS in future releases.
 	if !features.EnableDebugOnHTTP {
@@ -154,54 +155,59 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	}
 
 	if enableProfiling {
-		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
-		s.addDebugHandler(mux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
-		s.addDebugHandler(mux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
-		s.addDebugHandler(mux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
-		s.addDebugHandler(mux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/", "Displays pprof index", pprof.Index)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
 	}
 
 	mux.HandleFunc("/debug", s.Debug)
 
 	if features.EnableUnsafeAdminEndpoints {
-		s.addDebugHandler(mux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
+		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
 	}
 
-	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
-	s.addDebugHandler(mux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
-	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
-	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
+	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
+	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
+	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
+	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
-	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
-	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
+	s.addDebugHandler(mux, internalMux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
+	s.addDebugHandler(mux, internalMux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
-	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
-	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
-	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
-	s.addDebugHandler(mux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
-	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
-	s.addDebugHandler(mux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
-	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
-	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
+	s.addDebugHandler(mux, internalMux, "/debug/registryz", "Debug support for registry", s.registryz)
+	s.addDebugHandler(mux, internalMux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, internalMux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
+	s.addDebugHandler(mux, internalMux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
+	s.addDebugHandler(mux, internalMux, "/debug/configz", "Debug support for config", s.configz)
+	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
+	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
+	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
-	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
-	s.addDebugHandler(mux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
-	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
-	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
-	s.addDebugHandler(mux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
-	s.addDebugHandler(mux, "/debug/connections", "Info about the connected XDS clients", s.ConnectionsHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
+	s.addDebugHandler(mux, internalMux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
+	s.addDebugHandler(mux, internalMux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/connections", "Info about the connected XDS clients", s.ConnectionsHandler)
 
-	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
-	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
-	s.addDebugHandler(mux, "/debug/networkz", "List cross-network gateways", s.networkz)
+	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
+	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
 
-	s.addDebugHandler(mux, "/debug/list", "List all supported debug commands in json", s.List)
+	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
 }
 
-func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
-	handler func(http.ResponseWriter, *http.Request)) {
+func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.ServeMux,
+	path string, help string, handler func(http.ResponseWriter, *http.Request)) {
 	s.debugHandlers[path] = help
+	// Add handler without auth. This mux is never exposed on an HTTP server and only used internally
+	if internalMux != nil {
+		internalMux.HandleFunc(path, handler)
+	}
 	if features.EnableAuthDebug {
+		// Add handler with auth; this is expose on an HTTP server
 		mux.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
 			// Authenticate request with the same method as XDS
 			authFailMsgs := []string{}
