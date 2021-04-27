@@ -97,6 +97,9 @@ type CertOptions struct {
 	// when generating private keys. Currently only ECDSA is supported.
 	// If empty, RSA is used, otherwise ECC is used.
 	ECSigAlg SupportedECSignatureAlgorithms
+
+	// Subjective Alternative Name values.
+	DNSNames string
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
@@ -360,6 +363,11 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		exts = []pkix.Extension{*s}
 	}
 
+	dnsNames := strings.Split(options.DNSNames, ",")
+	if len(dnsNames[0]) == 0 {
+		dnsNames = nil
+	}
+
 	return &x509.Certificate{
 		SerialNumber:          serialNum,
 		Subject:               subject,
@@ -369,7 +377,9 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		ExtKeyUsage:           extKeyUsages,
 		IsCA:                  options.IsCA,
 		BasicConstraintsValid: true,
-		ExtraExtensions:       exts}, nil
+		ExtraExtensions:       exts,
+		DNSNames:              dnsNames,
+	}, nil
 }
 
 func genSerialNum() (*big.Int, error) {
