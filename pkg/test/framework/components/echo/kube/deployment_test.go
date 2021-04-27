@@ -176,7 +176,7 @@ func TestDeploymentYAML(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := generateDeploymentYAML(tc.config, settings, tc.revVerMap)
+			deploymentYAML, err := GenerateDeployment(tc.config, settings, tc.revVerMap)
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}
