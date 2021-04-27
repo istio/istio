@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** a bug resulting in broken resource validation when a fresh Istio installation specified a revision. Please
+    note that subsequent revisioned installations still require manual creation of the istiod service as described in the canary upgrade documentation.
