@@ -98,24 +98,6 @@ function cleanup_images_for_managed_control_plane() {
   gcloud beta container images delete "${HUB}/proxyv2:${TAG}" --force-delete-tags || true
 }
 
-# Revert the operations in set_gcp_permissions.
-# Parameters: $1 - project hosts gcr
-#             $2 - a string of k8s contexts
-function remove_gcp_permissions() {
-  local GCR_PROJECT_ID="$1"
-  IFS="," read -r -a CONTEXTS <<< "$2"
-
-  for i in "${!CONTEXTS[@]}"; do
-    IFS="_" read -r -a VALS <<< "${CONTEXTS[$i]}"
-    if [[ "${VALS[1]}" != "${GCR_PROJECT_ID}" ]]; then
-      PROJECT_NUMBER=$(gcloud projects describe "${VALS[1]}" --format="value(projectNumber)")
-      gcloud projects remove-iam-policy-binding "${GCR_PROJECT_ID}" \
-        --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-        --role=roles/storage.objectViewer
-    fi
-  done
-}
-
 # Register the clusters into the Hub of the Hub host project.
 # Parameters: $1 - Hub host project
 #             $2 - array of k8s contexts
