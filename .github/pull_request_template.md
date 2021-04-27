@@ -19,4 +19,4 @@ Pull Request Attributes
 
 Please check any characteristics that apply to this pull request. 
 
-[ ] Does not have any changes that may affect Istio users.
+[ ] Does not have any [user-facing](https://github.com/istio/istio/tree/master/releasenotes#when-to-add-release-notes) changes. This may include CLI changes, API changes, behavior changes, performance improvements, etc.
