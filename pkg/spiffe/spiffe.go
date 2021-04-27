@@ -16,6 +16,7 @@ package spiffe
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -32,6 +33,7 @@ const (
 )
 
 var (
+	spiffePattern    = regexp.MustCompile(`spiffe://([^/]+)/.*$`)
 	trustDomain      = defaultTrustDomain
 	trustDomainMutex sync.RWMutex
 )
@@ -77,6 +79,34 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 		log.Debug(err.Error())
 	}
 	return uri
+}
+
+// ExpandWithTrustDomains expands a given spiffe identities, plus a list of truts domain aliases.
+// We ensure the returned list does not contain duplicates; the original input is always retained.
+// For example,
+// ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/def"}, {"td1", "td2"}) returns
+//   {"spiffe://td1/ns/def/sa/def", "spiffe://td2/ns/def/sa/def"}.
+// ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/a", "spiffe://td1/ns/def/sa/b"}, {"td2"}) returns
+//   {"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
+func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, id := range spiffeIdentities {
+		out[id] = struct{}{}
+		// Expand with aliases set.
+		m := spiffePattern.FindStringSubmatchIndex(id)
+		// FindStringSubmatchIndex the pairs of the match, (trust domain + the whole match string) x 2
+		// so we should see 4 index.
+		if len(m) < 4 {
+			log.Errorf("Failed to extract SPIFFE trust domain from: %v, match %v", id, m)
+			continue
+		}
+		suffix := id[m[3]:]
+		for _, td := range trustDomainAliases {
+			nid := URIPrefix + td + suffix
+			out[nid] = struct{}{}
+		}
+	}
+	return out
 }
 
 // GenCustomSpiffe returns the  spiffe string that can have a custom structure

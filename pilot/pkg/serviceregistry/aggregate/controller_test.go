@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -41,18 +43,26 @@ func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, mo
 
 func (c *MockController) Run(<-chan struct{}) {}
 
-var discovery1 *memory.ServiceDiscovery
-var discovery2 *memory.ServiceDiscovery
+type mockMeshConfigHolder struct {
+}
+
+var (
+	trustDomainAliases []string
+	discovery1         *memory.ServiceDiscovery
+	discovery2         *memory.ServiceDiscovery
+)
 
 func buildMockController() *Controller {
 	discovery1 = memory.NewDiscovery(
 		map[host.Name]*model.Service{
-			memory.HelloService.Hostname:   memory.HelloService,
-			memory.ExtHTTPService.Hostname: memory.ExtHTTPService,
+			memory.ReplicatedFooServiceName: memory.ReplicatedFooServiceV1,
+			memory.HelloService.Hostname:    memory.HelloService,
+			memory.ExtHTTPService.Hostname:  memory.ExtHTTPService,
 		}, 2)
 
 	discovery2 = memory.NewDiscovery(
 		map[host.Name]*model.Service{
+			memory.ReplicatedFooServiceName: memory.ReplicatedFooServiceV2,
 			memory.WorldService.Hostname:    memory.WorldService,
 			memory.ExtHTTPSService.Hostname: memory.ExtHTTPSService,
 		}, 2)
@@ -69,7 +79,7 @@ func buildMockController() *Controller {
 		Controller:       &MockController{},
 	}
 
-	ctls := NewController()
+	ctls := NewController(trustDomainAliases)
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -102,7 +112,7 @@ func buildMockControllerForMultiCluster() *Controller {
 		Controller:       &MockController{},
 	}
 
-	ctls := NewController()
+	ctls := NewController([]string{})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -233,8 +243,7 @@ func TestGetServiceError(t *testing.T) {
 	svc, err := aggregateCtl.GetService(memory.HelloService.Hostname)
 	if err == nil {
 		fmt.Println(svc)
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no service is found")
+		t.Fatal("Aggregate controller should return error if one discovery client experiences error and no service is found")
 	}
 	if svc != nil {
 		t.Fatal("GetService() should return nil if no service found")
@@ -307,8 +316,7 @@ func TestGetProxyServiceInstancesError(t *testing.T) {
 	// Get Instances from client with error
 	instances, err := aggregateCtl.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{memory.HelloInstanceV0}})
 	if err == nil {
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no instances are found")
+		t.Fatal("Aggregate controller should return error if one discovery client experiences error and no instances are found")
 	}
 	if len(instances) != 0 {
 		t.Fatal("GetProxyServiceInstances() should return no instances is client experiences error")
@@ -381,8 +389,7 @@ func TestInstancesError(t *testing.T) {
 		80,
 		labels.Collection{})
 	if err == nil {
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no instances are found")
+		t.Fatal("Aggregate controller should return error if one discovery client experiences error and no instances are found")
 	}
 	if len(instances) != 0 {
 		t.Fatal("Returned wrong number of instances from controller")
@@ -409,37 +416,55 @@ func TestInstancesError(t *testing.T) {
 }
 
 func TestGetIstioServiceAccounts(t *testing.T) {
-	aggregateCtl := buildMockController()
-
-	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(memory.HelloService, []int{})
-	expected := make([]string, 0)
-
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
+	testCases := []struct {
+		name               string
+		svc                *model.Service
+		trustDomainAliases []string
+		want               []string
+	}{
+		{
+			name: "HelloEmpty",
+			svc:  memory.HelloService,
+			want: []string{},
+		},
+		{
+			name: "World",
+			svc:  memory.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+			},
+		},
+		{
+			name: "ReplicatedFoo",
+			svc:  memory.ReplicatedFooServiceV1,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/foo-share",
+				"spiffe://cluster.local/ns/default/sa/foo1",
+				"spiffe://cluster.local/ns/default/sa/foo2",
+			},
+		},
+		{
+			name:               "ExpansionByTrustDomainAliases",
+			trustDomainAliases: []string{"cluster.local", "example.com"},
+			svc:                memory.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+				"spiffe://example.com/ns/default/sa/world1",
+				"spiffe://example.com/ns/default/sa/world2",
+			},
+		},
 	}
-
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
-		}
-	}
-
-	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(memory.WorldService, []int{})
-	expected = []string{
-		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
-	}
-
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
-	}
-
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one", accounts[i], expected[i])
-		}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			trustDomainAliases = tc.trustDomainAliases
+			aggregateCtl := buildMockController()
+			accounts := aggregateCtl.GetIstioServiceAccounts(tc.svc, []int{})
+			if diff := cmp.Diff(accounts, tc.want); diff != "" {
+				t.Errorf("unexpected service account, diff %v", diff)
+			}
+		})
 	}
 }
 
@@ -492,7 +517,7 @@ func TestAddRegistry(t *testing.T) {
 			ClusterID: "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := NewController([]string{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
@@ -512,7 +537,7 @@ func TestDeleteRegistry(t *testing.T) {
 			ClusterID: "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := NewController([]string{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
@@ -533,7 +558,7 @@ func TestGetRegistries(t *testing.T) {
 			ClusterID: "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := NewController([]string{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}

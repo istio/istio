@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/spiffe"
 )
 
 var (
@@ -45,6 +44,43 @@ func MakeService(hostname host.Name, address string) *model.Service {
 		CreationTime: time.Now(),
 		Hostname:     hostname,
 		Address:      address,
+		Ports: []*model.Port{
+			{
+				Name:     PortHTTPName,
+				Port:     80, // target port 80
+				Protocol: protocol.HTTP,
+			}, {
+				Name:     "http-status",
+				Port:     81, // target port 1081
+				Protocol: protocol.HTTP,
+			}, {
+				Name:     "custom",
+				Port:     90, // target port 1090
+				Protocol: protocol.TCP,
+			}, {
+				Name:     "mongo",
+				Port:     100, // target port 1100
+				Protocol: protocol.Mongo,
+			}, {
+				Name:     "redis",
+				Port:     110, // target port 1110
+				Protocol: protocol.Redis,
+			}, {
+				Name:     "mysql",
+				Port:     120, // target port 1120
+				Protocol: protocol.MySQL,
+			},
+		},
+	}
+}
+
+// MakeServiceWithSA creates a memory service with service accounts
+func MakeServiceWithSA(hostname host.Name, address string, serviceAccounts []string) *model.Service {
+	return &model.Service{
+		CreationTime:    time.Now(),
+		Hostname:        hostname,
+		Address:         address,
+		ServiceAccounts: serviceAccounts,
 		Ports: []*model.Port{
 			{
 				Name:     PortHTTPName,
@@ -262,10 +298,9 @@ func (sd *ServiceDiscovery) WorkloadHealthCheckInfo(addr string) model.ProbeList
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	if svc.Hostname == "world.default.svc.cluster.local" {
-		return []string{
-			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
-			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
+	for h, s := range sd.services {
+		if h == svc.Hostname {
+			return s.ServiceAccounts
 		}
 	}
 	return make([]string, 0)

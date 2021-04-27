@@ -944,7 +944,7 @@ func hasKubeRegistry(args *PilotArgs) bool {
 
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
-	serviceControllers := aggregate.NewController()
+	serviceControllers := aggregate.NewController(args.MeshConfig.TrustDomainAliases)
 	registered := make(map[serviceregistry.ServiceRegistry]bool)
 	for _, r := range args.Service.Registries {
 		serviceRegistry := serviceregistry.ServiceRegistry(r)
