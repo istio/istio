@@ -192,7 +192,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	// Workaround for broken validation with revisions (https://github.com/istio/istio/issues/28880)
 	// TODO(Monkeyanator) remove once we have a nicer solution
 	if iArgs.revision != "" {
-		if !requiresIstiodServiceCreation(clientset, name.IstioDefaultNamespace) {
+		if requiresIstiodServiceCreation(clientset, name.IstioDefaultNamespace) {
 			if err := createIstiodService(clientset, name.IstioDefaultNamespace, iArgs.revision); err != nil {
 				warning := "Did not find existing istiod service and failed to create one."
 				fmt.Fprintln(cmd.OutOrStderr(), warning)
@@ -376,7 +376,6 @@ func requiresIstiodServiceCreation(cs kubernetes.Interface, istioNs string) bool
 		vwh, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
 			context.TODO(), fmt.Sprintf("istiod-%s", name.IstioDefaultNamespace), metav1.GetOptions{})
 		if err != nil {
-			fmt.Printf("oops: %v", err)
 			return false
 		}
 		// Second: if it doesn't, are there webhooks in the VWHC referencing it? If so,
