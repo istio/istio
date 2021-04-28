@@ -103,7 +103,7 @@ func newGenerator() generator {
 
 	return generator{
 		imgSettings: imgSettings,
-		versions:    settings.IstioVersions,
+		versions:    settings.Revisions,
 	}
 }
 
