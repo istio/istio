@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -28,6 +29,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -91,13 +93,13 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
-	Watches      map[string][]string `json:"watches"`
+	Watches      map[string][]string `json:"watches,omitempty"`
 }
 
 // AdsClients is collection of AdsClient connected to this Istiod.
 type AdsClients struct {
 	Total     int         `json:"totalClients"`
-	Connected []AdsClient `json:"clients"`
+	Connected []AdsClient `json:"clients,omitempty"`
 }
 
 // SyncStatus is the synchronization status between Pilot and a given Envoy
@@ -222,43 +224,23 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 			})
 		}
 	}
-	out, err := json.MarshalIndent(&syncz, "", "    ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, "unable to marshal syncz information: %v", err)
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-	_, _ = w.Write(out)
+	writeJson(w, syncz)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
 // Can be combined with the push debug interface to reproduce changes.
 func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-
 	all, err := s.Env.ServiceDiscovery.Services()
 	if err != nil {
 		return
 	}
-	_, _ = fmt.Fprintln(w, "[")
-	for _, svc := range all {
-		b, err := json.MarshalIndent(svc, "", "  ")
-		if err != nil {
-			return
-		}
-		_, _ = w.Write(b)
-		_, _ = fmt.Fprintln(w, ",")
-	}
-	_, _ = fmt.Fprintln(w, "{}]")
+	writeJson(w, all)
 }
 
 // Dumps info about the endpoint shards, tracked using the new direct interface.
 // Legacy registry provides are synced to the new data structure as well, during
 // the full push.
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
 	s.mutex.RLock()
 	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
@@ -269,21 +251,17 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 	keys := s.Cache.Keys()
 	sort.Strings(keys)
-	bytes, err := json.Marshal(keys)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
-		return
-	}
-	_, _ = w.Write(bytes)
+	writeJson(w, keys)
+}
+
+type endpointzResponse struct {
+	Service   string                   `json:"svc"`
+	Endpoints []*model.ServiceInstance `json:"ep"`
 }
 
 // Endpoint debugging
 func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-	brief := req.Form.Get("brief")
-	if brief != "" {
+	if _, f := req.URL.Query()["brief"]; f {
 		svc, _ := s.Env.ServiceDiscovery.Services()
 		for _, ss := range svc {
 			for _, p := range ss.Ports {
@@ -299,23 +277,17 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	svc, _ := s.Env.ServiceDiscovery.Services()
-	_, _ = fmt.Fprint(w, "[\n")
+	resp := []endpointzResponse{}
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
 			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
-			_, _ = fmt.Fprintf(w, "\n{\"svc\": \"%s:%s\", \"ep\": [\n", ss.Hostname, p.Name)
-			for _, svc := range all {
-				b, err := json.MarshalIndent(svc, "  ", "  ")
-				if err != nil {
-					return
-				}
-				_, _ = w.Write(b)
-				_, _ = fmt.Fprint(w, ",\n")
-			}
-			_, _ = fmt.Fprint(w, "\n{}]},")
+			resp = append(resp, endpointzResponse{
+				Service:   fmt.Sprintf("%s:%s", ss.Hostname, p.Name),
+				Endpoints: all,
+			})
 		}
 	}
-	_, _ = fmt.Fprint(w, "\n{}]\n")
+	writeJson(w, resp)
 }
 
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
@@ -348,17 +320,10 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.proxy.RUnlock()
 		}
 
-		out, err := json.MarshalIndent(&results, "", "    ")
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
-			return
-		}
-		w.Header().Add("Content-Type", "application/json")
-		_, _ = w.Write(out)
+		writeJson(w, results)
 	} else {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required")
+		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required\n")
 	}
 }
 
@@ -387,6 +352,8 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 	return result
 }
 
+// kubernetesConfig wraps a config.Config with a custom marshalling method that matches a Kubernetes
+// object structure.
 type kubernetesConfig struct {
 	config.Config
 }
@@ -409,52 +376,27 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 		}
 		return false
 	})
-	b, err := json.MarshalIndent(configs, "  ", "  ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-	_, _ = w.Write(b)
+	writeJson(w, configs)
 }
 
 // SidecarScope debugging
 func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
-	proxyID := req.URL.Query().Get("proxyID")
-	if proxyID == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
-		return
-	}
-
-	con := s.getProxyConnection(proxyID)
+	con := s.getDebugConnection(w, req)
 	if con == nil {
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
 		return
 	}
-	by, err := json.MarshalIndent(con.proxy.SidecarScope, "", "  ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(err.Error()))
-		return
-	}
-	_, _ = w.Write(by)
+	writeJson(w, con.proxy.SidecarScope)
 }
 
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
 	schemas := []config.GroupVersionKind{}
 	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
 		schemas = append(schemas, schema.Resource().GroupVersionKind())
 		return false
 	})
 
-	if b, err := json.MarshalIndent(schemas, "", "  "); err == nil {
-		_, _ = w.Write(b)
-	}
+	writeJson(w, schemas)
 }
 
 // AuthorizationDebug holds debug information for authorization policy.
@@ -464,31 +406,19 @@ type AuthorizationDebug struct {
 
 // Authorizationz dumps the internal authorization policies.
 func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
-	if b, err := json.MarshalIndent(info, "  ", "  "); err == nil {
-		_, _ = w.Write(b)
-	}
+	writeJson(w, info)
 }
 
 func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	t := s.globalPushContext().Telemetry
-	b, err := json.MarshalIndent(t, " ", " ")
-	if err != nil {
-		return
-	}
-	_, _ = w.Write(b)
+	writeJson(w, s.globalPushContext().Telemetry)
 }
 
 // ConnectionsHandler implements interface for displaying current connections.
 // It is mapped to /debug/connections.
 func (s *DiscoveryServer) ConnectionsHandler(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-
 	adsClients := &AdsClients{}
 	connections := s.Clients()
 	adsClients.Total = len(connections)
@@ -501,19 +431,13 @@ func (s *DiscoveryServer) ConnectionsHandler(w http.ResponseWriter, req *http.Re
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
-		_, _ = w.Write(b)
-	}
+	writeJson(w, adsClients)
 }
 
 // adsz implements a status and debug interface for ADS.
 // It is mapped to /debug/adsz
 func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-	if req.Form.Get("push") != "" {
-		AdsPushAll(s)
-		_, _ = fmt.Fprintf(w, "Pushed to %d servers", s.adsClientCount())
+	if s.handlePushRequest(w, req) {
 		return
 	}
 
@@ -538,39 +462,23 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
-		_, _ = w.Write(b)
-	}
+	writeJson(w, adsClients)
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
 // The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
 // should look like according to Pilot vs what it currently does look like.
 func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
-	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		con := s.getProxyConnection(proxyID)
-		if con == nil {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance"))
-			return
-		}
-
-		jsonm := &jsonpb.Marshaler{Indent: "    "}
-		dump, err := s.configDump(con)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
-		if err := jsonm.Marshal(w, dump); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
+	con := s.getDebugConnection(w, req)
+	if con == nil {
 		return
 	}
-	w.WriteHeader(http.StatusBadRequest)
-	_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+	dump, err := s.configDump(con)
+	if err != nil {
+		handleHttpError(w, err)
+		return
+	}
+	writeJsonProto(w, dump)
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -679,25 +587,17 @@ func (s *DiscoveryServer) InjectTemplateHandler(webhook func() map[string]string
 		// and allow pods to select which patches will be selected. When this happen, this should return
 		// all inject templates or take a param to select one.
 		if webhook == nil {
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		by, err := json.MarshalIndent(webhook(), "", "  ")
-		if err != nil {
-			w.WriteHeader(503)
-			return
-		}
-
-		_, _ = w.Write(by)
+		writeJson(w, webhook())
 	}
 }
 
 // MeshHandler dumps the mesh config
 func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
-	if err := (&jsonpb.Marshaler{Indent: "  "}).Marshal(w, s.Env.Mesh()); err != nil {
-		w.WriteHeader(500)
-	}
+	writeJsonProto(w, s.Env.Mesh())
 }
 
 // PushStatusHandler dumps the last PushContext
@@ -707,8 +607,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	}
 	out, err := model.LastPushStatus.StatusJSON()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, "unable to marshal push information: %v", err)
+		handleHttpError(w, err)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -729,15 +628,7 @@ func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, req *http.Re
 		NetworkGateways:       s.globalPushContext().NetworkGateways(),
 	}
 
-	out, err := json.MarshalIndent(push, "", "  ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, "unable to marshal push context information: %v", err)
-		return
-	}
-	w.Header().Add("Content-Type", "application/json")
-
-	_, _ = w.Write(out)
+	writeJson(w, push)
 }
 
 // lists all the supported debug endpoints.
@@ -783,34 +674,18 @@ func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 		cmdNames = append(cmdNames, key)
 	}
 	sort.Strings(cmdNames)
-	by, _ := json.MarshalIndent(cmdNames, "", "  ")
-	_, _ = w.Write(by)
+	writeJson(w, cmdNames)
 }
 
 // Ndsz implements a status and debug interface for NDS.
 // It is mapped to /debug/Ndsz on the monitor port (15014).
 func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-
-	if req.Form.Get("push") != "" {
-		AdsPushAll(s)
-	}
-	var con *Connection
-	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		con = s.getProxyConnection(proxyID)
-		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
-		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
-		if con == nil {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
-			return
-		}
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+	if s.handlePushRequest(w, req) {
 		return
 	}
-	if _, err := w.Write([]byte("[")); err != nil {
+
+	con := s.getDebugConnection(w, req)
+	if con == nil {
 		return
 	}
 
@@ -819,68 +694,33 @@ func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
 		if len(nds) == 0 {
 			return
 		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		_ = jsonm.Marshal(w, nds[0])
+		writeJsonProto(w, nds[0])
 	}
 }
 
 // Edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (15014).
 func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-
-	if req.Form.Get("push") != "" {
-		AdsPushAll(s)
-	}
-	var con *Connection
-	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		con = s.getProxyConnection(proxyID)
-		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
-		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
-		if con == nil {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
-			return
-		}
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+	if s.handlePushRequest(w, req) {
 		return
 	}
 
-	comma := false
-	_, _ = fmt.Fprintln(w, "[")
-	for _, clusterName := range con.Clusters() {
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		cla := s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(cla)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
+	con := s.getDebugConnection(w, req)
+	if con == nil {
+		return
 	}
-	_, _ = fmt.Fprintln(w, "]")
+
+	clusters := con.Clusters()
+	clas := make([]jsonMarshalProto, 0, len(clusters))
+	for _, clusterName := range clusters {
+		clas = append(clas, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))})
+	}
+	writeJson(w, clas)
 }
 
 func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Request) {
-	var con *Connection
-	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		con = s.getProxyConnection(proxyID)
-		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
-		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
-		if con == nil {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance."))
-			return
-		}
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("You must provide a proxyID in the query string"))
+	con := s.getDebugConnection(w, req)
+	if con == nil {
 		return
 	}
 	con.Stop()
@@ -898,9 +738,6 @@ func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 }
 
 func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-
 	instances := map[string][]*model.ServiceInstance{}
 	for _, con := range s.Clients() {
 		con.proxy.RLock()
@@ -909,19 +746,100 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		}
 		con.proxy.RUnlock()
 	}
-	by, _ := json.MarshalIndent(instances, "", "  ")
-
-	_, _ = w.Write(by)
+	writeJson(w, instances)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
-	gws := s.Env.NetworkGateways()
-	by, err := json.MarshalIndent(gws, "", "  ")
+	writeJson(w, s.Env.NetworkGateways())
+}
+
+// handlePushRequest handles a ?push=true query param and triggers a push.
+// A boolean response is returned to indicate if the caller should continue
+func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Request) bool {
+	if err := req.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Failed to parse request\n"))
+		return true
+	}
+	if req.Form.Get("push") != "" {
+		AdsPushAll(s)
+		_, _ = fmt.Fprintf(w, "Pushed to %d servers\n", s.adsClientCount())
+		return true
+	}
+	return false
+}
+
+// getDebugConnection fetches the Connection requested
+func (s *DiscoveryServer) getDebugConnection(w http.ResponseWriter, req *http.Request) *Connection {
+	var con *Connection
+	if err := req.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Failed to parse request\n"))
+		return nil
+	}
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		con = s.getProxyConnection(proxyID)
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		if con == nil {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
+			return nil
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("You must provide a proxyID in the query string\n"))
+		return nil
+	}
+	return con
+}
+
+// jsonMarshalProto wraps a proto.Message so it can be marshalled with the standard encoding/json library
+type jsonMarshalProto struct {
+	proto.Message
+}
+
+func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	if err := (&jsonpb.Marshaler{}).Marshal(buf, p.Message); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// writeJson writes a json payload, handling content type, marshalling, and errors
+func writeJson(w http.ResponseWriter, obj interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	by, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(err.Error()))
+		return
 	}
 	_, err = w.Write(by)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+// writeJsonProto writes a protobuf to a json payload, handling content type, marshalling, and errors
+func writeJsonProto(w http.ResponseWriter, obj proto.Message) {
+	w.Header().Set("Content-Type", "application/json")
+	buf := bytes.NewBuffer(nil)
+	err := (&jsonpb.Marshaler{Indent: "  "}).Marshal(buf, obj)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(err.Error()))
+		return
+	}
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+// handleHttpError writes an error message to the response
+func handleHttpError(w http.ResponseWriter, err error) {
+	w.WriteHeader(http.StatusInternalServerError)
+	_, _ = w.Write([]byte(err.Error()))
 }
