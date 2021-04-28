@@ -30,6 +30,18 @@ func validateExtensionProviderService(service string) error {
 	if service == "" {
 		return fmt.Errorf("service must not be empty")
 	}
+	parts := strings.Split(service, "/")
+	if len(parts) == 1 {
+		if err := ValidateFQDN(service); err != nil {
+			if err2 := ValidateIPAddress(service); err2 != nil {
+				return fmt.Errorf("invalid service fmt %s: %s", service, err2)
+			}
+		}
+	} else {
+		if err := validateNamespaceSlashWildcardHostname(service, false); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -87,6 +99,61 @@ func validateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_Ex
 	return
 }
 
+func validateExtensionProviderTracingZipkin(config *meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider) (errs error) {
+	if config == nil {
+		return fmt.Errorf("nil TracingZipkinProvider")
+	}
+	if err := validateExtensionProviderService(config.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := ValidatePort(int(config.Port)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+	}
+	return
+}
+
+func validateExtensionProviderTracingLightStep(config *meshconfig.MeshConfig_ExtensionProvider_LightstepTracingProvider) (errs error) {
+	if config == nil {
+		return fmt.Errorf("nil TracingLightStepProvider")
+	}
+	if err := validateExtensionProviderService(config.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := ValidatePort(int(config.Port)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+	}
+	if config.AccessToken == "" {
+		errs = appendErrors(errs, fmt.Errorf("access token is required"))
+	}
+	return
+}
+
+func validateExtensionProviderTracingDatadog(config *meshconfig.MeshConfig_ExtensionProvider_DatadogTracingProvider) (errs error) {
+	if config == nil {
+		return fmt.Errorf("nil TracingDatadogProvider")
+	}
+	if err := validateExtensionProviderService(config.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := ValidatePort(int(config.Port)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+	}
+	return
+}
+
+func validateExtensionProviderTracingOpenCensusAgent(config *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider) (errs error) {
+	if config == nil {
+		return fmt.Errorf("nil OpenCensusAgent")
+	}
+	if err := validateExtensionProviderService(config.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := ValidatePort(int(config.Port)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+	}
+	return
+}
+
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 	definedProviders := map[string]struct{}{}
 	for _, c := range config.ExtensionProviders {
@@ -106,6 +173,14 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyExtAuthzHTTP(provider.EnvoyExtAuthzHttp))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
+		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingZipkin(provider.Zipkin))
+		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingLightStep(provider.Lightstep))
+		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingDatadog(provider.Datadog))
+		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingOpenCensusAgent(provider.Opencensus))
 		default:
 			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v", provider))
 		}
