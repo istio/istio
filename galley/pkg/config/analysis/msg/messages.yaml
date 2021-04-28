@@ -447,3 +447,9 @@ messages:
     args:
       - name: port
         type: string
+
+  - name: "InvalidApplicationUID"
+    code: IST0144
+    level: Warning
+    description: "Application pods should not run as user ID (UID) 1337"
+    template: "User ID (UID) 1337 is reserved for the sidecar proxy."
