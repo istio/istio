@@ -15,20 +15,27 @@
 package istioagent
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
+	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/ptypes"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
@@ -90,7 +97,8 @@ type Agent struct {
 	secOpts   *security.Options
 	envoyOpts envoy.ProxyConfig
 
-	envoyAgent *envoy.Agent
+	envoyAgent  *envoy.Agent
+	envoyWaitCh chan error
 
 	sdsServer   *sds.Server
 	secretCache *cache.SecretManagerClient
@@ -149,6 +157,9 @@ type AgentOptions struct {
 
 	// All of the proxy's IP Addresses
 	ProxyIPAddresses []string
+
+	// Enables dynamic generation of bootstrap.
+	EnableDynamicBootstrap bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -226,8 +237,69 @@ func (a *Agent) initializeEnvoyAgent() error {
 
 	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
 	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration)
+	a.envoyWaitCh = make(chan error, 1)
+	if a.cfg.EnableDynamicBootstrap {
+		// Simulate an xDS request for a bootstrap
+		go a.xdsProxy.handleStream(&bootstrapDiscoveryRequest{
+			node:        node,
+			envoyWaitCh: a.envoyWaitCh,
+			envoyUpdate: envoyProxy.UpdateConfig,
+		})
+	} else {
+		close(a.envoyWaitCh)
+	}
 	return nil
 }
+
+type bootstrapDiscoveryRequest struct {
+	node        *model.Node
+	envoyWaitCh chan error
+	envoyUpdate func(data []byte) error
+	sent        bool
+}
+
+func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) error {
+	if resp.TypeUrl != v3.BootstrapType {
+		b.envoyWaitCh <- fmt.Errorf("Unexpected response type URL: %q", resp.TypeUrl)
+		return nil
+	}
+	if len(resp.Resources) != 1 {
+		b.envoyWaitCh <- fmt.Errorf("Unexpected number of bootstraps: %d", len(resp.Resources))
+		return nil
+	}
+	var bs bootstrapv3.Bootstrap
+	if err := ptypes.UnmarshalAny(resp.Resources[0], &bs); err != nil {
+		b.envoyWaitCh <- fmt.Errorf("Failed to unmarshal bootstrap: %v", err)
+		return nil
+	}
+	js := jsonpb.Marshaler{OrigName: true, Indent: "  "}
+	var buf bytes.Buffer
+	if err := js.Marshal(&buf, &bs); err != nil {
+		b.envoyWaitCh <- fmt.Errorf("Failed to marshal bootstrap as JSON: %v", err)
+		return nil
+	}
+	if err := b.envoyUpdate(buf.Bytes()); err != nil {
+		b.envoyWaitCh <- fmt.Errorf("Failed to update bootstrap from discovery: %v", err)
+		return nil
+	}
+	close(b.envoyWaitCh)
+	return nil
+}
+
+func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) {
+	if b.sent {
+		<-b.envoyWaitCh
+		return nil, io.EOF
+	}
+	b.sent = true
+	return &discovery.DiscoveryRequest{
+		TypeUrl: v3.BootstrapType,
+		Node:    bootstrap.GenerateNode(b.node),
+	}, nil
+
+}
+
+func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.Background() }
 
 // Simplified SDS setup. This is called if and only if user has explicitly mounted a K8S JWT token, and is not
 // using a hostPath mounted or external SDS server.
@@ -273,9 +345,10 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 
 		// This is a blocking call for graceful termination.
-		if a.envoyAgent != nil {
-			a.envoyAgent.Run(ctx)
+		if err := <-a.envoyWaitCh; err != nil {
+			return fmt.Errorf("failed to write updated envoy bootstrap: %v", err)
 		}
+		a.envoyAgent.Run(ctx)
 	}
 
 	return nil

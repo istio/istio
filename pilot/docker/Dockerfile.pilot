@@ -15,6 +15,7 @@ FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
 FROM ${BASE_DISTRIBUTION}
 
 COPY pilot-discovery /usr/local/bin/
+COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 USER 1337:1337
 

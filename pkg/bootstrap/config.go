@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -261,13 +264,8 @@ func getLocalityOptions(l *core.Locality) []option.Instance {
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
 }
 
-func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
-	config := metadata.ProxyConfig
-
-	// Add a few misc options.
-	opts := make([]option.Instance, 0)
-
-	serviceCluster := config.ServiceCluster
+func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
+	serviceCluster := metadata.ProxyConfig.ServiceCluster
 
 	// Update the default value to something more informative.
 	if serviceCluster == "" || serviceCluster == "istio-proxy" {
@@ -280,8 +278,17 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		}
 	}
 
+	return serviceCluster
+}
+
+func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
+	config := metadata.ProxyConfig
+
+	// Add a few misc options.
+	opts := make([]option.Instance, 0)
+
 	opts = append(opts, option.ProxyConfig(config),
-		option.Cluster(serviceCluster),
+		option.Cluster(getServiceCluster(metadata)),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
 		option.StatsdAddress(config.StatsdUdpAddress))
@@ -552,6 +559,47 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+// GenerateNode creates an Envoy node descriptor from Istio node descriptor with only typed metadata.
+func GenerateNode(node *model.Node) *core.Node {
+	js, err := json.Marshal(node.Metadata)
+	if err != nil {
+		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
+	}
+	pbst := &structpb.Struct{}
+	if err = jsonpb.UnmarshalString(string(js), pbst); err != nil {
+		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
+	}
+	return &core.Node{
+		Id:       node.ID,
+		Cluster:  getServiceCluster(node.Metadata),
+		Locality: node.Locality,
+		Metadata: pbst,
+	}
+}
+
+// Parses Istio node descriptor from an Envoy node descriptor, as an inverse of GenerateNode.
+func ParseNode(node *core.Node) *model.Node {
+	buf := &bytes.Buffer{}
+	err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, node.Metadata)
+	if err != nil {
+		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
+	}
+	metadata := &model.BootstrapNodeMetadata{}
+	err = json.Unmarshal(buf.Bytes(), metadata)
+	if err != nil {
+		log.Warnf("Failed to unmarshal node metadata from JSON %q: %v", node.Metadata, err)
+	}
+	if metadata.ProxyConfig == nil {
+		metadata.ProxyConfig = &model.NodeMetaProxyConfig{}
+	}
+	metadata.ProxyConfig.ServiceCluster = node.Cluster
+	return &model.Node{
+		ID:       node.Id,
+		Locality: node.Locality,
+		Metadata: metadata,
+	}
 }
 
 // Extracts instance labels for the platform into model.NodeMetadata.Labels
