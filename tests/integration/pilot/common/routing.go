@@ -1023,7 +1023,7 @@ spec:
 				Address:   "b-alt-3",
 				Port:      &echo.Port{ServicePort: 12345, Protocol: protocol.HTTP},
 				Timeout:   time.Millisecond * 100,
-				Validator: echo.ExpectCode("123"),
+				Validator: echo.ExpectOK(),
 			},
 		})
 
