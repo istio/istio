@@ -452,9 +452,6 @@ type BootstrapNodeMetadata struct {
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
 
-	// PilotCertProvider is the provider of the xDS server DNS certificate.
-	PilotCertProvider string `json:"PILOT_CERT_PROVIDER,omitempty"`
-
 	// ProvCertDir is the directory containing pre-provisioned certs.
 	ProvCert string `json:"PROV_CERT,omitempty"`
 }

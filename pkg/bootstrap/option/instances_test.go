@@ -634,18 +634,6 @@ func TestOptions(t *testing.T) {
 			expected: []string{"fake"},
 		},
 		{
-			testName: "pilot_cert_provider kubernetes",
-			key:      "pilot_cert_provider",
-			option:   option.PilotCertProvider("kubernetes"),
-			expected: "kubernetes",
-		},
-		{
-			testName: "pilot_cert_provider istiod",
-			key:      "pilot_cert_provider",
-			option:   option.PilotCertProvider("istiod"),
-			expected: "istiod",
-		},
-		{
 			testName: "sts enabled",
 			key:      "sts",
 			option:   option.STSEnabled(true),

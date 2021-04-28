@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/pkg/log"
 )
@@ -43,11 +44,6 @@ const (
 	// Default CA certificate path
 	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
 	defaultCACertPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-)
-
-var (
-	KubernetesCAProvider = "kubernetes"
-	IstiodCAProvider     = "istiod"
 )
 
 // CertController can create certificates signed by K8S server.
@@ -131,7 +127,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 
 	var certChain, keyPEM, caBundle []byte
 	var err error
-	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+	if features.PilotCertProvider.Get() == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath)
@@ -142,7 +138,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
-	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
+	} else if features.PilotCertProvider.Get() == constants.CertProviderIstiod {
 		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
 		if err != nil {
 			return fmt.Errorf("failed generating istiod key cert %v", err)
