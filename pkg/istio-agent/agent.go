@@ -21,15 +21,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -241,13 +242,29 @@ func (a *Agent) initializeEnvoyAgent() error {
 	if a.cfg.EnableDynamicBootstrap {
 		// Simulate an xDS request for a bootstrap
 		go func() {
-			err := a.xdsProxy.handleStream(&bootstrapDiscoveryRequest{
+			// wait indefinitely and keep retrying with jittered exponential backoff
+			backoff := 500
+			max := 30000
+			request := &bootstrapDiscoveryRequest{
 				node:        node,
 				envoyWaitCh: a.envoyWaitCh,
 				envoyUpdate: envoyProxy.UpdateConfig,
-			})
-			if err != nil {
-				log.Warnf("failed to send initial bootstrap discovery request: %v", err)
+			}
+			for {
+				_ = a.xdsProxy.handleStream(request)
+				if request.received {
+					break
+				}
+				request.sent = false
+				if backoff < max/2 {
+					backoff = 2 * backoff
+				} else {
+					backoff = max
+				}
+				backoff = rand.Int() % backoff
+				delay := time.Duration(backoff) * time.Millisecond
+				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
+				time.Sleep(delay)
 			}
 		}()
 	} else {
@@ -261,36 +278,40 @@ type bootstrapDiscoveryRequest struct {
 	envoyWaitCh chan error
 	envoyUpdate func(data []byte) error
 	sent        bool
+	received    bool
 }
 
+// Send refers to a request from the xDS proxy.
 func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) error {
+	b.received = true
 	if resp.TypeUrl != v3.BootstrapType {
-		b.envoyWaitCh <- fmt.Errorf("Unexpected response type URL: %q", resp.TypeUrl)
+		b.envoyWaitCh <- fmt.Errorf("unexpected response type URL: %q", resp.TypeUrl)
 		return nil
 	}
 	if len(resp.Resources) != 1 {
-		b.envoyWaitCh <- fmt.Errorf("Unexpected number of bootstraps: %d", len(resp.Resources))
+		b.envoyWaitCh <- fmt.Errorf("unexpected number of bootstraps: %d", len(resp.Resources))
 		return nil
 	}
 	var bs bootstrapv3.Bootstrap
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &bs); err != nil {
-		b.envoyWaitCh <- fmt.Errorf("Failed to unmarshal bootstrap: %v", err)
+	if err := resp.Resources[0].UnmarshalTo(&bs); err != nil {
+		b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
 		return nil
 	}
 	js := jsonpb.Marshaler{OrigName: true, Indent: "  "}
 	var buf bytes.Buffer
 	if err := js.Marshal(&buf, &bs); err != nil {
-		b.envoyWaitCh <- fmt.Errorf("Failed to marshal bootstrap as JSON: %v", err)
+		b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
 		return nil
 	}
 	if err := b.envoyUpdate(buf.Bytes()); err != nil {
-		b.envoyWaitCh <- fmt.Errorf("Failed to update bootstrap from discovery: %v", err)
+		b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
 		return nil
 	}
 	close(b.envoyWaitCh)
 	return nil
 }
 
+// Receive refers to a request to the xDS proxy.
 func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) {
 	if b.sent {
 		<-b.envoyWaitCh

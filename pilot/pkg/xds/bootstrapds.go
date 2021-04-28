@@ -47,7 +47,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 	}
 	bs := &bootstrapv3.Bootstrap{}
 	if err = jsonpb.Unmarshal(io.Reader(&buf), bs); err != nil {
-		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", string(buf.Bytes()), err)
+		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", buf.String(), err)
 	}
 	return model.Resources{util.MessageToAny(bs)}, nil
 }
