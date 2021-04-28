@@ -318,7 +318,6 @@ func TestGolden(t *testing.T) {
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
 				},
 				OutlierLogPath:     "/dev/stdout",
-				PilotCertProvider:  "istiod",
 				ProxyViaAgent:      c.proxyViaAgent,
 				annotationFilePath: annoFile.Name(),
 			})

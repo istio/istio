@@ -194,7 +194,7 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 	if cfg.Inject {
 		// do not add namespace labels when dealing with multiple revisions since
 		// this disables the necessary object selectors
-		if !ctx.Settings().IstioVersions.IsMultiVersion() {
+		if !ctx.Settings().Revisions.IsMultiVersion() {
 			if cfg.Revision != "" {
 				l[label.IoIstioRev.Name] = cfg.Revision
 			} else {
@@ -204,7 +204,7 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 	} else {
 		// for multiversion environments, disable the entire namespace explicitly
 		// so that object selectors are ignored
-		if ctx.Settings().IstioVersions.IsMultiVersion() {
+		if ctx.Settings().Revisions.IsMultiVersion() {
 			l["istio-injection"] = "disabled"
 		}
 	}

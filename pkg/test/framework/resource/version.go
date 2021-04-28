@@ -15,6 +15,7 @@
 package resource
 
 import (
+	"fmt"
 	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -29,28 +30,29 @@ type RevVerMap map[string]IstioVersion
 func (rv *RevVerMap) SetConfig(m config.Map) error {
 	out := make(RevVerMap)
 	for k := range m {
-		version, err := ParseIstioVersion(m.String(k))
-		if err != nil {
-			return err
-		}
-		out[k] = version
+		version := m.String(k)
+		out[k] = IstioVersion(version)
 	}
 	*rv = out
 	return nil
 }
 
-// Set parses IstioVersions from a string flag in the form "a=1.5.6,b=1.9.0,c=1.4".
+// Set parses IstioVersions from a string flag in the form "a=1.5.6,b,c=1.4".
+// If no version is specified for a revision assume latest, represented as ""
 func (rv *RevVerMap) Set(value string) error {
 	m := make(map[string]IstioVersion)
 	rvPairs := strings.Split(value, ",")
-	for _, rvPair := range rvPairs {
-		s := strings.Split(rvPair, "=")
-		rev, ver := s[0], s[1]
-		parsedVer, err := ParseIstioVersion(ver)
-		if err != nil {
-			return err
+	for _, rv := range rvPairs {
+		s := strings.Split(rv, "=")
+		rev := s[0]
+		if len(s) == 1 {
+			m[rev] = ""
+		} else if len(s) == 2 {
+			ver := s[1]
+			m[rev] = IstioVersion(ver)
+		} else {
+			return fmt.Errorf("invalid revision<->version pairing specified: %q", rv)
 		}
-		m[rev] = parsedVer
 	}
 	*rv = m
 	return nil
@@ -60,11 +62,15 @@ func (rv *RevVerMap) String() string {
 	if rv == nil {
 		return ""
 	}
-	var vers []string
-	for _, ver := range *rv {
-		vers = append(vers, string(ver))
+	var rvPairs []string
+	for rev, ver := range *rv {
+		if ver == "" {
+			ver = "latest"
+		}
+		rvPairs = append(rvPairs,
+			fmt.Sprintf("%s=%s", rev, ver))
 	}
-	return strings.Join(vers, ",")
+	return strings.Join(rvPairs, ",")
 }
 
 // Versions returns an ordered list of Istio versions from the given RevVerMap.
@@ -135,9 +141,4 @@ func (v IstioVersions) Minimum() IstioVersion {
 		}
 	}
 	return min
-}
-
-// ParseIstioVersion parses a version string into a IstioVersion.
-func ParseIstioVersion(version string) (IstioVersion, error) {
-	return IstioVersion(version), nil
 }

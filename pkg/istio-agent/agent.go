@@ -202,7 +202,6 @@ func (a *Agent) initializeEnvoyAgent() error {
 		ProxyViaAgent:       a.cfg.ProxyXDSViaAgent,
 		PilotSubjectAltName: pilotSAN,
 		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
-		PilotCertProvider:   a.secOpts.PilotCertProvider,
 		ProvCert:            provCert,
 	})
 	if err != nil {
@@ -415,17 +414,8 @@ func (a *Agent) Close() {
 	}
 }
 
-// explicit code to determine the root CA to be configured in bootstrap file.
+// FindRootCAForXDS determines the root CA to be configured in bootstrap file.
 // It may be different from the CA for the cert server - which is based on CA_ADDR
-// Replaces logic in the template:
-//                 {{- if .provisioned_cert }}
-//                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
-//                  {{- else if eq .pilot_cert_provider "kubernetes" }}
-//                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-//                  {{- else if eq .pilot_cert_provider "istiod" }}
-//                  "filename": "./var/run/secrets/istio/root-cert.pem"
-//                  {{- end }}
-//
 // In addition it deals with the case the XDS server is on port 443, expected with a proper cert.
 // /etc/ssl/certs/ca-certificates.crt
 //

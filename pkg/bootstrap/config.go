@@ -87,7 +87,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.ProxyViaAgent(cfg.Metadata.ProxyViaAgent),
-		option.PilotCertProvider(cfg.Metadata.PilotCertProvider),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.ProvCert(cfg.Metadata.ProvCert),
 		option.DiscoveryHost(discHost),
@@ -455,7 +454,6 @@ type MetadataOptions struct {
 	ProxyViaAgent       bool
 	PilotSubjectAltName []string
 	OutlierLogPath      string
-	PilotCertProvider   string
 	ProvCert            string
 	annotationFilePath  string
 }
@@ -550,7 +548,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.ProxyViaAgent = options.ProxyViaAgent
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
 	meta.OutlierLogPath = options.OutlierLogPath
-	meta.PilotCertProvider = options.PilotCertProvider
 	meta.ProvCert = options.ProvCert
 
 	return &model.Node{
