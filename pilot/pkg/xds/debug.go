@@ -224,7 +224,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 			})
 		}
 	}
-	writeJson(w, syncz)
+	writeJSON(w, syncz)
 }
 
 // registryz providees debug support for registry - adding and listing model items.
@@ -234,7 +234,7 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	writeJson(w, all)
+	writeJSON(w, all)
 }
 
 // Dumps info about the endpoint shards, tracked using the new direct interface.
@@ -251,7 +251,7 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 	keys := s.Cache.Keys()
 	sort.Strings(keys)
-	writeJson(w, keys)
+	writeJSON(w, keys)
 }
 
 type endpointzResponse struct {
@@ -287,7 +287,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 			})
 		}
 	}
-	writeJson(w, resp)
+	writeJSON(w, resp)
 }
 
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
@@ -320,7 +320,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 			con.proxy.RUnlock()
 		}
 
-		writeJson(w, results)
+		writeJSON(w, results)
 	} else {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		_, _ = fmt.Fprintf(w, "querystring parameter 'resource' is required\n")
@@ -352,7 +352,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 	return result
 }
 
-// kubernetesConfig wraps a config.Config with a custom marshalling method that matches a Kubernetes
+// kubernetesConfig wraps a config.Config with a custom marshaling method that matches a Kubernetes
 // object structure.
 type kubernetesConfig struct {
 	config.Config
@@ -376,7 +376,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 		}
 		return false
 	})
-	writeJson(w, configs)
+	writeJSON(w, configs)
 }
 
 // SidecarScope debugging
@@ -385,7 +385,7 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 	if con == nil {
 		return
 	}
-	writeJson(w, con.proxy.SidecarScope)
+	writeJSON(w, con.proxy.SidecarScope)
 }
 
 // Resource debugging.
@@ -396,7 +396,7 @@ func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
 		return false
 	})
 
-	writeJson(w, schemas)
+	writeJSON(w, schemas)
 }
 
 // AuthorizationDebug holds debug information for authorization policy.
@@ -409,11 +409,11 @@ func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Reques
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
-	writeJson(w, info)
+	writeJSON(w, info)
 }
 
 func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
-	writeJson(w, s.globalPushContext().Telemetry)
+	writeJSON(w, s.globalPushContext().Telemetry)
 }
 
 // ConnectionsHandler implements interface for displaying current connections.
@@ -431,7 +431,7 @@ func (s *DiscoveryServer) ConnectionsHandler(w http.ResponseWriter, req *http.Re
 		}
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	writeJson(w, adsClients)
+	writeJSON(w, adsClients)
 }
 
 // adsz implements a status and debug interface for ADS.
@@ -462,7 +462,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	writeJson(w, adsClients)
+	writeJSON(w, adsClients)
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
@@ -475,10 +475,10 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 	}
 	dump, err := s.configDump(con)
 	if err != nil {
-		handleHttpError(w, err)
+		handleHTTPError(w, err)
 		return
 	}
-	writeJsonProto(w, dump)
+	writeJSONProto(w, dump)
 }
 
 // configDump converts the connection internal state into an Envoy Admin API config dump proto
@@ -591,13 +591,13 @@ func (s *DiscoveryServer) InjectTemplateHandler(webhook func() map[string]string
 			return
 		}
 
-		writeJson(w, webhook())
+		writeJSON(w, webhook())
 	}
 }
 
 // MeshHandler dumps the mesh config
 func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
-	writeJsonProto(w, s.Env.Mesh())
+	writeJSONProto(w, s.Env.Mesh())
 }
 
 // PushStatusHandler dumps the last PushContext
@@ -607,7 +607,7 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 	}
 	out, err := model.LastPushStatus.StatusJSON()
 	if err != nil {
-		handleHttpError(w, err)
+		handleHTTPError(w, err)
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -628,7 +628,7 @@ func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, req *http.Re
 		NetworkGateways:       s.globalPushContext().NetworkGateways(),
 	}
 
-	writeJson(w, push)
+	writeJSON(w, push)
 }
 
 // lists all the supported debug endpoints.
@@ -674,7 +674,7 @@ func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 		cmdNames = append(cmdNames, key)
 	}
 	sort.Strings(cmdNames)
-	writeJson(w, cmdNames)
+	writeJSON(w, cmdNames)
 }
 
 // Ndsz implements a status and debug interface for NDS.
@@ -694,7 +694,7 @@ func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
 		if len(nds) == 0 {
 			return
 		}
-		writeJsonProto(w, nds[0])
+		writeJSONProto(w, nds[0])
 	}
 }
 
@@ -711,11 +711,11 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	clusters := con.Clusters()
-	clas := make([]jsonMarshalProto, 0, len(clusters))
+	eps := make([]jsonMarshalProto, 0, len(clusters))
 	for _, clusterName := range clusters {
-		clas = append(clas, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))})
+		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))})
 	}
-	writeJson(w, clas)
+	writeJSON(w, eps)
 }
 
 func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Request) {
@@ -746,11 +746,11 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 		}
 		con.proxy.RUnlock()
 	}
-	writeJson(w, instances)
+	writeJSON(w, instances)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
-	writeJson(w, s.Env.NetworkGateways())
+	writeJSON(w, s.Env.NetworkGateways())
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.
@@ -794,7 +794,7 @@ func (s *DiscoveryServer) getDebugConnection(w http.ResponseWriter, req *http.Re
 	return con
 }
 
-// jsonMarshalProto wraps a proto.Message so it can be marshalled with the standard encoding/json library
+// jsonMarshalProto wraps a proto.Message so it can be marshaled with the standard encoding/json library
 type jsonMarshalProto struct {
 	proto.Message
 }
@@ -807,8 +807,8 @@ func (p jsonMarshalProto) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// writeJson writes a json payload, handling content type, marshalling, and errors
-func writeJson(w http.ResponseWriter, obj interface{}) {
+// writeJSON writes a json payload, handling content type, marshaling, and errors
+func writeJSON(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	by, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
@@ -822,8 +822,8 @@ func writeJson(w http.ResponseWriter, obj interface{}) {
 	}
 }
 
-// writeJsonProto writes a protobuf to a json payload, handling content type, marshalling, and errors
-func writeJsonProto(w http.ResponseWriter, obj proto.Message) {
+// writeJSONProto writes a protobuf to a json payload, handling content type, marshaling, and errors
+func writeJSONProto(w http.ResponseWriter, obj proto.Message) {
 	w.Header().Set("Content-Type", "application/json")
 	buf := bytes.NewBuffer(nil)
 	err := (&jsonpb.Marshaler{Indent: "  "}).Marshal(buf, obj)
@@ -838,8 +838,8 @@ func writeJsonProto(w http.ResponseWriter, obj proto.Message) {
 	}
 }
 
-// handleHttpError writes an error message to the response
-func handleHttpError(w http.ResponseWriter, err error) {
+// handleHTTPError writes an error message to the response
+func handleHTTPError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	_, _ = w.Write([]byte(err.Error()))
 }
