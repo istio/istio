@@ -31,7 +31,12 @@ func generateTestFlags(settings *resource.Settings) []string {
 		if settings.ClusterType != resource.GKEOnGCP {
 			testFlags = append(testFlags,
 				fmt.Sprintf("--istio.test.revision=%s", revisionLabel()))
-			testFlags = append(testFlags, "--istio.test.echo.callTimeout=5s")
+
+			// going from 20s to 30s for the total retry timeout (all attempts)
+			testFlags = append(testFlags, "--istio.test.echo.callTimeout=30s")
+			// going from 5s to 10s for individual ForwardEchoRequests (bounds total all calls in req.Count)
+			testFlags = append(testFlags, "--istio.test.echo.requestTimeout=10s")
+
 			testFlags = append(testFlags,
 				fmt.Sprintf("--istio.test.imagePullSecret=%s/%s",
 					os.Getenv("ARTIFACTS"), imagePullSecretFile))
