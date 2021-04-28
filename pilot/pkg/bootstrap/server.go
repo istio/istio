@@ -892,6 +892,11 @@ func (s *Server) initRegistryEventHandlers() {
 
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
 func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
+	// Skip all certificates
+	if features.PilotCertProvider.Get() == constants.CertProviderNone {
+		return nil
+	}
+
 	if err := s.maybeInitDNSCerts(args, host); err != nil {
 		return fmt.Errorf("error initializing DNS certs: %v", err)
 	}
@@ -912,10 +917,14 @@ func (s *Server) shouldInitDNSCerts(args *PilotArgs) bool {
 		// allows secure SDS connections to Istiod.
 		return false
 	}
-	if !s.EnableCA() && features.PilotCertProvider.Get() == IstiodCAProvider {
+	if !s.EnableCA() && features.PilotCertProvider.Get() == constants.CertProviderIstiod {
 		// If CA functionality is disabled, istiod cannot sign the DNS certificates.
 		return false
 	}
+	if features.PilotCertProvider.Get() == constants.CertProviderNone {
+		return false
+	}
+
 	return true
 }
 
@@ -1059,7 +1068,11 @@ func (s *Server) fetchCARoot() map[string]string {
 	}
 
 	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
-	if features.PilotCertProvider.Get() == KubernetesCAProvider {
+	if features.PilotCertProvider.Get() == constants.CertProviderKubernetes {
+		return nil
+	}
+	// For no CA we don't distribute it either, as there is no cert
+	if features.PilotCertProvider.Get() == constants.CertProviderNone {
 		return nil
 	}
 
