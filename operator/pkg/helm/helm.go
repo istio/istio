@@ -65,7 +65,7 @@ type TemplateRenderer interface {
 // The format of helmBaseDir and profile strings determines the type of helm renderer returned (compiled-in, file,
 // HTTP etc.)
 func NewHelmRenderer(operatorDataDir, helmSubdir, componentName, namespace string) TemplateRenderer {
-	dir := filepath.Join(ChartsSubdirName, helmSubdir)
+	dir := strings.Join([]string{ChartsSubdirName, helmSubdir}, "/")
 	return NewGenericRenderer(manifests.BuiltinOrDir(operatorDataDir), dir, componentName, namespace)
 }
 
