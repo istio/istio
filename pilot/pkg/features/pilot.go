@@ -457,6 +457,9 @@ var (
 	DelayedCloseTimeout = func() *duration.Duration {
 		return durationpb.New(delayedCloseTimeoutVar)
 	}()
+
+	MulticlusterHeadless = env.RegisterBoolVar("PILOT_MULTICLUSTER_HEADLESS", false,
+		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

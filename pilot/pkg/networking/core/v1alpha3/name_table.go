@@ -18,6 +18,8 @@ import (
 	"net"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -103,7 +105,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						}
 					}
 
-					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
+					if !features.MulticlusterHeadless && instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
 						// We take only cluster-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.
 						// However, this only impacts the DNS response. If we were to send all
