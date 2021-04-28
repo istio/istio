@@ -240,11 +240,16 @@ func (a *Agent) initializeEnvoyAgent() error {
 	a.envoyWaitCh = make(chan error, 1)
 	if a.cfg.EnableDynamicBootstrap {
 		// Simulate an xDS request for a bootstrap
-		go a.xdsProxy.handleStream(&bootstrapDiscoveryRequest{
-			node:        node,
-			envoyWaitCh: a.envoyWaitCh,
-			envoyUpdate: envoyProxy.UpdateConfig,
-		})
+		go func() {
+			err := a.xdsProxy.handleStream(&bootstrapDiscoveryRequest{
+				node:        node,
+				envoyWaitCh: a.envoyWaitCh,
+				envoyUpdate: envoyProxy.UpdateConfig,
+			})
+			if err != nil {
+				log.Warnf("failed to send initial bootstrap discovery request: %v", err)
+			}
+		}()
 	} else {
 		close(a.envoyWaitCh)
 	}
@@ -296,7 +301,6 @@ func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) 
 		TypeUrl: v3.BootstrapType,
 		Node:    bootstrap.GenerateNode(b.node),
 	}, nil
-
 }
 
 func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.Background() }
