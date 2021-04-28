@@ -36,7 +36,6 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -677,25 +676,6 @@ func toIPNet(c *core.CidrRange) (*net.IPNet, error) {
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
 func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
 	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
-}
-
-// MultiErrorFormat provides a format for multierrors. This matches the default format, but if there
-// is only one error we will not expand to multiple lines.
-func MultiErrorFormat() multierror.ErrorFormatFunc {
-	return func(es []error) string {
-		if len(es) == 1 {
-			return es[0].Error()
-		}
-
-		points := make([]string, len(es))
-		for i, err := range es {
-			points[i] = fmt.Sprintf("* %s", err)
-		}
-
-		return fmt.Sprintf(
-			"%d errors occurred:\n\t%s\n\n",
-			len(es), strings.Join(points, "\n\t"))
-	}
 }
 
 // ByteCount returns a human readable byte format
