@@ -133,6 +133,15 @@ type istioctlConfigFiles struct {
 	remoteOperatorSpec *opAPI.IstioOperatorSpec
 }
 
+func (i *operatorComponent) Ingresses() ingress.Instances {
+	var out ingress.Instances
+	for _, c := range i.ctx.Clusters() {
+		// call IngressFor in-case initialization is needed.
+		out = append(out, i.IngressFor(c))
+	}
+	return out
+}
+
 func (i *operatorComponent) IngressFor(cluster cluster.Cluster) ingress.Instance {
 	return i.CustomIngressFor(cluster, defaultIngressServiceName, defaultIngressIstioLabel)
 }

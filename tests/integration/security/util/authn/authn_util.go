@@ -99,5 +99,5 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 			fmt.Sprintf("Bearer %s", token),
 		}
 	}
-	ingr.CallEchoWithRetryOrFail(ctx, opts)
+	ingr.CallWithRetryOrFail(ctx, opts)
 }
