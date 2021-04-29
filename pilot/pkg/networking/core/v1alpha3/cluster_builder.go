@@ -163,7 +163,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
-	// merge default traffic policy with applicable port level traffic policy settings
+	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
 	opts := buildClusterOpts{
 		mesh:        cb.push.Mesh,
