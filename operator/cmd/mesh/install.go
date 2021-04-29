@@ -194,7 +194,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	// TODO(Monkeyanator) remove once we have a nicer solution
 	if iArgs.revision != "" {
 		if requiresIstiodServiceCreation(clientset, name.IstioDefaultNamespace) {
-			if err := createIstiodService(clientset, name.IstioDefaultNamespace, iArgs.revision); err != nil {
+			if err := createIstiodService(clientset, name.IstioDefaultNamespace); err != nil {
 				const canaryUpgradeDoc = "https://istio.io/latest/docs/setup/upgrade/canary/"
 				warning := fmt.Sprintf("Validation cannot function without an istiod service but the installer failed"+
 					" to create one. Please consider creating the istiod service manually as outlined in the canary upgrade documentation (%s).", canaryUpgradeDoc)
@@ -395,8 +395,8 @@ func requiresIstiodServiceCreation(cs kubernetes.Interface, istioNs string) bool
 	return false
 }
 
-// createIstiodService creates an `istiod` service pointed at the given revision
-func createIstiodService(cs kubernetes.Interface, istioNs, revision string) error {
+// createIstiodService creates an `istiod` service that selects ALL istiod instances.
+func createIstiodService(cs kubernetes.Interface, istioNs string) error {
 	const (
 		pilotDiscoveryChart = "istio-control/istio-discovery"
 		serviceTemplateName = "service.yaml"
@@ -408,8 +408,8 @@ func createIstiodService(cs kubernetes.Interface, istioNs, revision string) erro
 	}
 
 	values := fmt.Sprintf(`
-revision: "%s"
-`, revision)
+revision: ""
+`)
 
 	serviceYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, serviceTemplateName)
@@ -435,7 +435,7 @@ revision: "%s"
 	// Rename the generated service from `istiod-<revision>` to `istiod`
 	svc.Name = "istiod"
 
-	// Do not remove this service when the associated revision is removed
+	// Do not remove this service when the revision is removed
 	delete(svc.Labels, label.IoIstioRev.Name)
 
 	// Change selectors such that the `istiod` service selects istiod instances from all revisions
