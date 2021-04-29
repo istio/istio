@@ -100,8 +100,9 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 			}
 		}
 		if conflictingGWMatch > 0 {
-			reportMsg := fmt.Sprintf("%s to %s", gwName, strings.Join(rmsg, ","))
-			m := msg.NewConflictingGateways(r, reportMsg, sGWSelector, sPortNumber, server.Hosts)
+			reportMsg := strings.Join(rmsg, ",")
+			hostsMsg := strings.Join(server.Hosts, ",")
+			m := msg.NewConflictingGateways(r, reportMsg, sGWSelector, sPortNumber, hostsMsg)
 			c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 		}
 	}
