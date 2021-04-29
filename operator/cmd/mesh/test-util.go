@@ -185,6 +185,13 @@ func mustGetDeployment(g *gomega.WithT, objs *ObjectSet, deploymentName string) 
 	return obj
 }
 
+// mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
+func mustGetClusterRole(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
+	obj := objs.kind(name2.ClusterRoleStr).nameEquals(name)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
 func mustGetRole(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.RoleStr).nameEquals(name)
@@ -507,5 +514,14 @@ func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *ObjectSet) {
 		ou := o.Unstructured()
 		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
 		mustGetRole(g, objs, rrname.(string))
+	}
+}
+
+// checkClusterRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
+func checkClusterRoleBindingsReferenceRoles(g *gomega.WithT, objs *ObjectSet) {
+	for _, o := range objs.kind(name2.ClusterRoleBindingStr).objSlice {
+		ou := o.Unstructured()
+		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
+		mustGetClusterRole(g, objs, rrname.(string))
 	}
 }
