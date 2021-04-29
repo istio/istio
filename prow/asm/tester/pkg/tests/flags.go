@@ -42,7 +42,7 @@ func generateTestFlags(settings *resource.Settings) []string {
 					os.Getenv("ARTIFACTS"), imagePullSecretFile))
 		}
 		if !settings.UseVMs {
-			testFlags = append(testFlags, "--istio.test.skipVM")
+			testFlags = append(testFlags, "--istio.test.skipVM=true")
 		}
 		if settings.UseVMs || settings.UseGCEVMs {
 			// TODO these are the only security tests that excercise VMs. The other tests are written in a way
@@ -67,7 +67,8 @@ func generateTestSelect(settings *resource.Settings) string {
 		mcPresubmitTarget = "test.integration.multicluster.kube.presubmit"
 		asmSecurityTarget = "test.integration.asm.security"
 	)
-	testSelect := os.Getenv("TEST_SELECT")
+
+	testSelect := ""
 	if settings.ControlPlane == resource.Unmanaged {
 		// TODO(nmittler): remove this once we no longer run the multicluster tests.
 		if settings.TestTarget == mcPresubmitTarget {
@@ -80,9 +81,17 @@ func generateTestSelect(settings *resource.Settings) string {
 		}
 	} else if settings.ControlPlane == resource.Managed {
 		testSelect = "-customsetup"
-		if settings.TestTarget == mcPresubmitTarget {
-			testSelect += ",+multicluster"
+		if settings.ClusterTopology == resource.MultiCluster {
+			if settings.TestTarget == mcPresubmitTarget {
+				testSelect += ",+multicluster"
+			}
 		}
+	}
+	if settings.FeatureToTest == string(resource.UserAuth) {
+		if testSelect != "" {
+			testSelect += ","
+		}
+		testSelect += "+userauth"
 	}
 
 	return testSelect
