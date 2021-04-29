@@ -105,8 +105,8 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						}
 					}
 
-					skipMulticluster := !features.MulticlusterHeadless && instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID
-					if skipMulticluster || !sameNetwork {
+					skipForMulticluster := !features.MulticlusterHeadlessEnabled && instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID
+					if skipForMulticluster || !sameNetwork {
 						// We take only cluster-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.
 						// However, this only impacts the DNS response. If we were to send all
