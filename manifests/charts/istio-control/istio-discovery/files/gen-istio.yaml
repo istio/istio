@@ -915,7 +915,7 @@ data:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod-istio-system
+  name: istiod-clusterrole-istio-system
   labels:
     app: istiod
     release: istio
@@ -1015,7 +1015,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-clusterrole-istio-system
   labels:
     app: istio-reader
     release: istio
@@ -1054,14 +1054,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-istio-system
+  name: istio-reader-clusterrolebinding-istio-system
   labels:
     app: istio-reader
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-istio-system
+  name: istio-reader-clusterrole-istio-system
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
@@ -1071,14 +1071,14 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-istio-system
+  name: istiod-clusterrolebinding-istio-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-istio-system
+  name: istiod-clusterrole-istio-system
 subjects:
   - kind: ServiceAccount
     name: istiod-service-account
@@ -1088,7 +1088,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istiod-istio-system
+  name: istiod-role-istio-system
   namespace: istio-system
   labels:
     app: istiod
@@ -1110,7 +1110,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istiod-istio-system
+  name: istiod-rolebinding-istio-system
   namespace: istio-system
   labels:
     app: istiod
@@ -1118,7 +1118,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istiod-istio-system
+  name: istiod-role-istio-system
 subjects:
   - kind: ServiceAccount
     name: istiod-service-account

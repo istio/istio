@@ -6048,6 +6048,11 @@ metadata:
     release: istio
 ---
 # Source: base/templates/clusterrole.yaml
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# DO NOT EDIT!
+# THIS IS A LEGACY CHART HERE FOR BACKCOMPAT
+# UPDATED CHART AT manifests/charts/istio-control/istio-discovery
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6187,6 +6192,11 @@ rules:
     verbs: ["create"]
 ---
 # Source: base/templates/clusterrolebinding.yaml
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# DO NOT EDIT!
+# THIS IS A LEGACY CHART HERE FOR BACKCOMPAT
+# UPDATED CHART AT manifests/charts/istio-control/istio-discovery
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -6221,6 +6231,11 @@ subjects:
     namespace: istio-system
 ---
 # Source: base/templates/role.yaml
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# DO NOT EDIT!
+# THIS IS A LEGACY CHART HERE FOR BACKCOMPAT
+# UPDATED CHART AT manifests/charts/istio-control/istio-discovery
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -6243,6 +6258,11 @@ rules:
   verbs: ["create", "get", "watch", "list", "update", "delete"]
 ---
 # Source: base/templates/rolebinding.yaml
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# DO NOT EDIT!
+# THIS IS A LEGACY CHART HERE FOR BACKCOMPAT
+# UPDATED CHART AT manifests/charts/istio-control/istio-discovery
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
