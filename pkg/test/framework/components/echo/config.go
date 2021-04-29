@@ -71,7 +71,8 @@ type Config struct {
 	// Headless (k8s only) indicates that no ClusterIP should be specified.
 	Headless bool
 
-	// StatefulSet indicates that
+	// StatefulSet indicates that the pod should be backed by a StatefulSet. This implies Headless=true
+	// as well.
 	StatefulSet bool
 
 	// StaticAddress for some echo implementations is an address locally reachable within

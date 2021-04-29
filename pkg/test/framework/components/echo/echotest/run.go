@@ -44,6 +44,7 @@ type (
 // cluster, as we expect most tests will cause load-balancing across all possible
 // clusters.
 func (t *T) Run(testFn oneToOneTest) {
+	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v", t.sources.Services().Services(), t.destinations.Services().Services())
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
 		t.setup(ctx, srcInstances)
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
