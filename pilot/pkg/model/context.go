@@ -455,7 +455,7 @@ type BootstrapNodeMetadata struct {
 	// ProvCertDir is the directory containing pre-provisioned certs.
 	ProvCert string `json:"PROV_CERT,omitempty"`
 
-	// AppContainers is the list of containers in the proxy.
+	// AppContainers is the list of containers in the pod.
 	AppContainers string `json:"APP_CONTAINERS,omitempty"`
 
 	// IstioProxySHA is the SHA of the proxy version.
