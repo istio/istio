@@ -82,6 +82,10 @@ func (h *helmComponent) ID() resource.ID {
 	return h.id
 }
 
+func (h *helmComponent) Ingresses() ingress.Instances {
+	panic("implement me")
+}
+
 func (h *helmComponent) IngressFor(cluster cluster.Cluster) ingress.Instance {
 	panic("implement me")
 }

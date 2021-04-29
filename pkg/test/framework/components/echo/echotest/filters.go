@@ -92,8 +92,8 @@ func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
 }
 
 func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instances {
-	regularPods := instances.Match(isRegularPod)
-	others := instances.Match(echo.Not(isRegularPod))
+	regularPods := instances.Match(RegularPod)
+	others := instances.Match(echo.Not(RegularPod))
 	for _, exclude := range exclude {
 		regularPods = regularPods.Match(echo.Not(echo.SameDeployment(exclude)))
 	}
@@ -105,8 +105,13 @@ func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instan
 	return append(regularPods, others...)
 }
 
-// TODO put this on echo.Config?
-func isRegularPod(instance echo.Instance) bool {
+// RegularPod matches echos that don't meet any of the following criteria:
+// - VM
+// - Naked
+// - Headless
+// - TProxy
+// - Multi-Subset
+func RegularPod(instance echo.Instance) bool {
 	c := instance.Config()
 	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless()
 }

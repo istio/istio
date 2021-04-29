@@ -21,6 +21,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 )
 
 type (
@@ -32,6 +34,7 @@ type (
 	oneToOneTest      func(t framework.TestContext, src echo.Instance, dst echo.Instances)
 	oneToNTest        func(t framework.TestContext, src echo.Instance, dsts echo.Services)
 	oneClusterOneTest func(t framework.TestContext, src cluster.Cluster, dst echo.Instances)
+	ingressTest       func(t framework.TestContext, src ingress.Instance, dst echo.Instances)
 )
 
 // Run will generate and run one subtest to send traffic between each combination
@@ -48,9 +51,9 @@ type (
 // clusters.
 func (t *T) Run(testFn oneToOneTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
-		t.setup(ctx, srcInstances)
+		t.setup(ctx, srcInstances.Callers())
 		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupPair(ctx, srcInstances, echo.Services{dstInstances})
+			t.setupPair(ctx, srcInstances.Callers(), echo.Services{dstInstances})
 			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				filteredDst := t.applyCombinationFilters(src, dstInstances)
 				if len(filteredDst) == 0 {
@@ -74,11 +77,15 @@ func (t *T) Run(testFn oneToOneTest) {
 //      ingr.CallWithRetryOrFail(...)
 //    })
 func (t *T) RunFromClusters(testFn oneClusterOneTest) {
-	t.fromEachCluster(t.rootCtx, func(ctx framework.TestContext, c cluster.Cluster) {
-		t.toEachDeployment(ctx, func(ctx framework.TestContext, dstInstances echo.Instances) {
-			t.setupDst(ctx, dstInstances)
-			testFn(ctx, c, dstInstances)
-		})
+	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+		t.setupPair(ctx, nil, echo.Services{dstInstances})
+		if len(ctx.Clusters()) == 1 {
+			testFn(ctx, ctx.Clusters()[0], dstInstances)
+		} else {
+			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
+				testFn(ctx, c, dstInstances)
+			})
+		}
 	})
 }
 
@@ -104,9 +111,9 @@ func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
 //
 func (t *T) RunToN(n int, testFn oneToNTest) {
 	t.fromEachDeployment(t.rootCtx, func(ctx framework.TestContext, srcInstances echo.Instances) {
-		t.setup(ctx, srcInstances)
+		t.setup(ctx, srcInstances.Callers())
 		t.toNDeployments(ctx, n, srcInstances, func(ctx framework.TestContext, destDeployments echo.Services) {
-			t.setupPair(ctx, srcInstances, destDeployments)
+			t.setupPair(ctx, srcInstances.Callers(), destDeployments)
 			t.fromEachWorkloadCluster(ctx, srcInstances, func(ctx framework.TestContext, src echo.Instance) {
 				// reapply destination filters to only get the reachable instances for this cluster
 				// this can be done safely since toNDeployments asserts the Services won't change
@@ -114,6 +121,27 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 				testFn(ctx, src, destDeployments)
 			})
 		})
+	})
+}
+
+func (t *T) RunViaIngress(testFn ingressTest) {
+	i := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+		t.setupPair(ctx, i.Ingresses().Callers(), echo.Services{dstInstances})
+		doTest := func(ctx framework.TestContext, src cluster.Cluster, dst echo.Instances) {
+			ingr := i.IngressFor(src)
+			if ingr == nil {
+				ctx.Skipf("no ingress for %s", src.StableName())
+			}
+			testFn(ctx, ingr, dst)
+		}
+		if len(ctx.Clusters()) == 1 {
+			doTest(ctx, ctx.Clusters()[0], dstInstances)
+		} else {
+			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
+				doTest(ctx, c, dstInstances)
+			})
+		}
 	})
 }
 
