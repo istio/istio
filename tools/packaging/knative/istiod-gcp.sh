@@ -18,14 +18,35 @@ set -ex # Print out all commands, exit on failed commands
 
 if [[ -z ${IN_CLUSTER} ]] ; then
   if [[ -n ${PROJECT} ]]; then
+    # Retry for 3~4 minutes to wait for the IAM permission to get fully
+    # populated (See b/169186377, b/186644991).
+    START=$(date +%s)
+    while true; do
+      CODE="$(curl --write-out '%{http_code}' --silent --show-error --output /tmp/curlout "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" -H "Metadata-Flavor: Google")"
+      if [[ "${CODE}" == "200" ]] ; then
+        # Token request was successful, exit the loop.
+        break
+      fi
+      echo "Response code: ${CODE}"
+      echo "Response body:"
+      cat /tmp/curlout || echo "<no body>"
+      if (( $(date +%s) - START > 3 * 60 + 30 )); then
+        echo 'failed to request the token'
+        exit 1
+      fi
+      sleep 5
+    done
+
     # We must use cluster labels unless explicitly set.
+    # TODO: Investigate if there is a need to retry the gcloud command below
+    # to mitigate flakiness.
     if [[ -z "${GKEHUB}" ]]; then
       GKEHUB="$(gcloud container clusters describe "${CLUSTER}" --zone "${ZONE}" --project "${PROJECT}" --format="value(resourceLabels[hub])" --billing-project "${PROJECT}")"
     fi
 
     # Retry for 5 seconds in case there's flakiness in the gcloud command,
-    # though we expect the command to succeed on the first try (see
-    # b/169186377).
+    # though we expect the command to succeed on the first try. We have
+    # seen random errors like "ERROR: gcloud crashed (MetadataServerException):".
     RET=1
     START=$(date +%s)
     while true; do
