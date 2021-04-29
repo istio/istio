@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -433,6 +434,14 @@ revision: "%s"
 
 	// Rename the generated service from `istiod-<revision>` to `istiod`
 	svc.Name = "istiod"
+
+	// Do not remove this service when the associated revision is removed
+	delete(svc.Labels, label.IoIstioRev.Name)
+
+	// Change selectors such that the `istiod` service selects istiod instances from all revisions
+	svc.Spec.Selector = map[string]string{
+		"app": "istiod",
+	}
 	_, err = cs.CoreV1().Services(istioNs).Create(context.TODO(), svc, metav1.CreateOptions{})
 	if err != nil {
 		return err
