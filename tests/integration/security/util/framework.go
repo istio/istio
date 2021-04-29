@@ -276,14 +276,13 @@ func IsMultiversion() echo.Matcher {
 	}
 }
 
-// CheckExistence returns true if all the instances are available.
-func CheckExistence(instances ...echo.Instances) bool {
+// CheckExistence skips the test if any instance is not available.
+func CheckExistence(ctx framework.TestContext, instances ...echo.Instances) {
 	for _, inst := range instances {
 		if inst == nil || len(inst) == 0 {
-			return false
+			ctx.Skip()
 		}
 	}
-	return true
 }
 
 func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
