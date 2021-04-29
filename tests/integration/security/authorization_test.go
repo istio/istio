@@ -94,6 +94,9 @@ func TestAuthorization_mTLS(t *testing.T) {
 					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 						c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
+						if !util.CheckExistence(a, c) {
+							t.Skip()
+						}
 						newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 							callCount := 1
 							if to.Clusters().IsMulticluster() {
@@ -150,6 +153,9 @@ func TestAuthorization_JWT(t *testing.T) {
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						if !util.CheckExistence(a) {
+							t.Skip()
+						}
 						callCount := 1
 						if t.Clusters().IsMulticluster() {
 							// so we can validate all clusters are hit
@@ -258,6 +264,9 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 			for _, srcCluster := range t.Clusters() {
 				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+				if !util.CheckExistence(a) {
+					t.Skip()
+				}
 				cases := []struct {
 					b        string
 					c        string
@@ -370,6 +379,9 @@ func TestAuthorization_Deny(t *testing.T) {
 			for _, srcCluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+					if !util.CheckExistence(a) {
+						t.Skip()
+					}
 					newTestCase := func(target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
@@ -454,6 +466,9 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					bInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
+					if !util.CheckExistence(a, bInNS2) {
+						t.Skip()
+					}
 					newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
@@ -1157,7 +1172,10 @@ func TestAuthorization_Path(t *testing.T) {
 			for _, a := range []echo.Instances{a, vm} {
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-						b := apps.B.GetOrFail(t, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						b := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						if !util.CheckExistence(b) {
+							t.Skip()
+						}
 						args := map[string]string{
 							"Namespace": ns.Name(),
 							"a":         a[0].Config().Service,
@@ -1175,7 +1193,7 @@ func TestAuthorization_Path(t *testing.T) {
 						newTestCase := func(to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 							return rbacUtil.TestCase{
 								Request: connection.Checker{
-									From: b,
+									From: b[0],
 									Options: echo.CallOptions{
 										Target:   to[0],
 										PortName: "http",

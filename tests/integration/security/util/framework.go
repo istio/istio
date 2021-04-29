@@ -276,6 +276,16 @@ func IsMultiversion() echo.Matcher {
 	}
 }
 
+// CheckExistence returns true if all the instances are available.
+func CheckExistence(instances ...echo.Instances) bool {
+	for _, inst := range instances {
+		if inst == nil || len(inst) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
 	errG := multierror.Group{}
 	for _, c := range ctx.Clusters().Primaries() {
