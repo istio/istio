@@ -7,6 +7,11 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 
+# The following section is used as base image if BASE_DISTRIBUTION=distroless
+FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
+
+FROM ${BASE_DISTRIBUTION}
+
 LABEL description="Istio CNI plugin installer."
 
 COPY istio-cni /opt/cni/bin/
