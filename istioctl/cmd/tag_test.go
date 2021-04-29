@@ -383,7 +383,7 @@ func TestSetTagErrors(t *testing.T) {
 				Interface: client,
 			}
 			skipConfirmation = true
-			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, false, &out)
+			err := setTag(context.Background(), mockClient, tc.tag, tc.revision, false, &out, nil)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -401,32 +401,44 @@ func TestSetTagErrors(t *testing.T) {
 
 func TestSetTagWebhookCreation(t *testing.T) {
 	tcs := []struct {
-		name    string
-		webhook admit_v1.MutatingWebhookConfiguration
-		tagName string
-		whURL   string
-		whSVC   string
+		name        string
+		webhook     admit_v1.MutatingWebhookConfiguration
+		tagName     string
+		whURL       string
+		whSVC       string
+		numWebhooks int
 	}{
 		{
-			name:    "webhook-pointing-to-service",
-			webhook: revisionCanonicalWebhook,
-			tagName: "canary",
-			whURL:   "",
-			whSVC:   "istiod-revision",
+			name:        "webhook-pointing-to-service",
+			webhook:     revisionCanonicalWebhook,
+			tagName:     "canary",
+			whURL:       "",
+			whSVC:       "istiod-revision",
+			numWebhooks: 2,
 		},
 		{
-			name:    "webhook-pointing-to-url",
-			webhook: revisionCanonicalWebhookRemote,
-			tagName: "canary",
-			whURL:   remoteInjectionURL,
-			whSVC:   "",
+			name:        "webhook-pointing-to-url",
+			webhook:     revisionCanonicalWebhookRemote,
+			tagName:     "canary",
+			whURL:       remoteInjectionURL,
+			whSVC:       "",
+			numWebhooks: 2,
 		},
 		{
-			name:    "webhook-pointing-to-default-revision",
-			webhook: defaultRevisionCanonicalWebhook,
-			tagName: "canary",
-			whURL:   "",
-			whSVC:   "istiod",
+			name:        "webhook-pointing-to-default-revision",
+			webhook:     defaultRevisionCanonicalWebhook,
+			tagName:     "canary",
+			whURL:       "",
+			whSVC:       "istiod",
+			numWebhooks: 2,
+		},
+		{
+			name:        "webhook-pointing-to-default-revision",
+			webhook:     defaultRevisionCanonicalWebhook,
+			tagName:     "default",
+			whURL:       "",
+			whSVC:       "istiod",
+			numWebhooks: 4,
 		},
 	}
 	scheme := runtime.NewScheme()
@@ -451,8 +463,9 @@ func TestSetTagWebhookCreation(t *testing.T) {
 		wh := whObject.(*admit_v1.MutatingWebhookConfiguration)
 
 		// expect both namespace.sidecar-injector.istio.io and object.sidecar-injector.istio.io webhooks
-		if len(wh.Webhooks) != 2 {
-			t.Errorf("expected 1 webhook in MutatingWebhookConfiguration, found %d", len(wh.Webhooks))
+		if len(wh.Webhooks) != tc.numWebhooks {
+			t.Errorf("expected %d webhook(s) in MutatingWebhookConfiguration, found %d",
+				tc.numWebhooks, len(wh.Webhooks))
 		}
 		tag, exists := wh.ObjectMeta.Labels[istioTagLabel]
 		if !exists {

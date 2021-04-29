@@ -27,12 +27,21 @@ import (
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"istio.io/api/label"
+	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/analysis/local"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -45,7 +54,7 @@ const (
 	revisionTagTemplateName     = "revision-tags.yaml"
 	// Revision tags require that the target istiod patches ALL webhooks with matching istio.io/rev label,
 	// a behavior that just made it into 1.10 (https://github.com/istio/istio/pull/29583)
-	minRevisionTagIstioVersion = "1.10"
+	minRevisionTagIstioVersion = "1.10.0"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -145,7 +154,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout())
+			return setTag(context.Background(), client, args[0], revision, false, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -192,7 +201,7 @@ injection labels.`,
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout())
+			return setTag(context.Background(), client, args[0], revision, true, cmd.OutOrStdout(), cmd.OutOrStderr())
 		},
 	}
 
@@ -268,7 +277,7 @@ revision tag before removing using the "istioctl x revision tag list" command.
 }
 
 // setTag creates or modifies a revision tag.
-func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w io.Writer) error {
+func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w, stderr io.Writer) error {
 	// ensure that the revision is recent enough to patch tag webhooks
 	if !skipConfirmation {
 		sufficient, version, err := versionCheck(revision)
@@ -276,7 +285,9 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 			return err
 		}
 		if !sufficient {
-			confirm(fmt.Sprintf(versionCheckStr, revision, version, minRevisionTagIstioVersion), w)
+			if !confirm(fmt.Sprintf(versionCheckStr, revision, version, minRevisionTagIstioVersion), w) {
+				return nil
+			}
 		}
 	}
 
@@ -321,6 +332,28 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	if webhookName != "" {
 		tagWhYAML = renameTagWebhookConfiguration(tagWhYAML, tag, webhookName)
 	}
+
+	// Check the newly generated webhook does not conflict with existing ones
+	resName := webhookName
+	if resName == "" {
+		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tag)
+	}
+	if err := analyzeWebhook(resName, tagWhYAML, kubeClient.RESTConfig()); err != nil {
+		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
+		// warning; when actually applying we will also confirm to ensure the user does not see the
+		// warning *after* it has applied
+		if skipConfirmation {
+			_, _ = stderr.Write([]byte(err.Error()))
+			if !generate {
+				if !confirm("Apply anyways? [y/N]", w) {
+					return nil
+				}
+			}
+		} else {
+			return err
+		}
+	}
+
 	if generate {
 		_, err := w.Write([]byte(tagWhYAML))
 		if err != nil {
@@ -333,6 +366,35 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
 	fmt.Fprintf(w, tagCreatedStr, tag, revision, tag)
+	return nil
+}
+
+func analyzeWebhook(name, wh string, config *rest.Config) error {
+	sa := local.NewSourceAnalyzer(schema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
+		resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
+	if err := sa.AddReaderKubeSource([]local.ReaderSource{{Name: "", Reader: strings.NewReader(wh)}}); err != nil {
+		return err
+	}
+	k := cfgKube.NewInterfaces(config)
+	sa.AddRunningKubeSource(k)
+	res, err := sa.Analyze(make(chan struct{}))
+	if err != nil {
+		return err
+	}
+	relevantMessages := diag.Messages{}
+	for _, msg := range res.Messages.FilterOutLowerThan(diag.Error) {
+		if msg.Resource.Metadata.FullName.Name == resource.LocalName(name) {
+			relevantMessages = append(relevantMessages, msg)
+		}
+	}
+	if len(relevantMessages) > 0 {
+		o, err := formatting.Print(relevantMessages, formatting.LogFormat, colorize)
+		if err != nil {
+			return err
+		}
+		// nolint
+		return fmt.Errorf("creating tag would conflict, pass --skip-confirmation to proceed:\n%v\n", o)
+	}
 	return nil
 }
 
@@ -608,6 +670,10 @@ func versionCheck(rev string) (bool, string, error) {
 		Revision: revision,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "no running Istio pods") {
+			// No pods in cluster - assume it is external Istiod and is supported
+			return true, "", nil
+		}
 		return false, "", err
 	}
 	if meshInfo == nil {

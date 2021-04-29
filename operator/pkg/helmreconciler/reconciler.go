@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/version"
 )
 
@@ -242,6 +243,18 @@ func (h *HelmReconciler) CheckSSAEnabled() bool {
 		// There is a mutatingwebhook in gke that would corrupt the managedFields, which is fixed in k8s 1.18.
 		// See: https://github.com/kubernetes/kubernetes/issues/96351
 		if k8sVer >= 18 {
+			// todo(kebe7jun) a more general test method
+			// API Server does not support detecting whether ServerSideApply is enabled
+			// through the API for the time being.
+			ns, err := h.clientSet.CoreV1().Namespaces().Get(context.TODO(), constants.KubeSystemNamespace, v12.GetOptions{})
+			if err != nil {
+				scope.Warnf("failed to get namespace: %v", err)
+				return false
+			}
+			if ns.ManagedFields == nil {
+				scope.Infof("k8s support ServerSideApply but was manually disabled")
+				return false
+			}
 			return true
 		}
 	}
@@ -262,7 +275,7 @@ func (h *HelmReconciler) Delete() error {
 	// Delete IOP with revision:
 	// for this case we update the status field to pending if there are still proxies pointing to this revision
 	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
-	status, err := h.PruneControlPlaneByRevisionWithController(valuesv1alpha1.Namespace(iop.Spec), iop.Spec.Revision)
+	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec)
 	if err != nil {
 		return err
 	}

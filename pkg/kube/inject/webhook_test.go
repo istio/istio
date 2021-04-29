@@ -34,7 +34,6 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batch "k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -493,7 +492,7 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 	switch o := obj.(type) {
 	case *corev1.Pod:
 		return o
-	case *batch.CronJob:
+	case *batchv1.CronJob:
 		o.Spec.JobTemplate.Spec.Template.ObjectMeta = simulateOwnerRef(o.Spec.JobTemplate.Spec.Template.ObjectMeta, o.Name, gvk)
 		return &corev1.Pod{
 			ObjectMeta: o.Spec.JobTemplate.Spec.Template.ObjectMeta,
@@ -815,11 +814,11 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		port       = 0
 	)
 
-	if err := ioutil.WriteFile(configFile, configBytes, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(configFile, configBytes, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := ioutil.WriteFile(valuesFile, []byte(values), 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(valuesFile, []byte(values), 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
@@ -1147,6 +1146,48 @@ func TestParseInjectEnvs(t *testing.T) {
 			name: "key-without-value",
 			in:   "/inject/cluster/cluster1/network",
 			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1"},
+		},
+		{
+			name: "key-with-values-contain-slashes",
+			in:   "/inject/:ENV:cluster=cluster2:ENV:rootpage=/foo/bar",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster2", "ROOTPAGE": "/foo/bar"},
+		},
+		{
+			// this is to test the path not following :ENV: format, the
+			// path will be considered using slash as separator
+			name: "no-predefined-kv-with-values-contain-ENV-separator",
+			in:   "/inject/rootpage1/value1/rootpage2/:ENV:abcd=efgh",
+			want: map[string]string{"ROOTPAGE1": "value1", "ROOTPAGE2": ":ENV:abcd=efgh"},
+		},
+		{
+			// this is to test the path following :ENV: format, but two variables
+			// do not have correct format, thus they will be ignored. Eg. :ENV:=abb
+			// :ENV:=, these two are not correct variables.
+			name: "no-predefined-kv-with-values-contain-ENV-separator-invalid-format",
+			in:   "/inject/:ENV:rootpage1=efgh:ENV:=abb:ENV:=",
+			want: map[string]string{"ROOTPAGE1": "efgh"},
+		},
+		{
+			// this is to test that the path is an url encoded string, still using
+			// slash as separators
+			name: "no-predefined-kv-with-mixed-values",
+			in: func() string {
+				req, _ := http.NewRequest("GET",
+					"%2Finject%2Frootpage1%2Ffoo%2Frootpage2%2Fbar", nil)
+				return req.URL.Path
+			}(),
+			want: map[string]string{"ROOTPAGE1": "foo", "ROOTPAGE2": "bar"},
+		},
+		{
+			// this is to test that the path is an url encoded string and :ENV: as separator
+			// eg. /inject/:ENV:rootpage1=/foo/bar:ENV:rootpage2=/bar/toe but url encoded.
+			name: "no-predefined-kv-with-slashes",
+			in: func() string {
+				req, _ := http.NewRequest("GET",
+					"%2Finject%2F%3AENV%3Arootpage1%3D%2Ffoo%2Fbar%3AENV%3Arootpage2%3D%2Fbar%2Ftoe", nil)
+				return req.URL.Path
+			}(),
+			want: map[string]string{"ROOTPAGE1": "/foo/bar", "ROOTPAGE2": "/bar/toe"},
 		},
 	}
 

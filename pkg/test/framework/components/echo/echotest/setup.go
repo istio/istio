@@ -22,6 +22,7 @@ import (
 type (
 	srcSetupFn     func(ctx framework.TestContext, src echo.Instances) error
 	svcPairSetupFn func(ctx framework.TestContext, src echo.Instances, dsts echo.Services) error
+	dstSetupFn     func(ctx framework.TestContext, dsts echo.Instances) error
 	pairSetupFn    func(ctx framework.TestContext, src, dsts echo.Instances) error
 )
 
@@ -73,6 +74,19 @@ func (t *T) SetupForServicePair(setupFn svcPairSetupFn) *T {
 func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dsts echo.Services) {
 	for _, setupFn := range t.deploymentPairSetup {
 		if err := setupFn(ctx, src, dsts); err != nil {
+			ctx.Fatal(err)
+		}
+	}
+}
+
+func (t *T) SetupForDestination(setupFn dstSetupFn) *T {
+	t.destinationDeploymentSetup = append(t.destinationDeploymentSetup, setupFn)
+	return t
+}
+
+func (t *T) setupDst(ctx framework.TestContext, dsts echo.Instances) {
+	for _, setupFn := range t.destinationDeploymentSetup {
+		if err := setupFn(ctx, dsts); err != nil {
 			ctx.Fatal(err)
 		}
 	}

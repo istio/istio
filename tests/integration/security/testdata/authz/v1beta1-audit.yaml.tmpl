@@ -1,12 +1,12 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b-audit
+  name: policy-{{ .b }}-audit
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "b"
+      "app": "{{ .b }}"
   action: AUDIT
   rules:
   - to:
@@ -17,12 +17,12 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b-allow
+  name: policy-{{ .b }}-allow
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "b"
+      "app": "{{ .b }}"
   action: ALLOW
   rules:
   - to:
@@ -33,12 +33,12 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-c-audit
+  name: policy-{{ .c }}-audit
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "c"
+      "app": "{{ .c }}"
   action: AUDIT
   rules:
   - to:
@@ -49,12 +49,12 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-c-deny
+  name: policy-{{ .c }}-deny
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "c"
+      "app": "{{ .c }}"
   action: DENY
   rules:
   - to:
@@ -65,12 +65,12 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-d-audit
+  name: policy-{{ .d }}-audit
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "d"
+      "app": "{{ .d }}"
   action: AUDIT
   rules:
   - to:

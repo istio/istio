@@ -37,7 +37,7 @@ import (
 
 // return proxyConfig and trustDomain
 func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
-	annotations, err := readPodAnnotations()
+	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Debugf("failed to read pod annotations: %v", err)
@@ -53,7 +53,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		}
 		fileMeshContents = string(contents)
 	}
-	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv)
+	meshConfig, err := getMeshConfig(fileMeshContents, annotations[annotation.ProxyConfig.Name], proxyConfigEnv, role.Type == model.SidecarProxy)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,9 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 		if byResources != nil {
 			proxyConfig.Concurrency = byResources
 		}
-	} else {
+	} else if concurrency != 0 {
+		// If --concurrency is explicitly set, we will use that. Otherwise, use source determined by
+		// proxy config.
 		proxyConfig.Concurrency = &types.Int32Value{Value: int32(concurrency)}
 	}
 	proxyConfig.ServiceCluster = serviceCluster
@@ -117,8 +119,12 @@ func determineConcurrencyOption() *types.Int32Value {
 //
 // Merging is done by replacement. Any fields present in the overlay will replace those existing fields, while
 // untouched fields will remain untouched. This means lists will be replaced, not appended to, for example.
-func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string) (meshconfig.MeshConfig, error) {
+func getMeshConfig(fileOverride, annotationOverride, proxyConfigEnv string, isSidecar bool) (meshconfig.MeshConfig, error) {
 	mc := mesh.DefaultMeshConfig()
+	// Gateway default should be concurrency unset (ie listen on all threads)
+	if !isSidecar {
+		mc.DefaultConfig.Concurrency = nil
+	}
 
 	if fileOverride != "" {
 		log.Infof("Apply mesh config from file %v", fileOverride)
@@ -155,14 +161,6 @@ func fileExists(path string) bool {
 		return false
 	}
 	return true
-}
-
-func readPodAnnotations() (map[string]string, error) {
-	b, err := ioutil.ReadFile(constants.PodInfoAnnotationsPath)
-	if err != nil {
-		return nil, err
-	}
-	return bootstrap.ParseDownwardAPI(string(b))
 }
 
 func readPodCPURequests() (int, error) {

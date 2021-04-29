@@ -19,22 +19,21 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/authn"
-	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 const (
@@ -43,6 +42,7 @@ const (
 
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/32392")
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
@@ -58,13 +58,10 @@ func TestRequestAuthentication(t *testing.T) {
 
 			jwtServer := applyYAML("../../../samples/jwt-server/jwt-server.yaml", ns)
 			defer t.Config().DeleteYAMLOrFail(t, ns.Name(), jwtServer...)
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "jwt-server"); err != nil {
-				t.Fatalf("Wait for jwt-server server failed: %v", err)
-			}
-
-			// Apply the policy.
-			namespaceTmpl := map[string]string{
-				"Namespace": ns.Name(),
+			for _, cluster := range t.Clusters() {
+				if _, _, err := kube.WaitUntilServiceEndpointsAreReady(cluster, ns.Name(), "jwt-server"); err != nil {
+					t.Fatalf("Wait for jwt-server server failed: %v", err)
+				}
 			}
 
 			callCount := 1
@@ -73,322 +70,284 @@ func TestRequestAuthentication(t *testing.T) {
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			for _, cluster := range t.Clusters() {
-				client := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))[0]
-				dest := apps.B.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-				t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					testCases := []authn.TestCase{
-						{
-							Name:   "valid-token-noauthz",
-							Config: "authn-only",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+			t.NewSubTest("jwt-authn").Run(func(t framework.TestContext) {
+				testCases := []authn.TestCase{
+					{
+						Name:   "valid-token-noauthz",
+						Config: "authn-only",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey:    "",
-								"X-Test-Payload": payload1,
-							},
+							Count: callCount,
 						},
-						{
-							Name:   "valid-token-2-noauthz",
-							Config: "authn-only",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey:    "",
-								"X-Test-Payload": payload2,
-							},
+						ExpectResponseCode: response.StatusCodeOK,
+						ExpectHeaders: map[string]string{
+							authHeaderKey:    "",
+							"X-Test-Payload": payload1,
 						},
-						{
-							Name:   "expired-token-noauthz",
-							Config: "authn-only",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenExpired},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+					},
+					{
+						Name:   "valid-token-2-noauthz",
+						Config: "authn-only",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
 							},
-							ExpectResponseCode: response.StatusUnauthorized,
+							Count: callCount,
 						},
-						{
-							Name:   "no-token-noauthz",
-							Config: "authn-only",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
-								},
-								DestClusters: dest.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: response.StatusCodeOK,
+						ExpectHeaders: map[string]string{
+							authHeaderKey:    "",
+							"X-Test-Payload": payload2,
 						},
-						// Following app b is configured with authorization, only request with valid JWT succeed.
-						{
-							Name:   "valid-token",
-							Config: "authn-authz",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+					},
+					{
+						Name:   "expired-token-noauthz",
+						Config: "authn-only",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey: "",
-							},
+							Count: callCount,
 						},
-						{
-							Name:   "expired-token",
-							Config: "authn-authz",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenExpired},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
-							},
-							ExpectResponseCode: response.StatusUnauthorized,
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
+						Name:   "no-token-noauthz",
+						Config: "authn-only",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Count:    callCount,
 						},
-						{
-							Name:   "no-token",
-							Config: "authn-authz",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
-								},
-								DestClusters: dest.Clusters(),
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					// Destination app is configured with authorization, only request with valid JWT succeed.
+					{
+						Name:   "valid-token",
+						Config: "authn-authz",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
-							ExpectResponseCode: response.StatusCodeForbidden,
+							Count: callCount,
 						},
-						{
-							Name: "no-authn-authz",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
-								},
-								DestClusters: dest.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
+						ExpectResponseCode: response.StatusCodeOK,
+						ExpectHeaders: map[string]string{
+							authHeaderKey: "",
 						},
-						{
-							Name:   "valid-token-forward",
-							Config: "forward",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+					},
+					{
+						Name:   "expired-token",
+						Config: "authn-authz",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
-								"X-Test-Payload": payload1,
-							},
+							Count: callCount,
 						},
-						{
-							Name:   "valid-token-forward-remote-jwks",
-							Config: "remote",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
-							ExpectHeaders: map[string]string{
-								authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
-								"X-Test-Payload": payload1,
-							},
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
+						Name:   "no-token",
+						Config: "authn-authz",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Count:    callCount,
 						},
-						{
-							Name:   "invalid aud",
-							Config: "aud",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeForbidden,
+						ExpectResponseCode: response.StatusCodeForbidden,
+					},
+					{
+						Name: "no-authn-authz",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Count:    callCount,
 						},
-						{
-							Name:   "valid aud",
-							Config: "aud",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1WithAud},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "valid-token-forward",
+						Config: "forward",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
-							ExpectResponseCode: response.StatusCodeOK,
+							Count: callCount,
 						},
-						{
-							Name:   "verify policies are combined",
-							Config: "aud",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+						ExpectResponseCode: response.StatusCodeOK,
+						ExpectHeaders: map[string]string{
+							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+							"X-Test-Payload": payload1,
+						},
+					},
+					{
+						Name:   "valid-token-forward-remote-jwks",
+						Config: "remote",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
-							ExpectResponseCode: response.StatusCodeOK,
+							Count: callCount,
 						},
-						{
-							Name:   "invalid-jwks-valid-token-noauthz",
-							Config: "invalid-jwks",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+						ExpectResponseCode: response.StatusCodeOK,
+						ExpectHeaders: map[string]string{
+							authHeaderKey:    "Bearer " + jwt.TokenIssuer1,
+							"X-Test-Payload": payload1,
+						},
+						// This test does not generate cross-cluster traffic, but is flaky
+						// in multicluster test. Skip in multicluster mesh.
+						// TODO(JimmyCYJ): enable the test in multicluster mesh.
+						SkipMultiCluster: true,
+					},
+					{
+						Name:   "invalid aud",
+						Config: "aud",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
-							ExpectResponseCode: response.StatusUnauthorized,
+							Count: callCount,
 						},
-						{
-							Name:   "invalid-jwks-expired-token-noauthz",
-							Config: "invalid-jwks",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenExpired},
-									},
-									Count: callCount,
-								},
-								DestClusters: dest.Clusters(),
+						ExpectResponseCode: response.StatusCodeForbidden,
+					},
+					{
+						Name:   "valid aud",
+						Config: "aud",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1WithAud},
 							},
-							ExpectResponseCode: response.StatusUnauthorized,
+							Count: callCount,
 						},
-						{
-							Name:   "invalid-jwks-no-token-noauthz",
-							Config: "invalid-jwks",
-							Request: connection.Checker{
-								From: client,
-								Options: echo.CallOptions{
-									Target:   dest[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
-								},
-								DestClusters: dest.Clusters(),
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "verify policies are combined",
+						Config: "aud",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
 							},
-							ExpectResponseCode: response.StatusCodeOK,
+							Count: callCount,
 						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+					{
+						Name:   "invalid-jwks-valid-token-noauthz",
+						Config: "invalid-jwks",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
+						Name:   "invalid-jwks-expired-token-noauthz",
+						Config: "invalid-jwks",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
+							},
+							Count: callCount,
+						},
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
+						Name:   "invalid-jwks-no-token-noauthz",
+						Config: "invalid-jwks",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+				}
+				for _, c := range testCases {
+					if c.SkipMultiCluster && t.Clusters().IsMulticluster() {
+						t.Skip()
 					}
-					for _, c := range testCases {
-						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
+					echotest.New(t, apps.All).
+						SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
 							if c.Config != "" {
-								policy := tmpl.EvaluateOrFail(t,
-									file.AsStringOrFail(t, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)), namespaceTmpl)
-								t.Config().ApplyYAMLOrFail(t, ns.Name(), policy)
-								util.WaitForConfig(t, policy, ns)
+								policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+									file.AsStringOrFail(t, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)),
+									map[string]string{
+										"Namespace": ns.Name(),
+										"dst":       dst[0].Config().Service,
+									},
+								), ns.Name())
+								return t.Config().ApplyYAML(ns.Name(), policy)
 							}
-
-							retry.UntilSuccessOrFail(t, c.CheckAuthn, echo.DefaultCallRetryOptions()...)
+							return nil
+						}).
+						From(
+							// TODO(JimmyCYJ): enable VM and fix valid-token-forward-remote-jwks and invalid_aud.
+							filters(t, ns.Name(), true)...).
+						ConditionallyTo(echotest.ReachableDestinations).
+						To(filters(t, ns.Name(), false)...).
+						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
+								c.CallOpts.Target = dest[0]
+								c.DestClusters = dest.Match(echo.InCluster(src.Config().Cluster)).Clusters()
+								c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
+								src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
+							})
 						})
-					}
-				})
-			}
+				}
+			})
 		})
+}
+
+// filters returns a set of filters to only select injected workloads. VM is skipped
+// if skipVM is true.
+// TODO(JimmyCYJ): Simplify this function as a single filter.
+func filters(t framework.TestContext, ns string, skipVM bool) []echotest.Filter {
+	rt := []echotest.Filter{
+		echotest.SingleSimplePodServiceAndAllSpecial(),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
+		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
+		func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns)) },
+		// TODO(JimmyCYJ): extend clusters to cover cross-cluster traffic.
+		func(instances echo.Instances) echo.Instances {
+			return instances.Match(echo.InCluster(t.Clusters().Default()))
+		},
+	}
+	if skipVM {
+		rt = append(rt, echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsVirtualMachine()) }))
+	}
+	return rt
 }
 
 // TestIngressRequestAuthentication tests beta authn policy for jwt on ingress.
@@ -409,11 +368,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
 				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 			}
-
 			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
-			applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
-
-			bSet := apps.B.Match(echo.Namespace(ns.Name()))
 
 			callCount := 1
 			if t.Clusters().IsMulticluster() {
@@ -421,49 +376,71 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				callCount = util.CallsPerCluster * len(t.Clusters())
 			}
 
-			for _, cluster := range t.Clusters() {
-				t.NewSubTest(fmt.Sprintf("In %s", cluster.StableName())).Run(func(t framework.TestContext) {
-					a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
-					// These test cases verify in-mesh traffic doesn't need tokens.
-					testCases := []authn.TestCase{
-						{
-							Name: "in-mesh-with-expired-token",
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   bSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Headers: map[string][]string{
-										authHeaderKey: {"Bearer " + jwt.TokenExpired},
-									},
-									Count: callCount,
-								},
-								DestClusters: bSet.Clusters(),
+			t.NewSubTest("in-mesh-authn").Run(func(t framework.TestContext) {
+				// These test cases verify in-mesh traffic doesn't need tokens.
+				testCases := []authn.TestCase{
+					{
+						Name: "in-mesh-with-expired-token",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
-							ExpectResponseCode: response.StatusUnauthorized,
+							Count: callCount,
 						},
-						{
-							Name: "in-mesh-without-token",
-							Request: connection.Checker{
-								From: a[0],
-								Options: echo.CallOptions{
-									Target:   bSet[0],
-									PortName: "http",
-									Scheme:   scheme.HTTP,
-									Count:    callCount,
+						ExpectResponseCode: response.StatusUnauthorized,
+					},
+					{
+						Name: "in-mesh-without-token",
+						CallOpts: echo.CallOptions{
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Count:    callCount,
+						},
+						ExpectResponseCode: response.StatusCodeOK,
+					},
+				}
+				for _, c := range testCases {
+					echotest.New(t, apps.All).
+						SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+							policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+								file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
+								map[string]string{
+									"Namespace": ns.Name(),
+									"dst":       dst[0].Config().Service,
 								},
-								DestClusters: bSet.Clusters(),
-							},
-							ExpectResponseCode: response.StatusCodeOK,
-						},
-					}
-					for _, c := range testCases {
-						t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
-							retry.UntilSuccessOrFail(t, c.CheckAuthn,
-								retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+							), ns.Name())
+							return t.Config().ApplyYAML(ns.Name(), policy)
+						}).
+						From(filters(t, ns.Name(), false)...).
+						ConditionallyTo(echotest.ReachableDestinations).
+						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
+							return to.Match(echo.InCluster(from.Config().Cluster))
+						}).
+						To(filters(t, ns.Name(), false)...).
+						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
+								c.CallOpts.Target = dest[0]
+								c.DestClusters = dest.Clusters()
+								c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
+								src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
+							})
 						})
-					}
+				}
+			})
+
+			// TODO(JimmyCYJ): add workload-agnostic test pattern to support ingress gateway tests.
+			policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+				file.AsStringOrFail(t, "testdata/requestauthn/ingress.yaml.tmpl"),
+				map[string]string{
+					"Namespace": ns.Name(),
+					"dst":       util.BSvc,
+				},
+			), ns.Name())
+			t.Config().ApplyYAMLOrFail(t, ns.Name(), policy)
+			t.NewSubTest("ingress-authn").Run(func(t framework.TestContext) {
+				for _, cluster := range t.Clusters() {
 					ingr := ist.IngressFor(cluster)
 					// These test cases verify requests go through ingress will be checked for validate token.
 					ingTestCases := []struct {
@@ -540,7 +517,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							authn.CheckIngressOrFail(t, ingr, c.Host, c.Path, nil, c.Token, c.ExpectResponseCode)
 						})
 					}
-				})
-			}
+				}
+			})
 		})
 }

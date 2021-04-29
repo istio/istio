@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -252,6 +253,7 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 // DetectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
 func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClient kube.ExtendedClient, setFlags []string) error {
+	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
 		return err
@@ -284,16 +286,17 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 			} else {
 				msg = "An older"
 			}
-			cmd.Printf("! Istio control planes installed: %s.\n"+
-				"! "+msg+" installed version of Istio has been detected. Running this command will overwrite it.\n", strings.Join(icpTags, ", "))
+			cmd.Printf("%s Istio control planes installed: %s.\n"+
+				"%s "+msg+" installed version of Istio has been detected. Running this command will overwrite it.\n", warnMarker, strings.Join(icpTags, ", "), warnMarker)
 		}
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag && revision != "" {
 			if icpTag > tag {
-				cmd.Printf("! Istio is being upgraded from %s -> %s.\n"+
-					"! Before upgrading, you may wish to use 'istioctl analyze' to check for IST0002 and IST0135 deprecation warnings.\n", icpTag, tag)
+				cmd.Printf("%s Istio is being upgraded from %s -> %s.\n"+
+					"%s Before upgrading, you may wish to use 'istioctl analyze' to check for"+
+					"IST0002 and IST0135 deprecation warnings.\n", warnMarker, icpTag, tag, warnMarker)
 			} else {
-				cmd.Printf("! Istio is being downgraded from %s -> %s.", icpTag, tag)
+				cmd.Printf("%s Istio is being downgraded from %s -> %s.", warnMarker, icpTag, tag)
 			}
 		}
 	}
@@ -327,13 +330,13 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 			}
 		}
 		for _, c := range iop.Spec.Components.IngressGateways {
-			if util.BoolValue(c.Enabled) {
+			if c.Enabled.GetValue() {
 				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.IngressComponentName))
 				break
 			}
 		}
 		for _, c := range iop.Spec.Components.EgressGateways {
-			if util.BoolValue(c.Enabled) {
+			if c.Enabled.GetValue() {
 				enabledComponents = append(enabledComponents, name.UserFacingComponentName(name.EgressComponentName))
 				break
 			}

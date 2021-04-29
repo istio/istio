@@ -34,7 +34,7 @@ var (
 	// GKEClusterURL is the URL to send requests to the token exchange service.
 	GKEClusterURL = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
-	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
+	SecureTokenEndpoint = "https://sts.googleapis.com/v1/token"
 	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
 )
 
@@ -100,7 +100,7 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 			return body, err
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
-		lastError = fmt.Errorf("token exchange request failed: status code %v body %v", resp.StatusCode, body)
+		lastError = fmt.Errorf("token exchange request failed: status code %v body %v", resp.StatusCode, string(body))
 		resp.Body.Close()
 		if !retryable(resp.StatusCode) {
 			break
@@ -119,19 +119,19 @@ func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, er
 
 	body, err := p.requestWithRetry(jsonStr)
 	if err != nil {
-		return "", fmt.Errorf("token exchange failed (aud: %s): %v", aud, err)
+		return "", fmt.Errorf("token exchange failed: %v, (aud: %s, STS endpoint: %s)", err, aud, SecureTokenEndpoint)
 	}
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
 		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
 		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
-		return "", fmt.Errorf("(aud: %s), failed to unmarshal response data of size %v: %v",
-			aud, len(body), err)
+		return "", fmt.Errorf("(aud: %s, STS endpoint: %s), failed to unmarshal response data of size %v: %v",
+			aud, SecureTokenEndpoint, len(body), err)
 	}
 
 	if respData.AccessToken == "" {
 		return "", fmt.Errorf(
-			"exchanged empty token (aud: %s), response: %v", aud, string(body))
+			"exchanged empty token (aud: %s, STS endpoint: %s), response: %v", aud, SecureTokenEndpoint, string(body))
 	}
 
 	return respData.AccessToken, nil

@@ -42,9 +42,10 @@ var (
 
 // kubeNamespace represents a Kubernetes namespace. It is tracked as a resource.
 type kubeNamespace struct {
-	id   resource.ID
-	name string
-	ctx  resource.Context
+	id     resource.ID
+	name   string
+	prefix string
+	ctx    resource.Context
 }
 
 func (n *kubeNamespace) Dump(ctx resource.Context) {
@@ -68,6 +69,10 @@ var (
 
 func (n *kubeNamespace) Name() string {
 	return n.name
+}
+
+func (n *kubeNamespace) Prefix() string {
+	return n.prefix
 }
 
 func (n *kubeNamespace) SetLabel(key, value string) error {
@@ -111,7 +116,7 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 			}
 		}
 	}
-	return &kubeNamespace{name: nsConfig.Prefix}, nil
+	return &kubeNamespace{prefix: nsConfig.Prefix, name: nsConfig.Prefix}, nil
 }
 
 // setNamespaceLabel labels a namespace with the given key, value pair
@@ -152,8 +157,9 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 
 	ns := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
 	n := &kubeNamespace{
-		name: ns,
-		ctx:  ctx,
+		name:   ns,
+		prefix: nsConfig.Prefix,
+		ctx:    ctx,
 	}
 	id := ctx.TrackResource(n)
 	n.id = id
@@ -188,7 +194,7 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 	if cfg.Inject {
 		// do not add namespace labels when dealing with multiple revisions since
 		// this disables the necessary object selectors
-		if !ctx.Settings().IstioVersions.IsMultiVersion() {
+		if !ctx.Settings().Revisions.IsMultiVersion() {
 			if cfg.Revision != "" {
 				l[label.IoIstioRev.Name] = cfg.Revision
 			} else {
@@ -198,7 +204,7 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 	} else {
 		// for multiversion environments, disable the entire namespace explicitly
 		// so that object selectors are ignored
-		if ctx.Settings().IstioVersions.IsMultiVersion() {
+		if ctx.Settings().Revisions.IsMultiVersion() {
 			l["istio-injection"] = "disabled"
 		}
 	}

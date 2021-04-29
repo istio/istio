@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -93,7 +94,7 @@ type ingressImpl struct {
 
 // getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
 // the returned net.Addr will have the externally reachable NodePort address and port.
-func (c *ingressImpl) getAddressInner(port int) (net.TCPAddr, error) {
+func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
 	attempts := 0
 	addr, err := retry.Do(func() (result interface{}, completed bool, err error) {
 		attempts++
@@ -105,40 +106,62 @@ func (c *ingressImpl) getAddressInner(port int) (net.TCPAddr, error) {
 		}
 		return
 	}, getAddressTimeout, getAddressDelay)
-	if addr != nil {
-		return addr.(net.TCPAddr), err
+	if err != nil {
+		return "", 0, err
 	}
-	return net.TCPAddr{}, err
+
+	switch v := addr.(type) {
+	case string:
+		host, portStr, err := net.SplitHostPort(v)
+		if err != nil {
+			return "", 0, err
+		}
+		mappedPort, err := strconv.Atoi(portStr)
+		if err != nil {
+			return "", 0, err
+		}
+		return host, mappedPort, nil
+	case net.TCPAddr:
+		return v.IP.String(), v.Port, nil
+	}
+
+	return "", 0, fmt.Errorf("failed to get address for port %v", port)
 }
 
-// AddressForPort returns the externally reachable address of the component for the given port.
-func (c *ingressImpl) AddressForPort(port int) net.TCPAddr {
-	address, err := c.getAddressInner(port)
+// AddressForPort returns the externally reachable host and port of the component for the given port.
+func (c *ingressImpl) AddressForPort(port int) (string, int) {
+	host, port, err := c.getAddressInner(port)
 	if err != nil {
 		scopes.Framework.Error(err)
-		return net.TCPAddr{}
+		return "", 0
 	}
-	return address
+	return host, port
 }
 
-// HTTPAddress returns the externally reachable HTTP address (80) of the component.
-func (c *ingressImpl) HTTPAddress() net.TCPAddr {
+// HTTPAddress returns the externally reachable HTTP host and port (80) of the component.
+func (c *ingressImpl) HTTPAddress() (string, int) {
 	return c.AddressForPort(80)
 }
 
-// TCPAddress returns the externally reachable TCP address (31400) of the component.
-func (c *ingressImpl) TCPAddress() net.TCPAddr {
+// TCPAddress returns the externally reachable TCP host and port (31400) of the component.
+func (c *ingressImpl) TCPAddress() (string, int) {
 	return c.AddressForPort(31400)
 }
 
-// HTTPSAddress returns the externally reachable TCP address (443) of the component.
-func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
+// HTTPSAddress returns the externally reachable TCP host and port (443) of the component.
+func (c *ingressImpl) HTTPSAddress() (string, int) {
 	return c.AddressForPort(443)
 }
 
 // DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
 func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
-	return c.AddressForPort(discoveryPort)
+	host, port := c.AddressForPort(discoveryPort)
+	ip := net.ParseIP(host)
+	if ip.String() == "<nil>" {
+		// TODO support hostname based discovery address
+		return net.TCPAddr{}
+	}
+	return net.TCPAddr{IP: ip, Port: port}
 }
 
 func (c *ingressImpl) CallEcho(options echo.CallOptions) (client.ParsedResponses, error) {
@@ -173,27 +196,35 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 	if options.Port == nil || options.Port.Protocol == "" {
 		return nil, fmt.Errorf("must provide protocol")
 	}
-	var addr net.TCPAddr
+	var (
+		addr string
+		port int
+	)
 	if options.Port.ServicePort == 0 {
 		// Default port based on protocol
 		switch options.Port.Protocol {
 		case protocol.HTTP:
-			addr = c.HTTPAddress()
+			addr, port = c.HTTPAddress()
 		case protocol.HTTPS:
-			addr = c.HTTPSAddress()
+			addr, port = c.HTTPSAddress()
 		case protocol.TCP:
-			addr = c.TCPAddress()
+			addr, port = c.TCPAddress()
 		default:
 			return nil, fmt.Errorf("protocol %v not supported, provide explicit port", options.Port.Protocol)
 		}
 	} else {
-		addr = c.AddressForPort(options.Port.ServicePort)
+		addr, port = c.AddressForPort(options.Port.ServicePort)
 	}
+
+	if addr == "" || port == 0 {
+		scopes.Framework.Warnf("failed to get host and port for %s/%d", options.Port.Protocol, options.Port.ServicePort)
+	}
+
 	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
-	options.Port.ServicePort = addr.Port
+	options.Port.ServicePort = port
 	if len(options.Address) == 0 {
 		// Default address based on port
-		options.Address = addr.IP.String()
+		options.Address = addr
 	}
 	if options.Headers == nil {
 		options.Headers = map[string][]string{}
@@ -264,4 +295,8 @@ func (c *ingressImpl) unmarshalStats(statsJSON string) (map[string]int, error) {
 		statsMap[v.Name] = int(tmp)
 	}
 	return statsMap, nil
+}
+
+func (c *ingressImpl) Namespace() string {
+	return c.namespace
 }

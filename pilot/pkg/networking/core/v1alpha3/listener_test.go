@@ -1666,7 +1666,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1714,7 +1714,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1738,7 +1738,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1762,7 +1762,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1786,7 +1786,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1811,7 +1811,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1836,7 +1836,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1908,7 +1908,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 							},
 						},
 					},
-				}, defaultTags()...),
+				}, customTracingTags()...),
 			},
 		},
 		{
@@ -2023,7 +2023,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 							},
 						},
 					},
-				}, defaultTags()...),
+				}, customTracingTags()...),
 			},
 		},
 	}
@@ -2032,9 +2032,9 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 
 	for _, tc := range customTagsTest {
 		featuresSet := false
-		capturedSamplingValue := pilotTraceSamplingEnv
+		capturedSamplingValue := features.TraceSampling
 		if tc.envPilotSampling != 0.0 {
-			pilotTraceSamplingEnv = tc.envPilotSampling
+			features.TraceSampling = tc.envPilotSampling
 			featuresSet = true
 		}
 
@@ -2063,9 +2063,45 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
 
 		if featuresSet {
-			pilotTraceSamplingEnv = capturedSamplingValue
+			features.TraceSampling = capturedSamplingValue
 		}
 	}
+}
+
+func customTracingTags() []*tracing.CustomTag {
+	return append(buildOptionalPolicyTags(),
+		&tracing.CustomTag{
+			Tag: "istio.canonical_revision",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "latest",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.canonical_service",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.mesh_id",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.namespace",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "not-default",
+				},
+			},
+		})
 }
 
 func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *hcm.HttpConnectionManager_Tracing, name string) {

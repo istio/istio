@@ -15,7 +15,6 @@
 package zipkin
 
 import (
-	"net"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -36,7 +35,7 @@ type Config struct {
 	Cluster cluster.Cluster
 
 	// HTTP Address of ingress gateway of the cluster to be used to install zipkin in.
-	IngressAddr net.TCPAddr
+	IngressAddr string
 }
 
 // Span represents a single span, which includes span attributes for verification

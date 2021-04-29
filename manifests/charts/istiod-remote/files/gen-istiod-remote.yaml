@@ -323,7 +323,7 @@ data:
             {{- end }}
             restartPolicy: Always
           {{ end -}}
-          {{- if eq .Values.global.proxy.enableCoreDump true }}
+          {{- if eq (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
           - name: enable-core-dump
             args:
             - -c
@@ -366,12 +366,6 @@ data:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - --serviceCluster
-            {{ if ne "" (index .ObjectMeta.Labels "app") -}}
-            - "{{ index .ObjectMeta.Labels `app` }}.$(POD_NAMESPACE)"
-            {{ else -}}
-            - "{{ valueOrDefault .DeploymentMeta.Name `istio-proxy` }}.{{ valueOrDefault .DeploymentMeta.Namespace `default` }}"
-            {{ end -}}
             - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
             - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
             - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
@@ -431,14 +425,6 @@ data:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-            - name: CANONICAL_SERVICE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.labels['service.istio.io/canonical-name']
-            - name: CANONICAL_REVISION
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.labels['service.istio.io/canonical-revision']
             - name: PROXY_CONFIG
               value: |
                      {{ protoToJSON .ProxyConfig }}
@@ -465,11 +451,6 @@ data:
             - name: ISTIO_META_NETWORK
               value: "{{ .Values.global.network }}"
             {{- end }}
-            {{ if .ObjectMeta.Annotations }}
-            - name: ISTIO_METAJSON_ANNOTATIONS
-              value: |
-                     {{ toJSON .ObjectMeta.Annotations }}
-            {{ end }}
             {{- if .DeploymentMeta.Name }}
             - name: ISTIO_META_WORKLOAD_NAME
               value: "{{ .DeploymentMeta.Name }}"
@@ -529,7 +510,7 @@ data:
                 drop:
                 - ALL
               privileged: {{ .Values.global.proxy.privileged }}
-              readOnlyRootFilesystem: {{ not .Values.global.proxy.enableCoreDump }}
+              readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
               runAsGroup: 1337
               fsGroup: 1337
               {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
@@ -794,11 +775,6 @@ data:
             - name: ISTIO_META_NETWORK
               value: "{{ .Values.global.network }}"
             {{- end }}
-            {{ if .ObjectMeta.Annotations }}
-            - name: ISTIO_METAJSON_ANNOTATIONS
-              value: |
-                     {{ toJSON .ObjectMeta.Annotations }}
-            {{ end }}
             {{- if .DeploymentMeta.Name }}
             - name: ISTIO_META_WORKLOAD_NAME
               value: "{{ .DeploymentMeta.Name }}"
@@ -933,6 +909,7 @@ webhooks:
       name: istiod
       namespace: istio-system
       path: "/inject"
+      port: 443
     caBundle: ""
   sideEffects: None
   rules:
@@ -962,6 +939,7 @@ webhooks:
       name: istiod
       namespace: istio-system
       path: "/inject"
+      port: 443
     caBundle: ""
   sideEffects: None
   rules:
@@ -993,6 +971,7 @@ webhooks:
       name: istiod
       namespace: istio-system
       path: "/inject"
+      port: 443
     caBundle: ""
   sideEffects: None
   rules:
@@ -1020,6 +999,7 @@ webhooks:
       name: istiod
       namespace: istio-system
       path: "/inject"
+      port: 443
     caBundle: ""
   sideEffects: None
   rules:

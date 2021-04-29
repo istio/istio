@@ -232,11 +232,6 @@ spec:
           - name: ISTIO_META_NETWORK
             value: "{{ .Values.global.network }}"
           {{- end }}
-{{- if $gateway.podAnnotations }}
-          - name: "ISTIO_METAJSON_ANNOTATIONS"
-            value: |
-{{ toJson $gateway.podAnnotations | indent 16}}
-{{ end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:

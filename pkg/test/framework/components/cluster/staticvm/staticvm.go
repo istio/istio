@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -68,7 +69,7 @@ func readInstances(cfg cluster.Config) ([]echo.Config, error) {
 	return out, nil
 }
 
-func instanceFromMeta(cfg cluster.ConfigMeta) (echo.Config, error) {
+func instanceFromMeta(cfg config.Map) (echo.Config, error) {
 	svc := cfg.String("service")
 	if svc == "" {
 		return echo.Config{}, errors.New("service must not be empty")
@@ -80,12 +81,17 @@ func instanceFromMeta(cfg cluster.ConfigMeta) (echo.Config, error) {
 
 	var ips []string
 	for _, meta := range cfg.Slice("instances") {
-		ipStr := meta.String("ip")
-		ip := net.ParseIP(ipStr)
+		publicIPStr := meta.String("ip")
+		privateIPStr := meta.String("instanceIP")
+		ip := net.ParseIP(publicIPStr)
 		if len(ip) == 0 {
-			return echo.Config{}, fmt.Errorf("failed parsing %q as IP address", ipStr)
+			return echo.Config{}, fmt.Errorf("failed parsing %q as IP address", publicIPStr)
 		}
-		ips = append(ips, ipStr)
+		ip = net.ParseIP(privateIPStr)
+		if len(ip) == 0 {
+			return echo.Config{}, fmt.Errorf("failed parsing %q as IP address", privateIPStr)
+		}
+		ips = append(ips, publicIPStr+":"+privateIPStr)
 	}
 	if len(ips) == 0 {
 		return echo.Config{}, fmt.Errorf("%s has no IPs", svc)

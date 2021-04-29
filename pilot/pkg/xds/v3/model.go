@@ -34,6 +34,8 @@ const (
 	NameTableType   = apiTypePrefix + "istio.networking.nds.v1.NameTable"
 	HealthInfoType  = apiTypePrefix + "istio.v1.HealthInformation"
 	ProxyConfigType = apiTypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
+	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
+	DebugType = "istio.io/debug"
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
@@ -56,6 +58,8 @@ func GetShortType(typeURL string) string {
 		return "NDS"
 	case ProxyConfigType:
 		return "PCDS"
+	case ExtensionConfigurationType:
+		return "ECDS"
 	default:
 		return typeURL
 	}
@@ -78,6 +82,8 @@ func GetMetricType(typeURL string) string {
 		return "nds"
 	case ProxyConfigType:
 		return "pcds"
+	case ExtensionConfigurationType:
+		return "ecds"
 	default:
 		return typeURL
 	}

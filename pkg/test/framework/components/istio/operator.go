@@ -647,9 +647,13 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster cl
 			"--set", "values.global.network="+cluster.NetworkName())
 	}
 
-	// Include all user-specified values.
+	// Include all user-specified values and configuration options.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+	}
+
+	for k, v := range cfg.OperatorOptions {
+		installSettings = append(installSettings, "--set", fmt.Sprintf("%s=%s", k, v))
 	}
 	return installSettings, nil
 }
@@ -702,7 +706,7 @@ func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context,
 func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, cfg Config,
 	cluster cluster.Cluster) error {
 	// Create a secret.
-	secret, err := createRemoteSecret(ctx, cluster, cfg)
+	secret, err := CreateRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
@@ -711,13 +715,13 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 		// giving 0 clusters to ctx.Config() means using all clusters
 		return nil
 	}
-	if err := ctx.Config(clusters...).ApplyYAML(cfg.SystemNamespace, secret); err != nil {
+	if err := ctx.Config(clusters...).ApplyYAMLNoCleanup(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
 }
 
-func createRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Config) (string, error) {
+func CreateRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Config, opts ...string) (string, error) {
 	istioCtl, err := istioctl.New(ctx, istioctl.Config{
 		Cluster: cluster,
 	})
@@ -730,6 +734,7 @@ func createRemoteSecret(ctx resource.Context, cluster cluster.Cluster, cfg Confi
 		"--namespace", cfg.SystemNamespace,
 		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
 	}
+	cmd = append(cmd, opts...)
 
 	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
 	out, _, err := istioCtl.Invoke(cmd)

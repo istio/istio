@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -22,10 +23,16 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gogo/protobuf/types"
+
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
@@ -79,8 +86,11 @@ const (
 type Agent struct {
 	proxyConfig *mesh.ProxyConfig
 
-	cfg     *AgentOptions
-	secOpts *security.Options
+	cfg       *AgentOptions
+	secOpts   *security.Options
+	envoyOpts envoy.ProxyConfig
+
+	envoyAgent *envoy.Agent
 
 	sdsServer   *sds.Server
 	secretCache *cache.SecretManagerClient
@@ -101,6 +111,9 @@ type AgentOptions struct {
 	// ferry Envoy's XDS requests to istiod and responses back to envoy
 	// This flag is temporary until the feature is stabilized.
 	ProxyXDSViaAgent bool
+	// ProxyXDSDebugViaAgent if true will listen on 15004 and forward queries
+	// to XDS istio.io/debug. (Requires ProxyXDSViaAgent).
+	ProxyXDSDebugViaAgent bool
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	// This option will not be considered if proxyXDSViaAgent is false.
 	DNSCapture bool
@@ -111,6 +124,8 @@ type AgentOptions struct {
 	// ProxyDomain is the DNS domain associated with the proxy (assumed
 	// to include the namespace as well) (for local dns resolution)
 	ProxyDomain string
+	// Node identifier used by Envoy
+	ServiceNode string
 
 	// XDSRootCerts is the location of the root CA for the XDS connection. Used for setting platform certs or
 	// using custom roots.
@@ -131,17 +146,86 @@ type AgentOptions struct {
 
 	// Ability to retrieve ProxyConfig dynamically through XDS
 	EnableDynamicProxyConfig bool
+
+	// All of the proxy's IP Addresses
+	ProxyIPAddresses []string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
 // associated clients to sign certificates (when not using files), and the local XDS proxy (including
 // health checking for VMs and DNS proxying).
-func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options) *Agent {
+func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *security.Options,
+	eopts envoy.ProxyConfig) *Agent {
 	return &Agent{
 		proxyConfig: proxyConfig,
 		cfg:         agentOpts,
 		secOpts:     sopts,
+		envoyOpts:   eopts,
 	}
+}
+
+func (a *Agent) initializeEnvoyAgent() error {
+	provCert := a.FindRootCAForXDS()
+	if provCert == "" {
+		// Envoy only supports load from file. If we want to use system certs, use best guess
+		// To be more correct this could lookup all the "well known" paths but this is extremely \
+		// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
+		provCert = "/etc/ssl/certs/ca-certificates.crt"
+	}
+	var pilotSAN []string
+	if a.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
+		// Obtain Pilot SAN, using DNS.
+		pilotSAN = []string{config.GetPilotSan(a.proxyConfig.DiscoveryAddress)}
+	}
+	log.Infof("Pilot SAN: %v", pilotSAN)
+
+	var err error
+	node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
+		ID:                  a.cfg.ServiceNode,
+		Envs:                os.Environ(),
+		Platform:            platform.Discover(),
+		InstanceIPs:         a.cfg.ProxyIPAddresses,
+		StsPort:             a.secOpts.STSPort,
+		ProxyConfig:         a.proxyConfig,
+		ProxyViaAgent:       a.cfg.ProxyXDSViaAgent,
+		PilotSubjectAltName: pilotSAN,
+		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
+		ProvCert:            provCert,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
+	}
+
+	// Note: the cert checking still works, the generated file is updated if certs are changed.
+	// We just don't save the generated file, but use a custom one instead. Pilot will keep
+	// monitoring the certs and restart if the content of the certs changes.
+	if len(a.proxyConfig.CustomConfigFile) > 0 {
+		// there is a custom configuration. Don't write our own config - but keep watching the certs.
+		a.envoyOpts.ConfigPath = a.proxyConfig.CustomConfigFile
+		a.envoyOpts.ConfigCleanup = false
+	} else {
+		out, err := bootstrap.New(bootstrap.Config{
+			Node: node,
+		}).CreateFileForEpoch(0)
+		if err != nil {
+			return fmt.Errorf("failed to generate bootstrap config: %v", err)
+		}
+		a.envoyOpts.ConfigPath = out
+		a.envoyOpts.ConfigCleanup = true
+	}
+
+	// Back-fill envoy options form proxy config options
+	a.envoyOpts.BinaryPath = a.proxyConfig.BinaryPath
+	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
+	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
+	a.envoyOpts.ParentShutdownDuration = a.proxyConfig.ParentShutdownDuration
+	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
+
+	envoyProxy := envoy.NewProxy(a.envoyOpts)
+
+	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
+	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration)
+	return nil
 }
 
 // Simplified SDS setup. This is called if and only if user has explicitly mounted a K8S JWT token, and is not
@@ -151,7 +235,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 //    For example Google CA
 //
 // 2. Indirect, using istiod: using K8S cert.
-func (a *Agent) Start() error {
+func (a *Agent) Run(ctx context.Context) error {
 	var err error
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
@@ -173,7 +257,26 @@ func (a *Agent) Start() error {
 		if err != nil {
 			return fmt.Errorf("failed to start xds proxy: %v", err)
 		}
+		if a.cfg.ProxyXDSDebugViaAgent {
+			err = a.xdsProxy.initDebugInterface()
+			if err != nil {
+				return fmt.Errorf("failed to start istio tap server: %v", err)
+			}
+		}
 	}
+
+	if !a.envoyOpts.TestOnly {
+		err = a.initializeEnvoyAgent()
+		if err != nil {
+			return fmt.Errorf("failed to start envoy agent: %v", err)
+		}
+
+		// This is a blocking call for graceful termination.
+		if a.envoyAgent != nil {
+			a.envoyAgent.Run(ctx)
+		}
+	}
+
 	return nil
 }
 
@@ -213,17 +316,8 @@ func (a *Agent) Close() {
 	}
 }
 
-// explicit code to determine the root CA to be configured in bootstrap file.
+// FindRootCAForXDS determines the root CA to be configured in bootstrap file.
 // It may be different from the CA for the cert server - which is based on CA_ADDR
-// Replaces logic in the template:
-//                 {{- if .provisioned_cert }}
-//                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
-//                  {{- else if eq .pilot_cert_provider "kubernetes" }}
-//                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-//                  {{- else if eq .pilot_cert_provider "istiod" }}
-//                  "filename": "./var/run/secrets/istio/root-cert.pem"
-//                  {{- end }}
-//
 // In addition it deals with the case the XDS server is on port 443, expected with a proper cert.
 // /etc/ssl/certs/ca-certificates.crt
 //
