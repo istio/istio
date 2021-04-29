@@ -407,9 +407,9 @@ func createIstiodService(cs kubernetes.Interface, istioNs string) error {
 		return fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 
-	values := fmt.Sprintf(`
+	values := `
 revision: ""
-`)
+`
 
 	serviceYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, serviceTemplateName)
