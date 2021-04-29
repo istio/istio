@@ -485,8 +485,11 @@ spec:
 								return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
-							if len(targetClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
+							hostDests := dests.Instances().Match(echo.Service(host))
+							targetClusters := hostDests.Clusters()
+							// don't check headless since lb is unpredictable
+							headlessTarget := hostDests.ContainsMatch(echo.IsHeadless())
+							if !headlessTarget && len(targetClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
@@ -1527,18 +1530,21 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	cases := make([]TrafficTestCase, 0)
 	for _, c := range testCases {
 		c := c
+		validators := []echo.Validator{echo.ExpectOK()}
+		if !c.to.ContainsMatch(echo.IsHeadless()) {
+			// headless load-balancing can be inconsistent
+			validators = append(validators, echo.ExpectReachedClusters(c.to.Clusters()))
+		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
 			call: c.from.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
-				Target:   c.to[0],
-				PortName: "http",
-				Address:  c.host,
-				Count:    callsPerCluster * len(c.to),
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ExpectReachedClusters(c.to.Clusters())),
+				Target:    c.to[0],
+				PortName:  "http",
+				Address:   c.host,
+				Count:     callsPerCluster * len(c.to),
+				Validator: echo.And(validators...),
 			},
 		})
 	}
