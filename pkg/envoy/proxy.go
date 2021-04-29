@@ -82,6 +82,15 @@ func (e *envoy) Drain() error {
 	return err
 }
 
+func (e *envoy) DumpVersion() error {
+	cmd := exec.Command(e.BinaryPath, "--version")
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
 	if isIPv6Proxy(e.NodeIPs) {

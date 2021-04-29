@@ -47,6 +47,9 @@ type Proxy interface {
 
 	// Cleanup command for an epoch
 	Cleanup(int)
+
+	// Show current version of proxy
+	DumpVersion() error
 }
 
 type Agent struct {

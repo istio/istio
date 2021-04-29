@@ -154,6 +154,27 @@ var (
 			return agent.Run(ctx)
 		},
 	}
+
+	dumpProxyVersionCmd = &cobra.Command{
+		Use:               "version",
+		Short:             "Dump envoy proxy version",
+		PersistentPreRunE: configureLogging,
+		RunE: func(c *cobra.Command, args []string) error {
+			proxy, err := initProxy(args)
+			if err != nil {
+				return err
+			}
+			proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, options.ProxyConfigEnv, concurrency, proxy)
+			if err != nil {
+				return fmt.Errorf("failed to get proxy config: %v", err)
+			}
+			p := envoy.NewProxy(envoy.ProxyConfig{BinaryPath: proxyConfig.BinaryPath})
+			if err := p.DumpVersion(); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
 )
 
 func init() {
@@ -196,6 +217,8 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
+
+	proxyCmd.AddCommand(dumpProxyVersionCmd)
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
