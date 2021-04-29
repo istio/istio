@@ -83,10 +83,6 @@ func (e *envoy) Drain() error {
 }
 
 func (e *envoy) UpdateConfig(config []byte) error {
-	old, _ := ioutil.ReadFile(e.ConfigPath)
-	fmt.Println(string(old))
-	fmt.Println("updated to...")
-	fmt.Println(string(config))
 	return ioutil.WriteFile(e.ConfigPath, config, 0o666)
 }
 

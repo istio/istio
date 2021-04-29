@@ -282,31 +282,29 @@ type bootstrapDiscoveryRequest struct {
 
 // Send refers to a request from the xDS proxy.
 func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) error {
-	b.received = true
-	if resp.TypeUrl != v3.BootstrapType {
-		b.envoyWaitCh <- fmt.Errorf("unexpected response type URL: %q", resp.TypeUrl)
-		return nil
+	if resp.TypeUrl == v3.BootstrapType && !b.received {
+		b.received = true
+		if len(resp.Resources) != 1 {
+			b.envoyWaitCh <- fmt.Errorf("unexpected number of bootstraps: %d", len(resp.Resources))
+			return nil
+		}
+		var bs bootstrapv3.Bootstrap
+		if err := resp.Resources[0].UnmarshalTo(&bs); err != nil {
+			b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
+			return nil
+		}
+		js := jsonpb.Marshaler{OrigName: true, Indent: "  "}
+		var buf bytes.Buffer
+		if err := js.Marshal(&buf, &bs); err != nil {
+			b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
+			return nil
+		}
+		if err := b.envoyUpdate(buf.Bytes()); err != nil {
+			b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
+			return nil
+		}
+		close(b.envoyWaitCh)
 	}
-	if len(resp.Resources) != 1 {
-		b.envoyWaitCh <- fmt.Errorf("unexpected number of bootstraps: %d", len(resp.Resources))
-		return nil
-	}
-	var bs bootstrapv3.Bootstrap
-	if err := resp.Resources[0].UnmarshalTo(&bs); err != nil {
-		b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
-		return nil
-	}
-	js := jsonpb.Marshaler{OrigName: true, Indent: "  "}
-	var buf bytes.Buffer
-	if err := js.Marshal(&buf, &bs); err != nil {
-		b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
-		return nil
-	}
-	if err := b.envoyUpdate(buf.Bytes()); err != nil {
-		b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
-		return nil
-	}
-	close(b.envoyWaitCh)
 	return nil
 }
 
