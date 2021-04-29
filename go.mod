@@ -104,7 +104,7 @@ require (
 	k8s.io/kubectl v0.21.0
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10
 	sigs.k8s.io/controller-runtime v0.9.0-alpha.1.0.20210412152200-442d3cad1e99
-	sigs.k8s.io/gateway-api v0.2.0
+	sigs.k8s.io/gateway-api v0.3.0
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.2.0
 )
