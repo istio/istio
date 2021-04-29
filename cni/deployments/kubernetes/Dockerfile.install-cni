@@ -10,6 +10,8 @@ FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
 FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
 
+# This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
 LABEL description="Istio CNI plugin installer."
