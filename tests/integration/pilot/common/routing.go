@@ -1477,6 +1477,36 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
+			vmCase{
+				name: "dns: VM to k8s statefulset service",
+				from: vm,
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				host: apps.StatefulSet[0].Config().FQDN(),
+			},
+			vmCase{
+				name: "dns: VM to k8s statefulset instance.service",
+				from: vm,
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, StatefulSetSvc),
+			},
+			vmCase{
+				name: "dns: VM to k8s statefulset instance.service.namespace",
+				from: vm,
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				host: fmt.Sprintf("%s-v1-0.%s.%s", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
+			},
+			vmCase{
+				name: "dns: VM to k8s statefulset instance.service.namespace.svc",
+				from: vm,
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				host: fmt.Sprintf("%s-v1-0.%s.%s.svc", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
+			},
+			vmCase{
+				name: "dns: VM to k8s statefulset instance FQDN",
+				from: vm,
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().FQDN()),
+			},
 		)
 	}
 	for _, podA := range apps.PodA {
