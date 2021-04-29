@@ -491,6 +491,7 @@ EOF
       samples/multicluster/gen-eastwest-gateway.sh \
         --mesh "${MESH_ID}" \
         --cluster "${CLUSTER_NAME}" \
+        --revision "${ASM_REVISION_LABEL}" \
         --network "network${i}" > "tmp/eastwest-gateway.yaml"
       cat "tmp/eastwest-gateway.yaml"
       istioctl install -y --kubeconfig="${MC_CONFIGS[$i]}" --context=cluster -f "tmp/istio/istio-operator.yaml" -f "tmp/istio/options/hub-meshca.yaml" -f "tmp/eastwest-gateway.yaml"

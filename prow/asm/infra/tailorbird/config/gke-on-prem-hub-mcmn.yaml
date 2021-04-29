@@ -31,8 +31,10 @@ spec:
               distribution: gke
               provisionerArgs:
                 username: prowuser
-                workerNumNodes: "2"
+                workerNumNodes: "4"
                 gkectlVersion: "latest"
+                # workaround for b/181781346
+                gkectlConfigSeedVersion: "v1"
                 vipNetwork: "fe"
                 # Assign the first cluster under one VPC
                 vsphereVpc: "atl-shared-vpc-02"
@@ -45,6 +47,7 @@ spec:
                 # TODO(tairan): use a new CI project with permission for creating public GCS buckets
                 --connect-project: "tairan-asm-multi-cloud-dev"
                 workloadIdentity: "{\"Enabled\":true}"
+                herculesEnvTtl: "4h"
           - apiVersion: sut.tailorbird.io/v1alpha1
             kind: Cluster
             metadata:
@@ -54,8 +57,10 @@ spec:
               distribution: gke
               provisionerArgs:
                 username: prowuser
-                workerNumNodes: "2"
+                workerNumNodes: "4"
                 gkectlVersion: "latest"
+                # workaround for b/181781346
+                gkectlConfigSeedVersion: "v1"
                 vipNetwork: "fe"
                 # Assign the first cluster under one VPC
                 vsphereVpc: "atl-shared-vpc-02"
@@ -68,3 +73,4 @@ spec:
                 # TODO(tairan): use a new CI project with permission for creating public GCS buckets
                 --connect-project: "tairan-asm-multi-cloud-dev"
                 workloadIdentity: "{\"Enabled\":true}"
+                herculesEnvTtl: "4h"
