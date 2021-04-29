@@ -1,14 +1,14 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-clusterrolebinding{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+  name: istio-reader{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+  name: istio-reader{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
@@ -17,14 +17,14 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-clusterrolebinding{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
 subjects:
   - kind: ServiceAccount
     name: istiod-service-account

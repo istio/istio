@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: istiod-role{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Values.global.istioNamespace }}
   labels:
     app: istiod
