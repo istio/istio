@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"istio.io/istio/pilot/pkg/features"
-
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
