@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -526,6 +527,8 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string) 
 				Labels: map[string]string{},
 			}}
 			if network != "" {
+				fmt.Println("create network 1")
+				debug.PrintStack()
 				ns.Labels[label.TopologyNetwork.Name] = network
 			}
 			_, err := cs.CoreV1().Namespaces().Create(context.TODO(), ns, v12.CreateOptions{})
