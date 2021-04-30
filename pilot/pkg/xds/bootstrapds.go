@@ -38,13 +38,16 @@ var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ParseNode(w.LastRequest.Node)
+
 	var buf bytes.Buffer
+	templateFile := bootstrap.GetEffectiveTemplatePath(node.Metadata.ProxyConfig)
 	err := bootstrap.New(bootstrap.Config{
 		Node: node,
-	}).WriteTo(bootstrap.DefaultCfgDir, io.Writer(&buf))
+	}).WriteTo(templateFile, io.Writer(&buf))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate bootstrap config: %v", err)
 	}
+
 	bs := &bootstrapv3.Bootstrap{}
 	if err = jsonpb.Unmarshal(io.Reader(&buf), bs); err != nil {
 		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", buf.String(), err)

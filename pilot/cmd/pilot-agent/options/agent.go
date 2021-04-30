@@ -35,7 +35,7 @@ func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
 		IsIPv6:                   proxy.SupportsIPv6(),
 		ProxyType:                proxy.Type,
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
-		EnableDynamicBootstrap:   true,
+		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		ProxyIPAddresses:         proxy.IPAddresses,
 		ServiceNode:              proxy.ServiceNode(),
 	}

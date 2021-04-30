@@ -558,8 +558,9 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}, nil
 }
 
-// GenerateNode creates an Envoy node descriptor from Istio node descriptor with only typed metadata.
-func GenerateNode(node *model.Node) *core.Node {
+// ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
+func ConvertNodeToXDSNode(node *model.Node) *core.Node {
+	// First pass translates typed metadata
 	js, err := json.Marshal(node.Metadata)
 	if err != nil {
 		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
@@ -567,6 +568,20 @@ func GenerateNode(node *model.Node) *core.Node {
 	pbst := &structpb.Struct{}
 	if err = jsonpb.UnmarshalString(string(js), pbst); err != nil {
 		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
+	}
+	// Second pass translates untyped metadata for "unknown" fields
+	for k, v := range node.RawMetadata {
+		if _, f := pbst.Fields[k]; !f {
+			fjs, err := json.Marshal(v)
+			if err != nil {
+				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
+			}
+			pbv := &structpb.Value{}
+			if err = jsonpb.UnmarshalString(string(fjs), pbv); err != nil {
+				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
+			}
+			pbst.Fields[k] = pbv
+		}
 	}
 	return &core.Node{
 		Id:       node.ID,
@@ -576,8 +591,8 @@ func GenerateNode(node *model.Node) *core.Node {
 	}
 }
 
-// Parses Istio node descriptor from an Envoy node descriptor, as an inverse of GenerateNode.
-func ParseNode(node *core.Node) *model.Node {
+// ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
+func ConvertXDSNodeToNode(node *core.Node) *model.Node {
 	buf := &bytes.Buffer{}
 	err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, node.Metadata)
 	if err != nil {

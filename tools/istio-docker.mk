@@ -97,9 +97,10 @@ docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm
 	$(DOCKER_RULE)
 
-docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery && chmod 644 envoy_bootstrap.json
+docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
+docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
