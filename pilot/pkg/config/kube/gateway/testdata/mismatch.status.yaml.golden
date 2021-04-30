@@ -26,9 +26,7 @@ spec:
     protocol: HTTP
     routes:
       kind: HTTPRoute
-      namespaces:
-        selector: {}
-      selector: {}
+      namespaces: {}
 status:
   Dirty: false
   Status: {}
