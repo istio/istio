@@ -45,7 +45,8 @@ func outputPath(workDir string, cluster cluster.Cluster, pod corev1.Pod, name st
 	return path.Join(dir, fmt.Sprintf("%s_%s", pod.Name, name))
 }
 
-// DumpPods runs each dumper with all the pods in the given namespace.
+// DumpPods runs each dumper with the selected pods in the given namespace.
+// If selectors is empty, all pods in the namespace will be dumpped.
 // If no dumpers are provided, their resource state, events, container logs and Envoy information will be dumped.
 func DumpPods(ctx resource.Context, workDir, namespace string, selectors []string, dumpers ...PodDumper) {
 	if len(dumpers) == 0 {
