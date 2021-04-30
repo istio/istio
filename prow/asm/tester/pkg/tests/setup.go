@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"istio.io/istio/prow/asm/tester/pkg/exec"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
@@ -47,20 +46,7 @@ func Setup(settings *resource.Settings) error {
 	integrationTestFlags := append(generateTestFlags(settings), testSkipFlags...)
 	integrationTestFlagsEnvvar := strings.Join(integrationTestFlags, " ")
 
-	gcrProjectID1 := settings.GCRProject
-	var gcrProjectID2 string
-	if len(settings.GCPProjects) == 2 {
-		// If it's using multiple gke clusters, set gcrProjectID2 as the project
-		// for the second cluster.
-		gcrProjectID2 = settings.GCPProjects[1]
-	} else {
-		gcrProjectID2 = gcrProjectID1
-	}
-	// When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
-	// will use the same WIP and P4SA of the Hub host project.
-	if settings.WIP == resource.HUBWorkloadIdentityPool && strings.Contains(settings.TestTarget, "security") {
-		gcrProjectID2 = gcrProjectID1
-	}
+	gcrProjectID1, gcrProjectID2 := gcrProjectIDs(settings)
 
 	// environment variables required when running the test make target
 	envVars := map[string]string{
@@ -84,17 +70,19 @@ func Setup(settings *resource.Settings) error {
 	return nil
 }
 
-func Run(settings *resource.Settings) error {
-	return exec.Run(testCommand(settings))
-}
-
-func testCommand(settings *resource.Settings) string {
-	makeTarget := settings.TestTarget
-	// TODO(samnaser) move this to prow job config
-	if settings.ControlPlane == resource.Managed {
-		if settings.ClusterTopology == resource.SingleCluster {
-			makeTarget = "test.integration.asm.mcp"
-		}
+func gcrProjectIDs(settings *resource.Settings) (gcrProjectID1, gcrProjectID2 string) {
+	gcrProjectID1 = settings.GCRProject
+	if len(settings.GCPProjects) == 2 {
+		// If it's using multiple gke clusters, set gcrProjectID2 as the project
+		// for the second cluster.
+		gcrProjectID2 = settings.GCPProjects[1]
+	} else {
+		gcrProjectID2 = gcrProjectID1
 	}
-	return fmt.Sprintf("make %s", makeTarget)
+	// When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
+	// will use the same WIP and P4SA of the Hub host project.
+	if settings.WIP == resource.HUBWorkloadIdentityPool && strings.Contains(settings.TestTarget, "security") {
+		gcrProjectID2 = gcrProjectID1
+	}
+	return
 }

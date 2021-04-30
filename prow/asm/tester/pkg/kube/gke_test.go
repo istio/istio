@@ -20,37 +20,50 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestParseGCPProjectIDsFromContexts(t *testing.T) {
+func TestGKEClusterSpecsFromContexts(t *testing.T) {
+	ctx1 := "gke_project1_us-central1_cluster1"
+	cluster1 := GKEClusterSpec{
+		Name:      "cluster1",
+		ProjectID: "project1",
+		Location:  "us-central1",
+	}
+	ctx2 := "gke_project2_us-central1_cluster2"
+	cluster2 := GKEClusterSpec{
+		Name:      "cluster2",
+		ProjectID: "project2",
+		Location:  "us-central1",
+	}
+
 	tcs := []struct {
 		name            string
 		kubectlContexts string
-		want            []string
+		want            []*GKEClusterSpec
 	}{
 		{
 			"empty context string returns an empty array",
 			"",
-			nil,
+			[]*GKEClusterSpec{},
 		},
 		{
 			"non GKE context string returns an empty array",
 			"gke-on-prem_context1,gke-on-prem_context2",
-			nil,
+			[]*GKEClusterSpec{},
 		},
 		{
 			"one GKE cluster context string returns an array of size 1",
-			"gke_project1_us-central1_cluster1",
-			[]string{"project1"},
+			ctx1,
+			[]*GKEClusterSpec{&cluster1},
 		},
 		{
 			"two GKE clusters context string returns an array of size 1",
-			"gke_project1_us-central1_cluster1,gke_project2_us-central1_cluster2",
-			[]string{"project1", "project2"},
+			ctx1 + "," + ctx2,
+			[]*GKEClusterSpec{&cluster1, &cluster2},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(st *testing.T) {
-			got := ParseGCPProjectIDsFromContexts(tc.kubectlContexts)
+			got := GKEClusterSpecsFromContexts(tc.kubectlContexts)
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("got(+) is different from wanted(-)\n%v", diff)
 			}

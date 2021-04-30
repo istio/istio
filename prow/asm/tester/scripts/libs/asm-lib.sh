@@ -691,35 +691,6 @@ function setup_asm_vms() {
   setup_static_vms "${CONTEXT}" "${CLUSTER_NAME}" "${CLUSTER_LOCATION}" "${PROJECT_NUMBER}" "${REVISION}" "${VM_DIR}" "${VM_DISTRO}" "${IMAGE_PROJECT}"
 }
 
-# Add function call to trap
-# Parameters: $1 - Function to call
-#             $2...$n - Signals for trap
-function add_trap {
-  local cmd=$1
-  shift
-  for trap_signal in "$@"; do
-    local current_trap
-    current_trap="$(trap -p "$trap_signal" | cut -d\' -f2)"
-    local new_cmd="($cmd)"
-    [[ -n "${current_trap}" ]] && new_cmd="${current_trap};${new_cmd}"
-    trap -- "${new_cmd}" "$trap_signal"
-  done
-}
-
-# Split the disabled tests around pipe delim and individually sets the
-# --istio.test.skip flag for each. This is needed to enable regex and
-# fine grained test disabling.
-# Parameters:
-# $1    Disabled tests pipe-separated string
-function apply_skip_disabled_tests() {
-  if [[ -n "${1}" ]]; then
-    IFS='|' read -r -a TESTS_TO_SKIP <<< "${1}"
-    for test in "${TESTS_TO_SKIP[@]}"; do
-      INTEGRATION_TEST_FLAGS+=" --istio.test.skip=\"${test}\""
-    done
-  fi
-}
-
 function install_asm_on_proxied_clusters() {
   local MESH_ID="test-mesh"
   for i in "${!MC_CONFIGS[@]}"; do

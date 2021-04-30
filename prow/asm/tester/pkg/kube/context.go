@@ -35,22 +35,6 @@ func ContextStr() (string, error) {
 	return kubectlContexts, nil
 }
 
-// ParseGCPProjectIDsFromContexts parses the GCP project IDs from the contexts.
-// It will return an empty list if the current contexts are not for GKE-on-GCP.
-// TODO(chizhg): pass the project IDs as a flag instead of parsing here.
-func ParseGCPProjectIDsFromContexts(kubectlContexts string) []string {
-	contexts := strings.Split(kubectlContexts, ",")
-	var projects []string
-	for _, context := range contexts {
-		parts := strings.Split(context, "_")
-		if len(parts) == 4 && parts[0] == "gke" {
-			projects = append(projects, parts[1])
-		}
-	}
-
-	return projects
-}
-
 func ContextArr(contexts string) string {
 	return strings.Join(strings.Split(contexts, ","), " ")
 }

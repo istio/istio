@@ -16,14 +16,15 @@ package install
 
 import (
 	"fmt"
-	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
-	"istio.io/istio/prow/asm/tester/pkg/exec"
-	"istio.io/istio/prow/asm/tester/pkg/kube"
-	"istio.io/istio/prow/asm/tester/pkg/resource"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
+	"istio.io/istio/prow/asm/tester/pkg/exec"
+	"istio.io/istio/prow/asm/tester/pkg/kube"
+	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
 const (
@@ -36,12 +37,6 @@ const (
 	stagingEndpoint           = "https://staging-container.sandbox.googleapis.com/"
 	staging2Endpoint          = "https://staging2-container.sandbox.googleapis.com/"
 )
-
-type cluster struct {
-	name      string
-	projectID string
-	location  string
-}
 
 func (c *installer) install(r *revision.Config) error {
 	if c.settings.ControlPlane == resource.Unmanaged {
@@ -71,7 +66,7 @@ func (c *installer) installASM(rev *revision.Config) error {
 	// must do this here because each installation depends on the value
 	environProjectNumber, err := exec.RunWithOutput(fmt.Sprintf(
 		"gcloud projects describe %s --format=\"value(projectNumber)\"",
-		clusterFromKubeContext(contexts[0]).projectID))
+		kube.GKEClusterSpecFromContext(contexts[0]).ProjectID))
 	if err != nil {
 		return fmt.Errorf("failed to read environ number: %w", err)
 	}
@@ -81,7 +76,7 @@ func (c *installer) installASM(rev *revision.Config) error {
 		contextLogger := log.New(os.Stdout,
 			fmt.Sprintf("[kubeContext: %s] ", context), log.Ldate|log.Ltime)
 		contextLogger.Println("Performing installation...")
-		cluster := clusterFromKubeContext(context)
+		cluster := kube.GKEClusterSpecFromContext(context)
 		var trustedGCPProjects string
 
 		// Create the istio-system ns before running the install_asm script.
@@ -105,7 +100,7 @@ func (c *installer) installASM(rev *revision.Config) error {
 				var otherIds []string
 				for _, otherContext := range contexts {
 					if otherContext != context {
-						otherIds = append(otherIds, clusterFromKubeContext(otherContext).projectID)
+						otherIds = append(otherIds, kube.GKEClusterSpecFromContext(otherContext).ProjectID)
 					}
 				}
 				trustedGCPProjects = strings.Join(otherIds, ",")
@@ -121,9 +116,9 @@ func (c *installer) installASM(rev *revision.Config) error {
 				os.Getenv(cloudAPIEndpointOverrides) == staging2Endpoint {
 				contextLogger.Println("Setting KPT for staging...")
 				if err := exec.RunMultiple([]string{
-					fmt.Sprintf("%s gcloud.core.project %s", kptSetPrefix, cluster.projectID),
-					fmt.Sprintf("%s gcloud.compute.location %s", kptSetPrefix, cluster.location),
-					fmt.Sprintf("%s gcloud.container.cluster %s", kptSetPrefix, cluster.name),
+					fmt.Sprintf("%s gcloud.core.project %s", kptSetPrefix, cluster.ProjectID),
+					fmt.Sprintf("%s gcloud.compute.location %s", kptSetPrefix, cluster.Location),
+					fmt.Sprintf("%s gcloud.container.cluster %s", kptSetPrefix, cluster.Name),
 				}); err != nil {
 					return err
 				}
@@ -132,12 +127,12 @@ func (c *installer) installASM(rev *revision.Config) error {
 			// Need to set kpt values per install
 			if ca == resource.PrivateCA {
 				subordinateCaId := fmt.Sprintf("%s-%s-%s",
-					subCaIdPrefix, os.Getenv("BUILD_ID"), cluster.name)
+					subCaIdPrefix, os.Getenv("BUILD_ID"), cluster.Name)
 				caName := fmt.Sprintf("projects/%s/locations/%s/certificateAuthorities/%s",
-					cluster.projectID, cluster.location, subordinateCaId)
+					cluster.ProjectID, cluster.Location, subordinateCaId)
 				if err := exec.RunMultiple([]string{
 					fmt.Sprintf("%s anthos.servicemesh.external_ca.ca_name %s", kptSetPrefix, caName),
-					fmt.Sprintf("%s gcloud.core.project %s", kptSetPrefix, cluster.projectID),
+					fmt.Sprintf("%s gcloud.core.project %s", kptSetPrefix, cluster.ProjectID),
 				}); err != nil {
 					return err
 				}
@@ -193,11 +188,11 @@ func generateInstallEnvvars(settings *resource.Settings, rev *revision.Config, t
 }
 
 // generateInstallFlags returns the flags required when running install_asm script.
-func generateInstallFlags(settings *resource.Settings, rev *revision.Config, pkgPath string, cluster *cluster) []string {
+func generateInstallFlags(settings *resource.Settings, rev *revision.Config, pkgPath string, cluster *kube.GKEClusterSpec) []string {
 	installFlags := []string{
-		"--project_id", cluster.projectID,
-		"--cluster_name", cluster.name,
-		"--cluster_location", cluster.location,
+		"--project_id", cluster.ProjectID,
+		"--cluster_name", cluster.Name,
+		"--cluster_location", cluster.Location,
 		"--mode", "install",
 		"--enable-all",
 		"--verbose",
@@ -270,17 +265,17 @@ func createRemoteSecrets(settings *resource.Settings, contexts []string) error {
 			if context == otherContext {
 				continue
 			}
-			otherProject := clusterFromKubeContext(otherContext)
+			otherCluster := kube.GKEClusterSpecFromContext(otherContext)
 			log.Printf("creating remote secret with context %s to cluster %s",
-				context, otherProject.name)
+				context, otherCluster.Name)
 			createRemoteSecretCmd := fmt.Sprintf("istioctl x create-remote-secret"+
-				" --context %s --name %s", otherContext, otherProject.name)
+				" --context %s --name %s", otherContext, otherCluster.Name)
 			secretContents, err := exec.RunWithOutput(createRemoteSecretCmd)
 			if err != nil {
 				return fmt.Errorf("failed creating remote secret: %w", err)
 			}
 			secretFileName := fmt.Sprintf("%s_%s_%s.secret",
-				otherProject.projectID, otherProject.location, otherProject.name)
+				otherCluster.ProjectID, otherCluster.Location, otherCluster.Name)
 			if err := os.WriteFile(secretFileName, []byte(secretContents), 0o644); err != nil {
 				return fmt.Errorf("failed to write secret to file: %w", err)
 			}
@@ -289,7 +284,7 @@ func createRemoteSecrets(settings *resource.Settings, contexts []string) error {
 			if settings.FeatureToTest == string(resource.VPCSC) {
 				privateIPCmd := fmt.Sprintf("gcloud container clusters describe %s"+
 					" --project %s --zone %s --format \"value(privateClusterConfig.privateEndpoint)\"",
-					otherProject.name, otherProject.projectID, otherProject.location)
+					otherCluster.Name, otherCluster.ProjectID, otherCluster.Location)
 				privateIP, err := exec.RunWithOutput(privateIPCmd)
 				if err != nil {
 					return fmt.Errorf("failed to retrieve private IP: %w", err)

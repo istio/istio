@@ -79,7 +79,12 @@ func populateRuntimeSettings(settings *resource.Settings) error {
 
 	var gcrProjectID string
 	if settings.ClusterType == resource.GKEOnGCP {
-		settings.GCPProjects = kube.ParseGCPProjectIDsFromContexts(kubectlContexts)
+		cs := kube.GKEClusterSpecsFromContexts(kubectlContexts)
+		projectIDs := make([]string, len(cs))
+		for i, c := range cs {
+			projectIDs[i] = c.ProjectID
+		}
+		settings.GCPProjects = projectIDs
 		// If it's using the gke clusters, use the first available project to hold the images.
 		gcrProjectID = settings.GCPProjects[0]
 	} else {
@@ -109,10 +114,10 @@ func setupPermissions(settings *resource.Settings) error {
 }
 
 func setGcpPermissions(settings *resource.Settings) error {
-	projectIds := kube.ParseGCPProjectIDsFromContexts(settings.KubectlContexts)
-	for _, projectId := range projectIds {
-		if projectId != settings.GCRProject {
-			projectNum, err := getProjectNumber(projectId)
+	cs := kube.GKEClusterSpecsFromContexts(settings.KubectlContexts)
+	for _, c := range cs {
+		if c.ProjectID != settings.GCRProject {
+			projectNum, err := getProjectNumber(c.ProjectID)
 			if err != nil {
 				return err
 			}
@@ -316,7 +321,9 @@ func fixGKE(settings *resource.Settings) error {
 		// For MULTIPROJECT_MULTICLUSTER topology, firewall rules need to be added to
 		// allow the clusters talking with each other for security tests.
 		// See the details in b/175599359 and b/177919868
-		createFirewallCmd := fmt.Sprintf("gcloud compute --project=%q firewall-rules create extended-firewall-rule --network=test-network --allow=tcp,udp,icmp --direction=INGRESS", os.Getenv("HOST_PROJECT"))
+		createFirewallCmd := fmt.Sprintf(
+			"gcloud compute --project=%q firewall-rules create extended-firewall-rule --network=test-network --allow=tcp,udp,icmp --direction=INGRESS",
+			settings.HostGCPProject)
 		if err := exec.Run(createFirewallCmd); err != nil {
 			return fmt.Errorf("error creating the firewall rules for GKE multiproject tests: %w", err)
 		}
@@ -336,8 +343,7 @@ func fixGKE(settings *resource.Settings) error {
 
 		// Create router and NAT
 		if err := exec.Run(fmt.Sprintf(
-			"gcloud compute routers create test-router"+
-				" --network %s --region us-central1",
+			"gcloud compute routers create test-router --network %s --region us-central1",
 			networkName)); err != nil {
 			log.Println("test-router already exists")
 		}
@@ -348,17 +354,19 @@ func fixGKE(settings *resource.Settings) error {
 		}
 
 		// Setup the firewall for VPC-SC
-		firewallRuleName, err := exec.RunWithOutput("bash -c \"gcloud compute firewall-rules list --filter=\"name~gke-\"%s\"-[0-9a-z]*-master\" --format=json | jq -r '.[0].name'\"")
-		if err != nil {
-			return fmt.Errorf("failed to get firewall rule name: %w", err)
-		}
-		if err := exec.RunMultiple([]string{
-			fmt.Sprintf("gcloud firewall-rules update %s --allow tcp --source-ranges 0.0.0.0/0", firewallRuleName),
-			fmt.Sprintf("gcloud firewall-rules list --filter=\"name~gke-%s-[0-9a-z]*-master\""),
-		}); err != nil {
-			return err
+		for _, c := range kube.GKEClusterSpecsFromContexts(settings.KubectlContexts) {
+			getFirewallRuleCmd := fmt.Sprintf("bash -c \"gcloud compute firewall-rules list --filter=\"name~gke-\"%s\"-[0-9a-z]*-master\" --format=json | jq -r '.[0].name'\"", c.Name)
+			firewallRuleName, err := exec.RunWithOutput(getFirewallRuleCmd)
+			if err != nil {
+				return fmt.Errorf("failed to get firewall rule name: %w", err)
+			}
+			updateFirewallRuleCmd := fmt.Sprintf("gcloud compute firewall-rules update %s --allow tcp --source-ranges 0.0.0.0/0", firewallRuleName)
+			if err := exec.Run(updateFirewallRuleCmd); err != nil {
+				return fmt.Errorf("error updating firewall rule %q: %w", firewallRuleName, err)
+			}
 		}
 
+		// Update subnets to enable private IP access
 		if settings.ClusterTopology == resource.MultiProject {
 			for _, project := range settings.GCPProjects {
 				updateSubnetCmd := fmt.Sprintf(`gcloud compute networks subnets update "test-network-%s" \
