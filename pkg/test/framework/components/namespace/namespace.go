@@ -61,10 +61,10 @@ func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 
 // New creates a new Namespace in all clusters.
 func New(ctx resource.Context, nsConfig Config) (i Instance, err error) {
-	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
 	if ctx.Settings().StableNamespaces {
 		return Claim(ctx, nsConfig)
 	}
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
 	return newKube(ctx, &nsConfig)
 }
 
@@ -84,5 +84,9 @@ func overwriteRevisionIfEmpty(nsConfig *Config, revision string) {
 	// the label will remain as is.
 	if nsConfig.Revision == "" {
 		nsConfig.Revision = revision
+	}
+	// Allow setting revision explicitly to `default` to avoid configuration overwrite
+	if nsConfig.Revision == "default" {
+		nsConfig.Revision = ""
 	}
 }

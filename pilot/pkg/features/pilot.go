@@ -20,6 +20,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -259,7 +260,7 @@ var (
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
 		"Custom host name of istiod that istiod signs the server cert.")
 
-	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
+	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
 		"The provider of Pilot DNS certificate.")
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,

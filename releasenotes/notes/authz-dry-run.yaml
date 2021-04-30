@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- https://github.com/istio/api/pull/1933
+docs:
+- '[usage] https://istio.io/latest/docs/tasks/security/authorization/authz-dry-run/'
+- '[design] https://docs.google.com/document/d/1xQdZsEgJ3Ld2qebfT3EJkg2COTtCR1TqBVojmnvI78g'
+releaseNotes:
+- |
+  **Added** an experimental feature to allow dry-run an authorization policy without actually enforcing the policy.

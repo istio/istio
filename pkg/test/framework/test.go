@@ -245,10 +245,10 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 	}
 
 	if t.minIstioVersion != "" {
-		if resource.IstioVersion(t.minIstioVersion).Compare(t.ctx.Settings().IstioVersions.Minimum()) > 0 {
+		if resource.IstioVersion(t.minIstioVersion).Compare(t.ctx.Settings().Revisions.Minimum()) > 0 {
 			ctx.Done()
 			t.goTest.Skipf("Skipping %q: running with min Istio version %q, test requires at least %s",
-				t.goTest.Name(), t.ctx.Settings().IstioVersions.Minimum(), t.minIstioVersion)
+				t.goTest.Name(), t.ctx.Settings().Revisions.Minimum(), t.minIstioVersion)
 		}
 	}
 

@@ -15,9 +15,7 @@
 package helm
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
@@ -184,21 +182,7 @@ spec:
 		Hub: hub,
 		Tag: tag,
 	}
-	return renderTemplate(hubTagYAMLTemplate, ts)
-}
-
-// helper method to render template
-func renderTemplate(tmpl string, ts interface{}) (string, error) {
-	t, err := template.New("").Parse(tmpl)
-	if err != nil {
-		return "", err
-	}
-	buf := new(bytes.Buffer)
-	err = t.Execute(buf, ts)
-	if err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	return util.RenderTemplate(hubTagYAMLTemplate, ts)
 }
 
 // DefaultFilenameForProfile returns the profile name of the default profile for the given profile.

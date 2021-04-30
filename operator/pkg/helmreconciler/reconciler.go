@@ -542,6 +542,9 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string) 
 
 // createNamespace creates a namespace using the given k8s client.
 func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+	if h.opts.DryRun {
+		return nil
+	}
 	return CreateNamespace(h.clientSet, namespace, network)
 }
 

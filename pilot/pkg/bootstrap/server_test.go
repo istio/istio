@@ -89,7 +89,7 @@ func TestNewServerCertInit(t *testing.T) {
 				CaCertFile: caCertFile,
 			},
 			enableCA:     false,
-			certProvider: KubernetesCAProvider,
+			certProvider: constants.CertProviderKubernetes,
 			expNewCert:   false,
 			expCert:      testcerts.ServerCert,
 			expKey:       testcerts.ServerKey,
@@ -102,7 +102,7 @@ func TestNewServerCertInit(t *testing.T) {
 				CaCertFile: "",
 			},
 			enableCA:     true,
-			certProvider: IstiodCAProvider,
+			certProvider: constants.CertProviderIstiod,
 			expNewCert:   true,
 			expCert:      []byte{},
 			expKey:       []byte{},
@@ -111,7 +111,16 @@ func TestNewServerCertInit(t *testing.T) {
 			name:         "No DNS cert created because CA is disabled",
 			tlsOptions:   &TLSOptions{},
 			enableCA:     false,
-			certProvider: IstiodCAProvider,
+			certProvider: constants.CertProviderIstiod,
+			expNewCert:   false,
+			expCert:      []byte{},
+			expKey:       []byte{},
+		},
+		{
+			name:         "No cert provider",
+			tlsOptions:   &TLSOptions{},
+			enableCA:     true,
+			certProvider: constants.CertProviderNone,
 			expNewCert:   false,
 			expCert:      []byte{},
 			expKey:       []byte{},
@@ -149,7 +158,7 @@ func TestNewServerCertInit(t *testing.T) {
 				close(stop)
 				s.WaitUntilCompletion()
 				features.EnableCAServer = true
-				os.Setenv("PILOT_CERT_PROVIDER", IstiodCAProvider)
+				os.Setenv("PILOT_CERT_PROVIDER", constants.CertProviderIstiod)
 			}()
 
 			if c.expNewCert {
@@ -201,7 +210,7 @@ func TestReloadIstiodCert(t *testing.T) {
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
-	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
 	}
 
@@ -562,7 +571,10 @@ func TestInitOIDC(t *testing.T) {
 
 func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 	t.Helper()
-	actual, _ := s.getIstiodCertificate(nil)
+	actual, err := s.getIstiodCertificate(nil)
+	if err != nil {
+		t.Fatalf("fail to load fetch certs.")
+	}
 	expected, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		t.Fatalf("fail to load test certs.")

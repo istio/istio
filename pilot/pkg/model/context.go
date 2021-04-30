@@ -165,7 +165,23 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 }
 
 // Request is an alias for array of marshaled resources.
-type Resources = []*any.Any
+type Resources = []*discovery.Resource
+
+func AnyToUnnamedResources(r []*any.Any) Resources {
+	a := make(Resources, 0, len(r))
+	for _, rr := range r {
+		a = append(a, &discovery.Resource{Resource: rr})
+	}
+	return a
+}
+
+func ResourcesToAny(r Resources) []*any.Any {
+	a := make([]*any.Any, 0, len(r))
+	for _, rr := range r {
+		a = append(a, rr.Resource)
+	}
+	return a
+}
 
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
@@ -452,11 +468,14 @@ type BootstrapNodeMetadata struct {
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
 
-	// PilotCertProvider is the provider of the xDS server DNS certificate.
-	PilotCertProvider string `json:"PILOT_CERT_PROVIDER,omitempty"`
-
 	// ProvCertDir is the directory containing pre-provisioned certs.
 	ProvCert string `json:"PROV_CERT,omitempty"`
+
+	// AppContainers is the list of containers in the pod.
+	AppContainers string `json:"APP_CONTAINERS,omitempty"`
+
+	// IstioProxySHA is the SHA of the proxy version.
+	IstioProxySHA string `json:"ISTIO_PROXY_SHA,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy

@@ -16,6 +16,7 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -38,11 +40,15 @@ import (
 type PodDumper func(ctx resource.Context, cluster cluster.Cluster, workDir string, namespace string, pods ...corev1.Pod)
 
 func outputPath(workDir string, cluster cluster.Cluster, pod corev1.Pod, name string) string {
+	return podOutputPath(workDir, cluster, pod.Name, name)
+}
+
+func podOutputPath(workDir string, cluster cluster.Cluster, podName string, name string) string {
 	dir := path.Join(workDir, cluster.Name())
 	if err := os.MkdirAll(dir, os.ModeDir|0o700); err != nil {
 		scopes.Framework.Warnf("failed creating directory: %s", dir)
 	}
-	return path.Join(dir, fmt.Sprintf("%s_%s", pod.Name, name))
+	return path.Join(dir, fmt.Sprintf("%s_%s", podName, name))
 }
 
 // DumpPods runs each dumper with all the pods in the given namespace.
@@ -309,66 +315,59 @@ func checkIfVM(pod corev1.Pod) bool {
 	return false
 }
 
-func DumpDebug(c cluster.Cluster, workDir string, endpoint string) {
-	cp, istiod, err := getControlPlane(c)
+func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint string) {
+	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
 	if err != nil {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
 	}
-	outPath := outputPath(workDir, c, istiod, endpoint)
-	out, err := dumpDebug(cp, istiod, fmt.Sprintf("/debug/%s", endpoint))
+	args := []string{"x", "internal-debug", "--all", endpoint}
+	if ctx.Settings().Revision != "" {
+		args = append(args, "--revision", ctx.Settings().Revision)
+	}
+	scopes.Framework.Debugf("dump %v: %v", endpoint, args)
+	stdout, _, err := ik.Invoke(args)
 	if err != nil {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
 	}
-	if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
+	outputs := map[string]string{}
+	if err := json.Unmarshal([]byte(stdout), &outputs); err != nil {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
 	}
-}
-
-func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
-	cp, istiod, err := getControlPlane(c)
-	if err != nil {
-		scopes.Framework.Warnf("failed dumping ndsz: %v", err)
-		return
-	}
-	for _, p := range pods {
-		endpoint := fmt.Sprintf("/debug/ndsz?proxyID=%s.%s", p.Name, p.Namespace)
-		out, err := dumpDebug(cp, istiod, endpoint)
-		if err != nil {
-			scopes.Framework.Warnf("failed dumping ndsz: %v", err)
-			continue
-		}
-		// dump to the cluster directory for the proxy
-		outPath := outputPath(workDir, c, p, "ndsz.json")
+	for istiod, out := range outputs {
+		outPath := podOutputPath(workDir, c, istiod, endpoint)
 		if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
-			scopes.Framework.Warnf("failed dumping ndsz: %v", err)
+			scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+			return
 		}
 	}
 }
 
-func dumpDebug(cp cluster.Cluster, istiodPod corev1.Pod, endpoint string) (string, error) {
-	// exec to the control plane to run nds gen
-	cmd := []string{"pilot-discovery", "request", "GET", endpoint}
-
-	out, _, err := cp.PodExec(istiodPod.Name, istiodPod.Namespace, "discovery", strings.Join(cmd, " "))
-	if err != nil {
-		return "", err
+func DumpNdsz(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
+	for _, p := range pods {
+		scopes.Framework.Debugf("dump nsdw %v", p.Name)
+		endpoint := fmt.Sprintf("ndsz?proxyID=%s.%s", p.Name, p.Namespace)
+		ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
+		if err != nil {
+			scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+			return
+		}
+		args := []string{"x", "internal-debug", endpoint}
+		if ctx.Settings().Revision != "" {
+			args = append(args, "--revision", ctx.Settings().Revision)
+		}
+		scopes.Framework.Debugf("dump %v: %v", endpoint, args)
+		stdout, _, err := ik.Invoke(args)
+		if err != nil {
+			scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+			return
+		}
+		outPath := outputPath(workDir, c, p, "ndsz.json")
+		if err := ioutil.WriteFile(outPath, []byte(stdout), 0o644); err != nil {
+			scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+			return
+		}
 	}
-	return out, nil
-}
-
-func getControlPlane(cluster cluster.Cluster) (cluster.Cluster, corev1.Pod, error) {
-	// fetch istiod from the control-plane cluster
-	cp := cluster.Primary()
-	// TODO use namespace from framework
-	istiodPods, err := cp.PodsForSelector(context.TODO(), "istio-system", "istio=pilot")
-	if err != nil {
-		return nil, corev1.Pod{}, err
-	}
-	if len(istiodPods.Items) == 0 {
-		return nil, corev1.Pod{}, fmt.Errorf("0 pods found for istio=pilot in %s", cp.Name())
-	}
-	return cp, istiodPods.Items[0], nil
 }

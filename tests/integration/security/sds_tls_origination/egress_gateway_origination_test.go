@@ -88,7 +88,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 
 			for name, tc := range testCases {
 				echotest.New(t, apps.All).
-					SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
 						bufDestinationRule := sdstlsutil.CreateDestinationRule(t, apps.ServerNamespace, "SIMPLE", tc.CredentialToUse)
 
 						// Get namespace for gateway pod.
@@ -231,7 +231,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 
 			for name, tc := range testCases {
 				echotest.New(t, apps.All).
-					SetupForPair(func(t framework.TestContext, src, dst echo.Instances) error {
+					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
 						bufDestinationRule := sdstlsutil.CreateDestinationRule(t, apps.ServerNamespace, "MUTUAL", tc.CredentialToUse)
 
 						// Get namespace for gateway pod.

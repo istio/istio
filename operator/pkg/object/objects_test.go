@@ -258,7 +258,7 @@ func TestParseJSONToK8sObject(t *testing.T) {
 				if k8sObj.Group != tt.wantGroup {
 					t.Errorf("ParseJsonToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Group, k8sObjStr, tt.wantGroup)
 				}
-				if k8sObj.Group != tt.wantGroup {
+				if k8sObj.Kind != tt.wantKind {
 					t.Errorf("ParseJsonToK8sObject(%s): got kind %s for k8s object %s, want %s", tt.desc, k8sObj.Kind, k8sObjStr, tt.wantKind)
 				}
 				if k8sObj.Name != tt.wantName {

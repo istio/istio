@@ -44,6 +44,7 @@ func All() []analysis.Analyzer {
 		&gateway.IngressGatewayPortAnalyzer{},
 		&gateway.CertificateAnalyzer{},
 		&gateway.SecretAnalyzer{},
+		&gateway.ConflictingGatewayAnalyzer{},
 		&injection.Analyzer{},
 		&injection.ImageAnalyzer{},
 		&multicluster.MeshNetworksAnalyzer{},

@@ -48,6 +48,8 @@ type EchoDeployments struct {
 	PodTproxy echo.Instances
 	// Headless echo app to be used by tests
 	Headless echo.Instances
+	// StatefulSet echo app to be used by tests
+	StatefulSet echo.Instances
 	// Echo app to be used by tests, with no sidecar injected
 	Naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
@@ -60,14 +62,15 @@ type EchoDeployments struct {
 }
 
 const (
-	PodASvc      = "a"
-	PodBSvc      = "b"
-	PodCSvc      = "c"
-	PodTproxySvc = "tproxy"
-	VMSvc        = "vm"
-	HeadlessSvc  = "headless"
-	NakedSvc     = "naked"
-	ExternalSvc  = "external"
+	PodASvc        = "a"
+	PodBSvc        = "b"
+	PodCSvc        = "c"
+	PodTproxySvc   = "tproxy"
+	VMSvc          = "vm"
+	HeadlessSvc    = "headless"
+	StatefulSetSvc = "statefulset"
+	NakedSvc       = "naked"
+	ExternalSvc    = "external"
 
 	externalHostname = "fake.external.com"
 )
@@ -172,6 +175,15 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
+			Service:           StatefulSetSvc,
+			Headless:          true,
+			StatefulSet:       true,
+			Namespace:         apps.Namespace,
+			Ports:             headlessPorts,
+			Subsets:           []echo.SubsetConfig{{}},
+			WorkloadOnlyPorts: WorkloadPorts,
+		}).
+		WithConfig(echo.Config{
 			Service:   NakedSvc,
 			Namespace: apps.Namespace,
 			Ports:     EchoPorts,
@@ -231,13 +243,14 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.PodC = echos.Match(echo.Service(PodCSvc))
 	apps.PodTproxy = echos.Match(echo.Service(PodTproxySvc))
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
+	apps.StatefulSet = echos.Match(echo.Service(StatefulSetSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
 	if !t.Settings().SkipVM {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
 
-	if err := t.Config().ApplyYAML(apps.Namespace.Name(), `
+	if err := t.Config().ApplyYAMLNoCleanup(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:

@@ -133,6 +133,15 @@ type istioctlConfigFiles struct {
 	remoteOperatorSpec *opAPI.IstioOperatorSpec
 }
 
+func (i *operatorComponent) Ingresses() ingress.Instances {
+	var out ingress.Instances
+	for _, c := range i.ctx.Clusters() {
+		// call IngressFor in-case initialization is needed.
+		out = append(out, i.IngressFor(c))
+	}
+	return out
+}
+
 func (i *operatorComponent) IngressFor(cluster cluster.Cluster) ingress.Instance {
 	return i.CustomIngressFor(cluster, defaultIngressServiceName, defaultIngressIstioLabel)
 }
@@ -250,7 +259,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 	}
 	kube2.DumpPods(ctx, d, ns)
 	for _, cluster := range ctx.Clusters().Kube() {
-		kube2.DumpDebug(cluster, d, "configz")
+		kube2.DumpDebug(ctx, cluster, d, "configz")
 	}
 }
 
