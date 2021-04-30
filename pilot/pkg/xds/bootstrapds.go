@@ -37,7 +37,7 @@ var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 // Generate returns a bootstrap discovery response.
 func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
-	node := bootstrap.ParseNode(w.LastRequest.Node)
+	node := bootstrap.ConvertXDSNodeToNode(w.LastRequest.Node)
 
 	var buf bytes.Buffer
 	templateFile := bootstrap.GetEffectiveTemplatePath(node.Metadata.ProxyConfig)

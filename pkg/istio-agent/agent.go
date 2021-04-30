@@ -317,7 +317,7 @@ func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) 
 	b.sent = true
 	return &discovery.DiscoveryRequest{
 		TypeUrl: v3.BootstrapType,
-		Node:    bootstrap.GenerateNode(b.node),
+		Node:    bootstrap.ConvertNodeToXDSNode(b.node),
 	}, nil
 }
 
