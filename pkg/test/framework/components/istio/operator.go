@@ -30,6 +30,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
+	"istio.io/pkg/log"
 	kubeApiCore "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -488,6 +489,8 @@ func installRemoteConfigCluster(i *operatorComponent, cfg Config, cluster cluste
 	scopes.Framework.Infof("setting up %s as config cluster", cluster.Name())
 	// TODO move --set values out of external istiod test main into the ConfigClusterValues defaults
 	// TODO(cont) this method should just deploy the "base" resources needed to allow istio to read from k8s
+	ns, _ := cluster.CoreV1().Namespaces().Get(context.TODO(), "istio-system", kubeApiMeta.GetOptions{})
+	log.Errorf("howardjohn: %+v", ns)
 	installSettings, err := i.generateCommonInstallSettings(cfg, cluster, cfg.ConfigClusterIOPFile, configIopFile)
 	if err != nil {
 		return err

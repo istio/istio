@@ -47,7 +47,7 @@ func TestInstallCommandInput(t *testing.T) {
 					errString: InvalidRevision,
 				},
 				{
-					command:   []string{"install", "--dry-run", "--set", "values.global.network=network1"},
+					command:   []string{"install", "--dry-run", "--set", "values.global.network=network5"},
 					errString: "",
 				},
 			}

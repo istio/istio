@@ -22,6 +22,7 @@ import (
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/pkg/log"
 )
 
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
@@ -79,6 +80,9 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					// Add individual addresses even for cross cluster.
+					if instance.Endpoint.SubDomain != "" && instance.Endpoint.Network != node.Metadata.Network {
+						log.Errorf("howardjohn: endpoint %q node %q", instance.Endpoint.Network, node.Metadata.Network)
+					}
 					if instance.Endpoint.SubDomain != "" && instance.Endpoint.Network == node.Metadata.Network {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
