@@ -47,7 +47,7 @@ func outputPath(workDir string, cluster cluster.Cluster, pod corev1.Pod, name st
 
 // DumpPods runs each dumper with all the pods in the given namespace.
 // If no dumpers are provided, their resource state, events, container logs and Envoy information will be dumped.
-func DumpPods(ctx resource.Context, workDir, namespace string, dumpers ...PodDumper) {
+func DumpPods(ctx resource.Context, workDir, namespace string, selectors []string, dumpers ...PodDumper) {
 	if len(dumpers) == 0 {
 		dumpers = []PodDumper{
 			DumpPodState,
@@ -61,7 +61,7 @@ func DumpPods(ctx resource.Context, workDir, namespace string, dumpers ...PodDum
 
 	wg := sync.WaitGroup{}
 	for _, cluster := range ctx.Clusters().Kube() {
-		pods, err := cluster.PodsForSelector(context.TODO(), namespace)
+		pods, err := cluster.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
 			scopes.Framework.Warnf("Error getting pods list via kubectl: %v", err)
 			return
