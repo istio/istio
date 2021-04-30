@@ -245,7 +245,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 					}
 				}
 				return nil
-			}, retry.Delay(time.Second))
+			}, retry.Delay(time.Second), retry.Timeout(time.Minute))
 
 			args = []string{
 				fmt.Sprintf("--namespace=%s", ns.Name()),
