@@ -149,7 +149,10 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 		}
 
 		res := util.MessageToAny(toEnvoySecret(secret))
-		resources = append(resources, res)
+		resources = append(resources, &discovery.Resource{
+			Name:     resourceName,
+			Resource: res,
+		})
 	}
 	return resources, nil
 }
