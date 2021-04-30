@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -23,7 +22,6 @@ import (
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
@@ -32,13 +30,8 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-const (
-	istiodServiceName = "istiod"
-	xdsPortName       = "https-dns"
-)
-
 func HandlerForRetrieveDebugList(kubeClient kube.ExtendedClient,
-	centralOpts *clioptions.CentralControlPlaneOptions,
+	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer) (map[string]*xdsapi.DiscoveryResponse, error) {
 	var namespace, serviceAccount string
 	xdsRequest := xdsapi.DiscoveryRequest{
@@ -70,7 +63,7 @@ func HandlerForDebugErrors(kubeClient kube.ExtendedClient,
 					"edsz?proxyID=istio-ingressgateway")
 
 			case strings.Contains(eString, "404 page not found"):
-				return HandlerForRetrieveDebugList(kubeClient, centralOpts, writer)
+				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer)
 
 			case strings.Contains(eString, "querystring parameter 'resource' is required"):
 				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
@@ -137,83 +130,33 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				TypeUrl: v3.DebugType,
 			}
 
-			svc, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), istiodServiceName, metav1.GetOptions{})
+			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, istioNamespace,
+				namespace, serviceAccount, kubeClient)
 			if err != nil {
-				return fmt.Errorf("please specify %q as %v", "--xds-address", err)
+				return err
 			}
-			podPort := 15012
-			for _, v := range svc.Spec.Ports {
-				if v.Name == xdsPortName {
-					podPort = v.TargetPort.IntValue()
-				}
+			sw := pilot.XdsStatusWriter{
+				Writer:                 c.OutOrStdout(),
+				InternalDebugAllIstiod: internalDebugAllIstiod,
 			}
-
-			labelSelector := centralOpts.XdsPodLabel
-			if labelSelector == "" {
-				labelSelector = "app=istiod"
+			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
+			if err != nil {
+				return err
 			}
-			podList, podErr := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
-				"labelSelector": labelSelector,
-				"fieldSelector": "status.phase=Running",
-			})
-			if podErr != nil {
-				return podErr
-			}
-			if len(podList) == 0 {
-				return fmt.Errorf("no running Istio pods in %q", istioNamespace)
+			if newResponse != nil {
+				return sw.PrintAll(newResponse)
 			}
 
-			var isNull bool = false
-			var printErr error
-			// Iterate all istiod pods for retrieving debug information
-			for _, pod := range podList {
-				fmt.Println("------------------------------------------------------------------------------")
-				fmt.Println("istioctl x debug for pod: ", pod.Name+"."+pod.Namespace)
-				fmt.Println("------------------------------------------------------------------------------")
-				if centralOpts.Xds == "" {
-					isNull = true
-					f, kcerr := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "", 0, podPort)
-					if kcerr != nil {
-						return fmt.Errorf("please specify %q as %v", "--xds-address", kcerr)
-					}
-					if ferr := f.Start(); ferr != nil {
-						return fmt.Errorf("please specify %q as %v", "--xds-address", ferr)
-					}
-					centralOpts.Xds = f.Address()
-					defer func() {
-						f.Close()
-						f.WaitForStop()
-					}()
-				}
-
-				xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace,
-					namespace, serviceAccount, kubeClient)
-				if respErr != nil {
-					return respErr
-				}
-				sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
-				newResponse, hDErr := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), xdsResponses)
-				if newResponse != nil {
-					return sw.PrintAll(newResponse)
-				}
-				if hDErr != nil {
-					return hDErr
-				}
-				printErr = sw.PrintAll(xdsResponses)
-				if printErr != nil {
-					return printErr
-				}
-				// reset centralOpts.Xds as blank if it's originally null
-				if isNull {
-					centralOpts.Xds = ""
-				}
-			}
-			return nil
+			return sw.PrintAll(xdsResponses)
 		},
 	}
 
 	opts.AttachControlPlaneFlags(debugCommand)
 	centralOpts.AttachControlPlaneFlags(debugCommand)
 	debugCommand.Long += "\n\n" + ExperimentalMsg
+	debugCommand.PersistentFlags().BoolVar(&internalDebugAllIstiod, "all", false,
+		"Send the same request to all instances of Istiod. Only applicable for in-cluster deployment.")
 	return debugCommand
 }
+
+var internalDebugAllIstiod bool
