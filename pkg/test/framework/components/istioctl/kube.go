@@ -22,29 +22,31 @@ import (
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/test"
-	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 type kubeComponent struct {
-	config  Config
-	id      resource.ID
-	cluster *kubecluster.Cluster
+	config     Config
+	kubeconfig string
 }
 
-func newKube(ctx resource.Context, config Config) Instance {
-	n := &kubeComponent{
-		config:  config,
-		cluster: ctx.Clusters().GetOrDefault(config.Cluster).(*kubecluster.Cluster),
+// Filenamer is an interface to avoid importing kubecluster package, instead build our own interface
+// to extract kube context
+type Filenamer interface {
+	Filename() string
+}
+
+func newKube(ctx resource.Context, config Config) (Instance, error) {
+	fn, ok := ctx.Clusters().GetOrDefault(config.Cluster).(Filenamer)
+	if !ok {
+		return nil, fmt.Errorf("cluster does not support fetching kube config")
 	}
-	n.id = ctx.TrackResource(n)
+	n := &kubeComponent{
+		config:     config,
+		kubeconfig: fn.Filename(),
+	}
 
-	return n
-}
-
-// ID implements resource.Instance
-func (c *kubeComponent) ID() resource.ID {
-	return c.id
+	return n, nil
 }
 
 // Invoke implements WaitForConfigs
@@ -69,7 +71,7 @@ func (c *kubeComponent) WaitForConfigs(defaultNamespace string, configs string) 
 func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	cmdArgs := append([]string{
 		"--kubeconfig",
-		c.cluster.Filename(),
+		c.kubeconfig,
 	}, args...)
 
 	var out bytes.Buffer
