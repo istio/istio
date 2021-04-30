@@ -321,6 +321,40 @@ function install_asm_managed_control_plane() {
     fi
     TMPDIR=$(mktemp -d)
 
+
+    if [[ "${FEATURE_TO_TEST}" == "ADDON" ]]; then
+      # Enable test for addon <-> MCP workload communication
+      export ISTIO_TEST_EXTRA_REVISIONS=default
+      # Allow auto detection of the CA, dynamically choosing Citadel or Mesh CA based on if an existing
+      # Istio cluster is installed.
+      cat <<EOF | kubectl --context="${CONTEXTS[$i]}" apply -f - -n istio-system
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: asm-options
+  namespace: istio-system
+data:
+  ASM_OPTS: |
+    CA=check
+EOF
+      # TODO this needs to be in addon-migrate. But ordering here is tricky, we need to disable it before we apply.
+      # Likely the end result will be that we re-apply the new CRDs when user migrates, but have the old CRDs
+      # when MCP is "shadow" launched?
+      kubectl --context="${CONTEXTS[$i]}" scale deployment istio-operator --replicas=0 -n istio-operator
+      while "$(kubectl --context="${CONTEXTS[$i]}" get pods -n istio-operator -oname)" != ""; do
+        echo "waiting for pods to terminate"
+        sleep 1
+      done
+      # This will be manual action by user. Technically they can co-exist, but the old Istiod will hold onto the
+      # leader election lock, which breaks Ingress support.
+      kubectl --context="${CONTEXTS[$i]}" scale deployment istiod-istio-1611 --replicas=0 -n istio-system
+
+      # TODO(b/184940170) install_asm should setup CRDs
+      # Normally we set it in Cloudrun, but because istio-system exists that step is skipped
+      kubectl apply --context="${CONTEXTS[$i]}" -f manifests/charts/base/files/gen-istio-cluster.yaml \
+        --record=false --overwrite=false --force-conflicts=true --server-side
+    fi
+
     # _CI_ASM_PKG_LOCATION _CI_ASM_IMAGE_LOCATION are required for unreleased Scriptaro (master and staging branch).
     # Managed control plane installation will use _CI_ASM_PKG_LOCATION, _CI_ASM_IMAGE_LOCATION for Gateway.
     # For sidecar proxy and Istiod, _CI_CLOUDRUN_IMAGE_HUB and _CI_CLOUDRUN_IMAGE_TAG are used.
@@ -336,7 +370,7 @@ function install_asm_managed_control_plane() {
       --output_dir "${TMPDIR}" \
       --ca "mesh_ca" \
       --verbose
-    kubectl apply -f tools/packaging/knative/gateway/injected-gateway.yaml -n istio-system --context="${CONTEXTS[$i]}"
+
     # Enable access logging to help with debugging tests
     cat <<EOF | kubectl apply --context="${CONTEXTS[$i]}" -f -
 apiVersion: v1
@@ -348,6 +382,13 @@ metadata:
   name: asm
   namespace: istio-system
 EOF
+
+    if [[ "${FEATURE_TO_TEST}" == "ADDON" ]]; then
+      # Run the addon migrate script. This sets up the gateway, so do not install it again
+      tools/packaging/knative/migrate-addon.sh -y --context "${CONTEXTS[$i]}"
+    else
+      kubectl apply -f tools/packaging/knative/gateway/injected-gateway.yaml -n istio-system --context="${CONTEXTS[$i]}"
+    fi
   done
 
   for i in "${!CONTEXTS[@]}"; do

@@ -39,12 +39,16 @@ func gkeDeployerBaseFlags() []string {
 	return []string{"--ignore-gcp-ssh-key=true", "-v=2", "--gcp-service-account=" + os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")}
 }
 
-func gkeDeployerCreateCommandFlag(clusterType string) string {
+func gkeDeployerCreateCommandFlag(clusterType string, addon bool) string {
 	name := "create"
 	if clusterType == "gke-autopilot" {
 		name = "create-auto"
 	}
-	return fmt.Sprintf("--create-command='beta container clusters %s --quiet --enable-network-policy'", name)
+	addonFlag := ""
+	if addon {
+		addonFlag = " --addons=Istio"
+	}
+	return fmt.Sprintf("--create-command='beta container clusters %s --quiet --enable-network-policy%s'", name, addonFlag)
 }
 
 // DeployerFlags returns the deployer flags needed for the given cluster
@@ -54,7 +58,7 @@ func DeployerFlags(clusterType, clusterTopology, featureToTest string) ([]string
 	var err error
 	switch clusterTopology {
 	case "SINGLECLUSTER", "sc":
-		flags, err = singleClusterFlags(clusterType)
+		flags, err = singleClusterFlags(clusterType, featureToTest == "ADDON")
 	case "MULTICLUSTER", "mc":
 		boskosResourceType := commonBoskosResource
 		// Testing with VPC-SC requires a different project type.
@@ -93,7 +97,7 @@ func DeployerFlags(clusterType, clusterTopology, featureToTest string) ([]string
 }
 
 // singleClusterFlags returns the kubetest2 flags for single-cluster setup.
-func singleClusterFlags(clusterType string) ([]string, error) {
+func singleClusterFlags(clusterType string, addon bool) ([]string, error) {
 	flags := gkeDeployerBaseFlags()
 
 	if err := configureProjectFlag(&flags, func() (string, error) {
@@ -101,9 +105,14 @@ func singleClusterFlags(clusterType string) ([]string, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for singlecluster setup: %w", err)
 	}
-	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType))
+	channel := "regular"
+	if addon {
+		// We only support clusters that have EnsureExists, currently available on rapid only
+		channel = "rapid"
+	}
+	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType, addon))
 	flags = append(flags, "--cluster-name=prow-test", "--machine-type=e2-standard-4", "--num-nodes=2")
-	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
+	flags = append(flags, "--network=default", "--release-channel="+channel, "--version=latest", "--enable-workload-identity")
 	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
 	// flags = append(flags, "--region=us-central1")
 
@@ -120,7 +129,7 @@ func multiClusterFlags(boskosResourceType, clusterType string) ([]string, error)
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for multicluster setup: %w", err)
 	}
-	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType))
+	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType, false))
 	flags = append(flags, "--cluster-name=prow-test1,prow-test2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=default", "--release-channel=regular", "--version=latest", "--enable-workload-identity")
 	// TODO(chizhg): uncomment after b/162609408 is fixed upstream
@@ -158,7 +167,7 @@ func multiProjectMultiClusterFlags(hostBoskosResourceType, svcBoskosResourceType
 	}); err != nil {
 		return nil, fmt.Errorf("error acquiring GCP projects for multi-project multi-cluster setup: %w", err)
 	}
-	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType))
+	flags = append(flags, gkeDeployerCreateCommandFlag(clusterType, false))
 	flags = append(flags, "--cluster-name=prow-test1:1,prow-test2:2", "--machine-type=e2-standard-4", "--num-nodes=2")
 	flags = append(flags, "--network=test-network", "--subnetwork-ranges='172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14'")
 	flags = append(flags, "--release-channel=regular", "--version=latest", "--enable-workload-identity")

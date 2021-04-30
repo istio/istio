@@ -294,6 +294,9 @@ export ENABLE_AUTH_DEBUG=1
 # For asm-managed, we want this to default on.
 export TEE_LOGS_TO_STACKDRIVER=true
 
+# Avoid creating/reading istio-ca-root-cert
+export PILOT_CERT_PROVIDER=none
+
 env
 
 # shellcheck disable=SC2068

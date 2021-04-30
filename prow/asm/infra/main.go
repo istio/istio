@@ -62,7 +62,7 @@ func main() {
 	flag.StringVar(&o.testScript, "test-script", "", "the script to run the tests after clusters are created")
 	flag.StringVar(&o.testFlags, "test-flags", "", "flags to pass through to the test script")
 	flag.StringVar(&o.clusterTopology, "topology", "SINGLECLUSTER", "cluster topology for the SUT, can be one of SINGLECLUSTER, MULTICLUSTER and MULTIPROJECT_MULTICLUSTER")
-	flag.StringVar(&o.featureToTest, "feature", "", "The feature to test for ASM, for now can be VPC_SC or USER_AUTH if not empty")
+	flag.StringVar(&o.featureToTest, "feature", "", "The feature to test for ASM, for now can be VPC_SC, ADDON, or USER_AUTH if not empty")
 	flag.Parse()
 
 	if err := o.initSetup(); err != nil {

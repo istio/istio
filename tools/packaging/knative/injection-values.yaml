@@ -30,7 +30,7 @@ global:
   hub: ${HUB}
 
   # Default tag for Istio images.
-  tag: ${TAG}
+  tag: "${TAG}"
 
   # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
   # The control plane has different scopes depending on component, but can configure default log level across all components
