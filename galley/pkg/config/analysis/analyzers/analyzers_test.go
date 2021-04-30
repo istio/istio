@@ -153,6 +153,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "conflicting gateways detect",
+		inputFiles: []string{"testdata/conflicting-gateways.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},

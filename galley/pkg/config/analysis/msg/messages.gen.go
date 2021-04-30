@@ -172,6 +172,10 @@ var (
 	// InvalidApplicationUID defines a diag.MessageType for message "InvalidApplicationUID".
 	// Description: Application pods should not run as user ID (UID) 1337
 	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "User ID (UID) 1337 is reserved for the sidecar proxy.")
+
+	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
+	// Description: Gateway should not have the same selector, port and matched hosts of server
+	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
 )
 
 // All returns a list of all known message types.
@@ -218,6 +222,7 @@ func All() []*diag.MessageType {
 		UnsupportedKubernetesVersion,
 		LocalhostListener,
 		InvalidApplicationUID,
+		ConflictingGateways,
 	}
 }
 
@@ -627,5 +632,17 @@ func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		InvalidApplicationUID,
 		r,
+	)
+}
+
+// NewConflictingGateways returns a new diag.Message based on ConflictingGateways.
+func NewConflictingGateways(r *resource.Instance, gateway string, selector string, portnumber string, hosts string) diag.Message {
+	return diag.NewMessage(
+		ConflictingGateways,
+		r,
+		gateway,
+		selector,
+		portnumber,
+		hosts,
 	)
 }
