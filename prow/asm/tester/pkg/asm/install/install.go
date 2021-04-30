@@ -227,7 +227,7 @@ func generateInstallFlags(settings *resource.Settings, rev *revision.Config, pkg
 	if ca == resource.PrivateCA && settings.WIP != resource.HUBWorkloadIdentityPool {
 		overlays = append(overlays, filepath.Join(pkgPath, "overlay/private-ca.yaml"))
 	}
-	if settings.FeatureToTest == string(resource.UserAuth) {
+	if settings.FeatureToTest == resource.UserAuth {
 		overlays = append(overlays, filepath.Join(pkgPath, "overlay/user-auth.yaml"))
 	}
 	if os.Getenv(cloudAPIEndpointOverrides) == stagingEndpoint {
@@ -281,7 +281,7 @@ func createRemoteSecrets(settings *resource.Settings, contexts []string) error {
 			}
 
 			// for private clusters, convert the cluster master public IP to private IP
-			if settings.FeatureToTest == string(resource.VPCSC) {
+			if settings.FeatureToTest == resource.VPCSC {
 				privateIPCmd := fmt.Sprintf("gcloud container clusters describe %s"+
 					" --project %s --zone %s --format \"value(privateClusterConfig.privateEndpoint)\"",
 					otherCluster.Name, otherCluster.ProjectID, otherCluster.Location)

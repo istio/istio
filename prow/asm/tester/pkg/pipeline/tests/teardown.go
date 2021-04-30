@@ -15,21 +15,17 @@
 package tests
 
 import (
-	"fmt"
 	"log"
-	"path/filepath"
 
-	"istio.io/istio/prow/asm/tester/pkg/exec"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
+	"istio.io/istio/prow/asm/tester/pkg/tests/userauth"
 )
 
 func Teardown(settings *resource.Settings) error {
 	log.Println("🎬 start tearing down the tests...")
 
-	// TODO: convert the script into Go
-	teardownTestsScript := filepath.Join(settings.RepoRootDir, "prow/asm/tester/scripts/teardown-tests.sh")
-	if err := exec.Run(teardownTestsScript); err != nil {
-		return fmt.Errorf("error tearing down the tests: %w", err)
+	if settings.ControlPlane == resource.Unmanaged && settings.FeatureToTest == resource.UserAuth {
+		return userauth.Teardown(settings)
 	}
 
 	return nil

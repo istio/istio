@@ -36,7 +36,7 @@ func BindFlags(settings *Settings) *pflag.FlagSet {
 	flags.StringVar(&settings.Kubeconfig, "kubeconfig", "", "a list of kubeconfig files that can be used to connect to the test clusters")
 	flags.Var(&settings.ClusterType, "cluster-type", "type of the k8s cluster")
 	flags.Var(&settings.ClusterTopology, "cluster-topology", "topology of the k8s clusters")
-	flags.StringVar(&settings.FeatureToTest, "feature", "", "feature to test for this test flow")
+	flags.Var(&settings.FeatureToTest, "feature", "feature to test for this test flow")
 
 	flags.Var(&settings.ControlPlane, "control-plane", "type of the control plane, can be one of UNMANAGED or MANAGED")
 	flags.Var(&settings.CA, "ca", "Certificate Authority to use, can be one of CITADEL, MESHCA or PRIVATECA")

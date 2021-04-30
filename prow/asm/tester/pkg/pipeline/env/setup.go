@@ -32,6 +32,7 @@ import (
 
 const (
 	sharedGCPProject = "istio-prow-build"
+	configDir        = "prow/asm/tester/configs"
 )
 
 func Setup(settings *resource.Settings) error {
@@ -69,6 +70,8 @@ func Setup(settings *resource.Settings) error {
 
 // populate extra settings that will be used during the runtime
 func populateRuntimeSettings(settings *resource.Settings) error {
+	settings.ConfigDir = filepath.Join(settings.RepoRootDir, configDir)
+
 	var kubectlContexts string
 	var err error
 	kubectlContexts, err = kube.ContextStr()
@@ -261,10 +264,10 @@ func injectEnvVars(settings *resource.Settings) error {
 
 		"GCR_PROJECT_ID":   settings.GCRProject,
 		"CONTEXT_STR":      settings.KubectlContexts,
-		"CONFIG_DIR":       filepath.Join(settings.RepoRootDir, "prow/asm/tester/configs"),
+		"CONFIG_DIR":       settings.ConfigDir,
 		"CLUSTER_TYPE":     settings.ClusterType.String(),
 		"CLUSTER_TOPOLOGY": settings.ClusterTopology.String(),
-		"FEATURE_TO_TEST":  settings.FeatureToTest,
+		"FEATURE_TO_TEST":  settings.FeatureToTest.String(),
 
 		// exported TAG and HUB are used for ASM installation, and as the --istio.test.tag and
 		// --istio-test.hub flags of the testing framework
@@ -329,7 +332,7 @@ func fixGKE(settings *resource.Settings) error {
 		}
 	}
 
-	if settings.FeatureToTest == "VPC_SC" {
+	if settings.FeatureToTest == resource.VPCSC {
 		networkName := "default"
 		if settings.ClusterTopology == resource.MultiProject {
 			networkName = "test-network"

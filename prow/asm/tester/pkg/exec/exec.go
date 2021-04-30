@@ -17,12 +17,12 @@ package exec
 import (
 	"bytes"
 	"fmt"
-	shell "github.com/kballard/go-shellquote"
 	"io"
 	"log"
 	"os"
 	"os/exec"
-	"strings"
+
+	shell "github.com/kballard/go-shellquote"
 )
 
 // Option enables further configuration of a Cmd.
@@ -104,7 +104,6 @@ func commonRun(rawCommand string, stdout, stderr io.Writer, options ...Option) e
 		option(cmd)
 	}
 
-	log.Printf("⚙️ %s",
-		strings.Join(append([]string{rawCommand}, cmd.Args...), " "))
+	log.Printf("⚙️ %s", shell.Join(cmd.Args...))
 	return cmd.Run()
 }

@@ -79,6 +79,9 @@ func generateTestSelect(settings *resource.Settings) string {
 				testSelect = "-customsetup"
 			}
 		}
+		if settings.FeatureToTest == resource.UserAuth {
+			testSelect = "+userauth"
+		}
 	} else if settings.ControlPlane == resource.Managed {
 		testSelect = "-customsetup"
 		if settings.ClusterTopology == resource.MultiCluster {
@@ -86,12 +89,6 @@ func generateTestSelect(settings *resource.Settings) string {
 				testSelect += ",+multicluster"
 			}
 		}
-	}
-	if settings.FeatureToTest == string(resource.UserAuth) {
-		if testSelect != "" {
-			testSelect += ","
-		}
-		testSelect += "+userauth"
 	}
 
 	return testSelect

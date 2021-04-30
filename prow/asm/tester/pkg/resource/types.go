@@ -139,22 +139,23 @@ func (wip *WIPType) Type() string { return "wip" }
 type Feature string
 
 const (
-	UserAuth Feature = "UserAuth"
-	VPCSC    Feature = "VPCSC"
+	UserAuth Feature = "USER_AUTH"
+	VPCSC    Feature = "VPC_SC"
+	Addon    Feature = "ADDON"
 )
 
-var validFeatureTypes = sets.NewString(string(UserAuth), string(VPCSC))
+var validFeatureTypes = sets.NewString(string(UserAuth), string(VPCSC), string(Addon))
 
-// Set converts the value string to WIPType
-func (wip *Feature) Set(value string) error {
-	if !validFeatureTypes.Has(value) {
-		return fmt.Errorf("%q is not a valid WIP type in %v", value, validFeatureTypes)
+// Set converts the value string to FeatureType
+func (f *Feature) Set(value string) error {
+	if value != "" && !validFeatureTypes.Has(value) {
+		return fmt.Errorf("%q is not a valid Feature type in %v", value, validFeatureTypes)
 	}
 
-	*wip = Feature(value)
+	*f = Feature(value)
 	return nil
 }
 
-func (wip *Feature) String() string { return string(*wip) }
+func (f *Feature) String() string { return string(*f) }
 
-func (wip *Feature) Type() string { return "wip" }
+func (f *Feature) Type() string { return "feature" }

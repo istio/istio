@@ -28,7 +28,7 @@ type Settings struct {
 	ClusterTopology ClusterToplology
 
 	// The feature to test for this test flow
-	FeatureToTest string
+	FeatureToTest Feature
 
 	// UNMANAGED or MANAGED
 	ControlPlane ControlPlaneType
@@ -79,6 +79,9 @@ type VMSettings struct {
 type RuntimeSettings struct {
 	// The kubectl contexts string for the current test clusters.
 	KubectlContexts string
+
+	// The directory that stores configuration files for running the tests flows.
+	ConfigDir string
 
 	// A list of GCP projects for where the GKE clusters are created.
 	// They can be used in the test flow for e.g. hosting the test images with the GCRs
