@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -148,6 +149,7 @@ func initDependencies() map[name.ComponentName]chan struct{} {
 
 // Reconcile reconciles the associated resources.
 func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
+	log.Errorf("howardjohn: reconcile! %v", h.networkName())
 	if err := h.createNamespace(valuesv1alpha1.Namespace(h.iop.Spec), h.networkName()); err != nil {
 		return nil, err
 	}
@@ -545,6 +547,9 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string) 
 
 // createNamespace creates a namespace using the given k8s client.
 func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+	if h.opts.DryRun {
+		return nil
+	}
 	return CreateNamespace(h.clientSet, namespace, network)
 }
 
