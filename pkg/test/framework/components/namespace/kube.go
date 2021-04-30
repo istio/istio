@@ -57,7 +57,7 @@ func (n *kubeNamespace) Dump(ctx resource.Context) {
 		return
 	}
 
-	kube2.DumpPods(n.ctx, d, n.name, []string{"k8s-app=istio-cni-node"})
+	kube2.DumpPods(n.ctx, d, n.name, []string{})
 }
 
 var (
