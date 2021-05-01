@@ -1605,7 +1605,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		return err
 	}
 
-	sortConfigByCreationTime(envoyFilterConfigs)
+	sort.SliceStable(envoyFilterConfigs, func(i, j int) bool { return envoyFilterConfigs[i].Name < envoyFilterConfigs[j].Name })
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
 	for _, envoyFilterConfig := range envoyFilterConfigs {
