@@ -203,7 +203,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// Inbound listeners will be aggregated into a single virtual listener (port 15006)
 			// As a result, we don't need to worry about binding to the endpoint IP; we already know
 			// all traffic for these listeners is inbound.
-			// TODO: directly build filter chains rather than translating listeneners to filter chains
+			// TODO: directly build filter chains rather than translating listeners to filter chains
 			wildcard, _ := getActualWildcardAndLocalHost(node)
 			bind := wildcard
 

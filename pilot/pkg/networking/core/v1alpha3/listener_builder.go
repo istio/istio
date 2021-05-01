@@ -500,30 +500,6 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	return lb.gatewayListeners
 }
 
-type fcOpts struct {
-	matchOpts FilterChainMatchOptions
-	fc        istionetworking.FilterChain
-}
-
-func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, matchingIP string) fcOpts {
-	opt.fc.FilterChainMatch = &listener.FilterChainMatch{}
-	opt.fc.FilterChainMatch.ApplicationProtocols = opt.matchOpts.ApplicationProtocols
-	opt.fc.FilterChainMatch.TransportProtocol = opt.matchOpts.TransportProtocol
-	if len(matchingIP) > 0 {
-		opt.fc.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(matchingIP)}
-	}
-	if port > 0 {
-		opt.fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: port}
-	}
-	opt.fc.ListenerProtocol = opt.matchOpts.Protocol
-	if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
-		opt.fc.TLSContext = mtls.HTTP
-	} else {
-		opt.fc.TLSContext = mtls.TCP
-	}
-	return opt
-}
-
 func getMtlsSettings(configgen *ConfigGeneratorImpl, in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	for _, p := range configgen.Plugins {
 		cfg := p.InboundMTLSConfiguration(in, passthrough)
