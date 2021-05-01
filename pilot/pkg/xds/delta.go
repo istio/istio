@@ -19,12 +19,6 @@ import (
 	"fmt"
 	"time"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/grpc/codes"
@@ -231,7 +225,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection) {
 				return
 			}
 			defer s.closeConnection(con)
-			log.Infof("ADS: new connection for node:%s", con.ConID)
+			log.Infof("ADS: new delta connection for node:%s", con.ConID)
 		}
 
 		select {
@@ -426,32 +420,31 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 
-	deltaResponse := convertResponseToDelta(currentVersion, res)
-	originalResponse := deltaResponse
+	originalNames := extractNames(res)
 	if subscribe != nil {
 		// If subscribe is set, client is requesting specific resources. We should just give it the
 		// new resources it needs, rather than the entire set of known resources.
 		subres := sets.NewSet(subscribe...)
 		filteredResponse := []*discovery.Resource{}
-		for _, r := range deltaResponse {
+		for _, r := range res {
 			if subres.Contains(r.Name) {
 				filteredResponse = append(filteredResponse, r)
 			} else {
 				log.Debugf("ADS:%v SKIP %v", v3.GetShortType(w.TypeUrl), r.Name)
 			}
 		}
-		deltaResponse = filteredResponse
+		res = filteredResponse
 	}
 	resp := &discovery.DeltaDiscoveryResponse{
 		TypeUrl:           w.TypeUrl,
 		SystemVersionInfo: currentVersion,
 		Nonce:             nonce(push.LedgerVersion),
-		Resources:         deltaResponse,
+		Resources:         res,
 	}
 	// We take the set of watched resources and anything not in the response is sent as RemovedResources
 	// This is similar to SotW, but done on the server side instead of the client.
 	cur := sets.NewSet(w.ResourceNames...)
-	cur.Delete(extractNames(originalResponse)...)
+	cur.Delete(originalNames...)
 	resp.RemovedResources = cur.SortedList()
 	if len(resp.RemovedResources) > 0 {
 		log.Infof("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
@@ -459,7 +452,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
 		con.proxy.Lock()
-		w.ResourceNames = extractNames(originalResponse)
+		w.ResourceNames = originalNames
 		con.proxy.Unlock()
 	}
 
@@ -498,48 +491,6 @@ func newDeltaConnection(peerAddr string, stream DeltaDiscoveryStream) *Connectio
 	}
 }
 
-// just for experimentation
-// TODO: make generator return discovery.Resource; then we don't need to introspect the name
-func convertResponseToDelta(ver string, resources model.Resources) []*discovery.Resource {
-	convert := []*discovery.Resource{}
-	for _, r := range resources {
-		var name string
-		switch r.TypeUrl {
-		case v3.ClusterType:
-			aa := &cluster.Cluster{}
-			_ = r.UnmarshalTo(aa)
-			name = aa.Name
-		case v3.ListenerType:
-			aa := &listener.Listener{}
-			_ = r.UnmarshalTo(aa)
-			name = aa.Name
-		case v3.EndpointType:
-			aa := &endpoint.ClusterLoadAssignment{}
-			_ = r.UnmarshalTo(aa)
-			name = aa.ClusterName
-		case v3.RouteType:
-			aa := &route.RouteConfiguration{}
-			_ = r.UnmarshalTo(aa)
-			name = aa.Name
-		case v3.SecretType:
-			aa := &tls.Secret{}
-			_ = r.UnmarshalTo(aa)
-			name = aa.Name
-		case v3.ExtensionConfigurationType:
-			aa := &core.TypedExtensionConfig{}
-			_ = r.UnmarshalTo(aa)
-			name = aa.Name
-		}
-		c := &discovery.Resource{
-			Name:     name,
-			Version:  ver,
-			Resource: r,
-		}
-		convert = append(convert, c)
-	}
-	return convert
-}
-
 // To satisfy methods that need DiscoveryRequest. Not suitable for real usage
 func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.DiscoveryRequest {
 	return &discovery.DiscoveryRequest{
@@ -557,14 +508,6 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 	res.Delete(request.ResourceNamesUnsubscribe...)
 	// TODO initial request?
 	return res.SortedList()
-}
-
-func ConvertDeltaToResponse(response []*discovery.Resource) model.Resources {
-	convert := model.Resources{}
-	for _, r := range response {
-		convert = append(convert, r.Resource)
-	}
-	return convert
 }
 
 func extractNames(res []*discovery.Resource) []string {

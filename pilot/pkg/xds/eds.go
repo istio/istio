@@ -358,7 +358,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	if !req.Full {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
-	resources := make([]*any.Any, 0)
+	resources := make(model.Resources, 0)
 	empty := 0
 
 	cached := 0
@@ -387,7 +387,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			if len(l.Endpoints) == 0 {
 				empty++
 			}
-			resource := util.MessageToAny(l)
+			resource := &discovery.Resource{
+				Name:     l.ClusterName,
+				Resource: util.MessageToAny(l),
+			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, token, resource)
 		}

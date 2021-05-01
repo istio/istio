@@ -165,7 +165,23 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 }
 
 // Request is an alias for array of marshaled resources.
-type Resources = []*any.Any
+type Resources = []*discovery.Resource
+
+func AnyToUnnamedResources(r []*any.Any) Resources {
+	a := make(Resources, 0, len(r))
+	for _, rr := range r {
+		a = append(a, &discovery.Resource{Resource: rr})
+	}
+	return a
+}
+
+func ResourcesToAny(r Resources) []*any.Any {
+	a := make([]*any.Any, 0, len(r))
+	for _, rr := range r {
+		a = append(a, rr.Resource)
+	}
+	return a
+}
 
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
