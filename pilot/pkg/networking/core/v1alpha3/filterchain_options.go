@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -214,7 +213,7 @@ func getFilterChainMatchOptions(settings plugin.MTLSSettings, protocol networkin
 
 type fcOpts struct {
 	matchOpts FilterChainMatchOptions
-	fc        istionetworking.FilterChain
+	fc        networking.FilterChain
 }
 
 func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, matchingIP string) fcOpts {
@@ -228,7 +227,7 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, mat
 		opt.fc.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: port}
 	}
 	opt.fc.ListenerProtocol = opt.matchOpts.Protocol
-	if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
+	if opt.fc.ListenerProtocol == networking.ListenerProtocolHTTP {
 		opt.fc.TLSContext = mtls.HTTP
 	} else {
 		opt.fc.TLSContext = mtls.TCP
