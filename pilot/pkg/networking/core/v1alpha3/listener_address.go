@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 )
 
 const (
@@ -31,6 +30,10 @@ const (
 
 	// LocalhostIPv6Address for local binding
 	LocalhostIPv6Address = "::1"
+
+	// 6 is the magical number for inbound: 15006, 127.0.0.6, ::6
+	InboundPassthroughBindIpv4 = "127.0.0.6"
+	InboundPassthroughBindIpv6 = "::6"
 )
 
 // getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
@@ -44,9 +47,9 @@ func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
 
 func getPassthroughBindIP(node *model.Proxy) string {
 	if node.SupportsIPv4() {
-		return util.InboundPassthroughBindIpv4
+		return InboundPassthroughBindIpv4
 	}
-	return util.InboundPassthroughBindIpv6
+	return InboundPassthroughBindIpv6
 }
 
 // getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
