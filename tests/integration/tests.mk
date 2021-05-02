@@ -58,6 +58,8 @@ else
 	_INTEGRATION_TEST_FLAGS += --istio.test.kube.config=$(_INTEGRATION_TEST_KUBECONFIG)
 endif
 
+_INTEGRATION_TEST_FLAGS += --istio.test.istio.enableCNI=true
+
 test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT) check-go-tag
