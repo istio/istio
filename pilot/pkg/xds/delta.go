@@ -436,6 +436,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		res = filteredResponse
 	}
 	resp := &discovery.DeltaDiscoveryResponse{
+		ControlPlane:      ControlPlane(),
 		TypeUrl:           w.TypeUrl,
 		SystemVersionInfo: currentVersion,
 		Nonce:             nonce(push.LedgerVersion),
@@ -456,15 +457,16 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		con.proxy.Unlock()
 	}
 
+	configSize := ResourceSize(res)
+	configSizeBytes.With(typeTag.Value(w.TypeUrl)).Record(float64(configSize))
+
 	if err := con.sendDelta(resp); err != nil {
 		recordSendError(w.TypeUrl, con.ConID, err)
 		return err
 	}
 
-	// Some types handle logs inside Generate, skip them here
-	// TODO because we filter out after the fact, SkipLogTypes report wrong info
-	// We should have them return up some metadata that we can transparently log
-	if _, f := SkipLogTypes[w.TypeUrl]; !f {
+	// Some types handle logs inside Generate, skip them here.
+	if !gen.Metadata().LogsDetails {
 		if log.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled
 			log.Infof("%s: PUSH for node:%s resources:%d size:%s nonce:%v version:%v",

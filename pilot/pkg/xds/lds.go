@@ -24,6 +24,7 @@ import (
 )
 
 type LdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 

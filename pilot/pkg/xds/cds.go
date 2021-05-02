@@ -24,6 +24,7 @@ import (
 )
 
 type CdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
