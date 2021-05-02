@@ -447,6 +447,9 @@ var (
 
 	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
+
+	SortEnvoyFilterByName = env.RegisterBoolVar("SORT_ENVOY_FILTERS_BY_NAME", false,
+		"If enabled, envoy filters will be sorted by name allowing the dependency ordering taken care by name.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

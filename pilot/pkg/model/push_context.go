@@ -1605,7 +1605,11 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		return err
 	}
 
-	sort.SliceStable(envoyFilterConfigs, func(i, j int) bool { return envoyFilterConfigs[i].Name < envoyFilterConfigs[j].Name })
+	if features.SortEnvoyFilterByName {
+		sort.SliceStable(envoyFilterConfigs, func(i, j int) bool { return envoyFilterConfigs[i].Name < envoyFilterConfigs[j].Name })
+	} else {
+		sortConfigByCreationTime(envoyFilterConfigs)
+	}
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
 	for _, envoyFilterConfig := range envoyFilterConfigs {
