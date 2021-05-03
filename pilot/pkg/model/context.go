@@ -605,10 +605,10 @@ func (node *Proxy) GetNetworkView() map[string]bool {
 // InNetwork returns true if the proxy is on the given network, or if either
 // the proxy's network or the given network is unspecified ("").
 func (node *Proxy) InNetwork(network string) bool {
-	return node == nil || SameNetwork(network, node.Metadata.Network)
+	return node == nil || IsSameNetwork(network, node.Metadata.Network)
 }
 
-func SameNetwork(a, b string) bool {
+func IsSameNetwork(a, b string) bool {
 	return a == UnnamedNetwork || b == UnnamedNetwork || a == b
 }
 
