@@ -20,6 +20,7 @@ import (
 	"io"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -52,5 +53,8 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 	if err = jsonpb.Unmarshal(io.Reader(&buf), bs); err != nil {
 		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", buf.String(), err)
 	}
-	return model.Resources{util.MessageToAny(bs)}, nil
+	return model.Resources{
+		&discovery.Resource{
+			Resource: util.MessageToAny(bs),
+		}}, nil
 }
