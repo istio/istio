@@ -165,7 +165,11 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 }
 
 func (a *Agent) initializeEnvoyAgent() error {
-	provCert := a.FindRootCAForXDS()
+	provCert, err := a.FindRootCAForXDS()
+	if err != nil {
+		return fmt.Errorf("failed to find root CA cert for XDS: %v", err)
+	}
+
 	if provCert == "" {
 		// Envoy only supports load from file. If we want to use system certs, use best guess
 		// To be more correct this could lookup all the "well known" paths but this is extremely \
@@ -179,7 +183,6 @@ func (a *Agent) initializeEnvoyAgent() error {
 	}
 	log.Infof("Pilot SAN: %v", pilotSAN)
 
-	var err error
 	node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
 		Envs:                os.Environ(),
@@ -320,33 +323,51 @@ func (a *Agent) Close() {
 // It may be different from the CA for the cert server - which is based on CA_ADDR
 // In addition it deals with the case the XDS server is on port 443, expected with a proper cert.
 // /etc/ssl/certs/ca-certificates.crt
-//
-// TODO: additional checks for existence. Fail early, instead of obscure envoy errors.
-func (a *Agent) FindRootCAForXDS() string {
+func (a *Agent) FindRootCAForXDS() (string, error) {
+	var rootCAPath string
+
 	if a.cfg.XDSRootCerts == security.SystemRootCerts {
-		return ""
+		// Special case input for root cert configuration to use system root certificates
+		return "", nil
 	} else if a.cfg.XDSRootCerts != "" {
-		return a.cfg.XDSRootCerts
-	} else if _, err := os.Stat("./etc/certs/root-cert.pem"); err == nil {
+		// Using specific platform certs or custom roots
+		rootCAPath = a.cfg.XDSRootCerts
+	} else if fileExists("./etc/certs/root-cert.pem") {
 		// Old style - mounted cert. This is used for XDS auth only,
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
-		return "./etc/certs/root-cert.pem"
+		return "./etc/certs/root-cert.pem", nil
 	} else if a.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident (https://github.com/istio/istio/issues/22161)
-		return k8sCAPath
+		rootCAPath = k8sCAPath
 	} else if a.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
-		return a.secOpts.ProvCert + "/root-cert.pem"
+		// For VMs, the root cert file used to auth may be populated afterwards.
+		// Thus, return directly here and skip checking for existence.
+		return a.secOpts.ProvCert + "/root-cert.pem", nil
 	} else if a.secOpts.FileMountedCerts {
 		// FileMountedCerts - Load it from Proxy Metadata.
-		return a.proxyConfig.ProxyMetadata[MetadataClientRootCert]
+		rootCAPath = a.proxyConfig.ProxyMetadata[MetadataClientRootCert]
 	} else {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S
-		return path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
+		rootCAPath = path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
 	}
+
+	// Additional checks for root CA cert existence. Fail early, instead of obscure envoy errors
+	if fileExists(rootCAPath) {
+		return rootCAPath, nil
+	}
+
+	return "", fmt.Errorf("root CA file for XDS does not exist %s", rootCAPath)
+}
+
+func fileExists(path string) bool {
+	if fi, err := os.Stat(path); err == nil && fi.Mode().IsRegular() {
+		return true
+	}
+	return false
 }
 
 // Find the root CA to use when connecting to the CA (Istiod or external).
