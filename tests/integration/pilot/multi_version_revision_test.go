@@ -165,9 +165,11 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 
 // ReadInstallFile reads a tar compress installation file from the embedded
 func ReadInstallFile(f string) (string, error) {
-	b, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade", f+".tar"))
+	filePath := filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade", f+".tar")
+	b, err := ioutil.ReadFile(filePath)
+
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%v: %v", filePath, err)
 	}
 	tr := tar.NewReader(bytes.NewBuffer(b))
 	for {
