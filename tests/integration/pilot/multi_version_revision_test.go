@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -164,7 +165,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 
 // ReadInstallFile reads a tar compress installation file from the embedded
 func ReadInstallFile(f string) (string, error) {
-	b, err := ioutil.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
+	b, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade", f+".tar"))
 	if err != nil {
 		return "", err
 	}
