@@ -381,7 +381,8 @@ func (c *installer) preInstall() error {
 				return err
 			}
 		}
-		if c.settings.WIP == resource.HUBWorkloadIdentityPool {
+		// gke-on-prem clusters are registered into Hub during cluster creations in the on-prem Hub CI jobs
+		if c.settings.WIP == resource.HUBWorkloadIdentityPool && c.settings.ClusterType != resource.OnPrem {
 			if err := exec.Dispatch(
 				c.settings.RepoRootDir,
 				"register_clusters_in_hub",

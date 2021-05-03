@@ -34,8 +34,8 @@ func generateTestFlags(settings *resource.Settings) []string {
 
 			// going from 20s to 30s for the total retry timeout (all attempts)
 			testFlags = append(testFlags, "--istio.test.echo.callTimeout=30s")
-			// going from 5s to 10s for individual ForwardEchoRequests (bounds total all calls in req.Count)
-			testFlags = append(testFlags, "--istio.test.echo.requestTimeout=10s")
+			// going from 5s to 20s for individual ForwardEchoRequests (bounds total all calls in req.Count)
+			testFlags = append(testFlags, "--istio.test.echo.requestTimeout=20s")
 
 			testFlags = append(testFlags,
 				fmt.Sprintf("--istio.test.imagePullSecret=%s/%s",

@@ -33,7 +33,7 @@ if [[ "${CONTROL_PLANE}" == "UNMANAGED" ]]; then
     cleanup_private_ca "${CONTEXT_STR}"
   fi
 
-  if [[ "${WIP}" == "HUB" ]]; then
+  if [[ "${WIP}" == "HUB" && "${CLUSTER_TYPE}" != "gke-on-prem" ]]; then
     # Use the first project as the GKE Hub host project
     GKEHUB_PROJECT_ID="${GCR_PROJECT_ID}"
     cleanup_hub_setup "${GKEHUB_PROJECT_ID}" "${CONTEXT_STR}"
