@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+export INTEGRATION_TEST_FLAGS="--istio.test.istio.istiodlessRemotes"
 
 # Usage: ./integ-suite-kind.sh TARGET
 # Example: ./integ-suite-kind.sh test.integration.pilot.kube.presubmit
