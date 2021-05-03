@@ -410,7 +410,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 			}
 
-			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
+			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", newRootNS(t))
 			applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
 
 			bSet := apps.B.Match(echo.Namespace(ns.Name()))

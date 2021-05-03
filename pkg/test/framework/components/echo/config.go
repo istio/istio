@@ -15,10 +15,12 @@
 package echo
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/mitchellh/copystructure"
+	"gopkg.in/yaml.v3"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -210,4 +212,33 @@ func copyInternal(v interface{}) interface{} {
 		panic(err)
 	}
 	return copied
+}
+
+// ParseConfigs unmarshals the given YAML bytes into []Config, using a namespace.Static rather
+// than attempting to Claim the configured namespace.
+func ParseConfigs(bytes []byte) ([]Config, error) {
+	// parse into flexible type, so we can remove Namespace and parse that ourselves
+	raw := make([]map[string]interface{}, 0)
+	if err := yaml.Unmarshal(bytes, &raw); err != nil {
+		return nil, err
+	}
+	configs := make([]Config, len(raw))
+
+	for i, raw := range raw {
+		if ns, ok := raw["Namespace"]; ok {
+			configs[i].Namespace = namespace.Static(fmt.Sprint(ns))
+			delete(raw, "Namespace")
+		}
+	}
+
+	// unmarshal again after Namespace stripped is stripped, to avoid unmarshal error
+	modifiedBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(modifiedBytes, &configs); err != nil {
+		return nil, nil
+	}
+
+	return configs, nil
 }
