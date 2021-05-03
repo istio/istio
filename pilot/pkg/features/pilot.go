@@ -449,7 +449,9 @@ var (
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
 
 	SortEnvoyFilterByName = env.RegisterBoolVar("SORT_ENVOY_FILTERS_BY_NAME", false,
-		"If enabled, envoy filters will be sorted by name allowing the dependency ordering taken care by name.").Get()
+		"If enabled, envoy filters will be sorted by name allowing patch ordering by name. This can be useful when you have "+
+			"one patch that “depends on another” for ordering. In that case it is possible to use rc.d style 001-patch1 and 002-patch2 "+
+			"to enforce patch application ordering.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
