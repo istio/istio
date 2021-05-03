@@ -162,14 +162,33 @@ func (i *instance) createWorkloadGroup(ctx resource.Context) error {
 	return nil
 }
 
+var (
+	projects = map[echo.VMDistro]string{
+		echo.Debian9:  "debian-cloud",
+		echo.Debian10: "debian-cloud",
+		echo.Centos7:  "centos-cloud",
+		echo.Centos8:  "centos-cloud",
+	}
+	distros = map[echo.VMDistro]string{
+		echo.Debian9:  "debian-9",
+		echo.Debian10: "debian-10",
+		echo.Centos7:  "centos-7",
+		echo.Centos8:  "centos-8",
+	}
+)
+
 // createInstanceTemplate uses the asm_vm script to create an instance template. createWorkloadGroup must be run first.
 func (i *instance) createInstanceTemplate() error {
 	baseTemplateName := "base-" + i.resourceName()
 	scopes.Framework.Infof("Creating base instance template %s for echo vm", baseTemplateName)
 
-	// TODO support customizing distro in echo.Config (requires https://github.com/istio/istio/issues/31427)
-	project := os.Getenv("IMAGE_PROJECT")
-	distro := os.Getenv("VM_DISTRO")
+	project, distro := projects[i.config.VMDistro], distros[i.config.VMDistro]
+
+	if project == "" && distro == "" {
+		// TODO support customizing distro in echo.Config (requires https://github.com/istio/istio/issues/31427)
+		project = os.Getenv("IMAGE_PROJECT")
+		distro = os.Getenv("VM_DISTRO")
+	}
 
 	_, err := i.cluster.Service().InstanceTemplates.Insert(i.cluster.Project(), &compute.InstanceTemplate{
 		Description: "base template to allow setting tags and OS for mig",
@@ -186,7 +205,8 @@ func (i *instance) createInstanceTemplate() error {
 				InitializeParams: &compute.AttachedDiskInitializeParams{
 					SourceImage: fmt.Sprintf("projects/%s/global/images/family/%s", project, distro),
 					DiskType:    "pd-standard",
-					DiskSizeGb:  10,
+					// cent 8 has this as the minimum size
+					DiskSizeGb: 20,
 				},
 			}},
 			CanIpForward: false,
@@ -309,6 +329,7 @@ sudo mv .echoconfig /etc/.echoconfig
 # fix permissions in centos
 which restorecon && sudo restorecon /etc/.echoconfig
 which restorecon && sudo restorecon /usr/sbin/echo
+which restorecon && sudo restorecon /etc/systemd/system/echo.service
 sudo chmod +x /usr/sbin/echo
 sudo chmod +r /etc/.echoconfig
 
@@ -328,39 +349,29 @@ func (i *instance) installEcho(instances []*compute.Instance) error {
 			}
 			i.Unlock()
 
+			if len(mi.NetworkInterfaces) < 1 {
+				return fmt.Errorf("%s has no networkInterfaces, cannot get internal IP", mi.Name)
+			}
+			internalIP := mi.NetworkInterfaces[0].NetworkIP
 			// find echo server executable
 			outFromSrc := path.Join(env.IstioSrc, "out", "linux_amd64")
 			serverExec := path.Join(env.ISTIO_OUT.ValueOrDefault(outFromSrc), "server")
 			files := []string{i.unitFile, serverExec}
 			scopes.Framework.Infof("Copying %s to %s", strings.Join(files, ", "), mi.Name)
-			// copy files
-			for _, f := range files {
-				if err := retry.UntilSuccess(func() error {
-					// TODO scp without exec - just look at the public IP, but what user would we use?
-					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-					defer cancel()
+			if err := retry.UntilSuccess(func() error {
+				// TODO scp/ssh without exec and gcloud - just look at the public IP, but what user would we use?
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				// copy files
+				for _, f := range files {
 					if out, err := exec.CommandContext(ctx, "gcloud", "compute", "scp",
 						f, "echovm@"+mi.Name+":~",
 						"--zone", mi.Zone,
 					).CombinedOutput(); err != nil {
-						return fmt.Errorf("%v:\n%s", err, string(out))
+						return fmt.Errorf("failed to scp %s: %v:\n%s", f, err, string(out))
 					}
-					return nil
-				}, retry.Timeout(time.Minute), retry.Delay(1*time.Second)); err != nil {
-					return fmt.Errorf("failed to scp %s to %s: %v", f, mi.Name, err)
 				}
-			}
-
-			// run the install script
-			if len(mi.NetworkInterfaces) < 1 {
-				return fmt.Errorf("%s has no networkInterfaces, cannot get internal IP", mi.Name)
-			}
-			internalIP := mi.NetworkInterfaces[0].NetworkIP
-
-			if err := retry.UntilSuccess(func() error {
-				// TODO ssh without exec - just look at the public IP, but what user would we use?
-				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-				defer cancel()
+				// run the install script
 				if out, err := exec.CommandContext(ctx, "gcloud", "compute", "ssh",
 					"echovm@"+mi.Name,
 					"--zone", mi.Zone,
@@ -369,8 +380,8 @@ func (i *instance) installEcho(instances []*compute.Instance) error {
 					return fmt.Errorf("failed running install script on %s: %v:\n%s", mi.Name, err, string(out))
 				}
 				return nil
-			}, retry.Timeout(time.Minute), retry.Delay(1*time.Second)); err != nil {
-				return err
+			}, retry.Timeout(90*time.Second), retry.Delay(1*time.Second)); err != nil {
+				return fmt.Errorf("failed to install echo on %s: %v", mi.Name, err)
 			}
 
 			i.Lock()
