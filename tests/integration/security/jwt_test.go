@@ -368,7 +368,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
 				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 			}
-			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
+			applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", newRootNS(t))
 
 			callCount := 1
 			if t.Clusters().IsMulticluster() {

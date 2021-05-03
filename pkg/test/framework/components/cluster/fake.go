@@ -26,6 +26,24 @@ func init() {
 	RegisterFactory(Fake, newFakeCluster)
 }
 
+func NewFake(name, major, minor string) Cluster {
+	c, _ := newFakeCluster(
+		Config{
+			Meta: map[string]interface{}{
+				"majorVersion": major,
+				"minorVersion": minor,
+			},
+		},
+		Topology{
+			ClusterKind: Fake,
+			ClusterName: name,
+			AllClusters: map[string]Cluster{},
+		},
+	)
+	c.(*FakeCluster).Topology.AllClusters[c.Name()] = c
+	return c
+}
+
 func newFakeCluster(cfg Config, topology Topology) (Cluster, error) {
 	return &FakeCluster{
 		ExtendedClient: kube.MockClient{},

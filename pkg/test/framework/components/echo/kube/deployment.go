@@ -481,7 +481,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().Revisions)
+	deploymentYAML, err := GenerateDeployment(cfg, nil, ctx.Settings().Revisions)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
@@ -578,7 +578,7 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
+func GenerateDeployment(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
 	params, err := templateParams(cfg, settings, versions)
 	if err != nil {
 		return "", err
