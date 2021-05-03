@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/protobuf/ptypes/any"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"go.uber.org/atomic"
@@ -126,7 +126,7 @@ type XdsCache interface {
 	// invalided between when a token is fetched from Get and when Add is called, the write will be
 	// dropped. This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
-	Add(entry XdsCacheEntry, token CacheToken, value *any.Any)
+	Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource)
 	// Get retrieves the cached value if it exists. The boolean indicates
 	// whether the entry exists in the cache.
 	//
@@ -137,7 +137,7 @@ type XdsCache interface {
 	// Standard usage:
 	// if obj, token, f := cache.Get(key); f { ...do something... }
 	// else { computed := expensive(); cache.Add(key, token, computed); }
-	Get(entry XdsCacheEntry) (*any.Any, CacheToken, bool)
+	Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bool)
 	// Clear removes the cache entries that are dependent on the configs passed.
 	Clear(map[ConfigKey]struct{})
 	// ClearAll clears the entire cache.
@@ -199,7 +199,7 @@ func newLru() simplelru.LRUCache {
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func (l *lruCache) assertUnchanged(existing *any.Any, replacement *any.Any) {
+func (l *lruCache) assertUnchanged(existing *discovery.Resource, replacement *discovery.Resource) {
 	if l.enableAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
@@ -213,7 +213,7 @@ func (l *lruCache) assertUnchanged(existing *any.Any, replacement *any.Any) {
 	}
 }
 
-func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
+func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource) {
 	if !entry.Cacheable() {
 		return
 	}
@@ -249,11 +249,11 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 }
 
 type cacheValue struct {
-	value *any.Any
+	value *discovery.Resource
 	token CacheToken
 }
 
-func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, CacheToken, bool) {
+func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bool) {
 	if !entry.Cacheable() {
 		return nil, 0, false
 	}
@@ -322,9 +322,9 @@ type DisabledCache struct{}
 
 var _ XdsCache = &DisabledCache{}
 
-func (d DisabledCache) Add(key XdsCacheEntry, token CacheToken, value *any.Any) {}
+func (d DisabledCache) Add(key XdsCacheEntry, token CacheToken, value *discovery.Resource) {}
 
-func (d DisabledCache) Get(XdsCacheEntry) (*any.Any, CacheToken, bool) {
+func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, CacheToken, bool) {
 	return nil, 0, false
 }
 

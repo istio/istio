@@ -68,12 +68,15 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 // - NACKs
 // We can also expose ACKS.
 func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
-	res := []*any.Any{}
+	res := model.Resources{}
 
 	switch w.TypeUrl {
 	case TypeURLConnect:
 		for _, v := range sg.Server.Clients() {
-			res = append(res, util.MessageToAny(v.node))
+			res = append(res, &discovery.Resource{
+				Name:     v.node.Id,
+				Resource: util.MessageToAny(v.node),
+			})
 		}
 	case TypeDebugSyncronization:
 		res = sg.debugSyncz()
@@ -101,8 +104,8 @@ func isProxy(con *Connection) bool {
 		con.proxy.Metadata.ProxyConfig != nil
 }
 
-func (sg *StatusGen) debugSyncz() []*any.Any {
-	res := []*any.Any{}
+func (sg *StatusGen) debugSyncz() model.Resources {
+	res := model.Resources{}
 
 	stypes := []string{
 		v3.ListenerType,
@@ -141,7 +144,10 @@ func (sg *StatusGen) debugSyncz() []*any.Any {
 				},
 				XdsConfig: xdsConfigs,
 			}
-			res = append(res, util.MessageToAny(clientConfig))
+			res = append(res, &discovery.Resource{
+				Name:     clientConfig.Node.Id,
+				Resource: util.MessageToAny(clientConfig),
+			})
 		}
 		con.proxy.RUnlock()
 	}
@@ -159,7 +165,7 @@ func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
 	return status.ConfigStatus_STALE
 }
 
-func (sg *StatusGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
+func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 	conn := sg.Server.getProxyConnection(proxyID)
 	if conn == nil {
 		// This is "like" a 404.  The error is the client's.  However, this endpoint
@@ -172,7 +178,7 @@ func (sg *StatusGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
 		return nil, err
 	}
 
-	return dump.Configs, nil
+	return model.AnyToUnnamedResources(dump.Configs), nil
 }
 
 func (sg *StatusGen) OnConnect(con *Connection) {

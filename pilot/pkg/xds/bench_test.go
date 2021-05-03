@@ -158,7 +158,7 @@ func TestValidateTelemetry(t *testing.T) {
 	}
 	for _, r := range c {
 		cls := &cluster.Cluster{}
-		if err := r.UnmarshalTo(cls); err != nil {
+		if err := r.GetResource().UnmarshalTo(cls); err != nil {
 			t.Fatal(err)
 		}
 		for _, ff := range cls.Filters {
@@ -305,7 +305,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
 			}
-			logDebug(b, response.GetResources())
+			logDebug(b, model.AnyToUnnamedResources(response.GetResources()))
 		})
 	}
 }
@@ -423,7 +423,7 @@ func logDebug(b *testing.B, m model.Resources) {
 	}
 	bytes := 0
 	for _, r := range m {
-		bytes += len(r.Value)
+		bytes += len(r.GetResource().Value)
 	}
 	b.ReportMetric(float64(bytes)/1000, "kb/msg")
 	b.ReportMetric(float64(len(m)), "resources/msg")

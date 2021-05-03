@@ -202,7 +202,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
 					TypeUrl:       pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, "", "", kubeClient)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
 				if err != nil {
 					return err
 				}
@@ -216,7 +216,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			xdsRequest := xdsapi.DiscoveryRequest{
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, "", "", kubeClient)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
 			if err != nil {
 				return err
 			}
