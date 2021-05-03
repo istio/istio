@@ -20,7 +20,7 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/prow/asm/tester/interface/types"
-	"sigs.k8s.io/kubetest2/pkg/metadata"
+	"istio.io/istio/prow/asm/tester/pkg/metadata"
 )
 
 // Main implements the kubetest2 pipeline tester binary entrypoint

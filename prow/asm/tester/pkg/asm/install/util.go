@@ -17,6 +17,7 @@ package install
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,23 +28,24 @@ import (
 	"istio.io/istio/prow/asm/tester/pkg/kube"
 )
 
+const scriptaroRepoBase = "https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages"
+
 func downloadScriptaro(rev *revision.Config, cluster *kube.GKEClusterSpec) (string, error) {
-	// TODO(samnaser) once revision config supports version use the correct release
-	const (
-		scriptaroURL    = "https://raw.githubusercontent.com/GoogleCloudPlatform/anthos-service-mesh-packages/%s/scripts/asm-installer/install_asm"
-		scriptaroBranch = "master"
-	)
+	scriptaroURL := fmt.Sprintf("%s/master/scripts/asm-installer/install_asm", scriptaroRepoBase)
+	if rev.Version != "" {
+		scriptaroURL = fmt.Sprintf("%s/staging-%s-asm/scripts/asm-installer/install_asm", scriptaroRepoBase, rev.Version)
+	}
 	scriptaroName := fmt.Sprintf("install_asm_%s_%s_%s",
 		cluster.ProjectID, cluster.Location, cluster.Name)
 
-	resp, err := http.Get(fmt.Sprintf(scriptaroURL, scriptaroBranch))
+	log.Printf("Downloading scriptaro from %s...", scriptaroURL)
+	resp, err := http.Get(scriptaroURL)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("scriptaro not found at URL: %s",
-			fmt.Sprintf(scriptaroURL, scriptaroBranch))
+		return "", fmt.Errorf("scriptaro not found at URL: %s", scriptaroURL)
 	}
 
 	f, err := os.OpenFile(scriptaroName, os.O_WRONLY|os.O_CREATE, 0o555)

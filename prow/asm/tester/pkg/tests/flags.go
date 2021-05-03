@@ -16,7 +16,9 @@ package tests
 
 import (
 	"fmt"
+	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"istio.io/istio/prow/asm/tester/pkg/exec"
@@ -25,7 +27,7 @@ import (
 
 // generateTestFlags returns an array containing options to be passed
 // when running the test target.
-func generateTestFlags(settings *resource.Settings) []string {
+func generateTestFlags(settings *resource.Settings) ([]string, error) {
 	testFlags := []string{"--istio.test.kube.deploy=false"}
 	if settings.ControlPlane == resource.Unmanaged {
 		if settings.ClusterType != resource.GKEOnGCP {
@@ -57,7 +59,20 @@ func generateTestFlags(settings *resource.Settings) []string {
 			"--istio.test.revision=asm-managed",
 			"--istio.test.skipVM=true")
 	}
-	return testFlags
+
+	// Need to pass the revisions and versions to test framework if specified
+	if settings.RevisionConfig != "" {
+		revisionConfigPath := filepath.Join(settings.RepoRootDir, resource.ConfigDirPath, "revision-deployer", settings.RevisionConfig)
+		revisionConfig, err := revision.ParseConfig(revisionConfigPath)
+		if err != nil {
+			return nil, err
+		}
+		if revisionFlag := generateRevisionsFlag(revisionConfig); revisionFlag != "" {
+			testFlags = append(testFlags, generateRevisionsFlag(revisionConfig))
+		}
+	}
+
+	return testFlags, nil
 }
 
 // generateTestSelect returns an array containing options to be passed
@@ -92,6 +107,26 @@ func generateTestSelect(settings *resource.Settings) string {
 	}
 
 	return testSelect
+}
+
+// generateRevisionsFlag takes a set of revision configs and generates the --istio.test.revisions flag.
+func generateRevisionsFlag(revisions *revision.Configs) string {
+	var terms []string
+	multiversion := false
+	for _, rev := range revisions.Configs {
+		if rev.Version != "" {
+			multiversion = true
+			terms = append(terms, fmt.Sprintf("%s=%s", rev.Name, rev.Version))
+		} else {
+			terms = append(terms, rev.Name)
+		}
+	}
+	if !multiversion {
+		return ""
+	}
+
+	return fmt.Sprintf("--istio.test.revisions=%s",
+		strings.Join(terms, ","))
 }
 
 // revisionLabel generates a revision label name from the istioctl version.

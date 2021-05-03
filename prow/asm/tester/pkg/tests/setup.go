@@ -43,7 +43,11 @@ func Setup(settings *resource.Settings) error {
 	if err != nil {
 		return err
 	}
-	integrationTestFlags := append(generateTestFlags(settings), testSkipFlags...)
+	testFlags, err := generateTestFlags(settings)
+	if err != nil {
+		return err
+	}
+	integrationTestFlags := append(testFlags, testSkipFlags...)
 	integrationTestFlagsEnvvar := strings.Join(integrationTestFlags, " ")
 
 	gcrProjectID1, gcrProjectID2 := gcrProjectIDs(settings)

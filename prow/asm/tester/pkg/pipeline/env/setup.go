@@ -148,7 +148,7 @@ func setMulticloudPermissions(settings *resource.Settings) error {
 
 	secretName := "test-gcr-secret"
 	cred := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
-	configs := strings.Split(settings.Kubeconfig, ":")
+	configs := filepath.SplitList(settings.Kubeconfig)
 	for i, config := range configs {
 		err := exec.Run(
 			fmt.Sprintf("kubectl create ns istio-system --kubeconfig=%s", config),
@@ -481,7 +481,7 @@ func filterKubeconfigFiles(settings *resource.Settings, shouldKeep func(string) 
 		return errors.New("KUBECONFIG env var cannot be empty")
 	}
 
-	files := strings.Split(kubeconfig, string(os.PathListSeparator))
+	files := filepath.SplitList(kubeconfig)
 	filteredFiles := make([]string, 0)
 	for _, f := range files {
 		if shouldKeep(f) {
