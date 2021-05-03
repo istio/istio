@@ -106,7 +106,7 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 			break
 		}
 		monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
-		stsClientLog.Debugf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
+		stsClientLog.Errorf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
 		time.Sleep(p.backoff)
 	}
 	return nil, fmt.Errorf("exchange failed all retries, last error: %v", lastError)
