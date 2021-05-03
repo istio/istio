@@ -82,7 +82,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
-		networkView:     model.GetNetworkView(proxy),
+		networkView:     proxy.GetNetworkView(),
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,

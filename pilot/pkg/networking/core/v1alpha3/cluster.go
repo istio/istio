@@ -114,7 +114,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	networkView := model.GetNetworkView(cb.proxy)
+	networkView := cb.proxy.GetNetworkView()
 
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && cb.proxy.Type == model.Router {
@@ -204,7 +204,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, push)
 
-	networkView := model.GetNetworkView(proxy)
+	networkView := proxy.GetNetworkView()
 
 	for _, service := range push.Services(proxy) {
 		if service.MeshExternal {
