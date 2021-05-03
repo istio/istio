@@ -56,5 +56,6 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 	return model.Resources{
 		&discovery.Resource{
 			Resource: util.MessageToAny(bs),
-		}}, nil
+		},
+	}, nil
 }
