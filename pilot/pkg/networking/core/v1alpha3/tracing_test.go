@@ -384,7 +384,6 @@ func fakeZipkinProvider(expectClusterName, expectProviderName string) *tracingcf
 		Name:       expectProviderName,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeZipkinAny},
 	}
-
 }
 
 func fakeSkywalkingProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+issue:
+- https://github.com/istio/istio/pull/32588
+
+releaseNotes:
+- |
+  **Added** Introduced to deliver Apache SkyWalking tracer configuration to envoy.
