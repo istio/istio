@@ -12,5 +12,5 @@ roleRef:
   name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
 subjects:
   - kind: ServiceAccount
-    name: istiod
+    name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
     namespace: {{ .Values.global.istioNamespace }}
