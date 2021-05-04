@@ -30,8 +30,7 @@ tests:
         - TestMutualTlsOrigination
       reason: relies on egress gateway deployed to cluster
 
-  # Unmanaged CP + GKE_ON_PGREM + HUB
-  # TODO: Unskip test cases when the same tests in https://b.corp.google.com/issues/174440952 are fixed
+  # Unmanaged CP + GKE_ON_PREM + HUB
   - selectors:
       control_plane: unmanaged
       cluster_type: gke-on-prem
@@ -39,22 +38,7 @@ tests:
     targets:
     # pilot/ tests
     - names:
-        - TestMirroring/mirror-percent-absent/.*
-        - TestMirroring/mirror-50/.*
-        - TestTraffic/sniffing/.*
-        - TestTraffic/virtualservice/shifting.*
-        - TestMirroring/mirror-10/from_primary-0/.*
-    # telemetry/ tests
-    - names:
-      - TestMetrics/telemetry_asm
-      - TestMetricsAudit/telemetry_asm
-    # security/ tests
-    - names:
-      - TestAuthorization_WorkloadSelector/From_primary-1/.*
-      - TestAuthorization_NegativeMatch/From_primary-1/.*
-      - TestAuthorization_Conditions/IpA_IpB_IpC_in_primary-0/From_primary-1/.*
-      - TestAuthorization_mTLS/From_primary-1/.*
-      - TestAuthorization_JWT/From_primary-1/.*
+        - TestCustomGateway/helm
 
   # Unmanaged CP + bare-metal
   - selectors:
