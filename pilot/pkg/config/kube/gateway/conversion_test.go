@@ -47,6 +47,7 @@ func TestConvertResources(t *testing.T) {
 		"backendpolicy",
 		"mesh",
 		"invalid",
+		"multi-gateway",
 	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
