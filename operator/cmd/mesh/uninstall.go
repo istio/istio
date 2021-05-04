@@ -116,6 +116,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 			return uninstall(cmd, rootArgs, uiArgs, logOpts)
 		},
 	}
+	addFlags(uicmd, rootArgs)
 	addUninstallFlags(uicmd, uiArgs)
 	return uicmd
 }
