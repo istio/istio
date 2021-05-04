@@ -562,18 +562,23 @@ func TestSignWithCertChain(t *testing.T) {
 		TTL:        time.Hour,
 		ForCA:      false,
 	}
-	certPEM, signErr := ca.SignWithCertChain(csrPEM, caCertOpts)
+	certPEMStr, signErr := ca.SignWithCertChain(csrPEM, caCertOpts)
 	if signErr != nil {
 		t.Error(err)
 	}
-
-	cert, err := tls.X509KeyPair(certPEM, privPEM)
+	_, err = tls.X509KeyPair([]byte(certPEMStr[0]), privPEM)
 	if err != nil {
-		t.Error(err)
+		t.Errorf("certificate not signed correctly: %v", err)
+	}
+	if len(certPEMStr) != 3 {
+		t.Errorf("Unexpected number of certificates returned: %d (expected 3)", len(certPEMStr))
 	}
 
-	if len(cert.Certificate) != 3 {
-		t.Errorf("Unexpected number of certificates returned: %d (expected 4)", len(cert.Certificate))
+	certChainBytes, _ := ioutil.ReadFile(certChainFile)
+	rootCertBytes, _ := ioutil.ReadFile(rootCertFile)
+	if !bytes.Equal([]byte(certPEMStr[1]), certChainBytes) ||
+		!bytes.Equal([]byte(certPEMStr[2]), rootCertBytes) {
+		t.Errorf("bad certificate chain returned")
 	}
 }
 
