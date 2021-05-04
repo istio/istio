@@ -40,7 +40,8 @@ func init() {
 
 type Value interface {
 	flag.Value
-	SetConfig(Map) error
+	// SetConfig will receive either a Map or a []Map
+	SetConfig(interface{}) error
 }
 
 func Parsed() bool {
@@ -97,11 +98,12 @@ func Parse() {
 			}
 		}
 
-		// if we have a Map at the last key, and the registered value implements our custom value, parse via Map
-		cfgMap := parent.Map(key)
+		// if the registered flag implements config.Value, and is a non-string type, we can do fancy custom parsing
 		cfgValue, isCfgVal := f.Value.(Value)
-		if isCfgVal && len(cfgMap) > 0 {
+		if cfgMap := parent.Map(key); isCfgVal && len(cfgMap) > 0 {
 			err = cfgValue.SetConfig(cfgMap)
+		} else if cfgSlice := parent.Slice(key); isCfgVal && len(cfgSlice) > 0 {
+			err = cfgValue.SetConfig(cfgSlice)
 		} else if v := parent.String(key); v != "" {
 			// otherwise parse via string (if-set)
 			err = f.Value.Set(v)

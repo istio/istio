@@ -16,15 +16,11 @@ package kube
 
 import (
 	"fmt"
-	"io/ioutil"
-
-	"gopkg.in/yaml.v3"
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/file"
 )
 
 // clusterIndex is the index of a cluster within the KubeConfig or topology file entries
@@ -70,9 +66,9 @@ func (s *Settings) clone() *Settings {
 	return &c
 }
 
-func (s *Settings) clusterConfigs() (configs []cluster.Config, err error) {
-	if topologyFile == "" {
-		// no file, build directly from provided kubeconfigs and topology flag maps
+func (s *Settings) clusterConfigs() ([]cluster.Config, error) {
+	if len(clusterConfigs) == 0 {
+		// not loaded from file file, build directly from provided kubeconfigs and topology flag maps
 		return s.clusterConfigsFromFlags()
 	}
 
@@ -114,57 +110,44 @@ func (s *Settings) clusterConfigsFromFlags() ([]cluster.Config, error) {
 }
 
 func (s *Settings) clusterConfigsFromFile() ([]cluster.Config, error) {
-	scopes.Framework.Infof("Using configs file: %v.", topologyFile)
-	filename, err := file.NormalizePath(topologyFile)
-	if err != nil {
-		return nil, err
-	}
-	topologyBytes, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	configs := []cluster.Config{}
-	if err := yaml.Unmarshal(topologyBytes, &configs); err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %v", topologyFile, err)
-	}
-
 	// Allow kubeconfig flag to override file
-	configs, err = replaceKubeconfigs(configs, s.KubeConfig)
+	var err error
+	clusterConfigs, err = replaceKubeconfigs(clusterConfigs, s.KubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.validateTopologyFlags(len(configs)); err != nil {
+	if err := s.validateTopologyFlags(len(clusterConfigs)); err != nil {
 		return nil, err
 	}
 
-	// Apply configs overrides from flags, if specified.
+	// Apply clusterConfigs overrides from flags, if specified.
 	if s.controlPlaneTopology != nil && len(s.controlPlaneTopology) > 0 {
-		if len(s.controlPlaneTopology) != len(configs) {
-			return nil, fmt.Errorf("istio.test.kube.controlPlaneTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(configs))
+		if len(s.controlPlaneTopology) != len(clusterConfigs) {
+			return nil, fmt.Errorf("istio.test.kube.controlPlaneTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(clusterConfigs))
 		}
 		for src, dst := range s.controlPlaneTopology {
-			configs[src].PrimaryClusterName = configs[dst].Name
+			clusterConfigs[src].PrimaryClusterName = clusterConfigs[dst].Name
 		}
 	}
 	if s.configTopology != nil {
-		if len(s.configTopology) != len(configs) {
-			return nil, fmt.Errorf("istio.test.kube.configTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(configs))
+		if len(s.configTopology) != len(clusterConfigs) {
+			return nil, fmt.Errorf("istio.test.kube.configTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(clusterConfigs))
 		}
 		for src, dst := range s.controlPlaneTopology {
-			configs[src].ConfigClusterName = configs[dst].Name
+			clusterConfigs[src].ConfigClusterName = clusterConfigs[dst].Name
 		}
 	}
 	if s.networkTopology != nil {
-		if len(s.networkTopology) != len(configs) {
-			return nil, fmt.Errorf("istio.test.kube.networkTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(configs))
+		if len(s.networkTopology) != len(clusterConfigs) {
+			return nil, fmt.Errorf("istio.test.kube.networkTopology has %d entries but there are %d clusters", len(controlPlaneTopology), len(clusterConfigs))
 		}
 		for src, network := range s.networkTopology {
-			configs[src].ConfigClusterName = network
+			clusterConfigs[src].ConfigClusterName = network
 		}
 	}
 
-	return configs, nil
+	return clusterConfigs, nil
 }
 
 func (s *Settings) validateTopologyFlags(nClusters int) error {
