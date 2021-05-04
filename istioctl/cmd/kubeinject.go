@@ -364,16 +364,6 @@ func validateFlags() error {
 func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *string,
 	revision string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
-	var meshConfig *meshconfig.MeshConfig
-	if meshConfigFile != "" {
-		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
-			return nil, nil, err
-		}
-	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
-			return nil, nil, err
-		}
-	}
 	injector := &ExternalInjector{nil, nil}
 	if injectConfigFile != "" {
 		injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
@@ -393,6 +383,17 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 			if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
 				return nil, nil, err
 			}
+		}
+		return injector, nil, nil
+	}
+	var meshConfig *meshconfig.MeshConfig
+	if meshConfigFile != "" {
+		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
+			return nil, nil, err
+		}
+	} else {
+		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
+			return nil, nil, err
 		}
 	}
 	if valuesFile != "" {
