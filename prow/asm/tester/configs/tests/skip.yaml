@@ -72,6 +72,20 @@ tests:
           - TestStackdriverAudit
           - TestVMTelemetry
         reason: Stackdriver is not enabled with ASM Distro Baremetal installation
+      # pilot/ tests
+      - names:
+          - TestTraffic/serverfirst/auto-tcp-server.*
+          - TestCustomGateway
+          - TestMultiVersionRevision
+          - TestAddToAndRemoveFromMesh
+          - TestGateway
+          - TestRevisionedUpgrade
+          - TestVMRegistrationLifecycle
+          - TestValidation
+          - TestRevision*
+          - TestMultiRevision
+          - TestUninstall*
+          - TestServiceExports*
 
   # Unmanaged CP + aws
   - selectors:

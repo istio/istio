@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -43,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/util/tmpl"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
+	"istio.io/istio/tests/integration/security/util/authn"
 )
 
 func TestGateway(t *testing.T) {
@@ -312,6 +314,9 @@ spec:
 			}
 			for _, c := range cases {
 				c := c
+				if os.Getenv("CLUSTER_TYPE") == "bare-metal" && len(c.call.Headers["Host"]) > 0 {
+					authn.SetupEtcHostsFile(apps.Ingress, c.call.Headers["Host"][0])
+				}
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
 				})
@@ -408,6 +413,9 @@ spec:
 				c := c
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path)
 				t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
+				if os.Getenv("CLUSTER_TYPE") == "bare-metal" && len(c.call.Headers["Host"]) > 0 {
+					authn.SetupEtcHostsFile(apps.Ingress, c.call.Headers["Host"][0])
+				}
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
 				})
