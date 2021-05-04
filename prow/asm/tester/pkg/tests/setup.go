@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/prow/asm/tester/pkg/kube"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
@@ -82,6 +83,11 @@ func gcrProjectIDs(settings *resource.Settings) (gcrProjectID1, gcrProjectID2 st
 	// When HUB Workload Identity Pool is used in the case of multi projects setup, clusters in different projects
 	// will use the same WIP and P4SA of the Hub host project.
 	if settings.WIP == resource.HUBWorkloadIdentityPool && strings.Contains(settings.TestTarget, "security") {
+		gcrProjectID2 = gcrProjectID1
+	}
+	// For onprem with Hub CI jobs, clusters are registered into the environ project
+	if settings.WIP == resource.HUBWorkloadIdentityPool && settings.ClusterType == resource.OnPrem {
+		gcrProjectID1, _ = kube.GetEnvironProjectID(settings.Kubeconfig)
 		gcrProjectID2 = gcrProjectID1
 	}
 	return
