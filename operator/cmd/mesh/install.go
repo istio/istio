@@ -17,7 +17,6 @@ package mesh
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/url"
 	"os"
 	"sort"
 	"strings"
@@ -54,6 +53,7 @@ import (
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 )
 
