@@ -38,8 +38,8 @@ type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
 	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
 	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
-	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain including root-cert.
+	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]string, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() *util.KeyCertBundle
 }
@@ -77,24 +77,18 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
-	// TODO: Call authorizer.
+	respCertChain, signErr := s.ca.SignWithCertChain([]byte(request.Csr), caller.Identities,
+		time.Duration(request.ValidityDuration)*time.Second, false)
 
-	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, signErr := s.ca.Sign(
-		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
 	if signErr != nil {
 		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
 		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
-	respCertChain := []string{string(cert)}
-	if len(certChainBytes) != 0 {
-		respCertChain = append(respCertChain, string(certChainBytes))
-	}
-	respCertChain = append(respCertChain, string(rootCertBytes))
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}
+
 	s.monitoring.Success.Increment()
 	serverCaLog.Debug("CSR successfully signed.")
 	return response, nil

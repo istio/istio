@@ -299,8 +299,24 @@ func (ca *IstioCA) Sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
 func (ca *IstioCA) SignWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (
-	[]byte, error) {
-	return ca.signWithCertChain(csrPEM, subjectIDs, requestedLifetime, true, forCA)
+	[]string, error) {
+	certChain := []string{}
+	cert, err := ca.Sign(csrPEM, subjectIDs, requestedLifetime, forCA)
+	if err != nil {
+		return certChain, err
+	}
+
+	certChain = append(certChain, string(cert))
+	chainPem := ca.GetCAKeyCertBundle().GetCertChainPem()
+	if len(chainPem) > 0 {
+		certChain = append(certChain, string(chainPem))
+	}
+
+	rootCert := ca.GetCAKeyCertBundle().GetRootCertPem()
+	if len(rootCert) > 0 {
+		certChain = append(certChain, string(rootCert))
+	}
+	return certChain, nil
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
@@ -393,6 +409,7 @@ func (ca *IstioCA) sign(csrPEM []byte, subjectIDs []string, requestedLifetime ti
 	return cert, nil
 }
 
+// signWithCertChain: includes entire certificate chain except root certificate
 func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, lifetimeCheck,
 	forCA bool) ([]byte, error) {
 	cert, err := ca.sign(csrPEM, subjectIDs, requestedLifetime, lifetimeCheck, forCA)
