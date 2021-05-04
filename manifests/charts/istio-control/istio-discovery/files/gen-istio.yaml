@@ -19,6 +19,26 @@ spec:
       app: istiod
       istio: pilot
 ---
+# Source: istio-discovery/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-reader
+  namespace: istio-system
+  labels:
+    app: istio-reader
+    release: istio
+---
+# Source: istio-discovery/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    release: istio
+---
 # Source: istio-discovery/templates/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -1064,7 +1084,7 @@ roleRef:
   name: istio-reader
 subjects:
   - kind: ServiceAccount
-    name: istio-reader-service-account
+    name: istio-reader
     namespace: istio-system
 ---
 # Source: istio-discovery/templates/clusterrolebinding.yaml
@@ -1081,7 +1101,7 @@ roleRef:
   name: istiod
 subjects:
   - kind: ServiceAccount
-    name: istiod-service-account
+    name: istiod
     namespace: istio-system
 ---
 # Source: istio-discovery/templates/role.yaml
@@ -1121,7 +1141,7 @@ roleRef:
   name: istiod
 subjects:
   - kind: ServiceAccount
-    name: istiod-service-account
+    name: istiod
     namespace: istio-system
 ---
 # Source: istio-discovery/templates/service.yaml
@@ -1193,7 +1213,7 @@ spec:
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istiod-service-account
+      serviceAccountName: istiod
       securityContext:
         fsGroup: 1337
       containers:
