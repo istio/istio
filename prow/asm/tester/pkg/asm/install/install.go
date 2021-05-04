@@ -289,8 +289,8 @@ func createRemoteSecrets(settings *resource.Settings, contexts []string) error {
 				if err != nil {
 					return fmt.Errorf("failed to retrieve private IP: %w", err)
 				}
-				sedCmd := fmt.Sprintf("sed -i 's/server\\:.*/server\\: https:\\/\\/'%s'/' %s",
-					privateIP, secretFileName)
+				sedCmd := fmt.Sprintf("sed -i 's/server\\:.*/server\\: https:\\/\\/%s/' %s",
+					strings.TrimSpace(privateIP), secretFileName)
 				if err := exec.Run(sedCmd); err != nil {
 					return fmt.Errorf("sed command failed: %w", err)
 				}
