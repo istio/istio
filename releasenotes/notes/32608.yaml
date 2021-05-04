@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: enhancement
+area: istioctl
+
+
+releaseNotes:
+- |
+  **Removed** unused istioctl/pkg/convert/lister-wrapper.go
