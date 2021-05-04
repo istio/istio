@@ -49,7 +49,6 @@ func (m Map) String(key string) string {
 func (m Map) Slice(key string) []Map {
 	v, ok := m[key].([]interface{})
 	if !ok {
-		scopes.Framework.Warnf("failed to parse key %q as slice, defaulting to empty", key)
 		return nil
 	}
 	var out []Map
