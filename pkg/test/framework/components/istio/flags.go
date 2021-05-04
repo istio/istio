@@ -55,4 +55,6 @@ func init() {
 	flag.StringVar(&operatorOptions, "istio.test.istio.operatorOptions", operatorOptions,
 		`Comma separated operator configuration in addition to the default operator configuration.
 		e.g. components.cni.enabled=true,components.cni.namespace=kube-system`)
+	flag.BoolVar(&settingsFromCommandline.EnableCNI, "istio.test.istio.enableCNI", settingsFromCommandline.EnableCNI,
+		"Deploy Istio with CNI enabled.")
 }

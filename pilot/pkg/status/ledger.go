@@ -22,14 +22,14 @@ import (
 )
 
 func tryLedgerPut(configLedger ledger.Ledger, obj config.Config) {
-	key := config.Key(obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
+	key := obj.Key()
 	if _, err := configLedger.Put(key, strconv.FormatInt(obj.Generation, 10)); err != nil {
 		scope.Errorf("Failed to update %s in ledger, status will be out of date.", key)
 	}
 }
 
 func tryLedgerDelete(configLedger ledger.Ledger, obj config.Config) {
-	key := config.Key(obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
+	key := obj.Key()
 	if err := configLedger.Delete(key); err != nil {
 		scope.Errorf("Failed to delete %s in ledger, status will be out of date.", key)
 	}

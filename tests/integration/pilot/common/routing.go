@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/util/retry"
@@ -951,7 +952,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, FindPortByName("http").ServicePort, WorkloadPorts[0].Port)
+    app: b`, FindPortByName("http").ServicePort, common.WorkloadPorts[0].Port)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1006,7 +1007,7 @@ spec:
     port: 12346
     targetPort: %d
   selector:
-    app: b`, WorkloadPorts[1].Port)
+    app: b`, common.WorkloadPorts[1].Port)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1278,7 +1279,7 @@ type vmCase struct {
 	host string
 }
 
-func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
+func DNSTestCases(apps *EchoDeployments, cniEnabled bool) []TrafficTestCase {
 	makeSE := func(ips ...string) string {
 		return tmpl.MustEvaluate(`
 apiVersion: networking.istio.io/v1alpha3
@@ -1310,6 +1311,7 @@ spec:
 		ips      string
 		protocol string
 		server   string
+		skipCNI  bool
 		expected []string
 	}{
 		{
@@ -1345,6 +1347,7 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "tcp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 		{
@@ -1352,11 +1355,15 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "udp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 	}
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range cases {
+			if tt.skipCNI && cniEnabled {
+				continue
+			}
 			tt, client := tt, client
 			address := "fake.service.local?"
 			if tt.protocol != "" {
@@ -1483,30 +1490,31 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
 				host: apps.StatefulSet[0].Config().FQDN(),
 			},
-			vmCase{
-				name: "dns: VM to k8s statefulset instance.service",
-				from: vm,
-				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
-				host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, StatefulSetSvc),
-			},
-			vmCase{
-				name: "dns: VM to k8s statefulset instance.service.namespace",
-				from: vm,
-				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
-				host: fmt.Sprintf("%s-v1-0.%s.%s", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
-			},
-			vmCase{
-				name: "dns: VM to k8s statefulset instance.service.namespace.svc",
-				from: vm,
-				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
-				host: fmt.Sprintf("%s-v1-0.%s.%s.svc", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
-			},
-			vmCase{
-				name: "dns: VM to k8s statefulset instance FQDN",
-				from: vm,
-				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
-				host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().FQDN()),
-			},
+			// TODO(https://github.com/istio/istio/issues/32552) re-enable
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance.service",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, StatefulSetSvc),
+			//},
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance.service.namespace",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s.%s", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
+			//},
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance.service.namespace.svc",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s.%s.svc", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
+			//},
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance FQDN",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().FQDN()),
+			//},
 		)
 	}
 	for _, podA := range apps.PodA {

@@ -687,6 +687,16 @@ func TestBuildDefaultCluster(t *testing.T) {
 						},
 					},
 				},
+				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+					ServiceName: "foo",
+					EdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_Ads{
+							Ads: &core.AggregatedConfigSource{},
+						},
+						InitialFetchTimeout: durationpb.New(0),
+						ResourceApiVersion:  core.ApiVersion_V3,
+					},
+				},
 			},
 		},
 		{
@@ -789,13 +799,16 @@ func TestBuildDefaultCluster(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
-
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, &model.Service{
+			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
 				},
 				Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"},
-			}, nil)
+			}
+			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
+			if defaultCluster != nil {
+				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxy.GetNetworkView())
+			}
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)

@@ -125,7 +125,7 @@ func shallowMergeTracing(parent, child *tpb.Telemetry) *tpb.Telemetry {
 	merged := parent.DeepCopy()
 	childCopy := child.DeepCopy()
 
-	// only use the first Tracing for now (all that is suppported)
+	// only use the first Tracing for now (all that is supported)
 	childTracing := childCopy.Tracing[0]
 	mergedTracing := merged.Tracing[0]
 	if len(childTracing.Providers) != 0 {

@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -98,7 +99,7 @@ func instanceFromMeta(cfg config.Map) (echo.Config, error) {
 	}
 
 	return echo.Config{
-		Namespace: fakeNamespace(ns),
+		Namespace: namespace.Static(ns),
 		Service:   svc,
 		// Will set the version of each subset if not provided
 		Version:         cfg.String("version"),

@@ -58,6 +58,7 @@ func (n *kubeNamespace) Dump(ctx resource.Context) {
 	}
 
 	kube2.DumpPods(n.ctx, d, n.name, []string{})
+	kube2.DumpDeployments(n.ctx, d, n.name)
 }
 
 var (

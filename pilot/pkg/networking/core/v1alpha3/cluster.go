@@ -114,7 +114,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	networkView := model.GetNetworkView(cb.proxy)
+	networkView := cb.proxy.GetNetworkView()
 
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && cb.proxy.Type == model.Router {
@@ -204,7 +204,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, push)
 
-	networkView := model.GetNetworkView(proxy)
+	networkView := proxy.GetNetworkView()
 
 	for _, service := range push.Services(proxy) {
 		if service.MeshExternal {
@@ -639,13 +639,16 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	applyLocalityLBSetting(proxy.Locality, c, localityLbSetting)
 
+	// apply default round robin lb policy
+	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
+		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		return
+	}
+
 	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
 	// rejected by Envoy.
-
-	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
-		return
-	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
 	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.Redis {

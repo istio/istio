@@ -19,10 +19,14 @@ package multixds
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/xds"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
@@ -35,22 +39,23 @@ const (
 	tokenServiceAccount = "default"
 )
 
+type ControlPlaneNotFoundError struct {
+	Namespace string
+}
+
+func (c ControlPlaneNotFoundError) Error() string {
+	return fmt.Sprintf("no running Istio pods in %q", c.Namespace)
+}
+
+var _ error = ControlPlaneNotFoundError{}
+
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // Deprecated This method makes multiple responses appear to come from a single control plane;
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
 // nolint: lll
-func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (*xdsapi.DiscoveryResponse, error) {
-	// If Central Istiod case, just call it
-	if centralOpts.Xds != "" {
-		dialOpts, err := xds.DialOptions(centralOpts, istioNamespace, tokenServiceAccount, istioNamespace, kubeClient)
-		if err != nil {
-			return nil, err
-		}
-		return xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, centralOpts, dialOpts)
-	}
-
-	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
-	responses, err := queryEachShard(true, dr, istioNamespace, kubeClient, centralOpts)
+func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (*xdsapi.DiscoveryResponse, error) {
+	responses, err := MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace,
+		istioNamespace, tokenServiceAccount, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +63,7 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 }
 
 // nolint: lll
-func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
+func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "app=istiod"
@@ -71,7 +76,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 		return nil, err
 	}
 	if len(pods) == 0 {
-		return nil, fmt.Errorf("no running Istio pods in %q", istioNamespace)
+		return nil, ControlPlaneNotFoundError{istioNamespace}
 	}
 
 	responses := []*xdsapi.DiscoveryResponse{}
@@ -80,7 +85,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 		CertDir: centralOpts.CertDir,
 		Timeout: centralOpts.Timeout,
 	}
-	dialOpts, err := xds.DialOptions(&xdsOpts, istioNamespace, tokenServiceAccount, istioNamespace, kubeClient)
+	dialOpts, err := xds.DialOptions(xdsOpts, istioNamespace, tokenServiceAccount, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +100,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 		}
 		defer fw.Close()
 		xdsOpts.Xds = fw.Address()
-		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, &xdsOpts, dialOpts)
+		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
@@ -107,17 +112,16 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 	return responses, nil
 }
 
-func mergeShards(responses []*xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
+func mergeShards(responses map[string]*xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
 	retval := xdsapi.DiscoveryResponse{}
 	if len(responses) == 0 {
 		return &retval, nil
 	}
 
-	// Combine all the shards as one, even if that means losing information about
-	// the control plane version from each shard.
-	retval.ControlPlane = responses[0].ControlPlane
-
 	for _, response := range responses {
+		// Combine all the shards as one, even if that means losing information about
+		// the control plane version from each shard.
+		retval.ControlPlane = response.ControlPlane
 		retval.Resources = append(retval.Resources, response.Resources...)
 	}
 
@@ -133,21 +137,39 @@ func makeSan(istioNamespace, revision string) string {
 
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // nolint: lll
-func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string,
+func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return multiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
+	return MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
 }
 
 // FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
 // stopping after the first response that returns any resources.
 // nolint: lll
-func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string,
+func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return multiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
+	return MultiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient)
+}
+
+func getXdsAddressFromWebhooks(client kube.ExtendedClient) (string, error) {
+	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,!istio.io/tag", label.IoIstioRev.Name, client.Revision()),
+	})
+	if err != nil {
+		return "", err
+	}
+	for _, whc := range webhooks.Items {
+		for _, wh := range whc.Webhooks {
+			if wh.ClientConfig.URL != nil {
+				u, _ := url.Parse(*wh.ClientConfig.URL)
+				return u.Host, nil
+			}
+		}
+	}
+	return "", errors.New("xds address not found")
 }
 
 // nolint: lll
-func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string,
+func MultiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
 	// If Central Istiod case, just call it
 	if ns == "" {
@@ -157,7 +179,7 @@ func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 		serviceAccount = tokenServiceAccount
 	}
 	if centralOpts.Xds != "" {
-		dialOpts, err := xds.DialOptions(centralOpts, ns, serviceAccount, istioNamespace, kubeClient)
+		dialOpts, err := xds.DialOptions(centralOpts, ns, serviceAccount, kubeClient)
 		if err != nil {
 			return nil, err
 		}
@@ -173,6 +195,24 @@ func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
 	responses, err := queryEachShard(all, dr, istioNamespace, kubeClient, centralOpts)
 	if err != nil {
+		if _, ok := err.(ControlPlaneNotFoundError); ok {
+			// Attempt to get the XDS address from the webhook and try again
+			addr, err := getXdsAddressFromWebhooks(kubeClient)
+			if err == nil {
+				centralOpts.Xds = addr
+				dialOpts, err := xds.DialOptions(centralOpts, istioNamespace, tokenServiceAccount, kubeClient)
+				if err != nil {
+					return nil, err
+				}
+				response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, centralOpts, dialOpts)
+				if err != nil {
+					return nil, err
+				}
+				return map[string]*xdsapi.DiscoveryResponse{
+					CpInfo(response).ID: response,
+				}, nil
+			}
+		}
 		return nil, err
 	}
 	return mapShards(responses)

@@ -17,6 +17,7 @@ package apigen
 import (
 	"strings"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
 	golangany "github.com/golang/protobuf/ptypes/any"
 
@@ -56,7 +57,7 @@ type APIGenerator struct{}
 //
 // Names are based on the current resource naming in istiod stores.
 func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
-	resp := []*golangany.Any{}
+	resp := model.Resources{}
 
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
 	// key, which is similar.
@@ -81,9 +82,12 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
 		meshAny, err := gogotypes.MarshalAny(push.Mesh)
 		if err == nil {
-			resp = append(resp, &golangany.Any{
+			a := &golangany.Any{
 				TypeUrl: meshAny.TypeUrl,
 				Value:   meshAny.Value,
+			}
+			resp = append(resp, &discovery.Resource{
+				Resource: a,
 			})
 		}
 		return resp, nil
@@ -110,9 +114,13 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		}
 		bany, err := gogotypes.MarshalAny(b)
 		if err == nil {
-			resp = append(resp, &golangany.Any{
+			a := &golangany.Any{
 				TypeUrl: bany.TypeUrl,
 				Value:   bany.Value,
+			}
+			resp = append(resp, &discovery.Resource{
+				Name:     c.Namespace + "/" + c.Name,
+				Resource: a,
 			})
 		} else {
 			log.Warn("Any ", err)
@@ -138,9 +146,13 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			}
 			bany, err := gogotypes.MarshalAny(b)
 			if err == nil {
-				resp = append(resp, &golangany.Any{
+				a := &golangany.Any{
 					TypeUrl: bany.TypeUrl,
 					Value:   bany.Value,
+				}
+				resp = append(resp, &discovery.Resource{
+					Name:     c.Namespace + "/" + c.Name,
+					Resource: a,
 				})
 			} else {
 				log.Warn("Any ", err)
