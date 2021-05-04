@@ -115,7 +115,10 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
 func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, error) {
 	aud := constructAudience(p.credFetcher, p.trustDomain)
-	jsonStr := constructFederatedTokenRequest(aud, k8sSAjwt)
+	jsonStr, err := constructFederatedTokenRequest(aud, k8sSAjwt)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal federated token request: %v", err)
+	}
 
 	body, err := p.requestWithRetry(jsonStr)
 	if err != nil {
@@ -155,7 +158,7 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) str
 	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }
 
-func constructFederatedTokenRequest(aud, jwt string) []byte {
+func constructFederatedTokenRequest(aud, jwt string) ([]byte, error) {
 	values := map[string]string{
 		"audience":           aud,
 		"grantType":          "urn:ietf:params:oauth:grant-type:token-exchange",
@@ -164,6 +167,6 @@ func constructFederatedTokenRequest(aud, jwt string) []byte {
 		"subjectToken":       jwt,
 		"scope":              Scope,
 	}
-	jsonValue, _ := json.Marshal(values)
-	return jsonValue
+	jsonValue, err := json.Marshal(values)
+	return jsonValue, err
 }
