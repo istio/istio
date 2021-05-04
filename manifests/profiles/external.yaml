@@ -19,5 +19,4 @@ spec:
     pilot:
       configMap: false
     global:
-      externalIstiod: true
       omitSidecarInjectorConfigMap: true
