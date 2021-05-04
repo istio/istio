@@ -1028,9 +1028,6 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 			return nil, err
 		}
 	} else {
-		if s.RA != nil {
-			rootCertBytes = append(rootCertBytes, s.RA.GetCAKeyCertBundle().GetRootCertPem()...)
-		}
 		if s.CA != nil {
 			rootCertBytes = append(rootCertBytes, s.CA.GetCAKeyCertBundle().GetRootCertPem()...)
 		}
