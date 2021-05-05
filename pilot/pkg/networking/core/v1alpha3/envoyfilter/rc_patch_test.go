@@ -187,23 +187,6 @@ func Test_routeConfigurationMatch(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "gateway portname match",
-			args: args{
-				patchContext: networking.EnvoyFilter_GATEWAY,
-				cp: &model.EnvoyFilterConfigPatchWrapper{
-					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
-							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
-								PortName: "app2",
-							},
-						},
-					},
-				},
-				rc: &route.RouteConfiguration{Name: "https.443.app1.gw1.ns1"},
-			},
-			want: true,
-		},
-		{
 			name: "gateway fields mismatch",
 			args: args{
 				patchContext: networking.EnvoyFilter_GATEWAY,
