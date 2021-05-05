@@ -51,6 +51,7 @@ const (
 
 // StatusGen is a Generator for XDS status: connections, syncz, configdump
 type StatusGen struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.

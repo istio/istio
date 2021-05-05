@@ -182,6 +182,12 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	return results, nil
 }
 
+var secretGenMetadata = &model.GeneratorMetadata{LogsDetails: true}
+
+func (s *SecretGen) Metadata() *model.GeneratorMetadata {
+	return secretGenMetadata
+}
+
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
 	res := util.MessageToAny(&tls.Secret{
 		Name: name,

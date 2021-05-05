@@ -41,6 +41,7 @@ var activeNamespaceDebuggers = map[string]struct{}{
 
 // DebugGen is a Generator for istio debug info
 type DebugGen struct {
+	model.BaseGenerator
 	Server          *DiscoveryServer
 	SystemNamespace string
 	DebugMux        *http.ServeMux
