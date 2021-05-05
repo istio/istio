@@ -513,6 +513,9 @@ func (h *HelmReconciler) reportPrunedObjectKind() {
 
 // createNamespace creates a namespace using the given k8s client.
 func (h *HelmReconciler) createNamespace(namespace string, network string) error {
+	if h.opts.DryRun {
+		return nil
+	}
 	if namespace == "" {
 		// Setup default namespace
 		namespace = name.IstioDefaultNamespace
