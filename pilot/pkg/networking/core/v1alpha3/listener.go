@@ -72,26 +72,6 @@ const (
 )
 
 const (
-	// RDSHttpProxy is the special name for HTTP PROXY route
-	RDSHttpProxy = "http_proxy"
-
-	// VirtualOutboundListenerName is the name for traffic capture listener
-	VirtualOutboundListenerName = "virtualOutbound"
-
-	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
-	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
-
-	// VirtualOutboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
-	VirtualOutboundBlackholeFilterChainName = "virtualOutbound-blackhole"
-	// VirtualInboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
-	VirtualInboundBlackholeFilterChainName = "virtualInbound-blackhole"
-
-	// VirtualInboundListenerName is the name for traffic capture listener
-	VirtualInboundListenerName = "virtualInbound"
-
-	// virtualInboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
-	virtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
-
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
@@ -681,7 +661,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 		port:  &model.Port{Port: int(httpProxyPort)},
 		filterChainOpts: []*filterChainOpts{{
 			httpOpts: &httpListenerOpts{
-				rds:              RDSHttpProxy,
+				rds:              model.RDSHttpProxy,
 				useRemoteAddress: false,
 				connectionManager: &hcm.HttpConnectionManager{
 					HttpProtocolOptions: httpOpts,
