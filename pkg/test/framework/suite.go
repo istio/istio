@@ -28,8 +28,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/file"
-
 	"gopkg.in/yaml.v2"
 
 	kubelib "istio.io/istio/pkg/kube"
@@ -40,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/pkg/log"
 )
 
