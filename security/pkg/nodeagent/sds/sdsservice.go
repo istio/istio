@@ -180,6 +180,12 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 	return resp, err
 }
 
+var sdsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
+
+func (s *sdsservice) Metadata() *model.GeneratorMetadata {
+	return sdsGeneratorMetadata
+}
+
 // register adds the SDS handle to the grpc server
 func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)

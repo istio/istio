@@ -187,6 +187,12 @@ func ResourcesToAny(r Resources) []*any.Any {
 // See for example EDS incremental updates.
 type XdsUpdates = map[ConfigKey]struct{}
 
+// GeneratorMetadata has information about generator it self that processors like ads/delta can use.
+type GeneratorMetadata struct {
+	// LogsDetails indicates whether the generator logs details during the generation.
+	LogsDetails bool
+}
+
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
@@ -195,6 +201,16 @@ type XdsUpdates = map[ConfigKey]struct{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
+	Metadata() *GeneratorMetadata
+}
+
+// BaseGenerator is the base generator.
+type BaseGenerator struct{}
+
+var baseMetadata = &GeneratorMetadata{false}
+
+func (bg *BaseGenerator) Metadata() *GeneratorMetadata {
+	return baseMetadata
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
