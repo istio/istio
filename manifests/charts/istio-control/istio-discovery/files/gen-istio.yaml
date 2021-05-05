@@ -1068,8 +1068,6 @@ spec:
             value: "false"
           - name: CLUSTER_ID
             value: "Kubernetes"
-          - name: EXTERNAL_ISTIOD
-            value: "false"
           resources:
             requests:
               cpu: 500m
