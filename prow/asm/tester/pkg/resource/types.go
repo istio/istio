@@ -139,12 +139,13 @@ func (wip *WIPType) Type() string { return "wip" }
 type Feature string
 
 const (
-	UserAuth Feature = "USER_AUTH"
-	VPCSC    Feature = "VPC_SC"
-	Addon    Feature = "ADDON"
+	UserAuth       Feature = "USER_AUTH"
+	VPCSC          Feature = "VPC_SC"
+	Addon          Feature = "ADDON"
+	PrivateCluster Feature = "PRIVATE_CLUSTER"
 )
 
-var validFeatureTypes = sets.NewString(string(UserAuth), string(VPCSC), string(Addon))
+var validFeatureTypes = sets.NewString(string(UserAuth), string(VPCSC), string(Addon), string(PrivateCluster))
 
 // Set converts the value string to FeatureType
 func (f *Feature) Set(value string) error {

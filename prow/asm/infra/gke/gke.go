@@ -59,6 +59,9 @@ func DeployerFlags(clusterType, clusterTopology, featureToTest string) ([]string
 	switch clusterTopology {
 	case "SINGLECLUSTER", "sc":
 		flags, err = singleClusterFlags(clusterType, featureToTest == "ADDON")
+		if featureToTest == "PRIVATE_CLUSTER" {
+			flags = append(flags, "--private-cluster-access-level=unrestricted", "--private-cluster-master-ip-range=172.16.0.32/28")
+		}
 	case "MULTICLUSTER", "mc":
 		boskosResourceType := commonBoskosResource
 		// Testing with VPC-SC requires a different project type.
@@ -87,6 +90,7 @@ func DeployerFlags(clusterType, clusterTopology, featureToTest string) ([]string
 			featureFlags, err = featureVPCSCClusterFlags(flags)
 		case "USER_AUTH":
 		case "ADDON":
+		case "PRIVATE_CLUSTER":
 		default:
 			err = fmt.Errorf("feature %q is not supported", featureToTest)
 		}
