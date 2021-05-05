@@ -172,7 +172,6 @@ func (p *Plugin) constructAudience(subjectToken string) string {
 		if GKEClusterURL != "" {
 			provider = GKEClusterURL
 		} else {
-			pluginLog.Warn("GKE_CLUSTER_URL is not set, fallback to call metadata server to get identity provider")
 			provider = p.gkeClusterURL
 		}
 	}
@@ -246,7 +245,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 			pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
 		}
 	} else {
-		pluginLog.Infof("Prepared federated token request, aud: %s, STS endpoint: %s", aud, federatedTokenEndpoint)
+		pluginLog.Infof("Prepared federated token request for aud %q", aud)
 	}
 	return req, nil
 }
@@ -279,8 +278,6 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 		respDump, _ := httputil.DumpResponse(resp, false)
 		pluginLog.Debugf("Received federated token response after %s: \n%s",
 			timeElapsed.String(), string(respDump))
-	} else {
-		pluginLog.Infof("Received federated token response after %s", timeElapsed.String())
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -296,7 +293,7 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 		pluginLog.Error("federated token response does not have access token", string(body))
 		return respData, errors.New("federated token response does not have access token. " + string(body))
 	}
-	pluginLog.Infof("Federated token will expire in %d seconds", respData.ExpiresIn)
+	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", respData.ExpiresIn).Infof("fetched federated token")
 	tokenReceivedTime := time.Now()
 	p.tokens.Store(federatedToken, stsservice.TokenInfo{
 		TokenType:  federatedToken,
@@ -382,8 +379,6 @@ func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenRespon
 	if pluginLog.DebugEnabled() {
 		reqDump, _ := httputil.DumpRequest(req, true)
 		pluginLog.Debugf("Prepared access token request: \n%s", string(reqDump))
-	} else {
-		pluginLog.Info("Prepared access token request")
 	}
 	req.Header.Add("Authorization", "Bearer "+fResp.AccessToken)
 	return req, nil
@@ -413,8 +408,6 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		respDump, _ := httputil.DumpResponse(resp, false)
 		pluginLog.Debugf("Received access token response after %s: \n%s",
 			timeElapsed.String(), string(respDump))
-	} else {
-		pluginLog.Infof("Received access token response after %s", timeElapsed.String())
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -441,6 +434,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 	} else {
 		tokenExp = exp
 	}
+	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", tokenExp).Infof("fetched access token")
 	// Update cache and reset cache hit counter.
 	p.tokens.Store(accessToken, stsservice.TokenInfo{
 		TokenType:  accessToken,
