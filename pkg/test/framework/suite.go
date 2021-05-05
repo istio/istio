@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/util/file"
+
 	"gopkg.in/yaml.v2"
 
 	kubelib "istio.io/istio/pkg/kube"
@@ -412,7 +414,11 @@ func clusters(ctx resource.Context) []cluster.Cluster {
 
 func (s *suiteImpl) writeOutput() {
 	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
-	artifactsPath := os.Getenv("ARTIFACTS")
+	artifactsPath, err := file.NormalizePath(os.Getenv("ARTIFACTS"))
+	if err != nil {
+		artifactsPath = os.Getenv("ARTIFACTS")
+		log.Warnf("failed normalizing %s: %v", artifactsPath, err)
+	}
 	if artifactsPath != "" {
 		ctx := rt.suiteContext()
 		ctx.outcomeMu.RLock()
