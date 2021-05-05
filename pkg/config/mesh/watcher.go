@@ -125,17 +125,19 @@ func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
 		mc1, err := ApplyMeshConfig(w.userMeshConfig, mc)
 		if err != nil {
 			log.Errorf("user config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		} else {
+			mc = *mc1
+			log.Infoa("Applied user config: ", spew.Sdump(mc))
 		}
-		mc = *mc1
-		log.Infoa("Applied user config: ", spew.Sdump(mc))
 	}
 	if w.revMeshConfig != "" {
 		mc1, err := ApplyMeshConfig(w.revMeshConfig, mc)
 		if err != nil {
 			log.Errorf("revision config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		} else {
+			mc = *mc1
+			log.Infoa("Applied revision mesh config: ", spew.Sdump(mc))
 		}
-		mc = *mc1
-		log.Infoa("Applied revision mesh config: ", spew.Sdump(mc))
 	}
 	return &mc
 }
