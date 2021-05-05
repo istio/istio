@@ -54,6 +54,27 @@ func TestApplyNamespace(t *testing.T) {
   name: foo
   namespace: bar`,
 		},
+		{
+			"multipart",
+			`apiVersion: v1
+metadata:
+  name: foo
+---
+apiVersion: v1
+metadata:
+  name: bar
+`,
+			"default",
+			`apiVersion: v1
+metadata:
+  name: foo
+  namespace: default
+---
+apiVersion: v1
+metadata:
+  name: bar
+  namespace: default`,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

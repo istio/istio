@@ -79,7 +79,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					// Add individual addresses even for cross cluster.
-					if instance.Endpoint.SubDomain != "" && instance.Endpoint.Network == node.Metadata.Network {
+					if instance.Endpoint.SubDomain != "" && node.InNetwork(instance.Endpoint.Network) {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
 						parts := strings.SplitN(string(svc.Hostname), ".", 2)

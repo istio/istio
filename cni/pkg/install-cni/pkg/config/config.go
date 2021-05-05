@@ -61,6 +61,7 @@ type Config struct {
 	CNIBinTargetDirs []string
 	// Whether to override existing CNI binaries
 	UpdateCNIBinaries bool
+
 	// The names of binaries to skip when copying
 	SkipCNIBinaries []string
 }

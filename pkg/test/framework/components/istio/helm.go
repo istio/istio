@@ -75,7 +75,9 @@ func (h *helmComponent) Dump(ctx resource.Context) {
 		scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 		return
 	}
-	kube2.DumpPods(ctx, d, ns)
+	kube2.DumpPods(ctx, d, ns, []string{})
+	// Dump istio-cni
+	kube2.DumpPods(ctx, d, "kube-system", []string{"k8s-app=istio-cni-node"})
 }
 
 func (h *helmComponent) ID() resource.ID {
