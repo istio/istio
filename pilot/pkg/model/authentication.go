@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-// MutualTLSMode is the mutule TLS mode specified by authentication policy.
+// MutualTLSMode is the mutual TLS mode specified by authentication policy.
 type MutualTLSMode int
 
 const (
@@ -59,6 +59,21 @@ func (mode MutualTLSMode) String() string {
 		return "STRICT"
 	default:
 		return "UNKNOWN"
+	}
+}
+
+// ConvertToMutualTLSMode converts from peer authn MTLS mode (`PeerAuthentication_MutualTLS_Mode`)
+// to the MTLS mode specified by authn policy.
+func ConvertToMutualTLSMode(mode v1beta1.PeerAuthentication_MutualTLS_Mode) MutualTLSMode {
+	switch mode {
+	case v1beta1.PeerAuthentication_MutualTLS_DISABLE:
+		return MTLSDisable
+	case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
+		return MTLSPermissive
+	case v1beta1.PeerAuthentication_MutualTLS_STRICT:
+		return MTLSStrict
+	default:
+		return MTLSUnknown
 	}
 }
 
@@ -120,20 +135,6 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []config.
 	}
 }
 
-// TODO(diemtvu): refactor this function to share with policy-applier pkg.
-func apiModeToMutualTLSMode(mode v1beta1.PeerAuthentication_MutualTLS_Mode) MutualTLSMode {
-	switch mode {
-	case v1beta1.PeerAuthentication_MutualTLS_DISABLE:
-		return MTLSDisable
-	case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
-		return MTLSPermissive
-	case v1beta1.PeerAuthentication_MutualTLS_STRICT:
-		return MTLSStrict
-	default:
-		return MTLSUnknown
-	}
-}
-
 func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Config) {
 	// Sort configs in ascending order by their creation time.
 	sortConfigByCreationTime(configs)
@@ -165,7 +166,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 				if mode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
 					policy.globalMutualTLSMode = MTLSPermissive
 				} else {
-					policy.globalMutualTLSMode = apiModeToMutualTLSMode(mode)
+					policy.globalMutualTLSMode = ConvertToMutualTLSMode(mode)
 				}
 			} else {
 				// For regular namespace, just add to the intemediate map.
@@ -193,7 +194,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 		if mtlsMode == v1beta1.PeerAuthentication_MutualTLS_UNSET {
 			policy.namespaceMutualTLSMode[ns] = inheritedMTLSMode
 		} else {
-			policy.namespaceMutualTLSMode[ns] = apiModeToMutualTLSMode(mtlsMode)
+			policy.namespaceMutualTLSMode[ns] = ConvertToMutualTLSMode(mtlsMode)
 		}
 	}
 }
