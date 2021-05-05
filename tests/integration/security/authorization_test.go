@@ -48,30 +48,8 @@ var (
 	extAuthzServiceNamespaceErr error
 )
 
-type rootNS struct {
-	rootNamespace string
-}
-
-func (i rootNS) Name() string {
-	return i.rootNamespace
-}
-
-func (i rootNS) Prefix() string {
-	return i.rootNamespace
-}
-
-func (i rootNS) SetLabel(key, value string) error {
-	return nil
-}
-
-func (i rootNS) RemoveLabel(key string) error {
-	return nil
-}
-
-func newRootNS(ctx framework.TestContext) rootNS {
-	return rootNS{
-		rootNamespace: istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
-	}
+func newRootNS(ctx framework.TestContext) namespace.Instance {
+	return istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 }
 
 // TestAuthorization_mTLS tests v1beta1 authorization with mTLS.
@@ -316,7 +294,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							args := map[string]string{
 								"Namespace1":    ns1.Name(),
 								"Namespace2":    ns2.Name(),
-								"RootNamespace": rootns.rootNamespace,
+								"RootNamespace": rootns.Name(),
 								"dst0":          tc.configDst0,
 								"dst1":          tc.configDst1,
 							}
@@ -344,11 +322,11 @@ func TestAuthorization_Deny(t *testing.T) {
 			if t.Clusters().IsMulticluster() {
 				t.Skip()
 			}
-
+			rootns := newRootNS(t)
 			ns := apps.Namespace1
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": istio.GetOrFail(t, t).Settings().SystemNamespace,
+				"RootNamespace": rootns.Name(),
 			}
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
@@ -357,7 +335,6 @@ func TestAuthorization_Deny(t *testing.T) {
 				return policy
 			}
 
-			rootns := newRootNS(t)
 			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			util.WaitForConfig(t, policy[0], ns)
 			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
@@ -521,7 +498,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 				t.NewSubTest(fmt.Sprintf("to %s/", dst[0].Config().Service)).Run(func(t framework.TestContext) {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
-						"RootNamespace": rootns.rootNamespace,
+						"RootNamespace": rootns.Name(),
 						"dst":           dst[0].Config().Service,
 					}
 
@@ -663,7 +640,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 				t.NewSubTest(fmt.Sprintf("to %s/", a[0].Config().Service)).Run(func(t framework.TestContext) {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
-						"RootNamespace": rootns.rootNamespace,
+						"RootNamespace": rootns.Name(),
 						"a":             a[0].Config().Service,
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
