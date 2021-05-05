@@ -378,27 +378,6 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 	routeName string, proxyConfig *meshconfig.ProxyConfig) *filterChainOpts {
 	serverProto := protocol.Parse(port.Protocol)
 
-	httpProtoOpts := &core.Http1ProtocolOptions{}
-
-	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
-		httpProtoOpts.AcceptHttp_10 = true
-	}
-
-	xffNumTrustedHops := uint32(0)
-	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.Topology_SANITIZE_SET)
-
-	if proxyConfig != nil && proxyConfig.GatewayTopology != nil {
-		xffNumTrustedHops = proxyConfig.GatewayTopology.NumTrustedProxies
-		if proxyConfig.GatewayTopology.ForwardClientCertDetails != meshconfig.Topology_UNDEFINED {
-			forwardClientCertDetails = util.MeshConfigToEnvoyForwardClientCertDetails(proxyConfig.GatewayTopology.ForwardClientCertDetails)
-		}
-	}
-
-	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort = nil
-	if features.StripHostPort {
-		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
-	}
-
 	if serverProto.IsHTTP() {
 		return &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
@@ -407,23 +386,10 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			sniHosts:   nil,
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
-				rds:              routeName,
-				useRemoteAddress: true,
-				connectionManager: &hcm.HttpConnectionManager{
-					XffNumTrustedHops: xffNumTrustedHops,
-					// Forward client cert if connection is mTLS
-					ForwardClientCertDetails: forwardClientCertDetails,
-					SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: proto.BoolTrue,
-						Cert:    true,
-						Uri:     true,
-						Dns:     true,
-					},
-					ServerName:          EnvoyServerName,
-					HttpProtocolOptions: httpProtoOpts,
-					StripPortMode:       stripPortMode,
-				},
-				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
+				rds:               routeName,
+				useRemoteAddress:  true,
+				connectionManager: buildGatewayConnectionManager(proxyConfig, node),
+				addGRPCWebFilter:  serverProto == protocol.GRPCWeb,
 			},
 		}
 	}
@@ -438,25 +404,48 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		sniHosts:   node.MergedGateway.TLSServerInfo[server].SNIHosts,
 		tlsContext: buildGatewayListenerTLSContext(server, node),
 		httpOpts: &httpListenerOpts{
-			rds:              routeName,
-			useRemoteAddress: true,
-			connectionManager: &hcm.HttpConnectionManager{
-				XffNumTrustedHops: xffNumTrustedHops,
-				// Forward client cert if connection is mTLS
-				ForwardClientCertDetails: forwardClientCertDetails,
-				SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-					Subject: proto.BoolTrue,
-					Cert:    true,
-					Uri:     true,
-					Dns:     true,
-				},
-				ServerName:          EnvoyServerName,
-				HttpProtocolOptions: httpProtoOpts,
-				StripPortMode:       stripPortMode,
-			},
-			addGRPCWebFilter: serverProto == protocol.GRPCWeb,
-			statPrefix:       server.Name,
+			rds:               routeName,
+			useRemoteAddress:  true,
+			connectionManager: buildGatewayConnectionManager(proxyConfig, node),
+			addGRPCWebFilter:  serverProto == protocol.GRPCWeb,
+			statPrefix:        server.Name,
 		},
+	}
+}
+
+func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy) *hcm.HttpConnectionManager {
+	httpProtoOpts := &core.Http1ProtocolOptions{}
+	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
+		httpProtoOpts.AcceptHttp_10 = true
+	}
+	xffNumTrustedHops := uint32(0)
+	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.Topology_SANITIZE_SET)
+
+	if proxyConfig != nil && proxyConfig.GatewayTopology != nil {
+		xffNumTrustedHops = proxyConfig.GatewayTopology.NumTrustedProxies
+		if proxyConfig.GatewayTopology.ForwardClientCertDetails != meshconfig.Topology_UNDEFINED {
+			forwardClientCertDetails = util.MeshConfigToEnvoyForwardClientCertDetails(proxyConfig.GatewayTopology.ForwardClientCertDetails)
+		}
+	}
+
+	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort = nil
+	if features.StripHostPort {
+		stripPortMode = &hcm.HttpConnectionManager_StripAnyHostPort{StripAnyHostPort: true}
+	}
+	return &hcm.HttpConnectionManager{
+		XffNumTrustedHops: xffNumTrustedHops,
+		// Forward client cert if connection is mTLS
+		ForwardClientCertDetails: forwardClientCertDetails,
+		SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+			Subject: proto.BoolTrue,
+			Cert:    true,
+			Uri:     true,
+			Dns:     true,
+		},
+		ServerName:          EnvoyServerName,
+		HttpProtocolOptions: httpProtoOpts,
+		StripPortMode:       stripPortMode,
+		DelayedCloseTimeout: features.DelayedCloseTimeout,
 	}
 }
 

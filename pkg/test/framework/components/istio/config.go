@@ -82,6 +82,7 @@ var (
 		DeployEastWestGW:        true,
 		DumpKubernetesManifests: false,
 		IstiodlessRemotes:       false,
+		EnableCNI:               false,
 	}
 )
 
@@ -166,6 +167,9 @@ type Config struct {
 
 	// OperatorOptions overrides default operator configuration.
 	OperatorOptions map[string]string
+
+	// EnableCNI indicates the test should have CNI enabled.
+	EnableCNI bool
 }
 
 func (c *Config) OverridesYAML() string {
@@ -346,6 +350,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("DumpKubernetesManifests:        %v\n", c.DumpKubernetesManifests)
 	result += fmt.Sprintf("IstiodlessRemotes:              %v\n", c.IstiodlessRemotes)
 	result += fmt.Sprintf("OperatorOptions:                %v\n", c.OperatorOptions)
+	result += fmt.Sprintf("EnableCNI:                      %v\n", c.EnableCNI)
 
 	return result
 }

@@ -452,6 +452,16 @@ var (
 		"If enabled, envoy filters will be sorted by name allowing patch ordering by name. This can be useful when you have "+
 			"one patch that “depends on another” for ordering. In that case it is possible to use rc.d style 001-patch1 and 002-patch2 "+
 			"to enforce patch application ordering.").Get()
+
+	delayedCloseTimeoutVar = env.RegisterDurationVar(
+		"PILOT_HTTP_DELAYED_CLOSE_TIMEOUT",
+		1*time.Second,
+		"The delayed close timeout is for downstream HTTP connections. This should be set to a high value or disable it when "+
+			"peer is reading large chunk of data and to give an opportunity to initiate the close sequence properly. A value of 0s disables this").Get()
+
+	DelayedCloseTimeout = func() *duration.Duration {
+		return durationpb.New(delayedCloseTimeoutVar)
+	}()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

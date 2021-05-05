@@ -257,10 +257,12 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 		return
 	}
-	kube2.DumpPods(ctx, d, ns)
+	kube2.DumpPods(ctx, d, ns, []string{})
 	for _, cluster := range ctx.Clusters().Kube() {
 		kube2.DumpDebug(ctx, cluster, d, "configz")
 	}
+	// Dump istio-cni.
+	kube2.DumpPods(ctx, d, "kube-system", []string{"k8s-app=istio-cni-node"})
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
@@ -657,6 +659,13 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, cluster cl
 	}
 
 	// Include all user-specified values and configuration options.
+	if cfg.EnableCNI {
+		installSettings = append(installSettings,
+			"--set", "components.cni.namespace=kube-system",
+			"--set", "components.cni.enabled=true")
+	}
+
+	// Include all user-specified values.
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
