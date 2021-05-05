@@ -95,8 +95,16 @@ spec:
             protocol: TCP
           - containerPort: 15010
             protocol: TCP
+            name: grpc-xds # plaintext
+          - containerPort: 15012
+            protocol: TCP
+            name: https-dns # mTLS with k8s-signed cert
+          - containerPort: 15014
+            protocol: TCP
+            name: http-monitoring # prometheus stats
           - containerPort: 15017
             protocol: TCP
+            name: https-webhook # validation and injection
           readinessProbe:
             httpGet:
               path: /ready
