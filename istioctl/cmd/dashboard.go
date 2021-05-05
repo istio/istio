@@ -370,8 +370,8 @@ func skywalkingDashCmd() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
 		Use:   "skywalking",
-		Short: "Open SKyWalking UI",
-		Long:  "Open SkyWalking UI on Istio",
+		Short: "Open SkyWalking UI",
+		Long:  "Open the Istio dashboard in the SkyWalking UI",
 		Example: `  istioctl dashboard skywalking
 
   # with short syntax
