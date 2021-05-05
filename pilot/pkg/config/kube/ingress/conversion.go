@@ -321,7 +321,7 @@ func createFallbackStringMatch(s string) *networking.StringMatch {
 	}
 	if strings.HasSuffix(s, "/*") {
 		return &networking.StringMatch{
-			MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, "/*")},
+			MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, "*")},
 		}
 	}
 
