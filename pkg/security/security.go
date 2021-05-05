@@ -56,6 +56,9 @@ const (
 	// Credential fetcher type
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock" // testing only
+
+	// GoogleCAProvider uses the Google CA for workload certificate signing
+	GoogleCAProvider = "GoogleCA"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
