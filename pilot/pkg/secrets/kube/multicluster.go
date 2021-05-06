@@ -31,12 +31,12 @@ type Multicluster struct {
 	m                     sync.Mutex // protects remoteKubeControllers
 	secretController      *secretcontroller.Controller
 	localCluster          string
-	stop                  chan struct{}
+	stop                  <-chan struct{}
 }
 
 var _ secrets.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(client kube.Client, localCluster, secretNamespace string, stop chan struct{}) *Multicluster {
+func NewMulticluster(client kube.Client, localCluster, secretNamespace string, stop <-chan struct{}) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[string]*SecretsController{},
 		localCluster:          localCluster,
@@ -53,6 +53,10 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string, s
 		stop)
 	m.secretController = sc
 	return m
+}
+
+func (m *Multicluster) HasSynced() bool {
+	return m.secretController.HasSynced()
 }
 
 func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
