@@ -96,6 +96,9 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 			scopes.Framework.Warnf("Error getting pods list via kubectl: %v", err)
 			return
 		}
+		if len(pods.Items) == 0 {
+			continue
+		}
 		for _, dump := range dumpers {
 			cluster, dump := cluster, dump
 			wg.Add(1)
