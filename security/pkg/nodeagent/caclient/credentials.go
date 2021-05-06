@@ -138,7 +138,7 @@ func (t *TokenProvider) getTokenForGCP() (string, error) {
 		// When running at a non-k8s platform, use CredFetcher to get credential.
 		tok, err = t.opts.CredFetcher.GetPlatformCredential()
 		if err != nil {
-			return "", fmt.Errorf("fetch platform credential: %v", err)
+			return "", fmt.Errorf("failed to fetch platform credential: %v", err)
 		}
 	} else {
 		if t.opts.JWTPath == "" {
