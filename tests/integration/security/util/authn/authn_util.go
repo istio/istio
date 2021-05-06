@@ -91,7 +91,7 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 	if os.Getenv("CLUSTER_TYPE") == "bare-metal" {
 		// Request will be sent to host in the host header with HTTP proxy
 		// Modify the /etc/hosts file on the bootstrap VM to direct the request to ingress gateway
-		if err := setupEtcHostsFile(ingr, host); err != nil {
+		if err := SetupEtcHostsFile(ingr, host); err != nil {
 			ctx.Fatal(err)
 		}
 	}
@@ -111,7 +111,7 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 	ingr.CallWithRetryOrFail(ctx, opts)
 }
 
-func setupEtcHostsFile(ingr ingress.Instance, host string) error {
+func SetupEtcHostsFile(ingr ingress.Instance, host string) error {
 	cmd := exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
 		"-i", os.Getenv("BOOTSTRAP_HOST_SSH_KEY"), os.Getenv("BOOTSTRAP_HOST_SSH_USER"),
 		"grep", host, "/etc/hosts")
