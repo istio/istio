@@ -16,6 +16,7 @@
 package sdsingress
 
 import (
+	"os"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -96,8 +97,14 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 
 					t.NewSubTest("old cert should fail").Run(func(t framework.TestContext) {
 						// Client use old server CA cert to set up SSL connection would fail.
-						ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextA,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						// TODO: https://buganizer.corp.google.com/issues/186435664
+						if os.Getenv("CLUSTER_TYPE") == "aws" {
+							ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextA,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: ""})
+						} else {
+							ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContextA,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						}
 					})
 
 					t.NewSubTest("new cert should succeed").Run(func(t framework.TestContext) {
@@ -167,8 +174,14 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 						ingressutil.RotateSecrets(t, credName, ingressutil.Mtls,
 							ingressutil.IngressCredentialServerKeyCertB, false)
 						// Client uses old server CA cert to set up SSL connection would fail.
-						ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						// TODO: https://buganizer.corp.google.com/issues/186435664
+						if os.Getenv("CLUSTER_TYPE") == "aws" {
+							ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: ""})
+						} else {
+							ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						}
 					})
 
 					t.NewSubTest("matched key/cert should succeed").Run(func(t framework.TestContext) {
@@ -231,8 +244,14 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 						ingressutil.RotateSecrets(t, credName, ingressutil.Mtls,
 							ingressutil.IngressCredentialB, false)
 						// Use old server CA cert to set up SSL connection would fail.
-						ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						// TODO: https://buganizer.corp.google.com/issues/186435664
+						if os.Getenv("CLUSTER_TYPE") == "aws" {
+							ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: ""})
+						} else {
+							ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						}
 					})
 
 					t.NewSubTest("new server CA should succeed").Run(func(t framework.TestContext) {
@@ -299,8 +318,14 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 						ingressutil.RotateSecrets(t, credName, ingressutil.Mtls,
 							ingressutil.IngressCredentialB, true)
 						// Use old server CA cert to set up SSL connection would fail.
-						ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
-							ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						// TODO: https://buganizer.corp.google.com/issues/186435664
+						if os.Getenv("CLUSTER_TYPE") == "aws" {
+							ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: ""})
+						} else {
+							ingressutil.SendRequestOrFail(t, ing, host, credName[0], ingressutil.Mtls, tlsContext,
+								ingressutil.ExpectedResponse{ResponseCode: 0, ErrorMessage: "certificate signed by unknown authority"})
+						}
 					})
 
 					t.NewSubTest("new server CA should succeed").Run(func(t framework.TestContext) {

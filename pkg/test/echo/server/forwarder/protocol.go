@@ -27,6 +27,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -168,11 +169,14 @@ func newProtocol(cfg Config) (protocol, error) {
 					IdleConnTimeout: time.Second,
 					TLSClientConfig: tlsConfig,
 					DialContext:     httpDialContext,
-					Proxy:           http.ProxyFromEnvironment,
+					Proxy:           nil,
 				},
 				Timeout: timeout,
 			},
 			do: cfg.Dialer.HTTP,
+		}
+		if os.Getenv("CLUSTER_TYPE") == "bare-metal" {
+			proto.client.Transport.(*http.Transport).Proxy = http.ProxyFromEnvironment
 		}
 		if cfg.Request.Http3 && scheme.Instance(u.Scheme) == scheme.HTTP {
 			return nil, fmt.Errorf("http3 requires HTTPS")

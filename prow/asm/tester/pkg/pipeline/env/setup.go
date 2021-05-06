@@ -467,9 +467,15 @@ func fixAWS(settings *resource.Settings) error {
 		//  Increase proxy's max connection setup to avoid too many connections error
 		sshCmd1 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/#max-client-connections.*/max-client-connections 512/' '/etc/privoxy/config'\"",
 			bootstrapHostSSHKey, bootstrapHostSSHUser)
-		sshCmd2 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo systemctl restart privoxy.service\"",
+		sshCmd2 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/keep-alive-timeout 5/keep-alive-timeout 3000/' '/etc/privoxy/config'\"",
 			bootstrapHostSSHKey, bootstrapHostSSHUser)
-		if err := exec.RunMultiple([]string{sshCmd1, sshCmd2}); err != nil {
+		sshCmd3 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/socket-timeout 300/socket-timeout 3000/' '/etc/privoxy/config'\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		sshCmd4 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo sed -i 's/#default-server-timeout.*/default-server-timeout 3000/' '/etc/privoxy/config'\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		sshCmd5 := fmt.Sprintf("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i %s %s \"sudo systemctl restart privoxy.service\"",
+			bootstrapHostSSHKey, bootstrapHostSSHUser)
+		if err := exec.RunMultiple([]string{sshCmd1, sshCmd2, sshCmd3, sshCmd4, sshCmd5}); err != nil {
 			return fmt.Errorf("error running the commands to increase proxy's max connection setup: %w", err)
 		}
 		return nil

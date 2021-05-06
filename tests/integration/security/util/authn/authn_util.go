@@ -88,7 +88,7 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 	} else {
 		headers["Host"] = []string{host}
 	}
-	if os.Getenv("CLUSTER_TYPE") == "bare-metal" || os.Getenv("CLUSTER_TYPE") == "aws" {
+	if os.Getenv("CLUSTER_TYPE") == "bare-metal" {
 		// Request will be sent to host in the host header with HTTP proxy
 		// Modify the /etc/hosts file on the bootstrap VM to direct the request to ingress gateway
 		if err := setupEtcHostsFile(ingr, host); err != nil {
@@ -128,7 +128,7 @@ func setupEtcHostsFile(ingr ingress.Instance, host string) error {
 		}
 		cmd := exec.Command("ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no",
 			"-i", os.Getenv("BOOTSTRAP_HOST_SSH_KEY"), os.Getenv("BOOTSTRAP_HOST_SSH_USER"),
-			"sudo echo", "\""+hostEntry+"\"", ">>", "/etc/hosts")
+			"echo", "\""+hostEntry+"\"", " | sudo tee -a /etc/hosts")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("command %s failed: %q %v", cmd.String(), string(out), err)
 		}
