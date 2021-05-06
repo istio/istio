@@ -63,7 +63,8 @@ func workloadHasSidecar(cfg echo.Config, podName string) bool {
 	// Match workload first.
 	for _, w := range cfg.Subsets {
 		if strings.HasPrefix(podName, fmt.Sprintf("%v-%v", cfg.Service, w.Version)) {
-			return w.Annotations.GetBool(echo.SidecarInject)
+			return w.Annotations.GetBool(echo.SidecarInject) &&
+				w.Annotations.Get(echo.SidecarInjectTemplates) != "grpc"
 		}
 	}
 	return true

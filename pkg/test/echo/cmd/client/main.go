@@ -26,6 +26,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	// To install the xds resolvers and balancers.
+	_ "google.golang.org/grpc/xds"
+
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"

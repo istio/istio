@@ -31,6 +31,21 @@ func TestNewSet(t *testing.T) {
 	}
 }
 
+func TestUnion(t *testing.T) {
+	elements := []string{"a", "b", "c", "d"}
+	elements2 := []string{"a", "b", "e"}
+	want := NewSet("a", "b")
+	for _, sets := range [][]Set{
+		{NewSet(elements...), NewSet(elements2...)},
+		{NewSet(elements2...), NewSet(elements...)},
+	} {
+		s1, s2 := sets[0], sets[1]
+		if got := s1.Union(s2); !got.Equals(want) {
+			t.Errorf("expected %v; got %v", want, got)
+		}
+	}
+}
+
 func TestDifference(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
 	s1 := NewSet(elements...)
@@ -49,6 +64,18 @@ func TestDifference(t *testing.T) {
 	}
 	if _, exist := d["d"]; !exist {
 		t.Errorf("d is not in %v", d)
+	}
+}
+
+func TestSupersetOf(t *testing.T) {
+	elements := []string{"a", "b", "c", "d"}
+	s1 := NewSet(elements...)
+
+	elements2 := []string{"a", "b"}
+	s2 := NewSet(elements2...)
+
+	if !s1.SupersetOf(s2) {
+		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())
 	}
 }
 
