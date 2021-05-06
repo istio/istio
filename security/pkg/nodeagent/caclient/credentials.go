@@ -141,13 +141,14 @@ func (t *TokenProvider) getTokenForGCP() (string, error) {
 			return "", fmt.Errorf("failed to fetch platform credential: %v", err)
 		}
 	} else {
+		// When XDS auth provider is GCP, token is always required. We should return
+		// err when failed to get a token.
 		if t.opts.JWTPath == "" {
-			return "", nil
+			return "", fmt.Errorf("the JWTPath is not set")
 		}
 		tokBytes, err := ioutil.ReadFile(t.opts.JWTPath)
 		if err != nil {
-			log.Warnf("failed to fetch token from file: %v", err)
-			return "", nil
+			return "", fmt.Errorf("failed to fetch token from file: %v", err)
 		}
 		tok = string(tokBytes)
 	}
