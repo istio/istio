@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/stsservice"
 	stsmock "istio.io/istio/security/pkg/stsservice/mock"
@@ -80,6 +81,11 @@ func TestGetTokenForXDS(t *testing.T) {
 	}
 	secOpts.JWTPath = jwtPath
 	defer os.Remove(jwtPath)
+
+	mockCredFetcher, err := credentialfetcher.NewCredFetcher(security.Mock, "", "", "")
+	if err != nil {
+		t.Fatalf("failed to create mock credential fetcher: %v", err)
+	}
 	// Use a mock token manager because real token exchange requires a working k8s token,
 	// permissions for token exchange, and connection to the token exchange server.
 	tokenManager := stsmock.CreateFakeTokenManager()
@@ -95,6 +101,7 @@ func TestGetTokenForXDS(t *testing.T) {
 	tests := []struct {
 		name        string
 		provider    string
+		credFetcher security.CredFetcher
 		expectToken string
 	}{
 		{
@@ -106,6 +113,12 @@ func TestGetTokenForXDS(t *testing.T) {
 			name:        "xdsAuthProvider is empty",
 			provider:    "",
 			expectToken: mock.FakeSubjectToken,
+		},
+		{
+			name:        "credential fetcher and google.GCPAuthProvider",
+			provider:    google.GCPAuthProvider,
+			credFetcher: mockCredFetcher,
+			expectToken: mock.FakeAccessToken,
 		},
 	}
 
