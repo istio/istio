@@ -93,6 +93,30 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 	}
 }
 
+// InstallIstioWithRevision install Istio using Helm charts with the provided
+// override values file and fails the tests on any failures.
+func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
+	h *helm.Helm, fileSuffix, revision, overrideValuesFile string) {
+	CreateNamespace(t, cs, IstioNamespace)
+
+	// Upgrade base chart
+	err := h.UpgradeChart(BaseReleaseName, filepath.Join(ChartPath, BaseChart),
+		IstioNamespace, overrideValuesFile, Timeout)
+	if err != nil {
+		t.Fatalf("failed to upgrade istio %s chart", BaseChart)
+	}
+
+	// install discovery chart
+	err = h.InstallChart(IstiodReleaseName+revision, filepath.Join(ControlChartsDir, DiscoveryChart)+fileSuffix,
+		IstioNamespace, overrideValuesFile, Timeout)
+	if err != nil {
+		t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+	}
+
+	// TODO: ingress and egress charts for use with revisions is considered experimental
+	// and are not a part of this test for now
+}
+
 func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 	if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
