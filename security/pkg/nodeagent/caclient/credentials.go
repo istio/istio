@@ -157,7 +157,7 @@ func (t *TokenProvider) getTokenForGCP() (string, error) {
 		return "", fmt.Errorf("XDS token exchange is enabled but token manager is nil")
 	}
 	if strings.TrimSpace(tok) == "" {
-		return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
+		return "", fmt.Errorf("the token for XDS token exchange is empty")
 	}
 	params := security.StsRequestParameters{
 		Scope:            stsclient.Scope,
