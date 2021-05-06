@@ -250,6 +250,18 @@ func injectEnvVars(settings *resource.Settings) error {
 		}
 		meshID = "proj-" + strings.TrimSpace(projectNum)
 	}
+	// For onprem with Hub CI jobs, clusters are registered into the environ project
+	if settings.WIP == resource.HUBWorkloadIdentityPool && settings.ClusterType == resource.OnPrem {
+		environProjectID, err := kube.GetEnvironProjectID(settings.Kubeconfig)
+		if err != nil {
+			return err
+		}
+		projectNum, err := getProjectNumber(environProjectID)
+		if err != nil {
+			return err
+		}
+		meshID = "proj-" + strings.TrimSpace(projectNum)
+	}
 
 	// TODO(chizhg): delete most, if not all, the env var injections after we convert all the
 	// bash to Go and remove the env var dependencies.
