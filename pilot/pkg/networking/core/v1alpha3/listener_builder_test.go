@@ -106,7 +106,7 @@ func TestVirtualListenerBuilder(t *testing.T) {
 		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 	}
 
-	if !strings.HasPrefix(listeners[0].Name, VirtualOutboundListenerName) {
+	if !strings.HasPrefix(listeners[0].Name, model.VirtualOutboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
 	} else {
 		t.Logf("found virtual listener: %s", listeners[0].Name)
@@ -164,13 +164,13 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 		t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
 	}
 
-	if !strings.HasPrefix(listeners[0].Name, VirtualOutboundListenerName) {
+	if !strings.HasPrefix(listeners[0].Name, model.VirtualOutboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
 	} else {
 		t.Logf("found virtual listener: %s", listeners[0].Name)
 	}
 
-	if !strings.HasPrefix(listeners[1].Name, VirtualInboundListenerName) {
+	if !strings.HasPrefix(listeners[1].Name, model.VirtualInboundListenerName) {
 		t.Fatalf("expect virtual listener, found %s", listeners[1].Name)
 	} else {
 		t.Logf("found virtual inbound listener: %s", listeners[1].Name)
@@ -185,10 +185,10 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 	}
 
 	for k, v := range byListenerName {
-		if k == VirtualInboundListenerName && v != 3 {
+		if k == model.VirtualInboundListenerName && v != 3 {
 			t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
 		}
-		if k == virtualInboundCatchAllHTTPFilterChainName && v != 2 {
+		if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != 2 {
 			t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
 		}
 		if k == listeners[0].Name && v != len(listeners[0].FilterChains) {
@@ -220,7 +220,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 
 		if len(fc.Filters) == 2 && fc.Filters[1].Name == wellknown.TCPProxy &&
-			fc.Name == VirtualInboundListenerName {
+			fc.Name == model.VirtualInboundListenerName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
 				sawFakePluginFilter = true
 			}
@@ -247,7 +247,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		}
 
 		if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager &&
-			fc.Name == virtualInboundCatchAllHTTPFilterChainName {
+			fc.Name == model.VirtualInboundCatchAllHTTPFilterChainName {
 			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, mtlsHTTPALPNs) {
 				t.Fatalf("expect %v application protocols, found %v", mtlsHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 			}
