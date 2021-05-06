@@ -215,7 +215,7 @@ func postprocessTestArtifacts() {
 		filepath.Walk(os.Getenv("ARTIFACTS"), func(path string, info os.FileInfo, err error) error {
 			if matched, _ := regexp.MatchString(`^junit.*\.xml`, info.Name()); matched {
 				log.Printf("Update file %q", path)
-				exec.Run(fmt.Sprintf("crtest xmlpost --file=%s --save", path))
+				exec.Run(fmt.Sprintf("crtest xmlpost --file=%s --save --aggregate-subtests", path))
 			}
 			return nil
 		})
