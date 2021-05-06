@@ -132,25 +132,36 @@ func (t *TokenProvider) GetTokenForXDS() (string, error) {
 }
 
 func (t *TokenProvider) getTokenForGCP() (string, error) {
-	if t.opts.JWTPath == "" {
-		return "", nil
-	}
-	tok, err := ioutil.ReadFile(t.opts.JWTPath)
-	if err != nil {
-		log.Warnf("failed to fetch token from file: %v", err)
-		return "", nil
+	var tok string
+	var err error
+	if t.opts.CredFetcher != nil {
+		// When running at a non-k8s platform, use CredFetcher to get credential.
+		tok, err = t.opts.CredFetcher.GetPlatformCredential()
+		if err != nil {
+			return "", fmt.Errorf("fetch platform credential: %v", err)
+		}
+	} else {
+		if t.opts.JWTPath == "" {
+			return "", nil
+		}
+		tokBytes, err := ioutil.ReadFile(t.opts.JWTPath)
+		if err != nil {
+			log.Warnf("failed to fetch token from file: %v", err)
+			return "", nil
+		}
+		tok = string(tokBytes)
 	}
 	// For XDS flow, the token exchange is different from that of the CA flow.
 	if t.opts.TokenManager == nil {
 		return "", fmt.Errorf("XDS token exchange is enabled but token manager is nil")
 	}
-	if strings.TrimSpace(string(tok)) == "" {
+	if strings.TrimSpace(tok) == "" {
 		return "", fmt.Errorf("the JWT token for XDS token exchange is empty")
 	}
 	params := security.StsRequestParameters{
 		Scope:            stsclient.Scope,
 		GrantType:        server.TokenExchangeGrantType,
-		SubjectToken:     strings.TrimSpace(string(tok)),
+		SubjectToken:     strings.TrimSpace(tok),
 		SubjectTokenType: server.SubjectTokenType,
 	}
 	body, err := t.opts.TokenManager.GenerateToken(params)
