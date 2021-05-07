@@ -76,17 +76,30 @@ tests:
       control_plane: unmanaged
       cluster_type: aws
     targets:
+      # security/ tests
       - names:
           - TestStrictMTLS
         reason: MeshCA does not support ECDSA
       - names:
           - TestAuthorization_Custom
         reason: requires mesh config
+      # telemetry/ tests
       - names:
           - TestStackdriver
           - TestStackdriverAudit
           - TestVMTelemetry
-        reason: Stackdriver is not enabled with ASM Distro Baremetal installation
+        reason: Stackdriver is not enabled with ASM Distro installation
+      # networking/ tests
+      - names:
+        - TestCustomGateway/helm
+        - TestAddToAndRemoveFromMesh
+        - TestRevisionedUpgrade
+        - TestServiceExports/exported/0/create
+        - TestRevisionCommand
+        - TestRevisionTags
+        - TestMultiRevision
+        - TestUninstallByRevision
+        - TestUninstallWithSetFlag
 
   # Unmanaged CP, cluster topology = mp OR multiproject
   - selectors:
