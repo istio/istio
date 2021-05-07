@@ -30,6 +30,7 @@ import (
 
 // Bootstrap generator produces an Envoy bootstrap from node descriptors.
 type BootstrapGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
