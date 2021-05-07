@@ -935,7 +935,7 @@ data:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istiod
+  name: istiod-cristio-system
   labels:
     app: istiod
     release: istio
@@ -1035,7 +1035,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: istio-reader
+  name: istio-reader-cr
   labels:
     app: istio-reader
     release: istio
@@ -1074,14 +1074,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader
+  name: istio-reader-cr
   labels:
     app: istio-reader
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader
+  name: istio-reader-cr
 subjects:
   - kind: ServiceAccount
     name: istio-reader
@@ -1091,14 +1091,14 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod
+  name: istiod-cristio-system
   labels:
     app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod
+  name: istiod-cristio-system
 subjects:
   - kind: ServiceAccount
     name: istiod
