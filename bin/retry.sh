@@ -35,6 +35,7 @@ function retry {
   local n=1
   local max=5
   while true; do
+    unset SHELL # Don't let environment control which shell to use
     script --flush --quiet --return "${tmpFile}" --command "${*}"
     # shellcheck disable=SC2181
     if [[ $? == 0 ]]; then
