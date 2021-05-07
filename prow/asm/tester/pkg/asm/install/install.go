@@ -209,6 +209,7 @@ func generateInstallFlags(settings *resource.Settings, rev *revision.Config, pkg
 		"--enable-all",
 		"--verbose",
 		"--option", "audit-authorizationpolicy",
+		"--option", "cni-gcp",
 	}
 
 	// Use the CA from revision config for the revision we're installing

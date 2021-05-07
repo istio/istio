@@ -50,3 +50,10 @@ test.integration.asm.meshca-migration: | $(JUNIT_REPORT)
 	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ca_migration/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} --log_output_level=tf:debug,mcp:debug \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+
+# Custom test target for ASM managed data plane (MDP).
+.PHONY: test.integration.asm.mdp
+test.integration.asm.mdp: | $(JUNIT_REPORT) check-go-tag
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/mdp/... -timeout 30m \
+	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} --log_output_level=tf:debug \
+	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
