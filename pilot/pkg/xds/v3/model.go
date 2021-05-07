@@ -85,6 +85,8 @@ func GetMetricType(typeURL string) string {
 		return "pcds"
 	case ExtensionConfigurationType:
 		return "ecds"
+	case BootstrapType:
+		return "bds"
 	default:
 		return typeURL
 	}
