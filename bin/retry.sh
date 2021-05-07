@@ -26,19 +26,23 @@ function fail {
 }
 
 function retry {
+  local tmpFile
+  tmpFile=$(mktemp)
+  trap 'rm -f "${tmpFile}"' EXIT
+
   local failureRegex="$1"
   shift
   local n=1
   local max=5
   while true; do
-    exec 5>&1
-    out="$(set -o pipefail; "$@" 2>&1 | tee /dev/fd/5)"
+    unset SHELL # Don't let environment control which shell to use
+    script --flush --quiet --return "${tmpFile}" --command "${*}"
     # shellcheck disable=SC2181
     if [[ $? == 0 ]]; then
       break
     fi
-    if ! grep "${failureRegex}" <<< "${out}"; then
-      fail "Unexpected failure: ${out}"
+    if ! grep -q "${failureRegex}" "${tmpFile}"; then
+      fail "Unexpected failure: $(cat tmpFile)"
     fi
     if [[ $n -lt $max ]]; then
       ((n++))
