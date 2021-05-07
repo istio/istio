@@ -591,7 +591,7 @@ func protocolToAlpn(s Protocol) string {
 
 func matchListener(listeners []*listener.Listener, input Call) *listener.Listener {
 	if input.CallMode == CallModeInbound {
-		return xdstest.ExtractListener(v1alpha3.VirtualInboundListenerName, listeners)
+		return xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
 	}
 	// First find exact match for the IP/Port, then fallback to wildcard IP/Port
 	// There is no wildcard port
@@ -609,7 +609,7 @@ func matchListener(listeners []*listener.Listener, input Call) *listener.Listene
 	// Fallback to the outbound listener
 	// TODO - support inbound
 	for _, l := range listeners {
-		if l.Name == v1alpha3.VirtualOutboundListenerName {
+		if l.Name == model.VirtualOutboundListenerName {
 			return l
 		}
 	}

@@ -447,6 +447,19 @@ var (
 
 	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
+
+	delayedCloseTimeoutVar = env.RegisterDurationVar(
+		"PILOT_HTTP_DELAYED_CLOSE_TIMEOUT",
+		1*time.Second,
+		"The delayed close timeout is for downstream HTTP connections. This should be set to a high value or disable it when "+
+			"peer is reading large chunk of data and to give an opportunity to initiate the close sequence properly. A value of 0s disables this").Get()
+
+	DelayedCloseTimeout = func() *duration.Duration {
+		return durationpb.New(delayedCloseTimeoutVar)
+	}()
+
+	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", false,
+		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

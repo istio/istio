@@ -57,6 +57,7 @@ type SecureTokenServiceExchanger struct {
 	credFetcher security.CredFetcher
 	trustDomain string
 	backoff     time.Duration
+	audience    string
 }
 
 // NewSecureTokenServiceExchanger returns an instance of secure token service client plugin
@@ -68,6 +69,7 @@ func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomai
 		backoff:     time.Millisecond * 50,
 		credFetcher: credFetcher,
 		trustDomain: trustDomain,
+		audience:    constructAudience(credFetcher, trustDomain),
 	}
 }
 
@@ -89,7 +91,7 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 		resp, err := p.httpClient.Do(req)
 		if err != nil {
 			lastError = err
-			stsClientLog.Debugf("token exchange request failed: %v", err)
+			stsClientLog.Errorf("token exchange request failed: %v", err)
 			time.Sleep(p.backoff)
 			monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
 			continue
@@ -106,6 +108,9 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 			break
 		}
 		monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
+		if !stsClientLog.DebugEnabled() {
+			stsClientLog.Errorf("token exchange request failed: status code %v", resp.StatusCode)
+		}
 		stsClientLog.Debugf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
 		time.Sleep(p.backoff)
 	}
@@ -114,8 +119,11 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
 func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, error) {
-	aud := constructAudience(p.credFetcher, p.trustDomain)
-	jsonStr := constructFederatedTokenRequest(aud, k8sSAjwt)
+	aud := p.audience
+	jsonStr, err := constructFederatedTokenRequest(aud, k8sSAjwt)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal federated token request: %v", err)
+	}
 
 	body, err := p.requestWithRetry(jsonStr)
 	if err != nil {
@@ -148,14 +156,14 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) str
 		if GKEClusterURL != "" {
 			provider = GKEClusterURL
 		} else if platform.IsGCP() {
-			stsClientLog.Warn("GKE_CLUSTER_URL is not set, fallback to call metadata server to get identity provider")
 			provider = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+			stsClientLog.Infof("GKE_CLUSTER_URL is not set, fetched cluster URL from metadata server: %q", provider)
 		}
 	}
 	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }
 
-func constructFederatedTokenRequest(aud, jwt string) []byte {
+func constructFederatedTokenRequest(aud, jwt string) ([]byte, error) {
 	values := map[string]string{
 		"audience":           aud,
 		"grantType":          "urn:ietf:params:oauth:grant-type:token-exchange",
@@ -164,6 +172,6 @@ func constructFederatedTokenRequest(aud, jwt string) []byte {
 		"subjectToken":       jwt,
 		"scope":              Scope,
 	}
-	jsonValue, _ := json.Marshal(values)
-	return jsonValue
+	jsonValue, err := json.Marshal(values)
+	return jsonValue, err
 }

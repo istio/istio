@@ -18,6 +18,7 @@ import (
 	"net"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -78,8 +79,9 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
+					sameNetwork := node.InNetwork(instance.Endpoint.Network)
 					// Add individual addresses even for cross cluster.
-					if instance.Endpoint.SubDomain != "" && instance.Endpoint.Network == node.Metadata.Network {
+					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
 						parts := strings.SplitN(string(svc.Hostname), ".", 2)
@@ -103,7 +105,8 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						}
 					}
 
-					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
+					skipForMulticluster := !features.MulticlusterHeadlessEnabled && instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID
+					if skipForMulticluster || !sameNetwork {
 						// We take only cluster-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.
 						// However, this only impacts the DNS response. If we were to send all

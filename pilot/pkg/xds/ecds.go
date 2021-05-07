@@ -24,6 +24,7 @@ import (
 
 // EcdsGenerator generates ECDS configuration.
 type EcdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 

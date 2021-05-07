@@ -62,6 +62,9 @@ func TestExtraConfigmap(t *testing.T) {
 	cmUser := makeConfigMapWithName(extraCmName, "1", map[string]string{
 		key: "ingressClass: user",
 	})
+	cmUserinvalid := makeConfigMapWithName(extraCmName, "1", map[string]string{
+		key: "ingressClass: 1",
+	})
 	setup := func() (corev1.ConfigMapInterface, mesh.Watcher) {
 		client := kube.NewFakeClient()
 		cms := client.Kube().CoreV1().ConfigMaps(namespace)
@@ -99,6 +102,16 @@ func TestExtraConfigmap(t *testing.T) {
 	t.Run("only core", func(t *testing.T) {
 		cms, w := setup()
 		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+	})
+	t.Run("invalid user config", func(t *testing.T) {
+		cms, w := setup()
+		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cms.Create(context.Background(), cmUserinvalid, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
 		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))

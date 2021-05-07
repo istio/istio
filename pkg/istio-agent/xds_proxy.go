@@ -671,9 +671,13 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 
 func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var certPool *x509.CertPool
-	var err error
 	var rootCert []byte
-	xdsCACertPath := agent.FindRootCAForXDS()
+
+	xdsCACertPath, err := agent.FindRootCAForXDS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
+	}
+
 	if xdsCACertPath != "" {
 		rootCert, err = ioutil.ReadFile(xdsCACertPath)
 		if err != nil {

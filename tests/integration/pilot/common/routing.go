@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/util/retry"
@@ -484,8 +485,11 @@ spec:
 								return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
-							if len(targetClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
+							hostDests := dests.Instances().Match(echo.Service(host))
+							targetClusters := hostDests.Clusters()
+							// don't check headless since lb is unpredictable
+							headlessTarget := hostDests.ContainsMatch(echo.IsHeadless())
+							if !headlessTarget && len(targetClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
 								// Conditionally check reached clusters to work around connection load balancing issues
 								// See https://github.com/istio/istio/issues/32208 for details
 								// We want to skip this for requests from the cross-network pod
@@ -951,7 +955,7 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, FindPortByName("http").ServicePort, WorkloadPorts[0].Port)
+    app: b`, FindPortByName("http").ServicePort, common.WorkloadPorts[0].Port)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1006,7 +1010,7 @@ spec:
     port: 12346
     targetPort: %d
   selector:
-    app: b`, WorkloadPorts[1].Port)
+    app: b`, common.WorkloadPorts[1].Port)
 		cases = append(cases, TrafficTestCase{
 			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
@@ -1278,7 +1282,7 @@ type vmCase struct {
 	host string
 }
 
-func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
+func DNSTestCases(apps *EchoDeployments, cniEnabled bool) []TrafficTestCase {
 	makeSE := func(ips ...string) string {
 		return tmpl.MustEvaluate(`
 apiVersion: networking.istio.io/v1alpha3
@@ -1310,6 +1314,7 @@ spec:
 		ips      string
 		protocol string
 		server   string
+		skipCNI  bool
 		expected []string
 	}{
 		{
@@ -1345,6 +1350,7 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "tcp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 		{
@@ -1352,11 +1358,15 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "udp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 	}
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range cases {
+			if tt.skipCNI && cniEnabled {
+				continue
+			}
 			tt, client := tt, client
 			address := "fake.service.local?"
 			if tt.protocol != "" {
@@ -1520,18 +1530,21 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	cases := make([]TrafficTestCase, 0)
 	for _, c := range testCases {
 		c := c
+		validators := []echo.Validator{echo.ExpectOK()}
+		if !c.to.ContainsMatch(echo.IsHeadless()) {
+			// headless load-balancing can be inconsistent
+			validators = append(validators, echo.ExpectReachedClusters(c.to.Clusters()))
+		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
 			call: c.from.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
-				Target:   c.to[0],
-				PortName: "http",
-				Address:  c.host,
-				Count:    callsPerCluster * len(c.to),
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ExpectReachedClusters(c.to.Clusters())),
+				Target:    c.to[0],
+				PortName:  "http",
+				Address:   c.host,
+				Count:     callsPerCluster * len(c.to),
+				Validator: echo.And(validators...),
 			},
 		})
 	}

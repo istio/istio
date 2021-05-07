@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/label"
@@ -64,7 +65,7 @@ func TestVmOSPost(t *testing.T) {
 				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
 					Namespace:  apps.Namespace,
-					Ports:      common.EchoPorts,
+					Ports:      echocommon.EchoPorts,
 					DeployAsVM: true,
 					VMDistro:   image,
 					Subsets:    []echo.SubsetConfig{{}},
@@ -100,7 +101,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				With(&autoVM, echo.Config{
 					Namespace:      apps.Namespace,
 					Service:        "auto-vm",
-					Ports:          common.EchoPorts,
+					Ports:          echocommon.EchoPorts,
 					DeployAsVM:     true,
 					AutoRegisterVM: true,
 				}).BuildOrFail(t)

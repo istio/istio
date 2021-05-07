@@ -29,6 +29,7 @@ import (
 // the agent will capture all DNS requests and attempt to resolve locally before forwarding to upstream
 // dns servers/
 type NdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
