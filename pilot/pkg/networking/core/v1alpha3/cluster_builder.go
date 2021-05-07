@@ -268,7 +268,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
-		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
 			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
