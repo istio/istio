@@ -233,8 +233,12 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string) *route.RouteConfiguration {
 	if node.MergedGateway == nil {
-		log.Debug("buildGatewayRoutes: no gateways for router ", node.ID)
-		return nil
+		log.Warnf("buildGatewayRoutes: no gateways for router ", node.ID)
+		return &route.RouteConfiguration{
+			Name:             routeName,
+			VirtualHosts:     []*route.VirtualHost{},
+			ValidateClusters: proto.BoolFalse,
+		}
 	}
 
 	merged := node.MergedGateway

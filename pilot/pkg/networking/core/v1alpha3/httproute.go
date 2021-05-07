@@ -68,14 +68,8 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 			rc := configgen.buildGatewayHTTPRouteConfig(node, push, routeName)
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
-			} else {
-				rc = &route.RouteConfiguration{
-					Name:             routeName,
-					VirtualHosts:     []*route.VirtualHost{},
-					ValidateClusters: proto.BoolFalse,
-				}
+				routeConfigurations = append(routeConfigurations, rc)
 			}
-			routeConfigurations = append(routeConfigurations, rc)
 		}
 	}
 	return routeConfigurations
