@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+docs:
+- https://docs.google.com/document/d/17-ypXfYM6ehdKfr12KSFNUoQzY5QLaEYuhIVlP-wknA/edit#heading=h.xw1gqgyqs5b
+releaseNotes:
+- |
+  **Updated** Prometheus telemetry behavior for inbound traffic to disable host header fallback by default. This will
+  prevent traffic coming from out-of-mesh locations from potential polluting the `destination_service` dimension in
+  metrics with junk data (and exploding metrics cardinality).
