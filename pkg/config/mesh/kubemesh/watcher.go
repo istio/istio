@@ -28,11 +28,11 @@ import (
 )
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
-func NewConfigMapWatcher(client kube.Client, namespace, name, key, extraConfig string) mesh.Watcher {
+func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiWatch bool) mesh.Watcher {
 	defaultMesh := mesh.DefaultMeshConfig()
 	w := &mesh.InternalWatcher{MeshConfig: &defaultMesh}
 	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
-		if extraConfig != "" {
+		if multiWatch {
 			meshConfig := meshConfigMapData(cm, key)
 			w.HandleMeshConfigData(meshConfig)
 			return
@@ -50,19 +50,20 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key, extraConfig s
 	stop := make(chan struct{})
 	go c.Run(stop)
 
-	if extraConfig != "" {
-		extrac := configmapwatcher.NewController(client, namespace, extraConfig, func(cm *v1.ConfigMap) {
-			meshConfig := meshConfigMapData(cm, key)
-			w.HandleUserMeshConfig(meshConfig)
-		})
-
-		go extrac.Run(stop)
-		cache.WaitForCacheSync(stop, extrac.HasSynced)
-	}
-
 	// Ensure the ConfigMap is initially loaded if present.
 	cache.WaitForCacheSync(stop, c.HasSynced)
 	return w
+}
+
+func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key, userMeshConfig string) {
+	c := configmapwatcher.NewController(client, namespace, userMeshConfig, func(cm *v1.ConfigMap) {
+		meshConfig := meshConfigMapData(cm, key)
+		watcher.HandleUserMeshConfig(meshConfig)
+	})
+
+	stop := make(chan struct{})
+	go c.Run(stop)
+	cache.WaitForCacheSync(stop, c.HasSynced)
 }
 
 func meshConfigMapData(cm *v1.ConfigMap, key string) string {
