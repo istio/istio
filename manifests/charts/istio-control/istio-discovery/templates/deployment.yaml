@@ -148,8 +148,6 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          - name: EXTERNAL_ISTIOD
-            value: "{{ $.Values.global.externalIstiod | default "false" }}"
 {{- if not .Values.telemetry.v2.enabled }}
           - name: PILOT_ENDPOINT_TELEMETRY_LABEL
             value: "false"

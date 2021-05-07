@@ -26,6 +26,7 @@ import (
 
 // ProxyConfigGenerator generates proxy configuration for proxies to consume
 type PcdsGenerator struct {
+	model.BaseGenerator
 	Server      *DiscoveryServer
 	TrustBundle *tb.TrustBundle
 }

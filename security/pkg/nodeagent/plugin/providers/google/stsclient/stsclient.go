@@ -57,6 +57,7 @@ type SecureTokenServiceExchanger struct {
 	credFetcher security.CredFetcher
 	trustDomain string
 	backoff     time.Duration
+	audience    string
 }
 
 // NewSecureTokenServiceExchanger returns an instance of secure token service client plugin
@@ -68,6 +69,7 @@ func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomai
 		backoff:     time.Millisecond * 50,
 		credFetcher: credFetcher,
 		trustDomain: trustDomain,
+		audience:    constructAudience(credFetcher, trustDomain),
 	}
 }
 
@@ -117,7 +119,7 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
 func (p *SecureTokenServiceExchanger) ExchangeToken(k8sSAjwt string) (string, error) {
-	aud := constructAudience(p.credFetcher, p.trustDomain)
+	aud := p.audience
 	jsonStr, err := constructFederatedTokenRequest(aud, k8sSAjwt)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal federated token request: %v", err)
@@ -154,8 +156,8 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) str
 		if GKEClusterURL != "" {
 			provider = GKEClusterURL
 		} else if platform.IsGCP() {
-			stsClientLog.Warn("GKE_CLUSTER_URL is not set, fallback to call metadata server to get identity provider")
 			provider = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+			stsClientLog.Infof("GKE_CLUSTER_URL is not set, fetched cluster URL from metadata server: %q", provider)
 		}
 	}
 	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)

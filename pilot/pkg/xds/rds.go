@@ -24,6 +24,7 @@ import (
 )
 
 type RdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 

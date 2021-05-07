@@ -99,8 +99,12 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
 		o.CredFetcher = credFetcher
 	}
+	// Default the CA provider where possible
+	if strings.Contains(o.CAEndpoint, "googleapis.com") {
+		o.CAProviderName = security.GoogleCAProvider
+	}
 	// TODO extract this logic out to a plugin
-	if o.CAProviderName == "GoogleCA" || strings.Contains(o.CAEndpoint, "googleapis.com") {
+	if o.CAProviderName == security.GoogleCAProvider {
 		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
 	}
 

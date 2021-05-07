@@ -405,6 +405,12 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	return resources, nil
 }
 
+var edsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
+
+func (eds *EdsGenerator) Metadata() *model.GeneratorMetadata {
+	return edsGeneratorMetadata
+}
+
 func getOutlierDetectionAndLoadBalancerSettings(
 	destinationRule *networkingapi.DestinationRule,
 	portNumber int,

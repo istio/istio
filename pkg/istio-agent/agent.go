@@ -380,9 +380,10 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(nil, a.secOpts)
 	}
 
-	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
 	log.Infof("CA Endpoint %s, provider %s", a.secOpts.CAEndpoint, a.secOpts.CAProviderName)
-	if a.secOpts.CAProviderName == "GoogleCA" || strings.Contains(a.secOpts.CAEndpoint, "googleapis.com") {
+
+	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
+	if a.secOpts.CAProviderName == security.GoogleCAProvider {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
