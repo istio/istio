@@ -255,15 +255,14 @@ func (a *Agent) initializeEnvoyAgent() error {
 					break
 				}
 				request.sent = false
+				delay := time.Duration(rand.Int()%backoff) * time.Millisecond
+				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
+				time.Sleep(delay)
 				if backoff < max/2 {
-					backoff = 2 * backoff
+					backoff *= 2
 				} else {
 					backoff = max
 				}
-				backoff = rand.Int() % backoff
-				delay := time.Duration(backoff) * time.Millisecond
-				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
-				time.Sleep(delay)
 			}
 		}()
 	} else {
