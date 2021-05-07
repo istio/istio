@@ -71,7 +71,7 @@ func InferPodInfoFromTypedResource(name, defaultNS string, factory cmdutil.Facto
 	builder.ResourceNames("pods", resname)
 	infos, err := builder.Do().Infos()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("failed retrieving: %v in the %q namespace", err, ns)
 	}
 	if len(infos) != 1 {
 		return "", "", errors.New("expected a resource")
