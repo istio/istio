@@ -44,6 +44,11 @@ func TestDNS(t *testing.T) {
 		modifyReq                func(msg *dns.Msg)
 	}{
 		{
+			name:     "failure",
+			host:     "www.google1.com.",
+			expected: a("www.google.com.", []net.IP{net.ParseIP("1.1.1.1").To4()}),
+		},
+		{
 			name:     "success: non k8s host in local cache",
 			host:     "www.google.com.",
 			expected: a("www.google.com.", []net.IP{net.ParseIP("1.1.1.1").To4()}),
@@ -203,6 +208,9 @@ func TestDNS(t *testing.T) {
 	defer func() { dns.Id = oldID }()
 	for i := range clients {
 		for _, tt := range testCases {
+			if tt.name != "failure" {
+				continue
+			}
 			// Test is for explicit network
 			if (strings.HasPrefix(tt.name, "udp") || strings.HasPrefix(tt.name, "tcp")) && !strings.HasPrefix(tt.name, clients[i].Net) {
 				continue
