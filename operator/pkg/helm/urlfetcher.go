@@ -81,11 +81,6 @@ func (f *URLFetcher) Fetch() error {
 	if err != nil {
 		return err
 	}
-	file, err := os.Open(saved)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
 
 	targz := archiver.TarGz{Tar: &archiver.Tar{OverwriteExisting: true}}
 	return targz.Unarchive(saved, f.destDirRoot)
