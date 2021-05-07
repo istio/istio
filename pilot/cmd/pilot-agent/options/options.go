@@ -90,4 +90,8 @@ var (
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.RegisterBoolVar("PROXY_CONFIG_XDS_AGENT", false,
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()
+
+	// Ability of istio-agent to retrieve bootstrap via XDS
+	enableBootstrapXdsEnv = env.RegisterBoolVar("BOOTSTRAP_XDS_AGENT", false,
+		"If set to true, agent retrieves the bootstrap configuration prior to starting Envoy").Get()
 )

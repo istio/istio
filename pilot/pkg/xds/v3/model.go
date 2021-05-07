@@ -35,7 +35,8 @@ const (
 	HealthInfoType  = apiTypePrefix + "istio.v1.HealthInformation"
 	ProxyConfigType = apiTypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
 	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
-	DebugType = "istio.io/debug"
+	DebugType     = "istio.io/debug"
+	BootstrapType = apiTypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
@@ -84,6 +85,8 @@ func GetMetricType(typeURL string) string {
 		return "pcds"
 	case ExtensionConfigurationType:
 		return "ecds"
+	case BootstrapType:
+		return "bds"
 	default:
 		return typeURL
 	}

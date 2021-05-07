@@ -82,6 +82,10 @@ func (e *envoy) Drain() error {
 	return err
 }
 
+func (e *envoy) UpdateConfig(config []byte) error {
+	return ioutil.WriteFile(e.ConfigPath, config, 0o666)
+}
+
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	proxyLocalAddressType := "v4"
 	if isIPv6Proxy(e.NodeIPs) {

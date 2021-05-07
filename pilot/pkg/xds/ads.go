@@ -558,6 +558,7 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
+	proxy.XdsNode = node
 	return proxy, nil
 }
 
