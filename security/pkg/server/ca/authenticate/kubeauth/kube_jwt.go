@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
@@ -39,8 +40,10 @@ type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
 type KubeJWTAuthenticator struct {
-	trustDomain string
-	jwtPolicy   string
+	// holder of a mesh configuration for dynamically updating trust domain
+	meshHolder mesh.Holder
+
+	jwtPolicy string
 
 	// Primary cluster kube client
 	kubeClient kubernetes.Interface
@@ -54,11 +57,10 @@ type KubeJWTAuthenticator struct {
 var _ security.Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
-	remoteKubeClientGetter RemoteKubeClientGetter,
-	trustDomain, jwtPolicy string) *KubeJWTAuthenticator {
+func NewKubeJWTAuthenticator(meshHolder mesh.Holder, client kubernetes.Interface, clusterID string,
+	remoteKubeClientGetter RemoteKubeClientGetter, jwtPolicy string) *KubeJWTAuthenticator {
 	return &KubeJWTAuthenticator{
-		trustDomain:            trustDomain,
+		meshHolder:             meshHolder,
 		jwtPolicy:              jwtPolicy,
 		kubeClient:             client,
 		clusterID:              clusterID,
@@ -129,7 +131,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 	callerServiceAccount := id[1]
 	return &security.Caller{
 		AuthSource: security.AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
+		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.meshHolder.Mesh().GetTrustDomain(), callerNamespace, callerServiceAccount)},
 	}, nil
 }
 
