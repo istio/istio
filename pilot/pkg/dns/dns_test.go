@@ -238,7 +238,7 @@ func TestDNS(t *testing.T) {
 						}
 					} else {
 						if tt.expectResolutionFailure != res.Rcode {
-							t.Errorf("expected resolution failure but it succeeded for %s: %v", tt.host, res)
+							t.Errorf("expected resolution failure but it succeeded for %s: %v", tt.host, res.Rcode)
 						}
 						if !equalsDNSrecords(res.Answer, tt.expected) {
 							t.Log(res)

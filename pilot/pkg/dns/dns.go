@@ -219,7 +219,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	// We did not find the host in our internal cache. Query upstream and return the response as is.
 	log.Debugf("response for hostname %q (found=false): %v", hostname, response)
 	response = h.queryUpstream(proxy.upstreamClient, req, log)
-	log.Debugf("upstream response for hostname %q: %v", hostname, response)
+	log.Infof("upstream response for hostname %q: %v", hostname, response.Rcode)
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
@@ -306,18 +306,16 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 	for _, upstream := range h.resolvConfServers {
 		upstream := upstream
 		go func() {
-			for {
-				select {
-				case <-finish:
-					return
-				default:
-					scope.Debugf("sending request for host %s to upstream %s", strings.ToLower(req.Question[0].Name), upstream)
-					if cResponse, _, err := upstreamClient.Exchange(req, upstream); err == nil {
-						responseCh <- cResponse
-					} else {
-						scope.Infof("upstream %s failure: %v", upstream, err)
-						errCh <- err
-					}
+			select {
+			case <-finish:
+				return
+			default:
+				scope.Debugf("sending request for host %s to upstream %s", strings.ToLower(req.Question[0].Name), upstream)
+				if cResponse, _, err := upstreamClient.Exchange(req, upstream); err == nil {
+					responseCh <- cResponse
+				} else {
+					scope.Infof("upstream %s failure: %v", upstream, err)
+					errCh <- err
 				}
 			}
 		}()
@@ -336,14 +334,14 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 		close(finish)
 		return response
 	}
-	return serverFailure(req)
+	return nil
 }
 
 func serverFailure(req *dns.Msg) *dns.Msg {
 	response := new(dns.Msg)
 	response.SetReply(req)
 	response.Rcode = dns.RcodeServerFailure
-	return req
+	return response
 }
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
