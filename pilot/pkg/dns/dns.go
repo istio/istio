@@ -17,7 +17,6 @@ package dns
 import (
 	"net"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/google/uuid"
@@ -301,28 +300,50 @@ func (h *LocalDNSServer) Close() {
 }
 
 func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
-	var response *dns.Msg
-	wg := &sync.WaitGroup{}
+	finish := make(chan struct{})
+	responseCh := make(chan *dns.Msg)
+	errCh := make(chan error)
 	for _, upstream := range h.resolvConfServers {
-		wg.Add(1)
 		upstream := upstream
 		go func() {
-			defer wg.Done()
-			scope.Debugf("sending request for host %s to upstream %s", strings.ToLower(req.Question[0].Name), upstream)
-			if cResponse, _, err := upstreamClient.Exchange(req, upstream); err == nil {
-				response = cResponse
-			} else {
-				scope.Infof("upstream failure: %v", err)
+			for {
+				select {
+				case <-finish:
+					return
+				default:
+					scope.Debugf("sending request for host %s to upstream %s", strings.ToLower(req.Question[0].Name), upstream)
+					if cResponse, _, err := upstreamClient.Exchange(req, upstream); err == nil {
+						responseCh <- cResponse
+					} else {
+						scope.Infof("upstream %s failure: %v", upstream, err)
+						errCh <- err
+					}
+				}
 			}
 		}()
 	}
-	wg.Wait()
-	if response == nil {
-		response = new(dns.Msg)
-		response.SetReply(req)
-		response.Rcode = dns.RcodeServerFailure
+
+	errors := 0
+	select {
+	case <-errCh:
+		errors++
+		if errors == len(h.resolvConfServers) {
+			// All servers returned error - return failure.
+			return serverFailure(req)
+		}
+	case response := <-responseCh:
+		// We got the first response, exit other servers.
+		close(finish)
+		return response
 	}
-	return response
+	return serverFailure(req)
+}
+
+func serverFailure(req *dns.Msg) *dns.Msg {
+	response := new(dns.Msg)
+	response.SetReply(req)
+	response.Rcode = dns.RcodeServerFailure
+	return req
 }
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
