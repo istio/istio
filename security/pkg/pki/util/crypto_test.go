@@ -337,7 +337,7 @@ func TestIsSupportedECPrivateKey(t *testing.T) {
 	}
 
 	for id, tc := range cases {
-		if IsSupportedECPrivateKey(&tc.key) != tc.isSupported {
+		if IsSupportedECPrivateKey(tc.key) != tc.isSupported {
 			t.Errorf("%s: does not match expected support level for EC signature algorithms", id)
 		}
 	}

@@ -31,8 +31,14 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
+
+var istiodTLSRSAKeySize = env.RegisterIntVar("ISTIOD_TLS_RSA_KEY_SIZE", 2048,
+	"Specify the RSA key size to use for Istiod TLS key cert generation. Default to 2048, which is the standard key size to use. "+
+		"Only applies when the type of private key the CA uses is also RSA.")
 
 const (
 	// defaultCertGracePeriodRatio is the default length of certificate rotation grace period,
@@ -133,14 +139,18 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
 			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath)
 		if err != nil {
-			return fmt.Errorf("failed genrating ker cert by k8s: %v", err)
+			return fmt.Errorf("failed genrating key cert by k8s: %v", err)
 		}
 		caBundle, err = ioutil.ReadFile(defaultCACertPath)
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
 	} else if features.PilotCertProvider.Get() == constants.CertProviderIstiod {
-		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
+		opts := &util.CertOptions{
+			RSAKeySize: istiodTLSRSAKeySize.Get(),
+		}
+
+		certChain, keyPEM, err = s.CA.GenKeyCert(opts, names, SelfSignedCACertTTL.Get(), false)
 		if err != nil {
 			return fmt.Errorf("failed generating istiod key cert %v", err)
 		}
@@ -154,7 +164,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			s.addStartFunc(func(stop <-chan struct{}) error {
 				go func() {
 					// regenerate istiod key cert when root cert changes.
-					s.watchRootCertAndGenKeyCert(names, stop)
+					s.watchRootCertAndGenKeyCert(opts, names, stop)
 				}()
 				return nil
 			})
@@ -174,7 +184,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 }
 
 // TODO(hzxuzonghu): support async notification instead of polling the CA root cert.
-func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}) {
+func (s *Server) watchRootCertAndGenKeyCert(opts *util.CertOptions, names []string, stop <-chan struct{}) {
 	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	for {
 		select {
@@ -184,7 +194,7 @@ func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}
 			newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			if !bytes.Equal(caBundle, newRootCert) {
 				caBundle = newRootCert
-				certChain, keyPEM, err := s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
+				certChain, keyPEM, err := s.CA.GenKeyCert(opts, names, SelfSignedCACertTTL.Get(), false)
 				if err != nil {
 					log.Errorf("failed generating istiod key cert %v", err)
 				} else {

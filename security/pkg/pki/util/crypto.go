@@ -101,8 +101,8 @@ func GetRSAKeySize(privKey crypto.PrivateKey) (int, error) {
 }
 
 // IsSupportedECPrivateKey is a predicate returning true if the private key is EC based
-func IsSupportedECPrivateKey(privKey *crypto.PrivateKey) bool {
-	switch (*privKey).(type) {
+func IsSupportedECPrivateKey(privKey crypto.PrivateKey) bool {
+	switch privKey.(type) {
 	// this should agree with var SupportedECSignatureAlgorithms
 	case *ecdsa.PrivateKey:
 		return true

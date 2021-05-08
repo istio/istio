@@ -643,7 +643,10 @@ func TestGenKeyCert(t *testing.T) {
 			t.Fatalf("failed to create a plugged-cert CA.")
 		}
 
-		certPEM, privPEM, err := ca.GenKeyCert([]string{"host1", "host2"}, tc.certLifetime, tc.checkCertLifetime)
+		opts := &util.CertOptions{
+			RSAKeySize: rsaKeySize,
+		}
+		certPEM, privPEM, err := ca.GenKeyCert(opts, []string{"host1", "host2"}, tc.certLifetime, tc.checkCertLifetime)
 		if err != nil {
 			if tc.expectedError == "" {
 				t.Fatalf("[%s] Unexpected error: %v", id, err)

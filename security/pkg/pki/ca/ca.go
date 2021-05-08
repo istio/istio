@@ -50,9 +50,6 @@ const (
 	PrivateKeyFile = "key.pem"
 	// RootCertFile is the ID/name for the CA root certificate file.
 	RootCertFile = "root-cert.pem"
-
-	// The standard key size to use when generating an RSA private key
-	rsaKeySize = 2048
 )
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
@@ -327,19 +324,15 @@ func (ca *IstioCA) GetCAKeyCertBundle() *util.KeyCertBundle {
 
 // GenKeyCert generates a certificate signed by the CA,
 // returns the certificate chain and the private key.
-func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLifetime bool) ([]byte, []byte, error) {
-	opts := util.CertOptions{
-		RSAKeySize: rsaKeySize,
-	}
-
+func (ca *IstioCA) GenKeyCert(opts *util.CertOptions, hostnames []string, certTTL time.Duration, checkLifetime bool) ([]byte, []byte, error) {
 	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
 	// cause intermediate CAs using RSA to be generated)
 	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
-	if util.IsSupportedECPrivateKey(signingKey) {
+	if util.IsSupportedECPrivateKey(*signingKey) {
 		opts.ECSigAlg = util.EcdsaSigAlg
 	}
 
-	csrPEM, privPEM, err := util.GenCSR(opts)
+	csrPEM, privPEM, err := util.GenCSR(*opts)
 	if err != nil {
 		return nil, nil, err
 	}
