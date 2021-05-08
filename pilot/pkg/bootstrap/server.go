@@ -127,8 +127,10 @@ type Server struct {
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 
-	grpcServer       *grpc.Server
-	secureGrpcServer *grpc.Server
+	grpcServer        *grpc.Server
+	grpcAddress       string
+	secureGrpcServer  *grpc.Server
+	secureGrpcAddress string
 
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
@@ -146,10 +148,6 @@ type Server struct {
 
 	// MultiplexGRPC will serve gRPC and HTTP (1 or 2) over the HTTPListener, if enabled.
 	MultiplexGRPC bool
-
-	HTTPListener       net.Listener
-	GRPCListener       net.Listener
-	SecureGrpcListener net.Listener
 
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
@@ -423,19 +421,27 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// Race condition - if waitForCache is too fast and we run this as a startup function,
 	// the grpc server would be started before CA is registered. Listening should be last.
-	if s.SecureGrpcListener != nil {
+	if s.secureGrpcAddress != "" {
+		grpcListener, err := net.Listen("tcp", s.secureGrpcAddress)
+		if err != nil {
+			return err
+		}
 		go func() {
-			log.Infof("starting secure gRPC discovery service at %s", s.SecureGrpcListener.Addr())
-			if err := s.secureGrpcServer.Serve(s.SecureGrpcListener); err != nil {
+			log.Infof("starting secure gRPC discovery service at %s", grpcListener.Addr())
+			if err := s.secureGrpcServer.Serve(grpcListener); err != nil {
 				log.Errorf("error serving secure GRPC server: %v", err)
 			}
 		}()
 	}
 
-	if s.GRPCListener != nil {
+	if s.grpcAddress != "" {
+		grpcListener, err := net.Listen("tcp", s.grpcAddress)
+		if err != nil {
+			return err
+		}
 		go func() {
-			log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
-			if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
+			log.Infof("starting gRPC discovery service at %s", grpcListener.Addr())
+			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Errorf("error serving GRPC server: %v", err)
 			}
 		}()
@@ -465,17 +471,25 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	}
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
+	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return err
+	}
 	go func() {
-		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
-		if err := s.httpServer.Serve(s.HTTPListener); isUnexpectedListenerError(err) {
+		log.Infof("starting HTTP service at %s", httpListener.Addr())
+		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
 
 	if s.httpsServer != nil {
+		httpsListener, err := net.Listen("tcp", s.httpsServer.Addr)
+		if err != nil {
+			return err
+		}
 		go func() {
-			log.Infof("starting webhook service at %s", s.httpsServer.Addr)
-			if err := s.httpsServer.ListenAndServeTLS("", ""); isUnexpectedListenerError(err) {
+			log.Infof("starting webhook service at %s", httpsListener.Addr())
+			if err := s.httpsServer.ServeTLS(httpsListener, "", ""); isUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
@@ -589,17 +603,11 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 		Handler: s.httpMux,
 	}
 
-	// create http listener
-	listener, err := net.Listen("tcp", args.ServerOptions.HTTPAddr)
-	if err != nil {
-		return err
-	}
-
 	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
 
 	if shouldMultiplex {
 		s.monitoringMux = s.httpMux
-		log.Info("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
+		log.Info("initializing Istiod admin server multiplexed on httpAddr ", s.httpServer.Addr)
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
@@ -621,7 +629,6 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	// Readiness Handler.
 	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
 
-	s.HTTPListener = listener
 	return nil
 }
 
@@ -638,15 +645,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	s.initGrpcServer(args.KeepaliveOptions)
 
 	if args.ServerOptions.GRPCAddr != "" {
-		grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
-		if err != nil {
-			log.Warnf("Failed to listen on gRPC port %v", err)
-		}
-		s.GRPCListener = grpcListener
-	} else if s.GRPCListener == nil {
+		s.grpcAddress = args.ServerOptions.GRPCAddr
+	} else {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multiplexing gRPC on http port ", s.HTTPListener.Addr())
+		log.Info("multiplexing gRPC on http port ", args.ServerOptions.HTTPAddr)
 		s.MultiplexGRPC = true
 	}
 }
@@ -753,12 +756,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 
 	tlsCreds := credentials.NewTLS(cfg)
 
-	// create secure grpc listener
-	l, err := net.Listen("tcp", args.ServerOptions.SecureGRPCAddr)
-	if err != nil {
-		return err
-	}
-	s.SecureGrpcListener = l
+	s.secureGrpcAddress = args.ServerOptions.SecureGRPCAddr
 
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
