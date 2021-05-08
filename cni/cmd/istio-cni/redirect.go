@@ -117,19 +117,6 @@ func splitPorts(portsString string) []string {
 	return strings.Split(portsString, ",")
 }
 
-func dedupPorts(ports []string) []string {
-	dedup := make(map[string]bool)
-	keys := []string{}
-
-	for _, port := range ports {
-		if !dedup[port] {
-			dedup[port] = true
-			keys = append(keys, port)
-		}
-	}
-	return keys
-}
-
 func parsePort(portStr string) (uint16, error) {
 	port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
 	if err != nil {
@@ -240,14 +227,6 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 			"excludeOutboundPorts", isFound, valErr)
 		return nil, valErr
 	}
-	// Add 15090 to sync with non-cni injection template
-	// TODO: Revert below once https://github.com/istio/istio/pull/23037 or its follow up is merged.
-	redir.excludeInboundPorts = strings.TrimSpace(redir.excludeInboundPorts)
-	if len(redir.excludeInboundPorts) > 0 && redir.excludeInboundPorts[len(redir.excludeInboundPorts)-1] != ',' {
-		redir.excludeInboundPorts += ","
-	}
-	redir.excludeInboundPorts += "15020,15021,15090"
-	redir.excludeInboundPorts = strings.Join(dedupPorts(splitPorts(redir.excludeInboundPorts)), ",")
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
 	if valErr != nil {
 		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",

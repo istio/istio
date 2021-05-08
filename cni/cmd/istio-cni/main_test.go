@@ -17,7 +17,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -262,66 +261,6 @@ func TestCmdAddTwoContainersWithStarInboundPort(t *testing.T) {
 	}
 }
 
-func TestCmdAddTwoContainersWithEmptyInboundPort(t *testing.T) {
-	defer resetGlobalTestVariables()
-	delete(testAnnotations, includePortsKey)
-	testContainers = []string{"mockContainer", "mockContainer2"}
-	testAnnotations[includePortsKey] = ""
-	testCmdAdd(t)
-
-	if !nsenterFuncCalled {
-		t.Fatalf("expected nsenterFunc to be called")
-	}
-	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
-	if !ok {
-		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
-	}
-	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.includePorts != "" {
-		t.Fatalf("expect includePorts is \"\", actual %v", r.includePorts)
-	}
-}
-
-func TestCmdAddTwoContainersWithEmptyExcludeInboundPort(t *testing.T) {
-	defer resetGlobalTestVariables()
-	delete(testAnnotations, includePortsKey)
-	testContainers = []string{"mockContainer", "mockContainer2"}
-	testAnnotations[excludeInboundPortsKey] = ""
-	testCmdAdd(t)
-
-	if !nsenterFuncCalled {
-		t.Fatalf("expected nsenterFunc to be called")
-	}
-	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
-	if !ok {
-		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
-	}
-	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.excludeInboundPorts != "15020,15021,15090" {
-		t.Fatalf("expect excludeInboundPorts is \"15090\", actual %v", r.excludeInboundPorts)
-	}
-}
-
-func TestCmdAddTwoContainersWithExplictExcludeInboundPort(t *testing.T) {
-	defer resetGlobalTestVariables()
-	delete(testAnnotations, includePortsKey)
-	testContainers = []string{"mockContainer", "mockContainer2"}
-	testAnnotations[excludeInboundPortsKey] = "3306"
-	testCmdAdd(t)
-
-	if !nsenterFuncCalled {
-		t.Fatalf("expected nsenterFunc to be called")
-	}
-	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
-	if !ok {
-		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"])
-	}
-	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.excludeInboundPorts != "3306,15020,15021,15090" {
-		t.Fatalf("expect excludeInboundPorts is \"3306,15090\", actual %v", r.excludeInboundPorts)
-	}
-}
-
 func TestCmdAddTwoContainersWithoutSideCar(t *testing.T) {
 	defer resetGlobalTestVariables()
 
@@ -452,48 +391,4 @@ func TestMain(m *testing.M) {
 	InterceptRuleMgrTypes["mock"] = MockInterceptRuleMgrCtor
 
 	os.Exit(m.Run())
-}
-
-func Test_dedupPorts(t *testing.T) {
-	type args struct {
-		ports []string
-	}
-	tests := []struct {
-		name string
-		args args
-		want []string
-	}{
-		{
-			name: "No duplicates",
-			args: args{ports: []string{"1234", "2345"}},
-			want: []string{"1234", "2345"},
-		},
-		{
-			name: "Sequential Duplicates",
-			args: args{ports: []string{"1234", "1234", "2345", "2345"}},
-			want: []string{"1234", "2345"},
-		},
-		{
-			name: "Mixed Duplicates",
-			args: args{ports: []string{"1234", "2345", "1234", "2345"}},
-			want: []string{"1234", "2345"},
-		},
-		{
-			name: "Empty",
-			args: args{ports: []string{}},
-			want: []string{},
-		},
-		{
-			name: "Non-parseable",
-			args: args{ports: []string{"abcd", "2345", "abcd"}},
-			want: []string{"abcd", "2345"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := dedupPorts(tt.args.ports); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("dedupPorts() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }
