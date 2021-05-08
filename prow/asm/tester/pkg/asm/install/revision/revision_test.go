@@ -15,14 +15,15 @@
 package revision
 
 import (
+	"github.com/google/go-cmp/cmp"
 	"io/ioutil"
-	"reflect"
 	"testing"
 )
 
 const testRevisionConfigYAML = `revisions:
 - name: "asm-revision-istiodca"
   ca: "CITADEL"
+  version: "1.9.9"
   overlay: "overlay/trustanchor-meshca.yaml"
 - name: "asm-revision-meshca"
   ca: "MESHCA"
@@ -34,6 +35,7 @@ const testRevisionConfigJSON = `{
     {
       "name": "asm-revision-istiodca",
       "ca": "CITADEL",
+      "version": "1.9",
       "overlay": "overlay/trustanchor-meshca.yaml"
     },
     {
@@ -77,6 +79,7 @@ func TestParseRevisionConfig(t *testing.T) {
 				{
 					Name:    "asm-revision-istiodca",
 					CA:      "CITADEL",
+					Version: "1.9",
 					Overlay: "overlay/trustanchor-meshca.yaml",
 				},
 				{
@@ -85,8 +88,8 @@ func TestParseRevisionConfig(t *testing.T) {
 					Overlay: "overlay/trustdomain-migrate.yaml",
 				},
 			}}
-			if !reflect.DeepEqual(revisionConfigs, &want) {
-				t.Errorf("expected revision configs %v, got %v", want, revisionConfigs)
+			if diff := cmp.Diff(revisionConfigs, &want); diff != "" {
+				t.Errorf("(+)got, (-)want: %s", diff)
 			}
 		})
 	}

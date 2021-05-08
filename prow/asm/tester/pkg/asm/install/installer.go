@@ -71,7 +71,7 @@ func (c *installer) installInner(r *revision.Config) error {
 	if err := c.install(r); err != nil {
 		return err
 	}
-	if err := c.postInstall(); err != nil {
+	if err := c.postInstall(r); err != nil {
 		return err
 	}
 	return nil

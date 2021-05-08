@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/prow/asm/tester/pkg/asm/install/revision"
 	"istio.io/istio/prow/asm/tester/pkg/exec"
 	"istio.io/istio/prow/asm/tester/pkg/kube"
+	"istio.io/istio/prow/asm/tester/pkg/multiversion"
 	"istio.io/istio/prow/asm/tester/pkg/resource"
 )
 
@@ -164,14 +165,25 @@ func (c *installer) installASM(rev *revision.Config) error {
 func generateInstallEnvvars(settings *resource.Settings, rev *revision.Config, trustedGCPProjects string) []string {
 	var envvars []string
 	varMap := map[string]string{
-		"_CI_ISTIOCTL_REL_PATH":  filepath.Join(settings.RepoRootDir, istioctlPath),
-		"_CI_ASM_IMAGE_LOCATION": os.Getenv("HUB"),
-		"_CI_ASM_IMAGE_TAG":      os.Getenv("TAG"),
-		"_CI_ASM_KPT_BRANCH":     kptBranch,
-		"_CI_NO_VALIDATE":        "1",
-		"_CI_NO_REVISION":        "1",
-		"_CI_ASM_PKG_LOCATION":   "asm-staging-images",
+		"_CI_NO_VALIDATE": "1",
+		"_CI_NO_REVISION": "1",
 	}
+
+	// For installations from master we point scriptaro to the images we just built, however, for
+	// installations of older releases, we leave these vars out.
+	if rev.Version == "" {
+		masterVars := map[string]string{
+			"_CI_ISTIOCTL_REL_PATH":  filepath.Join(settings.RepoRootDir, istioctlPath),
+			"_CI_ASM_IMAGE_LOCATION": os.Getenv("HUB"),
+			"_CI_ASM_IMAGE_TAG":      os.Getenv("TAG"),
+			"_CI_ASM_KPT_BRANCH":     kptBranch,
+			"_CI_ASM_PKG_LOCATION":   "asm-staging-images",
+		}
+		for k, v := range masterVars {
+			varMap[k] = v
+		}
+	}
+
 	if rev.Name != "" {
 		varMap["_CI_NO_REVISION"] = "0"
 	}
@@ -409,9 +421,17 @@ func (c *installer) preInstall() error {
 }
 
 // postInstall contains all steps required after installing
-func (c *installer) postInstall() error {
+func (c *installer) postInstall(rev *revision.Config) error {
 	if err := c.processKubeconfigs(); err != nil {
 		return err
+	}
+	// For cross-version compat testing we need to use webhooks with per-revision object
+	// selectors. Older Istio versions do not have this so we must manually create them.
+	contexts := strings.Split(c.settings.KubectlContexts, ",")
+	for _, context := range contexts {
+		if err := multiversion.ReplaceWebhook(rev, context); err != nil {
+			return err
+		}
 	}
 	return nil
 }
