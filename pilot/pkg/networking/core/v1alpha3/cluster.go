@@ -39,11 +39,6 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 )
 
-const (
-	// DefaultLbType set to round robin
-	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
-)
-
 // defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
 // or those whose label value does not match "istio"
 var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
