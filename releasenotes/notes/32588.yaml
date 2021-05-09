@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
 - |
-  **Added** Introduced to deliver Apache SkyWalking tracer configuration to envoy.
+  **Added** support for [Apache SkyWalking](https://skywalking.apache.org/) tracer. Now you can run the `istioctl dashboard skywalking` command to view skywalking dashboard UI.

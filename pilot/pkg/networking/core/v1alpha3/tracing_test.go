@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-func TestZipkinConfigureTracing(t *testing.T) {
+func TestConfigureTracing(t *testing.T) {
 	clusterName := "testcluster"
 	providerName := "foo"
 
@@ -92,6 +92,12 @@ func TestZipkinConfigureTracing(t *testing.T) {
 			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
 			want:   fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 		},
+		{
+			name:   "basic config (with skywalking provicer)",
+			inSpec: fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
+			opts:   fakeOptsOnlySkywalkingTelemetryAPI(),
+			want:   fakeTracingConfig(fakeSkywalkingProvider(clusterName, providerName), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+		},
 	}
 
 	for _, tc := range testcases {
@@ -102,40 +108,6 @@ func TestZipkinConfigureTracing(t *testing.T) {
 				t.Errorf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
 		})
-	}
-}
-
-func TestSkywalkingTracingConfigure(t *testing.T) {
-	clusterName := "testcluster"
-	providerName := "foo"
-
-	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
-		return "testhost", clusterName, nil
-	}
-	defer func() {
-		clusterLookupFn = extensionproviders.LookupCluster
-	}()
-
-	testcases := []struct {
-		name     string
-		spec     *tpb.Telemetry
-		opts     buildListenerOpts
-		expected *hpb.HttpConnectionManager_Tracing
-	}{
-		{
-			name:     "basic config",
-			spec:     fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
-			opts:     fakeOptsOnlySkywalkingTelemetryAPI(),
-			expected: fakeTracingConfig(fakeSkywalkingProvider(clusterName, providerName), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
-		},
-	}
-
-	for _, tc := range testcases {
-		hcm := &hpb.HttpConnectionManager{}
-		configureTracingFromSpec(tc.spec, tc.opts, hcm)
-		if diff := cmp.Diff(tc.expected, hcm.Tracing, protocmp.Transform()); diff != "" {
-			t.Errorf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
-		}
 	}
 }
 
