@@ -47,7 +47,7 @@ var (
 	connectionNumber = int64(0)
 )
 
-// Used only when running in KNative, to handle the load banlancing behavior.
+// Used only when running in KNative, to handle the load balancing behavior.
 var firstRequest = uatomic.NewBool(true)
 
 var knativeEnv = env.RegisterStringVar("K_REVISION", "",
@@ -380,7 +380,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return true
 	}
 
-	// If there is mismatch in the npilot/pkg/bootstrap/server.goonce, that is a case of expired/stale nonce.
+	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	if request.ResponseNonce != previousInfo.NonceSent {
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
