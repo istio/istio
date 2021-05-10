@@ -136,6 +136,7 @@ spec:
           istio-custom-header: user-defined-value`,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -167,6 +168,7 @@ spec:
           x-custom: some-value`,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -198,6 +200,7 @@ spec:
           :authority: my-custom-authority`,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -235,6 +238,7 @@ spec:
 				PortName:        "http",
 				Path:            "/foo?key=value",
 				FollowRedirects: true,
+				Count:           1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -268,6 +272,7 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo?key=value#hash",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -301,6 +306,7 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -351,6 +357,7 @@ spec:
 							PortName: "http",
 							Method:   "OPTIONS",
 							Headers:  header,
+							Count:    1,
 							Validator: echo.And(
 								echo.ExpectOK(),
 								echo.ValidatorFunc(
@@ -386,6 +393,7 @@ spec:
 						return echo.CallOptions{
 							PortName: "http",
 							Headers:  header,
+							Count:    1,
 							Validator: echo.And(
 								echo.ExpectOK(),
 								echo.ValidatorFunc(
@@ -401,6 +409,7 @@ spec:
 					name: "get no origin match",
 					opts: echo.CallOptions{
 						PortName: "http",
+						Count:    1,
 						Validator: echo.And(
 							echo.ExpectOK(),
 							echo.ValidatorFunc(
@@ -551,6 +560,7 @@ spec:
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
 					Port:      &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count:     1,
 					Address:   apps.External[0].Address(),
 					Headers:   HostHeader(apps.External[0].Config().DefaultHostHeader),
 					Scheme:    scheme.HTTP,
@@ -576,6 +586,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			opts: echo.CallOptions{
 				Target:   destination,
 				PortName: "http",
+				Count:    1,
 				HTTP2:    true,
 				Validator: echo.And(
 					echo.ExpectOK(),
@@ -589,6 +600,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			call:   client[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Target:   destination,
 				HTTP2:    false,
 				Validator: echo.And(
@@ -674,6 +686,7 @@ func gatewayCases() []TrafficTestCase {
 			viaIngress:       true,
 			config:           httpGateway("*"),
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
@@ -708,6 +721,7 @@ spec:
 ---
 `,
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
@@ -765,6 +779,7 @@ spec:
 ---
 ` + httpVirtualServiceTmpl,
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
@@ -801,6 +816,7 @@ spec:
 				},
 				setupOpts: fqdnHostHeader,
 				opts: echo.CallOptions{
+					Count: 1,
 					Port: &echo.Port{
 						Protocol: proto,
 					},
@@ -818,6 +834,7 @@ spec:
 				},
 				setupOpts: fqdnHostHeader,
 				opts: echo.CallOptions{
+					Count: 1,
 					Port: &echo.Port{
 						Protocol: proto,
 					},
@@ -861,6 +878,7 @@ func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
 			skip:   false,
 			call:   apps.Ingress.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
@@ -933,6 +951,7 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-1",
 				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
 				Timeout:   time.Millisecond * 100,
@@ -961,6 +980,7 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-2",
 				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.TCP},
 				Scheme:    scheme.TCP,
@@ -989,6 +1009,7 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-3",
 				Port:      &echo.Port{ServicePort: 12345, Protocol: protocol.HTTP},
 				Timeout:   time.Millisecond * 100,
@@ -1016,6 +1037,7 @@ spec:
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-4",
 				Port:      &echo.Port{ServicePort: 12346, Protocol: protocol.HTTP},
 				Timeout:   time.Millisecond * 100,
@@ -1054,6 +1076,7 @@ func selfCallsCases() []TrafficTestCase {
 			sourceFilters:    sourceFilters,
 			comboFilters:     comboFilters,
 			opts: echo.CallOptions{
+				Count:     1,
 				PortName:  "http",
 				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
 			},
@@ -1069,6 +1092,7 @@ func selfCallsCases() []TrafficTestCase {
 				opts.Target = nil
 			},
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "localhost",
 				Port:      &echo.Port{ServicePort: 8080},
 				Scheme:    scheme.HTTP,
@@ -1089,6 +1113,7 @@ func selfCallsCases() []TrafficTestCase {
 				opts.Target = nil
 			},
 			opts: echo.CallOptions{
+				Count:     1,
 				Scheme:    scheme.HTTP,
 				Port:      &echo.Port{ServicePort: 8080},
 				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
@@ -1124,6 +1149,7 @@ func protocolSniffingCases() []TrafficTestCase {
 			skip: call.scheme == scheme.TCP,
 			name: call.port,
 			opts: echo.CallOptions{
+				Count:    1,
 				PortName: call.port,
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
@@ -1263,6 +1289,7 @@ spec:
 					call:   client.CallWithRetryOrFail,
 					config: config,
 					opts: echo.CallOptions{
+						Count:     1,
 						Target:    destination,
 						PortName:  ipCase.port,
 						Scheme:    scheme.HTTP,
@@ -1381,6 +1408,7 @@ spec:
 				call:   client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
 					Scheme:  scheme.DNS,
+					Count:   1,
 					Address: address,
 					Validator: echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
@@ -1434,6 +1462,7 @@ spec:
 				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
 				call: client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
+					Count:   1,
 					Scheme:  scheme.DNS,
 					Address: address,
 					Validator: echo.ValidatorFunc(
@@ -1649,6 +1678,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 					Scheme:   scheme.TCP,
 					// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
 					Timeout:   time.Millisecond * 100,
+					Count:     1,
 					Validator: c.validator,
 				},
 			})
