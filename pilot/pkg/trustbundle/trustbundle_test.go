@@ -308,12 +308,12 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
 	}})
 
-	tb.endpointMutex.RLock()
+	tb.endpointCfgMutex.RLock()
 	if tb.endpointCfg[0] != server2.Listener.Addr().String() ||
 		tb.endpointCfg[1] != server1.Listener.Addr().String() {
 		t.Errorf("server1 and server2 endpoint not correctly updated in trustbundle")
 	}
-	tb.endpointMutex.RUnlock()
+	tb.endpointCfgMutex.RUnlock()
 	// server 1 and server 2 have same remote TrustAnchor.
 	expectTbCount(t, tb, 2, 3*time.Second, "server2(running) trustAnchor not updated in bundle")
 

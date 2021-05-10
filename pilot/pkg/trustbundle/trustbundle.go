@@ -52,7 +52,7 @@ type TrustBundle struct {
 	mergedCerts        []string
 	updatecb           func()
 	endpointCfg        []string
-	endpointMutex      sync.RWMutex
+	endpointCfgMutex   sync.RWMutex
 	endpoints          map[string]*trustAnchorEndpoint
 	endpointUpdateChan chan struct{}
 	remoteCaCertPool   *x509.CertPool
@@ -149,9 +149,6 @@ func (tb *TrustBundle) mergeInternal() {
 	mergeCerts := []string{}
 	certMap := make(map[string]struct{})
 
-	tb.mutex.Lock()
-	defer tb.mutex.Unlock()
-
 	for _, configSource := range tb.sourceConfig {
 		for _, cert := range configSource.Certs {
 			if _, ok = certMap[cert]; !ok {
@@ -165,27 +162,32 @@ func (tb *TrustBundle) mergeInternal() {
 }
 
 // UpdateTrustAnchor: External Function to merge a TrustAnchor config with the existing TrustBundle
-func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error {
+func (tb *TrustBundle) updateTrustAnchorInternal(anchorConfig *TrustAnchorUpdate) (bool, error) {
 	var ok bool
 	var err error
 
+	tb.mutex.Lock()
+	defer tb.mutex.Unlock()
+
 	cachedConfig, ok := tb.sourceConfig[anchorConfig.Source]
+
 	if !ok {
-		return fmt.Errorf("invalid source of TrustBundle configuration %v", anchorConfig.Source)
+		return false, fmt.Errorf("invalid source of TrustBundle configuration %v", anchorConfig.Source)
 	}
 
 	// Check if anything needs to be changed at all
 	if isEqSliceStr(anchorConfig.Certs, cachedConfig.Certs) {
 		trustBundleLog.Debugf("no change to trustAnchor configuration after recent update")
-		return nil
+		return false, nil
 	}
 
 	for _, cert := range anchorConfig.Certs {
 		err = verifyTrustAnchor(cert)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
+
 	tb.sourceConfig[anchorConfig.Source] = anchorConfig.TrustAnchorConfig
 	tb.mergeInternal()
 
@@ -193,10 +195,15 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 		anchorConfig.Source,
 		strings.Join(anchorConfig.TrustAnchorConfig.Certs, "\n"))
 
-	if tb.updatecb != nil {
+	return true, nil
+}
+
+func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error {
+	updated, err := tb.updateTrustAnchorInternal(anchorConfig)
+	if updated && err == nil && tb.updatecb != nil {
 		tb.updatecb()
 	}
-	return nil
+	return err
 }
 
 func (tb *TrustBundle) updateCfgRemoteEndpoint(spiffeEndpoints []string) {
@@ -251,9 +258,9 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) error {
 			trustBundleLog.Errorf("failed to update meshConfig PEM trustAnchors: %v", err)
 			return err
 		}
-		tb.endpointMutex.Lock()
+		tb.endpointCfgMutex.Lock()
 		tb.endpointCfg = endpoints
-		tb.endpointMutex.Unlock()
+		tb.endpointCfgMutex.Unlock()
 		tb.endpointUpdateChan <- struct{}{}
 	}
 	return nil
@@ -264,10 +271,10 @@ func (tb *TrustBundle) updateRemoteTrustAnchors() {
 	var remoteCerts []string
 	var fetchFail bool = false
 
-	tb.endpointMutex.RLock()
+	tb.endpointCfgMutex.RLock()
 	endpointCfg := make([]string, len(tb.endpointCfg))
 	copy(endpointCfg, tb.endpointCfg)
-	tb.endpointMutex.RUnlock()
+	tb.endpointCfgMutex.RUnlock()
 
 	currentTrustDomain := spiffe.GetTrustDomain()
 	tb.updateCfgRemoteEndpoint(endpointCfg)
