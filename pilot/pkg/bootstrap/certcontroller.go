@@ -295,7 +295,7 @@ func (s *Server) loadIstiodCert(watchCh <-chan keycertbundle.KeyCertBundle, stop
 			return fmt.Errorf("x509 cert - ParseCertificates() error: %v", err)
 		}
 		for _, c := range x509Cert {
-			log.Infof("x509 cert - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q\n",
+			log.Infof("x509 cert - Issuer: %q, Subject: %q, SN: %x, NotBefore: %q, NotAfter: %q",
 				c.Issuer, c.Subject, c.SerialNumber,
 				c.NotBefore.Format(time.RFC3339), c.NotAfter.Format(time.RFC3339))
 		}

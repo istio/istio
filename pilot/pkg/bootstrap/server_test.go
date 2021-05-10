@@ -331,8 +331,8 @@ func TestNewServer(t *testing.T) {
 			g.Expect(s.environment.DomainSuffix).To(Equal(c.expectedDomain))
 
 			if c.enableSecureGRPC {
-				tcpAddr := s.SecureGrpcListener.Addr()
-				_, port, err := net.SplitHostPort(tcpAddr.String())
+				tcpAddr := s.secureGrpcAddress
+				_, port, err := net.SplitHostPort(tcpAddr)
 				if err != nil {
 					t.Errorf("invalid SecureGrpcListener addr %v", err)
 				}
