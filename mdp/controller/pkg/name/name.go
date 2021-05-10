@@ -15,7 +15,7 @@
 package name
 
 const (
-	MDPNamespace = "mdp-system"
+	MDPNamespace = "istio-system"
 )
 
 const (

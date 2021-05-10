@@ -3,7 +3,6 @@
 ## Prep the cluster
 
 ```bash
-kubectl create ns mdp-system
 kubectl apply -f mdp/controller/manifests/cluster-resources.yaml
 kubectl apply -f mdp/controller/manifests/cr.yaml
 ```

@@ -534,6 +534,20 @@ message IngressGatewayZvpnConfig {
   string suffix = 2;
 }
 
+// MDPConfig specifies the Managed Data Plane config. ASM ONLY.
+message MDPConfig {
+  // Hub for MDP controller image.
+  string hub = 1;
+  // Tag for MDP controller image.
+  string tag = 2;
+  // Namespace that Istio is installed into.
+  string istioNamespace = 3;
+  // Namespace for MDP config.
+  string mdpNamespace = 4;
+  // K8s resources for MDP controller.
+  Resources resources = 5;
+}
+
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
 message MultiClusterConfig {
   // Enables the connection between two kubernetes clusters via their respective ingressgateway services.
@@ -1131,6 +1145,9 @@ message Values {
 
   // HSM is ASM-specific feature, start from 100 to avoid conflicts.
   HSMConfig hsm = 100;
+
+  // Managed Data Plane (MDP) config is ASM-specific.
+  MDPConfig mdp = 101;
 }
 
 // GOTYPE: map[string]interface{}
