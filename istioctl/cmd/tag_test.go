@@ -102,14 +102,14 @@ var (
 			{
 				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
-					URL: &remoteInjectionURL,
+					URL:      &remoteInjectionURL,
 					CABundle: []byte("ca"),
 				},
 			},
 			{
 				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
-					URL: &remoteInjectionURL,
+					URL:      &remoteInjectionURL,
 					CABundle: []byte("ca"),
 				},
 			},

@@ -65,7 +65,6 @@ overwrite existing revision tags.`
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
 	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
-	versionCheckStr    = "Revision %q on version %q, must be at least version %q to patch revision tag webhooks. Continue anyways? (y/N)"
 )
 
 var (
