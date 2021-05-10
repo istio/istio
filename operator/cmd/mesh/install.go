@@ -216,6 +216,11 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		}
 	}
 
+	if !rootArgs.dryRun {
+		_, _ = fmt.Fprint(cmd.OutOrStderr(), "Thank you for installing Istio 1.10.  Please take a few minutes to "+
+			"tell us about your install/upgrade experience!  https://forms.gle/KjkrDnMPByq7akrYA")
+	}
+
 	return nil
 }
 
