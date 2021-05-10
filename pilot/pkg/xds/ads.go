@@ -917,8 +917,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		for _, rc := range res.Resources {
 			sz += len(rc.Value)
 		}
-		conn.proxy.Lock()
-		if res.Nonce != "" {
+		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
+			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
@@ -926,8 +926,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+			conn.proxy.Unlock()
 		}
-		conn.proxy.Unlock()
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
 		log.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
