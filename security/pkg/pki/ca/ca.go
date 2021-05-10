@@ -20,7 +20,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -191,6 +190,42 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	return caOpts, nil
 }
 
+// NewSelfSignedDebugIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate produced by in-memory CA,
+// which runs without K8s, and no local ca key file presented.
+func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCertTTL, maxCertTTL time.Duration,
+	org string, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
+	caOpts = &IstioCAOptions{
+		CAType:         selfSignedCA,
+		DefaultCertTTL: defaultCertTTL,
+		MaxCertTTL:     maxCertTTL,
+		CARSAKeySize:   caRSAKeySize,
+	}
+
+	options := util.CertOptions{
+		TTL:          caCertTTL,
+		Org:          org,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   caRSAKeySize,
+		IsDualUse:    true, // hardcoded to true for K8S as well
+	}
+	pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
+	if ckErr != nil {
+		return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
+	}
+
+	rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+	}
+
+	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
+		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+	}
+
+	return caOpts, nil
+}
+
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
 	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
@@ -199,32 +234,6 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
 		CARSAKeySize:   caRSAKeySize,
-	}
-	if _, err := os.Stat(signingKeyFile); err != nil {
-		// self generating for testing or local, non-k8s run
-		options := util.CertOptions{
-			TTL:          3650 * 24 * time.Hour, // TODO: pass the flag here as well (or pass MeshConfig )
-			Org:          "cluster.local",       // TODO: pass trustDomain ( or better - pass MeshConfig )
-			IsCA:         true,
-			IsSelfSigned: true,
-			RSAKeySize:   caRSAKeySize,
-			IsDualUse:    true, // hardcoded to true for K8S as well
-		}
-		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
-		if ckErr != nil {
-			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
-		}
-
-		rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
-		}
-
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
-			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
-		}
-
-		return caOpts, nil
 	}
 
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
@@ -278,7 +287,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		caRSAKeySize:  opts.CARSAKeySize,
 	}
 
-	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
+	if opts.CAType == selfSignedCA && opts.RotatorConfig != nil && opts.RotatorConfig.CheckInterval > time.Duration(0) {
 		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
 	}
 
@@ -302,7 +311,6 @@ func (ca *IstioCA) Run(stopChan chan struct{}) {
 }
 
 // Sign takes a PEM-encoded CSR and cert opts, and returns a signed certificate.
-// TODO(myidpt): Add error code to identify the Sign error types.
 func (ca *IstioCA) Sign(csrPEM []byte, certOpts CertOpts) (
 	[]byte, error) {
 	return ca.sign(csrPEM, certOpts.SubjectIDs, certOpts.TTL, true, certOpts.ForCA)
