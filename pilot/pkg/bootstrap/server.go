@@ -92,6 +92,13 @@ const (
 	watchDebounceDelay = 100 * time.Millisecond
 )
 
+const ( // CACerts file operation states
+	create  = 0
+	write   = 1
+	remove  = 2
+	invalid = 3
+)
+
 func init() {
 	// Disable gRPC tracing. It has performance impacts (See https://github.com/grpc/grpc-go/issues/695)
 	grpc.EnableTracing = false
@@ -155,6 +162,8 @@ type Server struct {
 
 	// certWatcher watches the certificates for changes and triggers a notification to Istiod.
 	cacertsWatcher *fsnotify.Watcher
+	cacertsMap     map[string]uint8
+	cacertsMutex   sync.RWMutex
 	dnsNames       []string
 
 	certController *chiron.WebhookController
@@ -670,6 +679,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		close(s.internalStop)
 		s.fileWatcher.Close()
 
+		if s.cacertsWatcher != nil {
+			s.cacertsWatcher.Close()
+		}
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
 		stopped := make(chan struct{})

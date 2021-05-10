@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -266,27 +267,16 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	return nil
 }
 
-const ( // CACerts file operation states
-	create  = 0
-	write   = 1
-	remove  = 2
-	invalid = 3
-)
-
-var cacertsMap map[string]uint8
-
 // isValidCACertsFile As we are watching entire directory, but interested
 // in only 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem' and 'cert-chain.pem'.
 // Events on other files are ignored.
-func isValidCACertsFile(file string) (string, bool) {
-	if strings.Contains(file, "ca-cert.pem") {
-		return "ca-cert.pem", true
-	} else if strings.Contains(file, "ca-key.pem") {
-		return "ca-key.pem", true
-	} else if strings.Contains(file, "root-cert.pem") {
-		return "root-cert.pem", true
-	} else if strings.Contains(file, "cert-chain.pem") {
-		return "cert-chain.pem", true
+func isValidCACertsFile(path string) (string, bool) {
+	_, file := filepath.Split(path)
+
+	for _, name := range []string{"ca-cert.pem", "ca-key.pem", "root-cert.pem", "cert-chain.pem"} {
+		if file == name {
+			return file, true
+		}
 	}
 
 	return "", false
@@ -308,7 +298,7 @@ func isValidCACertsEvent(event fsnotify.Event) uint8 {
 
 // updateCACertsMap updates the map with cacerts files with
 // particular events only.
-func updateCACertsMap(event fsnotify.Event) bool {
+func updateCACertsMap(s *Server, event fsnotify.Event) bool {
 	file, ok := isValidCACertsFile(event.Name)
 	if !ok {
 		return false
@@ -319,8 +309,32 @@ func updateCACertsMap(event fsnotify.Event) bool {
 		return false
 	}
 
-	cacertsMap[file] = op
+	s.cacertsMutex.Lock()
+	s.cacertsMap[file] = op
+	s.cacertsMutex.Unlock()
 	return true
+}
+
+func areCACertsFilesCreated(s *Server) bool {
+	if s.cacertsMap["ca-cert.pem"] == create &&
+		s.cacertsMap["ca-key.pem"] == create &&
+		s.cacertsMap["root-cert.pem"] == create &&
+		s.cacertsMap["cert-chain.pem"] == create {
+		return true
+	}
+
+	return false
+}
+
+func areCACertsFilesModified(s *Server) bool {
+	if s.cacertsMap["ca-cert.pem"] == write &&
+		s.cacertsMap["ca-key.pem"] == write &&
+		s.cacertsMap["root-cert.pem"] == write &&
+		s.cacertsMap["cert-chain.pem"] == write {
+		return true
+	}
+
+	return false
 }
 
 // handleEvent handles the events on cacerts related files.
@@ -330,15 +344,12 @@ func updateCACertsMap(event fsnotify.Event) bool {
 // and generates new dns certs.
 // TODO(rveerama1): Add support for new ROOT-CA rotation also.
 func handleEvent(s *Server, event fsnotify.Event) {
-	ok := updateCACertsMap(event)
+	ok := updateCACertsMap(s, event)
 	if !ok {
 		return
 	}
 
-	if (cacertsMap["ca-cert.pem"] == create && cacertsMap["ca-key.pem"] == create &&
-		cacertsMap["root-cert.pem"] == create && cacertsMap["cert-chain.pem"] == create) ||
-		(cacertsMap["ca-cert.pem"] == write && cacertsMap["ca-key.pem"] == write &&
-			cacertsMap["root-cert.pem"] == write && cacertsMap["cert-chain.pem"] == write) {
+	if areCACertsFilesCreated(s) || areCACertsFilesModified(s) {
 		log.Info("Update Istiod cacerts")
 
 		currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
@@ -374,7 +385,7 @@ func handleEvent(s *Server, event fsnotify.Event) {
 
 // handleCACertsFileWatch handles the events on cacerts files
 func (s *Server) handleCACertsFileWatch() {
-	cacertsMap = map[string]uint8{
+	s.cacertsMap = map[string]uint8{
 		"ca-cert.pem":    invalid,
 		"ca-key.pem":     invalid,
 		"root-cert.pem":  invalid,
