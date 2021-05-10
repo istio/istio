@@ -117,7 +117,8 @@ type Server struct {
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
 
-	multicluster *kubecontroller.Multicluster
+	multicluster      *kubecontroller.Multicluster
+	secretsController *kubesecrets.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -516,22 +517,25 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 			// Make sure we have security
 			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
-			// TODO move this to a startup function and pass stop
-			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace, make(chan struct{}))
-			sc.AddEventHandler(func(name, namespace string) {
-				s.XDSServer.ConfigUpdate(&model.PushRequest{
-					Full: false,
-					ConfigsUpdated: map[model.ConfigKey]struct{}{
-						{
-							Kind:      gvk.Secret,
-							Name:      name,
-							Namespace: namespace,
-						}: {},
-					},
-					Reason: []model.TriggerReason{model.SecretTrigger},
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace, stop)
+				sc.AddEventHandler(func(name, namespace string) {
+					s.XDSServer.ConfigUpdate(&model.PushRequest{
+						Full: false,
+						ConfigsUpdated: map[model.ConfigKey]struct{}{
+							{
+								Kind:      gvk.Secret,
+								Name:      name,
+								Namespace: namespace,
+							}: {},
+						},
+						Reason: []model.TriggerReason{model.SecretTrigger},
+					})
 				})
+				s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+				s.secretsController = sc
+				return nil
 			})
-			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
 		}
 	}
 }
@@ -846,6 +850,9 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
+	if s.secretsController != nil && !s.secretsController.HasSynced() {
+		return false
+	}
 	if s.multicluster != nil && !s.multicluster.HasSynced() {
 		return false
 	}
