@@ -68,7 +68,8 @@ func TestExtraConfigmap(t *testing.T) {
 	setup := func() (corev1.ConfigMapInterface, mesh.Watcher) {
 		client := kube.NewFakeClient()
 		cms := client.Kube().CoreV1().ConfigMaps(namespace)
-		w := NewConfigMapWatcher(client, namespace, name, key, extraCmName)
+		w := NewConfigMapWatcher(client, namespace, name, key, true)
+		AddUserMeshConfig(client, w, namespace, key, extraCmName)
 		return cms, w
 	}
 
@@ -137,7 +138,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	client := kube.NewFakeClient()
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
-	w := NewConfigMapWatcher(client, namespace, name, key, "")
+	w := NewConfigMapWatcher(client, namespace, name, key, false)
 
 	defaultMesh := mesh.DefaultMeshConfig()
 
