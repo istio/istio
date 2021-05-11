@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/pkg/log"
 )
 
@@ -145,7 +146,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		}
 		log.Infof("Generating istiod-signed cert for %v:\n %s", names, certChain)
 
-		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
+		signingKeyFile := path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile)
 		// check if signing key file exists the cert dir
 		if _, err := os.Stat(signingKeyFile); err != nil {
 			log.Infof("No plugged-in cert at %v; self-signed cert is used", signingKeyFile)
@@ -159,9 +160,9 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			})
 		} else {
 			log.Infof("Use plugged-in cert at %v", signingKeyFile)
-			caBundle, err = ioutil.ReadFile(path.Join(LocalCertDir.Get(), "root-cert.pem"))
+			caBundle, err = ioutil.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
 			if err != nil {
-				return fmt.Errorf("failed reading %s: %v", path.Join(LocalCertDir.Get(), "root-cert.pem"), err)
+				return fmt.Errorf("failed reading %s: %v", path.Join(LocalCertDir.Get(), ca.RootCertFile), err)
 			}
 		}
 	} else {
