@@ -20,7 +20,7 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aws/aws-sdk-go v1.38.3
-	github.com/cenkalti/backoff v2.2.1+incompatible
+	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/cheggaaa/pb/v3 v3.0.7
 	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e

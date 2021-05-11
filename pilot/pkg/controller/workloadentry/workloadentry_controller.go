@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/api/errors"

@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path"
 	"strings"
 	"time"
 
+	backoff "github.com/cenkalti/backoff/v4"
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
@@ -244,9 +244,9 @@ func (a *Agent) initializeEnvoyAgent() error {
 	if a.cfg.EnableDynamicBootstrap {
 		// Simulate an xDS request for a bootstrap
 		go func() {
-			// wait indefinitely and keep retrying with jittered exponential backoff
-			backoff := 500
-			max := 30000
+			// Envoy uses the following algorithm: min 500ms, max 30s, factor 2, jitter [0, backoff).
+			// Here, we use the following constants: min 500ms, max 60s, factor 1.5, jitter [.5 * backoff, 1.5 * backoff].
+			policy := backoff.NewExponentialBackOff()
 			request := &bootstrapDiscoveryRequest{
 				node:        node,
 				envoyWaitCh: a.envoyWaitCh,
@@ -258,14 +258,12 @@ func (a *Agent) initializeEnvoyAgent() error {
 					break
 				}
 				request.sent = false
-				delay := time.Duration(rand.Int()%backoff) * time.Millisecond
+				delay := policy.NextBackOff()
+				if delay == policy.Stop {
+					log.Fatal("exhausted xDS request backoff budget of 15 minutes")
+				}
 				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
 				time.Sleep(delay)
-				if backoff < max/2 {
-					backoff *= 2
-				} else {
-					backoff = max
-				}
 			}
 		}()
 	} else {
