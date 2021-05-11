@@ -15,10 +15,7 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"net"
-	"net/http"
 	"time"
 
 	"github.com/spf13/cobra"
