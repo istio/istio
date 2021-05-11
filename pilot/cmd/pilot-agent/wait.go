@@ -15,8 +15,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 
@@ -30,6 +32,7 @@ var (
 	requestTimeoutMillis int
 	periodMillis         int
 	url                  string
+	uds                  string
 
 	waitCmd = &cobra.Command{
 		Use:   "wait",
@@ -37,6 +40,13 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			client := &http.Client{
 				Timeout: time.Duration(requestTimeoutMillis) * time.Millisecond,
+			}
+			if uds != "" {
+				client.Transport = &http.Transport{
+					DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+						return net.Dial("unix", uds)
+					},
+				}
 			}
 			log.Infof("Waiting for Envoy proxy to be ready (timeout: %d seconds)...", timeoutSeconds)
 
@@ -81,6 +91,7 @@ func init() {
 	waitCmd.PersistentFlags().IntVar(&requestTimeoutMillis, "requestTimeoutMillis", 500, "number of milliseconds to wait for response")
 	waitCmd.PersistentFlags().IntVar(&periodMillis, "periodMillis", 500, "number of milliseconds to wait between attempts")
 	waitCmd.PersistentFlags().StringVar(&url, "url", "http://localhost:15021/healthz/ready", "URL to use in requests")
+	waitCmd.PersistentFlags().StringVar(&uds, "uds", "/etc/istio/proxy/status", "UDS socket used in requests")
 
 	rootCmd.AddCommand(waitCmd)
 }

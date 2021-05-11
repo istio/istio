@@ -557,6 +557,7 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 		gobase = "../.."
 	}
 	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap.json"
+	cfg.StatusPort = 15020
 	return cfg, nil
 }
 

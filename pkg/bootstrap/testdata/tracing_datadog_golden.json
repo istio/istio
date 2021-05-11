@@ -4,7 +4,7 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_datadog","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"datadog":{"address":"localhost:8126"}}}}
+    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_datadog","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020,"tracing":{"datadog":{"address":"localhost:8126"}}}}
   },
   "layered_runtime": {
       "layers": [
@@ -348,7 +348,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./etc/istio/proxy/SDS"
+                    "path": "/tmp/bootstrap/tracing_datadog/SDS"
                   }
                 }
               }
@@ -483,11 +483,9 @@
       },
       {
         "address": {
-          "socket_address": {
-            "protocol": "TCP",
-            "address": "0.0.0.0",
-            "port_value": 15021
-          }
+           "pipe": {
+             "path": "/tmp/bootstrap/tracing_datadog/status"
+           }
         },
         "filter_chains": [
           {
