@@ -118,3 +118,5 @@ require (
 	sigs.k8s.io/service-apis v0.1.0-rc2.0.20201112213625-c0375b7fa81f
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace github.com/envoyproxy/go-control-plane => github.com/istio/go-control-plane v0.9.8-0.20210420150603-831d6316d7b9
