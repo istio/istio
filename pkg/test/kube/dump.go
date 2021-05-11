@@ -269,6 +269,9 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Warnf("Unable to write envoy err log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
+					if strings.Contains(stdout, "envoy backtrace") {
+						scopes.Framework.Errorf("FAIL: VM %v/%v crashed", pod.Name, container.Name)
+					}
 				} else {
 					scopes.Framework.Warnf("Unable to get envoy err log for pod: %s/%s", pod.Namespace, pod.Name)
 				}
