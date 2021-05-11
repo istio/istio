@@ -79,7 +79,7 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string, multiW
 	}
 
 	w := &InternalWatcher{
-		MeshConfig: meshConfig,
+		MeshConfig:    meshConfig,
 		revMeshConfig: meshConfigYaml,
 	}
 
