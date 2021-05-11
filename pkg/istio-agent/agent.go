@@ -371,7 +371,14 @@ func (a *Agent) Run(ctx context.Context) error {
 		// This is a blocking call for graceful termination.
 		if a.cfg.EnableDynamicBootstrap {
 			start := time.Now()
-			if err := <-a.envoyWaitCh; err != nil {
+			var err error
+			select {
+			case err = <-a.envoyWaitCh:
+			case <-ctx.Done():
+				// Early cancellation before envoy started.
+				return nil
+			}
+			if err != nil {
 				return fmt.Errorf("failed to write updated envoy bootstrap: %v", err)
 			}
 			log.Infof("received server-side bootstrap in %v", time.Since(start))
