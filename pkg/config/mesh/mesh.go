@@ -220,12 +220,12 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 }
 
 // ReadMeshConfigData gets mesh configuration yaml from a config file
-func ReadMeshConfigData(filename string) string {
+func ReadMeshConfigData(filename string) (string, error) {
 	yaml, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return ""
+		return "", multierror.Prefix(err, "cannot read mesh config file")
 	}
-	return string(yaml)
+	return string(yaml), nil
 }
 
 // ResolveHostsInNetworksConfig will go through the Gateways addresses for all
