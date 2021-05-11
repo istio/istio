@@ -508,7 +508,7 @@
                         "routes": [
                           {
                             "match": {
-                              "prefix": "/healthz/ready"
+                              "prefix": "/healthz/ok"
                             },
                             "route": {
                               "cluster": "agent"
