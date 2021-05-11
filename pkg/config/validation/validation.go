@@ -1434,6 +1434,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
 	}
 
+	if err := ValidatePort(int(mesh.ProxyInboundListenPort)); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy inbound listen port:"))
+	}
+
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
 	}

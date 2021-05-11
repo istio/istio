@@ -378,11 +378,12 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort:    0,
-		ConnectTimeout:     types.DurationProto(-1 * time.Second),
-		DefaultConfig:      &meshconfig.ProxyConfig{},
-		TrustDomain:        "",
-		TrustDomainAliases: []string{"a.$b", "a/b", ""},
+		ProxyListenPort:        0,
+		ProxyInboundListenPort: 0,
+		ConnectTimeout:         types.DurationProto(-1 * time.Second),
+		DefaultConfig:          &meshconfig.ProxyConfig{},
+		TrustDomain:            "",
+		TrustDomainAliases:     []string{"a.$b", "a/b", ""},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
 				Name: "default",
@@ -402,6 +403,7 @@ func TestValidateMeshConfig(t *testing.T) {
 	} else {
 		wantErrors := []string{
 			"invalid proxy listen port",
+			"invalid proxy inbound listen port",
 			"invalid connect timeout",
 			"invalid protocol detection timeout: duration: nil Duration",
 			"config path must be set",

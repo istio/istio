@@ -412,7 +412,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 	filterChains, passthroughInspector := buildInboundCatchAllFilterChains(configgen, lb.node, lb.push)
 	lb.virtualInboundListener = &listener.Listener{
 		Name:             model.VirtualInboundListenerName,
-		Address:          util.BuildAddress(actualWildcard, ProxyInboundListenPort),
+		Address:          util.BuildAddress(actualWildcard, uint32(lb.push.Mesh.ProxyInboundListenPort)),
 		Transparent:      isTransparentProxy,
 		UseOriginalDst:   proto.BoolTrue,
 		TrafficDirection: core.TrafficDirection_INBOUND,
@@ -534,7 +534,7 @@ func buildInboundCatchAllFilterChains(configgen *ConfigGeneratorImpl,
 	filterChains = append(filterChains, &listener.FilterChain{
 		Name: model.VirtualInboundBlackholeFilterChainName,
 		FilterChainMatch: &listener.FilterChainMatch{
-			DestinationPort: &wrappers.UInt32Value{Value: ProxyInboundListenPort},
+			DestinationPort: &wrappers.UInt32Value{Value: uint32(push.Mesh.ProxyInboundListenPort)},
 		},
 		Filters: []*listener.Filter{{
 			Name: wellknown.TCPProxy,
