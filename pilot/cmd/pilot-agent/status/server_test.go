@@ -802,9 +802,11 @@ func TestAdditionalProbes(t *testing.T) {
 	testServer := testserver.CreateAndStartServer(liveServerStats)
 	defer testServer.Close()
 	for _, tc := range testCases {
+		port := uint16(testServer.Listener.Addr().(*net.TCPAddr).Port)
 		server, err := NewServer(Options{
 			Probes:    tc.probes,
-			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
+			AdminPort: port,
+			testURL:   fmt.Sprintf("http://localhost:%d/healthz/ok", port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")

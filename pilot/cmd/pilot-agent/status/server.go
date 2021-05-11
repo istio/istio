@@ -104,6 +104,9 @@ type Options struct {
 	AdminPort      uint16
 	IPv6           bool
 	Probes         []ready.Prober
+
+	// Test override for status roundtrip check
+	testURL string
 }
 
 // Server provides an endpoint for handling status probes.
@@ -145,7 +148,11 @@ func NewServer(config Options) (*Server, error) {
 		LocalHostAddr: localhost,
 		AdminPort:     config.AdminPort,
 	})
-	probes = append(probes, ready.NewDefaultStatusEnvoyListenerProbe())
+	if config.testURL != "" {
+		probes = append(probes, ready.NewStatusEnvoyListenerProbe(config.testURL, "", 1*time.Second))
+	} else {
+		probes = append(probes, ready.NewDefaultStatusEnvoyListenerProbe())
+	}
 	probes = append(probes, config.Probes...)
 	s := &Server{
 		statusPort:            config.StatusPort,
@@ -242,6 +249,7 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
+	mux.HandleFunc("/healthz/ok", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
 	// Add the handler for pprof.
 	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
@@ -331,12 +339,6 @@ func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleReadyProbe(w http.ResponseWriter, r *http.Request) {
-	// Early termination to prevent infinite loops.
-	if _, ok := r.URL.Query()["norecurse"]; ok {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	err := s.isReady()
 	s.mutex.Lock()
 	if err != nil {

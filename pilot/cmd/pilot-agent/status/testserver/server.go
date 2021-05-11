@@ -53,5 +53,9 @@ func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.Response
 				panic("Could not write response: " + err.Error())
 			}
 		},
+
+		"/healthz/ok": func(rw http.ResponseWriter, _ *http.Request) {
+			rw.WriteHeader(http.StatusOK)
+		},
 	}
 }

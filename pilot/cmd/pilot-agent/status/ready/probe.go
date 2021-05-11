@@ -113,7 +113,7 @@ func checkEnvoyStats(host string, port uint16) error {
 }
 
 const (
-	DefaultStatusEnvoyListenerURL = "http://localhost:15020/healthz/ready?norecurse"
+	DefaultStatusEnvoyListenerURL = "http://localhost:15020/healthz/ok"
 	DefaultStatusEnvoyListenerUDS = "/etc/istio/proxy/status"
 )
 
