@@ -401,7 +401,7 @@ func (l *PodPortList) UnmarshalJSON(data []byte) error {
 	var pl []PodPort
 	pls, err := strconv.Unquote(string(data))
 	if err != nil {
-		return nil
+		return err
 	}
 	if err := json.Unmarshal([]byte(pls), &pl); err != nil {
 		return err
