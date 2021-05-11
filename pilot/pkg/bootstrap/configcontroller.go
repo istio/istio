@@ -159,7 +159,8 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableServiceApis {
-		s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions))
+		s.environment.GatewayApiController = gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayApiController)
 	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {

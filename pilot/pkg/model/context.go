@@ -84,6 +84,8 @@ type Environment struct {
 	TrustBundle *trustbundle.TrustBundle
 
 	clusterLocalServices ClusterLocalProvider
+
+	GatewayApiController GatewayController
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -1056,4 +1058,9 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 func (node *Proxy) IsVM() bool {
 	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
 	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
+}
+
+type GatewayController interface {
+	ConfigStoreCache
+	Recompute() error
 }

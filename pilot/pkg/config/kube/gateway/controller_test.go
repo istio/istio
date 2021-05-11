@@ -133,6 +133,7 @@ func TestListGatewayResourceType(t *testing.T) {
 		Spec: httpRouteSpec,
 	})
 
+	g.Expect(controller.Recompute()).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.Gateway, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
@@ -180,6 +181,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 		Spec: httpRouteSpec,
 	})
 
+	g.Expect(controller.Recompute()).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.VirtualService, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
