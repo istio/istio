@@ -145,6 +145,7 @@ func NewServer(config Options) (*Server, error) {
 		LocalHostAddr: localhost,
 		AdminPort:     config.AdminPort,
 	})
+	probes = append(probes, ready.NewDefaultStatusEnvoyListenerProbe())
 	probes = append(probes, config.Probes...)
 	s := &Server{
 		statusPort:            config.StatusPort,
@@ -329,7 +330,13 @@ func (s *Server) handlePprofTrace(w http.ResponseWriter, r *http.Request) {
 	pprof.Trace(w, r)
 }
 
-func (s *Server) handleReadyProbe(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleReadyProbe(w http.ResponseWriter, r *http.Request) {
+	// Early termination to prevent infinite loops.
+	if _, ok := r.URL.Query()["norecurse"]; ok {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	err := s.isReady()
 	s.mutex.Lock()
 	if err != nil {

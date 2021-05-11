@@ -17,13 +17,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/pkg/log"
 )
 
@@ -38,22 +38,13 @@ var (
 		Use:   "wait",
 		Short: "Waits until the Envoy proxy is ready",
 		RunE: func(c *cobra.Command, args []string) error {
-			client := &http.Client{
-				Timeout: time.Duration(requestTimeoutMillis) * time.Millisecond,
-			}
-			if uds != "" {
-				client.Transport = &http.Transport{
-					DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-						return net.Dial("unix", uds)
-					},
-				}
-			}
+			probe := ready.NewStatusEnvoyListenerProbe(url, uds, time.Duration(requestTimeoutMillis)*time.Millisecond)
 			log.Infof("Waiting for Envoy proxy to be ready (timeout: %d seconds)...", timeoutSeconds)
 
 			var err error
 			timeoutAt := time.Now().Add(time.Duration(timeoutSeconds) * time.Second)
 			for time.Now().Before(timeoutAt) {
-				err = checkIfReady(client, url)
+				err = probe.Check()
 				if err == nil {
 					log.Infof("Envoy is ready!")
 					return nil
@@ -66,32 +57,12 @@ var (
 	}
 )
 
-func checkIfReady(client *http.Client, url string) error {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	_, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("HTTP status code %v", resp.StatusCode)
-	}
-	return nil
-}
-
 func init() {
 	waitCmd.PersistentFlags().IntVar(&timeoutSeconds, "timeoutSeconds", 60, "maximum number of seconds to wait for Envoy to be ready")
 	waitCmd.PersistentFlags().IntVar(&requestTimeoutMillis, "requestTimeoutMillis", 500, "number of milliseconds to wait for response")
 	waitCmd.PersistentFlags().IntVar(&periodMillis, "periodMillis", 500, "number of milliseconds to wait between attempts")
-	waitCmd.PersistentFlags().StringVar(&url, "url", "http://localhost:15021/healthz/ready", "URL to use in requests")
-	waitCmd.PersistentFlags().StringVar(&uds, "uds", "/etc/istio/proxy/status", "UDS socket used in requests")
+	waitCmd.PersistentFlags().StringVar(&url, "url", ready.DefaultStatusEnvoyListenerURL, "URL to use in requests")
+	waitCmd.PersistentFlags().StringVar(&uds, "uds", ready.DefaultStatusEnvoyListenerUDS, "UDS socket used in requests")
 
 	rootCmd.AddCommand(waitCmd)
 }

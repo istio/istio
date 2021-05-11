@@ -15,7 +15,12 @@
 package ready
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
@@ -104,5 +109,58 @@ func checkEnvoyStats(host string, port uint16) error {
 		return fmt.Errorf("workers have not yet started")
 	}
 
+	return nil
+}
+
+const (
+	DefaultStatusEnvoyListenerURL = "http://localhost:15020/healthz/ready?norecurse"
+	DefaultStatusEnvoyListenerUDS = "/etc/istio/proxy/status"
+)
+
+// StatusEnvoyListenerProbe routes status query through envoy back to agent.
+type StatusEnvoyListenerProbe struct {
+	url    string
+	client *http.Client
+}
+
+func NewStatusEnvoyListenerProbe(url string, uds string, timeout time.Duration) Prober {
+	client := &http.Client{
+		Timeout: timeout,
+	}
+	if uds != "" {
+		client.Transport = &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", uds)
+			},
+		}
+	}
+	return &StatusEnvoyListenerProbe{
+		url:    url,
+		client: client,
+	}
+}
+
+func NewDefaultStatusEnvoyListenerProbe() Prober {
+	return NewStatusEnvoyListenerProbe(DefaultStatusEnvoyListenerURL, DefaultStatusEnvoyListenerUDS, 5*time.Second)
+}
+
+// Check executes the probe and returns an error if the probe fails.
+func (p *StatusEnvoyListenerProbe) Check() error {
+	req, err := http.NewRequest(http.MethodGet, p.url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("HTTP status code %v", resp.StatusCode)
+	}
 	return nil
 }
