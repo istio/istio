@@ -68,19 +68,25 @@ func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
 // NewFileWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
 // if the given file does not exist or failed during parsing.
 func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string, multiWatch bool) (Watcher, error) {
-	meshConfig, err := ReadMeshConfig(filename)
+	meshConfigYaml, err := ReadMeshConfigData(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	meshConfig, err := ApplyMeshConfigDefaults(meshConfigYaml)
 	if err != nil {
 		return nil, err
 	}
 
 	w := &InternalWatcher{
-		MeshConfig: meshConfig,
+		MeshConfig:    meshConfig,
+		revMeshConfig: meshConfigYaml,
 	}
 
 	// Watch the config file for changes and reload if it got modified
 	addFileWatcher(fileWatcher, filename, func() {
 		if multiWatch {
-			meshConfig := ReadMeshConfigData(filename)
+			meshConfig, _ := ReadMeshConfigData(filename)
 			w.HandleMeshConfigData(meshConfig)
 			return
 		}
