@@ -373,10 +373,10 @@ func TestScrtUpdated(t *testing.T) {
 			scrt.Name = tc.newScrtName
 		}
 		if tc.replaceWithExpiredCert {
-			scrt.Data[ca.CertChainID] = []byte(exampleExpiredCert)
+			scrt.Data[ca.CertChainFile] = []byte(exampleExpiredCert)
 		}
 		if tc.changeCACert {
-			scrt.Data[ca.RootCertID] = []byte(exampleCACert2)
+			scrt.Data[ca.RootCertFile] = []byte(exampleCACert2)
 		}
 
 		var newScrt interface{}
@@ -464,7 +464,7 @@ func TestRefreshSecret(t *testing.T) {
 		}
 
 		if tc.changeCACert {
-			scrt.Data[ca.RootCertID] = []byte(exampleCACert2)
+			scrt.Data[ca.RootCertFile] = []byte(exampleCACert2)
 		}
 
 		newScrt := &v1.Secret{}
