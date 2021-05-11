@@ -247,6 +247,7 @@ func (a *Agent) initializeEnvoyAgent() error {
 			// Envoy uses the following algorithm: min 500ms, max 30s, factor 2, jitter [0, backoff).
 			// Here, we use the following constants: min 500ms, max 60s, factor 1.5, jitter [.5 * backoff, 1.5 * backoff].
 			policy := backoff.NewExponentialBackOff()
+			policy.MaxElapsedTime = 0
 			request := &bootstrapDiscoveryRequest{
 				node:        node,
 				envoyWaitCh: a.envoyWaitCh,
@@ -259,9 +260,6 @@ func (a *Agent) initializeEnvoyAgent() error {
 				}
 				request.sent = false
 				delay := policy.NextBackOff()
-				if delay == policy.Stop {
-					log.Fatal("exhausted xDS request backoff budget of 15 minutes")
-				}
 				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
 				time.Sleep(delay)
 			}
