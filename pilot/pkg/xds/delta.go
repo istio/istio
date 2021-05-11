@@ -17,6 +17,7 @@ package xds
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -249,8 +250,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 		for _, rc := range res.Resources {
 			sz += len(rc.Resource.Value)
 		}
-		conn.proxy.Lock()
-		if res.Nonce != "" {
+		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
+			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
@@ -258,8 +259,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+			conn.proxy.Unlock()
 		}
-		conn.proxy.Unlock()
 	} else {
 		log.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
@@ -273,6 +274,11 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryRequest, con *Connection) error {
 	if !s.shouldProcessRequest(con.proxy, deltaToSotwRequest(req)) {
 		return nil
+	}
+	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
+		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
+			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe,
+		}, &model.PushRequest{Full: true})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
