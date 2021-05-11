@@ -42,7 +42,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: mdp-controller
-    namespace: mdp-system
+    namespace: istio-system
 roleRef:
   kind: ClusterRole
   name: mdp-controller

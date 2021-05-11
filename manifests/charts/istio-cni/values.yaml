@@ -76,3 +76,16 @@ global:
   # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
   # - private-registry-key
+
+mdp:
+  hub: ""
+  tag: ""
+  istioNamespace: istio-system
+  mdpNamespace: istio-system
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi

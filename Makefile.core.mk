@@ -299,7 +299,7 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
   ./tools/istio-iptables \
-  ./mdp/controller/cmd \
+  ./mdp/controller/cmd/mdp \
   ./tools/bug-report
 BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES)
 

@@ -1,12 +1,7 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: mdp-system
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: mdp-system
+  namespace: istio-system
   name: mdp-controller
 spec:
   replicas: 1
@@ -42,7 +37,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: mdp-system
+  namespace: istio-system
   name: mdp-controller
 spec:
   ports:
@@ -55,6 +50,6 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  namespace: mdp-system
+  namespace: istio-system
   name: mdp-controller
 

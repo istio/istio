@@ -155,6 +155,30 @@ spec:
           - name: "TAINT_CONFIGMAP-NAMESPACE"
             value: {{ .Release.Namespace | quote }}
 {{- end }}
+        - name: mdp-controller
+          image: "{{ .Values.mdp.hub | default .Values.global.hub }}/mdp-controller:{{ .Values.mdp.tag | default .Values.global.tag }}"
+          command:
+            - mdp
+            - server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsUser: 1337
+            runAsNonRoot: true
+          imagePullPolicy: IfNotPresent
+          resources:
+{{ toYaml .Values.mdp.resources | trim | indent 12 }}
+          env:
+            - name: WATCH_NAMESPACE
+              value: {{.Values.mdp.istioNamespace | quote}}
+            - name: LEADER_ELECTION_NAMESPACE
+              value: {{.Values.mdp.mdpNamespace | quote}}
+
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
