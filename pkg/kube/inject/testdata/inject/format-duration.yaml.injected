@@ -106,7 +106,7 @@ spec:
           failureThreshold: 30
           httpGet:
             path: /healthz/ready
-            port: 15021
+            port: 15020
           initialDelaySeconds: 1
           periodSeconds: 2
           timeoutSeconds: 3

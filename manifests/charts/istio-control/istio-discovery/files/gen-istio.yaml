@@ -509,7 +509,7 @@ data:
             readinessProbe:
               httpGet:
                 path: /healthz/ready
-                port: 15021
+                port: 15020
               initialDelaySeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/initialDelaySeconds` .Values.global.proxy.readinessInitialDelaySeconds }}
               periodSeconds: {{ annotation .ObjectMeta `readiness.status.sidecar.istio.io/periodSeconds` .Values.global.proxy.readinessPeriodSeconds }}
               timeoutSeconds: 3
@@ -822,7 +822,7 @@ data:
             readinessProbe:
               httpGet:
                 path: /healthz/ready
-                port: 15021
+                port: 15020
               initialDelaySeconds: {{.Values.global.proxy.readinessInitialDelaySeconds }}
               periodSeconds: {{ .Values.global.proxy.readinessPeriodSeconds }}
               timeoutSeconds: 3
