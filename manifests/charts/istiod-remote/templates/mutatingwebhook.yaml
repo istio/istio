@@ -11,6 +11,7 @@ a unique prefix to each. */}}
       name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
       namespace: {{ .Release.Namespace }}
       path: "/inject"
+      port: 443
     {{- end }}
     caBundle: ""
   sideEffects: None
