@@ -19,6 +19,8 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 // See https://github.com/kubernetes/kubernetes/issues/92867, there is a bug in the library
 replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8
 
+replace github.com/envoyproxy/go-control-plane => github.com/istio/go-control-plane v0.9.9-0.20210420150223-d760b7f6014b
+
 require (
 	cloud.google.com/go v0.73.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
