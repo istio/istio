@@ -13,7 +13,7 @@ gateways:
     # on this list. Setting this to the health check port will ensure that health
     # checks always work. https://github.com/istio/istio/issues/12503
     - port: 15021
-      targetPort: 15020
+      targetPort: 15021
       name: status-port
       protocol: TCP
     - port: 80

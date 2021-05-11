@@ -798,11 +798,14 @@ data:
             - name: {{ $key }}
               value: "{{ $value }}"
             {{- end }}
+            - name: PROXY_CONFIG
+              value: |
+                statusPort: 15021
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             readinessProbe:
               httpGet:
                 path: /healthz/ready
-                port: 15020
+                port: 15021
               initialDelaySeconds: {{.Values.global.proxy.readinessInitialDelaySeconds }}
               periodSeconds: {{ .Values.global.proxy.readinessPeriodSeconds }}
               timeoutSeconds: 3

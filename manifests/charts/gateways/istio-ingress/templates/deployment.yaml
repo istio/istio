@@ -45,7 +45,7 @@ spec:
         sidecar.istio.io/inject: "false"
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
-        prometheus.io/port: "15020"
+        prometheus.io/port: "15021"
         prometheus.io/scrape: "true"
         prometheus.io/path: "/stats/prometheus"
         {{- end }}
@@ -140,7 +140,7 @@ spec:
             failureThreshold: 30
             httpGet:
               path: /healthz/ready
-              port: 15020
+              port: 15021
               scheme: HTTP
             initialDelaySeconds: 1
             periodSeconds: 2
@@ -234,6 +234,9 @@ spec:
           {{- end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: PROXY_CONFIG
+            value: |
+              statusPort: 15021
           volumeMounts:
           - name: istio-envoy
             mountPath: /etc/istio/proxy
