@@ -609,12 +609,16 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 	filterChains := make([]*filterChainOpts, 0)
 
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
-		filterChains = append(filterChains, &filterChainOpts{
-			sniHosts:       node.MergedGateway.SNIHostsByServer[server],
-			tlsContext:     nil, // NO TLS context because this is passthrough
-			networkFilters: buildOutboundAutoPassthroughFilterStack(push, node, port),
-		})
+		if features.EnableLegacyAutoPassthrough {
+			// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
+			filterChains = append(filterChains, &filterChainOpts{
+				sniHosts:       node.MergedGateway.SNIHostsByServer[server],
+				tlsContext:     nil, // NO TLS context because this is passthrough
+				networkFilters: buildOutboundAutoPassthroughFilterStack(push, node, port),
+			})
+		} else {
+			filterChains = append(filterChains, builtAutoPassthroughFilterChains(push, node, node.MergedGateway.SNIHostsByServer[server])...)
+		}
 	} else {
 		virtualServices := push.VirtualServicesForGateway(node, gatewayName)
 		for _, v := range virtualServices {
@@ -649,6 +653,69 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 		}
 	}
 
+	return filterChains
+}
+
+// builtAutoPassthroughFilterChains builds a set of filter chains for auto_passthrough gateway servers.
+// These servers allow connecting to any SNI-DNAT upstream cluster that matches the server's hostname.
+// To handle this, we generate a filter chain per upstream cluster
+func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Proxy, hosts []string) []*filterChainOpts {
+	filterChains := make([]*filterChainOpts, 0)
+	for _, service := range push.Services(proxy) {
+		if service.MeshExternal {
+			continue
+		}
+		for _, port := range service.Ports {
+			if port.Protocol == protocol.UDP {
+				continue
+			}
+			matchFound := false
+			for _, h := range hosts {
+				if service.Hostname.SubsetOf(host.Name(h)) {
+					matchFound = true
+					break
+				}
+			}
+			if !matchFound {
+				continue
+			}
+			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+			statPrefix := clusterName
+			if len(push.Mesh.OutboundClusterStatName) != 0 {
+				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
+			}
+			// First, we build the standard cluster. We match on the SNI matching the cluster name
+			// (per the spec of AUTO_PASSTHROUGH), as well as all possible Istio mTLS ALPNs. This,
+			// along with filtering out plaintext destinations in EDS, ensures that our requests will
+			// always hit an Istio mTLS filter chain on the inbound side. As a result, it should not
+			// be possible for anyone to access a cluster without mTLS. Note that we cannot actually
+			// check for mTLS here, as we are doing passthrough TLS.
+			filterChains = append(filterChains, &filterChainOpts{
+				sniHosts:       []string{clusterName},
+				match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
+				tlsContext:     nil, // NO TLS context because this is passthrough
+				networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, statPrefix, clusterName, port),
+			})
+
+			destRule := push.DestinationRule(proxy, service)
+			destinationRule := castDestinationRuleOrDefault(destRule)
+			// Do the same, but for each subset
+			for _, subset := range destinationRule.Subsets {
+				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+				subsetStatPrefix := subsetClusterName
+				// If stat name is configured, build the stat prefix from configured pattern.
+				if len(push.Mesh.OutboundClusterStatName) != 0 {
+					subsetStatPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, service.Attributes)
+				}
+				filterChains = append(filterChains, &filterChainOpts{
+					sniHosts:       []string{subsetClusterName},
+					match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
+					tlsContext:     nil, // NO TLS context because this is passthrough
+					networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, subsetStatPrefix, subsetClusterName, port),
+				})
+			}
+		}
+	}
 	return filterChains
 }
 

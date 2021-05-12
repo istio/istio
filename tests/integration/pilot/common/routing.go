@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
@@ -484,6 +486,80 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 			}
 		}
 	}
+	return cases
+}
+
+// autoPassthroughCases tests that we cannot hit unexpected destinations when using AUTO_PASSTHROUGH
+func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	// We test the cross product of all Istio ALPNs (or no ALPN), all mTLS modes, and various backends
+	alpns := []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2", "", "h2"}
+	modes := []string{"STRICT", "PERMISSIVE", "DISABLE"}
+
+	mtlsHost := host.Name(apps.PodA[0].Config().FQDN())
+	nakedHost := host.Name(apps.Naked[0].Config().FQDN())
+	httpsPort := FindPortByName("https").ServicePort
+	httpsAutoPort := FindPortByName("auto-https").ServicePort
+	snis := []string{
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsPort),
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsAutoPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsAutoPort),
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsAutoPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsAutoPort),
+	}
+	for _, mode := range modes {
+		childs := []TrafficCall{}
+		for _, sni := range snis {
+			for _, alpn := range alpns {
+				alpn, sni, mode := alpn, sni, mode
+				al := &epb.Alpn{Value: []string{alpn}}
+				if alpn == "" {
+					al = nil
+				}
+				childs = append(childs, TrafficCall{
+					name: fmt.Sprintf("mode:%v,sni:%v,alpn:%v", mode, sni, alpn),
+					call: apps.EastWest.CallEchoWithRetryOrFail,
+					opts: echo.CallOptions{
+						Port: &echo.Port{
+							ServicePort: 15443,
+							Protocol:    protocol.HTTPS,
+						},
+						ServerName: sni,
+						Alpn:       al,
+						Validator:  echo.ExpectError(),
+					},
+				},
+				)
+			}
+		}
+		cases = append(cases, TrafficTestCase{
+			config: globalPeerAuthentication(mode) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cross-network-gateway-test
+  namespace: istio-system
+spec:
+  selector:
+    istio: eastwestgateway
+  servers:
+    - port:
+        number: 15443
+        name: tls
+        protocol: TLS
+      tls:
+        mode: AUTO_PASSTHROUGH
+      hosts:
+        - "*.local"
+`,
+			children: childs,
+		})
+	}
+
 	return cases
 }
 
@@ -1245,6 +1321,18 @@ spec:
     mode: %s
 ---
 `, app, app, mode)
+}
+
+func globalPeerAuthentication(mode string) string {
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  mtls:
+    mode: %s
+---
+`, mode)
 }
 
 func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {

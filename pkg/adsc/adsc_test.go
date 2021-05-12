@@ -111,7 +111,7 @@ func TestADSC_Run(t *testing.T) {
 				},
 			},
 		},
-		//todo tests for listeners, clusters, eds, and routes, not sure how to do this.
+		// todo tests for listeners, clusters, eds, and routes, not sure how to do this.
 	}
 
 	for _, tt := range tests {
@@ -188,18 +188,22 @@ func TestADSC_Save(t *testing.T) {
 			expectedJSON: map[string]string{
 				"_lds_tcp": `{
     "listener-1": {
-      "name": "bar"
+      "name": "bar",
+      "ListenerSpecifier": null
     },
     "listener-2": {
-      "name": "mar"
+      "name": "mar",
+      "ListenerSpecifier": null
     }
   }`,
 				"_lds_http": `{
     "http-list-1": {
-      "name": "bar"
+      "name": "bar",
+      "ListenerSpecifier": null
     },
     "http-list-2": {
-      "name": "mar"
+      "name": "mar",
+      "ListenerSpecifier": null
     }
   }`,
 				"_rds": `{
@@ -270,7 +274,7 @@ func TestADSC_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			_ = os.Mkdir("out", 0777)
+			_ = os.Mkdir("out", 0o777)
 			if err := tt.adsc.Save(tt.base); (err == nil && tt.err != nil) || (err != nil && tt.err == nil) {
 				t.Errorf("AdscSave() => %v expected err %v", err, tt.err)
 			}

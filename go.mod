@@ -28,12 +28,13 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.3.0
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403
+	github.com/cncf/xds/go v0.0.0-20210312221358-fbca930ec8ed
 	github.com/containernetworking/cni v0.7.0-alpha1
 	github.com/containernetworking/plugins v0.7.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/envoyproxy/go-control-plane v0.9.9-0.20210115003313-31f9241a16e6
+	github.com/envoyproxy/go-control-plane v0.9.9-0.20210511190911-87d352569d55
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.1.0
 	github.com/fatih/color v1.10.0
@@ -90,7 +91,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.1.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/genproto v0.0.0-20201203001206-6486ece9c497
-	google.golang.org/grpc v1.33.2
+	google.golang.org/grpc v1.36.0
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
@@ -100,7 +101,7 @@ require (
 	helm.sh/helm/v3 v3.4.2
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 	istio.io/api v0.0.0-20210512185327-c1560bd5e384
-	istio.io/client-go v1.9.3-0.20210420212959-a7d9bf5db101
+	istio.io/client-go v1.9.5-0.20210512190625-e84b61fcaa3e
 	istio.io/gogo-genproto v0.0.0-20210420211914-9cbf6943c732
 	istio.io/pkg v0.0.0-20201230223204-2d0a1c8bd9e5
 	k8s.io/api v0.20.1
