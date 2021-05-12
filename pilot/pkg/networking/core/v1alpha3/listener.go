@@ -140,6 +140,8 @@ var (
 	mtlsTCPALPNs        = []string{"istio"}
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 
+	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+
 	// ALPN used for TCP Metadata Exchange.
 	tcpMxcALPN = "istio-peer-exchange"
 
@@ -273,14 +275,12 @@ var (
 	emptyFilterChainMatch = &listener.FilterChainMatch{}
 )
 
-var (
-	// TODO: gauge should be reset on refresh, not the best way to represent errors but better
-	// than nothing.
-	// TODO: add dimensions - namespace of rule, service, rule name
-	invalidOutboundListeners = monitoring.NewGauge(
-		"pilot_invalid_out_listeners",
-		"Number of invalid outbound listeners.",
-	)
+// TODO: gauge should be reset on refresh, not the best way to represent errors but better
+// than nothing.
+// TODO: add dimensions - namespace of rule, service, rule name
+var invalidOutboundListeners = monitoring.NewGauge(
+	"pilot_invalid_out_listeners",
+	"Number of invalid outbound listeners.",
 )
 
 func init() {
@@ -635,7 +635,7 @@ allChainsLabel:
 				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
 				// override the ALPN with mtlsHTTPALPNs.
 				// TODO: This should move to authN code instead of us appending additional ALPNs here.
-				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
+				filterChainMatch.ApplicationProtocols = allIstioMtlsALPNs
 			}
 
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams, "")
@@ -646,6 +646,9 @@ allChainsLabel:
 
 		case istionetworking.ListenerProtocolTCP:
 			filterChainMatch = chain.FilterChainMatch
+			if len(filterChainMatch.ApplicationProtocols) > 0 {
+				filterChainMatch.ApplicationProtocols = allIstioMtlsALPNs
+			}
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance, node)
 
 		case istionetworking.ListenerProtocolAuto:
@@ -1685,7 +1688,23 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
-	connectionManager.NormalizePath = proto.BoolTrue
+
+	// Setup normalization
+	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
+	switch listenerOpts.push.Mesh.GetPathNormalization().GetNormalization() {
+	case meshconfig.MeshConfig_ProxyPathNormalization_NONE:
+		connectionManager.NormalizePath = proto.BoolFalse
+	case meshconfig.MeshConfig_ProxyPathNormalization_BASE, meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT:
+		connectionManager.NormalizePath = proto.BoolTrue
+	case meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+	case meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
+	}
+
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {

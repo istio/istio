@@ -71,6 +71,8 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		Key:             opts.Key,
 		CaCert:          opts.CaCert,
 		FollowRedirects: opts.FollowRedirects,
+		ServerName:      opts.ServerName,
+		Alpn:            opts.Alpn,
 	}
 
 	var responses client.ParsedResponses

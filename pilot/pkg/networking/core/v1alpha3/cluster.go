@@ -583,6 +583,7 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 }
 
 // setH2Options make the cluster an h2 cluster by setting http2ProtocolOptions.
+// nolint: staticcheck
 func setH2Options(cluster *cluster.Cluster) {
 	if cluster == nil || cluster.Http2ProtocolOptions != nil {
 		return
@@ -602,6 +603,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
+		// nolint: staticcheck
 		opts.cluster.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
 	// Connection pool settings are applicable for both inbound and outbound clusters.
@@ -670,6 +672,7 @@ func applyConnectionPool(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settin
 
 	if idleTimeout != nil {
 		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+		// nolint: staticcheck
 		c.CommonHttpProtocolOptions = &core.HttpProtocolOptions{IdleTimeout: idleTimeoutDuration}
 	}
 }
@@ -949,11 +952,13 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		switch {
 		case metadataCerts:
+			// nolint: staticcheck
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 cluster, advertise it with ALPN.
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			}
 		default:
+			// nolint: staticcheck
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
 				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
@@ -1007,6 +1012,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 
+		// nolint: staticcheck
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1065,6 +1071,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 
+		// nolint: staticcheck
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1090,6 +1097,7 @@ func setUpstreamProtocol(node *model.Proxy, c *cluster.Cluster, port *model.Port
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
+		// nolint: staticcheck
 		c.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
 }

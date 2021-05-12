@@ -17,6 +17,7 @@ package compare
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pmezard/go-difflib/difflib"
@@ -40,10 +41,12 @@ func (c *Comparator) ListenerDiff() error {
 	}
 	diff := difflib.UnifiedDiff{
 		FromFile: "Istiod Listeners",
-		A:        difflib.SplitLines(istiodBytes.String()),
-		ToFile:   "Envoy Listeners",
-		B:        difflib.SplitLines(envoyBytes.String()),
-		Context:  c.context,
+		// Drop useOriginalDst since Envoy changed from hiding it to showing it and back, so
+		// mismatched versions can causes redundant diffs.
+		A:       dropLine(difflib.SplitLines(istiodBytes.String()), "useOriginalDst"),
+		ToFile:  "Envoy Listeners",
+		B:       dropLine(difflib.SplitLines(envoyBytes.String()), "useOriginalDst"),
+		Context: c.context,
 	}
 	text, err := difflib.GetUnifiedDiffString(diff)
 	if err != nil {
@@ -55,4 +58,15 @@ func (c *Comparator) ListenerDiff() error {
 		fmt.Fprintln(c.w, "Listeners Match")
 	}
 	return nil
+}
+
+// dropLine returns all lines not containing s
+func dropLine(lines []string, s string) []string {
+	res := make([]string, 0, len(lines))
+	for _, l := range lines {
+		if !strings.Contains(l, s) {
+			res = append(res, l)
+		}
+	}
+	return res
 }
