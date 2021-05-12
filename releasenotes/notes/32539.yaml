@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 32539
+releaseNotes:
+  - |
+    **Fixed** a bug where TLS validation context is not added for SIMPLE when just subject alternate names are provided.
