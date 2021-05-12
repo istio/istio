@@ -1183,6 +1183,10 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		SubjectAltNames: []string{"custom.foo.com"},
 		Sni:             "custom.foo.com",
 	}
+	simpleTLSSettingsWithoutCerts := &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_SIMPLE,
+		SubjectAltNames: []string{"custom.foo.com"},
+	}
 
 	tests := []struct {
 		name                       string
@@ -1247,6 +1251,19 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				}
 				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
 					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
+				}
+			},
+		},
+		{
+			name:                       "user specified simple tls without ca cert",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        simpleTLSSettingsWithoutCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames()[0].GetExact(); got != simpleTLSSettingsWithoutCerts.SubjectAltNames[0] {
+					t.Fatalf("expected TLSContext SubjectAltName %v; got %v", simpleTLSSettingsWithCerts.SubjectAltNames[0], got)
 				}
 			},
 		},
