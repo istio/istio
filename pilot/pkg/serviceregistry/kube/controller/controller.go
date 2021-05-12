@@ -110,10 +110,8 @@ func incrementEvent(kind, event string) {
 type Options struct {
 	SystemNamespace string
 
-	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
-	WatchedNamespaces string
-	ResyncPeriod      time.Duration
-	DomainSuffix      string
+	ResyncPeriod time.Duration
+	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
