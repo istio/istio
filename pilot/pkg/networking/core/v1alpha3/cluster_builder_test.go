@@ -1262,7 +1262,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				if got := ctx.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames()[0].GetExact(); got != simpleTLSSettingsWithoutCerts.SubjectAltNames[0] {
+				if got := ctx.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().
+					GetMatchSubjectAltNames()[0].GetExact(); got != simpleTLSSettingsWithoutCerts.SubjectAltNames[0] {
 					t.Fatalf("expected TLSContext SubjectAltName %v; got %v", simpleTLSSettingsWithCerts.SubjectAltNames[0], got)
 				}
 			},
