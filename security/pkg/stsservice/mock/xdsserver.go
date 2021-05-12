@@ -69,7 +69,10 @@ func (l *DynamicListener) makeListener() *listener.Listener {
 						Action: &route.Route_Route{Route: &route.RouteAction{
 							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "backend"},
 						}},
-					}}}}}},
+					}},
+				}},
+			},
+		},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name: wellknown.Router,
 		}},
@@ -79,7 +82,8 @@ func (l *DynamicListener) makeListener() *listener.Listener {
 		Name: strconv.Itoa(l.Port),
 		Address: &core.Address{Address: &core.Address_SocketAddress{SocketAddress: &core.SocketAddress{
 			Address:       "127.0.0.1",
-			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(l.Port)}}}},
+			PortSpecifier: &core.SocketAddress_PortValue{PortValue: uint32(l.Port)},
+		}}},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name:       wellknown.HTTPConnectionManager,
@@ -126,8 +130,9 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 	xdsServerLog.Infof("%s xDS server listens on %s", time.Now().String(), lis.Addr().String())
 	discovery.RegisterAggregatedDiscoveryServiceServer(gRPCServer, server)
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[types.Listener] = cache.Resources{Version: time.Now().String(), Items: map[string]types.Resource{
-		"backend": ls.makeListener()}}
+	snapshot.Resources[types.Listener] = cache.Resources{Version: time.Now().String(), Items: map[string]types.ResourceWithTtl{
+		"backend": {Resource: ls.makeListener()},
+	}}
 	_ = snapshotCache.SetSnapshot("", snapshot)
 	go func() {
 		_ = gRPCServer.Serve(lis)
@@ -150,6 +155,22 @@ type XDSCallbacks struct {
 	// lasts for streamDuration seconds. The numStreamClose + 1 stream is kept open.
 	numStreamClose int
 	streamDuration time.Duration
+}
+
+func (c *XDSCallbacks) OnDeltaStreamOpen(ctx context.Context, i int64, s string) error {
+	panic("implement me")
+}
+
+func (c *XDSCallbacks) OnDeltaStreamClosed(i int64) {
+	panic("implement me")
+}
+
+func (c *XDSCallbacks) OnStreamDeltaRequest(i int64, request *discovery.DeltaDiscoveryRequest) error {
+	panic("implement me")
+}
+
+func (c *XDSCallbacks) OnStreamDeltaResponse(i int64, request *discovery.DeltaDiscoveryRequest, response *discovery.DeltaDiscoveryResponse) {
+	panic("implement me")
 }
 
 func CreateXdsCallback(t *testing.T) *XDSCallbacks {
@@ -229,9 +250,11 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 	}
 	return nil
 }
+
 func (c *XDSCallbacks) OnStreamClosed(id int64) {
 	xdsServerLog.Infof("xDS stream (id: %d) is closed", id)
 }
+
 func (c *XDSCallbacks) OnStreamRequest(id int64, _ *discovery.DiscoveryRequest) error {
 	xdsServerLog.Infof("receive xDS request (id: %d)", id)
 
@@ -248,13 +271,16 @@ func (c *XDSCallbacks) OnStreamRequest(id int64, _ *discovery.DiscoveryRequest) 
 	}
 	return nil
 }
+
 func (c *XDSCallbacks) OnStreamResponse(id int64, _ *discovery.DiscoveryRequest, _ *discovery.DiscoveryResponse) {
 	xdsServerLog.Infof("on stream %d response", id)
 }
+
 func (c *XDSCallbacks) OnFetchRequest(context.Context, *discovery.DiscoveryRequest) error {
 	xdsServerLog.Infof("on fetch request")
 	return nil
 }
+
 func (c *XDSCallbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
 	xdsServerLog.Infof("on fetch response")
 }
