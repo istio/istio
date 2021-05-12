@@ -141,7 +141,7 @@ func NewStatusEnvoyListenerProbe(url string, uds string, timeout time.Duration) 
 }
 
 func NewDefaultStatusEnvoyListenerProbe() Prober {
-	return NewStatusEnvoyListenerProbe(DefaultStatusEnvoyListenerURL, DefaultStatusEnvoyListenerUDS, 5*time.Second)
+	return NewStatusEnvoyListenerProbe(DefaultStatusEnvoyListenerURL, DefaultStatusEnvoyListenerUDS, time.Second)
 }
 
 // Check executes the probe and returns an error if the probe fails.
