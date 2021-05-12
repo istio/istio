@@ -325,8 +325,7 @@ func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) 
 
 func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.Background() }
 
-// Simplified SDS setup. This is called if and only if user has explicitly mounted a K8S JWT token, and is not
-// using a hostPath mounted or external SDS server.
+// Simplified SDS setup.
 //
 // 1. External CA: requires authenticating the trusted JWT AND validating the SAN against the JWT.
 //    For example Google CA
@@ -339,10 +338,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
-	a.sdsServer, err = sds.NewServer(a.secOpts, a.secretCache)
-	if err != nil {
-		return fmt.Errorf("failed to start local sds server %v", err)
-	}
+	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 
 	if err = a.initLocalDNSServer(); err != nil {
