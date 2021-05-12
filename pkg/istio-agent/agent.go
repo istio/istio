@@ -161,6 +161,17 @@ type AgentOptions struct {
 
 	// Enables dynamic generation of bootstrap.
 	EnableDynamicBootstrap bool
+
+	// Envoy status port (that circles back to the agent status port). Really belongs to the proxy config.
+	// Cannot be eradicated because mistakes have been made.
+	EnvoyStatusPort int
+
+	// Envoy prometheus port that circles back to its admin port for prom endpoint. Really belongs to the
+	// proxy config.
+	EnvoyPrometheusPort int
+
+	// Cloud platform
+	Platform platform.Environment
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -198,7 +209,7 @@ func (a *Agent) initializeEnvoyAgent() error {
 	node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
 		Envs:                os.Environ(),
-		Platform:            platform.Discover(),
+		Platform:            a.cfg.Platform,
 		InstanceIPs:         a.cfg.ProxyIPAddresses,
 		StsPort:             a.secOpts.STSPort,
 		ProxyConfig:         a.proxyConfig,
@@ -206,6 +217,8 @@ func (a *Agent) initializeEnvoyAgent() error {
 		PilotSubjectAltName: pilotSAN,
 		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
 		ProvCert:            provCert,
+		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
+		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
@@ -229,7 +242,7 @@ func (a *Agent) initializeEnvoyAgent() error {
 		a.envoyOpts.ConfigCleanup = true
 	}
 
-	// Back-fill envoy options form proxy config options
+	// Back-fill envoy options from proxy config options
 	a.envoyOpts.BinaryPath = a.proxyConfig.BinaryPath
 	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration

@@ -600,6 +600,12 @@ type NodeMetadata struct {
 	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`
 
+	// Envoy status port redirecting to agent status port.
+	EnvoyStatusPort int `json:"ENVOY_STATUS_PORT,omitempty"`
+
+	// Envoy prometheus port redirecting to admin port prometheus endpoint.
+	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`

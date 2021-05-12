@@ -98,12 +98,13 @@ type Options struct {
 	// the prober.
 	PodIP string
 	// KubeAppProbers is a json with Kubernetes application prober config encoded.
-	KubeAppProbers string
-	NodeType       model.NodeType
-	StatusPort     uint16
-	AdminPort      uint16
-	IPv6           bool
-	Probes         []ready.Prober
+	KubeAppProbers      string
+	NodeType            model.NodeType
+	StatusPort          uint16
+	AdminPort           uint16
+	IPv6                bool
+	Probes              []ready.Prober
+	EnvoyPrometheusPort int
 }
 
 // Server provides an endpoint for handling status probes.
@@ -150,7 +151,7 @@ func NewServer(config Options) (*Server, error) {
 		statusPort:            config.StatusPort,
 		ready:                 probes,
 		appProbersDestination: config.PodIP,
-		envoyStatsPort:        15090,
+		envoyStatsPort:        config.EnvoyPrometheusPort,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
