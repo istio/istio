@@ -37,6 +37,8 @@ type EchoDeployments struct {
 
 	// Ingressgateway instance
 	Ingress ingress.Instance
+	// Eastwest gateway instance
+	EastWest ingress.Instance
 
 	// Standard echo app to be used by tests
 	PodA echo.Instances
@@ -112,6 +114,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	apps.Ingress = i.IngressFor(t.Clusters().Default())
+	apps.EastWest = i.CustomIngressFor(t.Clusters().Default(), "istio-eastwestgateway", "eastwestgateway")
 
 	// Headless services don't work with targetPort, set to same port
 	headlessPorts := make([]echo.Port, len(common.EchoPorts))

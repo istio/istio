@@ -80,6 +80,8 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		CaCertFile:         opts.CaCertFile,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		FollowRedirects:    opts.FollowRedirects,
+		ServerName:         opts.ServerName,
+		Alpn:               opts.Alpn,
 	}
 
 	var responses client.ParsedResponses
