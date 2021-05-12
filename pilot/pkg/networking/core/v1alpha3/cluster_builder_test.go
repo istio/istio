@@ -1606,7 +1606,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
-						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+							},
+						},
 					},
 					Sni: "some-sni.com",
 				},
