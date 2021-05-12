@@ -31,6 +31,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -1297,7 +1298,23 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
-	connectionManager.NormalizePath = proto.BoolTrue
+
+	// Setup normalization
+	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
+	switch listenerOpts.push.Mesh.GetPathNormalization().GetNormalization() {
+	case meshconfig.MeshConfig_ProxyPathNormalization_NONE:
+		connectionManager.NormalizePath = proto.BoolFalse
+	case meshconfig.MeshConfig_ProxyPathNormalization_BASE, meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT:
+		connectionManager.NormalizePath = proto.BoolTrue
+	case meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+	case meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
+	}
+
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {
