@@ -508,7 +508,7 @@ func (s *Server) WaitUntilCompletion() {
 
 // initSDSServer starts the SDS server
 func (s *Server) initSDSServer(args *PilotArgs) {
-	if s.kubeClient != nil {
+	if features.EnableSDSServer && s.kubeClient != nil {
 		if !features.EnableXDSIdentityCheck {
 			// Make sure we have security
 			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")

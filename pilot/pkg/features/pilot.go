@@ -221,6 +221,13 @@ var (
 		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
 	).Get()
 
+	EnableSDSServer = env.RegisterBoolVar(
+		"ISTIOD_ENABLE_SDS_SERVER",
+		true,
+		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
+			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
+	).Get()
+
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
