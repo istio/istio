@@ -200,6 +200,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			settingsName = "override"
 		}
 		testName := fmt.Sprintf("%s-%s-%s", tc.clusterName, settingsName, tc.proxyType)
+		// nolint: staticcheck
 		t.Run(testName, func(t *testing.T) {
 			g := NewWithT(t)
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: tc.proxyType, mesh: testMesh,

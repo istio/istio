@@ -248,9 +248,11 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 			// Validate that use client protocol configures cluster correctly.
 			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
+				// nolint: staticcheck
 				if tt.cluster.ProtocolSelection != cluster.Cluster_USE_DOWNSTREAM_PROTOCOL {
 					t.Errorf("Expected cluster to have USE_DOWNSTREAM_PROTOCOL but has %v", tt.cluster.ProtocolSelection)
 				}
+				// nolint: staticcheck
 				if tt.cluster.Http2ProtocolOptions == nil {
 					t.Errorf("Expected cluster to have http2 protocol options but they are absent")
 				}
@@ -278,6 +280,7 @@ func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 	}
 }
 
+// nolint: staticcheck
 func TestMergeTrafficPolicy(t *testing.T) {
 	cases := []struct {
 		name     string

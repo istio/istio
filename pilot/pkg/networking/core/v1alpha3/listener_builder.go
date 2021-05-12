@@ -103,6 +103,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 }
 
 func isBindtoPort(l *listener.Listener) bool {
+	// nolint: staticcheck
 	v1 := l.GetDeprecatedV1()
 	if v1 == nil {
 		// Default is true
