@@ -582,6 +582,15 @@ func IsValidSubsetKey(s string) bool {
 	return strings.Count(s, "|") == 3
 }
 
+// IsDNSSrvSubsetKey checks whether the given key is a DNSSrv key (built by BuildDNSSrvSubsetKey).
+func IsDNSSrvSubsetKey(s string) bool {
+	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
+		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {
+		return true
+	}
+	return false
+}
+
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
 	var parts []string
