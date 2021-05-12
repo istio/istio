@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -205,6 +206,8 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		overrideValuesFile := getValuesOverrides(t, defaultValues, gcrHub, previousVersion)
 		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
+
+		time.Sleep(time.Minute)
 
 		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
