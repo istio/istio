@@ -42,7 +42,7 @@ function retry {
       break
     fi
     if ! grep -q "${failureRegex}" "${tmpFile}"; then
-      fail "Unexpected failure: $(cat tmpFile)"
+      fail "Unexpected failure"
     fi
     if [[ $n -lt $max ]]; then
       ((n++))
