@@ -633,7 +633,9 @@ func (c *Controller) SyncAll() error {
 
 	if c.nsLister != nil {
 		sysNs, _ := c.nsLister.Get(c.systemNamespace)
-		err = multierror.Append(err, c.onSystemNamespaceEvent(sysNs, model.EventAdd))
+		if sysNs != nil {
+			err = multierror.Append(err, c.onSystemNamespaceEvent(sysNs, model.EventAdd))
+		}
 	}
 
 	nodes := c.nodeInformer.GetIndexer().List()
@@ -1041,6 +1043,9 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 	ns, ok := obj.(*v1.Namespace)
 	if !ok {
 		log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+		return nil
+	}
+	if ns == nil {
 		return nil
 	}
 	nw := ns.Labels[label.TopologyNetwork.Name]
