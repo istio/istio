@@ -200,6 +200,7 @@ func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases(apps)
+	cases["autopassthrough"] = autoPassthroughCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
