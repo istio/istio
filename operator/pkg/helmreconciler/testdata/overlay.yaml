@@ -14,4 +14,7 @@ spec:
       protocol: TCP
       port: 443
       nodePort: 9379
+    - name: redis
+      protocol: TCP
+      port: 6379
   type: LoadBalancer

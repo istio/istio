@@ -164,7 +164,7 @@ func saveNodePorts(current, overlay *unstructured.Unstructured) error {
 	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
 	for _, port := range ports.([]interface{}) {
 		m := port.(map[string]interface{})
-		if nodePortNum, ok := m["nodePort"]; ok && fmt.Sprintf("%v", nodePortNum) == "0" {
+		if nodePortNum, ok := m["nodePort"]; !ok || fmt.Sprintf("%v", nodePortNum) == "0" {
 			if portNum, ok := m["port"]; ok {
 				if v, ok := portMap[fmt.Sprintf("%v", portNum)]; ok {
 					m["nodePort"] = v

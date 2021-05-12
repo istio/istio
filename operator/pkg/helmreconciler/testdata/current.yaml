@@ -14,5 +14,9 @@ spec:
       protocol: TCP
       port: 443
       nodePort: 9377
+    - name: redis
+      protocol: TCP
+      port: 6379
+      nodePort: 16379
   clusterIP: 10.0.171.239
   type: LoadBalancer
