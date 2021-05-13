@@ -7,7 +7,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -22,7 +22,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -46,12 +46,6 @@ data:
       static_configs:
       - targets:
         - localhost:9090
-      scheme: https
-      tls_config:
-        ca_file: /etc/prom-certs/root-cert.pem
-        cert_file: /etc/prom-certs/cert-chain.pem
-        key_file: /etc/prom-certs/key.pem
-        insecure_skip_verify: true  # Prometheus does not support Istio security naming, thus skip verifying target pod ceritifcate
     - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       job_name: kubernetes-apiservers
       kubernetes_sd_configs:
@@ -229,6 +223,11 @@ data:
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_scrape
       - action: replace
+        regex: (https?)
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+        target_label: __scheme__
+      - action: replace
         regex: (.+)
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_path
@@ -263,6 +262,11 @@ data:
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_scrape_slow
       - action: replace
+        regex: (https?)
+        source_labels:
+        - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+        target_label: __scheme__
+      - action: replace
         regex: (.+)
         source_labels:
         - __meta_kubernetes_pod_annotation_prometheus_io_path
@@ -296,6 +300,12 @@ data:
       file_sd_configs:
         - files:
           - /etc/file_sd/*.json
+      scheme: https
+      tls_config:
+        ca_file: /etc/prom-certs/root-cert.pem
+        cert_file: /etc/prom-certs/cert-chain.pem
+        key_file: /etc/prom-certs/key.pem
+        insecure_skip_verify: true  # Prometheus does not support Istio security naming, thus skip verifying target pod ceritifcate
       relabel_configs:
       - action: keep
         regex: (.+)
@@ -317,7 +327,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
 rules:
@@ -331,7 +341,6 @@ rules:
       - endpoints
       - pods
       - ingresses
-      - configmaps
     verbs:
       - get
       - list
@@ -379,7 +388,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
 subjects:
@@ -399,7 +408,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -424,7 +433,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-11.16.2
+    chart: prometheus-13.6.0
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -438,23 +447,25 @@ spec:
   template:
     metadata:
       annotations:
+        sidecar.istio.io/inject: "true"
+#        sidecar.istio.io/image: "docker.io/liminw1/prom"
         traffic.sidecar.istio.io/includeInboundPorts: ""   # do not intercept any inbound ports
         traffic.sidecar.istio.io/includeOutboundIPRanges: ""  # do not intercept any outbound traffic
         proxy.istio.io/config: |  # configure an env variable `OUTPUT_CERTS` to write certificates to the given folder
           proxyMetadata:
             OUTPUT_CERTS: /etc/istio-output-certs
-        sidecar.istio.io/userVolumeMount: '[{"name": "istio-certs", "mountPath": "/etc/istio-output-certs"}]' # mount the shared volume at sidecar proxy        sidecar.istio.io/inject: "false"
+        sidecar.istio.io/userVolumeMount: '[{"name": "istio-certs", "mountPath": "/etc/istio-output-certs"}]' # mount the shared volume at sidecar proxy
       labels:
         component: "server"
         app: prometheus
         release: prometheus
-        chart: prometheus-11.16.2
+        chart: prometheus-13.6.0
         heritage: Helm
     spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus-server-configmap-reload
-          image: "jimmidyson/configmap-reload:v0.4.0"
+          image: "jimmidyson/configmap-reload:v0.5.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --volume-dir=/etc/config
@@ -470,7 +481,7 @@ spec:
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.21.0"
+          image: "prom/prometheus:v2.24.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
@@ -487,7 +498,7 @@ spec:
               port: 9090
             initialDelaySeconds: 0
             periodSeconds: 5
-            timeoutSeconds: 30
+            timeoutSeconds: 4
             failureThreshold: 3
             successThreshold: 1
           livenessProbe:
@@ -496,7 +507,7 @@ spec:
               port: 9090
             initialDelaySeconds: 30
             periodSeconds: 15
-            timeoutSeconds: 30
+            timeoutSeconds: 10
             failureThreshold: 3
             successThreshold: 1
           resources:

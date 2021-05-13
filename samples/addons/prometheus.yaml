@@ -335,7 +335,6 @@ rules:
       - endpoints
       - pods
       - ingresses
-      - configmaps
     verbs:
       - get
       - list
