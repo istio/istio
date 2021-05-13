@@ -502,11 +502,12 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists.
-// NOTE: This does not auto allocate IPs. The service entry implementation is used only for tests.
+// NOTE: The service entry implementation is used only for tests.
 func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
+	// TODO(@hzxuzhonghu): only get the specific service instead of converting all the serviceEntries
 	services, _ := s.Services()
 	for _, service := range services {
 		if service.Hostname == hostname {
