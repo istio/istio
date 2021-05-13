@@ -897,54 +897,49 @@ func (s *Server) initRegistryEventHandlers() {
 	}
 }
 
+func (s *Server) initIstiodCertLoader() error {
+	neverStop := make(chan struct{})
+	watchCh := s.istiodCertBundleWatcher.AddWatcher()
+	if err := s.loadIstiodCert(watchCh, neverStop); err != nil {
+		return fmt.Errorf("first time load IstiodCert failed: %v", err)
+	}
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		go s.reloadIstiodCert(watchCh, stop)
+		return nil
+	})
+	return nil
+}
+
 // initIstiodCerts creates Istiod certificates and also sets up watches to them.
 func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Skip all certificates
-	if features.PilotCertProvider.Get() == constants.CertProviderNone {
-		return nil
-	}
-
-	if err := s.maybeInitDNSCerts(args, host); err != nil {
-		return fmt.Errorf("error initializing DNS certs: %v", err)
-	}
-
-	// setup watches for certs
-	if err := s.initCertificateWatches(args.ServerOptions.TLSOptions); err != nil {
-		// Not crashing istiod - This typically happens if certs are missing and in tests.
-		log.Errorf("error initializing certificate watches: %v", err)
-	}
-	return nil
-}
-
-// shouldInitDNSCerts returns whether DNS certs need to be signed.
-func (s *Server) shouldInitDNSCerts(args *PilotArgs) bool {
+	var err error
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 		// Use the DNS certificate provided via args.
-		// This allows injector, validation to work without Citadel, and
-		// allows secure SDS connections to Istiod.
-		return false
-	}
-	if !s.EnableCA() && features.PilotCertProvider.Get() == constants.CertProviderIstiod {
-		// If CA functionality is disabled, istiod cannot sign the DNS certificates.
-		return false
-	}
-	if features.PilotCertProvider.Get() == constants.CertProviderNone {
-		return false
-	}
-
-	return true
-}
-
-// maybeInitDNSCerts initializes DNS certs if needed.
-func (s *Server) maybeInitDNSCerts(args *PilotArgs, host string) error {
-	if !s.shouldInitDNSCerts(args) {
+		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
+		if err != nil {
+			// Not crashing istiod - This typically happens if certs are missing and in tests.
+			log.Errorf("error initializing certificate watches: %v", err)
+			return nil
+		}
+		err = s.initIstiodCertLoader()
+	} else if features.PilotCertProvider.Get() == constants.CertProviderNone {
 		return nil
+	} else if s.EnableCA() && features.PilotCertProvider.Get() == constants.CertProviderIstiod {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+		if err == nil {
+			err = s.initIstiodCertLoader()
+		}
+	} else if features.PilotCertProvider.Get() == constants.CertProviderKubernetes {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+		if err == nil {
+			err = s.initIstiodCertLoader()
+		}
 	}
-	log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
-	if err := s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace); err != nil {
-		return err
-	}
-	return nil
+
+	return err
 }
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
@@ -997,7 +992,10 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) bool {
 func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	s.certMu.RLock()
 	defer s.certMu.RUnlock()
-	return s.istiodCert, nil
+	if s.istiodCert != nil {
+		return s.istiodCert, nil
+	}
+	return nil, fmt.Errorf("cert not initialized")
 }
 
 // initControllers initializes the controllers.

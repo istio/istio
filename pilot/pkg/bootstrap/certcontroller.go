@@ -196,69 +196,47 @@ func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}
 	}
 }
 
-// initCertificateWatches sets up watches for the dns certs.
-// 1. plugin cert
-// 2. istiod signed certs.
+// initCertificateWatches sets up watches for the plugin dns certs.
 func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
-	hasPluginCert := hasCustomTLSCerts(tlsOptions)
-
-	// return if Istiod DNS cert has not been provisioned
-	if !hasPluginCert && !features.EnableCAServer &&
-		features.PilotCertProvider.Get() == constants.CertProviderIstiod {
-		return nil
+	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
+		return fmt.Errorf("set keyCertBundle failed: %v", err)
 	}
-	if hasPluginCert {
-		if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
-			return fmt.Errorf("set keyCertBundle failed: %v", err)
+	// TODO: Setup watcher for root and restart server if it changes.
+	for _, file := range []string{tlsOptions.CertFile, tlsOptions.KeyFile} {
+		log.Infof("adding watcher for certificate %s", file)
+		if err := s.fileWatcher.Add(file); err != nil {
+			return fmt.Errorf("could not watch %v: %v", file, err)
 		}
-		// TODO: Setup watcher for root and restart server if it changes.
-		for _, file := range []string{tlsOptions.CertFile, tlsOptions.KeyFile} {
-			log.Infof("adding watcher for certificate %s", file)
-			if err := s.fileWatcher.Add(file); err != nil {
-				return fmt.Errorf("could not watch %v: %v", file, err)
-			}
-		}
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			go func() {
-				var keyCertTimerC <-chan time.Time
-				for {
-					select {
-					case <-keyCertTimerC:
-						keyCertTimerC = nil
-						if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
-							log.Errorf("Setting keyCertBundle failed: %v", err)
-						}
-					case <-s.fileWatcher.Events(tlsOptions.CertFile):
-						if keyCertTimerC == nil {
-							keyCertTimerC = time.After(watchDebounceDelay)
-						}
-					case <-s.fileWatcher.Events(tlsOptions.KeyFile):
-						if keyCertTimerC == nil {
-							keyCertTimerC = time.After(watchDebounceDelay)
-						}
-					case err := <-s.fileWatcher.Errors(tlsOptions.CertFile):
-						log.Errorf("error watching %v: %v", tlsOptions.CertFile, err)
-					case err := <-s.fileWatcher.Errors(tlsOptions.KeyFile):
-						log.Errorf("error watching %v: %v", tlsOptions.KeyFile, err)
-					case <-stop:
-						return
-					}
-				}
-			}()
-			return nil
-		})
-	}
-
-	neverStop := make(chan struct{})
-	watchCh := s.istiodCertBundleWatcher.AddWatcher()
-	if err := s.loadIstiodCert(watchCh, neverStop); err != nil {
-		return fmt.Errorf("first time loadIstiodCert failed: %v", err)
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go s.reloadIstiodCert(watchCh, stop)
+		go func() {
+			var keyCertTimerC <-chan time.Time
+			for {
+				select {
+				case <-keyCertTimerC:
+					keyCertTimerC = nil
+					if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
+						log.Errorf("Setting keyCertBundle failed: %v", err)
+					}
+				case <-s.fileWatcher.Events(tlsOptions.CertFile):
+					if keyCertTimerC == nil {
+						keyCertTimerC = time.After(watchDebounceDelay)
+					}
+				case <-s.fileWatcher.Events(tlsOptions.KeyFile):
+					if keyCertTimerC == nil {
+						keyCertTimerC = time.After(watchDebounceDelay)
+					}
+				case err := <-s.fileWatcher.Errors(tlsOptions.CertFile):
+					log.Errorf("error watching %v: %v", tlsOptions.CertFile, err)
+				case err := <-s.fileWatcher.Errors(tlsOptions.KeyFile):
+					log.Errorf("error watching %v: %v", tlsOptions.KeyFile, err)
+				case <-stop:
+					return
+				}
+			}
+		}()
 		return nil
 	})
-
 	return nil
 }
 
