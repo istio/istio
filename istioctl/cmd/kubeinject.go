@@ -158,7 +158,14 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp, err := client.Post(address, "application/json", bytes.NewBuffer(revBytes))
+
+	req, err := http.NewRequest("POST", address, bytes.NewBuffer(revBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "istioctl/"+version.Info.String())
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

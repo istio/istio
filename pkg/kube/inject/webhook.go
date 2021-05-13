@@ -283,6 +283,7 @@ type InjectionParameters struct {
 	revision            string
 	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
+	userAgent           string
 }
 
 func checkPreconditions(params InjectionParameters) {
@@ -546,6 +547,7 @@ func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionPar
 	}
 	// Add all additional injected annotations. These are overridden if needed
 	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
+	pod.Annotations["sidecar.istio.io/injectorUserAgent"] = req.userAgent
 
 	// Deprecated; should be set directly in the template instead
 	for k, v := range req.injectedAnnotations {
@@ -703,7 +705,7 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 	return &pod, nil
 }
 
-func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {
+func (wh *Webhook) inject(ar *kube.AdmissionReview, path string, userAgent string) *kube.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
@@ -744,6 +746,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
+		userAgent:           userAgent,
 	}
 	wh.mu.RUnlock()
 
@@ -804,7 +807,13 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			handleError(fmt.Sprintf("Could not decode object: %v", err))
 		}
-		reviewResponse = wh.inject(ar, path)
+		// API server, User-Agent: kube-apiserver-admission
+		// istioctl kube-inject, User-Agent: istioctl/x.y.z
+		userAgent := r.Header.Get("User-Agent")
+		if len(userAgent) == 0 {
+			userAgent = "Unknown"
+		}
+		reviewResponse = wh.inject(ar, path, userAgent)
 	}
 
 	response := kube.AdmissionReview{}
