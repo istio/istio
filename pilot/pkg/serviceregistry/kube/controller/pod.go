@@ -168,7 +168,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 		}
 		// fire instance handles for workload
 		for _, handler := range pc.c.workloadHandlers {
-			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "")
+			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "", model.AlwaysDiscoverable)
 			handler(&model.WorkloadInstance{
 				Name:      pod.Name,
 				Namespace: pod.Namespace,
@@ -246,8 +246,8 @@ func (pc *PodCache) endpointDeleted(key string, ip string) {
 }
 
 func (pc *PodCache) proxyUpdates(ip string) {
-	if pc.c != nil && pc.c.xdsUpdater != nil {
-		pc.c.xdsUpdater.ProxyUpdate(pc.c.clusterID, ip)
+	if pc.c != nil && pc.c.opts.XDSUpdater != nil {
+		pc.c.opts.XDSUpdater.ProxyUpdate(pc.c.Cluster(), ip)
 	}
 }
 

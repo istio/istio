@@ -460,6 +460,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.gatewayapiInformer.Start(stop)
+	c.mcsapisInformers.Start(stop)
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
@@ -469,6 +470,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		fastWaitForCacheSyncDynamic(stop, c.metadataInformer)
 		fastWaitForCacheSync(stop, c.istioInformer)
 		fastWaitForCacheSync(stop, c.gatewayapiInformer)
+		fastWaitForCacheSync(stop, c.mcsapisInformers)
 		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
 			select {
 			case <-stop:
@@ -486,6 +488,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.metadataInformer.WaitForCacheSync(stop)
 		c.istioInformer.WaitForCacheSync(stop)
 		c.gatewayapiInformer.WaitForCacheSync(stop)
+		c.mcsapisInformers.WaitForCacheSync(stop)
 	}
 }
 

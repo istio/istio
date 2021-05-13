@@ -406,6 +406,10 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		if isClusterLocal && (cb.proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
 			continue
 		}
+		// TODO(nmittler): Consider merging discoverability policy with cluster-local
+		if !instance.Endpoint.IsDiscoverableFromProxy(cb.proxy) {
+			continue
+		}
 		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
 		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
