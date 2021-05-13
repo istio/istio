@@ -13,14 +13,3 @@ releaseNotes:
 - |
   **Added** Specify `meshConfig.discoverySelectors` to dynamically restrict the set of namespaces for Services, Pods, and Endpoints that istiod processes when pushing xDS updates to improve performance on the data plane.
 
-# upgradeNotes is a markdown listing of any changes that will affect the upgrade
-# process. This will appear in the release notes.
-upgradeNotes:
-
-# docs is a list of related docs to the change.
-docs:
-
-
-# securityNotes is a markdown listing of any changes related to the security of
-# Istio.
-securityNotes:
