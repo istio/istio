@@ -18,23 +18,18 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 func TestClusterLocal(t *testing.T) {
@@ -51,7 +46,7 @@ func TestClusterLocal(t *testing.T) {
 			sources := apps.PodA
 			destination := apps.PodB
 			t.NewSubTest("cluster local").Run(func(t framework.TestContext) {
-				patchMeshConfig(t, destination.Clusters(), fmt.Sprintf(`
+				istio.PatchMeshConfig(t, i.Settings().SystemNamespace, destination.Clusters(), fmt.Sprintf(`
 serviceSettings: 
 - settings:
     clusterLocal: true
@@ -179,73 +174,4 @@ func TestBadRemoteSecret(t *testing.T) {
 				return nil
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
 		})
-}
-
-func patchMeshConfig(t framework.TestContext, clusters cluster.Clusters, patch string) {
-	errG := multierror.Group{}
-	origCfg := map[string]string{}
-	mu := sync.RWMutex{}
-
-	cmName := "istio"
-	if rev := t.Settings().Revision; rev != "default" && rev != "" {
-		cmName += "-" + rev
-	}
-	namespace := i.Settings().SystemNamespace
-	for _, c := range clusters.Kube() {
-		c := c
-		errG.Go(func() error {
-			cm, err := c.CoreV1().ConfigMaps(namespace).Get(context.TODO(), cmName, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			mcYaml, ok := cm.Data["mesh"]
-			if !ok {
-				return fmt.Errorf("mesh config was missing in istio config map for %s", c.Name())
-			}
-			mu.Lock()
-			origCfg[c.Name()] = cm.Data["mesh"]
-			mu.Unlock()
-			mc := &meshconfig.MeshConfig{}
-			if err := gogoprotomarshal.ApplyYAML(mcYaml, mc); err != nil {
-				return err
-			}
-			if err := gogoprotomarshal.ApplyYAML(patch, mc); err != nil {
-				return err
-			}
-			cm.Data["mesh"], err = gogoprotomarshal.ToYAML(mc)
-			if err != nil {
-				return err
-			}
-			_, err = c.CoreV1().ConfigMaps(namespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-			scopes.Framework.Infof("patched %s meshconfig:\n%s", c.Name(), cm.Data["mesh"])
-			return nil
-		})
-	}
-	t.Cleanup(func() {
-		errG := multierror.Group{}
-		mu.RLock()
-		defer mu.RUnlock()
-		for cn, mcYaml := range origCfg {
-			cn, mcYaml := cn, mcYaml
-			c := clusters.GetByName(cn)
-			errG.Go(func() error {
-				cm, err := c.CoreV1().ConfigMaps(namespace).Get(context.TODO(), cmName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				cm.Data["mesh"] = mcYaml
-				_, err = c.CoreV1().ConfigMaps(namespace).Update(context.TODO(), cm, metav1.UpdateOptions{})
-				return err
-			})
-		}
-		if err := errG.Wait().ErrorOrNil(); err != nil {
-			scopes.Framework.Errorf("failed cleaning up cluster-local config: %v", err)
-		}
-	})
-	if err := errG.Wait().ErrorOrNil(); err != nil {
-		t.Fatal(err)
-	}
 }

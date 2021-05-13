@@ -171,7 +171,7 @@ func init() {
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
 		"Token provider specific plugin name.")
-	// Flags for proxy configuration
+	// DEPRECATED. Flags for proxy configuration
 	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", constants.ServiceClusterName, "Service cluster")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warning",
