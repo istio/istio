@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
-kind: bug-fix 
-area: networking
+kind: bug-fix
+area: traffic-management
 releaseNotes:
 - |
   **Fixed** a bug where Envoy filter with service match is not working for inbound clusters.

@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: environments
+area: istioctl
 issue:
   - 31186
 releaseNotes:

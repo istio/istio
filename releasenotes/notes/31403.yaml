@@ -1,9 +1,9 @@
 apiVersion: release-notes/v2
 kind: feature
-area: networking
+area: traffic-management
 issue:
   - 31403
 
 releaseNotes:
 - |
-  **Updated** istio-proxy drain notification strategy to immediate from gradual. 
+  **Updated** istio-proxy drain notification strategy to immediate from gradual.

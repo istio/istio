@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
-kind: enhancement
-area: environments
+kind: feature
+area: installation
 issue:
 - 31732
 releaseNotes:
