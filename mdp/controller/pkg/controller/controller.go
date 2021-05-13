@@ -59,7 +59,6 @@ type ReconcileMDPConfig struct {
 	client client.Client
 	config *rest.Config
 	scheme *runtime.Scheme
-	mdpReconciler *reconciler.MDPReconciler
 }
 
 // Reconcile reads that state of the cluster for a MDPConfig object and makes changes based on the state read
@@ -91,43 +90,28 @@ func (r *ReconcileMDPConfig) Reconcile(ctx context.Context, request reconcile.Re
 	}
 
 	scope.Info("Updating MDPConfig")
-	if err := reconciler.SetStatusBegin(mdpcfg, r.client); err != nil {
+	mdpReconciler, err := reconciler.NewMDPReconciler(r.client, r.config, mdpcfg, nil)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
-	status, err := r.mdpReconciler.Reconcile(ctx, mdpcfg)
+	if err := mdpReconciler.SetStatusBegin(); err != nil {
+		return reconcile.Result{}, err
+	}
+	status, err := mdpReconciler.Reconcile()
 	if err != nil {
 		scope.Errorf("Error during reconcile: %s", err)
 	}
-	if err := reconciler.SetStatusComplete(mdpcfg, r.client, status); err != nil {
+	if err := mdpReconciler.SetStatusComplete(status); err != nil {
 		return reconcile.Result{}, err
 	}
-	if status.Status != v1alpha1.MDPStatus_READY {
-		return reconcile.Result{Requeue: true}, nil
-	}
-	return reconcile.Result{}, err
-}
 
-func NewController(client client.Client, scheme *runtime.Scheme, config *rest.Config) (*ReconcileMDPConfig, error) {
-	r, err := reconciler.NewMDPReconciler(client, config, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &ReconcileMDPConfig{
-		client:        client,
-		config:        config,
-		scheme:        scheme,
-		mdpReconciler: r,
-	}, nil
+	return reconcile.Result{}, err
 }
 
 // Add creates a new MDPConfig Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	c, err := NewController(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig())
-	if err != nil {
-		return err
-	}
-	return add(mgr,c)
+	return add(mgr, &ReconcileMDPConfig{client: mgr.GetClient(), scheme: mgr.GetScheme(), config: mgr.GetConfig()})
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
