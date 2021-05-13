@@ -248,15 +248,16 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collectio
 	var out labels.Collection
 	clusterID := nodeClusterID(proxy)
 	for _, r := range c.GetRegistries() {
+		// If proxy clusterID unset, we may find incorrect workload label.
+		// This can not happen in k8s env.
 		if clusterID == "" {
 			wlLabels := r.GetProxyWorkloadLabels(proxy)
 			if len(wlLabels) > 0 {
 				out = append(out, wlLabels...)
 				break
 			}
-		}
-		// find proxy in the specified cluster
-		if clusterID != "" && clusterID == r.Cluster() {
+		} else if clusterID == r.Cluster() {
+			// find proxy in the specified cluster
 			wlLabels := r.GetProxyWorkloadLabels(proxy)
 			if len(wlLabels) > 0 {
 				out = append(out, wlLabels...)
