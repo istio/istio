@@ -194,6 +194,10 @@ func (i Instances) Contains(instances ...Instance) bool {
 	return len(matches) > 0
 }
 
+func (i Instances) ContainsMatch(matches Matcher) bool {
+	return len(i.Match(matches)) > 0
+}
+
 // Services is a set of Instances that share the same FQDN. While an Instance contains
 // multiple deployments (a single service in a single cluster), Instances contains multiple
 // deployments that may contain multiple Services.

@@ -105,7 +105,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
   istioctl x uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
-				return fmt.Errorf("at least one of the --revision(or --set revision=<revision>), --filename or --purge flags must be set")
+				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")
 			}
 			if len(args) > 0 {
 				return fmt.Errorf("istioctl uninstall does not take arguments")
@@ -127,7 +127,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	restConfig, _, client, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
+	restConfig, clientset, client, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
 	if err != nil {
 		return err
 	}
@@ -162,6 +162,11 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 		}
 		opts.ProgressLog.SetState(progress.StateUninstallComplete)
+
+		// If we're removing the default revision, add `istiod` service so we don't break existing revisions
+		if uiArgs.revision == "default" {
+			_ = createIstiodService(clientset, name.IstioDefaultNamespace)
+		}
 		return nil
 	}
 	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},

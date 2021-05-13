@@ -47,7 +47,7 @@ var (
 	connectionNumber = int64(0)
 )
 
-// Used only when running in KNative, to handle the load banlancing behavior.
+// Used only when running in KNative, to handle the load balancing behavior.
 var firstRequest = uatomic.NewBool(true)
 
 var knativeEnv = env.RegisterStringVar("K_REVISION", "",
@@ -380,7 +380,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return true
 	}
 
-	// If there is mismatch in the npilot/pkg/bootstrap/server.goonce, that is a case of expired/stale nonce.
+	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	if request.ResponseNonce != previousInfo.NonceSent {
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
@@ -558,6 +558,7 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
+	proxy.XdsNode = node
 	return proxy, nil
 }
 
@@ -916,8 +917,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		for _, rc := range res.Resources {
 			sz += len(rc.Value)
 		}
-		conn.proxy.Lock()
-		if res.Nonce != "" {
+		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
+			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
@@ -925,8 +926,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+			conn.proxy.Unlock()
 		}
-		conn.proxy.Unlock()
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
 		log.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()

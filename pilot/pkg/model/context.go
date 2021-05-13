@@ -290,6 +290,9 @@ type Proxy struct {
 
 	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
 	WatchedResources map[string]*WatchedResource
+
+	// XdsNode is the xDS node identifier
+	XdsNode *core.Node
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -398,7 +401,7 @@ func (l *PodPortList) UnmarshalJSON(data []byte) error {
 	var pl []PodPort
 	pls, err := strconv.Unquote(string(data))
 	if err != nil {
-		return nil
+		return err
 	}
 	if err := json.Unmarshal([]byte(pls), &pl); err != nil {
 		return err

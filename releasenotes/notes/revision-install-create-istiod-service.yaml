@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** a bug resulting in broken resource validation when a fresh Istio installation specified a revision. Note that
+    this fix applies only when using the `istioctl` installation method, the manual steps from the [canary upgrade documentation](https://istio.io/latest/docs/setup/upgrade/canary/)
+    are still required if using Helm or the in-cluster operator.

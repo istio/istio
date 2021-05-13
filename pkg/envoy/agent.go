@@ -47,6 +47,9 @@ type Proxy interface {
 
 	// Cleanup command for an epoch
 	Cleanup(int)
+
+	// UpdateConfig writes a new config file
+	UpdateConfig(config []byte) error
 }
 
 type Agent struct {

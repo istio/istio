@@ -116,7 +116,8 @@ type Server struct {
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
 
-	multicluster *kubecontroller.Multicluster
+	multicluster      *kubecontroller.Multicluster
+	secretsController *kubesecrets.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -126,8 +127,10 @@ type Server struct {
 	httpsServer      *http.Server // webhooks HTTPS Server.
 	httpsReadyClient *http.Client
 
-	grpcServer       *grpc.Server
-	secureGrpcServer *grpc.Server
+	grpcServer        *grpc.Server
+	grpcAddress       string
+	secureGrpcServer  *grpc.Server
+	secureGrpcAddress string
 
 	// monitoringMux listens on monitoringAddr(:15014).
 	// Currently runs prometheus monitoring and debug (if enabled).
@@ -145,10 +148,6 @@ type Server struct {
 
 	// MultiplexGRPC will serve gRPC and HTTP (1 or 2) over the HTTPListener, if enabled.
 	MultiplexGRPC bool
-
-	HTTPListener       net.Listener
-	GRPCListener       net.Listener
-	SecureGrpcListener net.Listener
 
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
@@ -315,10 +314,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// Notice that the order of authenticators matters, since at runtime
 	// authenticators are activated sequentially and the first successful attempt
 	// is used as the authentication result.
-	// The JWT authenticator requires the multicluster registry to be initialized, so we build this later
 	authenticators := []security.Authenticator{
 		&authenticate.ClientCertAuthenticator{},
-		kubeauth.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
 	}
 	if args.JwtRule != "" {
 		jwtAuthn, err := initOIDC(args, s.environment.Mesh().TrustDomain)
@@ -330,6 +327,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		}
 		authenticators = append(authenticators, jwtAuthn)
 	}
+	// The k8s JWT authenticator requires the multicluster registry to be initialized,
+	// so we build it later.
+	authenticators = append(authenticators,
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, features.JwtPolicy.Get()))
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -420,19 +421,27 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// Race condition - if waitForCache is too fast and we run this as a startup function,
 	// the grpc server would be started before CA is registered. Listening should be last.
-	if s.SecureGrpcListener != nil {
+	if s.secureGrpcAddress != "" {
+		grpcListener, err := net.Listen("tcp", s.secureGrpcAddress)
+		if err != nil {
+			return err
+		}
 		go func() {
-			log.Infof("starting secure gRPC discovery service at %s", s.SecureGrpcListener.Addr())
-			if err := s.secureGrpcServer.Serve(s.SecureGrpcListener); err != nil {
+			log.Infof("starting secure gRPC discovery service at %s", grpcListener.Addr())
+			if err := s.secureGrpcServer.Serve(grpcListener); err != nil {
 				log.Errorf("error serving secure GRPC server: %v", err)
 			}
 		}()
 	}
 
-	if s.GRPCListener != nil {
+	if s.grpcAddress != "" {
+		grpcListener, err := net.Listen("tcp", s.grpcAddress)
+		if err != nil {
+			return err
+		}
 		go func() {
-			log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
-			if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
+			log.Infof("starting gRPC discovery service at %s", grpcListener.Addr())
+			if err := s.grpcServer.Serve(grpcListener); err != nil {
 				log.Errorf("error serving GRPC server: %v", err)
 			}
 		}()
@@ -462,17 +471,25 @@ func (s *Server) Start(stop <-chan struct{}) error {
 	}
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
+	httpListener, err := net.Listen("tcp", s.httpServer.Addr)
+	if err != nil {
+		return err
+	}
 	go func() {
-		log.Infof("starting Http service at %s", s.HTTPListener.Addr())
-		if err := s.httpServer.Serve(s.HTTPListener); isUnexpectedListenerError(err) {
+		log.Infof("starting HTTP service at %s", httpListener.Addr())
+		if err := s.httpServer.Serve(httpListener); isUnexpectedListenerError(err) {
 			log.Errorf("error serving http server: %v", err)
 		}
 	}()
 
 	if s.httpsServer != nil {
+		httpsListener, err := net.Listen("tcp", s.httpsServer.Addr)
+		if err != nil {
+			return err
+		}
 		go func() {
-			log.Infof("starting webhook service at %s", s.httpsServer.Addr)
-			if err := s.httpsServer.ListenAndServeTLS("", ""); isUnexpectedListenerError(err) {
+			log.Infof("starting webhook service at %s", httpsListener.Addr())
+			if err := s.httpsServer.ServeTLS(httpsListener, "", ""); isUnexpectedListenerError(err) {
 				log.Errorf("error serving https server: %v", err)
 			}
 		}()
@@ -496,22 +513,25 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 			// Make sure we have security
 			log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
-			// TODO move this to a startup function and pass stop
-			sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace, make(chan struct{}))
-			sc.AddEventHandler(func(name, namespace string) {
-				s.XDSServer.ConfigUpdate(&model.PushRequest{
-					Full: false,
-					ConfigsUpdated: map[model.ConfigKey]struct{}{
-						{
-							Kind:      gvk.Secret,
-							Name:      name,
-							Namespace: namespace,
-						}: {},
-					},
-					Reason: []model.TriggerReason{model.SecretTrigger},
+			s.addStartFunc(func(stop <-chan struct{}) error {
+				sc := kubesecrets.NewMulticluster(s.kubeClient, s.clusterID, args.RegistryOptions.ClusterRegistriesNamespace, stop)
+				sc.AddEventHandler(func(name, namespace string) {
+					s.XDSServer.ConfigUpdate(&model.PushRequest{
+						Full: false,
+						ConfigsUpdated: map[model.ConfigKey]struct{}{
+							{
+								Kind:      gvk.Secret,
+								Name:      name,
+								Namespace: namespace,
+							}: {},
+						},
+						Reason: []model.TriggerReason{model.SecretTrigger},
+					})
 				})
+				s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+				s.secretsController = sc
+				return nil
 			})
-			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
 		}
 	}
 }
@@ -583,17 +603,11 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 		Handler: s.httpMux,
 	}
 
-	// create http listener
-	listener, err := net.Listen("tcp", args.ServerOptions.HTTPAddr)
-	if err != nil {
-		return err
-	}
-
 	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
 
 	if shouldMultiplex {
 		s.monitoringMux = s.httpMux
-		log.Info("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
+		log.Info("initializing Istiod admin server multiplexed on httpAddr ", s.httpServer.Addr)
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
@@ -615,7 +629,6 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]st
 	// Readiness Handler.
 	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
 
-	s.HTTPListener = listener
 	return nil
 }
 
@@ -632,15 +645,11 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	s.initGrpcServer(args.KeepaliveOptions)
 
 	if args.ServerOptions.GRPCAddr != "" {
-		grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
-		if err != nil {
-			log.Warnf("Failed to listen on gRPC port %v", err)
-		}
-		s.GRPCListener = grpcListener
-	} else if s.GRPCListener == nil {
+		s.grpcAddress = args.ServerOptions.GRPCAddr
+	} else {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multiplexing gRPC on http port ", s.HTTPListener.Addr())
+		log.Info("multiplexing gRPC on http port ", args.ServerOptions.HTTPAddr)
 		s.MultiplexGRPC = true
 	}
 }
@@ -747,12 +756,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 
 	tlsCreds := credentials.NewTLS(cfg)
 
-	// create secure grpc listener
-	l, err := net.Listen("tcp", args.ServerOptions.SecureGRPCAddr)
-	if err != nil {
-		return err
-	}
-	s.SecureGrpcListener = l
+	s.secureGrpcAddress = args.ServerOptions.SecureGRPCAddr
 
 	interceptors := []grpc.UnaryServerInterceptor{
 		// setup server prometheus monitoring (as final interceptor in chain)
@@ -818,6 +822,9 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
+	if s.secretsController != nil && !s.secretsController.HasSynced() {
+		return false
+	}
 	if s.multicluster != nil && !s.multicluster.HasSynced() {
 		return false
 	}
