@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	callTimeout = 20 * time.Second
-	callDelay   = 100 * time.Millisecond
+	callTimeout = 60 * time.Second
+	callDelay   = 400 * time.Millisecond
 )
 
 // init registers the command-line flags that we can exposed for "go test".
