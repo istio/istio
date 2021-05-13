@@ -73,9 +73,7 @@ spec:
           args:
           - "discovery"
           - --monitoringAddr=:15014
-{{- if .Values.global.logging.level }}
-          - --log_output_level={{ .Values.global.logging.level }}
-{{- end}}
+          - --log_output_level=ads:debug
 {{- if .Values.global.logAsJson }}
           - --log_as_json
 {{- end }}
