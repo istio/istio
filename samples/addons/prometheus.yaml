@@ -294,20 +294,6 @@ data:
         - __meta_kubernetes_pod_phase
       scrape_interval: 5m
       scrape_timeout: 30s
-    - job_name: kubernetes-file-sd-endpoints
-      kubernetes_sd_configs:
-      - role: endpoints
-      file_sd_configs:
-        - files:
-          - /etc/file_sd/*.json
-      relabel_configs:
-      - action: keep
-        regex: (.+)
-        source_labels:
-        - __meta_filepath
-      - replacement: /stats/prometheus
-        target_label: __metrics_path__
-
   recording_rules.yml: |
     {}
   rules: |
@@ -335,6 +321,7 @@ rules:
       - endpoints
       - pods
       - ingresses
+      - configmaps
     verbs:
       - get
       - list
@@ -353,26 +340,6 @@ rules:
       - "/metrics"
     verbs:
       - get
-  - apiGroups:
-    - "networking.istio.io"
-    verbs:
-      - get
-      - watch
-      - list
-    resources:
-      - workloadentries
-  - apiGroups:
-      - ""
-    verbs:
-      - get
-      - watch
-      - list
-      - create
-      - update
-      - patch
-      - delete
-    resources:
-      - configmaps
 ---
 # Source: prometheus/templates/server/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -441,6 +408,7 @@ spec:
   template:
     metadata:
       annotations:
+        
         sidecar.istio.io/inject: "false"
       labels:
         component: "server"
@@ -462,9 +430,6 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /etc/config
-              readOnly: true
-            - name: file-sd-volume
-              mountPath: /etc/file_sd
               readOnly: true
 
         - name: prometheus-server
@@ -505,11 +470,6 @@ spec:
             - name: storage-volume
               mountPath: /data
               subPath: ""
-            - name: file-sd-volume
-              mountPath: /etc/file_sd
-        - name: vm-discovery
-          image: "jackyzz/vm-discovery:latest"
-          imagePullPolicy: "IfNotPresent"
       hostNetwork: false
       dnsPolicy: ClusterFirst
       securityContext:
@@ -522,10 +482,6 @@ spec:
         - name: config-volume
           configMap:
             name: prometheus
-        - name: file-sd-volume
-          configMap:
-            name: file-sd-config
-            optional: true
         - name: storage-volume
           emptyDir:
             {}
