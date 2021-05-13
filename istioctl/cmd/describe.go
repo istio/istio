@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	istio_envoy_configdump "istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
-	pilot_v1alpha3 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -418,6 +417,7 @@ func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
 
 func printPod(writer io.Writer, pod *v1.Pod) {
 	ports := []string{}
+	UserID := int64(1337)
 	for _, container := range pod.Spec.Containers {
 		for _, port := range container.Ports {
 			var protocol string
@@ -426,6 +426,14 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 				protocol = fmt.Sprintf("/%s", port.Protocol)
 			}
 			ports = append(ports, fmt.Sprintf("%d%s (%s)", port.ContainerPort, protocol, container.Name))
+		}
+		// Ref: https://istio.io/latest/docs/ops/deployment/requirements/#pod-requirements
+		if container.Name != "istio-proxy" && container.Name != "istio-operator" {
+			if container.SecurityContext != nil && container.SecurityContext.RunAsUser != nil {
+				if *container.SecurityContext.RunAsUser == UserID {
+					fmt.Fprintf(writer, "WARNING: User ID (UID) 1337 is reserved for the sidecar proxy.\n")
+				}
+			}
 		}
 	}
 
@@ -454,6 +462,13 @@ func printPod(writer io.Writer, pod *v1.Pod) {
 	if !isMeshed(pod) {
 		fmt.Fprintf(writer, "WARNING: %s is not part of mesh; no Istio sidecar\n", kname(pod.ObjectMeta))
 		return
+	}
+
+	// Ref: https://istio.io/latest/docs/ops/deployment/requirements/#pod-requirements
+	if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.RunAsUser != nil {
+		if *pod.Spec.SecurityContext.RunAsUser == UserID {
+			fmt.Fprintf(writer, "   WARNING: User ID (UID) 1337 is reserved for the sidecar proxy.\n")
+		}
 	}
 
 	// https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
@@ -593,7 +608,7 @@ func getInboundHTTPConnectionManager(cd *configdump.Wrapper, port int32) (*http_
 		if err != nil {
 			return nil, err
 		}
-		if listenerTyped.Name == pilot_v1alpha3.VirtualInboundListenerName {
+		if listenerTyped.Name == model.VirtualInboundListenerName {
 			for _, filterChain := range listenerTyped.FilterChains {
 				for _, filter := range filterChain.Filters {
 					hcm := &http_conn.HttpConnectionManager{}

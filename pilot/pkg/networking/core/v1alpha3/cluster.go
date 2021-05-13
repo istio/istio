@@ -39,11 +39,6 @@ import (
 	"istio.io/istio/pkg/util/gogo"
 )
 
-const (
-	// DefaultLbType set to round robin
-	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
-)
-
 // defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
 // or those whose label value does not match "istio"
 var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
@@ -114,7 +109,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	networkView := model.GetNetworkView(cb.proxy)
+	networkView := cb.proxy.GetNetworkView()
 
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && cb.proxy.Type == model.Router {
@@ -204,7 +199,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 	clusters := make([]*cluster.Cluster, 0)
 	cb := NewClusterBuilder(proxy, push)
 
-	networkView := model.GetNetworkView(proxy)
+	networkView := proxy.GetNetworkView()
 
 	for _, service := range push.Services(proxy) {
 		if service.MeshExternal {
@@ -270,9 +265,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 
 	_, actualLocalHost := getActualWildcardAndLocalHost(cb.proxy)
 
-	if !sidecarScope.HasCustomIngressListeners {
-		// No user supplied sidecar scope or the user supplied one has no ingress listeners
-
+	// No user supplied sidecar scope or the user supplied one has no ingress listeners
+	if !sidecarScope.HasIngressListener() {
 		// We should not create inbound listeners in NONE mode based on the service instances
 		// Doing so will prevent the workloads from starting as they would be listening on the same port
 		// Users are required to provide the sidecar config to define the inbound listeners
@@ -282,9 +276,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 
 		clustersToBuild := make(map[int][]*model.ServiceInstance)
 		for _, instance := range instances {
-			// Filter out service instances with the same port as we are going to mark them as duplicates any way
-			// in normalizeClusters method.
-			// However, we still need to capture all the instances on this port, as its required to populate telemetry metadata
+			// For service instances with the same port,
+			// we still need to capture all the instances on this port, as its required to populate telemetry metadata
 			// The first instance will be used as the "primary" instance; this means if we have an conflicts between
 			// Services the first one wins
 			ep := int(instance.Endpoint.EndpointPort)
@@ -296,11 +289,11 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			bind = ""
 		}
 		// For each workload port, we will construct a cluster
-		for _, instances := range clustersToBuild {
-			instance := instances[0]
-			localCluster := cb.buildInboundClusterForPortOrUDS(int(instance.Endpoint.EndpointPort), bind, instance, instances)
+		for epPort, instances := range clustersToBuild {
+			// The inbound cluster port equals to endpoint port.
+			localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, instances[0], instances)
 			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
-			var hosts []host.Name
+			hosts := make([]host.Name, 0, len(instances))
 			for _, si := range instances {
 				hosts = append(hosts, si.Service.Hostname)
 			}
@@ -640,13 +633,16 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	applyLocalityLBSetting(proxy.Locality, c, localityLbSetting)
 
+	// apply default round robin lb policy
+	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
+	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
+		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		return
+	}
+
 	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
 	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
 	// rejected by Envoy.
-
-	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
-		return
-	}
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
 	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.Redis {

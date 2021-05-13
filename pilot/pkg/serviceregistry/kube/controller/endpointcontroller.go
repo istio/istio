@@ -105,7 +105,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 			fep := c.collectWorkloadInstanceEndpoints(svc)
 			endpoints = append(endpoints, fep...)
 		} else {
-			log.Infof("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated", svcName, ns)
+			log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated", svcName, ns)
 		}
 	}
 

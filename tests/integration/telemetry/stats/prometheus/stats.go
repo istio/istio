@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/components/telemetry"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -133,7 +132,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						}
 
 						return nil
-					}, retry.Delay(telemetry.RetryDelay), retry.Timeout(telemetry.RetryTimeout))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}
@@ -190,7 +189,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 						}
 
 						return nil
-					}, retry.Delay(telemetry.RetryDelay), retry.Timeout(telemetry.RetryTimeout))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}

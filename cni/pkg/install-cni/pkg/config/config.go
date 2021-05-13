@@ -21,27 +21,49 @@ import (
 
 // Config struct defines the Istio CNI installation options
 type Config struct {
-	CNINetDir        string
+	// Location of the CNI config files in the host's filesystem
+	CNINetDir string
+	// Location of the CNI config files in the container's filesystem (mount location of the CNINetDir)
 	MountedCNINetDir string
-	CNIConfName      string
+	// Name of the CNI config file
+	CNIConfName string
+	// Whether to install CNI plugin as a chained or standalone
 	ChainedCNIPlugin bool
 
+	// CNI config template file
 	CNINetworkConfigFile string
-	CNINetworkConfig     string
+	// CNI config template string
+	CNINetworkConfig string
 
-	LogLevel           string
+	// Logging level
+	LogLevel string
+	// Name of the kubeconfig file used by the CNI plugin
 	KubeconfigFilename string
-	KubeconfigMode     int
-	KubeCAFile         string
-	SkipTLSVerify      bool
+	// The file mode to set when creating the kubeconfig file
+	KubeconfigMode int
+	// CA file for kubeconfig
+	KubeCAFile string
+	// Whether to use insecure TLS in the kubeconfig file
+	SkipTLSVerify bool
 
+	// KUBERNETES_SERVICE_PROTOCOL
 	K8sServiceProtocol string
-	K8sServiceHost     string
-	K8sServicePort     string
-	K8sNodeName        string
+	// KUBERNETES_SERVICE_HOST
+	K8sServiceHost string
+	// KUBERNETES_SERVICE_PORT
+	K8sServicePort string
+	// KUBERNETES_NODE_NAME
+	K8sNodeName string
 
+	// Directory from where the CNI binaries should be copied
+	CNIBinSourceDir string
+	// Directories into which to copy the CNI binaries
+	CNIBinTargetDirs []string
+	// Whether to override existing CNI binaries
 	UpdateCNIBinaries bool
-	SkipCNIBinaries   []string
+
+	// The names of binaries to skip when copying
+	SkipCNIBinaries []string
 }
 
 func (c *Config) String() string {

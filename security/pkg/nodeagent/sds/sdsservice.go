@@ -84,10 +84,6 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
 func newSDSService(st security.SecretManager, options *security.Options) *sdsservice {
-	if st == nil {
-		return nil
-	}
-
 	ret := &sdsservice{
 		st:   st,
 		stop: make(chan struct{}),
@@ -149,7 +145,10 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 		}
 
 		res := util.MessageToAny(toEnvoySecret(secret))
-		resources = append(resources, res)
+		resources = append(resources, &discovery.Resource{
+			Name:     resourceName,
+			Resource: res,
+		})
 	}
 	return resources, nil
 }
@@ -175,6 +174,12 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 	resp, err := s.generate(names)
 	pushLog(names, err)
 	return resp, err
+}
+
+var sdsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
+
+func (s *sdsservice) Metadata() *model.GeneratorMetadata {
+	return sdsGeneratorMetadata
 }
 
 // register adds the SDS handle to the grpc server

@@ -17,12 +17,17 @@ package kube
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
 )
@@ -45,14 +50,14 @@ var (
 	// hold configTopology from command line to parse later
 	configTopology string
 	// file defining all types of topology
-	topologyFile string
+	clusterConfigs configsVal
 )
 
 // NewSettingsFromCommandLine returns Settings obtained from command-line flags.
-// flag.Parse must be called before calling this function.
+// config.Parse must be called before calling this function.
 func NewSettingsFromCommandLine() (*Settings, error) {
-	if !flag.Parsed() {
-		panic("flag.Parse must be called before this function")
+	if !config.Parsed() {
+		panic("config.Parse must be called before this function")
 	}
 
 	s := settingsFromCommandLine.clone()
@@ -214,6 +219,48 @@ func parseClusterIndex(index string) (clusterIndex, error) {
 	return clusterIndex(ci), nil
 }
 
+// configsVal implements config.Value to allow setting the path as a flag or embedding the topology content
+// in the overal test framework config
+type configsVal []cluster.Config
+
+func (c *configsVal) String() string {
+	return fmt.Sprint(*c)
+}
+
+func (c *configsVal) Set(s string) error {
+	filename, err := file.NormalizePath(s)
+	if err != nil {
+		return err
+	}
+	topologyBytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	configs := []cluster.Config{}
+	if err := yaml.Unmarshal(topologyBytes, &configs); err != nil {
+		return fmt.Errorf("failed to parse %s: %v", s, err)
+	}
+	*c = configs
+	scopes.Framework.Infof("Using clusterConfigs file: %v.", s)
+	return nil
+}
+
+func (c *configsVal) SetConfig(m interface{}) error {
+	bytes, err := yaml.Marshal(m)
+	if err != nil {
+		return err
+	}
+	configs := []cluster.Config{}
+	if err := yaml.Unmarshal(bytes, &configs); err != nil {
+		return fmt.Errorf("failed to reparse: %v", err)
+	}
+	*c = configs
+	scopes.Framework.Infof("Using topology from test framework config file.")
+	return nil
+}
+
+var _ config.Value = &configsVal{}
+
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
 	flag.StringVar(&kubeConfigs, "istio.test.kube.config", "",
@@ -238,7 +285,7 @@ func init() {
 		"", "Specifies the mapping for each cluster to the cluster hosting its config. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<configClusterIndex>, where the indexes refer to the order in which "+
 			"a given cluster appears in the 'istio.test.kube.config' flag. If not specified, the default is every cluster maps to itself(e.g. 0:0,1:1,...).")
-	flag.StringVar(&topologyFile, "istio.test.kube.topology", "", "The path to a JSON file that defines control plane,"+
+	flag.Var(&clusterConfigs, "istio.test.kube.topology", "The path to a JSON file that defines control plane,"+
 		" network, and config cluster topology. The JSON document should be an array of objects that contain the keys \"control_plane_index\","+
 		" \"network_id\" and \"config_index\" with all integer values. If control_plane_index is omitted, the index of the array item is used."+
 		"If network_id is omitted, 0 will be used. If config_index is omitted, control_plane_index will be used.")

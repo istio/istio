@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -217,7 +218,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	dir := t.TempDir()
 	ia := NewAgent(&proxyConfig, &AgentOptions{
 		XdsUdsPath: filepath.Join(dir, "XDS"),
-	}, secOpts)
+	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
 		ia.Close()
 	})
@@ -577,11 +578,4 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
-}
-
-func TestIsExpectedGRPCError(t *testing.T) {
-	err := errors.New("code = Internal desc = stream terminated by RST_STREAM with error code: NO_ERROR")
-	if got := isExpectedGRPCError(err); !got {
-		t.Fatalf("expected true, got %v", got)
-	}
 }

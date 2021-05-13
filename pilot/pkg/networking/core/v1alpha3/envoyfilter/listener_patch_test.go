@@ -600,7 +600,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						Name: VirtualInboundListenerName,
+						Name: model.VirtualInboundListenerName,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							DestinationPort: 6380,
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
@@ -658,7 +658,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						Name: VirtualInboundListenerName,
+						Name: model.VirtualInboundListenerName,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Name: "filter-chain-name-match",
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
@@ -1206,7 +1206,7 @@ func TestApplyListenerPatches(t *testing.T) {
 
 	sidecarVirtualInboundIn := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
+			Name:             model.VirtualInboundListenerName,
 			UseOriginalDst:   istio_proto.BoolTrue,
 			TrafficDirection: core.TrafficDirection_INBOUND,
 			Address: &core.Address{
@@ -1296,7 +1296,7 @@ func TestApplyListenerPatches(t *testing.T) {
 
 	sidecarVirtualInboundOut := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
+			Name:             model.VirtualInboundListenerName,
 			UseOriginalDst:   istio_proto.BoolTrue,
 			TrafficDirection: core.TrafficDirection_INBOUND,
 			Address: &core.Address{

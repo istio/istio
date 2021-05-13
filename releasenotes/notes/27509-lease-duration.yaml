@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 27509
+releaseNotes:
+  - |
+    **Fixed** ensure lease duration is always larger than the user configured `RENEW_DEADLINE` for Istio operator manager.

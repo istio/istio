@@ -15,13 +15,13 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
@@ -49,6 +49,8 @@ type NamespaceController struct {
 	queue              queue.Instance
 	namespacesInformer cache.SharedInformer
 	configMapInformer  cache.SharedInformer
+	namespaceLister    listerv1.NamespaceLister
+	configmapLister    listerv1.ConfigMapLister
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
@@ -60,6 +62,10 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 	}
 
 	c.configMapInformer = kubeClient.KubeInformer().Core().V1().ConfigMaps().Informer()
+	c.configmapLister = kubeClient.KubeInformer().Core().V1().ConfigMaps().Lister()
+	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+	c.namespaceLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
+
 	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(_, obj interface{}) {
 			cm, err := convertToConfigMap(obj)
@@ -84,7 +90,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 				return
 			}
 			c.queue.Push(func() error {
-				ns, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), cm.Namespace, metav1.GetOptions{})
+				ns, err := c.namespaceLister.Get(cm.Namespace)
 				if err != nil {
 					return err
 				}
@@ -98,7 +104,6 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 		},
 	})
 
-	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.namespacesInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.queue.Push(func() error {
@@ -131,7 +136,7 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 		Namespace: ns,
 		Labels:    configMapLabel,
 	}
-	return k8s.InsertDataToConfigMap(nc.client, meta, nc.getData())
+	return k8s.InsertDataToConfigMap(nc.client, nc.configmapLister, meta, nc.getData())
 }
 
 // On namespace change, update the config map.

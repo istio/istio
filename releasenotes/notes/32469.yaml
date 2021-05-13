@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 32370
+releaseNotes:
+  - |
+    **Added** an `external` profile for installing Istio with an external control plane, and deprecated the `remote` profile.

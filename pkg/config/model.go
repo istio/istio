@@ -273,14 +273,15 @@ func DeepCopy(s interface{}) interface{} {
 type Status interface{}
 
 // Key function for the configuration objects
-func Key(typ, name, namespace string) string {
-	return typ + "/" + namespace + "/" + name // Format: %s/%s/%s
+func Key(grp, ver, typ, name, namespace string) string {
+	return grp + "/" + ver + "/" + typ + "/" + namespace + "/" + name // Format: %s/%s/%s/%s/%s
 }
 
 // Key is the unique identifier for a configuration object
-// TODO: this is *not* unique - needs the version and group
 func (meta *Meta) Key() string {
-	return Key(meta.GroupVersionKind.Kind, meta.Name, meta.Namespace)
+	return Key(
+		meta.GroupVersionKind.Group, meta.GroupVersionKind.Version, meta.GroupVersionKind.Kind,
+		meta.Name, meta.Namespace)
 }
 
 func (c Config) DeepCopy() Config {

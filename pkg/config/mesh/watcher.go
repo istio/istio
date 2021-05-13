@@ -39,6 +39,10 @@ type Watcher interface {
 
 	// AddMeshHandler registers a callback handler for changes to the mesh config.
 	AddMeshHandler(func())
+
+	// HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
+	// mesh config, which takes precedence.
+	HandleUserMeshConfig(string)
 }
 
 var _ Watcher = &InternalWatcher{}
@@ -63,18 +67,29 @@ func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
 
 // NewFileWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
 // if the given file does not exist or failed during parsing.
-func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, error) {
-	meshConfig, err := ReadMeshConfig(filename)
+func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string, multiWatch bool) (Watcher, error) {
+	meshConfigYaml, err := ReadMeshConfigData(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	meshConfig, err := ApplyMeshConfigDefaults(meshConfigYaml)
 	if err != nil {
 		return nil, err
 	}
 
 	w := &InternalWatcher{
-		MeshConfig: meshConfig,
+		MeshConfig:    meshConfig,
+		revMeshConfig: meshConfigYaml,
 	}
 
 	// Watch the config file for changes and reload if it got modified
 	addFileWatcher(fileWatcher, filename, func() {
+		if multiWatch {
+			meshConfig, _ := ReadMeshConfigData(filename)
+			w.HandleMeshConfigData(meshConfig)
+			return
+		}
 		// Reload the config file
 		meshConfig, err = ReadMeshConfig(filename)
 		if err != nil {
@@ -125,17 +140,19 @@ func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
 		mc1, err := ApplyMeshConfig(w.userMeshConfig, mc)
 		if err != nil {
 			log.Errorf("user config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		} else {
+			mc = *mc1
+			log.Infoa("Applied user config: ", spew.Sdump(mc))
 		}
-		mc = *mc1
-		log.Infoa("Applied user config: ", spew.Sdump(mc))
 	}
 	if w.revMeshConfig != "" {
 		mc1, err := ApplyMeshConfig(w.revMeshConfig, mc)
 		if err != nil {
 			log.Errorf("revision config invalid, ignoring it %v %s", err, w.userMeshConfig)
+		} else {
+			mc = *mc1
+			log.Infoa("Applied revision mesh config: ", spew.Sdump(mc))
 		}
-		mc = *mc1
-		log.Infoa("Applied revision mesh config: ", spew.Sdump(mc))
 	}
 	return &mc
 }

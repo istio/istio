@@ -1,14 +1,16 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.2.0"`
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.3.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: backendpolicies.networking.x-k8s.io
 spec:
   group: networking.x-k8s.io
   names:
+    categories:
+    - gateway-api
     kind: BackendPolicy
     listKind: BackendPolicyList
     plural: backendpolicies
@@ -17,7 +19,11 @@ spec:
     singular: backendpolicy
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: BackendPolicy defines policies associated with backends. For
@@ -82,16 +88,19 @@ spec:
                   Support: Extended"
                 properties:
                   certificateAuthorityRef:
-                    description: "CertificateAuthorityRef is a reference to a resource
-                      that includes trusted CA certificates for the associated backends.
-                      If an entry in this list omits or specifies the empty string
-                      for both the group and the resource, the resource defaults to
-                      \"secrets\". An implementation may support other resources (for
-                      example, resource \"mycertificates\" in group \"networking.acme.io\").
-                      \n When stored in a Secret, certificates must be PEM encoded
-                      and specified within the \"ca.crt\" data field of the Secret.
-                      Multiple certificates can be specified, concatenated by new
-                      lines. \n Support: Extended"
+                    description: "CertificateAuthorityRef is a reference to a Kubernetes
+                      object that contains one or more trusted CA certificates. The
+                      CA certificates are used to establish a TLS handshake to backends
+                      listed in BackendRefs. The referenced object MUST reside in
+                      the same namespace as BackendPolicy. \n CertificateAuthorityRef
+                      can reference a standard Kubernetes resource, i.e. ConfigMap,
+                      or an implementation-specific custom resource. \n When stored
+                      in a Secret, certificates must be PEM encoded and specified
+                      within the \"ca.crt\" data field of the Secret. When multiple
+                      certificates are specified, the certificates MUST be concatenated
+                      by new lines. \n CertificateAuthorityRef can also reference
+                      a standard Kubernetes resource, i.e. ConfigMap, or an implementation-specific
+                      custom resource. \n Support: Extended"
                     properties:
                       group:
                         description: Group is the group of the referent.
@@ -217,12 +226,14 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: gatewayclasses.networking.x-k8s.io
 spec:
   group: networking.x-k8s.io
   names:
+    categories:
+    - gateway-api
     kind: GatewayClass
     listKind: GatewayClassList
     plural: gatewayclasses
@@ -235,6 +246,9 @@ spec:
     - jsonPath: .spec.controller
       name: Controller
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -423,12 +437,14 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: gateways.networking.x-k8s.io
 spec:
   group: networking.x-k8s.io
   names:
+    categories:
+    - gateway-api
     kind: Gateway
     listKind: GatewayList
     plural: gateways
@@ -441,6 +457,9 @@ spec:
     - jsonPath: .spec.gatewayClassName
       name: Class
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -762,18 +781,17 @@ spec:
                         for any TLS handshake. \n Support: Core"
                       properties:
                         certificateRef:
-                          description: "CertificateRef is the reference to Kubernetes
-                            object that contain a TLS certificate and private key.
-                            This certificate MUST be used for TLS handshakes for the
-                            domain this GatewayTLSConfig is associated with. \n This
-                            field is required when mode is set to \"Terminate\" (default)
-                            and optional otherwise. \n If an entry in this list omits
-                            or specifies the empty string for both the group and the
-                            resource, the resource defaults to \"secrets\". An implementation
-                            may support other resources (for example, resource \"mycertificates\"
-                            in group \"networking.acme.io\"). \n Support: Core (Kubernetes
-                            Secrets) \n Support: Implementation-specific (Other resource
-                            types)"
+                          description: "CertificateRef is a reference to a Kubernetes
+                            object that contains a TLS certificate and private key.
+                            This certificate is used to establish a TLS handshake
+                            for requests that match the hostname of the associated
+                            listener. The referenced object MUST reside in the same
+                            namespace as Gateway. \n This field is required when mode
+                            is set to \"Terminate\" (default) and optional otherwise.
+                            \n CertificateRef can reference a standard Kubernetes
+                            resource, i.e. Secret, or an implementation-specific custom
+                            resource. \n Support: Core (Kubernetes Secrets) \n Support:
+                            Implementation-specific (Other resource types)"
                           properties:
                             group:
                               description: Group is the group of the referent.
@@ -1107,12 +1125,14 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: httproutes.networking.x-k8s.io
 spec:
   group: networking.x-k8s.io
   names:
+    categories:
+    - gateway-api
     kind: HTTPRoute
     listKind: HTTPRouteList
     plural: httproutes
@@ -1123,6 +1143,9 @@ spec:
     - jsonPath: .spec.hostnames
       name: Hostnames
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -1707,16 +1730,22 @@ spec:
                         how to specify multiple match conditions that should be ANDed
                         together. \n If no matches are specified, the default is a
                         prefix path match on \"/\", which has the effect of matching
-                        every HTTP request. \n A client request may match multiple
-                        HTTP route rules. Matching precedence MUST be determined in
-                        order of the following criteria, continuing on ties: \n *
-                        The longest matching hostname. * The longest matching path.
-                        * The largest number of header matches * The oldest Route
-                        based on creation timestamp. For example, a Route with   a
-                        creation timestamp of \"2020-09-08 01:02:03\" is given precedence
-                        over   a Route with a creation timestamp of \"2020-09-08 01:02:04\".
-                        * The Route appearing first in alphabetical order (namespace/name)
-                        for   example, foo/bar is given precedence over foo/baz."
+                        every HTTP request. \n Each client request MUST map to a maximum
+                        of one route rule. If a request matches multiple rules, matching
+                        precedence MUST be determined in order of the following criteria,
+                        continuing on ties: \n * The longest matching hostname. *
+                        The longest matching path. * The largest number of header
+                        matches. \n If ties still exist across multiple Routes, matching
+                        precedence MUST be determined in order of the following criteria,
+                        continuing on ties: \n * The oldest Route based on creation
+                        timestamp. For example, a Route with   a creation timestamp
+                        of \"2020-09-08 01:02:03\" is given precedence over   a Route
+                        with a creation timestamp of \"2020-09-08 01:02:04\". * The
+                        Route appearing first in alphabetical order by   \"<namespace>/<name>\".
+                        For example, foo/bar is given precedence over   foo/baz. \n
+                        If ties still exist within the Route that has been given precedence,
+                        matching precedence MUST be granted to the first matching
+                        rule meeting the above criteria."
                       items:
                         description: "HTTPRouteMatch defines the predicate used to
                           match requests to a given action. Multiple match types are
@@ -1817,11 +1846,46 @@ spec:
                                 - ImplementationSpecific
                                 type: string
                               value:
+                                default: /
                                 description: Value of the HTTP path to match against.
-                                minLength: 1
                                 type: string
+                            type: object
+                          queryParams:
+                            description: QueryParams specifies a HTTP query parameter
+                              matcher.
+                            properties:
+                              type:
+                                default: Exact
+                                description: "Type specifies how to match against
+                                  the value of the query parameter. \n Support: Extended
+                                  (Exact) \n Support: Custom (RegularExpression, ImplementationSpecific)
+                                  \n Since RegularExpression QueryParamMatchType has
+                                  custom conformance, implementations can support
+                                  POSIX, PCRE or any other dialects of regular expressions.
+                                  Please read the implementation's documentation to
+                                  determine the supported dialect."
+                                enum:
+                                - Exact
+                                - RegularExpression
+                                - ImplementationSpecific
+                                type: string
+                              values:
+                                additionalProperties:
+                                  type: string
+                                description: "Values is a map of HTTP query parameters
+                                  to be matched. It MUST contain at least one entry.
+                                  \n The query parameter name to match is the map
+                                  key, and the value of the query parameter is the
+                                  map value. \n Multiple match values are ANDed together,
+                                  meaning, a request must match all the specified
+                                  query parameters to select the route. \n HTTP query
+                                  parameter matching MUST be case-sensitive for both
+                                  keys and values. (See https://tools.ietf.org/html/rfc7230#section-2.7.3).
+                                  \n Note that the query parameter key MUST always
+                                  be an exact match by string comparison."
+                                type: object
                             required:
-                            - value
+                            - values
                             type: object
                         type: object
                       maxItems: 8
@@ -1844,15 +1908,17 @@ spec:
                   share the same hostname). \n Support: Core"
                 properties:
                   certificateRef:
-                    description: "CertificateRef refers to a Kubernetes object that
-                      contains a TLS certificate and private key. This certificate
-                      MUST be used for TLS handshakes for the domain this RouteTLSConfig
-                      is associated with. If an entry in this list omits or specifies
-                      the empty string for both the group and kind, the resource defaults
-                      to \"secrets\". An implementation may support other resources
-                      (for example, resource \"mycertificates\" in group \"networking.acme.io\").
-                      \n Support: Core (Kubernetes Secrets) \n Support: Implementation-specific
-                      (Other resource types)"
+                    description: "CertificateRef is a reference to a Kubernetes object
+                      that contains a TLS certificate and private key. This certificate
+                      is used to establish a TLS handshake for requests that match
+                      the hostname of the associated HTTPRoute. The referenced object
+                      MUST reside in the same namespace as HTTPRoute. \n This field
+                      is required when the TLS configuration mode of the associated
+                      Gateway listener is set to \"Passthrough\". \n CertificateRef
+                      can reference a standard Kubernetes resource, i.e. Secret, or
+                      an implementation-specific custom resource. \n Support: Core
+                      (Kubernetes Secrets) \n Support: Implementation-specific (Other
+                      resource types)"
                     properties:
                       group:
                         description: Group is the group of the referent.
@@ -1982,6 +2048,15 @@ spec:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
+                        controller:
+                          description: "Controller is a domain/path string that indicates
+                            the controller implementing the Gateway. This corresponds
+                            with the controller field on GatewayClass. \n Example:
+                            \"acme.io/gateway-controller\". \n The format of this
+                            field is DOMAIN \"/\" PATH, where DOMAIN and PATH are
+                            valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                          maxLength: 253
+                          type: string
                         name:
                           description: Name is the name of the referent.
                           maxLength: 253
@@ -2020,19 +2095,25 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: tcproutes.networking.x-k8s.io
 spec:
   group: networking.x-k8s.io
   names:
+    categories:
+    - gateway-api
     kind: TCPRoute
     listKind: TCPRouteList
     plural: tcproutes
     singular: tcproute
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: TCPRoute is the Schema for the TCPRoute resource.
@@ -2194,11 +2275,28 @@ spec:
                       minItems: 1
                       type: array
                     matches:
-                      description: Matches define conditions used for matching the
+                      description: "Matches define conditions used for matching the
                         rule against incoming TCP connections. Each match is independent,
                         i.e. this rule will be matched if **any** one of the matches
-                        is satisfied. If unspecified, all requests from the associated
-                        gateway TCP listener will match.
+                        is satisfied. If unspecified (i.e. empty), this Rule will
+                        match all requests for the associated Listener. \n Each client
+                        request MUST map to a maximum of one route rule. If a request
+                        matches multiple rules, matching precedence MUST be determined
+                        in order of the following criteria, continuing on ties: \n
+                        * The most specific match specified by ExtensionRef. Each
+                        implementation   that supports ExtensionRef may have different
+                        ways of determining the   specificity of the referenced extension.
+                        \n If ties still exist across multiple Routes, matching precedence
+                        MUST be determined in order of the following criteria, continuing
+                        on ties: \n * The oldest Route based on creation timestamp.
+                        For example, a Route with   a creation timestamp of \"2020-09-08
+                        01:02:03\" is given precedence over   a Route with a creation
+                        timestamp of \"2020-09-08 01:02:04\". * The Route appearing
+                        first in alphabetical order by   \"<namespace>/<name>\". For
+                        example, foo/bar is given precedence over   foo/baz. \n If
+                        ties still exist within the Route that has been given precedence,
+                        matching precedence MUST be granted to the first matching
+                        rule meeting the above criteria."
                       items:
                         description: TCPRouteMatch defines the predicate used to match
                           connections to a given action.
@@ -2350,6 +2448,15 @@ spec:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
+                        controller:
+                          description: "Controller is a domain/path string that indicates
+                            the controller implementing the Gateway. This corresponds
+                            with the controller field on GatewayClass. \n Example:
+                            \"acme.io/gateway-controller\". \n The format of this
+                            field is DOMAIN \"/\" PATH, where DOMAIN and PATH are
+                            valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                          maxLength: 253
+                          type: string
                         name:
                           description: Name is the name of the referent.
                           maxLength: 253
@@ -2388,19 +2495,25 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: tlsroutes.networking.x-k8s.io
 spec:
   group: networking.x-k8s.io
   names:
+    categories:
+    - gateway-api
     kind: TLSRoute
     listKind: TLSRouteList
     plural: tlsroutes
     singular: tlsroute
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: "The TLSRoute resource is similar to TCPRoute, but can be configured
@@ -2566,11 +2679,31 @@ spec:
                       minItems: 1
                       type: array
                     matches:
-                      description: Matches define conditions used for matching the
-                        rule against an incoming TLS handshake. Each match is independent,
+                      description: "Matches define conditions used for matching the
+                        rule against incoming TLS connections. Each match is independent,
                         i.e. this rule will be matched if **any** one of the matches
-                        is satisfied. If unspecified, all requests from the associated
-                        gateway TLS listener will match.
+                        is satisfied. If unspecified (i.e. empty), this Rule will
+                        match all requests for the associated Listener. \n Each client
+                        request MUST map to a maximum of one route rule. If a request
+                        matches multiple rules, matching precedence MUST be determined
+                        in order of the following criteria, continuing on ties: \n
+                        * The longest matching SNI. * The longest matching precise
+                        SNI (without a wildcard). This means that   \"b.example.com\"
+                        should be given precedence over \"*.example.com\". * The most
+                        specific match specified by ExtensionRef. Each implementation
+                        \  that supports ExtensionRef may have different ways of determining
+                        the   specificity of the referenced extension. \n If ties
+                        still exist across multiple Routes, matching precedence MUST
+                        be determined in order of the following criteria, continuing
+                        on ties: \n * The oldest Route based on creation timestamp.
+                        For example, a Route with   a creation timestamp of \"2020-09-08
+                        01:02:03\" is given precedence over   a Route with a creation
+                        timestamp of \"2020-09-08 01:02:04\". * The Route appearing
+                        first in alphabetical order by   \"<namespace>/<name>\". For
+                        example, foo/bar is given precedence over   foo/baz. \n If
+                        ties still exist within the Route that has been given precedence,
+                        matching precedence MUST be granted to the first matching
+                        rule meeting the above criteria."
                       items:
                         description: TLSRouteMatch defines the predicate used to match
                           connections to a given action.
@@ -2751,6 +2884,15 @@ spec:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
+                        controller:
+                          description: "Controller is a domain/path string that indicates
+                            the controller implementing the Gateway. This corresponds
+                            with the controller field on GatewayClass. \n Example:
+                            \"acme.io/gateway-controller\". \n The format of this
+                            field is DOMAIN \"/\" PATH, where DOMAIN and PATH are
+                            valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                          maxLength: 253
+                          type: string
                         name:
                           description: Name is the name of the referent.
                           maxLength: 253
@@ -2789,19 +2931,25 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: udproutes.networking.x-k8s.io
 spec:
   group: networking.x-k8s.io
   names:
+    categories:
+    - gateway-api
     kind: UDPRoute
     listKind: UDPRouteList
     plural: udproutes
     singular: udproute
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: UDPRoute is a resource that specifies how a Gateway should forward
@@ -2964,11 +3112,28 @@ spec:
                       minItems: 1
                       type: array
                     matches:
-                      description: Matches define conditions used for matching the
+                      description: "Matches define conditions used for matching the
                         rule against incoming UDP connections. Each match is independent,
                         i.e. this rule will be matched if **any** one of the matches
-                        is satisfied. If unspecified, all requests from the associated
-                        gateway UDP listener will match.
+                        is satisfied. If unspecified (i.e. empty), this Rule will
+                        match all requests for the associated Listener. \n Each client
+                        request MUST map to a maximum of one route rule. If a request
+                        matches multiple rules, matching precedence MUST be determined
+                        in order of the following criteria, continuing on ties: \n
+                        * The most specific match specified by ExtensionRef. Each
+                        implementation   that supports ExtensionRef may have different
+                        ways of determining the   specificity of the referenced extension.
+                        \n If ties still exist across multiple Routes, matching precedence
+                        MUST be determined in order of the following criteria, continuing
+                        on ties: \n * The oldest Route based on creation timestamp.
+                        For example, a Route with   a creation timestamp of \"2020-09-08
+                        01:02:03\" is given precedence over   a Route with a creation
+                        timestamp of \"2020-09-08 01:02:04\". * The Route appearing
+                        first in alphabetical order by   \"<namespace>/<name>\". For
+                        example, foo/bar is given precedence over   foo/baz. \n If
+                        ties still exist within the Route that has been given precedence,
+                        matching precedence MUST be granted to the first matching
+                        rule meeting the above criteria."
                       items:
                         description: UDPRouteMatch defines the predicate used to match
                           packets to a given action.
@@ -3120,6 +3285,15 @@ spec:
                       description: GatewayRef is a reference to a Gateway object that
                         is associated with the route.
                       properties:
+                        controller:
+                          description: "Controller is a domain/path string that indicates
+                            the controller implementing the Gateway. This corresponds
+                            with the controller field on GatewayClass. \n Example:
+                            \"acme.io/gateway-controller\". \n The format of this
+                            field is DOMAIN \"/\" PATH, where DOMAIN and PATH are
+                            valid Kubernetes names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names)."
+                          maxLength: 253
+                          type: string
                         name:
                           description: Name is the name of the referent.
                           maxLength: 253

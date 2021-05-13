@@ -35,13 +35,15 @@ func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
 		IsIPv6:                   proxy.SupportsIPv6(),
 		ProxyType:                proxy.Type,
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
+		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		ProxyIPAddresses:         proxy.IPAddresses,
+		ServiceNode:              proxy.ServiceNode(),
 	}
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {
 		o.ProxyXDSViaAgent = true
 		o.ProxyXDSDebugViaAgent = proxyXDSDebugViaAgent
-		o.DNSCapture = dnsCaptureByAgent
+		o.DNSCapture = DNSCaptureByAgent.Get()
 		o.ProxyNamespace = PodNamespaceVar.Get()
 		o.ProxyDomain = proxy.DNSDomain
 	}

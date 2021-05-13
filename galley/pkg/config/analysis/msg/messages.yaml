@@ -442,8 +442,29 @@ messages:
   - name: "LocalhostListener"
     code: IST0143
     level: Error
-    description: "A port exposed in by a Service is bound to a localhost address"
+    description: "A port exposed in a Service is bound to a localhost address"
     template: "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods."
     args:
       - name: port
+        type: string
+
+  - name: "InvalidApplicationUID"
+    code: IST0144
+    level: Warning
+    description: "Application pods should not run as user ID (UID) 1337"
+    template: "User ID (UID) 1337 is reserved for the sidecar proxy."
+
+  - name: "ConflictingGateways"
+    code: IST0145
+    level: Error
+    description: "Gateway should not have the same selector, port and matched hosts of server"
+    template: "Conflict with gateways %s (workload selector %s, port %s, hosts %v)."
+    args:
+      - name: gateway
+        type: string
+      - name: selector
+        type: string
+      - name: portnumber
+        type: string
+      - name: hosts
         type: string

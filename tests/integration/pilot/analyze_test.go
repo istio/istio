@@ -297,7 +297,7 @@ func TestAllNamespaces(t *testing.T) {
 
 			// If we look at one namespace, we should successfully run and see one message (and not anything from any other namespace)
 			output, _ := istioctlSafe(t, istioCtl, ns1.Name(), true)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound, msg.ConflictingGateways)
 
 			// If we use --all-namespaces, we should successfully run and see a message from each namespace
 			output, _ = istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
@@ -305,15 +305,29 @@ func TestAllNamespaces(t *testing.T) {
 			foundCount := 0
 			for _, line := range output {
 				if strings.Contains(line, ns1.Name()) {
-					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-					foundCount++
+					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						foundCount++
+					}
+					// There are 2 conflictings can be detected, A to B and B to A
+					if strings.Contains(line, msg.ConflictingGateways.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						foundCount++
+					}
 				}
 				if strings.Contains(line, ns2.Name()) {
-					g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
-					foundCount++
+					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						foundCount++
+					}
+					// There are 2 conflictings can be detected, B to A and A to B
+					if strings.Contains(line, msg.ConflictingGateways.Code()) {
+						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						foundCount++
+					}
 				}
 			}
-			g.Expect(foundCount).To(Equal(2))
+			g.Expect(foundCount).To(Equal(6))
 		})
 }
 
@@ -416,7 +430,9 @@ func istioctlWithStderr(t test.Failer, i istioctl.Instance, ns string, useKube b
 	if ns != "" {
 		args = append(args, "--namespace", ns)
 	}
-	args = append(args, fmt.Sprintf("--use-kube=%t", useKube))
+	// Suppress some cluster-wide checks. This ensures we do not fail tests when running on clusters that trigger
+	// analyzers we didn't intended to test.
+	args = append(args, fmt.Sprintf("--use-kube=%t", useKube), "--suppress=IST0139=*", "--suppress=IST0002=CustomResourceDefinition *")
 	args = append(args, extraArgs...)
 
 	return i.Invoke(args)
