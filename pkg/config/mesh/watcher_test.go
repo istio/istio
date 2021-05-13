@@ -119,10 +119,6 @@ func writeFile(t testing.TB, path, content string) {
 	}
 }
 
-func closeSilent(c io.Closer) {
-	_ = c.Close()
-}
-
 func removeSilent(path string) {
 	_ = os.RemoveAll(path)
 }
