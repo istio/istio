@@ -93,7 +93,6 @@ type Multicluster struct {
 }
 
 // NewMulticluster initializes data structure to store multicluster information
-// It also starts the secret controller
 func NewMulticluster(
 	serverID string,
 	kc kubernetes.Interface,
@@ -109,11 +108,6 @@ func NewMulticluster(
 	s server.Instance,
 ) *Multicluster {
 	remoteKubeController := make(map[string]*kubeController)
-	if opts.ResyncPeriod == 0 {
-		// make sure a resync time of 0 wasn't passed in.
-		opts.ResyncPeriod = 30 * time.Second
-		log.Info("Resync time was configured to 0, resetting to 30")
-	}
 	mc := &Multicluster{
 		serverID:              serverID,
 		opts:                  opts,
