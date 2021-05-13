@@ -14,10 +14,10 @@ v1alpha1_protos_mdp := $(wildcard $(v1alpha1_path_mdp)/*.proto)
 v1alpha1_pb_gos_mdp := $(v1alpha1_protos_mdp:.proto=.pb.go)
 v1alpha1_openapi_mdp := $(v1alpha1_protos_mdp:.proto=.json)
 
-$(v1alpha1_pb_gos_mdp): v1alpha1_protos_mdp
+$(v1alpha1_pb_gos_mdp): $(v1alpha1_protos_mdp)
 	@$(protoc_mdp) $(go_plugin_mdp) $^
 	@cp -r ${TMPDIR_mdp}/pkg/* mdp/controller/pkg/
 	@rm -fr ${TMPDIR_mdp}/pkg
 
 .PHONY: mdp-proto v1alpha1_pb_gos_mdp
-mdp-proto: v1alpha1_pb_gos_mdp
+mdp-proto: $(v1alpha1_pb_gos_mdp)

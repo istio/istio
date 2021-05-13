@@ -99,10 +99,10 @@ func NewMDPReconciler(client client.Client, restConfig *rest.Config, mdpConfig *
 // Reconcile reconciles the associated resources.
 // TODO: make this more efficient by using an informer to track restart rather than requeuing requests.
 func (h *MDPReconciler) Reconcile() (*v1alpha1.MDPStatus, error) {
-	targetPct := float32(h.mdpConfig.Spec.NewProxyVersionPct)
-	newVersion := h.mdpConfig.Spec.NewProxyVersion
+	targetPct := h.mdpConfig.Spec.ProxyTargetPct
+	newVersion := h.mdpConfig.Spec.ProxyVersion
 
-	scope.Infof("Old version: %s, new version: %s", h.mdpConfig.Spec.OldProxyVersion, newVersion)
+	scope.Infof("New version: %s", newVersion)
 	resources, err := cluster.GetClusterResources(context.Background(), h.clientSet)
 	if err != nil {
 		return nil, err

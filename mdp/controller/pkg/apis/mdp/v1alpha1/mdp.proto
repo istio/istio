@@ -21,25 +21,18 @@ option go_package = "v1alpha1";
 
 // Spec for the in-cluster MDP upgrade controller.
 message MDPConfigSpec {
-  // true -> enable MDP control of proxies and workload restarts.
-  // false -> MDP is disabled, MCP controls proxy injection and user restarts workloads manually.
-  bool enabled = 1;
+  // Channel that this spec applies to.
+  string channel = 10;
 
-  // Version of MCP running in the cluster.
-  string mcp_version = 5;
-
-  // The old/previous version of the proxy running in the cluster. The balance between old and new
-  // proxies is set by newProxyVersionPct below.
-  string oldProxyVersion = 10;
   // The new/upgrade target version of the proxy in the cluster.
-  string newProxyVersion = 11;
-  // Percent of proxies which should be at newProxyVersion. If 0, all proxies are still at the
-  // old version. If 100, all proxies are at the new version and the old control plane can be
-  // removed (once the rollback window expires).
+  string proxy_version = 20;
+  // Percent of proxies which should be at proxy_version. Only auto-injected proxies belonging
+  // to Deployments and ReplicaSets in the channel above are considered in the calculation.
+  // 0 means that the controller will not auto upgrade any proxy in the cluster.
   // The actual percent may vary depending on quantization due to the total number of proxies.
   // Actual percentage will be rounded down to the nearest value, but never rounded to zero
-  // if newProxyVersionPct > 0.
-  uint32 newProxyVersionPct = 12;
+  // if proxy_target_pct > 0.
+  float proxy_target_pct = 21;
 }
 
 // Status for the MDP controller.
@@ -56,6 +49,14 @@ message MDPStatus {
 
   // The current status of the controller.
   Status status = 1;
+  // Error code, if status is ERROR.
+  int32 error_code = 5;
   // Error message, if status is ERROR.
-  string errorMsg = 2;
+  string error_msg = 6;
+  // The actual percent of proxies at the new version.
+  float proxy_target_version_actual_pct = 10;
+
+  // The generation observed by the MDP controller.
+  int32 observed_generation = 20;
 }
+

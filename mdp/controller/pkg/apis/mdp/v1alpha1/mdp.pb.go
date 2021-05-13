@@ -4,20 +4,18 @@
 package v1alpha1
 
 import (
+	encoding_binary "encoding/binary"
 	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
 	math_bits "math/bits"
-
-	proto "github.com/gogo/protobuf/proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
-var (
-	_ = proto.Marshal
-	_ = fmt.Errorf
-	_ = math.Inf
-)
+var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -28,10 +26,13 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type MDPStatus_Status int32
 
 const (
-	MDPStatus_UNKNOWN     MDPStatus_Status = 0
+	MDPStatus_UNKNOWN MDPStatus_Status = 0
+	// The actual state has not yet reached the declared state.
 	MDPStatus_RECONCILING MDPStatus_Status = 1
-	MDPStatus_READY       MDPStatus_Status = 2
-	MDPStatus_ERROR       MDPStatus_Status = 3
+	// The actual state reflects the declared state.
+	MDPStatus_READY MDPStatus_Status = 2
+	// The controller encountered an error, with further information in the errorMsg field.
+	MDPStatus_ERROR MDPStatus_Status = 3
 )
 
 var MDPStatus_Status_name = map[int32]string{
@@ -56,12 +57,19 @@ func (MDPStatus_Status) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_a088541d02ba6d31, []int{1, 0}
 }
 
+// Spec for the in-cluster MDP upgrade controller.
 type MDPConfigSpec struct {
-	Enabled              bool     `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	McpVersion           string   `protobuf:"bytes,5,opt,name=mcp_version,json=mcpVersion,proto3" json:"mcp_version,omitempty"`
-	OldProxyVersion      string   `protobuf:"bytes,10,opt,name=oldProxyVersion,proto3" json:"oldProxyVersion,omitempty"`
-	NewProxyVersion      string   `protobuf:"bytes,11,opt,name=newProxyVersion,proto3" json:"newProxyVersion,omitempty"`
-	NewProxyVersionPct   uint32   `protobuf:"varint,12,opt,name=newProxyVersionPct,proto3" json:"newProxyVersionPct,omitempty"`
+	// Channel that this spec applies to.
+	Channel string `protobuf:"bytes,10,opt,name=channel,proto3" json:"channel,omitempty"`
+	// The new/upgrade target version of the proxy in the cluster.
+	ProxyVersion string `protobuf:"bytes,20,opt,name=proxy_version,json=proxyVersion,proto3" json:"proxy_version,omitempty"`
+	// Percent of proxies which should be at proxy_version. Only auto-injected proxies belonging
+	// to Deployments and ReplicaSets in the channel above are considered in the calculation.
+	// 0 means that the controller will not auto upgrade any proxy in the cluster.
+	// The actual percent may vary depending on quantization due to the total number of proxies.
+	// Actual percentage will be rounded down to the nearest value, but never rounded to zero
+	// if proxy_target_pct > 0.
+	ProxyTargetPct       float32  `protobuf:"fixed32,21,opt,name=proxy_target_pct,json=proxyTargetPct,proto3" json:"proxy_target_pct,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -73,11 +81,9 @@ func (*MDPConfigSpec) ProtoMessage()    {}
 func (*MDPConfigSpec) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a088541d02ba6d31, []int{0}
 }
-
 func (m *MDPConfigSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-
 func (m *MDPConfigSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_MDPConfigSpec.Marshal(b, m, deterministic)
@@ -90,61 +96,54 @@ func (m *MDPConfigSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return b[:n], nil
 	}
 }
-
 func (m *MDPConfigSpec) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_MDPConfigSpec.Merge(m, src)
 }
-
 func (m *MDPConfigSpec) XXX_Size() int {
 	return m.Size()
 }
-
 func (m *MDPConfigSpec) XXX_DiscardUnknown() {
 	xxx_messageInfo_MDPConfigSpec.DiscardUnknown(m)
 }
 
 var xxx_messageInfo_MDPConfigSpec proto.InternalMessageInfo
 
-func (m *MDPConfigSpec) GetEnabled() bool {
+func (m *MDPConfigSpec) GetChannel() string {
 	if m != nil {
-		return m.Enabled
-	}
-	return false
-}
-
-func (m *MDPConfigSpec) GetMcpVersion() string {
-	if m != nil {
-		return m.McpVersion
+		return m.Channel
 	}
 	return ""
 }
 
-func (m *MDPConfigSpec) GetOldProxyVersion() string {
+func (m *MDPConfigSpec) GetProxyVersion() string {
 	if m != nil {
-		return m.OldProxyVersion
+		return m.ProxyVersion
 	}
 	return ""
 }
 
-func (m *MDPConfigSpec) GetNewProxyVersion() string {
+func (m *MDPConfigSpec) GetProxyTargetPct() float32 {
 	if m != nil {
-		return m.NewProxyVersion
-	}
-	return ""
-}
-
-func (m *MDPConfigSpec) GetNewProxyVersionPct() uint32 {
-	if m != nil {
-		return m.NewProxyVersionPct
+		return m.ProxyTargetPct
 	}
 	return 0
 }
 
+// Status for the MDP controller.
 type MDPStatus struct {
-	Status               MDPStatus_Status `protobuf:"varint,1,opt,name=status,proto3,enum=v1alpha1.MDPStatus_Status" json:"status,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
-	XXX_unrecognized     []byte           `json:"-"`
-	XXX_sizecache        int32            `json:"-"`
+	// The current status of the controller.
+	Status MDPStatus_Status `protobuf:"varint,1,opt,name=status,proto3,enum=v1alpha1.MDPStatus_Status" json:"status,omitempty"`
+	// Error code, if status is ERROR.
+	ErrorCode int32 `protobuf:"varint,5,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	// Error message, if status is ERROR.
+	ErrorMsg string `protobuf:"bytes,6,opt,name=error_msg,json=errorMsg,proto3" json:"error_msg,omitempty"`
+	// The actual percent of proxies at the new version.
+	ProxyTargetVersionActualPct float32 `protobuf:"fixed32,10,opt,name=proxy_target_version_actual_pct,json=proxyTargetVersionActualPct,proto3" json:"proxy_target_version_actual_pct,omitempty"`
+	// The generation observed by the MDP controller.
+	ObservedGeneration   int32    `protobuf:"varint,20,opt,name=observed_generation,json=observedGeneration,proto3" json:"observed_generation,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *MDPStatus) Reset()         { *m = MDPStatus{} }
@@ -153,11 +152,9 @@ func (*MDPStatus) ProtoMessage()    {}
 func (*MDPStatus) Descriptor() ([]byte, []int) {
 	return fileDescriptor_a088541d02ba6d31, []int{1}
 }
-
 func (m *MDPStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-
 func (m *MDPStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
 		return xxx_messageInfo_MDPStatus.Marshal(b, m, deterministic)
@@ -170,15 +167,12 @@ func (m *MDPStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-
 func (m *MDPStatus) XXX_Merge(src proto.Message) {
 	xxx_messageInfo_MDPStatus.Merge(m, src)
 }
-
 func (m *MDPStatus) XXX_Size() int {
 	return m.Size()
 }
-
 func (m *MDPStatus) XXX_DiscardUnknown() {
 	xxx_messageInfo_MDPStatus.DiscardUnknown(m)
 }
@@ -192,6 +186,34 @@ func (m *MDPStatus) GetStatus() MDPStatus_Status {
 	return MDPStatus_UNKNOWN
 }
 
+func (m *MDPStatus) GetErrorCode() int32 {
+	if m != nil {
+		return m.ErrorCode
+	}
+	return 0
+}
+
+func (m *MDPStatus) GetErrorMsg() string {
+	if m != nil {
+		return m.ErrorMsg
+	}
+	return ""
+}
+
+func (m *MDPStatus) GetProxyTargetVersionActualPct() float32 {
+	if m != nil {
+		return m.ProxyTargetVersionActualPct
+	}
+	return 0
+}
+
+func (m *MDPStatus) GetObservedGeneration() int32 {
+	if m != nil {
+		return m.ObservedGeneration
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterEnum("v1alpha1.MDPStatus_Status", MDPStatus_Status_name, MDPStatus_Status_value)
 	proto.RegisterType((*MDPConfigSpec)(nil), "v1alpha1.MDPConfigSpec")
@@ -201,26 +223,30 @@ func init() {
 func init() { proto.RegisterFile("pkg/apis/mdp/v1alpha1/mdp.proto", fileDescriptor_a088541d02ba6d31) }
 
 var fileDescriptor_a088541d02ba6d31 = []byte{
-	// 291 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x2f, 0xc8, 0x4e, 0xd7,
-	0x4f, 0x2c, 0xc8, 0x2c, 0xd6, 0xcf, 0x4d, 0x29, 0xd0, 0x2f, 0x33, 0x4c, 0xcc, 0x29, 0xc8, 0x48,
-	0x34, 0x04, 0x71, 0xf4, 0x0a, 0x8a, 0xf2, 0x4b, 0xf2, 0x85, 0x38, 0x60, 0x62, 0x4a, 0xe7, 0x18,
-	0xb9, 0x78, 0x7d, 0x5d, 0x02, 0x9c, 0xf3, 0xf3, 0xd2, 0x32, 0xd3, 0x83, 0x0b, 0x52, 0x93, 0x85,
-	0x24, 0xb8, 0xd8, 0x53, 0xf3, 0x12, 0x93, 0x72, 0x52, 0x53, 0x24, 0x18, 0x15, 0x18, 0x35, 0x38,
-	0x82, 0x60, 0x5c, 0x21, 0x79, 0x2e, 0xee, 0xdc, 0xe4, 0x82, 0xf8, 0xb2, 0xd4, 0xa2, 0xe2, 0xcc,
-	0xfc, 0x3c, 0x09, 0x56, 0x05, 0x46, 0x0d, 0xce, 0x20, 0xae, 0xdc, 0xe4, 0x82, 0x30, 0x88, 0x88,
-	0x90, 0x06, 0x17, 0x7f, 0x7e, 0x4e, 0x4a, 0x40, 0x51, 0x7e, 0x45, 0x25, 0x54, 0x48, 0x82, 0x0b,
-	0xac, 0x08, 0x5d, 0x18, 0xa4, 0x32, 0x2f, 0xb5, 0x1c, 0x45, 0x25, 0x37, 0x44, 0x25, 0x9a, 0xb0,
-	0x90, 0x1e, 0x97, 0x10, 0x9a, 0x50, 0x40, 0x72, 0x89, 0x04, 0x8f, 0x02, 0xa3, 0x06, 0x6f, 0x10,
-	0x16, 0x19, 0xa5, 0x5a, 0x2e, 0x4e, 0x5f, 0x97, 0x80, 0xe0, 0x92, 0xc4, 0x92, 0xd2, 0x62, 0x21,
-	0x23, 0x2e, 0xb6, 0x62, 0x30, 0x0b, 0xec, 0x15, 0x3e, 0x23, 0x29, 0x3d, 0x98, 0xc7, 0xf5, 0xe0,
-	0x8a, 0xf4, 0x20, 0x54, 0x10, 0x54, 0xa5, 0x92, 0x0d, 0x17, 0x1b, 0x54, 0x37, 0x37, 0x17, 0x7b,
-	0xa8, 0x9f, 0xb7, 0x9f, 0x7f, 0xb8, 0x9f, 0x00, 0x83, 0x10, 0x3f, 0x17, 0x77, 0x90, 0xab, 0xb3,
-	0xbf, 0x9f, 0xb3, 0xa7, 0x8f, 0xa7, 0x9f, 0xbb, 0x00, 0xa3, 0x10, 0x27, 0x17, 0x6b, 0x90, 0xab,
-	0xa3, 0x4b, 0xa4, 0x00, 0x13, 0x88, 0xe9, 0x1a, 0x14, 0xe4, 0x1f, 0x24, 0xc0, 0xec, 0x24, 0x76,
-	0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0x46, 0xc1, 0xc3, 0x39,
-	0x89, 0x0d, 0x1c, 0xf0, 0xc6, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0x70, 0x66, 0x2c, 0x88, 0x9b,
-	0x01, 0x00, 0x00,
+	// 368 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0x91, 0xcd, 0xae, 0xd2, 0x40,
+	0x14, 0xc7, 0x1d, 0x4c, 0x7b, 0x6f, 0xcf, 0xf5, 0x62, 0x33, 0x7e, 0xa4, 0x91, 0x08, 0x0d, 0x6e,
+	0xba, 0x6a, 0x03, 0x6e, 0xdd, 0x60, 0x4b, 0x08, 0x51, 0x4a, 0x33, 0xf8, 0x11, 0xdd, 0x34, 0x43,
+	0x3b, 0x16, 0x22, 0x74, 0x26, 0xd3, 0x81, 0xe0, 0x5b, 0xf9, 0x18, 0x2e, 0x7d, 0x04, 0xc3, 0x93,
+	0x18, 0xa6, 0x2d, 0xd1, 0xd5, 0x9c, 0xf3, 0x3b, 0xff, 0xc5, 0xef, 0xcc, 0x81, 0x81, 0xf8, 0x5e,
+	0x04, 0x54, 0x6c, 0xab, 0x60, 0x9f, 0x8b, 0xe0, 0x38, 0xa2, 0x3b, 0xb1, 0xa1, 0xa3, 0x4b, 0xe3,
+	0x0b, 0xc9, 0x15, 0xc7, 0xb7, 0x2d, 0x1b, 0x9e, 0xe0, 0x7e, 0x11, 0x25, 0x21, 0x2f, 0xbf, 0x6d,
+	0x8b, 0x95, 0x60, 0x19, 0x76, 0xe0, 0x26, 0xdb, 0xd0, 0xb2, 0x64, 0x3b, 0x07, 0x5c, 0xe4, 0x59,
+	0xa4, 0x6d, 0xf1, 0x2b, 0xb8, 0x17, 0x92, 0x9f, 0x7e, 0xa4, 0x47, 0x26, 0xab, 0x2d, 0x2f, 0x9d,
+	0xa7, 0x7a, 0xfe, 0x48, 0xc3, 0x4f, 0x35, 0xc3, 0x1e, 0xd8, 0x75, 0x48, 0x51, 0x59, 0x30, 0x95,
+	0x8a, 0x4c, 0x39, 0xcf, 0x5c, 0xe4, 0x75, 0x48, 0x57, 0xf3, 0x0f, 0x1a, 0x27, 0x99, 0x1a, 0xfe,
+	0xec, 0x80, 0xb5, 0x88, 0x92, 0x95, 0xa2, 0xea, 0x50, 0xe1, 0x31, 0x98, 0x95, 0xae, 0x1c, 0xe4,
+	0x22, 0xaf, 0x3b, 0x7e, 0xe1, 0xb7, 0x8a, 0xfe, 0x35, 0xe4, 0xd7, 0x0f, 0x69, 0x92, 0xf8, 0x25,
+	0x00, 0x93, 0x92, 0xcb, 0x34, 0xe3, 0x39, 0x73, 0x0c, 0x17, 0x79, 0x06, 0xb1, 0x34, 0x09, 0x79,
+	0xce, 0x70, 0x0f, 0xea, 0x26, 0xdd, 0x57, 0x85, 0x63, 0x6a, 0xd7, 0x5b, 0x0d, 0x16, 0x55, 0x81,
+	0x23, 0x18, 0xfc, 0xe7, 0xd9, 0xec, 0x94, 0xd2, 0x4c, 0x1d, 0xe8, 0x4e, 0x6b, 0x83, 0xd6, 0xee,
+	0xfd, 0xa3, 0xdd, 0x2c, 0x39, 0xd1, 0x99, 0x24, 0x53, 0x38, 0x80, 0x27, 0x7c, 0x5d, 0x31, 0x79,
+	0x64, 0x79, 0x5a, 0xb0, 0x92, 0x49, 0xaa, 0xda, 0x8f, 0x31, 0x08, 0x6e, 0x47, 0xb3, 0xeb, 0x64,
+	0xf8, 0x06, 0xcc, 0x66, 0xe1, 0x3b, 0xb8, 0xf9, 0x18, 0xbf, 0x8b, 0x97, 0x9f, 0x63, 0xfb, 0x01,
+	0x7e, 0x0c, 0x77, 0x64, 0x1a, 0x2e, 0xe3, 0x70, 0xfe, 0x7e, 0x1e, 0xcf, 0x6c, 0x84, 0x2d, 0x30,
+	0xc8, 0x74, 0x12, 0x7d, 0xb1, 0x3b, 0x97, 0x72, 0x4a, 0xc8, 0x92, 0xd8, 0x0f, 0xdf, 0x3e, 0xff,
+	0x75, 0xee, 0xa3, 0xdf, 0xe7, 0x3e, 0xfa, 0x73, 0xee, 0xa3, 0xaf, 0xd7, 0x23, 0xae, 0x4d, 0x7d,
+	0xd5, 0xd7, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0x3e, 0xf8, 0x27, 0x92, 0xf8, 0x01, 0x00, 0x00,
 }
 
 func (m *MDPConfigSpec) Marshal() (dAtA []byte, err error) {
@@ -247,41 +273,29 @@ func (m *MDPConfigSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.NewProxyVersionPct != 0 {
-		i = encodeVarintMdp(dAtA, i, uint64(m.NewProxyVersionPct))
+	if m.ProxyTargetPct != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.ProxyTargetPct))))
 		i--
-		dAtA[i] = 0x60
-	}
-	if len(m.NewProxyVersion) > 0 {
-		i -= len(m.NewProxyVersion)
-		copy(dAtA[i:], m.NewProxyVersion)
-		i = encodeVarintMdp(dAtA, i, uint64(len(m.NewProxyVersion)))
+		dAtA[i] = 0x1
 		i--
-		dAtA[i] = 0x5a
+		dAtA[i] = 0xad
 	}
-	if len(m.OldProxyVersion) > 0 {
-		i -= len(m.OldProxyVersion)
-		copy(dAtA[i:], m.OldProxyVersion)
-		i = encodeVarintMdp(dAtA, i, uint64(len(m.OldProxyVersion)))
+	if len(m.ProxyVersion) > 0 {
+		i -= len(m.ProxyVersion)
+		copy(dAtA[i:], m.ProxyVersion)
+		i = encodeVarintMdp(dAtA, i, uint64(len(m.ProxyVersion)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa2
+	}
+	if len(m.Channel) > 0 {
+		i -= len(m.Channel)
+		copy(dAtA[i:], m.Channel)
+		i = encodeVarintMdp(dAtA, i, uint64(len(m.Channel)))
 		i--
 		dAtA[i] = 0x52
-	}
-	if len(m.McpVersion) > 0 {
-		i -= len(m.McpVersion)
-		copy(dAtA[i:], m.McpVersion)
-		i = encodeVarintMdp(dAtA, i, uint64(len(m.McpVersion)))
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.Enabled {
-		i--
-		if m.Enabled {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x8
 	}
 	return len(dAtA) - i, nil
 }
@@ -310,6 +324,31 @@ func (m *MDPStatus) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.ObservedGeneration != 0 {
+		i = encodeVarintMdp(dAtA, i, uint64(m.ObservedGeneration))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa0
+	}
+	if m.ProxyTargetVersionActualPct != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.ProxyTargetVersionActualPct))))
+		i--
+		dAtA[i] = 0x55
+	}
+	if len(m.ErrorMsg) > 0 {
+		i -= len(m.ErrorMsg)
+		copy(dAtA[i:], m.ErrorMsg)
+		i = encodeVarintMdp(dAtA, i, uint64(len(m.ErrorMsg)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.ErrorCode != 0 {
+		i = encodeVarintMdp(dAtA, i, uint64(m.ErrorCode))
+		i--
+		dAtA[i] = 0x28
+	}
 	if m.Status != 0 {
 		i = encodeVarintMdp(dAtA, i, uint64(m.Status))
 		i--
@@ -329,30 +368,22 @@ func encodeVarintMdp(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-
 func (m *MDPConfigSpec) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Enabled {
-		n += 2
-	}
-	l = len(m.McpVersion)
+	l = len(m.Channel)
 	if l > 0 {
 		n += 1 + l + sovMdp(uint64(l))
 	}
-	l = len(m.OldProxyVersion)
+	l = len(m.ProxyVersion)
 	if l > 0 {
-		n += 1 + l + sovMdp(uint64(l))
+		n += 2 + l + sovMdp(uint64(l))
 	}
-	l = len(m.NewProxyVersion)
-	if l > 0 {
-		n += 1 + l + sovMdp(uint64(l))
-	}
-	if m.NewProxyVersionPct != 0 {
-		n += 1 + sovMdp(uint64(m.NewProxyVersionPct))
+	if m.ProxyTargetPct != 0 {
+		n += 6
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -369,6 +400,19 @@ func (m *MDPStatus) Size() (n int) {
 	if m.Status != 0 {
 		n += 1 + sovMdp(uint64(m.Status))
 	}
+	if m.ErrorCode != 0 {
+		n += 1 + sovMdp(uint64(m.ErrorCode))
+	}
+	l = len(m.ErrorMsg)
+	if l > 0 {
+		n += 1 + l + sovMdp(uint64(l))
+	}
+	if m.ProxyTargetVersionActualPct != 0 {
+		n += 5
+	}
+	if m.ObservedGeneration != 0 {
+		n += 2 + sovMdp(uint64(m.ObservedGeneration))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -378,11 +422,9 @@ func (m *MDPStatus) Size() (n int) {
 func sovMdp(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
-
 func sozMdp(x uint64) (n int) {
 	return sovMdp(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-
 func (m *MDPConfigSpec) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -412,61 +454,9 @@ func (m *MDPConfigSpec) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: MDPConfigSpec: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Enabled", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMdp
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Enabled = bool(v != 0)
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field McpVersion", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMdp
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthMdp
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthMdp
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.McpVersion = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
 		case 10:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field OldProxyVersion", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Channel", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -494,11 +484,11 @@ func (m *MDPConfigSpec) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.OldProxyVersion = string(dAtA[iNdEx:postIndex])
+			m.Channel = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 11:
+		case 20:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NewProxyVersion", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ProxyVersion", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -526,27 +516,19 @@ func (m *MDPConfigSpec) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.NewProxyVersion = string(dAtA[iNdEx:postIndex])
+			m.ProxyVersion = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 12:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NewProxyVersionPct", wireType)
+		case 21:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProxyTargetPct", wireType)
 			}
-			m.NewProxyVersionPct = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMdp
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.NewProxyVersionPct |= uint32(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
+			var v uint32
+			if (iNdEx + 4) > l {
+				return io.ErrUnexpectedEOF
 			}
+			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			iNdEx += 4
+			m.ProxyTargetPct = float32(math.Float32frombits(v))
 		default:
 			iNdEx = preIndex
 			skippy, err := skipMdp(dAtA[iNdEx:])
@@ -569,7 +551,6 @@ func (m *MDPConfigSpec) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-
 func (m *MDPStatus) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -618,6 +599,87 @@ func (m *MDPStatus) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorCode", wireType)
+			}
+			m.ErrorCode = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMdp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ErrorCode |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ErrorMsg", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMdp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMdp
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMdp
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ErrorMsg = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 10:
+			if wireType != 5 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ProxyTargetVersionActualPct", wireType)
+			}
+			var v uint32
+			if (iNdEx + 4) > l {
+				return io.ErrUnexpectedEOF
+			}
+			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			iNdEx += 4
+			m.ProxyTargetVersionActualPct = float32(math.Float32frombits(v))
+		case 20:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ObservedGeneration", wireType)
+			}
+			m.ObservedGeneration = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMdp
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ObservedGeneration |= int32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipMdp(dAtA[iNdEx:])
@@ -640,7 +702,6 @@ func (m *MDPStatus) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-
 func skipMdp(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
