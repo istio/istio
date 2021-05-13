@@ -439,13 +439,15 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
 	ctx, done := context.WithCancel(context.Background())
+
+	wait, err := a.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// First signal to terminate, then wait for completion (reverse order semantics).
+	t.Cleanup(wait)
 	t.Cleanup(done)
-	go func() {
-		// Agent start up is a blocking call because it ends in Envoy agent run.
-		if err := a.Run(ctx); err != nil {
-			t.Fatal(err)
-		}
-	}()
+
 	resp.agent = a
 	return &resp
 }

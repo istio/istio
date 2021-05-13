@@ -151,7 +151,12 @@ var (
 			go cmd.WaitSignalFunc(cancel)
 
 			// Start in process SDS, dns server, xds proxy, and Envoy.
-			return agent.Run(ctx)
+			wait, err := agent.Run(ctx)
+			if err != nil {
+				return err
+			}
+			wait()
+			return nil
 		},
 	}
 )

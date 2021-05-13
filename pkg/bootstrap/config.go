@@ -255,9 +255,8 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts, getStatsOptions(node.Metadata)...)
 
-	opts = append(opts, option.NodeMetadata(node.Metadata, node.RawMetadata))
-
 	opts = append(opts,
+		option.NodeMetadata(node.Metadata, node.RawMetadata),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
