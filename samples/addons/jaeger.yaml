@@ -88,7 +88,7 @@ spec:
   ports:
     - port: 9411
       targetPort: 9411
-      name: http-zipkin
+      name: http-query
   selector:
     app: jaeger
 ---
@@ -112,6 +112,6 @@ spec:
     protocol: TCP
   - port: 9411
     targetPort: 9411
-    name: http-zipkin-collect
+    name: http-zipkin
   selector:
     app: jaeger
