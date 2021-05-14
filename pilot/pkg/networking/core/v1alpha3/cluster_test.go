@@ -836,7 +836,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
-			autoDetected,
+			userSupplied,
 		},
 		{
 			"Auto fill nil settings when mTLS nil for internal service in strict mode",
@@ -905,28 +905,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			false, false, model.MTLSDisable,
 			nil,
 			userSupplied,
-		},
-
-		{
-			"TLS nil auto build tls with metadata cert path",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
-				TLSClientCertChain: "/custom/chain.pem",
-				TLSClientKey:       "/custom/key.pem",
-				TLSClientRootCert:  "/custom/root.pem",
-			}},
-			true, false, model.MTLSPermissive,
-			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_MUTUAL,
-				ClientCertificate: "/custom/chain.pem",
-				PrivateKey:        "/custom/key.pem",
-				CaCertificates:    "/custom/root.pem",
-				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
-				Sni:               "foo.com",
-			},
-			autoDetected,
 		},
 	}
 

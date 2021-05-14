@@ -1741,6 +1741,52 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
+			name: "tls mode SIMPLE, with SANs specified in service entries",
+			opts: &buildClusterOpts{
+				mutable:         newTestCluster(),
+				proxy:           &model.Proxy{},
+				serviceAccounts: []string{"se-san.com"},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_SIMPLE,
+				CaCertificates: rootCert,
+				Sni:            "some-sni.com",
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"se-san.com"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: fmt.Sprintf("file-root:%s", rootCert),
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:                   core.ApiConfigSource_GRPC,
+												SetNodeOnFirstMessageOnly: true,
+												TransportApiVersion:       core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										ResourceApiVersion: core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
 			name: "tls mode MUTUAL, with no client certificate",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),

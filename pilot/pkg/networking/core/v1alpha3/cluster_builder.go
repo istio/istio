@@ -761,6 +761,12 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 
+		// Use service accounts in service if TLS settings does not have subject alt names.
+		// This is specially important for Service Entries that specify subject alt names.
+		if len(tls.SubjectAltNames) == 0 {
+			tls.SubjectAltNames = opts.serviceAccounts
+		}
+
 		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
@@ -797,6 +803,11 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
+		}
+		// Use service accounts in service if TLS settings does not have subject alt names.
+		// This is specially important for Service Entries that specify subject alt names.
+		if len(tls.SubjectAltNames) == 0 {
+			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
