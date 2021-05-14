@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	cas "istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/log"
 )
@@ -639,6 +640,13 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
 		caClient, err := gca.NewGoogleCAClient(a.secOpts.CAEndpoint, true, caclient.NewCATokenProvider(a.secOpts))
+		if err != nil {
+			return nil, err
+		}
+		return cache.NewSecretManagerClient(caClient, a.secOpts)
+	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
+		// Use a plugin
+		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint, caclient.NewCATokenProvider(a.secOpts))
 		if err != nil {
 			return nil, err
 		}

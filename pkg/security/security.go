@@ -59,6 +59,9 @@ const (
 
 	// GoogleCAProvider uses the Google CA for workload certificate signing
 	GoogleCAProvider = "GoogleCA"
+
+	// GoogleCASProvider uses the Google certificate Authority Service to sign workload certificates
+	GoogleCASProvider = "GoogleCAS"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
