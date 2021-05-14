@@ -46,7 +46,7 @@ import (
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
-		log.Debug("buildGatewayListeners: no gateways for router ", builder.node.ID)
+		log.Debugf("buildGatewayListeners: no gateways for router %v", builder.node.ID)
 		return builder
 	}
 
@@ -233,7 +233,7 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
 	routeName string) *route.RouteConfiguration {
 	if node.MergedGateway == nil {
-		log.Warnf("buildGatewayRoutes: no gateways for router ", node.ID)
+		log.Warnf("buildGatewayRoutes: no gateways for router %v", node.ID)
 		return &route.RouteConfiguration{
 			Name:             routeName,
 			VirtualHosts:     []*route.VirtualHost{},
