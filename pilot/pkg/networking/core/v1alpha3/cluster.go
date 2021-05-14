@@ -523,6 +523,8 @@ type buildClusterOpts struct {
 	proxy           *model.Proxy
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
+	// Indicates the service registry of the cluster being built.
+	serviceRegistry string
 }
 
 type upgradeTuple struct {

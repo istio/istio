@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -179,6 +180,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
+		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
 	}
 	// Apply traffic policy for the main default cluster.
@@ -774,9 +776,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				CaCertificatePath: tls.CaCertificates,
 			}
 
-			// Use service accounts in service if TLS settings does not have subject alt names.
-			// This is specially important for Service Entries that specify subject alt names.
-			if len(tls.SubjectAltNames) == 0 {
+			// Use service accounts in service if TLS settings does not have subject alt names for service entries.
+			if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
 				tls.SubjectAltNames = opts.serviceAccounts
 			}
 
@@ -815,9 +816,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				return nil, err
 			}
 
-			// Use service accounts in service if TLS settings does not have subject alt names.
-			// This is specially important for Service Entries that specify subject alt names.
-			if len(tls.SubjectAltNames) == 0 {
+			// Use service accounts in service if TLS settings does not have subject alt names for service entries.
+			if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
 				tls.SubjectAltNames = opts.serviceAccounts
 			}
 			// These are certs being mounted from within the pod and specified in Destination Rules.
