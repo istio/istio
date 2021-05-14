@@ -68,7 +68,8 @@ spec:
       port: 80
       protocol: TCP
       targetPort: 16686
-    - name: http2-query
+    # Note: Change port name if you add '--query.grpc.tls.enabled=true'
+    - name: grpc-query
       port: 16685
       protocol: TCP
       targetPort: 16685
@@ -87,7 +88,7 @@ spec:
   ports:
     - port: 9411
       targetPort: 9411
-      name: http-query
+      name: http-zipkin
   selector:
     app: jaeger
 ---
