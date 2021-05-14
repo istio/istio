@@ -162,11 +162,12 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
 	}
+
 	known, err := knownCRDs(ctx, client.Ext())
 	if err != nil {
 		return nil, err
 	}
-	for _, s := range out.schemas.All() {
+	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
 		if _, f := known[name]; f {
@@ -183,6 +184,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 		} else {
 			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			out.schemas = out.schemas.Remove(s)
 		}
 	}
 
