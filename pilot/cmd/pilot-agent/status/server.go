@@ -66,7 +66,7 @@ const (
 
 var (
 	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
-	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("[::6]")}
+	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
 )
 
 var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
