@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
@@ -33,7 +34,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	o := &security.Options{
 		CAEndpoint:                     caEndpointEnv,
 		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              pilotCertProvider,
+		PilotCertProvider:              features.PilotCertProvider.Get(),
 		OutputKeyCertToDir:             outputKeyCertToDir,
 		ProvCert:                       provCert,
 		WorkloadUDSPath:                security.DefaultLocalSDSPath,
