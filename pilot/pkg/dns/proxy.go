@@ -21,11 +21,11 @@ import (
 )
 
 type dnsProxy struct {
-	downstreamMux    *dns.ServeMux
-	downstreamServer *dns.Server
+	serveMux *dns.ServeMux
+	server   *dns.Server
 
 	// This is the upstream Client used to make upstream DNS queries
-	// in case the data is not in our cache.
+	// in case the data is not in our name table.
 	upstreamClient *dns.Client
 	protocol       string
 	resolver       *LocalDNSServer
@@ -33,8 +33,8 @@ type dnsProxy struct {
 
 func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	p := &dnsProxy{
-		downstreamMux:    dns.NewServeMux(),
-		downstreamServer: &dns.Server{},
+		serveMux: dns.NewServeMux(),
+		server:   &dns.Server{},
 		upstreamClient: &dns.Client{
 			Net: protocol,
 		},
@@ -43,12 +43,12 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	}
 
 	var err error
-	p.downstreamMux.Handle(".", p)
-	p.downstreamServer.Handler = p.downstreamMux
+	p.serveMux.Handle(".", p)
+	p.server.Handler = p.serveMux
 	if protocol == "udp" {
-		p.downstreamServer.PacketConn, err = net.ListenPacket("udp", "localhost:15053")
+		p.server.PacketConn, err = net.ListenPacket("udp", "localhost:15053")
 	} else {
-		p.downstreamServer.Listener, err = net.Listen("tcp", "localhost:15053")
+		p.server.Listener, err = net.Listen("tcp", "localhost:15053")
 	}
 	if err != nil {
 		log.Errorf("Failed to listen on %s port 15053: %v", protocol, err)
@@ -59,15 +59,15 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 
 func (p *dnsProxy) start() {
 	log.Infof("Starting local %s DNS server at localhost:15053", p.protocol)
-	err := p.downstreamServer.ActivateAndServe()
+	err := p.server.ActivateAndServe()
 	if err != nil {
 		log.Errorf("Local %s DNS server terminated: %v", p.protocol, err)
 	}
 }
 
 func (p *dnsProxy) close() {
-	if p.downstreamServer != nil {
-		if err := p.downstreamServer.Shutdown(); err != nil {
+	if p.server != nil {
+		if err := p.server.Shutdown(); err != nil {
 			log.Errorf("error in shutting down %s dns downstreamUDPServer :%v", p.protocol, err)
 		}
 	}
