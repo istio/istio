@@ -301,27 +301,53 @@ func getOrCreateServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptio
 
 func createServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) error {
 	// Create a renderer for the base installation.
-	r := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
+	baseRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
+	discoveryRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "istio-control/istio-discovery", "Pilot", opt.Namespace)
 
-	if err := r.Run(); err != nil {
-		return fmt.Errorf("failed running Helm renderer: %v", err)
+	baseTemplates := []string {"reader-serviceaccount.yaml"}
+	discoveryTemplates := []string{"clusterrole.yaml", "clusterrolebinding.yaml"}
+
+	if err := baseRenderer.Run(); err != nil {
+		return fmt.Errorf("failed running base Helm renderer: %w", err)
+	}
+	if err := discoveryRenderer.Run(); err != nil {
+		return fmt.Errorf("failed running base discovery Helm renderer: %w", err)
 	}
 
 	values := fmt.Sprintf(`
 global:
   istioNamespace: %s
-  istiod:
-    enableAnalysis: false
-  configValidation: false
-  externalIstiod: true
-base:
-  enableCRDTemplates: false
 `, opt.Namespace)
 
-	yamlContent, err := r.RenderManifest(values)
+	// Render the templates required for the service account and role bindings.
+	baseContent, err := baseRenderer.RenderManifestFiltered(values, func(template string) bool {
+		for _, t := range baseTemplates {
+			if strings.Contains(template, t) {
+				return true
+			}
+		}
+		return false
+	})
 	if err != nil {
-		return fmt.Errorf("failed rendering base manifest: %v", err)
+		return fmt.Errorf("failed rendering base manifest: %w", err)
 	}
+	discoveryContent, err := discoveryRenderer.RenderManifestFiltered(values, func(template string) bool {
+		for _, t := range discoveryTemplates {
+			if strings.Contains(template, t) {
+				return true
+			}
+		}
+		return false
+	})
+	if err != nil {
+		return fmt.Errorf("failed rendering discovery manifest: %w", err)
+	}
+
+	aggregateContent := fmt.Sprintf(`
+%s
+---
+%s
+`, baseContent, discoveryContent)
 
 	// Before we can apply the yaml, we have to ensure the system namespace exists.
 	if err := createNamespaceIfNotExist(client, opt.Namespace); err != nil {
@@ -329,7 +355,7 @@ base:
 	}
 
 	// Apply the YAML to the cluster.
-	return applyYAML(client, yamlContent, opt.Namespace)
+	return applyYAML(client, aggregateContent, opt.Namespace)
 }
 
 func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
