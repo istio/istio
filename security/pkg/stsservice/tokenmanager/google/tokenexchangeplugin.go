@@ -434,7 +434,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 	} else {
 		tokenExp = exp
 	}
-	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", tokenExp).Infof("fetched access token")
+	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", -time.Since(tokenExp)).Infof("fetched access token")
 	// Update cache and reset cache hit counter.
 	p.tokens.Store(accessToken, stsservice.TokenInfo{
 		TokenType:  accessToken,
