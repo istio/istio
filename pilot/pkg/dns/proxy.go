@@ -37,9 +37,6 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 		server:   &dns.Server{},
 		upstreamClient: &dns.Client{
 			Net: protocol,
-			// Set this true, so that multiple queries for the same Qname, Qtype and Qclass are suppressed and
-			// after first response is received, use the same response for outstanding queries.
-			SingleInflight: true,
 		},
 		protocol: protocol,
 		resolver: resolver,
