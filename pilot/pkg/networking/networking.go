@@ -27,6 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/pkg/log"
 )
@@ -142,6 +143,9 @@ type FilterChain struct {
 	TCP []*listener.Filter
 	// IsFallthrough indicates if the filter chain is fallthrough.
 	IsFallThrough bool
+
+	// PeerAuthenticationMeta is metadata of active PeerAuthentication on the filter chain
+	PeerAuthenticationMeta *config.Meta
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.

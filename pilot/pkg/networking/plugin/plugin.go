@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pkg/config"
 )
 
 const (
@@ -74,4 +75,6 @@ type MTLSSettings struct {
 	TCP *tls.DownstreamTlsContext
 	// HTTP describes the tls context to use for HTTP filter chains
 	HTTP *tls.DownstreamTlsContext
+	// PeerAuthenticationMeta is the metadata of the active PeerAuthentication the MLS from
+	PeerAuthenticationMeta *config.Meta
 }

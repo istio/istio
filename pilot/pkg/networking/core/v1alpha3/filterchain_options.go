@@ -232,5 +232,6 @@ func (opt fcOpts) populateFilterChain(mtls plugin.MTLSSettings, port uint32, mat
 	} else {
 		opt.fc.TLSContext = mtls.TCP
 	}
+	opt.fc.PeerAuthenticationMeta = mtls.PeerAuthenticationMeta
 	return opt
 }

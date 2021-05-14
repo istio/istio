@@ -25,7 +25,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	duration "github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	authn_alpha "istio.io/api/authentication/v1alpha1"
@@ -55,9 +55,14 @@ type v1beta1PolicyApplier struct {
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWTRule
 
-	consolidatedPeerPolicy *v1beta1.PeerAuthentication
+	consolidatedPeerPolicy *peerAuthentication
 
 	push *model.PushContext
+}
+
+type peerAuthentication struct {
+	meta *config.Meta
+	*v1beta1.PeerAuthentication
 }
 
 func (a *v1beta1PolicyApplier) JwtFilter() *http_conn.HttpFilter {
@@ -144,10 +149,11 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return plugin.MTLSSettings{
-		Port: endpointPort,
-		Mode: effectiveMTLSMode,
-		TCP:  authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
-		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
+		Port:                   endpointPort,
+		Mode:                   effectiveMTLSMode,
+		TCP:                    authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP, trustDomainAliases),
+		HTTP:                   authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP, trustDomainAliases),
+		PeerAuthenticationMeta: a.consolidatedPeerPolicy.meta,
 	}
 }
 
@@ -373,7 +379,7 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // - UNSET will be replaced with the setting from the parent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
-func composePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
+func composePeerAuthentication(rootNamespace string, configs []*config.Config) *peerAuthentication {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
 
 	// Initial outputPolicy is set to a PERMISSIVE.
@@ -383,6 +389,7 @@ func composePeerAuthentication(rootNamespace string, configs []*config.Config) *
 		},
 	}
 
+	var outputMeta config.Meta
 	for _, cfg := range configs {
 		spec := cfg.Spec.(*v1beta1.PeerAuthentication)
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
@@ -412,17 +419,20 @@ func composePeerAuthentication(rootNamespace string, configs []*config.Config) *
 	if meshCfg != nil && !isMtlsModeUnset(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If mesh policy is defined, update parent policy to mesh policy.
 		outputPolicy.Mtls = meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
+		outputMeta = meshCfg.Meta
 	}
 
 	if namespaceCfg != nil && !isMtlsModeUnset(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If namespace policy is defined, update output policy to namespace policy. This means namespace
 		// policy overwrite mesh policy.
 		outputPolicy.Mtls = namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
+		outputMeta = namespaceCfg.Meta
 	}
 
 	var workloadPolicy *v1beta1.PeerAuthentication
 	if workloadCfg != nil {
 		workloadPolicy = workloadCfg.Spec.(*v1beta1.PeerAuthentication)
+		outputMeta = workloadCfg.Meta
 	}
 
 	if workloadPolicy != nil && !isMtlsModeUnset(workloadPolicy.Mtls) {
@@ -442,7 +452,12 @@ func composePeerAuthentication(rootNamespace string, configs []*config.Config) *
 		}
 	}
 
-	return &outputPolicy
+	outputPA := peerAuthentication{
+		&outputMeta,
+		&outputPolicy,
+	}
+
+	return &outputPA
 }
 
 func isMtlsModeUnset(mtls *v1beta1.PeerAuthentication_MutualTLS) bool {

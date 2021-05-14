@@ -659,6 +659,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
 			fcOpt.filterChainName = model.VirtualInboundCatchAllHTTPFilterChainName
 		}
+		if opt.fc.PeerAuthenticationMeta != nil {
+			fcOpt.metadata = util.AddConfigInfoMetadata(fcOpt.metadata, *opt.fc.PeerAuthenticationMeta)
+		}
+		fcOpt.filterChain = opt.fc
 		fcOpts = append(fcOpts, fcOpt)
 	}
 	return fcOpts
