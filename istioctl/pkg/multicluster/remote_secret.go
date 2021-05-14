@@ -304,7 +304,7 @@ func createServiceAccount(client kube.ExtendedClient, opt RemoteSecretOptions) e
 	baseRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "base", "Base", opt.Namespace)
 	discoveryRenderer := helm.NewHelmRenderer(opt.ManifestsPath, "istio-control/istio-discovery", "Pilot", opt.Namespace)
 
-	baseTemplates := []string {"reader-serviceaccount.yaml"}
+	baseTemplates := []string{"reader-serviceaccount.yaml"}
 	discoveryTemplates := []string{"clusterrole.yaml", "clusterrolebinding.yaml"}
 
 	if err := baseRenderer.Run(); err != nil {
