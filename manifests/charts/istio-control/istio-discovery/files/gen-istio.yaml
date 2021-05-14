@@ -1067,7 +1067,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-cr-istio-system
+  name: istiod-clusterrole-istio-system
   labels:
     app: istiod
     release: istio
