@@ -906,6 +906,27 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			nil,
 			userSupplied,
 		},
+		{
+			"TLS nil auto build tls with metadata cert path",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
+			}},
+			true, false, model.MTLSPermissive,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/custom/chain.pem",
+				PrivateKey:        "/custom/key.pem",
+				CaCertificates:    "/custom/root.pem",
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+			autoDetected,
+		},
 	}
 
 	for _, tt := range tests {

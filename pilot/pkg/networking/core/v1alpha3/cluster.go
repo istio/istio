@@ -420,14 +420,6 @@ func buildAutoMtlsSettings(
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
-		// For backward compatibility, use metadata certs if provided.
-		if proxy.Metadata.TLSClientRootCert != "" {
-			return buildMutualTLS(tls.SubjectAltNames, tls.Sni, proxy), userSupplied
-		}
-
-		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return tls, userSupplied
-		}
 		// Update TLS settings for ISTIO_MUTUAL.
 		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI.
 		// user specified SNIs in the istio mtls settings are useful when routing via gateways.
@@ -439,11 +431,26 @@ func buildAutoMtlsSettings(
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
+
+		// For backward compatibility, use metadata certs if provided.
+		if proxy.Metadata.TLSClientRootCert != "" {
+			return buildMutualTLS(subjectAltNamesToUse, sniToUse, proxy), userSupplied
+		}
+
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return tls, userSupplied
+		}
+
 		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
 	}
 
 	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
 		return nil, userSupplied
+	}
+
+	// For backward compatibility, use metadata certs if provided.
+	if proxy.Metadata.TLSClientRootCert != "" {
+		return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
 	}
 
 	// Build settings for auto MTLS.
