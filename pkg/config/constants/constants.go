@@ -109,7 +109,7 @@ const (
 	DefaultXdsUdsPath = "./etc/istio/proxy/XDS"
 
 	// DefaultServiceAccountName is the default service account to use for remote cluster access.
-	DefaultServiceAccountName = "istio-reader-service-account"
+	DefaultServiceAccountName = "istio-reader-aggregate"
 
 	// DefaultConfigServiceAccountName is the default service account to use for external Istiod cluster access.
 	DefaultConfigServiceAccountName = "istiod-service-account"

@@ -6027,6 +6027,18 @@ spec:
 ---
 
 ---
+# Source: base/templates/reader-serviceaccount.yaml
+# This service account aggregates the permissions for the revisions in a given cluster
+# Should be used for remote secret creation.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-reader-aggregate
+  namespace: istio-system
+  labels:
+    app: istio-reader
+    release: istio
+---
 # Source: base/templates/serviceaccount.yaml
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 # DO NOT EDIT!

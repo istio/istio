@@ -23,16 +23,6 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-reader
-  namespace: istio-system
-  labels:
-    app: istio-reader
-    release: istio
----
-# Source: istio-discovery/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
   name: istiod
   namespace: istio-system
   labels:
@@ -1070,7 +1060,7 @@ roleRef:
   name: istio-reader-cr-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-reader
+    name: istio-reader-aggregate
     namespace: istio-system
 ---
 # Source: istio-discovery/templates/clusterrolebinding.yaml
