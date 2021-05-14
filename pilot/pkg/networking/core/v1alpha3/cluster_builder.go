@@ -760,13 +760,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-
-		// Use service accounts in service if TLS settings does not have subject alt names.
-		// This is specially important for Service Entries that specify subject alt names.
-		if len(tls.SubjectAltNames) == 0 {
-			tls.SubjectAltNames = opts.serviceAccounts
-		}
-
 		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
@@ -779,6 +772,12 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			// If CredentialName is not set fallback to files specified in DR.
 			res := model.SdsCertificateConfig{
 				CaCertificatePath: tls.CaCertificates,
+			}
+
+			// Use service accounts in service if TLS settings does not have subject alt names.
+			// This is specially important for Service Entries that specify subject alt names.
+			if len(tls.SubjectAltNames) == 0 {
+				tls.SubjectAltNames = opts.serviceAccounts
 			}
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
@@ -804,11 +803,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-		// Use service accounts in service if TLS settings does not have subject alt names.
-		// This is specially important for Service Entries that specify subject alt names.
-		if len(tls.SubjectAltNames) == 0 {
-			tls.SubjectAltNames = opts.serviceAccounts
-		}
 		if tls.CredentialName != "" {
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
@@ -821,6 +815,11 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				return nil, err
 			}
 
+			// Use service accounts in service if TLS settings does not have subject alt names.
+			// This is specially important for Service Entries that specify subject alt names.
+			if len(tls.SubjectAltNames) == 0 {
+				tls.SubjectAltNames = opts.serviceAccounts
+			}
 			// These are certs being mounted from within the pod and specified in Destination Rules.
 			// Rather than reading directly in Envoy, which does not support rotation, we will
 			// serve them over SDS by reading the files.
