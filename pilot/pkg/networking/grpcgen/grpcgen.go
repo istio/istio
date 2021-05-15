@@ -49,8 +49,7 @@ import (
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
 
-type GrpcConfigGenerator struct {
-}
+type GrpcConfigGenerator struct{}
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
 	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
