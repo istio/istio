@@ -51,7 +51,8 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 }
 
 // Generate returns ECDS resources for a given proxy.
-func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
+func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
 	if !ecdsNeedsPush(req) {
 		return nil, nil, nil
 	}

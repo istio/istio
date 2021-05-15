@@ -71,7 +71,8 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
+func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
 	if !cdsNeedsPush(req, proxy) {
 		return nil, nil, nil
 	}
