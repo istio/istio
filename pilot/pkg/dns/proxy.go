@@ -16,6 +16,7 @@ package dns
 
 import (
 	"net"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -36,7 +37,10 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 		serveMux: dns.NewServeMux(),
 		server:   &dns.Server{},
 		upstreamClient: &dns.Client{
-			Net: protocol,
+			Net:          protocol,
+			DialTimeout:  5 * time.Second,
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
 		},
 		protocol: protocol,
 		resolver: resolver,
