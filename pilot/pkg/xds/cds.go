@@ -24,7 +24,6 @@ import (
 )
 
 type CdsGenerator struct {
-	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
@@ -72,9 +71,9 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
+func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
 	if !cdsNeedsPush(req, proxy) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)
 	resources := model.Resources{}
@@ -84,5 +83,5 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 			Resource: util.MessageToAny(c),
 		})
 	}
-	return resources, nil
+	return resources, nil, nil
 }

@@ -101,22 +101,22 @@ func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResour
 	return nil
 }
 
-func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
+func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil, nil
+		return nil, nil, nil
 	}
 	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
 		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
 		log.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
-		return nil, nil
+		return nil, nil, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
 	if !req.Full {
@@ -177,15 +177,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			}
 		}
 	}
-	log.Infof("SDS: PUSH for node:%s resources:%d size:%s cached:%v/%v",
-		proxy.ID, len(results), util.ByteCount(ResourceSize(results)), cached, cached+regenerated)
-	return results, nil
-}
-
-var secretGenMetadata = &model.GeneratorMetadata{LogsDetails: true}
-
-func (s *SecretGen) Metadata() *model.GeneratorMetadata {
-	return secretGenMetadata
+	return results, &model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {

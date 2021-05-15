@@ -50,21 +50,20 @@ import (
 // this is used for the API-based LDS and generic messages.
 
 type GrpcConfigGenerator struct {
-	model.BaseGenerator
 }
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
-	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
 	switch w.TypeUrl {
 	case v3.ListenerType:
-		return g.BuildListeners(proxy, push, w.ResourceNames), nil
+		return g.BuildListeners(proxy, push, w.ResourceNames), nil, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), nil
+		return g.BuildClusters(proxy, push, w.ResourceNames), nil, nil
 	case v3.RouteType:
-		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), nil
+		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), nil, nil
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 // handleLDSApiType handles a LDS request, returning listeners of ApiListener type.

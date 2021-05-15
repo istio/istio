@@ -164,7 +164,7 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
-// Request is an alias for array of marshaled resources.
+// Resources is an alias for array of marshaled resources.
 type Resources = []*discovery.Resource
 
 func AnyToUnnamedResources(r []*any.Any) Resources {
@@ -187,10 +187,11 @@ func ResourcesToAny(r Resources) []*any.Any {
 // See for example EDS incremental updates.
 type XdsUpdates = map[ConfigKey]struct{}
 
-// GeneratorMetadata has information about generator it self that processors like ads/delta can use.
-type GeneratorMetadata struct {
-	// LogsDetails indicates whether the generator logs details during the generation.
-	LogsDetails bool
+// XdsLogDetails contains additional metadata that is captured by Generators and used by xds processors
+// like Ads and Delta to uniformly log.
+type XdsLogDetails struct {
+	Incremental    bool
+	AdditionalInfo string
 }
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
@@ -200,17 +201,7 @@ type GeneratorMetadata struct {
 // Note: any errors returned will completely close the XDS stream. Use with caution; typically and empty
 // or no response is preferred.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
-	Metadata() *GeneratorMetadata
-}
-
-// BaseGenerator is the base generator.
-type BaseGenerator struct{}
-
-var baseMetadata = &GeneratorMetadata{false}
-
-func (bg *BaseGenerator) Metadata() *GeneratorMetadata {
-	return baseMetadata
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, *XdsLogDetails, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,

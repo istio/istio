@@ -30,14 +30,13 @@ import (
 
 // Bootstrap generator produces an Envoy bootstrap from node descriptors.
 type BootstrapGenerator struct {
-	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
 var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
-func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, _ *model.WatchedResource, _ *model.PushRequest) (model.Resources, error) {
+func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, _ *model.WatchedResource, _ *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ConvertXDSNodeToNode(proxy.XdsNode)
 
@@ -47,7 +46,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, 
 		Node: node,
 	}).WriteTo(templateFile, io.Writer(&buf))
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate bootstrap config: %v", err)
+		return nil, nil, fmt.Errorf("failed to generate bootstrap config: %v", err)
 	}
 
 	bs := &bootstrapv3.Bootstrap{}
@@ -58,5 +57,5 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, 
 		&discovery.Resource{
 			Resource: util.MessageToAny(bs),
 		},
-	}, nil
+	}, nil, nil
 }
