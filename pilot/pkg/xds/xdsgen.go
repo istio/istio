@@ -126,19 +126,19 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	ptype := "PUSH"
 	info := ""
-	if logdata != nil {
-		if logdata.Incremental {
-			ptype = "PUSH INC"
-		}
-		info = logdata.AdditionalInfo
+	if logdata.Incremental {
+		ptype = "PUSH INC"
+	}
+	if len(info) > 0 {
+		info = " " + logdata.AdditionalInfo
 	}
 
 	if log.DebugEnabled() {
 		// Add additional information to logs when debug mode enabled
-		log.Infof("%s: %s%s for node:%s resources:%d size:%s nonce:%v version:%v %s",
+		log.Infof("%s: %s%s for node:%s resources:%d size:%s nonce:%v version:%v%s",
 			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), resp.Nonce, resp.VersionInfo, info)
 	} else {
-		log.Infof("%s: %s%s for node:%s resources:%d size:%s %s",
+		log.Infof("%s: %s%s for node:%s resources:%d size:%s%s",
 			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
 	}
 

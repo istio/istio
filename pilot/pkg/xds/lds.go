@@ -57,9 +57,9 @@ func ldsNeedsPush(req *model.PushRequest) bool {
 }
 
 func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, *model.XdsLogDetails, error) {
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !ldsNeedsPush(req) {
-		return nil, nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, push)
 	resources := model.Resources{}
@@ -69,5 +69,5 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 			Resource: util.MessageToAny(c),
 		})
 	}
-	return resources, nil, nil
+	return resources, model.DefaultXdsLogDetails, nil
 }
