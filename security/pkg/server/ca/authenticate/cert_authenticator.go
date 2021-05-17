@@ -16,6 +16,7 @@ package authenticate
 
 import (
 	"fmt"
+	"net/http"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
@@ -54,6 +55,29 @@ func (cca *ClientCertAuthenticator) Authenticate(ctx context.Context) (*security
 
 	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
 	chains := tlsInfo.State.VerifiedChains
+	if len(chains) == 0 || len(chains[0]) == 0 {
+		return nil, fmt.Errorf("no verified chain is found")
+	}
+
+	ids, err := util.ExtractIDs(chains[0][0].Extensions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &security.Caller{
+		AuthSource: security.AuthSourceClientCertificate,
+		Identities: ids,
+	}, nil
+}
+
+// AuthenticateRequest performs mTLS authentication for http requests. Requires having the endpoints on a listener
+// with proper TLS configuration.
+func (cca *ClientCertAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+	if req.TLS == nil || req.TLS.VerifiedChains == nil {
+		return nil, fmt.Errorf("no client certificate is presented")
+	}
+
+	chains := req.TLS.VerifiedChains
 	if len(chains) == 0 || len(chains[0]) == 0 {
 		return nil, fmt.Errorf("no verified chain is found")
 	}
