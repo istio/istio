@@ -63,6 +63,8 @@ type Agent struct {
 
 	// time to allow for the proxy to drain before terminating all remaining proxy processes
 	terminationDrainDuration time.Duration
+
+	proxyDraining bool
 }
 
 type exitStatus struct {
@@ -93,12 +95,17 @@ func (a *Agent) Run(ctx context.Context) {
 	}
 }
 
+func (a *Agent) IsProxyDraining() bool {
+	return a.proxyDraining
+}
+
 func (a *Agent) terminate() {
 	log.Infof("Agent draining Proxy")
 	e := a.proxy.Drain()
 	if e != nil {
 		log.Warnf("Error in invoking drain listeners endpoint %v", e)
 	}
+	a.proxyDraining = true
 	log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
 	time.Sleep(a.terminationDrainDuration)
 	log.Infof("Graceful termination period complete, terminating remaining proxies.")

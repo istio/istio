@@ -30,6 +30,7 @@ type Probe struct {
 	receivedFirstUpdate bool
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
 	atleastOnceReady bool
+	ProxyDraining    func() bool
 }
 
 type Prober interface {
@@ -77,7 +78,9 @@ func (p *Probe) isEnvoyReady() error {
 	// does not use both of them, it is safe to cache this value. Since the
 	// actual readiness probe goes via Envoy it ensures that Envoy is actively
 	// serving traffic and we can rely on that.
-	if p.atleastOnceReady {
+	// If proxy is draining, we can can rely on the cached ready state. We should
+	// reevaluate stats.
+	if !p.ProxyDraining() && p.atleastOnceReady {
 		return nil
 	}
 
