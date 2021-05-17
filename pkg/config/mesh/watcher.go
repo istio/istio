@@ -86,7 +86,11 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string, multiW
 	// Watch the config file for changes and reload if it got modified
 	addFileWatcher(fileWatcher, filename, func() {
 		if multiWatch {
-			meshConfig, _ := ReadMeshConfigData(filename)
+			meshConfig, err := ReadMeshConfigData(filename)
+			if err != nil {
+				log.Warnf("failed to read mesh configuration, using default: %v", err)
+				return
+			}
 			w.HandleMeshConfigData(meshConfig)
 			return
 		}
