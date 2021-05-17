@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	istioagent "istio.io/istio/pkg/istio-agent"
 )
@@ -38,6 +39,9 @@ func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
 		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		ProxyIPAddresses:         proxy.IPAddresses,
 		ServiceNode:              proxy.ServiceNode(),
+		EnvoyStatusPort:          15021,
+		EnvoyPrometheusPort:      15090,
+		Platform:                 platform.Discover(),
 	}
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {

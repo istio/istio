@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
@@ -109,6 +110,9 @@ type Agent struct {
 
 	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
 	localDNSServer *dns.LocalDNSServer
+
+	// Signals true completion (e.g. with delayed graceful termination of Envoy)
+	wg sync.WaitGroup
 }
 
 // AgentOptions contains additional config for the agent, not included in ProxyConfig.
@@ -161,6 +165,17 @@ type AgentOptions struct {
 
 	// Enables dynamic generation of bootstrap.
 	EnableDynamicBootstrap bool
+
+	// Envoy status port (that circles back to the agent status port). Really belongs to the proxy config.
+	// Cannot be eradicated because mistakes have been made.
+	EnvoyStatusPort int
+
+	// Envoy prometheus port that circles back to its admin port for prom endpoint. Really belongs to the
+	// proxy config.
+	EnvoyPrometheusPort int
+
+	// Cloud platform
+	Platform platform.Environment
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -198,7 +213,7 @@ func (a *Agent) initializeEnvoyAgent() error {
 	node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
 		Envs:                os.Environ(),
-		Platform:            platform.Discover(),
+		Platform:            a.cfg.Platform,
 		InstanceIPs:         a.cfg.ProxyIPAddresses,
 		StsPort:             a.secOpts.STSPort,
 		ProxyConfig:         a.proxyConfig,
@@ -206,6 +221,8 @@ func (a *Agent) initializeEnvoyAgent() error {
 		PilotSubjectAltName: pilotSAN,
 		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
 		ProvCert:            provCert,
+		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
+		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
@@ -229,7 +246,7 @@ func (a *Agent) initializeEnvoyAgent() error {
 		a.envoyOpts.ConfigCleanup = true
 	}
 
-	// Back-fill envoy options form proxy config options
+	// Back-fill envoy options from proxy config options
 	a.envoyOpts.BinaryPath = a.proxyConfig.BinaryPath
 	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
@@ -331,29 +348,31 @@ func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.B
 //    For example Google CA
 //
 // 2. Indirect, using istiod: using K8S cert.
-func (a *Agent) Run(ctx context.Context) error {
+//
+// This is a non-blocking call which returns either an error or a function to await for completion.
+func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
-		return fmt.Errorf("failed to start workload secret manager %v", err)
+		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 
 	if err = a.initLocalDNSServer(); err != nil {
-		return fmt.Errorf("failed to start local DNS server: %v", err)
+		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
 	if a.cfg.ProxyXDSViaAgent {
 		a.xdsProxy, err = initXdsProxy(a)
 		if err != nil {
-			return fmt.Errorf("failed to start xds proxy: %v", err)
+			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
 		}
 		if a.cfg.ProxyXDSDebugViaAgent {
 			err = a.xdsProxy.initDebugInterface()
 			if err != nil {
-				return fmt.Errorf("failed to start istio tap server: %v", err)
+				return nil, fmt.Errorf("failed to start istio tap server: %v", err)
 			}
 		}
 	}
@@ -361,29 +380,35 @@ func (a *Agent) Run(ctx context.Context) error {
 	if !a.envoyOpts.TestOnly {
 		err = a.initializeEnvoyAgent()
 		if err != nil {
-			return fmt.Errorf("failed to start envoy agent: %v", err)
+			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
 		}
 
-		// This is a blocking call for graceful termination.
-		if a.cfg.EnableDynamicBootstrap {
-			start := time.Now()
-			var err error
-			select {
-			case err = <-a.envoyWaitCh:
-			case <-ctx.Done():
-				// Early cancellation before envoy started.
-				return nil
-			}
-			if err != nil {
-				return fmt.Errorf("failed to write updated envoy bootstrap: %v", err)
-			}
-			log.Infof("received server-side bootstrap in %v", time.Since(start))
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
 
-		}
-		a.envoyAgent.Run(ctx)
+			if a.cfg.EnableDynamicBootstrap {
+				start := time.Now()
+				var err error
+				select {
+				case err = <-a.envoyWaitCh:
+				case <-ctx.Done():
+					// Early cancellation before envoy started.
+					return
+				}
+				if err != nil {
+					log.Errorf("failed to write updated envoy bootstrap: %v", err)
+					return
+				}
+				log.Infof("received server-side bootstrap in %v", time.Since(start))
+			}
+
+			// This is a blocking call for graceful termination.
+			a.envoyAgent.Run(ctx)
+		}()
 	}
 
-	return nil
+	return a.wg.Wait, nil
 }
 
 func (a *Agent) initLocalDNSServer() (err error) {
