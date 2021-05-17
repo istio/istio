@@ -44,6 +44,18 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 }
 
+func TestEnvoyDraining(t *testing.T) {
+	g := NewWithT(t)
+
+	server := testserver.CreateAndStartServer(liveServerStats)
+	defer server.Close()
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: func() bool { return true }}
+
+	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
 func TestEnvoyStats(t *testing.T) {
 	prefix := "config not received from Pilot (is Pilot running?): "
 	cases := []struct {
