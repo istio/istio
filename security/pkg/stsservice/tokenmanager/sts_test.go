@@ -245,7 +245,7 @@ func sendHTTPRequestWithRetry(client *http.Client, req *http.Request) (resp *htt
 	for i := 0; i < 10; i++ {
 		resp, err = client.Do(req)
 		if err == nil {
-			return resp, err
+			return resp, nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
