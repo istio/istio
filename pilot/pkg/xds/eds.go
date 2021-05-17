@@ -301,7 +301,13 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if b.MultiNetworkConfigured() {
 		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
-
+	if model.IsDNSSrvSubsetKey(b.clusterName) {
+		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
+		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
+		// request is a valid mTLS request or not, since its passthrough TLS.
+		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
+		llbOpts = b.EndpointsWithMTLSFilter(llbOpts)
+	}
 	llbOpts = b.ApplyTunnelSetting(llbOpts, b.tunnelType)
 
 	l := b.createClusterLoadAssignment(llbOpts)
@@ -358,7 +364,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	if !req.Full {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
-	resources := make([]*any.Any, 0)
+	resources := make(model.Resources, 0)
 	empty := 0
 
 	cached := 0
@@ -387,7 +393,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			if len(l.Endpoints) == 0 {
 				empty++
 			}
-			resource := util.MessageToAny(l)
+			resource := &discovery.Resource{
+				Name:     l.ClusterName,
+				Resource: util.MessageToAny(l),
+			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, token, resource)
 		}
@@ -400,6 +409,12 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
 	}
 	return resources, nil
+}
+
+var edsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
+
+func (eds *EdsGenerator) Metadata() *model.GeneratorMetadata {
+	return edsGeneratorMetadata
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

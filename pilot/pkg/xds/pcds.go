@@ -15,6 +15,8 @@
 package xds
 
 import (
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -24,6 +26,7 @@ import (
 
 // ProxyConfigGenerator generates proxy configuration for proxies to consume
 type PcdsGenerator struct {
+	model.BaseGenerator
 	Server      *DiscoveryServer
 	TrustBundle *tb.TrustBundle
 }
@@ -63,5 +66,5 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	pc := &mesh.ProxyConfig{
 		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}
-	return model.Resources{gogo.MessageToAny(pc)}, nil
+	return model.Resources{&discovery.Resource{Resource: gogo.MessageToAny(pc)}}, nil
 }

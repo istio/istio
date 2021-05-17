@@ -173,8 +173,6 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		_ = w.WriteMsg(response)
 		return
 	}
-	// we expect only one question in the query even though the spec allows many
-	// clients usually do not do more than one query either.
 
 	lp := h.lookupTable.Load()
 	hostname := strings.ToLower(req.Question[0].Name)
@@ -189,7 +187,9 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	lookupTable := lp.(*LookupTable)
 	var answers []dns.RR
 
-	// This name will always end in a dot
+	// This name will always end in a dot.
+	// We expect only one question in the query even though the spec allows many
+	// clients usually do not do more than one query either.
 	answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
 
 	if hostFound {
@@ -206,19 +206,13 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		// This matches standard kube-dns behavior. We only do this for cached responses as the
 		// upstream DNS server would already round robin if desired.
 		roundRobinResponse(response)
-		// Truncate response if its too big for the request. In practice, this will only happen with
-		// ~28 headless service replicas. When there are more than that clients need to use eDNS or
-		// TCP (almost every client does this transparently).
-		// In other cases, this is a NOP.
-		response.Truncate(size(proxy.protocol, req))
 		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
-		_ = w.WriteMsg(response)
-		return
+	} else {
+		// We did not find the host in our internal cache. Query upstream and return the response as is.
+		log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
+		response = h.queryUpstream(proxy.upstreamClient, req, log)
+		log.Debugf("upstream response for hostname %q : %v", hostname, response)
 	}
-
-	// We did not find the host in our internal cache. Query upstream and return the response as is.
-	log.Debugf("response for hostname %q (found=false): %v", hostname, response)
-	response = h.queryUpstream(proxy.upstreamClient, req, log)
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits

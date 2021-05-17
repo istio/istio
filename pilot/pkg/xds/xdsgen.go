@@ -29,8 +29,6 @@ import (
 	istioversion "istio.io/pkg/version"
 )
 
-// gen2 provides experimental support for extended generation mechanism.
-
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
 type IstioControlPlaneInstance struct {
 	// The Istio component type (e.g. "istiod")
@@ -60,11 +58,6 @@ func init() {
 		log.Warnf("XDS: Could not serialize control plane id: %v", err)
 	}
 	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
-}
-
-var SkipLogTypes = map[string]struct{}{
-	v3.EndpointType: {},
-	v3.SecretType:   {},
 }
 
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
@@ -120,7 +113,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		TypeUrl:      w.TypeUrl,
 		VersionInfo:  currentVersion,
 		Nonce:        nonce(push.LedgerVersion),
-		Resources:    res,
+		Resources:    model.ResourcesToAny(res),
 	}
 
 	configSize := ResourceSize(res)
@@ -132,7 +125,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	}
 
 	// Some types handle logs inside Generate, skip them here
-	if _, f := SkipLogTypes[w.TypeUrl]; !f {
+	if !gen.Metadata().LogsDetails {
 		if log.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled
 			log.Infof("%s: PUSH%s for node:%s resources:%d size:%s nonce:%v version:%v",
@@ -151,7 +144,7 @@ func ResourceSize(r model.Resources) int {
 	// proto.Size, at the expense of slightly under counting.
 	size := 0
 	for _, r := range r {
-		size += len(r.Value)
+		size += len(r.Resource.Value)
 	}
 	return size
 }

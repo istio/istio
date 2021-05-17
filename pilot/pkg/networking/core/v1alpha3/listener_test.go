@@ -1098,6 +1098,10 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 		t.Fatalf("failed to get HCM, config %v", hcm)
 	}
 
+	if hcm.DelayedCloseTimeout.AsDuration() != features.DelayedCloseTimeout.AsDuration() {
+		t.Fatalf("unexpected delayed close timeout expected :%v, got :%v", features.DelayedCloseTimeout, hcm.DelayedCloseTimeout)
+	}
+
 	hasAlpn := hasAlpnFilter(hcm.HttpFilters)
 
 	if direction == model.TrafficDirectionInbound && hasAlpn {
@@ -1528,7 +1532,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	listeners := buildAllListeners(p, env, nil)
 	found := false
 	for _, l := range listeners {
-		if l.Name == VirtualOutboundListenerName {
+		if l.Name == model.VirtualOutboundListenerName {
 			fc := &tcp.TcpProxy{}
 			if err := getFilterConfig(l.FilterChains[1].Filters[0], fc); err != nil {
 				t.Fatalf("failed to get TCP Proxy config: %s", err)
@@ -1553,7 +1557,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	// Validate that access log filter uses the new format.
 	listeners = buildAllListeners(p, env, nil)
 	for _, l := range listeners {
-		if l.Name == VirtualOutboundListenerName {
+		if l.Name == model.VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
 		}
 	}

@@ -31,6 +31,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -72,38 +73,6 @@ const (
 )
 
 const (
-	// RDSHttpProxy is the special name for HTTP PROXY route
-	RDSHttpProxy = "http_proxy"
-
-	// VirtualOutboundListenerName is the name for traffic capture listener
-	VirtualOutboundListenerName = "virtualOutbound"
-
-	// VirtualOutboundCatchAllTCPFilterChainName is the name of the catch all tcp filter chain
-	VirtualOutboundCatchAllTCPFilterChainName = "virtualOutbound-catchall-tcp"
-
-	// VirtualOutboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
-	VirtualOutboundBlackholeFilterChainName = "virtualOutbound-blackhole"
-	// VirtualInboundCatchAllTCPFilterChainName is the name of the filter chain to blackhole undesired traffic
-	VirtualInboundBlackholeFilterChainName = "virtualInbound-blackhole"
-
-	// VirtualInboundListenerName is the name for traffic capture listener
-	VirtualInboundListenerName = "virtualInbound"
-
-	// virtualInboundCatchAllHTTPFilterChainName is the name of the catch all http filter chain
-	virtualInboundCatchAllHTTPFilterChainName = "virtualInbound-catchall-http"
-
-	// WildcardAddress binds to all IP addresses
-	WildcardAddress = "0.0.0.0"
-
-	// WildcardIPv6Address binds to all IPv6 addresses
-	WildcardIPv6Address = "::"
-
-	// LocalhostAddress for local binding
-	LocalhostAddress = "127.0.0.1"
-
-	// LocalhostIPv6Address for local binding
-	LocalhostIPv6Address = "::1"
-
 	// ProxyInboundListenPort is the port on which all inbound traffic to the pod/vm will be captured to
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
@@ -167,7 +136,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 
 	sidecarScope := node.SidecarScope
 	noneMode := node.GetInterceptionMode() == model.InterceptionNone
-	// No user supplied sidecar scope or the user supplied one has no ingress listeners
+	// No user supplied sidecar scope or the user supplied one has no ingress listeners.
 	if !sidecarScope.HasIngressListener() {
 		// Construct inbound listeners in the usual way by looking at the ports of the service instances
 		// attached to the proxy
@@ -196,24 +165,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 		//              Address:Port 172.16.0.1:3333
 		//              ServicePort 9999|Unknown
 		//
-		//	The pilot will generate three listeners, the last one will use protocol sniffing.
+		//	Pilot will generate three listeners, the last one will use protocol sniffing.
 		//
 		for _, instance := range node.ServiceInstances {
 			endpoint := instance.Endpoint
 			// Inbound listeners will be aggregated into a single virtual listener (port 15006)
 			// As a result, we don't need to worry about binding to the endpoint IP; we already know
 			// all traffic for these listeners is inbound.
-			// TODO: directly build filter chains rather than translating listeneners to filter chains
+			// TODO: directly build filter chains rather than translating listeners to filter chains
 			wildcard, _ := getActualWildcardAndLocalHost(node)
 			bind := wildcard
 
-			// Local service instances can be accessed through one of three
-			// addresses: localhost, endpoint IP, and service
-			// VIP. Localhost bypasses the proxy and doesn't need any TCP
-			// route config. Endpoint IP is handled below and Service IP is handled
-			// by outbound routes.
-			// Traffic sent to our service VIP is redirected by remote
-			// services' kubeproxy to our specific endpoint IP.
+			// Local service instances can be accessed through one of three addresses: localhost, endpoint IP,
+			// and service VIP. Localhost bypasses the proxy and doesn't need any TCP route config. Endpoint IP
+			// is handled below and Service IP is handled by outbound routes. Traffic sent to our service VIP is
+			// redirected by remote services' kubeproxy to our specific endpoint IP.
 			port := *instance.ServicePort
 			port.Port = int(endpoint.EndpointPort)
 			listenerOpts := buildListenerOpts{
@@ -236,7 +202,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			}
 		}
 		return listeners
-
 	}
 
 	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
@@ -316,7 +281,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 				Uri:     true,
 				Dns:     true,
 			},
-			ServerName: EnvoyServerName,
+			ServerName:          EnvoyServerName,
+			DelayedCloseTimeout: features.DelayedCloseTimeout,
 		},
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
@@ -696,7 +662,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 		port:  &model.Port{Port: int(httpProxyPort)},
 		filterChainOpts: []*filterChainOpts{{
 			httpOpts: &httpListenerOpts{
-				rds:              RDSHttpProxy,
+				rds:              model.RDSHttpProxy,
 				useRemoteAddress: false,
 				connectionManager: &hcm.HttpConnectionManager{
 					HttpProtocolOptions: httpOpts,
@@ -1285,7 +1251,24 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
-	connectionManager.NormalizePath = proto.BoolTrue
+	connectionManager.DelayedCloseTimeout = features.DelayedCloseTimeout
+
+	// Setup normalization
+	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
+	switch listenerOpts.push.Mesh.GetPathNormalization().GetNormalization() {
+	case meshconfig.MeshConfig_ProxyPathNormalization_NONE:
+		connectionManager.NormalizePath = proto.BoolFalse
+	case meshconfig.MeshConfig_ProxyPathNormalization_BASE, meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT:
+		connectionManager.NormalizePath = proto.BoolTrue
+	case meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+	case meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
+	}
+
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
 	} else {
@@ -1544,34 +1527,6 @@ func (ml *MutableListener) build(opts buildListenerOpts) error {
 	}
 
 	return nil
-}
-
-// getActualWildcardAndLocalHost will return corresponding Wildcard and LocalHost
-// depending on value of proxy's IPAddresses.
-func getActualWildcardAndLocalHost(node *model.Proxy) (string, string) {
-	if node.SupportsIPv4() {
-		return WildcardAddress, LocalhostAddress
-	}
-	return WildcardIPv6Address, LocalhostIPv6Address
-}
-
-func getPassthroughBindIP(node *model.Proxy) string {
-	if node.SupportsIPv4() {
-		return util.InboundPassthroughBindIpv4
-	}
-	return util.InboundPassthroughBindIpv6
-}
-
-// getSidecarInboundBindIP returns the IP that the proxy can bind to along with the sidecar specified port.
-// It looks for an unicast address, if none found, then the default wildcard address is used.
-// This will make the inbound listener bind to instance_ip:port instead of 0.0.0.0:port where applicable.
-func getSidecarInboundBindIP(node *model.Proxy) string {
-	// Return the IP if its a global unicast address.
-	if len(node.GlobalUnicastIP) > 0 {
-		return node.GlobalUnicastIP
-	}
-	defaultInboundIP, _ := getActualWildcardAndLocalHost(node)
-	return defaultInboundIP
 }
 
 func mergeTCPFilterChains(incoming []*listener.FilterChain, listenerOpts buildListenerOpts, listenerMapKey string,

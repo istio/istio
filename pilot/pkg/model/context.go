@@ -165,11 +165,33 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 }
 
 // Request is an alias for array of marshaled resources.
-type Resources = []*any.Any
+type Resources = []*discovery.Resource
+
+func AnyToUnnamedResources(r []*any.Any) Resources {
+	a := make(Resources, 0, len(r))
+	for _, rr := range r {
+		a = append(a, &discovery.Resource{Resource: rr})
+	}
+	return a
+}
+
+func ResourcesToAny(r Resources) []*any.Any {
+	a := make([]*any.Any, 0, len(r))
+	for _, rr := range r {
+		a = append(a, rr.Resource)
+	}
+	return a
+}
 
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
 type XdsUpdates = map[ConfigKey]struct{}
+
+// GeneratorMetadata has information about generator it self that processors like ads/delta can use.
+type GeneratorMetadata struct {
+	// LogsDetails indicates whether the generator logs details during the generation.
+	LogsDetails bool
+}
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
@@ -179,6 +201,16 @@ type XdsUpdates = map[ConfigKey]struct{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
+	Metadata() *GeneratorMetadata
+}
+
+// BaseGenerator is the base generator.
+type BaseGenerator struct{}
+
+var baseMetadata = &GeneratorMetadata{false}
+
+func (bg *BaseGenerator) Metadata() *GeneratorMetadata {
+	return baseMetadata
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -258,6 +290,9 @@ type Proxy struct {
 
 	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
 	WatchedResources map[string]*WatchedResource
+
+	// XdsNode is the xDS node identifier
+	XdsNode *core.Node
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -366,7 +401,7 @@ func (l *PodPortList) UnmarshalJSON(data []byte) error {
 	var pl []PodPort
 	pls, err := strconv.Unquote(string(data))
 	if err != nil {
-		return nil
+		return err
 	}
 	if err := json.Unmarshal([]byte(pls), &pl); err != nil {
 		return err
@@ -454,6 +489,12 @@ type BootstrapNodeMetadata struct {
 
 	// ProvCertDir is the directory containing pre-provisioned certs.
 	ProvCert string `json:"PROV_CERT,omitempty"`
+
+	// AppContainers is the list of containers in the pod.
+	AppContainers string `json:"APP_CONTAINERS,omitempty"`
+
+	// IstioProxySHA is the SHA of the proxy version.
+	IstioProxySHA string `json:"ISTIO_PROXY_SHA,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
@@ -572,6 +613,38 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
 	}
 	return def
+}
+
+// UnnamedNetwork is the default network that proxies in the mesh
+// get when they don't request a specific network view.
+const UnnamedNetwork = ""
+
+// GetNetworkView returns the networks that the proxy requested.
+// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
+// endpoints corresponding to the networks that the proxy wants to see.
+// If not set, we assume that the proxy wants to see endpoints in any network.
+func (node *Proxy) GetNetworkView() map[string]bool {
+	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+		return nil
+	}
+
+	nmap := make(map[string]bool)
+	for _, n := range node.Metadata.RequestedNetworkView {
+		nmap[n] = true
+	}
+	nmap[UnnamedNetwork] = true
+
+	return nmap
+}
+
+// InNetwork returns true if the proxy is on the given network, or if either
+// the proxy's network or the given network is unspecified ("").
+func (node *Proxy) InNetwork(network string) bool {
+	return node == nil || IsSameNetwork(network, node.Metadata.Network)
+}
+
+func IsSameNetwork(a, b string) bool {
+	return a == UnnamedNetwork || b == UnnamedNetwork || a == b
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
@@ -800,28 +873,6 @@ func (node *Proxy) SupportsIPv4() bool {
 // SupportsIPv6 returns true if proxy supports IPv6 addresses.
 func (node *Proxy) SupportsIPv6() bool {
 	return node.ipv6Support
-}
-
-// UnnamedNetwork is the default network that proxies in the mesh
-// get when they don't request a specific network view.
-const UnnamedNetwork = ""
-
-// GetNetworkView returns the networks that the proxy requested.
-// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
-// endpoints corresponding to the networks that the proxy wants to see.
-// If not set, we assume that the proxy wants to see endpoints in any network.
-func GetNetworkView(node *Proxy) map[string]bool {
-	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
-		return nil
-	}
-
-	nmap := make(map[string]bool)
-	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[n] = true
-	}
-	nmap[UnnamedNetwork] = true
-
-	return nmap
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.

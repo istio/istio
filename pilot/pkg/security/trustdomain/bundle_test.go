@@ -123,20 +123,57 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 
 func TestReplaceTrustDomainInPrincipal(t *testing.T) {
 	cases := []struct {
+		name          string
 		trustDomainIn string
 		principal     string
 		out           string
+		expectedError string
 	}{
-		{principal: "spiffe://cluster.local/ns/foo/sa/bar", out: ""},
-		{principal: "sa/test-sa/ns/default", out: ""},
-		{trustDomainIn: "td", principal: "cluster.local/ns/foo/sa/bar", out: "td/ns/foo/sa/bar"},
-		{trustDomainIn: "abc", principal: "xyz/ns/foo/sa/bar", out: "abc/ns/foo/sa/bar"},
+		{
+			name:          "Principal in wrong format with SPIFFE:// prefix",
+			principal:     "spiffe://cluster.local/ns/foo/sa/bar",
+			out:           "",
+			expectedError: "wrong SPIFFE format: spiffe://cluster.local/ns/foo/sa/bar",
+		},
+		{
+			name:          "Principal in wrong format with less components",
+			principal:     "sa/test-sa/ns/default",
+			out:           "",
+			expectedError: "wrong SPIFFE format: sa/test-sa/ns/default",
+		},
+		{
+			name:          "Replace td with domain name in principal",
+			trustDomainIn: "td",
+			principal:     "cluster.local/ns/foo/sa/bar",
+			out:           "td/ns/foo/sa/bar",
+			expectedError: "",
+		},
+		{
+			name:          "Replace td without domain name in principal",
+			trustDomainIn: "abc",
+			principal:     "xyz/ns/foo/sa/bar",
+			out:           "abc/ns/foo/sa/bar",
+			expectedError: "",
+		},
 	}
 
 	for _, c := range cases {
-		got := replaceTrustDomainInPrincipal(c.trustDomainIn, c.principal)
+		got, err := replaceTrustDomainInPrincipal(c.trustDomainIn, c.principal)
+		if err != nil {
+			if c.expectedError == "" {
+				t.Errorf("%s: replace trust domain in principal error: %v", c.name, err)
+			}
+			if got != "" {
+				t.Errorf("%s: Expected empty SPIFFE ID but obtained a non-empty one: %s.", c.name, got)
+			}
+			if err.Error() != c.expectedError {
+				t.Errorf("%s: Expected error: %s but got error: %s.", c.name, c.expectedError, err.Error())
+			}
+			continue
+		}
+
 		if got != c.out {
-			t.Errorf("expect %s, but got %s", c.out, got)
+			t.Errorf("%s failed. Expect %s, but got %s", c.name, c.out, got)
 		}
 	}
 }

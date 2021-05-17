@@ -48,30 +48,8 @@ var (
 	extAuthzServiceNamespaceErr error
 )
 
-type rootNS struct {
-	rootNamespace string
-}
-
-func (i rootNS) Name() string {
-	return i.rootNamespace
-}
-
-func (i rootNS) Prefix() string {
-	return i.rootNamespace
-}
-
-func (i rootNS) SetLabel(key, value string) error {
-	return nil
-}
-
-func (i rootNS) RemoveLabel(key string) error {
-	return nil
-}
-
-func newRootNS(ctx framework.TestContext) rootNS {
-	return rootNS{
-		rootNamespace: istio.GetOrFail(ctx, ctx).Settings().SystemNamespace,
-	}
+func newRootNS(ctx framework.TestContext) namespace.Instance {
+	return istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 }
 
 // TestAuthorization_mTLS tests v1beta1 authorization with mTLS.
@@ -94,6 +72,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
 						c := apps.C.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace2.Name())))
+						util.CheckExistence(t, a, c)
 						newTestCase := func(from, to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 							callCount := 1
 							if to.Clusters().IsMulticluster() {
@@ -150,6 +129,7 @@ func TestAuthorization_JWT(t *testing.T) {
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						util.CheckExistence(t, a)
 						callCount := 1
 						if t.Clusters().IsMulticluster() {
 							// so we can validate all clusters are hit
@@ -258,6 +238,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 			for _, srcCluster := range t.Clusters() {
 				a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+				util.CheckExistence(t, a)
 				cases := []struct {
 					b        string
 					c        string
@@ -316,7 +297,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							args := map[string]string{
 								"Namespace1":    ns1.Name(),
 								"Namespace2":    ns2.Name(),
-								"RootNamespace": rootns.rootNamespace,
+								"RootNamespace": rootns.Name(),
 								"b":             tc.b,
 								"c":             tc.c,
 							}
@@ -351,7 +332,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			args := map[string]string{
 				"Namespace":     ns.Name(),
-				"RootNamespace": rootns.rootNamespace,
+				"RootNamespace": rootns.Name(),
 				"b":             b[0].Config().Service,
 				"c":             c[0].Config().Service,
 				"vm":            vm[0].Config().Service,
@@ -370,6 +351,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			for _, srcCluster := range t.Clusters() {
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
+					util.CheckExistence(t, a)
 					newTestCase := func(target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
@@ -454,6 +436,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 					a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace1.Name())))
 					bInNS2 := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(apps.Namespace2.Name())))
+					util.CheckExistence(t, a, bInNS2)
 					newTestCase := func(from echo.Instance, target echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 						return rbacUtil.TestCase{
 							Request: connection.Checker{
@@ -539,7 +522,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 				t.NewSubTest(fmt.Sprintf("to %s/", dst[0].Config().Service)).Run(func(t framework.TestContext) {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
-						"RootNamespace": rootns.rootNamespace,
+						"RootNamespace": rootns.Name(),
 						"dst":           dst[0].Config().Service,
 					}
 
@@ -681,7 +664,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 				t.NewSubTest(fmt.Sprintf("to %s/", a[0].Config().Service)).Run(func(t framework.TestContext) {
 					args := map[string]string{
 						"Namespace":     ns.Name(),
-						"RootNamespace": rootns.rootNamespace,
+						"RootNamespace": rootns.Name(),
 						"a":             a[0].Config().Service,
 					}
 					policies := tmpl.EvaluateAllOrFail(t, args,
@@ -1089,6 +1072,9 @@ func TestAuthorization_GRPC(t *testing.T) {
 			vm := apps.VM.Match(echo.Namespace(apps.Namespace1.Name()))
 			for _, a := range []echo.Instances{a, vm} {
 				for _, b := range []echo.Instances{b, vm} {
+					if a[0].Config().Service == b[0].Config().Service {
+						t.Skip()
+					}
 					t.NewSubTest(fmt.Sprintf("to %s in %s", a[0].Config().Service, a[0].Config().Cluster.StableName())).
 						Run(func(t framework.TestContext) {
 							args := map[string]string{
@@ -1157,7 +1143,8 @@ func TestAuthorization_Path(t *testing.T) {
 			for _, a := range []echo.Instances{a, vm} {
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("In %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
-						b := apps.B.GetOrFail(t, echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						b := apps.B.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
+						util.CheckExistence(t, b)
 						args := map[string]string{
 							"Namespace": ns.Name(),
 							"a":         a[0].Config().Service,
@@ -1175,7 +1162,7 @@ func TestAuthorization_Path(t *testing.T) {
 						newTestCase := func(to echo.Instances, path string, expectAllowed bool) rbacUtil.TestCase {
 							return rbacUtil.TestCase{
 								Request: connection.Checker{
-									From: b,
+									From: b[0],
 									Options: echo.CallOptions{
 										Target:   to[0],
 										PortName: "http",

@@ -129,7 +129,7 @@ spec:
 `)
 
 			t.NewSubTest("http").Run(func(t framework.TestContext) {
-				_ = apps.Ingress.CallEchoWithRetryOrFail(t, echo.CallOptions{
+				_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
 					Port: &echo.Port{
 						Protocol: protocol.HTTP,
 					},
@@ -142,7 +142,7 @@ spec:
 			})
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				host, port := apps.Ingress.TCPAddress()
-				_ = apps.Ingress.CallEchoWithRetryOrFail(t, echo.CallOptions{
+				_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
 					Port: &echo.Port{
 						Protocol:    protocol.HTTP,
 						ServicePort: port,
@@ -311,7 +311,7 @@ spec:
 			for _, c := range cases {
 				c := c
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallEchoWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
+					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
 				})
 			}
 
@@ -407,7 +407,7 @@ spec:
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path)
 				t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallEchoWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
+					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
 				})
 			}
 		})

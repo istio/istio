@@ -24,9 +24,16 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -34,6 +41,7 @@ import (
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -45,6 +53,7 @@ import (
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 )
 
@@ -182,6 +191,18 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
+	// Workaround for broken validation with revisions (https://github.com/istio/istio/issues/28880)
+	// TODO(Monkeyanator) remove once we have a nicer solution
+	if iArgs.revision != "" {
+		if requiresIstiodServiceCreation(clientset, name.IstioDefaultNamespace) {
+			if err := createIstiodService(clientset, name.IstioDefaultNamespace); err != nil {
+				warning := fmt.Sprintf("Validation cannot function without an istiod service but the installer failed"+
+					" to create one. Please consider creating the istiod service manually as outlined in the canary upgrade documentation (%s).", url.CanaryUpgradeURL)
+				fmt.Fprintln(cmd.OutOrStderr(), warning)
+			}
+		}
+	}
+
 	if iArgs.verify {
 		if rootArgs.dryRun {
 			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
@@ -291,7 +312,7 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 		}
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag && revision != "" {
-			if icpTag > tag {
+			if icpTag < tag {
 				cmd.Printf("%s Istio is being upgraded from %s -> %s.\n"+
 					"%s Before upgrading, you may wish to use 'istioctl analyze' to check for"+
 					"IST0002 and IST0135 deprecation warnings.\n", warnMarker, icpTag, tag, warnMarker)
@@ -347,4 +368,83 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+}
+
+// requiresIstiodServiceCreation determines if the CP requires an istiod service to function
+func requiresIstiodServiceCreation(cs kubernetes.Interface, istioNs string) bool {
+	// First: does the istiod service exist?
+	_, err := cs.CoreV1().Services(istioNs).Get(
+		context.TODO(), "istiod", metav1.GetOptions{})
+	if kerrors.IsNotFound(err) {
+		vwh, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+			context.TODO(), fmt.Sprintf("istiod-%s", name.IstioDefaultNamespace), metav1.GetOptions{})
+		if err != nil {
+			return false
+		}
+		// Second: if it doesn't, are there webhooks in the VWHC referencing it? If so,
+		// we should create to avoid broken validation
+		for _, wh := range vwh.Webhooks {
+			if wh.ClientConfig.Service != nil {
+				if wh.ClientConfig.Service.Name == "istiod" {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// createIstiodService creates an `istiod` service that selects ALL istiod instances.
+func createIstiodService(cs kubernetes.Interface, istioNs string) error {
+	const (
+		pilotDiscoveryChart = "istio-control/istio-discovery"
+		serviceTemplateName = "service.yaml"
+	)
+	r := helm.NewHelmRenderer("", pilotDiscoveryChart, "Pilot", istioNs)
+
+	if err := r.Run(); err != nil {
+		return fmt.Errorf("failed running Helm renderer: %v", err)
+	}
+
+	values := `
+revision: ""
+`
+
+	serviceYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
+		return strings.Contains(tmplName, serviceTemplateName)
+	})
+	if err != nil {
+		return fmt.Errorf("failed rendering service manifest: %v", err)
+	}
+
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer
+
+	svcObject, _, err := deserializer().Decode([]byte(serviceYAML), nil, &corev1.Service{})
+	if err != nil {
+		return fmt.Errorf("failed deserializing generated manifest")
+	}
+
+	svc, ok := svcObject.(*corev1.Service)
+	if !ok {
+		return fmt.Errorf("failed casting deserialized manifest as service")
+	}
+
+	// Rename the generated service from `istiod-<revision>` to `istiod`
+	svc.Name = "istiod"
+
+	// Do not remove this service when the revision is removed
+	delete(svc.Labels, label.IoIstioRev.Name)
+
+	// Change selectors such that the `istiod` service selects istiod instances from all revisions
+	svc.Spec.Selector = map[string]string{
+		"app": "istiod",
+	}
+	_, err = cs.CoreV1().Services(istioNs).Create(context.TODO(), svc, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }

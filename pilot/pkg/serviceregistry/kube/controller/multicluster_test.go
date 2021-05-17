@@ -35,7 +35,6 @@ import (
 const (
 	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
-	WatchedNamespaces   = "istio-system"
 	DomainSuffix        = "fake_domain"
 	ResyncPeriod        = 1 * time.Second
 )
@@ -93,11 +92,10 @@ func Test_KubeSecretController(t *testing.T) {
 		clientset,
 		testSecretNameSpace,
 		Options{
-			WatchedNamespaces: WatchedNamespaces,
-			DomainSuffix:      DomainSuffix,
-			ResyncPeriod:      ResyncPeriod,
-			SyncInterval:      time.Microsecond,
-			MeshWatcher:       mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+			DomainSuffix: DomainSuffix,
+			ResyncPeriod: ResyncPeriod,
+			SyncInterval: time.Microsecond,
+			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		}, mockserviceController, nil, nil, "default", nil, nil, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)

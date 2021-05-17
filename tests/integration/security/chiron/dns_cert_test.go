@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	kube2 "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/security/pkg/k8s/controller"
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/tests/integration/security/util/secret"
 )
 
@@ -130,7 +130,7 @@ func TestDNSCertificate(t *testing.T) {
 			// Test certificate rotation: when the CA certificate is updated, certificates will be rotated.
 			t.NewSubTest("rotateDNSCertificatesWhenCAUpdated").
 				Run(func(t framework.TestContext) {
-					galleySecret.Data[controller.RootCertID] = []byte(caCertUpdated)
+					galleySecret.Data[ca.RootCertFile] = []byte(caCertUpdated)
 					if _, err := cluster.CoreV1().Secrets(istioNs).Update(context.TODO(), galleySecret, metav1.UpdateOptions{}); err != nil {
 						t.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, galleySecret.Name, err)
 					}
@@ -140,16 +140,16 @@ func TestDNSCertificate(t *testing.T) {
 					galleySecret2 = kube2.WaitForSecretToExistOrFail(t, cluster, istioNs, galleySecretName, secretWaitTime)
 					t.Log(`checking rotated Galley DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(t, galleySecret2, galleyDNSName)
-					if bytes.Equal(galleySecret2.Data[controller.CertChainID], galleySecret.Data[controller.CertChainID]) {
+					if bytes.Equal(galleySecret2.Data[ca.CertChainFile], galleySecret.Data[ca.CertChainFile]) {
 						t.Errorf("the rotated cert should be different from the original cert (%v, %v)",
-							string(galleySecret2.Data[controller.CertChainID]), string(galleySecret.Data[controller.CertChainID]))
+							string(galleySecret2.Data[ca.CertChainFile]), string(galleySecret.Data[ca.CertChainFile]))
 					}
 				})
 
 			// Test certificate rotation: when a certificate is expired, the certificate will be rotated.
 			t.NewSubTest("rotateDNSCertificatesWhenCertExpired").
 				Run(func(t framework.TestContext) {
-					sidecarInjectorSecret.Data[controller.CertChainID] = []byte(certExpired)
+					sidecarInjectorSecret.Data[ca.CertChainFile] = []byte(certExpired)
 					if _, err := cluster.CoreV1().Secrets(istioNs).Update(context.TODO(), sidecarInjectorSecret, metav1.UpdateOptions{}); err != nil {
 						t.Fatalf("failed to update secret (%s:%s), error: %s", istioNs, sidecarInjectorSecret.Name, err)
 					}
@@ -159,11 +159,11 @@ func TestDNSCertificate(t *testing.T) {
 					sidecarInjectorSecret2 = kube2.WaitForSecretToExistOrFail(t, cluster, istioNs, sidecarInjectorSecretName, secretWaitTime)
 					t.Log(`checking rotated Sidecar Injector DNS certificate is valid`)
 					secret.ExamineDNSSecretOrFail(t, sidecarInjectorSecret2, sidecarInjectorDNSName)
-					if bytes.Equal(sidecarInjectorSecret2.Data[controller.CertChainID],
-						sidecarInjectorSecret.Data[controller.CertChainID]) {
+					if bytes.Equal(sidecarInjectorSecret2.Data[ca.CertChainFile],
+						sidecarInjectorSecret.Data[ca.CertChainFile]) {
 						t.Errorf("the rotated cert should be different from the original cert (%v, %v)",
-							string(sidecarInjectorSecret2.Data[controller.CertChainID]),
-							string(sidecarInjectorSecret.Data[controller.CertChainID]))
+							string(sidecarInjectorSecret2.Data[ca.CertChainFile]),
+							string(sidecarInjectorSecret.Data[ca.CertChainFile]))
 					}
 				})
 		})

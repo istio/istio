@@ -313,6 +313,7 @@ global:
   istiod:
     enableAnalysis: false
   configValidation: false
+  externalIstiod: true
 base:
   enableCRDTemplates: false
 `, opt.Namespace)

@@ -45,7 +45,17 @@ global:
   hub: %s
   tag: %s
 `
+	revisionValues = `
+global:
+  hub: %s
+  tag: %s
+
+revision: canary
+`
 	tarGzSuffix = ".tar.gz"
+
+	revisionLabel       = "canary"
+	revisionChartSuffix = "-canary"
 )
 
 // previousChartPath is path of Helm charts for previous Istio deployments.
@@ -108,6 +118,16 @@ func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 	return nil
 }
 
+// deleteIstioCanary deletes installed Istio Helm charts and resources
+func deleteIstioRevision(h *helm.Helm, revision string) error {
+	scopes.Framework.Infof("cleaning up canary resources")
+	if err := h.DeleteChart(helmtest.IstiodReleaseName+revision, helmtest.IstioNamespace); err != nil {
+		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
+	}
+
+	return nil
+}
+
 // getValuesOverrides returns the the values file created to pass into Helm override default values
 // for the hub and tag
 func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) string {
@@ -121,9 +141,9 @@ func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) s
 	return overrideValuesFile
 }
 
-// performUpgradeFunc returns the provided function necessary to run inside of a integration test
+// performInPlaceUpgradeFunc returns the provided function necessary to run inside of a integration test
 // for upgrade capability
-func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
+func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousVersion))
@@ -141,7 +161,7 @@ func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
 		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
-		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t)
+		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		// now upgrade istio to the latest version found in this branch
@@ -156,7 +176,52 @@ func performUpgradeFunc(previousVersion string) func(framework.TestContext) {
 		upgradeCharts(t, h, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
-		newClient, newServer := sanitycheck.SetupTrafficTest(t, t)
+		newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
+		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
+
+		// now check that we are compatible with N-1 proxy with N proxy
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+	}
+}
+
+// performRevisionUpgradeFunc returns the provided function necessary to run inside of a integration test
+// for upgrade capability with revisions
+func performRevisionUpgradeFunc(previousVersion string) func(framework.TestContext) {
+	return func(t framework.TestContext) {
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousVersion))
+
+		t.ConditionalCleanup(func() {
+			err := deleteIstioRevision(h, revisionChartSuffix)
+			if err != nil {
+				t.Fatalf("could not delete istio: %v", err)
+			}
+			err = deleteIstio(cs, h)
+			if err != nil {
+				t.Fatalf("could not delete istio: %v", err)
+			}
+		})
+
+		overrideValuesFile := getValuesOverrides(t, defaultValues, gcrHub, previousVersion)
+		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
+		helmtest.VerifyInstallation(t, cs)
+
+		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
+
+		// now upgrade istio to the latest version found in this branch
+		// use the command line or environmental vars from the user to set
+		// the hub/tag
+		s, err := image.SettingsFromCommandLine()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		overrideValuesFile = getValuesOverrides(t, revisionValues, s.Hub, s.Tag)
+		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, revisionChartSuffix, overrideValuesFile)
+		helmtest.VerifyInstallation(t, cs)
+
+		newClient, newServer := sanitycheck.SetupTrafficTest(t, t, revisionLabel)
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy

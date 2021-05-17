@@ -221,13 +221,6 @@ var (
 		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
 	).Get()
 
-	EnableSDSServer = env.RegisterBoolVar(
-		"ISTIOD_ENABLE_SDS_SERVER",
-		true,
-		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
-			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
-	).Get()
-
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
@@ -439,6 +432,12 @@ var (
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request")
 
+	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
+		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
+		false,
+		"If enabled, pilot will allow any upstream cluster to be used with AUTO_PASSTHROUGH. "+
+			"This option is intended for backwards compatibility only and is not secure with untrusted downstreams; it will be removed in the future.").Get()
+
 	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -447,6 +446,19 @@ var (
 
 	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
+
+	delayedCloseTimeoutVar = env.RegisterDurationVar(
+		"PILOT_HTTP_DELAYED_CLOSE_TIMEOUT",
+		1*time.Second,
+		"The delayed close timeout is for downstream HTTP connections. This should be set to a high value or disable it when "+
+			"peer is reading large chunk of data and to give an opportunity to initiate the close sequence properly. A value of 0s disables this").Get()
+
+	DelayedCloseTimeout = func() *duration.Duration {
+		return durationpb.New(delayedCloseTimeoutVar)
+	}()
+
+	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", false,
+		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

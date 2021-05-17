@@ -70,7 +70,9 @@ func (r Resource) String() string {
 func (r *Resource) ToModelKey() string {
 	// we have a resource here, but model keys use kind.  Use the schema to find the correct kind.
 	found, _ := collections.All.FindByPlural(r.Group, r.Version, r.Resource)
-	return config.Key(found.Resource().Kind(), r.Name, r.Namespace)
+	return config.Key(
+		found.Resource().Group(), found.Resource().Version(), found.Resource().Kind(),
+		r.Name, r.Namespace)
 }
 
 func ResourceFromModelConfig(c config.Config) *Resource {

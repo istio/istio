@@ -176,33 +176,45 @@ func TestStringList(t *testing.T) {
 
 func TestPodPortList(t *testing.T) {
 	cases := []struct {
-		name   string
-		in     string
-		expect model.PodPortList
+		name            string
+		in              string
+		expect          model.PodPortList
+		expUnmarshalErr string
 	}{
-		{"no port", `"[]"`, model.PodPortList{}},
-		{"one port", `"[{\"name\":\"foo\",\"containerPort\":9080,\"protocol\":\"TCP\"}]"`, model.PodPortList{{"foo", 9080, "TCP"}}},
+		{"no port", `"[]"`, model.PodPortList{}, ""},
+		{"one port", `"[{\"name\":\"foo\",\"containerPort\":9080,\"protocol\":\"TCP\"}]"`, model.PodPortList{{"foo", 9080, "TCP"}}, ""},
 		{
 			"two ports",
 			`"[{\"name\":\"foo\",\"containerPort\":9080,\"protocol\":\"TCP\"},{\"containerPort\":8888,\"protocol\":\"TCP\"}]"`,
 			model.PodPortList{{"foo", 9080, "TCP"}, {ContainerPort: 8888, Protocol: "TCP"}},
+			"",
 		},
+		{"invalid syntax", `[]`, nil, "invalid syntax"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			var out model.PodPortList
 			if err := json.Unmarshal([]byte(tt.in), &out); err != nil {
-				t.Fatal(err)
+				if tt.expUnmarshalErr == "" {
+					t.Fatal(err)
+				}
+				if out != nil {
+					t.Fatalf("%s: Expected null unmarshal output but obtained a non-null one.", tt.name)
+				}
+				if err.Error() != tt.expUnmarshalErr {
+					t.Fatalf("%s: Expected error: %s but got error: %s.", tt.name, tt.expUnmarshalErr, err.Error())
+				}
+				t.Skip()
 			}
 			if !reflect.DeepEqual(out, tt.expect) {
-				t.Fatalf("Expected %v, got %v", tt.expect, out)
+				t.Fatalf("%s: Expected %v, got %v", tt.name, tt.expect, out)
 			}
 			b, err := json.Marshal(out)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(string(b), tt.in) {
-				t.Fatalf("Expected %v, got %v", tt.in, string(b))
+				t.Fatalf("%s: Expected %v, got %v", tt.name, tt.in, string(b))
 			}
 		})
 	}

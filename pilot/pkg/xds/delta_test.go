@@ -20,6 +20,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/tests/util/leak"
@@ -45,7 +46,7 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 			ResponseNonce:            nonce,
 		})
 		nonce = res.Nonce
-		got := xdstest.MapKeys(xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, ConvertDeltaToResponse(res.Resources))))
+		got := xdstest.MapKeys(xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, model.ResourcesToAny(res.Resources))))
 		if !reflect.DeepEqual(expect, got) {
 			t.Fatalf("expected clusters %v got %v", expect, got)
 		}

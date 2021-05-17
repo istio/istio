@@ -364,16 +364,6 @@ func validateFlags() error {
 func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *string,
 	revision string) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
-	var meshConfig *meshconfig.MeshConfig
-	if meshConfigFile != "" {
-		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
-			return nil, nil, err
-		}
-	} else {
-		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
-			return nil, nil, err
-		}
-	}
 	injector := &ExternalInjector{nil, nil}
 	if injectConfigFile != "" {
 		injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
@@ -393,6 +383,17 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 			if *sidecarTemplate, err = getInjectConfigFromConfigMap(kubeconfig, revision); err != nil {
 				return nil, nil, err
 			}
+		}
+		return injector, nil, nil
+	}
+	var meshConfig *meshconfig.MeshConfig
+	if meshConfigFile != "" {
+		if meshConfig, err = mesh.ReadMeshConfig(meshConfigFile); err != nil {
+			return nil, nil, err
+		}
+	} else {
+		if meshConfig, err = getMeshConfigFromConfigMap(kubeconfig, "kube-inject", revision); err != nil {
+			return nil, nil, err
 		}
 	}
 	if valuesFile != "" {
@@ -430,27 +431,20 @@ func injectCommand() *cobra.Command {
 
 	injectCmd := &cobra.Command{
 		Use:   "kube-inject",
-		Short: "Inject Envoy sidecar into Kubernetes pod resources",
+		Short: "Inject Istio sidecar into Kubernetes pod resources",
 		Long: `
-kube-inject manually injects the Envoy sidecar into Kubernetes
+kube-inject manually injects the Istio sidecar into Kubernetes
 workloads. Unsupported resources are left unmodified so it is safe to
 run kube-inject over a single file that contains multiple Service,
-ConfigMap, Deployment, etc. definitions for a complex application. It's
-best to do this when the resource is initially created.
+ConfigMap, Deployment, etc. definitions for a complex application. When in
+doubt re-run istioctl kube-inject on deployments to get the most up-to-date changes.
 
-k8s.io/docs/concepts/workloads/pods/pod-overview/#pod-templates is
-updated for Job, DaemonSet, ReplicaSet, Pod and Deployment YAML resource
-documents. Support for additional pod-based resource types can be
-added as necessary.
-
-The Istio project is continually evolving so the Istio sidecar
-configuration may change unannounced. When in doubt re-run istioctl
-kube-inject on deployments to get the most up-to-date changes.
+It's best to do kube-inject when the resource is initially created.
 `,
 		Example: `  # Update resources on the fly before applying.
   kubectl apply -f <(istioctl kube-inject -f <resource.yaml>)
 
-  # Create a persistent version of the deployment with Envoy sidecar injected.
+  # Create a persistent version of the deployment with Istio sidecar injected.
   istioctl kube-inject -f deployment.yaml -o deployment-injected.yaml
 
   # Update an existing deployment.

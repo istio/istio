@@ -110,10 +110,8 @@ func incrementEvent(kind, event string) {
 type Options struct {
 	SystemNamespace string
 
-	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
-	WatchedNamespaces string
-	ResyncPeriod      time.Duration
-	DomainSuffix      string
+	ResyncPeriod time.Duration
+	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
@@ -735,7 +733,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
 		if pod.Spec.NodeName != "" {
-			log.Warnf("unable to get node %q for pod %q: %v", pod.Spec.NodeName, pod.Name, err)
+			log.Warnf("unable to get node %q for pod %q/%q: %v", pod.Spec.NodeName, pod.Namespace, pod.Name, err)
 		}
 		return ""
 	}
