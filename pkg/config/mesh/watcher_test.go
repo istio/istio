@@ -15,7 +15,6 @@
 package mesh_test
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -49,7 +48,6 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	g := NewWithT(t)
 
 	path := newTempFile(t)
-	defer removeSilent(path)
 
 	m := mesh.DefaultMeshConfig()
 	writeMessage(t, path, &m)
@@ -90,11 +88,12 @@ func newWatcher(t testing.TB, filename string, multi bool) mesh.Watcher {
 
 func newTempFile(t testing.TB) string {
 	t.Helper()
-	f, err := ioutil.TempFile("", t.Name())
+
+	f, err := ioutil.TempFile(t.TempDir(), t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeSilent(f)
+	t.Cleanup(func() { _ = f.Close() })
 
 	path, err := filepath.Abs(f.Name())
 	if err != nil {
@@ -114,13 +113,9 @@ func writeMessage(t testing.TB, path string, msg proto.Message) {
 
 func writeFile(t testing.TB, path, content string) {
 	t.Helper()
-	if err := ioutil.WriteFile(path, []byte(content), 0666); err != nil {
+	if err := ioutil.WriteFile(path, []byte(content), 0o666); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func closeSilent(c io.Closer) {
-	_ = c.Close()
 }
 
 func removeSilent(path string) {
