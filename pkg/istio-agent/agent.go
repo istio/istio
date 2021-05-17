@@ -435,12 +435,12 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 	} else if a.cfg.XDSRootCerts != "" {
 		// Using specific platform certs or custom roots
 		rootCAPath = a.cfg.XDSRootCerts
-	} else if fileExists("./etc/certs/root-cert.pem") {
+	} else if fileExists(security.DefaultRootCertFilePath) {
 		// Old style - mounted cert. This is used for XDS auth only,
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
-		return "./etc/certs/root-cert.pem", nil
-	} else if a.secOpts.PilotCertProvider == "kubernetes" {
+		return security.DefaultRootCertFilePath, nil
+	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
 		// Using K8S - this is likely incorrect, may work by accident (https://github.com/istio/istio/issues/22161)
 		rootCAPath = k8sCAPath
 	} else if a.secOpts.ProvCert != "" {
@@ -452,6 +452,8 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 	} else if a.secOpts.FileMountedCerts {
 		// FileMountedCerts - Load it from Proxy Metadata.
 		rootCAPath = a.proxyConfig.ProxyMetadata[MetadataClientRootCert]
+	} else if a.secOpts.PilotCertProvider == constants.CertProviderNone {
+		return "", fmt.Errorf("root CA file for XDS required but configured provider as none")
 	} else {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S
@@ -474,26 +476,39 @@ func fileExists(path string) bool {
 }
 
 // Find the root CA to use when connecting to the CA (Istiod or external).
-func (a *Agent) FindRootCAForCA() string {
+func (a *Agent) FindRootCAForCA() (string, error) {
+	var rootCAPath string
+
 	if a.cfg.CARootCerts == security.SystemRootCerts {
-		return ""
+		return "", nil
 	} else if a.cfg.CARootCerts != "" {
-		return a.cfg.CARootCerts
-	} else if a.secOpts.PilotCertProvider == "kubernetes" {
+		rootCAPath = a.cfg.CARootCerts
+	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
 		// Using K8S - this is likely incorrect, may work by accident.
-		// API is alpha.
-		return k8sCAPath // ./var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-	} else if a.secOpts.PilotCertProvider == "custom" {
-		return security.DefaultRootCertFilePath // ./etc/certs/root-cert.pem
+		// API is GA.
+		rootCAPath = k8sCAPath // ./var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	} else if a.secOpts.PilotCertProvider == constants.CertProviderCustom {
+		rootCAPath = security.DefaultRootCertFilePath // ./etc/certs/root-cert.pem
 	} else if a.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
-		return a.secOpts.ProvCert + "/root-cert.pem"
+		// For VMs, the root cert file used to auth may be populated afterwards.
+		// Thus, return directly here and skip checking for existence.
+		return a.secOpts.ProvCert + "/root-cert.pem", nil
+	} else if a.secOpts.PilotCertProvider == constants.CertProviderNone {
+		return "", fmt.Errorf("root CA file for CA required but configured provider as none")
 	} else {
 		// This is the default - a mounted config map on K8S
-		return path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
+		rootCAPath = path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
 		// or: "./var/run/secrets/istio/root-cert.pem"
 	}
+
+	// Additional checks for root CA cert existence.
+	if fileExists(rootCAPath) {
+		return rootCAPath, nil
+	}
+
+	return "", fmt.Errorf("root CA file for CA does not exist %s", rootCAPath)
 }
 
 // newSecretManager creates the SecretManager for workload secrets
@@ -529,7 +544,11 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		log.Warn("Debug mode or IP-secure network")
 	}
 	if tls {
-		caCertFile := a.FindRootCAForCA()
+		caCertFile, err := a.FindRootCAForCA()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find root CA cert for CA: %v", err)
+		}
+
 		if caCertFile == "" {
 			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
 		} else if rootCert, err = ioutil.ReadFile(caCertFile); err != nil {

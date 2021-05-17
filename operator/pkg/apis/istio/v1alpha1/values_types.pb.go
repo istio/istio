@@ -1142,7 +1142,7 @@ type GlobalConfig struct {
 	// Specifies the configution of istiod
 	Istiod *IstiodConfig `protobuf:"bytes,54,opt,name=istiod,proto3" json:"istiod,omitempty"`
 	// Configure the Pilot certificate provider.
-	// Currently, two providers are supported: "kubernetes" and "citadel".
+	// Currently, four providers are supported: "kubernetes", "istiod", "custom" and "none".
 	PilotCertProvider string `protobuf:"bytes,56,opt,name=pilotCertProvider,proto3" json:"pilotCertProvider,omitempty"`
 	// Configure the policy for validating JWT.
 	// Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
