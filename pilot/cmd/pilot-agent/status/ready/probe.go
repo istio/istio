@@ -74,7 +74,7 @@ func (p *Probe) checkConfigStatus() error {
 func (p *Probe) isEnvoyReady() error {
 	// If proxy is draining, we should return the draining status.
 	if p.ProxyDraining() {
-		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_State(admin.ServerInfo_DRAINING).String())
+		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_DRAINING.String())
 	}
 
 	// If Envoy is ready atleast once i.e. server state is LIVE and workers
