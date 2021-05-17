@@ -403,7 +403,7 @@ func initDNS(t test.Failer) *LocalDNSServer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testAgentDNS.upstreamServers = []*upstreamServer{{address: srv}}
+	testAgentDNS.upstreamServers = []string{srv}
 	testAgentDNS.StartDNS()
 	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
 	testAgentDNS.UpdateLookupTable(&nds.NameTable{

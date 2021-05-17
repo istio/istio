@@ -27,9 +27,10 @@ type dnsProxy struct {
 
 	// This is the upstream Client used to make upstream DNS queries
 	// in case the data is not in our name table.
-	upstreamClient *dns.Client
-	protocol       string
-	resolver       *LocalDNSServer
+	upstreamClient  *dns.Client
+	upstreamServers []*upstreamServer
+	protocol        string
+	resolver        *LocalDNSServer
 }
 
 func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
@@ -44,6 +45,10 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 		},
 		protocol: protocol,
 		resolver: resolver,
+	}
+
+	for _, us := range resolver.upstreamServers {
+		p.upstreamServers = append(p.upstreamServers, &upstreamServer{address: us})
 	}
 
 	var err error
@@ -66,6 +71,9 @@ func (p *dnsProxy) start() {
 	err := p.server.ActivateAndServe()
 	if err != nil {
 		log.Errorf("Local %s DNS server terminated: %v", p.protocol, err)
+	}
+	for _, us := range p.upstreamServers {
+		us.initConnection(p.upstreamClient)
 	}
 }
 

@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/miekg/dns"
@@ -33,9 +32,8 @@ var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
 // upstreamServer holds the dns.Conn and the last used time for an upstream server.
 type upstreamServer struct {
 	sync.RWMutex
-	c           *dns.Conn
-	established time.Time
-	address     string
+	c       *dns.Conn
+	address string
 }
 
 // Holds configurations for the DNS downstreamUDPServer in Istio Agent
@@ -46,7 +44,7 @@ type LocalDNSServer struct {
 	udpDNSProxy *dnsProxy
 	tcpDNSProxy *dnsProxy
 
-	upstreamServers  []*upstreamServer
+	upstreamServers  []string
 	searchNamespaces []string
 	// The namespace where the proxy resides
 	// determines the hosts used for shortname resolution
@@ -114,7 +112,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	// upstream resolvers as is.
 	if dnsConfig != nil {
 		for _, s := range dnsConfig.Servers {
-			h.upstreamServers = append(h.upstreamServers, &upstreamServer{address: net.JoinHostPort(s, dnsConfig.Port)})
+			h.upstreamServers = append(h.upstreamServers, net.JoinHostPort(s, dnsConfig.Port))
 		}
 		h.searchNamespaces = dnsConfig.Search
 	}
@@ -220,7 +218,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	} else {
 		// We did not find the host in our internal cache. Query upstream and return the response as is.
 		log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
-		response = h.queryUpstream(proxy.upstreamClient, req, log)
+		response = proxy.queryUpstream(req, log)
 		log.Debugf("upstream response for hostname %q : %v", hostname, response)
 	}
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
@@ -298,21 +296,20 @@ func roundRobinShuffle(records []dns.RR) {
 }
 
 func (h *LocalDNSServer) Close() {
-	for _, u := range h.upstreamServers {
-		u.c.Close()
-	}
 	h.udpDNSProxy.close()
 	h.tcpDNSProxy.close()
 }
 
-func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
+func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	var response *dns.Msg
-	for _, upstream := range h.upstreamServers {
-		if cResponse, err := upstream.query(upstreamClient, req); err == nil {
-			response = cResponse
-			break
+	for _, upstream := range p.upstreamServers {
+		upstream.RLock()
+		conn := upstream.c
+		upstream.RUnlock()
+		if response, _, err := p.upstreamClient.ExchangeWithConn(req, conn); err == nil {
+			return response
 		} else {
-			scope.Infof("upstream failure: %v", err)
+			scope.Debugf("upstream failure : %v", err)
 		}
 	}
 	if response == nil {
@@ -323,33 +320,33 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 	return response
 }
 
-func (u *upstreamServer) query(upstreamClient *dns.Client, req *dns.Msg) (*dns.Msg, error) {
-	u.RLock()
-	// If connection is not established or if it has been a while we have established  - we need to reconnect.
-	dial := u.c == nil || time.Since(u.established) > 15*time.Minute
-	address := u.address
-	conn := u.c
-	u.RUnlock()
-	if dial {
-		if c, err := upstreamClient.Dial(address); err == nil {
-			u.Lock()
-			u.c = c
-			u.established = time.Now()
-			u.Unlock()
-			conn = c
+func (u *upstreamServer) initConnection(uc *dns.Client) {
+	u.Lock()
+	u.c, _ = uc.Dial(u.address)
+	u.Unlock()
+	go u.healthCheck(uc)
+}
+
+func (u *upstreamServer) healthCheck(upstreamClient *dns.Client) {
+	ping := new(dns.Msg)
+	ping.SetQuestion(".", dns.TypeNS)
+
+	m, _, err := upstreamClient.ExchangeWithConn(ping, u.c)
+	// If we got a header, we're alright, basically only care about I/O errors 'n stuff.
+	if err != nil && m != nil {
+		// Silly check, something sane came back.
+		if m.Response || m.Opcode == dns.OpcodeQuery {
+			err = nil
 		}
 	}
 
-	// Try with existing connection and if it fails, try with new connection.
-	if conn != nil {
-		if response, _, err := upstreamClient.ExchangeWithConn(req, conn); err == nil {
-			return response, nil
+	if err != nil {
+		if c, err := upstreamClient.Dial(u.address); err == nil {
+			u.Lock()
+			u.c = c
+			u.Unlock()
 		}
 	}
-	// There is an error - close the connection and try normal exchange. Next request will try to
-	// establish fresh connecion again.
-	response, _, err := upstreamClient.Exchange(req, address)
-	return response, err
 }
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
