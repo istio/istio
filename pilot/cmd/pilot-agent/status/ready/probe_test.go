@@ -113,7 +113,7 @@ func TestEnvoyInitializing(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(initServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: func() bool { return false }}
 
 	err := probe.Check()
 
