@@ -492,7 +492,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 			log.Infof("%s: %s for node:%s resources:%d size:%s%s",
 				ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
 		}
-
 	}
 	return nil
 }
