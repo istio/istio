@@ -762,6 +762,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
+		// Use service accounts in service if TLS settings does not have subject alt names for service entries.
+		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+			tls.SubjectAltNames = opts.serviceAccounts
+		}
 		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
@@ -775,12 +779,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			res := model.SdsCertificateConfig{
 				CaCertificatePath: tls.CaCertificates,
 			}
-
-			// Use service accounts in service if TLS settings does not have subject alt names for service entries.
-			if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
-				tls.SubjectAltNames = opts.serviceAccounts
-			}
-
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
 			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
@@ -804,6 +802,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
+		// Use service accounts in service if TLS settings does not have subject alt names for service entries.
+		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+			tls.SubjectAltNames = opts.serviceAccounts
+		}
 		if tls.CredentialName != "" {
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
@@ -814,11 +816,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 					c.cluster.Name)
 				return nil, err
-			}
-
-			// Use service accounts in service if TLS settings does not have subject alt names for service entries.
-			if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
-				tls.SubjectAltNames = opts.serviceAccounts
 			}
 			// These are certs being mounted from within the pod and specified in Destination Rules.
 			// Rather than reading directly in Envoy, which does not support rotation, we will
