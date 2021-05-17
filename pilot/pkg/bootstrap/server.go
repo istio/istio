@@ -209,14 +209,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.Plugins, args.PodName, args.Namespace)
 
-	if args.RegistryOptions.KubeOptions.WatchedNamespaces != "" {
-		// Add the control-plane namespace to the list of watched namespaces.
-		args.RegistryOptions.KubeOptions.WatchedNamespaces = fmt.Sprintf("%s,%s",
-			args.RegistryOptions.KubeOptions.WatchedNamespaces,
-			args.Namespace,
-		)
-	}
-
 	// used for both initKubeRegistry and initClusterRegistries
 	if features.EnableEndpointSliceController {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointSliceOnly
