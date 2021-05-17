@@ -50,11 +50,17 @@ const (
 
 func init() {
 	monitoring.MustRegister(timeouts)
+	monitoring.MustRegister(remoteClustersCount)
 }
 
 var timeouts = monitoring.NewSum(
 	"remote_cluster_sync_timeouts_total",
 	"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+)
+
+var remoteClustersCount = monitoring.NewGauge(
+	"istiod_remote_clusters_total",
+	"Number of remote clusters monitored by istiod",
 )
 
 // newClientCallback prototype for the add secret callback function.
@@ -118,6 +124,7 @@ type ClusterStore struct {
 // newClustersStore initializes data struct to store clusters information
 func newClustersStore() *ClusterStore {
 	remoteClusters := make(map[string]*Cluster)
+	remoteClustersCount.Record(0)
 	return &ClusterStore{
 		remoteClusters: remoteClusters,
 	}
@@ -414,6 +421,7 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
+	remoteClustersCount.Record(float64(c.cs.Len()))
 }
 
 func (c *Controller) deleteMemberCluster(secretName string) {
@@ -421,6 +429,7 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 	defer func() {
 		c.cs.Unlock()
 		log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
+		remoteClustersCount.Record(float64(len(c.cs.remoteClusters)))
 	}()
 	for clusterID, cluster := range c.cs.remoteClusters {
 		if cluster.secretName == secretName {

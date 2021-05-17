@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -36,6 +37,15 @@ type Multicluster struct {
 
 var _ secrets.MulticlusterController = &Multicluster{}
 
+var clustersCount = monitoring.NewGauge(
+	"istiod_clusters_total",
+	"Number of clusters monitored by istiod",
+)
+
+func init() {
+	monitoring.MustRegister(clustersCount)
+}
+
 func NewMulticluster(client kube.Client, localCluster, secretNamespace string, stop <-chan struct{}) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[string]*SecretsController{},
@@ -44,6 +54,7 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string, s
 	}
 	// Add the local cluster
 	m.addMemberCluster(client, localCluster)
+	clustersCount.Record(1)
 	sc := secretcontroller.StartSecretController(client,
 		func(k string, c *secretcontroller.Cluster) error { m.addMemberCluster(c.Client, k); return nil },
 		func(k string, c *secretcontroller.Cluster) error { m.updateMemberCluster(c.Client, k); return nil },
@@ -64,6 +75,7 @@ func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
 	sc := NewSecretsController(clients, key)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
+	clustersCount.Record(float64(len(m.remoteKubeControllers)))
 	m.m.Unlock()
 }
 
@@ -75,6 +87,7 @@ func (m *Multicluster) updateMemberCluster(clients kube.Client, key string) {
 func (m *Multicluster) deleteMemberCluster(key string) {
 	m.m.Lock()
 	delete(m.remoteKubeControllers, key)
+	clustersCount.Record(float64(len(m.remoteKubeControllers)))
 	m.m.Unlock()
 }
 
