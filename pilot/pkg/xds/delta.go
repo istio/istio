@@ -485,8 +485,14 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		log.Infof("%s: %s for node:%s resources:%d size:%s nonce:%v version:%v%s",
 			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.SystemVersionInfo, info)
 	} else {
-		log.Infof("%s: %s for node:%s resources:%d size:%s%s",
-			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
+		if logdata.Incremental && log.DebugEnabled() {
+			log.Debugf("%s: %s for node:%s resources:%d size:%s%s",
+				ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
+		} else {
+			log.Infof("%s: %s for node:%s resources:%d size:%s%s",
+				ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
+		}
+
 	}
 	return nil
 }

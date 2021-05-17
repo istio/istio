@@ -138,8 +138,13 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		log.Infof("%s: %s%s for node:%s resources:%d size:%s nonce:%v version:%v%s",
 			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), resp.Nonce, resp.VersionInfo, info)
 	} else {
-		log.Infof("%s: %s%s for node:%s resources:%d size:%s%s",
-			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+		if logdata.Incremental && log.DebugEnabled() {
+			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+		} else {
+			log.Infof("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+		}
 	}
 
 	return nil
