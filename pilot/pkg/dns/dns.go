@@ -17,7 +17,9 @@ package dns
 import (
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/miekg/dns"
@@ -28,6 +30,14 @@ import (
 
 var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
 
+// upstreamServer holds the dns.Conn and the last used time for an upstream server.
+type upstreamServer struct {
+	sync.RWMutex
+	c           *dns.Conn
+	established time.Time
+	address     string
+}
+
 // Holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
@@ -36,8 +46,8 @@ type LocalDNSServer struct {
 	udpDNSProxy *dnsProxy
 	tcpDNSProxy *dnsProxy
 
-	resolvConfServers []string
-	searchNamespaces  []string
+	upstreamServers  []*upstreamServer
+	searchNamespaces []string
 	// The namespace where the proxy resides
 	// determines the hosts used for shortname resolution
 	proxyNamespace string
@@ -104,12 +114,12 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	// upstream resolvers as is.
 	if dnsConfig != nil {
 		for _, s := range dnsConfig.Servers {
-			h.resolvConfServers = append(h.resolvConfServers, net.JoinHostPort(s, dnsConfig.Port))
+			h.upstreamServers = append(h.upstreamServers, &upstreamServer{address: net.JoinHostPort(s, dnsConfig.Port)})
 		}
 		h.searchNamespaces = dnsConfig.Search
 	}
 
-	log.WithLabels("search", h.searchNamespaces, "servers", h.resolvConfServers).Debugf("initialized DNS")
+	log.WithLabels("search", h.searchNamespaces, "servers", h.upstreamServers).Debugf("initialized DNS")
 
 	if h.udpDNSProxy, err = newDNSProxy("udp", h); err != nil {
 		return nil, err
@@ -288,16 +298,17 @@ func roundRobinShuffle(records []dns.RR) {
 }
 
 func (h *LocalDNSServer) Close() {
+	for _, u := range h.upstreamServers {
+		u.c.Close()
+	}
 	h.udpDNSProxy.close()
 	h.tcpDNSProxy.close()
 }
 
-// TODO: Figure out how to send parallel queries to all nameservers
 func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	var response *dns.Msg
-	for _, upstream := range h.resolvConfServers {
-		cResponse, _, err := upstreamClient.Exchange(req, upstream)
-		if err == nil {
+	for _, upstream := range h.upstreamServers {
+		if cResponse, err := upstream.query(upstreamClient, req); err == nil {
 			response = cResponse
 			break
 		} else {
@@ -310,6 +321,35 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 		response.Rcode = dns.RcodeServerFailure
 	}
 	return response
+}
+
+func (u *upstreamServer) query(upstreamClient *dns.Client, req *dns.Msg) (*dns.Msg, error) {
+	u.RLock()
+	// If connection is not established or if it has been a while we have established  - we need to reconnect.
+	dial := u.c == nil || time.Since(u.established) > 15*time.Minute
+	address := u.address
+	conn := u.c
+	u.RUnlock()
+	if dial {
+		if c, err := upstreamClient.Dial(address); err == nil {
+			u.Lock()
+			u.c = c
+			u.established = time.Now()
+			u.Unlock()
+			conn = c
+		}
+	}
+
+	// Try with existing connection and if it fails, try with new connection.
+	if conn != nil {
+		if response, _, err := upstreamClient.ExchangeWithConn(req, conn); err == nil {
+			return response, nil
+		}
+	}
+	// There is an error - close the connection and try normal exchange. Next request will try to
+	// establish fresh connecion again.
+	response, _, err := upstreamClient.Exchange(req, address)
+	return response, err
 }
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
