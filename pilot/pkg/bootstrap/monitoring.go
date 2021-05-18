@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
 
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 	"istio.io/pkg/version"
 )
 
@@ -36,13 +38,30 @@ const (
 	versionPath = "/version"
 )
 
+var (
+	uptime      = monitoring.NewGauge("istiod_uptime_seconds", "Current istiod server uptime in seconds")
+	serverStart time.Time
+)
+
+func init() {
+	monitoring.MustRegister(uptime)
+	serverStart = time.Now()
+}
+
+func exportUptime(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uptime.Record(time.Since(serverStart).Seconds())
+		h.ServeHTTP(w, r)
+	})
+}
+
 func addMonitor(mux *http.ServeMux) error {
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
 	if err != nil {
 		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
-	mux.Handle(metricsPath, exporter)
+	mux.Handle(metricsPath, exportUptime(exporter))
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
