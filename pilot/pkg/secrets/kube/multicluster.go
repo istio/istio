@@ -41,7 +41,7 @@ var (
 	clusterType = monitoring.MustCreateLabel("cluster_type")
 
 	clustersCount = monitoring.NewGauge(
-		"istiod_managed_clusters_total",
+		"istiod_managed_clusters",
 		"Number of clusters managed by istiod",
 		monitoring.WithLabels(clusterType),
 	)
