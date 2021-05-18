@@ -40,12 +40,11 @@ const (
 
 var (
 	uptime      = monitoring.NewGauge("istiod_uptime_seconds", "Current istiod server uptime in seconds")
-	serverStart time.Time
+	serverStart = time.Now()
 )
 
 func init() {
 	monitoring.MustRegister(uptime)
-	serverStart = time.Now()
 }
 
 func exportUptime(h http.Handler) http.Handler {
