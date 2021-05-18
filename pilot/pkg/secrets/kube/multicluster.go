@@ -37,9 +37,16 @@ type Multicluster struct {
 
 var _ secrets.MulticlusterController = &Multicluster{}
 
-var clustersCount = monitoring.NewGauge(
-	"istiod_clusters_total",
-	"Number of clusters monitored by istiod",
+var (
+	clusterType = monitoring.MustCreateLabel("cluster_type")
+
+	clustersCount = monitoring.NewGauge(
+		"istiod_managed_clusters_total",
+		"Number of clusters managed by istiod",
+	)
+
+	localClusters  = clustersCount.With(clusterType.Value("local"))
+	remoteClusters = clustersCount.With(clusterType.Value("remote"))
 )
 
 func init() {
@@ -54,7 +61,7 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string, s
 	}
 	// Add the local cluster
 	m.addMemberCluster(client, localCluster)
-	clustersCount.Record(1)
+	localClusters.Record(1)
 	sc := secretcontroller.StartSecretController(client,
 		func(k string, c *secretcontroller.Cluster) error { m.addMemberCluster(c.Client, k); return nil },
 		func(k string, c *secretcontroller.Cluster) error { m.updateMemberCluster(c.Client, k); return nil },
@@ -75,7 +82,7 @@ func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
 	sc := NewSecretsController(clients, key)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
-	clustersCount.Record(float64(len(m.remoteKubeControllers)))
+	remoteClusters.Record(float64(len(m.remoteKubeControllers)))
 	m.m.Unlock()
 }
 
@@ -87,7 +94,7 @@ func (m *Multicluster) updateMemberCluster(clients kube.Client, key string) {
 func (m *Multicluster) deleteMemberCluster(key string) {
 	m.m.Lock()
 	delete(m.remoteKubeControllers, key)
-	clustersCount.Record(float64(len(m.remoteKubeControllers)))
+	remoteClusters.Record(float64(len(m.remoteKubeControllers)))
 	m.m.Unlock()
 }
 
