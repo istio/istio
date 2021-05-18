@@ -778,7 +778,7 @@ func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 	container.Env = envVars
 }
 
-// Uses the default concurrency 2, unless either overriden by proxy config to a positive number,
+// Uses the default concurrency 2, unless either overridden by proxy config to a positive number,
 // or special value 0, in which case the value is computed from CPU limits/requests.
 func estimateConcurrency(cfg *meshconfig.ProxyConfig, annotations map[string]string, valuesStruct *opconfig.Values) int {
 	if cfg != nil && cfg.Concurrency != nil {
@@ -796,7 +796,7 @@ func estimateConcurrency(cfg *meshconfig.ProxyConfig, annotations map[string]str
 			if err == nil {
 				return out
 			}
-		} else if resources := valuesStruct.GetGlobal().GetProxy().GetResources(); resources != nil {
+		} else if resources := valuesStruct.GetGlobal().GetProxy().GetResources(); resources != nil { // nolint:: staticcheck
 			if resources.Limits != nil {
 				if limit, ok := resources.Limits["cpu"]; ok {
 					out, err := quantityToConcurrency(limit)
