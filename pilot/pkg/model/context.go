@@ -787,6 +787,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
+// Must be called after ServiceInstances are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	if node.Type != Router {
 		return
