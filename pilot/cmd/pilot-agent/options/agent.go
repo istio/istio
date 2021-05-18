@@ -16,31 +16,32 @@ package options
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/config/constants"
 	istioagent "istio.io/istio/pkg/istio-agent"
 )
 
 // Similar with ISTIO_META_, which is used to customize the node metadata - this customizes extra header.
 const xdsHeaderPrefix = "XDS_HEADER_"
 
-func NewAgentOptions(proxy *model.Proxy) *istioagent.AgentOptions {
+func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
 	o := &istioagent.AgentOptions{
 		XDSRootCerts:             xdsRootCA,
 		CARootCerts:              caRootCA,
 		XDSHeaders:               map[string]string{},
-		XdsUdsPath:               constants.DefaultXdsUdsPath,
+		XdsUdsPath:               filepath.Join(cfg.ConfigPath, "XDS"),
 		IsIPv6:                   proxy.SupportsIPv6(),
 		ProxyType:                proxy.Type,
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
 		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		ProxyIPAddresses:         proxy.IPAddresses,
 		ServiceNode:              proxy.ServiceNode(),
-		EnvoyStatusPort:          15021,
-		EnvoyPrometheusPort:      15090,
+		EnvoyStatusPort:          envoyStatusPortEnv,
+		EnvoyPrometheusPort:      envoyPrometheusPortEnv,
 		Platform:                 platform.Discover(),
 	}
 	extractXDSHeadersFromEnv(o)

@@ -39,9 +39,6 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
-	DefaultLocalSDSPath = "./etc/istio/proxy/SDS"
-
 	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
 	SystemRootCerts = "SYSTEM"
 
