@@ -447,3 +447,18 @@ messages:
     args:
       - name: port
         type: string
+    
+  - name: "NamespaceResourceConflict"
+    code: IST0144
+    level: Error
+    description: "Multiple specifiers of the same kind in a namespace select the same workload."
+    template: "More than one %s in namespace %q for workload %q: %v."
+    args:
+      - name: kind
+        type: string
+      - name: namespace
+        type: string
+      - name: workloadSelector
+        type: string
+      - name: conflictingCRs
+        type: "[]string"
