@@ -803,9 +803,8 @@ func TestAdditionalProbes(t *testing.T) {
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
-			Probes:        tc.probes,
-			AdminPort:     uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
-			ProxyDraining: func() bool { return false },
+			Probes:    tc.probes,
+			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")

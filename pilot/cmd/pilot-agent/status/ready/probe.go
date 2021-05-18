@@ -15,6 +15,7 @@
 package ready
 
 import (
+	"context"
 	"fmt"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -30,7 +31,8 @@ type Probe struct {
 	receivedFirstUpdate bool
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
 	atleastOnceReady bool
-	ProxyDraining    func() bool
+	Context          context.Context
+	proxyTerminating bool
 }
 
 type Prober interface {
@@ -64,6 +66,10 @@ func (p *Probe) checkConfigStatus() error {
 	LDSUpdated := s.LDSUpdatesSuccess > 0
 	if CDSUpdated && LDSUpdated {
 		p.receivedFirstUpdate = true
+		go func() {
+			<-p.Context.Done()
+			p.proxyTerminating = true
+		}()
 		return nil
 	}
 
@@ -72,11 +78,9 @@ func (p *Probe) checkConfigStatus() error {
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
-	// If proxy is draining, we should return the draining status.
-	if p.ProxyDraining() {
-		return fmt.Errorf("server is not live, current state is: %v", admin.ServerInfo_DRAINING.String())
+	if p.proxyTerminating {
+		return nil // TODO : return error.
 	}
-
 	// If Envoy is ready atleast once i.e. server state is LIVE and workers
 	// have started, they will not go back in the life time of Envoy process.
 	// They will only change at hot restart or health check fails. Since Istio

@@ -30,14 +30,12 @@ var (
 	noServerStats   = ""
 )
 
-var NoProxyDrainingFunc = func() bool { return false }
-
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g := NewWithT(t)
 
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: NoProxyDrainingFunc}
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 
 	err := probe.Check()
 
@@ -49,7 +47,7 @@ func TestEnvoyDraining(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: func() bool { return true }}
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 
 	err := probe.Check()
 
@@ -103,7 +101,7 @@ server.state: 0`,
 		t.Run(tt.name, func(t *testing.T) {
 			server := testserver.CreateAndStartServer(tt.stats)
 			defer server.Close()
-			probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: NoProxyDrainingFunc}
+			probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 
 			err := probe.Check()
 
@@ -127,7 +125,7 @@ func TestEnvoyInitializing(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(initServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: NoProxyDrainingFunc}
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 
 	err := probe.Check()
 
@@ -151,7 +149,7 @@ func TestEnvoyNoServerStats(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(noServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: NoProxyDrainingFunc}
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 
 	err := probe.Check()
 
@@ -162,7 +160,7 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	g := NewWithT(t)
 
 	server := testserver.CreateAndStartServer(noServerStats)
-	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), ProxyDraining: NoProxyDrainingFunc}
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 	err := probe.Check()
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeFalse())

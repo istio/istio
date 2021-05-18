@@ -291,10 +291,6 @@ func (a *Agent) initializeEnvoyAgent() error {
 	return nil
 }
 
-func (a *Agent) IsEnvoyDraining() bool {
-	return a.envoyAgent.IsProxyDraining()
-}
-
 type bootstrapDiscoveryRequest struct {
 	node        *model.Node
 	envoyWaitCh chan error
