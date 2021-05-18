@@ -87,13 +87,17 @@ spec:
 `
 
 	deploymentYAML = `
-{{- $revVerMap := .IstioVersions }}
+{{- $revVerMap := .Revisions }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
 {{- range $revision, $version := $revVerMap }}
 apiVersion: apps/v1
+{{- if $.StatefulSet }}
+kind: StatefulSet
+{{- else }}
 kind: Deployment
+{{- end }}
 metadata:
 {{- if $.IsMultiVersion }}
   name: {{ $.Service }}-{{ $subset.Version }}-{{ $revision }}
@@ -101,6 +105,9 @@ metadata:
   name: {{ $.Service }}-{{ $subset.Version }}
 {{- end }}
 spec:
+  {{- if $.StatefulSet }}
+  serviceName: {{ $.Service }}
+  {{- end }}
   replicas: 1
   selector:
     matchLabels:
@@ -474,7 +481,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := generateDeploymentYAML(cfg, nil, ctx.Settings().IstioVersions)
+	deploymentYAML, err := GenerateDeployment(cfg, nil, ctx.Settings().Revisions)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
@@ -571,7 +578,7 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func generateDeploymentYAML(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
+func GenerateDeployment(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
 	params, err := templateParams(cfg, settings, versions)
 	if err != nil {
 		return "", err
@@ -594,9 +601,17 @@ func GenerateService(cfg echo.Config) (string, error) {
 	return tmpl.Execute(serviceTemplate, params)
 }
 
-const DefaultVMImage = "app_sidecar_ubuntu_bionic"
+var VMImages = map[echo.VMDistro]string{
+	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
+	echo.UbuntuFocal:  "app_sidecar_ubuntu_focal",
+	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
+	echo.Debian9:      "app_sidecar_debian_9",
+	echo.Debian10:     "app_sidecar_debian_10",
+	echo.Centos7:      "app_sidecar_centos_7",
+	echo.Centos8:      "app_sidecar_centos_8",
+}
 
-func templateParams(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *image.Settings, revisions resource.RevVerMap) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = image.SettingsFromCommandLine()
@@ -606,10 +621,10 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 	}
 	supportStartupProbe := cfg.Cluster.MinKubeVersion(0)
 
-	// if image is not provided, default to app_sidecar
-	vmImage := DefaultVMImage
-	if cfg.VMImage != "" {
-		vmImage = cfg.VMImage
+	vmImage := VMImages[cfg.VMDistro]
+	if vmImage == "" {
+		vmImage = VMImages[echo.DefaultVMDistro]
+		log.Warnf("no image for distro %s, defaulting to %s", cfg.VMDistro, echo.DefaultVMDistro)
 	}
 	namespace := ""
 	if cfg.Namespace != nil {
@@ -626,6 +641,7 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		"Service":            cfg.Service,
 		"Version":            cfg.Version,
 		"Headless":           cfg.Headless,
+		"StatefulSet":        cfg.StatefulSet,
 		"Locality":           cfg.Locality,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"Ports":              cfg.Ports,
@@ -642,8 +658,8 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"IstioVersions":   versions.TemplateMap(),
-		"IsMultiVersion":  versions.IsMultiVersion(),
+		"Revisions":       revisions.TemplateMap(),
+		"IsMultiVersion":  revisions.IsMultiVersion(),
 	}
 	return params, nil
 }

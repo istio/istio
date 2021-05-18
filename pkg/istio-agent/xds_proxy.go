@@ -21,7 +21,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math"
 	"net"
@@ -57,7 +56,6 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/wasm"
@@ -275,10 +273,16 @@ type ProxyConnection struct {
 	deltaRequestsChan  chan *discovery.DeltaDiscoveryRequest
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
-	downstream         discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	downstream         adsStream
 	upstream           discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	downstreamDeltas   discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
 	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+}
+
+type adsStream interface {
+	Send(*discovery.DiscoveryResponse) error
+	Recv() (*discovery.DiscoveryRequest, error)
+	Context() context.Context
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
@@ -286,7 +290,10 @@ type ProxyConnection struct {
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
+	return p.handleStream(downstream)
+}
 
+func (p *XdsProxy) handleStream(downstream adsStream) error {
 	con := &ProxyConnection{
 		conID:           connectionNumber.Inc(),
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
@@ -391,7 +398,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
@@ -401,7 +408,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
 				metrics.EnvoyConnectionCancellations.Increment()
 			} else {
@@ -558,29 +565,6 @@ func (p *XdsProxy) close() {
 	}
 }
 
-// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
-// things are operating normally. This is basically capturing when the client disconnects.
-func isExpectedGRPCError(err error) bool {
-	if err == io.EOF {
-		return true
-	}
-
-	if s, ok := status.FromError(err); ok {
-		if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
-			return true
-		}
-		if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
-			return true
-		}
-	}
-	// If this is not a gRPCStatus we should just error message.
-	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
-		return true
-	}
-
-	return false
-}
-
 func (p *XdsProxy) initDownstreamServer() error {
 	l, err := uds.NewListener(p.xdsUdsPath)
 	if err != nil {
@@ -687,9 +671,13 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 
 func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var certPool *x509.CertPool
-	var err error
 	var rootCert []byte
-	xdsCACertPath := agent.FindRootCAForXDS()
+
+	xdsCACertPath, err := agent.FindRootCAForXDS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
+	}
+
 	if xdsCACertPath != "" {
 		rootCert, err = ioutil.ReadFile(xdsCACertPath)
 		if err != nil {
@@ -717,7 +705,7 @@ func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregated
 }
 
 // sendDownstream sends discovery response.
-func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
+func sendDownstream(downstream adsStream,
 	response *discovery.DiscoveryResponse) error {
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }

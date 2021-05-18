@@ -28,7 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/api/batch/v2alpha1"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -270,7 +270,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
 	switch v := out.(type) {
-	case *v2alpha1.CronJob:
+	case *batch.CronJob:
 		job := v
 		metadata = &job.Spec.JobTemplate.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec

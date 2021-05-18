@@ -409,16 +409,7 @@ func (a *v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) mode
 // getMutualTLSMode returns the MutualTLSMode enum corresponding peer MutualTLS settings.
 // Input cannot be nil.
 func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTLSMode {
-	switch mtls.Mode {
-	case v1beta1.PeerAuthentication_MutualTLS_DISABLE:
-		return model.MTLSDisable
-	case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
-		return model.MTLSPermissive
-	case v1beta1.PeerAuthentication_MutualTLS_STRICT:
-		return model.MTLSStrict
-	default:
-		return model.MTLSUnknown
-	}
+	return model.ConvertToMutualTLSMode(mtls.Mode)
 }
 
 // composePeerAuthentication returns the effective PeerAuthentication given the list of applicable

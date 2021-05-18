@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -79,9 +78,8 @@ func (p Plugin) buildFilter(in *plugin.InputParams, mutable *networking.MutableO
 		return
 	}
 
-	// TODO: Get trust domain from MeshConfig instead.
-	// https://github.com/istio/istio/issues/17873
-	tdBundle := trustdomain.NewBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
+	meshConfig := in.Push.Mesh
+	tdBundle := trustdomain.NewBundle(meshConfig.TrustDomain, meshConfig.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: p.actionType == Custom,
 		Logger:          &builder.AuthzLogger{},

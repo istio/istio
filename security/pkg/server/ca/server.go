@@ -26,6 +26,7 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/pki/ca"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
@@ -35,11 +36,10 @@ var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
 
 // CertificateAuthority contains methods to be supported by a CA.
 type CertificateAuthority interface {
-	// Sign generates a certificate for a workload or CA, from the given CSR and TTL.
-	// TODO(myidpt): simplify this interface and pass a struct with cert field values instead.
-	Sign(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	// Sign generates a certificate for a workload or CA, from the given CSR and cert opts.
+	Sign(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
 	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-	SignWithCertChain(csrPEM []byte, subjectIDs []string, ttl time.Duration, forCA bool) ([]byte, error)
+	SignWithCertChain(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() *util.KeyCertBundle
 }
@@ -80,8 +80,12 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	// TODO: Call authorizer.
 
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
-	cert, signErr := s.ca.Sign(
-		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
+	certOpts := ca.CertOpts{
+		SubjectIDs: caller.Identities,
+		TTL:        time.Duration(request.ValidityDuration) * time.Second,
+		ForCA:      false,
+	}
+	cert, signErr := s.ca.Sign([]byte(request.Csr), certOpts)
 	if signErr != nil {
 		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()

@@ -245,7 +245,7 @@ func sendHTTPRequestWithRetry(client *http.Client, req *http.Request) (resp *htt
 	for i := 0; i < 10; i++ {
 		resp, err = client.Do(req)
 		if err == nil {
-			return resp, err
+			return resp, nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -269,7 +269,7 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 	// Create token exchange Google plugin
 	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, mock.FakeTrustDomain, mock.FakeProjectNum,
 		mock.FakeGKEClusterURL, setup.enableCache)
-	federatedTokenTestingEndpoint := mockServer.URL + "/v1/identitybindingtoken"
+	federatedTokenTestingEndpoint := mockServer.URL + "/v1/token"
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager

@@ -262,7 +262,7 @@ func TestIsRouteMatch(t *testing.T) {
 			gateway: config.Meta{Name: "gateway", Namespace: "default"},
 			routes: k8s.RouteBindingSelector{
 				Kind:  gvk.HTTPRoute.Kind,
-				Group: gvk.HTTPRoute.Group,
+				Group: StrPointer(gvk.HTTPRoute.Group),
 			},
 			// Default for both selectors will match everything in the same namespace
 			expected: true,
@@ -275,7 +275,7 @@ func TestIsRouteMatch(t *testing.T) {
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
 				Kind:  gvk.HTTPRoute.Kind,
-				Group: gvk.HTTPRoute.Group,
+				Group: StrPointer(gvk.HTTPRoute.Group),
 			},
 			// Default for both selectors will match everything in the same namespace
 			expected: false,
@@ -285,13 +285,13 @@ func TestIsRouteMatch(t *testing.T) {
 			cfg: config.Config{
 				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
 				Spec: &k8s.HTTPRouteSpec{
-					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+					Gateways: &k8s.RouteGateways{Allow: &gatewayAll},
 				},
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
-				Group:      gvk.HTTPRoute.Group,
+				Namespaces: &k8s.RouteNamespaces{From: &routeAll},
+				Group:      StrPointer(gvk.HTTPRoute.Group),
 				Kind:       gvk.HTTPRoute.Kind,
 			},
 			// Both allow cross namespace, this is allowed
@@ -302,12 +302,12 @@ func TestIsRouteMatch(t *testing.T) {
 			cfg: config.Config{
 				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
 				Spec: &k8s.HTTPRouteSpec{
-					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+					Gateways: &k8s.RouteGateways{Allow: &gatewayAll},
 				},
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Group: gvk.HTTPRoute.Group,
+				Group: StrPointer(gvk.HTTPRoute.Group),
 				Kind:  gvk.HTTPRoute.Kind,
 			},
 			// Gateway isn't looking in other namespaces
@@ -320,8 +320,8 @@ func TestIsRouteMatch(t *testing.T) {
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
-				Group:      gvk.HTTPRoute.Group,
+				Namespaces: &k8s.RouteNamespaces{From: &routeAll},
+				Group:      StrPointer(gvk.HTTPRoute.Group),
 				Kind:       gvk.HTTPRoute.Kind,
 			},
 			// Route doesn't allow cross namespace
@@ -332,15 +332,15 @@ func TestIsRouteMatch(t *testing.T) {
 			cfg: config.Config{
 				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
 				Spec: &k8s.HTTPRouteSpec{
-					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowFromList, GatewayRefs: []k8s.GatewayReference{
+					Gateways: &k8s.RouteGateways{Allow: &gatewayAll, GatewayRefs: []k8s.GatewayReference{
 						{Name: "gateway", Namespace: "not-default"},
 					}},
 				},
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
-				Group:      gvk.HTTPRoute.Group,
+				Namespaces: &k8s.RouteNamespaces{From: &routeAll},
+				Group:      StrPointer(gvk.HTTPRoute.Group),
 				Kind:       gvk.HTTPRoute.Kind,
 			},
 			// direct reference matches
@@ -351,15 +351,21 @@ func TestIsRouteMatch(t *testing.T) {
 			cfg: config.Config{
 				Meta: config.Meta{Namespace: "default", GroupVersionKind: gvk.HTTPRoute},
 				Spec: &k8s.HTTPRouteSpec{
-					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowFromList, GatewayRefs: []k8s.GatewayReference{
-						{Name: "not-gateway", Namespace: "not-default"},
-					}},
+					Gateways: &k8s.RouteGateways{
+						Allow: func() *k8s.GatewayAllowType {
+							x := k8s.GatewayAllowFromList
+							return &x
+						}(),
+						GatewayRefs: []k8s.GatewayReference{
+							{Name: "not-gateway", Namespace: "not-default"},
+						},
+					},
 				},
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectAll},
-				Group:      gvk.HTTPRoute.Group,
+				Namespaces: &k8s.RouteNamespaces{From: &routeAll},
+				Group:      StrPointer(gvk.HTTPRoute.Group),
 				Kind:       gvk.HTTPRoute.Kind,
 			},
 			// direct reference does not match
@@ -370,15 +376,21 @@ func TestIsRouteMatch(t *testing.T) {
 			cfg: config.Config{
 				Meta: config.Meta{Namespace: "select", GroupVersionKind: gvk.HTTPRoute},
 				Spec: &k8s.HTTPRouteSpec{
-					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+					Gateways: &k8s.RouteGateways{Allow: &routeAllow},
 				},
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
-					"selected": "true",
-				}}},
-				Group: gvk.HTTPRoute.Group,
+				Namespaces: &k8s.RouteNamespaces{
+					From: func() *k8s.RouteSelectType {
+						x := k8s.RouteSelectSelector
+						return &x
+					}(),
+					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{
+						"selected": "true",
+					}},
+				},
+				Group: StrPointer(gvk.HTTPRoute.Group),
 				Kind:  gvk.HTTPRoute.Kind,
 			},
 			// selector matches namespace label
@@ -389,15 +401,21 @@ func TestIsRouteMatch(t *testing.T) {
 			cfg: config.Config{
 				Meta: config.Meta{Namespace: "not-select", GroupVersionKind: gvk.HTTPRoute},
 				Spec: &k8s.HTTPRouteSpec{
-					Gateways: k8s.RouteGateways{Allow: k8s.GatewayAllowAll},
+					Gateways: &k8s.RouteGateways{Allow: &gatewayAll},
 				},
 			},
 			gateway: config.Meta{Name: "gateway", Namespace: "not-default"},
 			routes: k8s.RouteBindingSelector{
-				Namespaces: k8s.RouteNamespaces{From: k8s.RouteSelectSelector, Selector: metav1.LabelSelector{MatchLabels: map[string]string{
-					"selected": "true",
-				}}},
-				Group: gvk.HTTPRoute.Group,
+				Namespaces: &k8s.RouteNamespaces{
+					From: func() *k8s.RouteSelectType {
+						x := k8s.RouteSelectSelector
+						return &x
+					}(),
+					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{
+						"selected": "true",
+					}},
+				},
+				Group: StrPointer(gvk.HTTPRoute.Group),
 				Kind:  gvk.HTTPRoute.Kind,
 			},
 			// selector does not match namespace

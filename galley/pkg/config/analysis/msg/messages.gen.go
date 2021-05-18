@@ -166,12 +166,20 @@ var (
 	UnsupportedKubernetesVersion = diag.NewMessageType(diag.Error, "IST0142", "The Kubernetes Version %q is lower than the minimum version: %v")
 
 	// LocalhostListener defines a diag.MessageType for message "LocalhostListener".
-	// Description: A port exposed in by a Service is bound to a localhost address
+	// Description: A port exposed in a Service is bound to a localhost address
 	LocalhostListener = diag.NewMessageType(diag.Error, "IST0143", "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods.")
+
+	// InvalidApplicationUID defines a diag.MessageType for message "InvalidApplicationUID".
+	// Description: Application pods should not run as user ID (UID) 1337
+	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "User ID (UID) 1337 is reserved for the sidecar proxy.")
+
+	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
+	// Description: Gateway should not have the same selector, port and matched hosts of server
+	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
 
 	// NamespaceResourceConflict defines a diag.MessageType for message "NamespaceResourceConflict".
 	// Description: Multiple specifiers of the same kind in a namespace select the same workload.
-	NamespaceResourceConflict = diag.NewMessageType(diag.Error, "IST0144", "More than one %s in namespace %q for workload %q: %v.")
+	NamespaceResourceConflict = diag.NewMessageType(diag.Warning, "IST0146", "More than one %s in namespace %q for workload %q: %v.")
 )
 
 // All returns a list of all known message types.
@@ -217,6 +225,8 @@ func All() []*diag.MessageType {
 		InsufficientPermissions,
 		UnsupportedKubernetesVersion,
 		LocalhostListener,
+		InvalidApplicationUID,
+		ConflictingGateways,
 		NamespaceResourceConflict,
 	}
 }
@@ -619,6 +629,26 @@ func NewLocalhostListener(r *resource.Instance, port string) diag.Message {
 		LocalhostListener,
 		r,
 		port,
+	)
+}
+
+// NewInvalidApplicationUID returns a new diag.Message based on InvalidApplicationUID.
+func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		InvalidApplicationUID,
+		r,
+	)
+}
+
+// NewConflictingGateways returns a new diag.Message based on ConflictingGateways.
+func NewConflictingGateways(r *resource.Instance, gateway string, selector string, portnumber string, hosts string) diag.Message {
+	return diag.NewMessage(
+		ConflictingGateways,
+		r,
+		gateway,
+		selector,
+		portnumber,
+		hosts,
 	)
 }
 

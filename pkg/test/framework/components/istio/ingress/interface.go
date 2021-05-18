@@ -17,34 +17,37 @@ package ingress
 import (
 	"net"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/util/retry"
 )
+
+type Instances []Instance
+
+func (i Instances) Callers() echo.Callers {
+	var out echo.Callers
+	for _, instance := range i {
+		out = append(out, instance)
+	}
+	return out
+}
 
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
+	echo.Caller
 	// HTTPAddress returns the external HTTP (80) address of the ingress gateway ((or the NodePort address,
 	//	// when in an environment that doesn't support LoadBalancer).
-	HTTPAddress() net.TCPAddr
+	HTTPAddress() (string, int)
 	// HTTPSAddress returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
 	//	// when in an environment that doesn't support LoadBalancer).
-	HTTPSAddress() net.TCPAddr
+	HTTPSAddress() (string, int)
 	// TCPAddress returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
-	TCPAddress() net.TCPAddr
+	TCPAddress() (string, int)
 	// DiscoveryAddress returns the external XDS (!5012) address on the ingress gateway (or the NodePort address,
 	// when in an evnironment that doesn't support LoadBalancer).
 	DiscoveryAddress() net.TCPAddr
 	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer) for the given port.
-	AddressForPort(port int) net.TCPAddr
-	// CallEcho makes a call through ingress using the echo call and response types.
-	CallEcho(options echo.CallOptions) (client.ParsedResponses, error)
-	CallEchoOrFail(t test.Failer, options echo.CallOptions) client.ParsedResponses
-	CallEchoWithRetry(options echo.CallOptions, retryOptions ...retry.Option) (client.ParsedResponses, error)
-	CallEchoWithRetryOrFail(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) client.ParsedResponses
+	AddressForPort(port int) (string, int)
 
 	// ProxyStats returns proxy stats, or error if failure happens.
 	ProxyStats() (map[string]int, error)
@@ -52,4 +55,7 @@ type Instance interface {
 	// PodID returns the name of the ingress gateway pod of index i. Returns error if failed to get the pod
 	// or the index is out of boundary.
 	PodID(i int) (string, error)
+
+	// Namespace of the ingress
+	Namespace() string
 }

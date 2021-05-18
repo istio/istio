@@ -133,4 +133,14 @@ const (
 
 	// TrustworthyJWTPath is the defaut 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
+
+	// CertProviderIstiod uses istiod self signed DNS certificates for the control plane
+	CertProviderIstiod = "istiod"
+	// CertProviderKubernetes uses the Kubernetes CSR API to generate a DNS certificate for the control plane
+	CertProviderKubernetes = "kubernetes"
+	// CertProviderCustom uses the custom root certificate mounted in a well known location for the control plane
+	CertProviderCustom = "custom"
+	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external
+	// load balancer, such as an Istio Gateway, is terminating the TLS.
+	CertProviderNone = "none"
 )

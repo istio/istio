@@ -2,7 +2,8 @@ package namespaceconflict
 
 import (
 	"fmt"
-	
+
+
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
 	v1beta1 "istio.io/api/security/v1beta1"

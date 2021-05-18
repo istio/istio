@@ -176,7 +176,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 			rootCertFile:  ecRootCertFile,
 			certOptions: &CertOptions{
 				Host:     "watt",
-				TTL:      365 * 24 * time.Hour,
+				TTL:      10 * 365 * 24 * time.Hour,
 				Org:      "Juju org",
 				IsCA:     false,
 				ECSigAlg: EcdsaSigAlg,

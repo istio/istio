@@ -24,6 +24,7 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
@@ -60,7 +62,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
 		configureSampling(hcm.Tracing, 0.0, proxyCfg)
-		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg)
+		configureCustomTags(hcm.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, opts.proxy.Metadata)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
@@ -108,7 +110,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	// gracefully fallback to MeshConfig configuration. It will act as an implicit
 	// parent configuration during transition period.
 	configureSampling(hcm.Tracing, tracingCfg.RandomSamplingPercentage.GetValue(), proxyCfg)
-	configureCustomTags(hcm.Tracing, tracingCfg.CustomTags, proxyCfg)
+	configureCustomTags(hcm.Tracing, tracingCfg.CustomTags, proxyCfg, opts.proxy.Metadata)
 
 	// if there is configured max tag length somewhere, fallback to it.
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
@@ -315,54 +317,97 @@ func convert(ctxs []meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTraci
 	return converted
 }
 
-func defaultTags() []*tracing.CustomTag {
-	return []*tracing.CustomTag{
-		{
-			Tag: "istio.canonical_revision",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "CANONICAL_REVISION",
-					DefaultValue: "latest",
+func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
+	// The tag will not be populated when not used as there is no default value set for the tag.
+	// See https://www.envoyproxy.io/docs/envoy/v1.17.1/configuration/http/http_filters/rbac_filter#dynamic-metadata.
+	return &tracing.CustomTag{
+		Tag: name,
+		Type: &tracing.CustomTag_Metadata_{
+			Metadata: &tracing.CustomTag_Metadata{
+				Kind: &envoy_type_metadata_v3.MetadataKind{
+					Kind: &envoy_type_metadata_v3.MetadataKind_Request_{
+						Request: &envoy_type_metadata_v3.MetadataKind_Request{},
+					},
 				},
-			},
-		},
-		{
-			Tag: "istio.canonical_service",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "CANONICAL_SERVICE",
-					DefaultValue: "unknown",
-				},
-			},
-		},
-		{
-			Tag: "istio.mesh_id",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "ISTIO_META_MESH_ID",
-					DefaultValue: "unknown",
-				},
-			},
-		},
-		{
-			Tag: "istio.namespace",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name:         "POD_NAMESPACE",
-					DefaultValue: "default",
+				MetadataKey: &envoy_type_metadata_v3.MetadataKey{
+					Key: authz_model.RBACHTTPFilterName,
+					Path: []*envoy_type_metadata_v3.MetadataKey_PathSegment{
+						{
+							Segment: &envoy_type_metadata_v3.MetadataKey_PathSegment_Key{
+								Key: key,
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 }
 
-func getPilotRandomSamplingEnv() float64 {
-	f := features.TraceSampling
-	if f < 0.0 || f > 100.0 {
-		log.Warnf("PILOT_TRACE_SAMPLING out of range: %v", f)
-		return 1.0
+func buildOptionalPolicyTags() []*tracing.CustomTag {
+	return []*tracing.CustomTag{
+		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.name", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.result", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEngineResult),
+		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.name", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
 	}
-	return f
+}
+
+func buildServiceTags(metadata *model.NodeMetadata) []*tracing.CustomTag {
+	var revision, service string
+	if metadata.Labels != nil {
+		revision = metadata.Labels["service.istio.io/canonical-revision"]
+		service = metadata.Labels["service.istio.io/canonical-name"]
+	}
+	if revision == "" {
+		revision = "latest"
+	}
+	// TODO: This should have been properly handled with the injector.
+	if service == "" {
+		service = "unknown"
+	}
+	meshID := metadata.MeshID
+	if meshID == "" {
+		meshID = "unknown"
+	}
+	namespace := metadata.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+	return []*tracing.CustomTag{
+		{
+			Tag: "istio.canonical_revision",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: revision,
+				},
+			},
+		},
+		{
+			Tag: "istio.canonical_service",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: service,
+				},
+			},
+		},
+		{
+			Tag: "istio.mesh_id",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: meshID,
+				},
+			},
+		},
+		{
+			Tag: "istio.namespace",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: namespace,
+				},
+			},
+		},
+	}
 }
 
 func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPercentage float64, proxyCfg *meshconfig.ProxyConfig) {
@@ -388,7 +433,7 @@ func configureSampling(hcmTracing *hpb.HttpConnectionManager_Tracing, providerPe
 }
 
 func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
-	sampling := pilotTraceSamplingEnv
+	sampling := features.TraceSampling
 
 	if config.Tracing != nil && config.Tracing.Sampling != 0.0 {
 		sampling = config.Tracing.Sampling
@@ -401,7 +446,7 @@ func fallbackSamplingValue(config *meshconfig.ProxyConfig) float64 {
 }
 
 func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
-	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig) {
+	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, metadata *model.NodeMetadata) {
 	var tags []*tracing.CustomTag
 
 	// TODO(dougreid): remove support for this feature. We don't want this to be
@@ -409,8 +454,8 @@ func configureCustomTags(hcmTracing *hpb.HttpConnectionManager_Tracing,
 	// later, if needed.
 	// THESE TAGS SHOULD BE ALWAYS ON.
 	if features.EnableIstioTags {
-		defaultTags := defaultTags()
-		tags = append(tags, defaultTags...)
+		tags = append(tags, buildOptionalPolicyTags()...)
+		tags = append(tags, buildServiceTags(metadata)...)
 	}
 
 	if len(providerTags) == 0 {

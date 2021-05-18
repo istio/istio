@@ -87,3 +87,33 @@ func OverlayValuesEnablement(baseYAML, fileOverlayYAML, setOverlayYAML string) (
 
 	return YAMLTree(overlayYAML, baseYAML, name.ValuesEnablementPathMap)
 }
+
+// GetEnabledComponents get all the enabled components from the given istio operator spec
+func GetEnabledComponents(iopSpec *v1alpha1.IstioOperatorSpec) ([]string, error) {
+	var enabledComponents []string
+	if iopSpec.Components != nil {
+		for _, c := range name.AllCoreComponentNames {
+			enabled, err := IsComponentEnabledInSpec(c, iopSpec)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check if component: %s is enabled or not: %v", string(c), err)
+			}
+			if enabled {
+				enabledComponents = append(enabledComponents, string(c))
+			}
+		}
+		for _, c := range iopSpec.Components.IngressGateways {
+			if c.Enabled.Value {
+				enabledComponents = append(enabledComponents, string(name.IngressComponentName))
+				break
+			}
+		}
+		for _, c := range iopSpec.Components.EgressGateways {
+			if c.Enabled.Value {
+				enabledComponents = append(enabledComponents, string(name.EgressComponentName))
+				break
+			}
+		}
+	}
+
+	return enabledComponents, nil
+}

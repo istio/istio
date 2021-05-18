@@ -273,8 +273,8 @@ func toAdmissionResponse(err error) *kube.AdmissionResponse {
 
 type InjectionParameters struct {
 	pod                 *corev1.Pod
-	deployMeta          *metav1.ObjectMeta
-	typeMeta            *metav1.TypeMeta
+	deployMeta          metav1.ObjectMeta
+	typeMeta            metav1.TypeMeta
 	templates           Templates
 	defaultTemplate     []string
 	aliases             map[string][]string

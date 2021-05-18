@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 31095
+releaseNotes:
+  - |
+    **Fixed** an issue where app call itself by podIP in TPROXY mode could neither be intercepted by inbound nor outbound.

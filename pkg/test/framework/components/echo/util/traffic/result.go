@@ -20,6 +20,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 )
 
@@ -49,12 +50,25 @@ func (r *Result) add(resp client.ParsedResponses, err error) {
 
 	r.TotalRequests += count
 	if err != nil {
-		r.Error = multierror.Append(r.Error, err)
+		r.Error = multierror.Append(r.Error, fmt.Errorf("request %d: %v", r.TotalRequests, err))
 	} else {
 		r.SuccessfulRequests += count
 	}
 }
 
 func (r Result) PercentSuccess() float64 {
-	return (float64(r.SuccessfulRequests) / float64(r.TotalRequests)) * 100.0
+	return float64(r.SuccessfulRequests) / float64(r.TotalRequests)
+}
+
+// CheckSuccessRate asserts that a minimum success threshold was met.
+func (r Result) CheckSuccessRate(t test.Failer, minimumPercent float64) {
+	if r.PercentSuccess() < minimumPercent {
+		t.Fatalf("Minimum success threshold, %f, was not met. %d/%d (%f) requests failed: %v",
+			minimumPercent, r.SuccessfulRequests, r.TotalRequests, r.PercentSuccess(), r.Error)
+	}
+	if r.SuccessfulRequests == r.TotalRequests {
+		t.Log("traffic checker succeeded with all successful requests")
+	} else {
+		t.Logf("traffic checker met minimum threshold, with %d/%d successes, but encountered some failures: %v", r.SuccessfulRequests, r.TotalRequests, r.Error)
+	}
 }

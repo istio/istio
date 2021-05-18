@@ -20,7 +20,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes/any"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -177,13 +177,19 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			}
 		}
 	}
-	log.Infof("SDS: GENERATE for node:%s resources:%d size:%s cached:%v/%v",
+	log.Infof("SDS: PUSH for node:%s resources:%d size:%s cached:%v/%v",
 		proxy.ID, len(results), util.ByteCount(ResourceSize(results)), cached, cached+regenerated)
 	return results, nil
 }
 
-func toEnvoyCaSecret(name string, cert []byte) *any.Any {
-	return util.MessageToAny(&tls.Secret{
+var secretGenMetadata = &model.GeneratorMetadata{LogsDetails: true}
+
+func (s *SecretGen) Metadata() *model.GeneratorMetadata {
+	return secretGenMetadata
+}
+
+func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {
+	res := util.MessageToAny(&tls.Secret{
 		Name: name,
 		Type: &tls.Secret_ValidationContext{
 			ValidationContext: &tls.CertificateValidationContext{
@@ -195,10 +201,14 @@ func toEnvoyCaSecret(name string, cert []byte) *any.Any {
 			},
 		},
 	})
+	return &discovery.Resource{
+		Name:     name,
+		Resource: res,
+	}
 }
 
-func toEnvoyKeyCertSecret(name string, key, cert []byte) *any.Any {
-	return util.MessageToAny(&tls.Secret{
+func toEnvoyKeyCertSecret(name string, key, cert []byte) *discovery.Resource {
+	res := util.MessageToAny(&tls.Secret{
 		Name: name,
 		Type: &tls.Secret_TlsCertificate{
 			TlsCertificate: &tls.TlsCertificate{
@@ -215,6 +225,10 @@ func toEnvoyKeyCertSecret(name string, key, cert []byte) *any.Any {
 			},
 		},
 	})
+	return &discovery.Resource{
+		Name:     name,
+		Resource: res,
+	}
 }
 
 func containsAny(mp map[model.ConfigKey]struct{}, keys []model.ConfigKey) bool {

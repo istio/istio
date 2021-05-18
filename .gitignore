@@ -19,6 +19,7 @@ tools/vagrant/.vagrant/
 *.pyc
 # Vm setup generated files
 cluster.env
+sidecar.env
 kubedns
 # pilot
 pilot/pkg/kube/config

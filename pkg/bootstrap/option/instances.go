@@ -15,6 +15,8 @@
 package option
 
 import (
+	"strings"
+
 	"github.com/gogo/protobuf/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -55,6 +57,11 @@ func Cluster(value string) Instance {
 
 func NodeID(value string) Instance {
 	return newOption("nodeID", value)
+}
+
+func NodeType(value string) Instance {
+	ntype := strings.Split(value, "~")[0]
+	return newOption("nodeType", ntype)
 }
 
 func XdsType(value string) Instance {
@@ -205,8 +212,12 @@ func EnvoyStatsMatcherInclusionRegexp(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("inclusionRegexps", value)
 }
 
-func PilotCertProvider(value string) Instance {
-	return newOption("pilot_cert_provider", value)
+func EnvoyStatusPort(value int) Instance {
+	return newOption("envoy_status_port", value)
+}
+
+func EnvoyPrometheusPort(value int) Instance {
+	return newOption("envoy_prometheus_port", value)
 }
 
 func STSPort(value int) Instance {

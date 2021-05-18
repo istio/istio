@@ -50,6 +50,16 @@ type KubernetesResources struct {
 	Domain string
 }
 
+// gatewayLabelSelectorAsSelector is like metav1.LabelSelectorAsSelector but for gateway selector, which
+// has different logic
+func gatewayLabelSelectorAsSelector(ps *metav1.LabelSelector) (klabels.Selector, error) {
+	if ps == nil {
+		// LabelSelectorAsSelector returns Nothing() here
+		return klabels.Everything(), nil
+	}
+	return metav1.LabelSelectorAsSelector(ps)
+}
+
 // isRouteMatch checks if a route should bind to a gateway.
 // This takes into account selection config on both the gateway and xRoute objects
 func isRouteMatch(cfg config.Config, gateway config.Meta,
@@ -62,16 +72,19 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 		return false
 	}
 
-	grp := routes.Group
+	grp := ""
+	if routes.Group != nil {
+		grp = *routes.Group
+	}
 	if grp == "" { // Default group in the spec
-		grp = "networking.x-k8s.io"
+		grp = gvk.ServiceApisGateway.Group
 	}
 	if grp != cfg.GroupVersionKind.Group {
 		return false
 	}
 
 	// Next, check the label selector matches the gateway
-	ls, err := metav1.LabelSelectorAsSelector(&routes.Selector)
+	ls, err := gatewayLabelSelectorAsSelector(routes.Selector)
 	if err != nil {
 		log.Errorf("failed to create route selector: %v", err)
 		return false
@@ -83,11 +96,12 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 	// Check the gateway's namespace selector
 	namespaceSelector := routes.Namespaces
 
-	if namespaceSelector.From == "" {
-		// Setup default if not provided
-		namespaceSelector.From = k8s.RouteSelectSame
+	// Setup default if not provided
+	from := k8s.RouteSelectSame
+	if namespaceSelector != nil && namespaceSelector.From != nil && *namespaceSelector.From != "" {
+		from = *namespaceSelector.From
 	}
-	switch namespaceSelector.From {
+	switch from {
 	case k8s.RouteSelectAll:
 		// Always matches, continue
 	case k8s.RouteSelectSame:
@@ -95,7 +109,7 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 			return false
 		}
 	case k8s.RouteSelectSelector:
-		ns, err := metav1.LabelSelectorAsSelector(&namespaceSelector.Selector)
+		ns, err := metav1.LabelSelectorAsSelector(namespaceSelector.Selector)
 		if err != nil {
 			log.Errorf("failed to create namespace selector: %v", err)
 			return false
@@ -111,14 +125,18 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 	}
 
 	gatewaySelector := getGatewaySelectorFromSpec(cfg.Spec)
-	if gatewaySelector == nil {
-		gatewaySelector = &k8s.RouteGateways{Allow: k8s.GatewayAllowSameNamespace}
+	allow := k8s.GatewayAllowSameNamespace
+	if gatewaySelector != nil && gatewaySelector.Allow != nil {
+		allow = *gatewaySelector.Allow
 	}
-	switch gatewaySelector.Allow {
+	switch allow {
 	case k8s.GatewayAllowAll:
 	// Always matches, continue
 	case k8s.GatewayAllowFromList:
 		found := false
+		if gatewaySelector == nil {
+			return false
+		}
 		for _, gw := range gatewaySelector.GatewayRefs {
 			if gw.Name == gateway.Name && gw.Namespace == gateway.Namespace {
 				found = true
@@ -140,11 +158,11 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 func getGatewaySelectorFromSpec(spec config.Spec) *k8s.RouteGateways {
 	switch s := spec.(type) {
 	case *k8s.HTTPRouteSpec:
-		return &s.Gateways
+		return s.Gateways
 	case *k8s.TCPRouteSpec:
-		return &s.Gateways
+		return s.Gateways
 	case *k8s.TLSRouteSpec:
-		return &s.Gateways
+		return s.Gateways
 	default:
 		return nil
 	}
@@ -305,7 +323,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		rs := s.(*k8s.HTTPRouteStatus)
 		// TODO report skipped routes
-		rs.Gateways = createRouteStatus(gateways, obj)
+		rs.Gateways = createRouteStatus(gateways, obj, rs.Gateways)
 		return rs
 	})
 
@@ -318,8 +336,9 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 		vs := &istio.HTTPRoute{}
 		for _, match := range r.Matches {
 			vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
-				Uri:     createURIMatch(match),
-				Headers: createHeadersMatch(match),
+				Uri:         createURIMatch(match),
+				Headers:     createHeadersMatch(match),
+				QueryParams: createQueryParamsMatch(match),
 			})
 		}
 		for _, filter := range r.Filters {
@@ -352,11 +371,49 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	return result
 }
 
-func createRouteStatus(gateways []string, obj config.Config) []k8s.RouteGatewayStatus {
-	gws := make([]k8s.RouteGatewayStatus, 0, len(gateways))
-	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/591) this assumes full ownership of route
+type localNamedReference struct {
+	Name      string
+	Namespace string
+}
+
+func createRouteStatus(gateways []string, obj config.Config, current []k8s.RouteGatewayStatus) []k8s.RouteGatewayStatus {
+	setGateways := map[localNamedReference]struct{}{}
 	for _, gw := range gateways {
-		ref := k8s.GatewayReference{}
+		ref := localNamedReference{}
+		if gw == constants.IstioMeshGateway {
+			ref.Name = experimentalMeshGatewayName
+			// TODO this is not namespaced but a namespace is required
+			ref.Namespace = "default"
+		} else {
+			s := strings.Split(gw, "/")
+			ref.Name = s[1]
+			ref.Namespace = s[0]
+		}
+		setGateways[ref] = struct{}{}
+	}
+	gws := make([]k8s.RouteGatewayStatus, 0, len(gateways))
+	// Fill in all of the gateways that are already present but not owned by use
+	for _, r := range current {
+		if r.GatewayRef.Controller == nil {
+			// Controller not set. This may be our own resource due to using old CRDs that prune the controller field
+			_, f := setGateways[localNamedReference{r.GatewayRef.Name, r.GatewayRef.Namespace}]
+			if !f {
+				// We are not going to set this gateway ref, so we should keep it, it may be owned by some other controller
+				gws = append(gws, r)
+			}
+			// Otherwise we are going to overwrite it with our own status. This could technically overwrite another controller,
+			// but there isn't much we can do here. If we appended a status, we would end up infinitely writing our own
+			// status
+		} else if *r.GatewayRef.Controller != ControllerName {
+			// We don't own this status, so keep it around
+			gws = append(gws, r)
+		}
+	}
+	// Now we fill in all of the ones we do own
+	for _, gw := range gateways {
+		ref := k8s.RouteStatusGatewayReference{
+			Controller: StrPointer(ControllerName),
+		}
 		if gw == constants.IstioMeshGateway {
 			ref.Name = experimentalMeshGatewayName
 			// TODO this is not namespaced but a namespace is required
@@ -395,7 +452,7 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		rs := s.(*k8s.TCPRouteStatus)
 		// TODO report skipped routes
-		rs.Gateways = createRouteStatus(gateways, obj)
+		rs.Gateways = createRouteStatus(gateways, obj, nil)
 		return rs
 	})
 
@@ -432,7 +489,7 @@ func buildTLSVirtualService(obj config.Config, gateways []string, domain string)
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		rs := s.(*k8s.TLSRouteStatus)
 		// TODO report skipped routes
-		rs.Gateways = createRouteStatus(gateways, obj)
+		rs.Gateways = createRouteStatus(gateways, obj, nil)
 		return rs
 	})
 
@@ -470,7 +527,11 @@ func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) []*isti
 
 	weights := []int{}
 	for _, w := range action {
-		weights = append(weights, int(w.Weight))
+		wt := 1
+		if w.Weight != nil {
+			wt = int(*w.Weight)
+		}
+		weights = append(weights, wt)
 	}
 	weights = standardizeWeights(weights)
 	res := []*istio.RouteDestination{}
@@ -528,7 +589,11 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain str
 
 	weights := []int{}
 	for _, w := range action {
-		weights = append(weights, int(w.Weight))
+		wt := 1
+		if w.Weight != nil {
+			wt = int(*w.Weight)
+		}
+		weights = append(weights, wt)
 	}
 	weights = standardizeWeights(weights)
 	res := []*istio.HTTPRouteDestination{}
@@ -653,40 +718,87 @@ func createHeadersFilter(filter *k8s.HTTPRequestHeaderFilter) *istio.Headers {
 	}
 }
 
+func createQueryParamsMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
+	if match.QueryParams == nil {
+		return nil
+	}
+	res := map[string]*istio.StringMatch{}
+	tp := k8s.QueryParamMatchExact
+	if match.QueryParams.Type != nil {
+		tp = *match.QueryParams.Type
+	}
+	switch tp {
+	case k8s.QueryParamMatchExact, k8s.QueryParamMatchImplementationSpecific:
+		for k, v := range match.QueryParams.Values {
+			res[k] = &istio.StringMatch{
+				MatchType: &istio.StringMatch_Exact{Exact: v},
+			}
+		}
+	case k8s.QueryParamMatchRegularExpression:
+		for k, v := range match.QueryParams.Values {
+			res[k] = &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: v},
+			}
+		}
+	default:
+		log.Warnf("unknown type: %v is not supported QueryParams type", tp)
+		return nil
+	}
+	return res
+}
+
 func createHeadersMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
 	if match.Headers == nil {
 		return nil
 	}
 	res := map[string]*istio.StringMatch{}
-	if match.Headers.Type == "" ||
-		match.Headers.Type == k8s.HeaderMatchExact ||
-		match.Headers.Type == k8s.HeaderMatchImplementationSpecific {
+	tp := k8s.HeaderMatchExact
+	if match.Headers.Type != nil {
+		tp = *match.Headers.Type
+	}
+	switch tp {
+	case k8s.HeaderMatchExact, k8s.HeaderMatchImplementationSpecific:
 		for k, v := range match.Headers.Values {
 			res[k] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: v},
 			}
 		}
-	} else {
-		log.Warnf("unknown type: %v is not supported Header type", match.Headers.Type)
+	case k8s.HeaderMatchRegularExpression:
+		for k, v := range match.Headers.Values {
+			res[k] = &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: v},
+			}
+		}
+	default:
+		log.Warnf("unknown type: %v is not supported Header type", tp)
 		return nil
 	}
 	return res
 }
 
 func createURIMatch(match k8s.HTTPRouteMatch) *istio.StringMatch {
-	if match.Path.Type == "" || match.Path.Type == k8s.PathMatchImplementationSpecific || match.Path.Type == k8s.PathMatchPrefix {
+	tp := k8s.PathMatchPrefix
+	if match.Path.Type != nil {
+		tp = *match.Path.Type
+	}
+	dest := "/"
+	if match.Path.Value != nil {
+		dest = *match.Path.Value
+	}
+	switch tp {
+	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Prefix{Prefix: match.Path.Value},
+			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
 		}
-	} else if match.Path.Type == k8s.PathMatchExact {
+	case k8s.PathMatchExact:
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Exact{Exact: match.Path.Value},
+			MatchType: &istio.StringMatch_Exact{Exact: dest},
 		}
-	} else if match.Path.Type == k8s.PathMatchRegularExpression {
+	case k8s.PathMatchRegularExpression:
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Regex{Regex: match.Path.Value},
+			MatchType: &istio.StringMatch_Regex{Regex: dest},
 		}
-	} else {
+	default:
 		log.Warnf("unknown type: %s is not supported Path match type", match.Path.Type)
 		return nil
 	}
@@ -873,8 +985,12 @@ func buildTLS(tls *k8s.GatewayTLSConfig) *istio.ServerTLSSettings {
 	out := &istio.ServerTLSSettings{
 		HttpsRedirect: false,
 	}
-	switch tls.Mode {
-	case "", k8s.TLSModeTerminate:
+	mode := k8s.TLSModeTerminate
+	if tls.Mode != nil {
+		mode = *tls.Mode
+	}
+	switch mode {
+	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if tls.CertificateRef == nil {
 			// This is required in the API, should be rejected in validation
@@ -907,4 +1023,8 @@ func buildHostnameMatch(hostname *k8s.Hostname) []string {
 
 func emptyOrEqual(have, expected string) bool {
 	return have == "" || have == expected
+}
+
+func StrPointer(s string) *string {
+	return &s
 }

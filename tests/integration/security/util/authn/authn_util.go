@@ -21,56 +21,57 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-	"istio.io/istio/tests/integration/security/util/connection"
 )
 
 type TestCase struct {
 	Name               string
 	Config             string
-	Request            connection.Checker
 	ExpectResponseCode string
 	// Use empty value to express the header with such key must not exist.
-	ExpectHeaders map[string]string
+	ExpectHeaders    map[string]string
+	CallOpts         echo.CallOptions
+	DestClusters     cluster.Clusters
+	SkipMultiCluster bool
 }
 
 func (c *TestCase) String() string {
-	return fmt.Sprintf("%s to %s%s expected code %s, headers %v",
-		c.Request.From.Config().Service,
-		c.Request.Options.Target.Config().Service,
-		c.Request.Options.Path,
+	return fmt.Sprintf("requests to %s%s expected code %s, headers %v",
+		c.CallOpts.Target.Config().Service,
+		c.CallOpts.Path,
 		c.ExpectResponseCode,
 		c.ExpectHeaders)
 }
 
 // CheckAuthn checks a request based on ExpectResponseCode.
-func (c *TestCase) CheckAuthn() error {
-	results, err := c.Request.From.Call(c.Request.Options)
-	if len(results) == 0 {
+func (c *TestCase) CheckAuthn(responses client.ParsedResponses, err error) error {
+	if len(responses) == 0 {
 		return fmt.Errorf("%s: no response", c)
 	}
-	if results[0].Code != c.ExpectResponseCode {
-		return fmt.Errorf("%s: got response code %s, err %v", c, results[0].Code, err)
+	if responses[0].Code != c.ExpectResponseCode {
+		return fmt.Errorf("%s: got response code %s, err %v", c, responses[0].Code, err)
 	}
 	// Checking if echo backend see header with the given value by finding them in response body
 	// (given the current behavior of echo convert all headers into key=value in the response body)
 	for k, v := range c.ExpectHeaders {
 		matcher := fmt.Sprintf("%s=%s", k, v)
 		if len(v) == 0 {
-			if strings.Contains(results[0].Body, matcher) {
-				return fmt.Errorf("%s: expect header %s does not exist, got response\n%s", c, k, results[0].Body)
+			if strings.Contains(responses[0].Body, matcher) {
+				return fmt.Errorf("%s: expect header %s does not exist, got response\n%s", c, k, responses[0].Body)
 			}
 		} else {
-			if !strings.Contains(results[0].Body, matcher) {
-				return fmt.Errorf("%s: expect header %s=%s in body, got response\n%s", c, k, v, results[0].Body)
+			if !strings.Contains(responses[0].Body, matcher) {
+				return fmt.Errorf("%s: expect header %s=%s in body, got response\n%s", c, k, v, responses[0].Body)
 			}
 		}
 	}
-	if c.ExpectResponseCode == response.StatusCodeOK && c.Request.DestClusters.IsMulticluster() {
-		return results.CheckReachedClusters(c.Request.DestClusters)
+	if c.ExpectResponseCode == response.StatusCodeOK && c.DestClusters.IsMulticluster() {
+		return responses.CheckReachedClusters(c.DestClusters)
 	}
 	return nil
 }
@@ -98,5 +99,5 @@ func CheckIngressOrFail(ctx framework.TestContext, ingr ingress.Instance, host s
 			fmt.Sprintf("Bearer %s", token),
 		}
 	}
-	ingr.CallEchoWithRetryOrFail(ctx, opts)
+	ingr.CallWithRetryOrFail(ctx, opts)
 }

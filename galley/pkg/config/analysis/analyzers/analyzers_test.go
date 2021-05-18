@@ -153,6 +153,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "conflicting gateways detect",
+		inputFiles: []string{"testdata/conflicting-gateways.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
 		name:       "istioInjection",
 		inputFiles: []string{"testdata/injection.yaml"},
 		analyzer:   &injection.Analyzer{},
@@ -482,6 +491,46 @@ var testGrid = []testCase{
 		analyzer: &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
 			{msg.IngressRouteRulesNotAffected, "VirtualService testing-service-01-test-01.default"},
+		},
+	},
+	{
+		name: "Application Pod SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/pod-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Pod pod-sec-uid"},
+		},
+	},
+	{
+		name: "Application Container SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/pod-con-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Pod con-sec-uid"},
+		},
+	},
+	{
+		name: "Deployment Pod SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/deployment-pod-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Deployment deploy-pod-sec-uid"},
+		},
+	},
+	{
+		name: "Deployment Container SecurityContext with UID 1337",
+		inputFiles: []string{
+			"testdata/deployment-con-sec-uid.yaml",
+		},
+		analyzer: &deployment.ApplicationUIDAnalyzer{},
+		expected: []message{
+			{msg.InvalidApplicationUID, "Deployment deploy-con-sec-uid"},
 		},
 	},
 }

@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -53,8 +55,11 @@ type TrafficTestCase struct {
 	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
 	opts echo.CallOptions
+	// setupOpts allows modifying options based on sources/destinations
+	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate func(src echo.Instance, dst echo.Services) echo.Validator
+	validate     func(src echo.Caller, dst echo.Instances) echo.Validator
+	validateForN func(src echo.Caller, dst echo.Services) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
 	skip bool
@@ -66,12 +71,16 @@ type TrafficTestCase struct {
 	// toN causes the test to be run for N destinations. The call will be made from instances of the first deployment
 	// in each subset in each cluster. See echotes.T's RunToN for more details.
 	toN int
+	// viaIngress makes the ingress gateway the caller for tests
+	viaIngress bool
 	// sourceFilters allows adding additional filtering for workload agnostic cases to test using fewer clients
 	sourceFilters []echotest.Filter
 	// targetFilters allows adding additional filtering for workload agnostic cases to test using fewer targets
 	targetFilters []echotest.Filter
+	// comboFilters allows conditionally filtering based on pairs of apps
+	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
-	templateVars map[string]interface{}
+	templateVars func(src echo.Callers, dest echo.Instances) map[string]interface{}
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -89,10 +98,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
-			SetupForServicePair(func(t framework.TestContext, src echo.Instances, dsts echo.Services) error {
+			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
 				tmplData := map[string]interface{}{
-					"src":    src,
-					"srcSvc": src[0].Config().Service,
 					// tests that use simple Run only need the first
 					"dst":    dsts[0],
 					"dstSvc": dsts[0][0].Config().Service,
@@ -100,65 +107,67 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 					"dsts":    dsts,
 					"dstSvcs": dsts.Services(),
 				}
-				for k, v := range c.templateVars {
-					tmplData[k] = v
+				if len(src) > 0 {
+					tmplData["src"] = src
+					if src, ok := src[0].(echo.Instance); ok {
+						tmplData["srcSvc"] = src.Config().Service
+					}
+				}
+				if c.templateVars != nil {
+					for k, v := range c.templateVars(src, dsts[0]) {
+						tmplData[k] = v
+					}
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				return t.Config().ApplyYAML("", cfg)
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
-			To(c.targetFilters...)
+			To(c.targetFilters...).
+			ConditionallyTo(c.comboFilters...)
+
+		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
+			if c.skip {
+				t.SkipNow()
+			}
+			buildOpts := func(options echo.CallOptions) echo.CallOptions {
+				opts := options
+				opts.Target = dsts[0][0]
+				if c.validate != nil {
+					opts.Validator = c.validate(src, dsts[0])
+				}
+				if c.validateForN != nil {
+					opts.Validator = c.validateForN(src, dsts)
+				}
+				if opts.Count == 0 {
+					opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
+				}
+				if c.setupOpts != nil {
+					c.setupOpts(src, dsts[0], &opts)
+				}
+				return opts
+			}
+			if optsSpecified {
+				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+			}
+			for _, child := range c.children {
+				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
+					src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
+				})
+			}
+		}
+
 		if c.toN > 0 {
 			echoT.RunToN(c.toN, func(t framework.TestContext, src echo.Instance, dsts echo.Services) {
-				// TODO DRY up Run vs RunToN
-				if c.skip {
-					t.SkipNow()
-				}
-				buildOpts := func(options echo.CallOptions) echo.CallOptions {
-					opts := options
-					opts.Target = dsts[0][0]
-					if c.validate != nil {
-						opts.Validator = c.validate(src, dsts)
-					}
-					if opts.Count == 0 {
-						opts.Count = callsPerCluster * len(dsts) * len(dsts[0])
-					}
-					return opts
-				}
-				if optsSpecified {
-					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
-				}
-				for _, child := range c.children {
-					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
-					})
-				}
+				doTest(t, src, dsts)
+			})
+		} else if c.viaIngress {
+			echoT.RunViaIngress(func(t framework.TestContext, src ingress.Instance, dst echo.Instances) {
+				doTest(t, src, echo.Services{dst})
 			})
 		} else {
-			echoT.Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-				if c.skip {
-					t.SkipNow()
-				}
-				buildOpts := func(options echo.CallOptions) echo.CallOptions {
-					opts := options
-					opts.Target = dest[0]
-					if c.validate != nil {
-						opts.Validator = c.validate(src, echo.Services{dest})
-					}
-					if opts.Count == 0 {
-						opts.Count = callsPerCluster * len(dest)
-					}
-					return opts
-				}
-				if optsSpecified {
-					src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
-				}
-				for _, child := range c.children {
-					t.NewSubTest(child.name).Run(func(t framework.TestContext) {
-						src.CallWithRetryOrFail(t, buildOpts(child.opts), retryOptions...)
-					})
-				}
+			echoT.Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+				doTest(t, src, echo.Services{dst})
 			})
 		}
 	}
@@ -202,13 +211,14 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
-func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
+func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
 	cases["sniffing"] = protocolSniffingCases()
-	cases["selfcall"] = selfCallsCases(apps)
+	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
-	cases["gateway"] = gatewayCases(apps)
+	cases["gateway"] = gatewayCases()
+	cases["autopassthrough"] = autoPassthroughCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
@@ -217,7 +227,7 @@ func RunAllTrafficTests(t framework.TestContext, apps *EchoDeployments) {
 	if !t.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
-	cases["dns"] = DNSTestCases(apps)
+	cases["dns"] = DNSTestCases(apps, i.Settings().EnableCNI)
 	for name, tts := range cases {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			for _, tt := range tts {

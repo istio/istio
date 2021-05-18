@@ -90,10 +90,15 @@ func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) 
 		// as-is for the matched trust domain. For others, replace the trust domain with the new trust domain
 		// or alias.
 		var newPrincipal string
+		var err error
 		if suffixMatch(td, trustDomainFromPrincipal) {
 			newPrincipal = principal
 		} else {
-			newPrincipal = replaceTrustDomainInPrincipal(td, principal)
+			newPrincipal, err = replaceTrustDomainInPrincipal(td, principal)
+			if err != nil {
+				authzLog.Errorf("Failed to replace trust domain with %s from principal %s: %v", td, principal, err)
+				continue
+			}
 		}
 		// Check to make sure we don't generate duplicated principals. This happens when trust domain
 		// has a * prefix. For example, "*-td" can match with "old-td" and "new-td", but we only want
@@ -111,17 +116,14 @@ func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) 
 // [SPIFFE-ID](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain)
 // In Istio authorization, an identity is presented in the format:
 // <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
-// TODO(pitlv2109): See if we can return an error here instead of empty string.
-// Resolve it in https://github.com/istio/istio/pull/18011
-func replaceTrustDomainInPrincipal(trustDomain string, principal string) string {
+func replaceTrustDomainInPrincipal(trustDomain string, principal string) (string, error) {
 	identityParts := strings.Split(principal, "/")
 	// A valid SPIFFE identity in authorization has no SPIFFE:// prefix.
 	// It is presented as <trust-domain>/ns/<some-namespace>/sa/<some-service-account>
 	if len(identityParts) != 5 {
-		authzLog.Errorf("Wrong SPIFFE format: %s", principal)
-		return ""
+		return "", fmt.Errorf("wrong SPIFFE format: %s", principal)
 	}
-	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/"))
+	return fmt.Sprintf("%s/%s", trustDomain, strings.Join(identityParts[1:], "/")), nil
 }
 
 // isTrustDomainBeingEnforced checks whether the trust domain is being checked in the filter or not.

@@ -27,6 +27,6 @@ spec:
   http:
   - route:
     - destination:
-        host: b
+        host: {{ .dst }}
         port:
           number: 8095

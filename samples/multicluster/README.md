@@ -34,7 +34,7 @@ In order to give a remote cluster access to the control plane (istiod) in a prim
 we need to expose the istiod service through the east-west gateway:
 
 ```bash
-kubectl apply -f samples/multicluster/expose-istiod.yaml
+kubectl apply -f samples/multicluster/expose-istiod.yaml -n istio-system
 ```
 
 ## Multi-network Configuration
@@ -43,5 +43,5 @@ In order to enable cross-cluster load balancing between clusters that are in dif
 networks, we need to expose the services through the east-west gateway in each cluster:
 
  ```bash
- kubectl apply -f samples/multicluster/expose-services.yaml
+ kubectl apply -f samples/multicluster/expose-services.yaml -n istio-system
  ```

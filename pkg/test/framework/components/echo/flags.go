@@ -29,7 +29,7 @@ var (
 // init registers the command-line flags that we can exposed for "go test".
 func init() {
 	flag.DurationVar(&callTimeout, "istio.test.echo.callTimeout", callTimeout,
-		"Specifies the default timeout used when retrying calls to the Echo service")
+		"Specifies the default total timeout used when retrying calls to the Echo service")
 	flag.DurationVar(&callDelay, "istio.test.echo.callDelay", callDelay,
 		"Specifies the default delay between successive retry attempts when calling the Echo service")
 }

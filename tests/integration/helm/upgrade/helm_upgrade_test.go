@@ -26,18 +26,26 @@ const (
 	nMinusTwoVersion         = "1.8.1"
 )
 
-// TestDefaultInPlaceUpgradeFromPreviousMinorRelease tests Istio installation using Helm with default options for Istio 1.(n-1)
+// TestDefaultInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
 func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performUpgradeFunc(previousSupportedVersion))
+		Run(performInPlaceUpgradeFunc(previousSupportedVersion))
 }
 
-// TestDefaultInPlaceUpgradeFromTwoMinorReleases tests Istio installation using Helm with default options for Istio 1.(n-2)
+// TestDefaultInPlaceUpgradeFromTwoMinorReleases tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestDefaultInPlaceUpgradeFromTwoMinorReleases(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performUpgradeFunc(nMinusTwoVersion))
+		Run(performInPlaceUpgradeFunc(nMinusTwoVersion))
+}
+
+// TestDefaultRevisionUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestDefaultRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.helm.default.upgrade").
+		Run(performRevisionUpgradeFunc(previousSupportedVersion))
 }

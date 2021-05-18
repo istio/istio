@@ -46,6 +46,14 @@ func FillInDefaults(ctx resource.Context, c *echo.Config) (err error) {
 		c.Domain = defaultDomain
 	}
 
+	if c.VMDistro == "" {
+		c.VMDistro = echo.DefaultVMDistro
+	}
+	if c.StatefulSet {
+		// Statefulset requires headless
+		c.Headless = true
+	}
+
 	// Convert legacy config to workload oritended.
 	if c.Subsets == nil {
 		c.Subsets = []echo.SubsetConfig{

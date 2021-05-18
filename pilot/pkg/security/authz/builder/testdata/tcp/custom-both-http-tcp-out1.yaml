@@ -97,4 +97,5 @@ typedConfig:
                   - directRemoteIp:
                       addressPrefix: 9.0.0.1
                       prefixLen: 32
+  shadowRulesStatPrefix: istio_ext_authz_
   statPrefix: tcp.

@@ -21,10 +21,13 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -37,8 +40,10 @@ type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
 type KubeJWTAuthenticator struct {
-	trustDomain string
-	jwtPolicy   string
+	// holder of a mesh configuration for dynamically updating trust domain
+	meshHolder mesh.Holder
+
+	jwtPolicy string
 
 	// Primary cluster kube client
 	kubeClient kubernetes.Interface
@@ -52,11 +57,10 @@ type KubeJWTAuthenticator struct {
 var _ security.Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
-	remoteKubeClientGetter RemoteKubeClientGetter,
-	trustDomain, jwtPolicy string) *KubeJWTAuthenticator {
+func NewKubeJWTAuthenticator(meshHolder mesh.Holder, client kubernetes.Interface, clusterID string,
+	remoteKubeClientGetter RemoteKubeClientGetter, jwtPolicy string) *KubeJWTAuthenticator {
 	return &KubeJWTAuthenticator{
-		trustDomain:            trustDomain,
+		meshHolder:             meshHolder,
 		jwtPolicy:              jwtPolicy,
 		kubeClient:             client,
 		clusterID:              clusterID,
@@ -67,6 +71,8 @@ func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
 func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 	return KubeJWTAuthenticatorType
 }
+
+const DefaultKubernetesAudience = "kubernetes.default.svc"
 
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
@@ -92,6 +98,20 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 	// tolerate the unbound tokens.
 	if !util.IsK8SUnbound(targetJWT) || security.Require3PToken.Get() {
 		aud = security.TokenAudiences
+		if tokenAud, _ := util.ExtractJwtAud(targetJWT); len(tokenAud) == 1 && tokenAud[0] == DefaultKubernetesAudience {
+			if a.jwtPolicy == jwt.PolicyFirstParty && !security.Require3PToken.Get() {
+				// For backwards compatibility, if first-party-jwt is used and they don't require 3p, allow it but warn
+				// This is intended to support first-party-jwt on Kubernetes 1.21+, where BoundServiceAccountTokenVolume
+				// became default and started setting an audience to DefaultKubernetesAudience.
+				// Users should disable first-party-jwt, but we don't want to break them on upgrade
+				log.Warnf("Insecure first-party-jwt option used to validate token; use third-party-jwt")
+				aud = nil
+			} else {
+				log.Warnf("Received token with aud %q, but expected %q. BoundServiceAccountTokenVolume, "+
+					"default in Kubernetes 1.21+, is not compatible with first-party-jwt",
+					DefaultKubernetesAudience, aud)
+			}
+		}
 		// TODO: check the audience from token, no need to call
 		// apiserver if audience is not matching. This may also
 		// handle older apiservers that don't check audience.
@@ -111,7 +131,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 	callerServiceAccount := id[1]
 	return &security.Caller{
 		AuthSource: security.AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
+		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.meshHolder.Mesh().GetTrustDomain(), callerNamespace, callerServiceAccount)},
 	}, nil
 }
 

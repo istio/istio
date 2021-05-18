@@ -16,6 +16,8 @@ package grpc
 
 import (
 	"context"
+	"io"
+	"strings"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
@@ -27,9 +29,7 @@ import (
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 )
 
-type (
-	SendHandler func() error
-)
+type SendHandler func() error
 
 var timeout = features.XdsPushSendTimeout
 
@@ -77,4 +77,27 @@ func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnarySe
 	}
 
 	return grpcOptions
+}
+
+// IsExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
+// things are operating normally. This is basically capturing when the client disconnects.
+func IsExpectedGRPCError(err error) bool {
+	if err == io.EOF {
+		return true
+	}
+
+	if s, ok := status.FromError(err); ok {
+		if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
+			return true
+		}
+		if s.Code() == codes.Unavailable && (s.Message() == "client disconnected" || s.Message() == "transport is closing") {
+			return true
+		}
+	}
+	// If this is not a gRPCStatus we should just error message.
+	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
+		return true
+	}
+
+	return false
 }

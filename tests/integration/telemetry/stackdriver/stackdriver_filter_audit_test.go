@@ -19,12 +19,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
@@ -36,10 +38,10 @@ import (
 )
 
 const (
-	serverAuditAllLogEntry = "testdata/security_authz_audit/server_audit_all_log.json.tmpl"
-	serverAuditFooLogEntry = "testdata/security_authz_audit/server_audit_foo_log.json.tmpl"
-	serverAuditBarLogEntry = "testdata/security_authz_audit/server_audit_bar_log.json.tmpl"
-	auditPolicyForLogEntry = "testdata/security_authz_audit/v1beta1-audit-authorization-policy.yaml.tmpl"
+	serverAuditAllLogEntry = "tests/integration/telemetry/stackdriver/testdata/security_authz_audit/server_audit_all_log.json.tmpl"
+	serverAuditFooLogEntry = "tests/integration/telemetry/stackdriver/testdata/security_authz_audit/server_audit_foo_log.json.tmpl"
+	serverAuditBarLogEntry = "tests/integration/telemetry/stackdriver/testdata/security_authz_audit/server_audit_bar_log.json.tmpl"
+	auditPolicyForLogEntry = "tests/integration/telemetry/stackdriver/testdata/security_authz_audit/v1beta1-audit-authorization-policy.yaml.tmpl"
 )
 
 // TestStackdriverAuditLogging testing Authz Policy can config stackdriver with audit policy
@@ -53,7 +55,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 			args := map[string]string{
 				"Namespace": ns,
 			}
-			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, auditPolicyForLogEntry))
+			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filepath.Join(env.IstioSrc, auditPolicyForLogEntry)))
 			ctx.Config().ApplyYAMLOrFail(t, ns, policies...)
 			t.Logf("Audit policy deployed to namespace %v", ns)
 
@@ -73,28 +75,28 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 
 						var errs []string
 
-						errAuditFoo := validateLogs(t, serverAuditFooLogEntry, clName, trustDomain, stackdriver.ServerAuditLog)
+						errAuditFoo := validateLogs(t, filepath.Join(env.IstioSrc, serverAuditFooLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditFoo == nil {
 							t.Logf("Foo Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditFoo.Error())
 						}
 
-						errAuditBar := validateLogs(t, serverAuditBarLogEntry, clName, trustDomain, stackdriver.ServerAuditLog)
+						errAuditBar := validateLogs(t, filepath.Join(env.IstioSrc, serverAuditBarLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditBar == nil {
 							t.Logf("Bar Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditBar.Error())
 						}
 
-						errAuditAll := validateLogs(t, serverAuditAllLogEntry, clName, trustDomain, stackdriver.ServerAuditLog)
+						errAuditAll := validateLogs(t, filepath.Join(env.IstioSrc, serverAuditAllLogEntry), clName, trustDomain, stackdriver.ServerAuditLog)
 						if errAuditAll == nil {
 							t.Logf("All Audit Log validated for cluster %v", clName)
 						} else {
 							errs = append(errs, errAuditAll.Error())
 						}
 
-						entries, err := sdInst.ListLogEntries(stackdriver.ServerAuditLog)
+						entries, err := sdInst.ListLogEntries(stackdriver.ServerAuditLog, getEchoNamespaceInstance().Name())
 						if err != nil {
 							errs = append(errs, err.Error())
 						} else {

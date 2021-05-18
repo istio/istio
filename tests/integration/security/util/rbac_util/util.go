@@ -33,10 +33,6 @@ type TestCase struct {
 	ExpectAllowed bool
 	Jwt           string
 	Headers       map[string]string
-	// Indicates whether a test should be run in the multicluster environment.
-	// This is a temporary flag during the converting tests into multicluster supported.
-	// TODO: Remove this flag when all tests support multicluster
-	SkippedForMulticluster bool
 }
 
 func getError(req connection.Checker, expect, actual string) error {

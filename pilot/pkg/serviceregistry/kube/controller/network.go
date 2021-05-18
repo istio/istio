@@ -142,6 +142,7 @@ func (c *Controller) reloadNetworkGateways() {
 	for _, svc := range c.servicesMap {
 		if c.extractGatewaysInner(svc) {
 			gwsChanged = true
+			break
 		}
 	}
 	if gwsChanged {
