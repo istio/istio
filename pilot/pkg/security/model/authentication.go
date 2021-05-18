@@ -15,10 +15,12 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -264,9 +266,9 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		CaCertificatePath: proxy.Metadata.TLSServerRootCert,
 	}
 
-	// TODO: if subjectAltName ends with *, create a prefix match as well.
 	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
-	matchSAN := util.StringToExactMatch(subjectAltNames)
+	// If subjectAltName is a SPIFFE URI ends with `/*`, create a prefix match instead.
+	matchSAN := SANToMatch(subjectAltNames)
 	if len(trustDomainAliases) > 0 {
 		matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
 	}
@@ -283,6 +285,33 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), proxy),
 	}
+}
+
+// SANToMatch creates prefix matchs if SAN inputs are SPIFFE URIs and end with the valid wildcards.
+// Otherwise, creates the converted exact matches.
+func SANToMatch(in []string) []*matcher.StringMatcher {
+	if len(in) == 0 {
+		return nil
+	}
+
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		if spiffe.HasSpiffePrefix(s) {
+			// Replace e.g. "spiffe://foo.cluster.domain/*" with prefix match
+			if strings.HasSuffix(s, "/*") {
+				res = append(res, &matcher.StringMatcher{
+					MatchPattern: &matcher.StringMatcher_Prefix{Prefix: strings.TrimSuffix(s, "/*")},
+				})
+				continue
+			}
+		}
+
+		// Replace e.g. "foo" with an exact match
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+		})
+	}
+	return res
 }
 
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext

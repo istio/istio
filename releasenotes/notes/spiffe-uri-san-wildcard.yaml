@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Added** support for SPIFFE URI subject alternative names that end with valid wildcards in TLS validation context. This allows users to specify `subjectAltNames` in SPIFFE URI format that end in wildcards (e.g., "spiffe://cluster.domain/*") for `TLSSettings`.

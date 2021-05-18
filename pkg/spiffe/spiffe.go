@@ -63,7 +63,7 @@ type Identity struct {
 }
 
 func ParseIdentity(s string) (Identity, error) {
-	if !strings.HasPrefix(s, URIPrefix) {
+	if !HasSpiffePrefix(s) {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
 	}
 	split := strings.Split(s[URIPrefixLen:], "/")
@@ -78,6 +78,10 @@ func ParseIdentity(s string) (Identity, error) {
 		Namespace:      split[2],
 		ServiceAccount: split[4],
 	}, nil
+}
+
+func HasSpiffePrefix(s string) bool {
+	return strings.HasPrefix(s, URIPrefix)
 }
 
 func (i Identity) String() string {
