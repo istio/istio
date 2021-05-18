@@ -47,9 +47,7 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 		resolver: resolver,
 	}
 
-	for _, us := range resolver.upstreamServers {
-		p.upstreamServers = append(p.upstreamServers, &upstreamServer{address: us})
-	}
+	p.initUpstreamServers()
 
 	var err error
 	p.serveMux.Handle(".", p)
@@ -66,14 +64,21 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	return p, nil
 }
 
+func (p *dnsProxy) initUpstreamServers() {
+	p.upstreamServers = nil
+	for _, us := range p.resolver.upstreamServers {
+		p.upstreamServers = append(p.upstreamServers, &upstreamServer{address: us})
+	}
+}
+
 func (p *dnsProxy) start() {
 	log.Infof("Starting local %s DNS server at localhost:15053", p.protocol)
+	for _, us := range p.upstreamServers {
+		us.initConnection(p.upstreamClient)
+	}
 	err := p.server.ActivateAndServe()
 	if err != nil {
 		log.Errorf("Local %s DNS server terminated: %v", p.protocol, err)
-	}
-	for _, us := range p.upstreamServers {
-		us.initConnection(p.upstreamClient)
 	}
 }
 

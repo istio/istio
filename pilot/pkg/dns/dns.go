@@ -306,11 +306,19 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 		upstream.RLock()
 		conn := upstream.c
 		upstream.RUnlock()
-		if response, _, err := p.upstreamClient.ExchangeWithConn(req, conn); err == nil {
-			return response
+		if conn == nil {
+			upstream.initConnection(p.upstreamClient)
+		}
+
+		if cResponse, _, err := p.upstreamClient.ExchangeWithConn(req, conn); err == nil {
+			response = cResponse
+			break
 		} else {
 			scope.Debugf("upstream failure : %v", err)
+			// Request failed - do a health check and reset connection if needed.
+			upstream.maybeResetConnection(p.upstreamClient)
 		}
+
 	}
 	if response == nil {
 		response = new(dns.Msg)
@@ -321,13 +329,25 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 }
 
 func (u *upstreamServer) initConnection(uc *dns.Client) {
+	conn, err := uc.Dial(u.address)
+	if err != nil {
+		log.Warnf("unable to establish connection for upstream %s: %v", u.address, err)
+		return
+	}
 	u.Lock()
-	u.c, _ = uc.Dial(u.address)
+	u.c = conn
 	u.Unlock()
-	go u.healthCheck(uc)
 }
 
-func (u *upstreamServer) healthCheck(upstreamClient *dns.Client) {
+// Inspired by from https://github.com/coredns/coredns/blob/fbf3f07f469a99fcbb5985a41c260a3fad26f908/plugin/forward/health.go#L76.
+func (u *upstreamServer) maybeResetConnection(upstreamClient *dns.Client) {
+	// It is OK to a function wide lock here and reset connection. This happens rarely.
+	u.Lock()
+	defer u.Unlock()
+	if u.c == nil {
+		u.initConnection(upstreamClient)
+		return
+	}
 	ping := new(dns.Msg)
 	ping.SetQuestion(".", dns.TypeNS)
 
@@ -342,9 +362,7 @@ func (u *upstreamServer) healthCheck(upstreamClient *dns.Client) {
 
 	if err != nil {
 		if c, err := upstreamClient.Dial(u.address); err == nil {
-			u.Lock()
 			u.c = c
-			u.Unlock()
 		}
 	}
 }

@@ -404,6 +404,8 @@ func initDNS(t test.Failer) *LocalDNSServer {
 		t.Fatal(err)
 	}
 	testAgentDNS.upstreamServers = []string{srv}
+	testAgentDNS.tcpDNSProxy.initUpstreamServers()
+	testAgentDNS.udpDNSProxy.initUpstreamServers()
 	testAgentDNS.StartDNS()
 	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
 	testAgentDNS.UpdateLookupTable(&nds.NameTable{
