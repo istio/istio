@@ -201,8 +201,7 @@ data:
           "enabled": true
         },
         "rewriteAppHTTPProbe": true,
-        "templates": {},
-        "useLegacySelectors": false
+        "templates": {}
       }
     }
 
