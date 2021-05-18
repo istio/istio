@@ -92,4 +92,9 @@ var (
 	// Ability of istio-agent to retrieve bootstrap via XDS
 	enableBootstrapXdsEnv = env.RegisterBoolVar("BOOTSTRAP_XDS_AGENT", false,
 		"If set to true, agent retrieves the bootstrap configuration prior to starting Envoy").Get()
+
+	envoyStatusPortEnv = env.RegisterIntVar("ENVOY_STATUS_PORT", 15021,
+		"Envoy health status port value").Get()
+	envoyPrometheusPortEnv = env.RegisterIntVar("ENVOY_PROMETHEUS_PORT", 15090,
+		"Envoy prometheus redirection port value").Get()
 )
