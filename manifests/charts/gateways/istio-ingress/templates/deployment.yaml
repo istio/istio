@@ -278,16 +278,6 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
-            - path: "cpu-limit"
-              resourceFieldRef:
-                containerName: istio-proxy
-                resource: limits.cpu
-                divisor: 1m
-            - path: "cpu-request"
-              resourceFieldRef:
-                containerName: istio-proxy
-                resource: requests.cpu
-                divisor: 1m
       - name: istio-envoy
         emptyDir: {}
       - name: istio-data
