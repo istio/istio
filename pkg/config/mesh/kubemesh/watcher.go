@@ -51,7 +51,9 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 	go c.Run(stop)
 
 	// Ensure the ConfigMap is initially loaded if present.
-	cache.WaitForCacheSync(stop, c.HasSynced)
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+		log.Error("failed to wait for cache sync")
+	}
 	return w
 }
 
@@ -63,7 +65,9 @@ func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key,
 
 	stop := make(chan struct{})
 	go c.Run(stop)
-	cache.WaitForCacheSync(stop, c.HasSynced)
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+		log.Error("failed to wait for cache sync")
+	}
 }
 
 func meshConfigMapData(cm *v1.ConfigMap, key string) string {
