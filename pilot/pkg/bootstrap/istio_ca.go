@@ -282,59 +282,26 @@ func isValidCACertsFile(path string) (string, bool) {
 	return "", false
 }
 
-// isValidCACertsEvent We are interested in only Create, Write
-// and Delete events. Other event types are ignored at the moment.
-func isValidCACertsEvent(event fsnotify.Event) uint8 {
-	if event.Op&fsnotify.Create == fsnotify.Create {
-		return create
-	} else if event.Op&fsnotify.Write == fsnotify.Write {
-		return write
-	} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-		return remove
-	}
-
-	return invalid
-}
-
-// updateCACertsMap updates the map with cacerts files with
-// particular events only.
-func updateCACertsMap(s *Server, event fsnotify.Event) bool {
-	file, ok := isValidCACertsFile(event.Name)
-	if !ok {
-		return false
-	}
-
-	op := isValidCACertsEvent(event)
-	if op == invalid {
-		return false
-	}
-
+// updateCACertsMap updates the map with cacerts files on Create or Modify events
+func updateCACertsMap(s *Server, file string) {
 	s.cacertsMutex.Lock()
-	s.cacertsMap[file] = op
+	s.cacertsMap[file] = true
 	s.cacertsMutex.Unlock()
-	return true
 }
 
-func areCACertsFilesCreated(s *Server) bool {
-	if s.cacertsMap["ca-cert.pem"] == create &&
-		s.cacertsMap["ca-key.pem"] == create &&
-		s.cacertsMap["root-cert.pem"] == create &&
-		s.cacertsMap["cert-chain.pem"] == create {
-		return true
+func resetCACertsMap(s *Server) {
+	s.cacertsMutex.Lock()
+	for _, file := range []string{"ca-cert.pem", "ca-key.pem", "root-cert.pem", "cert-chain.pem"} {
+		s.cacertsMap[file] = false
 	}
-
-	return false
+	s.cacertsMutex.Unlock()
 }
 
-func areCACertsFilesModified(s *Server) bool {
-	if s.cacertsMap["ca-cert.pem"] == write &&
-		s.cacertsMap["ca-key.pem"] == write &&
-		s.cacertsMap["root-cert.pem"] == write &&
-		s.cacertsMap["cert-chain.pem"] == write {
-		return true
-	}
-
-	return false
+func areCACertsFilesCreatedorModified(s *Server) bool {
+	return (s.cacertsMap["ca-cert.pem"] &&
+		s.cacertsMap["ca-key.pem"] &&
+		s.cacertsMap["root-cert.pem"] &&
+		s.cacertsMap["cert-chain.pem"])
 }
 
 // handleEvent handles the events on cacerts related files.
@@ -343,13 +310,8 @@ func areCACertsFilesModified(s *Server) bool {
 // from cuurent root-cert.pem. Then it updates and keycertbundle
 // and generates new dns certs.
 // TODO(rveerama1): Add support for new ROOT-CA rotation also.
-func handleEvent(s *Server, event fsnotify.Event) {
-	ok := updateCACertsMap(s, event)
-	if !ok {
-		return
-	}
-
-	if areCACertsFilesCreated(s) || areCACertsFilesModified(s) {
+func handleEvent(s *Server) {
+	if areCACertsFilesCreatedorModified(s) {
 		log.Info("Update Istiod cacerts")
 
 		currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
@@ -385,39 +347,53 @@ func handleEvent(s *Server, event fsnotify.Event) {
 
 // handleCACertsFileWatch handles the events on cacerts files
 func (s *Server) handleCACertsFileWatch() {
-	s.cacertsMap = map[string]uint8{
-		"ca-cert.pem":    invalid,
-		"ca-key.pem":     invalid,
-		"root-cert.pem":  invalid,
-		"cert-chain.pem": invalid,
+	s.cacertsMap = map[string]bool{
+		"ca-cert.pem":    false,
+		"ca-key.pem":     false,
+		"root-cert.pem":  false,
+		"cert-chain.pem": false,
 	}
 
+	var timerC <-chan time.Time
 	for {
 		select {
+		case <-timerC:
+			timerC = nil
+			handleEvent(s)
+			resetCACertsMap(s)
+
 		case event, ok := <-s.cacertsWatcher.Events:
 			if !ok {
 				log.Info("Failed to catch events on cacerts files")
-				return
+				continue
 			}
-			handleEvent(s, event)
 
-		case err, ok := <-s.cacertsWatcher.Errors:
-			if !ok {
-				return
+			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+				file, ok := isValidCACertsFile(event.Name)
+				if ok {
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond)
+					}
+					updateCACertsMap(s, file)
+				}
 			}
-			log.Error("Failed to catch events on cacerts file: ", err)
+
+		case err := <-s.cacertsWatcher.Errors:
+			if err != nil {
+				log.Error("Failed to catch events on cacerts file: ", err)
+			}
 		}
 	}
 }
 
-func (s *Server) addCACertsFileWatcher(file string) error {
-	err := s.cacertsWatcher.Add(file)
+func (s *Server) addCACertsFileWatcher(dir string) error {
+	err := s.cacertsWatcher.Add(dir)
 	if err != nil {
 		log.Info("Failed to add file watcher: ", err)
 		return err
 	}
 
-	log.Info("Added cacerts file watcher at ", file)
+	log.Info("Added cacerts files watcher at ", dir)
 
 	return nil
 }
