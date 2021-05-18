@@ -566,6 +566,8 @@ github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq
 github.com/hudl/fargo v1.3.0/go.mod h1:y3CKSmjA+wD2gak7sUSXTAoopbhU08POFhmITJgmKTg=
 github.com/hzxuzhonghu/api v0.0.0-20210514043312-5d62eb6397d6 h1:Y6TjUz+a6vybgkS3K2DvAFxrt4DTH9WRYC/zKGqPoNw=
 github.com/hzxuzhonghu/api v0.0.0-20210514043312-5d62eb6397d6/go.mod h1:nsSFw1LIMmGL7r/+6fJI6FxeG/UGlLxRK8bkojIvBVs=
+github.com/hzxuzhonghu/api v0.0.0-20210518125305-5b28f72ba375 h1:AvT5zqL1bya3Jq8jFR9BXlgpYZzrR9Jm67cY5IgmtOM=
+github.com/hzxuzhonghu/api v0.0.0-20210518125305-5b28f72ba375/go.mod h1:nsSFw1LIMmGL7r/+6fJI6FxeG/UGlLxRK8bkojIvBVs=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/imdario/mergo v0.3.5 h1:JboBksRwiiAJWvIYJVo46AfV+IAIKZpfrSzVKj42R4Q=
