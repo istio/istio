@@ -53,13 +53,18 @@ var networkFiltered = []networkFilterCase{
 					// 2 local endpoints
 					{address: "10.0.0.1", weight: 2},
 					{address: "10.0.0.2", weight: 2},
-					// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
-					{address: "2.2.2.2", weight: 1},
-					{address: "2.2.2.20", weight: 1},
 					// network4 has no gateway, which means it can be accessed from network1
 					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 8,
+				weight: 6,
+			},
+			{
+				lbEps: []LbEpInfo{
+					// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
+					{address: "2.2.2.2", weight: 1},
+					{address: "2.2.2.20", weight: 1},
+				},
+				weight: 2,
 			},
 		},
 	},
@@ -69,13 +74,18 @@ var networkFiltered = []networkFilterCase{
 		want: []LocLbEpInfo{
 			{
 				lbEps: []LbEpInfo{
-					// 1 local endpoint
-					{address: "20.0.0.1", weight: 2},
 					// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
 					{address: "1.1.1.1", weight: 4},
+				},
+				weight: 4,
+			},
+			{
+				lbEps: []LbEpInfo{
+					// 1 local endpoint
+					{address: "20.0.0.1", weight: 2},
 					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 8,
+				weight: 4,
 			},
 		},
 	},
@@ -87,12 +97,22 @@ var networkFiltered = []networkFilterCase{
 				lbEps: []LbEpInfo{
 					// 1 endpoint to gateway of network1 with weight 4 because it has 2 endpoints
 					{address: "1.1.1.1", weight: 4},
+				},
+				weight: 4,
+			},
+			{
+				lbEps: []LbEpInfo{
 					// 1 endpoint to gateway of network2 with weight 2 because it has 1 endpoint
 					{address: "2.2.2.2", weight: 1},
 					{address: "2.2.2.20", weight: 1},
+				},
+				weight: 2,
+			},
+			{
+				lbEps: []LbEpInfo{
 					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 8,
+				weight: 2,
 			},
 		},
 	},
@@ -102,15 +122,25 @@ var networkFiltered = []networkFilterCase{
 		want: []LocLbEpInfo{
 			{
 				lbEps: []LbEpInfo{
-					// 1 local endpoint
-					{address: "40.0.0.1", weight: 2},
 					// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 					{address: "1.1.1.1", weight: 4},
+				},
+				weight: 4,
+			},
+			{
+				lbEps: []LbEpInfo{
 					// 1 endpoint to gateway of network2 with weight 1 because it has 1 endpoint
 					{address: "2.2.2.2", weight: 1},
 					{address: "2.2.2.20", weight: 1},
 				},
-				weight: 8,
+				weight: 2,
+			},
+			{
+				lbEps: []LbEpInfo{
+					// 1 local endpoint
+					{address: "40.0.0.1", weight: 2},
+				},
+				weight: 2,
 			},
 		},
 	},
@@ -518,13 +548,18 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "20.0.0.1", weight: 1},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 2},
+					},
+					weight: 2,
+				},
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "20.0.0.1", weight: 1},
 						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 4,
+					weight: 2,
 				},
 			},
 		},
@@ -536,10 +571,15 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 					lbEps: []LbEpInfo{
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 2},
+					},
+					weight: 2,
+				},
+				{
+					lbEps: []LbEpInfo{
 						// 0 endpoint to gateway of network2 as its a DNS gateway
 						{address: "40.0.0.1", weight: 1},
 					},
-					weight: 3,
+					weight: 1,
 				},
 			},
 		},
@@ -549,13 +589,17 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			want: []LocLbEpInfo{
 				{
 					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "40.0.0.1", weight: 1},
 						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
 						{address: "1.1.1.1", weight: 2},
-						// 0 endpoint to gateway of network2 as its a dns gateway
 					},
-					weight: 3,
+					weight: 2,
+				},
+				{
+					lbEps: []LbEpInfo{
+						// 1 local endpoint
+						{address: "40.0.0.1", weight: 1},
+					},
+					weight: 1,
 				},
 			},
 		},

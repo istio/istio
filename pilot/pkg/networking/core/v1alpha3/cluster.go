@@ -630,7 +630,9 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if localityLbSetting != nil && (localityLbSetting.Distribute != nil || localityLbSetting.Failover != nil) {
+	networkLbSetting := loadbalancer.GetNetworkLbSetting(meshConfig.GetNetworkLbSetting(), lb.GetNetworkLbSetting())
+	if localityLbSetting != nil && (localityLbSetting.Distribute != nil || localityLbSetting.Failover != nil) ||
+		networkLbSetting != nil && networkLbSetting.Failover != nil {
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
@@ -640,7 +642,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(proxy.Locality, c, localityLbSetting)
+	applyLBSetting(proxy, c, localityLbSetting, networkLbSetting)
 
 	// apply default round robin lb policy
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
@@ -694,15 +696,13 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 }
 
-func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, localityLB *networking.LocalityLoadBalancerSetting) {
-	if locality == nil || localityLB == nil {
-		return
-	}
-
+func applyLBSetting(proxy *model.Proxy, cluster *cluster.Cluster,
+	localityLB *networking.LocalityLoadBalancerSetting,
+	networkLB *networking.NetworkLoadBalancerSetting) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
 	enabledFailover := cluster.OutlierDetection != nil
 	if cluster.LoadAssignment != nil {
-		loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
+		loadbalancer.ApplyLBSetting(cluster.LoadAssignment, proxy.Locality, localityLB, proxy.Metadata.Network, networkLB, enabledFailover)
 	}
 }
 

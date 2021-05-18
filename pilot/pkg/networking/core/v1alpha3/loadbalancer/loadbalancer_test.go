@@ -67,7 +67,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithDistribute(tt.distribute)
 				cluster := buildFakeCluster()
-				ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
+				ApplyLBSetting(cluster.LoadAssignment, locality, env.Mesh().LocalityLbSetting, "", nil, true)
 				weights := make([]int, 0)
 				for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 					weights = append(weights, int(localityEndpoint.LoadBalancingWeight.GetValue()))
@@ -83,7 +83,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
+		ApplyLBSetting(cluster.LoadAssignment, locality, env.Mesh().LocalityLbSetting, "", nil, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -109,7 +109,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
+		ApplyLBSetting(cluster.LoadAssignment, locality, env.Mesh().LocalityLbSetting, "", nil, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
@@ -135,7 +135,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallClusterWithNilLocalities()
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
+		ApplyLBSetting(cluster.LoadAssignment, locality, env.Mesh().LocalityLbSetting, "", nil, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality == nil {
 				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
@@ -164,7 +164,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		lbsetting := &networking.LocalityLoadBalancerSetting{
 			Enabled: &types.BoolValue{Value: false},
 		}
-		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, lbsetting, true)
+		ApplyLBSetting(cluster.LoadAssignment, locality, lbsetting, "", nil, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
 		}

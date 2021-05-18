@@ -324,31 +324,6 @@ func IsLocalityEmpty(locality *core.Locality) bool {
 	return false
 }
 
-func LocalityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
-	ruleRegion, ruleZone, ruleSubzone := model.SplitLocalityLabel(ruleLocality)
-	regionMatch := ruleRegion == "*" || proxyLocality.GetRegion() == ruleRegion
-	zoneMatch := ruleZone == "*" || ruleZone == "" || proxyLocality.GetZone() == ruleZone
-	subzoneMatch := ruleSubzone == "*" || ruleSubzone == "" || proxyLocality.GetSubZone() == ruleSubzone
-
-	if regionMatch && zoneMatch && subzoneMatch {
-		return true
-	}
-	return false
-}
-
-func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
-	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
-		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
-			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
-				return 0
-			}
-			return 1
-		}
-		return 2
-	}
-	return 3
-}
-
 // return a shallow copy ClusterLoadAssignment
 func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) *endpoint.ClusterLoadAssignment {
 	if original == nil {
@@ -557,6 +532,23 @@ func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Val
 	}
 
 	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
+}
+
+// TODO: remove this, filtering should be done before generating the config, and
+// network metadata should not be included in output. A node only receives endpoints
+// in the same network as itself - so passing an network meta, with exactly
+// same value that the node itself had, on each endpoint is a bit absurd.
+
+// Checks whether there is an istio metadata string value for the provided key
+// within the endpoint metadata. If exists, it will return the value.
+func IstioMetadata(ep *endpoint.LbEndpoint, key string) string {
+	if ep.Metadata != nil &&
+		ep.Metadata.FilterMetadata[IstioMetadataKey] != nil &&
+		ep.Metadata.FilterMetadata[IstioMetadataKey].Fields != nil &&
+		ep.Metadata.FilterMetadata[IstioMetadataKey].Fields[key] != nil {
+		return ep.Metadata.FilterMetadata[IstioMetadataKey].Fields[key].GetStringValue()
+	}
+	return ""
 }
 
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
