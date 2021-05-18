@@ -67,8 +67,10 @@ func (p *Probe) checkConfigStatus() error {
 	if CDSUpdated && LDSUpdated {
 		p.receivedFirstUpdate = true
 		go func() {
-			<-p.Context.Done()
-			p.proxyTerminating = true
+			if p.Context != nil {
+				<-p.Context.Done()
+				p.proxyTerminating = true
+			}
 		}()
 		return nil
 	}
