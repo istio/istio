@@ -100,6 +100,11 @@ var testCases = []ConfigInput{
 		Name:     "peerauthentication",
 		Services: 100,
 	},
+	{
+		Name:      "knative-gateway",
+		Services:  100,
+		ProxyType: model.Router,
+	},
 }
 
 func disableLogging() {
