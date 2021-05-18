@@ -1,0 +1,85 @@
+# Generate testing namespaces
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: defaultconfig 
+  namespace: default  
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: defaultconfig2
+  namespace: default # This will generate a conflict since there are two namespace wide configurations
+spec:
+  mtls:
+    mode: DISABLE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: fooconfig
+  namespace: foo      # This will not generate a conflict since there are two namespace wide configurations
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: barconfig
+  namespace: bar      # This will not generate a conflict since there are two namespace wide configurations
+spec:
+  mtls:
+    mode: DISABLE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: selfinancefoo
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: finance    
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: selfinancefoo2
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: finance     # Will generate a conflict because there's more than one PA for selector app:finance
+  mtls:
+    mode: DISABLE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: seldummydefault
+  namespace: default
+spec:
+  mtls:
+    mode: STRICT
+spec:
+  selector:
+    matchLabels:
+      app: dummy      # Will generate a conflict since there's already a namespace wide configuration
+
+

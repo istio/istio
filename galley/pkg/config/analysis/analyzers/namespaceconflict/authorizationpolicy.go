@@ -93,11 +93,20 @@ func (a *AuthorizationPolicyConflictAnalyzer) findMatchingSelectors(r *resource.
 		y := r1.Message.(*v1beta1.AuthorizationPolicy)
 		yName := r1.Metadata.FullName.String()
 		yNS := r1.Metadata.FullName.Namespace.String()
-		ySelector := k8s_labels.SelectorFromSet(y.GetSelector().MatchLabels).String()
-		fmt.Println(ySelector)
-		if xSelector == ySelector && xName != yName && xNS == yNS {
-			matches = append(matches, r)
-			matches = append(matches, r1)
+
+		if y.GetSelector() != nil {
+			ySelector := k8s_labels.SelectorFromSet(y.GetSelector().MatchLabels).String()
+			if xSelector == ySelector && xName != yName && xNS == yNS {
+				matches = append(matches, r)
+				matches = append(matches, r1)
+			}
+		} else {
+			if xNS == yNS {
+				// There is a namespace wide configuration
+				conflicts := []string{yNS, xNS}
+				m := msg.NewNamespaceResourceConflict(r, authpolicyCol.String(), xNS, fmt.Sprintf("(ALL) Namespace: %v", xNS), conflicts)
+				c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
+			}
 		}
 		return true
 	})

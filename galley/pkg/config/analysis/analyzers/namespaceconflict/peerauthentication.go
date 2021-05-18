@@ -3,15 +3,13 @@ package namespaceconflict
 import (
 	"fmt"
 
-
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
-
 	v1beta1 "istio.io/api/security/v1beta1"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	k8s_labels "k8s.io/apimachinery/pkg/labels"
 )
 
 // Analyzer checks conditions related to conflicting namespace level resources
@@ -94,13 +92,20 @@ func (a *PeerAuthenticationConflictAnalyzer) findMatchingSelectors(r *resource.I
 		y := r1.Message.(*v1beta1.PeerAuthentication)
 		yName := r1.Metadata.FullName.String()
 		yNS := r1.Metadata.FullName.Namespace.String()
-		ySelector := k8s_labels.SelectorFromSet(y.GetSelector().MatchLabels).String()
-		fmt.Println(ySelector)
-		if xSelector == ySelector && xName != yName && xNS == yNS {
-			matches = append(matches, r)
-			matches = append(matches, r1)
+		if y.GetSelector() != nil {
+			ySelector := k8s_labels.SelectorFromSet(y.GetSelector().MatchLabels).String()
+			if xSelector == ySelector && xName != yName && xNS == yNS {
+				matches = append(matches, r)
+				matches = append(matches, r1)
+			}
+		} else {
+			if xNS == yNS {
+				// There is a namespace wide configuration
+				conflicts := []string{yNS, xNS}
+				m := msg.NewNamespaceResourceConflict(r, peerAuthenticationCol.String(), xNS, fmt.Sprintf("(ALL) Namespace: %v", xNS), conflicts)
+				c.Report(collections.IstioSecurityV1Beta1Peerauthentications.Name(), m)
+			}
 		}
-
 		return true
 	})
 	return matches

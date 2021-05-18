@@ -35,7 +35,7 @@ func (a *RequestAuthenticationConflictAnalyzer) Analyze(c analysis.Context) {
 	namespaceWideConfiguration := map[string]*resource.Instance{}
 
 	c.ForEach(requestauthCol, func(r *resource.Instance) bool {
-		x := r.Message.(*v1beta1.AuthorizationPolicy)
+		x := r.Message.(*v1beta1.RequestAuthentication)
 		xNS := r.Metadata.FullName.Namespace.String()
 
 		// If the resource has workloads associated with it, analyze for conflicts with selector
@@ -63,7 +63,7 @@ func (a *RequestAuthenticationConflictAnalyzer) Analyze(c analysis.Context) {
 }
 
 func (a *RequestAuthenticationConflictAnalyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c analysis.Context) {
-	x := r.Message.(*v1beta1.AuthorizationPolicy)
+	x := r.Message.(*v1beta1.RequestAuthentication)
 	xNS := r.Metadata.FullName.Namespace.String()
 
 	// Find all resources that have the same selector
@@ -83,21 +83,29 @@ func (a *RequestAuthenticationConflictAnalyzer) analyzeWorkloadSelectorConflicts
 
 // Finds all resources that have the same selector as the resource we're checking
 func (a *RequestAuthenticationConflictAnalyzer) findMatchingSelectors(r *resource.Instance, c analysis.Context) []*resource.Instance {
-	x := r.Message.(*v1beta1.AuthorizationPolicy)
+	x := r.Message.(*v1beta1.RequestAuthentication)
 	xName := r.Metadata.FullName.String()
 	xNS := r.Metadata.FullName.Namespace.String()
 	xSelector := k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String()
 	fmt.Println(xSelector)
 	matches := []*resource.Instance{}
 	c.ForEach(requestauthCol, func(r1 *resource.Instance) bool {
-		y := r1.Message.(*v1beta1.AuthorizationPolicy)
+		y := r1.Message.(*v1beta1.RequestAuthentication)
 		yName := r1.Metadata.FullName.String()
 		yNS := r1.Metadata.FullName.Namespace.String()
-		ySelector := k8s_labels.SelectorFromSet(y.GetSelector().MatchLabels).String()
-		fmt.Println(ySelector)
-		if xSelector == ySelector && xName != yName && xNS == yNS {
-			matches = append(matches, r)
-			matches = append(matches, r1)
+		if y.GetSelector() != nil {
+			ySelector := k8s_labels.SelectorFromSet(y.GetSelector().MatchLabels).String()
+			if xSelector == ySelector && xName != yName && xNS == yNS {
+				matches = append(matches, r)
+				matches = append(matches, r1)
+			}
+		} else {
+			if xNS == yNS {
+				// There is a namespace wide configuration
+				conflicts := []string{yNS, xNS}
+				m := msg.NewNamespaceResourceConflict(r, requestauthCol.String(), xNS, fmt.Sprintf("(ALL) Namespace: %v", xNS), conflicts)
+				c.Report(collections.IstioSecurityV1Beta1Requestauthentications.Name(), m)
+			}
 		}
 		return true
 	})

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/namespaceconflict"
 	schemaValidation "istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
@@ -169,6 +170,39 @@ var testGrid = []testCase{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+		},
+	},
+	{
+		name:       "PeerAuthentication namespace conflicts",
+		inputFiles: []string{"testdata/namespaceconflict-peerauth-conflicts.yaml"},
+		analyzer:   &namespaceconflict.PeerAuthenticationConflictAnalyzer{},
+		expected: []message{
+			{msg.NamespaceResourceConflict, "PeerAuthentication defaultconfig2.default"},
+			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo.foo"},
+			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo2.foo"},
+			{msg.NamespaceResourceConflict, "PeerAuthentication seldummydefault.default"},
+		},
+	},
+	{
+		name:       "AuthorizationPolicy namespace conflicts",
+		inputFiles: []string{"testdata/namespaceconflict-authpolicy-conflicts.yaml"},
+		analyzer:   &namespaceconflict.AuthorizationPolicyConflictAnalyzer{},
+		expected: []message{
+			{msg.NamespaceResourceConflict, "AuthorizationPolicy defaultconfig2.default"},
+			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar.bar"},
+			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar2.bar"},
+			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummydefault.default"},
+		},
+	},
+	{
+		name:       "RequestAuthentication namespace conflicts",
+		inputFiles: []string{"testdata/namespaceconflict-reqauth-conflicts.yaml"},
+		analyzer:   &namespaceconflict.RequestAuthenticationConflictAnalyzer{},
+		expected: []message{
+			{msg.NamespaceResourceConflict, "RequestAuthentication defaultconfig2.default"},
+			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar.bar"},
+			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar2.bar"},
+			{msg.NamespaceResourceConflict, "RequestAuthentication seldummydefault.default"},
 		},
 	},
 	{

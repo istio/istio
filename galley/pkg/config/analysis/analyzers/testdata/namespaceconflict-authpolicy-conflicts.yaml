@@ -1,0 +1,79 @@
+# Generate testing namespaces
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: defaultconfig
+  namespace: default
+spec:
+  action: ALLOW
+  rules:
+  - {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: defaultconfig2
+  namespace: default     # This will generate a conflict since there are two namespace wide configurations
+spec:
+  action: DENY
+  rules:
+  - {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: fooconfig
+  namespace: foo
+spec:
+  action: DENY            # Will not generate a conflict since it's on a new namespace     
+  rules:
+  - {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: seldummybar
+  namespace: bar
+spec:
+  selector:
+    matchLabels:
+      app: dummy
+  action: ALLOW
+  rules:
+  - {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: seldummybar2
+  namespace: bar          # Will generate a conflict since there's a selector in bar for app:dummy
+spec:
+  selector:
+    matchLabels:
+      app: dummy
+  action: DENY
+  rules:
+  - {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: seldummydefault
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: dummy
+  action: ALLOW           # Will generate a conflict since there's already a namespace wide configuration
+  rules:
+  - {}
