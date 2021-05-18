@@ -62,7 +62,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		remoteEps := map[string]uint32{}
 		// Calculate remote network endpoints
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
-			epNetwork := istioMetadata(lbEp, "network")
+			epNetwork := util.IstioMetadata(lbEp, "network")
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
 			if model.IsSameNetwork(b.network, epNetwork) || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
@@ -87,7 +87,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				remoteEps[epNetwork]++
 			}
 		}
-
+		// Endpoint members could be stripped. Adjust weight value here.
+		lbEndpoints.refreshWeight()
+		filtered = append(filtered, lbEndpoints)
 		// Add remote networks' gateways to endpoints if the gateway is a valid IP
 		// If its a dns name (like AWS ELB), skip adding all endpoints from this network.
 
@@ -97,6 +99,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		// we initiate mTLS automatically to this remote gateway. Split horizon to remote gateway cannot
 		// work with plaintext
 		for network, w := range remoteEps {
+			lbEndpoints := &LocLbEndpointsAndOptions{
+				llbEndpoints: endpoint.LocalityLbEndpoints{
+					Locality: ep.llbEndpoints.Locality,
+					Priority: ep.llbEndpoints.Priority,
+					// Endpoints and weight will be set below.
+				},
+			}
 			gateways := b.push.NetworkGatewaysByNetwork(network)
 
 			gatewayNum := len(gateways)
@@ -124,11 +133,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				// Currently gateway endpoint does not support tunnel.
 				lbEndpoints.append(gwEp, networking.MakeTunnelAbility())
 			}
+			if len(lbEndpoints.llbEndpoints.LbEndpoints) > 0 {
+				// Endpoint members aggregated by network. Adjust weight value here.
+				lbEndpoints.refreshWeight()
+				filtered = append(filtered, lbEndpoints)
+			}
 		}
-
-		// Endpoint members could be stripped or aggregated by network. Adjust weight value here.
-		lbEndpoints.refreshWeight()
-		filtered = append(filtered, lbEndpoints)
 	}
 
 	return filtered
@@ -164,23 +174,6 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAnd
 	}
 
 	return filtered
-}
-
-// TODO: remove this, filtering should be done before generating the config, and
-// network metadata should not be included in output. A node only receives endpoints
-// in the same network as itself - so passing an network meta, with exactly
-// same value that the node itself had, on each endpoint is a bit absurd.
-
-// Checks whether there is an istio metadata string value for the provided key
-// within the endpoint metadata. If exists, it will return the value.
-func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
-	if ep.Metadata != nil &&
-		ep.Metadata.FilterMetadata[util.IstioMetadataKey] != nil &&
-		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields != nil &&
-		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key] != nil {
-		return ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key].GetStringValue()
-	}
-	return ""
 }
 
 func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {

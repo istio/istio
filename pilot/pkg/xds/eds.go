@@ -316,11 +316,12 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if lbSetting != nil {
+	localityLbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	networkLbSetting := loadbalancer.GetNetworkLbSetting(b.push.Mesh.GetNetworkLbSetting(), lb.GetNetworkLbSetting())
+	if localityLbSetting != nil || networkLbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
-		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
+		loadbalancer.ApplyLBSetting(l, b.locality, localityLbSetting, b.network, networkLbSetting, enableFailover)
 	}
 	return l
 }
