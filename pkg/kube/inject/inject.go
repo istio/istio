@@ -796,7 +796,7 @@ func estimateConcurrency(cfg *meshconfig.ProxyConfig, annotations map[string]str
 			if err == nil {
 				return out
 			}
-		} else if resources := valuesStruct.GetGlobal().GetProxy().GetResources(); resources != nil { // nolint:: staticcheck
+		} else if resources := valuesStruct.GetGlobal().GetProxy().GetResources(); resources != nil { // nolint: staticcheck
 			if resources.Limits != nil {
 				if limit, ok := resources.Limits["cpu"]; ok {
 					out, err := quantityToConcurrency(limit)
