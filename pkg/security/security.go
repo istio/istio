@@ -134,6 +134,7 @@ type Options struct {
 	// - istiod
 	// - kubernetes
 	// - custom
+	// - none
 	PilotCertProvider string
 
 	// secret TTL.

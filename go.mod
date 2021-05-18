@@ -91,7 +91,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.5.3
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210512162628-f296986a5b65
+	istio.io/api v0.0.0-20210518042823-375754e6d4e3
 	istio.io/client-go v0.0.0-20210406025641-c740ff1f4def
 	istio.io/gogo-genproto v0.0.0-20210405163638-fcb891f20a5a
 	istio.io/pkg v0.0.0-20210405163638-bd457cbec517

@@ -22,7 +22,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/features"
@@ -128,8 +127,6 @@ func init() {
 	// RegistryOptions Controller options
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.RegistryOptions.FileDir, "configDir", "",
 		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
-	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.RegistryOptions.KubeOptions.WatchedNamespaces, "appNamespace", "a", metav1.NamespaceAll,
-		"Specify the applications namespace list the controller manages, separated by comma; if not set, controller watches all namespaces")
 	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.RegistryOptions.KubeOptions.ResyncPeriod, "resync", 60*time.Second,
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.DomainSuffix, "domain", constants.DefaultKubernetesDomain,

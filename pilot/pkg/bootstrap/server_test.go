@@ -171,7 +171,7 @@ func TestNewServerCertInit(t *testing.T) {
 						t.Errorf("Istiod certifiate does not match the expectation")
 					}
 				} else {
-					if cert, _ := s.getIstiodCertificate(nil); cert != nil {
+					if _, err := s.getIstiodCertificate(nil); err == nil {
 						t.Errorf("Istiod should not generate new DNS cert")
 					}
 				}
@@ -223,6 +223,10 @@ func TestReloadIstiodCert(t *testing.T) {
 	// setup cert watches.
 	if err = s.initCertificateWatches(tlsOptions); err != nil {
 		t.Fatalf("initCertificateWatches failed: %v", err)
+	}
+
+	if err = s.initIstiodCertLoader(); err != nil {
+		t.Fatalf("istiod unable to load its cert")
 	}
 
 	if err = s.server.Start(stop); err != nil {
