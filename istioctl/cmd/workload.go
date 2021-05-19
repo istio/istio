@@ -61,6 +61,7 @@ var (
 	outputDir      string
 	clusterID      string
 	ingressIP      string
+	workloadIP     string
 	ingressSvc     string
 	autoRegister   bool
 	dnsCapture     bool
@@ -219,7 +220,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
-			if err = createConfig(kubeClient, wg, clusterID, ingressIP, outputDir, cmd.OutOrStderr()); err != nil {
+			if err = createConfig(kubeClient, wg, clusterID, ingressIP, workloadIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
 			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
@@ -237,6 +238,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
 	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
+	configureCmd.PersistentFlags().StringVar(&workloadIP, "workloadIP", "", "IP address of the workload used in the WorkloadEntry")
 	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }
@@ -266,7 +268,7 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP,
+func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, workloadIP,
 	outputDir string, out io.Writer) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
@@ -279,6 +281,9 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 		return err
 	}
 	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
+		return err
+	}
+	if err := createSidecarEnv(workloadIP, outputDir); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
@@ -327,6 +332,25 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	}
 
 	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
+}
+
+func createSidecarEnv(workloadIP string, dir string) error {
+	sidecarEnv := map[string]string{
+		"ISTIO_SVC_IP": workloadIP,
+	}
+
+	// If there is no sidecar specific configuration, then don't write the file and exit first.
+	allEmpty := true
+	for _, v := range sidecarEnv {
+		if len(v) > 0 {
+			allEmpty = false
+		}
+	}
+	if allEmpty {
+		return nil
+	}
+
+	return ioutil.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
 }
 
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and

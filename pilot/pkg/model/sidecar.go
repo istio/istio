@@ -85,12 +85,6 @@ type SidecarScope struct {
 	// services/virtual services in that listener.
 	EgressListeners []*IstioEgressListenerWrapper
 
-	// HasCustomIngressListeners is a convenience variable that if set to
-	// true indicates that the config object has one or more listeners.
-	// If set to false, networking code should derive the inbound
-	// listeners from the proxy service instances
-	HasCustomIngressListeners bool
-
 	// Union of services imported across all egress listeners for use by CDS code.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
@@ -192,7 +186,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name]*config.Config),
-		servicesByHostname: make(map[host.Name]*Service),
+		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
@@ -262,17 +256,17 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	}
 
 	out.AddConfigDependencies(ConfigKey{
-		sidecarConfig.GroupVersionKind,
-		sidecarConfig.Name,
-		sidecarConfig.Namespace,
+		Kind:      gvk.Sidecar,
+		Name:      sidecarConfig.Name,
+		Namespace: sidecarConfig.Namespace,
 	})
 
-	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
 	egressConfigs := sidecar.Egress
 	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
 	}
+	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
 	for _, e := range egressConfigs {
 		out.EgressListeners = append(out.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
@@ -377,7 +371,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.servicesByHostname = make(map[host.Name]*Service)
+	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
@@ -400,10 +394,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		}
 	} else {
 		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
-	}
-
-	if len(sidecar.Ingress) > 0 {
-		out.HasCustomIngressListeners = true
 	}
 
 	return out
@@ -497,6 +487,19 @@ func (sc *SidecarScope) GetEgressListenerForRDS(port int, bind string) *IstioEgr
 	return nil
 }
 
+// HasIngressListener returns if the sidecar scope has ingress listener set
+func (sc *SidecarScope) HasIngressListener() bool {
+	if sc == nil {
+		return false
+	}
+
+	if sc.Sidecar == nil || len(sc.Sidecar.Ingress) == 0 {
+		return false
+	}
+
+	return true
+}
+
 // Services returns the list of services imported by this egress listener
 func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 	return ilw.services
@@ -535,7 +538,6 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	if sc == nil {
 		return
 	}
-
 	if sc.configDependencies == nil {
 		sc.configDependencies = make(map[uint32]struct{})
 	}

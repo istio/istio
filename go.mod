@@ -30,7 +30,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/envoyproxy/go-control-plane v0.9.9-0.20210408202003-cde9fa27f1d4
+	github.com/envoyproxy/go-control-plane v0.9.9-0.20210512163311-63b5d3c536b0
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.2.0
 	github.com/fatih/color v1.10.0
@@ -49,7 +49,6 @@ require (
 	github.com/hashicorp/go-version v1.2.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kr/pretty v0.2.1
-	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.1.5
 	github.com/lucas-clemente/quic-go v0.20.0
@@ -58,7 +57,6 @@ require (
 	github.com/miekg/dns v1.1.41
 	github.com/mitchellh/copystructure v1.1.1
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/onsi/gomega v1.11.0
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/pkg/errors v0.9.1
@@ -84,29 +82,29 @@ require (
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 	gomodules.xyz/jsonpatch/v2 v2.1.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
+	google.golang.org/api v0.42.0
 	google.golang.org/genproto v0.0.0-20210323160006-e668133fea6a
 	google.golang.org/grpc v1.37.0
 	google.golang.org/protobuf v1.26.0
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.5.3
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210414023359-f5ea9a74dab9
+	istio.io/api v0.0.0-20210518042823-375754e6d4e3
 	istio.io/client-go v0.0.0-20210406025641-c740ff1f4def
 	istio.io/gogo-genproto v0.0.0-20210405163638-fcb891f20a5a
-	istio.io/pkg v0.0.0-20210405163638-bd457cbec517
-	k8s.io/api v0.20.5
-	k8s.io/apiextensions-apiserver v0.20.2
-	k8s.io/apimachinery v0.20.5
-	k8s.io/cli-runtime v0.20.5
-	k8s.io/client-go v0.20.5
+	istio.io/pkg v0.0.0-20210519012641-d57c32f9ee9c
+	k8s.io/api v0.21.0
+	k8s.io/apiextensions-apiserver v0.21.0
+	k8s.io/apimachinery v0.21.0
+	k8s.io/cli-runtime v0.21.0
+	k8s.io/client-go v0.21.0
 	k8s.io/kube-openapi v0.0.0-20210323165736-1a6458611d18
-	k8s.io/kubectl v0.20.5
+	k8s.io/kubectl v0.21.0
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10
-	sigs.k8s.io/controller-runtime v0.8.3
-	sigs.k8s.io/gateway-api v0.2.0
+	sigs.k8s.io/controller-runtime v0.9.0-alpha.1.0.20210412152200-442d3cad1e99
+	sigs.k8s.io/gateway-api v0.3.0
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.2.0
 )

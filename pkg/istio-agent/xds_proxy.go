@@ -273,10 +273,16 @@ type ProxyConnection struct {
 	deltaRequestsChan  chan *discovery.DeltaDiscoveryRequest
 	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
 	stopChan           chan struct{}
-	downstream         discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer
+	downstream         adsStream
 	upstream           discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	downstreamDeltas   discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
 	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+}
+
+type adsStream interface {
+	Send(*discovery.DiscoveryResponse) error
+	Recv() (*discovery.DiscoveryRequest, error)
+	Context() context.Context
 }
 
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
@@ -284,7 +290,10 @@ type ProxyConnection struct {
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	proxyLog.Debugf("accepted XDS connection from Envoy, forwarding to upstream XDS server")
+	return p.handleStream(downstream)
+}
 
+func (p *XdsProxy) handleStream(downstream adsStream) error {
 	con := &ProxyConnection{
 		conID:           connectionNumber.Inc(),
 		upstreamError:   make(chan error, 2), // can be produced by recv and send
@@ -662,9 +671,13 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 
 func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	var certPool *x509.CertPool
-	var err error
 	var rootCert []byte
-	xdsCACertPath := agent.FindRootCAForXDS()
+
+	xdsCACertPath, err := agent.FindRootCAForXDS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
+	}
+
 	if xdsCACertPath != "" {
 		rootCert, err = ioutil.ReadFile(xdsCACertPath)
 		if err != nil {
@@ -692,7 +705,7 @@ func sendUpstream(upstream discovery.AggregatedDiscoveryService_StreamAggregated
 }
 
 // sendDownstream sends discovery response.
-func sendDownstream(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer,
+func sendDownstream(downstream adsStream,
 	response *discovery.DiscoveryResponse) error {
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }

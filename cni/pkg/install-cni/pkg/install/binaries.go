@@ -19,15 +19,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
 )
 
-func copyBinaries(updateBinaries bool, skipBinaries []string) error {
-	srcDir := constants.CNIBinDir
-	targetDirs := []string{constants.HostCNIBinDir, constants.SecondaryBinDir}
-
+func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipBinaries []string) error {
 	skipBinariesSet := arrToSet(skipBinaries)
 
 	for _, targetDir := range targetDirs {

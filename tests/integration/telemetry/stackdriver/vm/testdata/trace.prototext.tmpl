@@ -1,5 +1,6 @@
-project_id:"projects/test-project"
-spans:{ 
+project_id:"test-project"
+spans:{
+    name:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"
     labels:{key:"OperationName"  value:"Ingress"}
     labels:{key:"component"  value:"proxy"}
     labels:{key:"downstream_cluster"  value:"-"}
@@ -13,11 +14,11 @@ spans:{
     labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
     labels:{key:"request_size"  value:"0"}
     labels:{key:"response_flags"  value:"-"}
-    labels:{key:"span"  value:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"}
     labels:{key:"upstream_cluster"  value:"inbound|8090||"}
     labels:{key:"upstream_cluster.name"  value:"inbound|8090||"}
     labels:{key:"user_agent"  value:"Go-http-client/1.1"}}
 spans:{
+    name:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"
     labels:{key:"OperationName" value:"Egress"}
     labels:{key:"component"  value:"proxy"}
     labels:{key:"downstream_cluster"  value:"-"}
@@ -31,7 +32,6 @@ spans:{
     labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
     labels:{key:"request_size"  value:"0"}
     labels:{key:"response_flags"  value:"-"}
-    labels:{key:"span"  value:"server.{{ .EchoNamespace }}.svc.cluster.local:8090/*"}
     labels:{key:"upstream_cluster"  value:"outbound|8090||server.{{ .EchoNamespace }}.svc.cluster.local"}
     labels:{key:"upstream_cluster.name"  value:"outbound|8090||server.{{ .EchoNamespace }}.svc.cluster.local"}
     labels:{key:"user_agent"  value:"Go-http-client/1.1"}}

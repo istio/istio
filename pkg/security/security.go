@@ -39,9 +39,6 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
-	DefaultLocalSDSPath = "./etc/istio/proxy/SDS"
-
 	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
 	SystemRootCerts = "SYSTEM"
 
@@ -56,6 +53,9 @@ const (
 	// Credential fetcher type
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock" // testing only
+
+	// GoogleCAProvider uses the Google CA for workload certificate signing
+	GoogleCAProvider = "GoogleCA"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
@@ -131,6 +131,7 @@ type Options struct {
 	// - istiod
 	// - kubernetes
 	// - custom
+	// - none
 	PilotCertProvider string
 
 	// secret TTL.
@@ -139,6 +140,9 @@ type Options struct {
 	// The ratio of cert lifetime to refresh a cert. For example, at 0.10 and 1 hour TTL,
 	// we would refresh 6 minutes before expiration.
 	SecretRotationGracePeriodRatio float64
+
+	// STS port
+	STSPort int
 
 	// authentication provider specific plugins, will exchange the token
 	// For example exchange long lived refresh with access tokens.

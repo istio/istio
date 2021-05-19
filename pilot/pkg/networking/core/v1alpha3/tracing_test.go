@@ -50,43 +50,43 @@ func TestConfigureTracing(t *testing.T) {
 		{
 			name: "no telemetry api",
 			opts: fakeOptsNoTelemetryAPI(),
-			want: fakeTracingConfigNoProvider(55.55, 13, append(defaultTags(), fakeEnvTag)),
+			want: fakeTracingConfigNoProvider(55.55, 13, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "only telemetry api (no provider)",
 			inSpec: fakeTracingSpecNoProvider(99.999, false),
 			opts:   fakeOptsOnlyTelemetryAPI(),
-			want:   fakeTracingConfigNoProvider(99.999, 0, append(defaultTags(), fakeEnvTag)),
+			want:   fakeTracingConfigNoProvider(99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "only telemetry api (with provider)",
 			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
 			opts:   fakeOptsOnlyTelemetryAPI(),
-			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTags(), fakeEnvTag)),
+			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "both tracing enabled (no provider)",
 			inSpec: fakeTracingSpecNoProvider(99.999, false),
 			opts:   fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:   fakeTracingConfigNoProvider(99.999, 13, append(defaultTags(), fakeEnvTag)),
+			want:   fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "both tracing disabled (no provider)",
 			inSpec: fakeTracingSpecNoProvider(99.999, false),
 			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:   fakeTracingConfigNoProvider(99.999, 13, append(defaultTags(), fakeEnvTag)),
+			want:   fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "both tracing enabled (with provider)",
 			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
 			opts:   fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTags(), fakeEnvTag)),
+			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "both tracing disabled (with provider)",
 			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
 			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTags(), fakeEnvTag)),
+			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 		},
 	}
 
@@ -99,6 +99,42 @@ func TestConfigureTracing(t *testing.T) {
 			}
 		})
 	}
+}
+
+func defaultTracingTags() []*tracing.CustomTag {
+	return append(buildOptionalPolicyTags(),
+		&tracing.CustomTag{
+			Tag: "istio.canonical_revision",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "latest",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.canonical_service",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.mesh_id",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.namespace",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "default",
+				},
+			},
+		})
 }
 
 func fakeOptsNoTelemetryAPI() buildListenerOpts {

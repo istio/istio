@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue causing proxies to send `Transfer-Encoding` headers with `1xx` and `204` responses.

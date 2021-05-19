@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -217,7 +218,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	dir := t.TempDir()
 	ia := NewAgent(&proxyConfig, &AgentOptions{
 		XdsUdsPath: filepath.Join(dir, "XDS"),
-	}, secOpts)
+	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
 		ia.Close()
 	})

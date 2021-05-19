@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
@@ -81,9 +82,9 @@ type Multicluster struct {
 	clusterLocal          model.ClusterLocalProvider
 
 	// fetchCaRoot maps the certificate name to the certificate
-	fetchCaRoot  func() map[string]string
-	caBundlePath string
-	revision     string
+	fetchCaRoot     func() map[string]string
+	caBundleWatcher *keycertbundle.Watcher
+	revision        string
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace  string
@@ -92,7 +93,6 @@ type Multicluster struct {
 }
 
 // NewMulticluster initializes data structure to store multicluster information
-// It also starts the secret controller
 func NewMulticluster(
 	serverID string,
 	kc kubernetes.Interface,
@@ -100,7 +100,7 @@ func NewMulticluster(
 	opts Options,
 	serviceController *aggregate.Controller,
 	serviceEntryStore *serviceentry.ServiceEntryStore,
-	caBundlePath string,
+	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	fetchCaRoot func() map[string]string,
 	networksWatcher mesh.NetworksWatcher,
@@ -108,17 +108,12 @@ func NewMulticluster(
 	s server.Instance,
 ) *Multicluster {
 	remoteKubeController := make(map[string]*kubeController)
-	if opts.ResyncPeriod == 0 {
-		// make sure a resync time of 0 wasn't passed in.
-		opts.ResyncPeriod = 30 * time.Second
-		log.Info("Resync time was configured to 0, resetting to 30")
-	}
 	mc := &Multicluster{
 		serverID:              serverID,
 		opts:                  opts,
 		serviceController:     serviceController,
 		serviceEntryStore:     serviceEntryStore,
-		caBundlePath:          caBundlePath,
+		caBundleWatcher:       caBundleWatcher,
 		revision:              revision,
 		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
@@ -259,10 +254,10 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
-		if features.InjectionWebhookConfigName.Get() != "" && m.caBundlePath != "" {
+		if features.InjectionWebhookConfigName.Get() != "" && m.caBundleWatcher != nil {
 			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
 			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundlePath)
+			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher.GetCABundle())
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
@@ -270,10 +265,10 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 			}
 		}
 		// Patch validation webhook cert
-		if m.caBundlePath != "" {
+		if m.caBundleWatcher != nil {
 			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-				m.secretNamespace, m.caBundlePath)
+				m.secretNamespace, m.caBundleWatcher)
 			if validationWebhookController != nil {
 				go validationWebhookController.Start(clusterStopCh)
 			}

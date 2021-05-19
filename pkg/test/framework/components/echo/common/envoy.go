@@ -52,7 +52,12 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 			if strings.Contains(err.Error(), "could not resolve Any message type") {
 				// Unable to parse an Any in the message, likely due to missing imports.
 				// This is not a recoverable error.
-				return nil, true, err
+				return nil, true, nil
+			}
+			if strings.Contains(err.Error(), `Any JSON doesn't have '@type'`) {
+				// Unable to parse an Any in the message, likely due to an older version.
+				// This is not a recoverable error.
+				return nil, true, nil
 			}
 			return nil, false, err
 		}

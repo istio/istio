@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 32210
+releaseNotes:
+- |
+  **Fixed** reconciliation logic in the validation webhook controller to rate-limit
+  the retries in the loop. This should drastically reduce churn (and generated logs)
+  in cases of misconfiguration.

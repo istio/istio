@@ -272,6 +272,9 @@ func verifyRevisionOutput(t framework.TestContext, descr *cmd.RevisionDescriptio
 	actualComponents := map[string]bool{}
 	for _, iop := range descr.IstioOperatorCRs {
 		for _, comp := range iop.Components {
+			if comp == "cni" {
+				continue
+			}
 			actualComponents[comp] = true
 		}
 	}

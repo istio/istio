@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 27342
+
+releaseNotes:
+- |
+  **Improved** resolution of headless services via in-agent DNS to include endpoints
+  from other clusters that are on the same network.

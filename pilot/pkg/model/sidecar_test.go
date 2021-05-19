@@ -366,6 +366,36 @@ var (
 			},
 		},
 	}
+
+	configs14 = &config.Config{
+		Meta: config.Meta{
+			Name: "sidecar-scope-wildcards",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   7443,
+						Protocol: "GRPC",
+						Name:     "grpc-tls",
+					},
+					Hosts: []string{"*/*"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   7442,
+						Protocol: "HTTP",
+						Name:     "http-tls",
+					},
+					Hosts: []string{"ns2/*"},
+				},
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -639,6 +669,57 @@ var (
 		},
 	}
 
+	services16 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+		{
+			Hostname: "bar.svc.cluster.local",
+			Ports:    port7442,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "barprime.svc.cluster.local",
+			Ports:    port7442,
+			Attributes: ServiceAttributes{
+				Name:      "barprime",
+				Namespace: "ns3",
+			},
+		},
+		{
+			Hostname: "barprime.svc.cluster.local",
+			Ports:    port7442,
+			Attributes: ServiceAttributes{
+				Name:      "barprime",
+				Namespace: "ns3",
+			},
+		},
+		{
+			Hostname: "random.svc.cluster.local",
+			Ports:    port9999,
+			Attributes: ServiceAttributes{
+				Name:      "random",
+				Namespace: "randomns", // nolint
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -898,6 +979,46 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
+			"wild-card-egress-listener-match-and-all-hosts",
+			configs14,
+			services16,
+			nil,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "bar.svc.cluster.local",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns2",
+					},
+				},
+				{
+					Hostname: "barprime.svc.cluster.local",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:      "barprime",
+						Namespace: "ns3",
+					},
+				},
+				{
+					Hostname: "random.svc.cluster.local",
+					Ports:    port9999,
+					Attributes: ServiceAttributes{
+						Name:      "random",
+						Namespace: "randomns", // nolint
+					},
+				},
+			},
+		},
+		{
 			"wild-card-egress-listener-match-with-two-ports",
 			configs9,
 			services11,
@@ -1108,7 +1229,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					}
 				}
 				if !found {
-					t.Errorf("Unexpected service %v found in SidecarScope", s1.Hostname)
+					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
 				}
 			}
 
@@ -1121,7 +1242,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					}
 				}
 				if !found {
-					t.Errorf("Expected service %v in SidecarScope, but did not find it", s1)
+					t.Errorf("UnExpected service %v in SidecarScope", s1)
 				}
 			}
 			// TODO destination rule

@@ -51,6 +51,9 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 		"-x", rdrct.excludeIPCidrs,
 		"-k", rdrct.kubevirtInterfaces,
 	}
+	if rdrct.dnsRedirect {
+		nsenterArgs = append(nsenterArgs, "--redirect-dns", "--capture-all-dns")
+	}
 	log.Infof("nsenter args: %s", strings.Join(nsenterArgs, " "))
 	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {

@@ -16,6 +16,7 @@
 package pilot
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/echo/client"
@@ -36,14 +37,32 @@ func TestTproxy(t *testing.T) {
 				return
 			}
 			// check the server can see the client's original ip
-			checkOriginalSrcIP(t, apps.PodA[0], apps.PodTproxy[0], workloads[0].Address())
+			var srcIps []string
+			for _, w := range workloads {
+				srcIps = append(srcIps, w.Address())
+			}
+			checkOriginalSrcIP(t, apps.PodA[0], apps.PodTproxy[0], srcIps)
 		})
 }
 
-func checkOriginalSrcIP(t framework.TestContext, src, dest echo.Instance, expected string) {
+func checkOriginalSrcIP(t framework.TestContext, src echo.Caller, dest echo.Instance, expected []string) {
 	t.Helper()
 	validator := echo.ValidatorFunc(func(resp client.ParsedResponses, inErr error) error {
-		return resp.CheckIP(expected)
+		// Check that each response saw one of the workload IPs for the src echo instance
+		for _, r := range resp {
+			found := false
+			for _, ip := range expected {
+				if r.IP == ip {
+					found = true
+				}
+			}
+			if !found {
+				return fmt.Errorf("unexpected IP %s, expected to be contained in %v",
+					r.IP, expected)
+			}
+		}
+
+		return nil
 	})
 	_ = src.CallWithRetryOrFail(t, echo.CallOptions{
 		Target:    dest,
