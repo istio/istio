@@ -39,20 +39,16 @@ const (
 )
 
 var (
-	uptime      = monitoring.NewGauge("istiod_uptime_seconds", "Current istiod server uptime in seconds")
 	serverStart = time.Now()
+
+	uptime = monitoring.NewDerivedGauge(
+		"istiod_uptime_seconds",
+		"Current istiod server uptime in seconds",
+		func() float64 {
+			return time.Since(serverStart).Seconds()
+		},
+	)
 )
-
-func init() {
-	monitoring.MustRegister(uptime)
-}
-
-func exportUptime(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		uptime.Record(time.Since(serverStart).Seconds())
-		h.ServeHTTP(w, r)
-	})
-}
 
 func addMonitor(mux *http.ServeMux) error {
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
@@ -60,7 +56,7 @@ func addMonitor(mux *http.ServeMux) error {
 		return fmt.Errorf("could not set up prometheus exporter: %v", err)
 	}
 	view.RegisterExporter(exporter)
-	mux.Handle(metricsPath, exportUptime(exporter))
+	mux.Handle(metricsPath, exporter)
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
 		if _, err := out.Write([]byte(version.Info.String())); err != nil {
