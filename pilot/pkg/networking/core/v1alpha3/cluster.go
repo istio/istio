@@ -610,8 +610,11 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		if outlier.ConsecutiveLocalOriginFailure.GetValue() > 0 {
 			out.ConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: outlier.ConsecutiveLocalOriginFailure.Value}
 		}
-		// When split external origin errors is set to true, we should disable consectuive 5xx.
+		// When split external origin errors is set to true, we should disable consectuive 5xx and gateways.
 		out.EnforcingConsecutive_5Xx = &wrappers.UInt32Value{Value: 0}
+		out.EnforcingConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: 0}
+		// SuccessRate based outlier detection should be disabled.
+		out.EnforcingLocalOriginSuccessRate = &wrappers.UInt32Value{Value: 0}
 	}
 
 	c.OutlierDetection = out
