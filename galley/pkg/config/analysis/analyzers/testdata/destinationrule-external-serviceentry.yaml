@@ -1,5 +1,5 @@
 # No error should be displayed when the service entry is set to MESH_EXTERNAL
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
@@ -14,7 +14,7 @@ spec:
       protocol: HTTPS
   resolution: DNS
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: external-service
