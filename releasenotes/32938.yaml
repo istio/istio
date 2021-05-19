@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue: 32936
+releaseNotes:
+  - |
+    **Fixed** an issue that the analyzer will report error IST0128 even if the service entry host is set to external.

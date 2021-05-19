@@ -1,0 +1,26 @@
+# No error should be displayed when the service entry is set to MESH_EXTERNAL
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-service
+  namespace: istio-system
+spec:
+  hosts:
+    - service.example.com
+  location: MESH_EXTERNAL
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: external-service
+  namespace: istio-system
+spec:
+  host: service.example.com
+  trafficPolicy:
+    tls:
+      mode: SIMPLE

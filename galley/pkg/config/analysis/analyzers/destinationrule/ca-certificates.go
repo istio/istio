@@ -40,19 +40,20 @@ func (c *CaCertificateAnalyzer) Metadata() analysis.Metadata {
 }
 
 func (c *CaCertificateAnalyzer) Analyze(ctx analysis.Context) {
+	serviceEntryHosts := util.InitServiceEntryHostMap(ctx)
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
-		c.analyzeDestinationRule(r, ctx)
+		c.analyzeDestinationRule(r, ctx, serviceEntryHosts)
 		return true
 	})
 }
 
-func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx analysis.Context) {
+func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx analysis.Context,
+	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry) {
 	dr := r.Message.(*v1alpha3.DestinationRule)
 	drNs := r.Metadata.FullName.Namespace
 	drName := r.Metadata.FullName.String()
 	mode := dr.GetTrafficPolicy().GetTls().GetMode()
 
-	serviceEntryHosts := util.InitServiceEntryHostMap(ctx)
 	drHost := util.GetDestinationHost(drNs, dr.GetHost(), serviceEntryHosts)
 
 	if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL &&

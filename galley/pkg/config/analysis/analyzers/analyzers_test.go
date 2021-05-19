@@ -412,6 +412,14 @@ var testGrid = []testCase{
 		expected: []message{},
 	},
 	{
+		name: "destinationrule with external service entry",
+		inputFiles: []string{
+			"testdata/destinationrule-external-serviceentry.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "dupmatches",
 		inputFiles: []string{
 			"testdata/virtualservice_dupmatches.yaml",
