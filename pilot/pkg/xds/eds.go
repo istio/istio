@@ -146,7 +146,7 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 		fullPush = true
 	}
 
-	saUpdated := s.updateServiceAccount(ep, clusterID, hostname, istioEndpoints)
+	saUpdated := s.UpdateServiceAccount(ep, clusterID, hostname, istioEndpoints)
 	// For existing endpoints, we need to do full push if service accounts change.
 	if !fullPush && saUpdated {
 		log.Infof("Full push, service accounts changed, %v", hostname)
@@ -230,7 +230,7 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 		}: {}})
 		epShards.mutex.Unlock()
 
-		s.updateServiceAccount(epShards, cluster, serviceName, nil)
+		s.UpdateServiceAccount(epShards, cluster, serviceName, nil)
 		if shardsLen == 0 {
 			delete(s.EndpointShardsByService[serviceName], namespace)
 		}
@@ -240,8 +240,8 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 	}
 }
 
-// updateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
-func (s *DiscoveryServer) updateServiceAccount(shards *EndpointShards, clusterID, serviceName string, endpoints []*model.IstioEndpoint) bool {
+// UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
+func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, clusterID, serviceName string, endpoints []*model.IstioEndpoint) bool {
 	oldServiceAccount := shards.ServiceAccounts
 	shards.mutex.Lock()
 	defer shards.mutex.Unlock()

@@ -437,6 +437,85 @@ func TestDeleteService(t *testing.T) {
 	}
 }
 
+func TestUpdateServiceAccount(t *testing.T) {
+	cluster1Endppoints := []*model.IstioEndpoint{
+		{Address: "10.172.0.1", ServiceAccount: "sa1"},
+		{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
+	}
+
+	testCases := []struct {
+		name      string
+		clusterID string
+		endpoints []*model.IstioEndpoint
+		expect    bool
+	}{
+		{
+			name:      "added new endpoint",
+			clusterID: "c1",
+			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
+			expect:    false,
+		},
+		{
+			name:      "added new sa",
+			clusterID: "c1",
+			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
+			expect:    true,
+		},
+		{
+			name:      "updated endpoints address",
+			clusterID: "c1",
+			endpoints: []*model.IstioEndpoint{
+				{Address: "10.172.0.5", ServiceAccount: "sa1"},
+				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
+			},
+			expect: false,
+		},
+		{
+			name:      "deleted one endpoint with duplicate sa",
+			clusterID: "c1",
+			endpoints: []*model.IstioEndpoint{
+				{Address: "10.172.0.1", ServiceAccount: "sa1"},
+			},
+			expect: true,
+		},
+		{
+			name:      "deleted one endpoint with unique sa",
+			clusterID: "c1",
+			endpoints: []*model.IstioEndpoint{
+				{Address: "10.172.0.2", ServiceAccount: "vsa-vm1"},
+			},
+			expect: true,
+		},
+		{
+			name:      "deleted endpoints",
+			clusterID: "c1",
+			endpoints: nil,
+			expect:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := new(xds.DiscoveryServer)
+			originalEndpointsShard := &xds.EndpointShards{
+				Shards: map[string][]*model.IstioEndpoint{
+					"c1": cluster1Endppoints,
+					"c2": {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
+				},
+				ServiceAccounts: map[string]struct{}{
+					"sa1":    {},
+					"sa-vm1": {},
+					"sa-vm2": {},
+				},
+			}
+			ret := s.UpdateServiceAccount(originalEndpointsShard, "c1", "test-svc", tc.endpoints)
+			if ret != tc.expect {
+				t.Errorf("expect UpdateServiceAccount %v, but got %v", tc.expect, ret)
+			}
+		})
+	}
+}
+
 func fullPush(s *xds.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
