@@ -93,13 +93,6 @@ const (
 	// This is typically set by the downward API
 	PodInfoAnnotationsPath = "./etc/istio/pod/annotations"
 
-	// DefaultSdsUdsPath is the path used for SDS communication between istio-agent and proxy during
-	// mtls.
-	DefaultSdsUdsPath = "unix:./etc/istio/proxy/SDS"
-
-	// DefaultXdsUdsPath is the path used for XDS communication between istio-agent and proxy
-	DefaultXdsUdsPath = "./etc/istio/proxy/XDS"
-
 	// DefaultServiceAccountName is the default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-reader-service-account"
 
