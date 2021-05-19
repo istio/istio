@@ -60,8 +60,6 @@ const (
 	NodeRegionLabelGA = "topology.kubernetes.io/region"
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
-	// IstioNamespace used by default for Istio cluster-wide installation
-	IstioNamespace = "istio-system"
 
 	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
 	// TODO move gatewayPort to api repo
