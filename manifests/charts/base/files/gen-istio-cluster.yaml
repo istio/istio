@@ -294,7 +294,7 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailure:
+                            consecutiveLocalOriginFailures:
                               nullable: true
                               type: integer
                             interval:
@@ -541,7 +541,7 @@ spec:
                                       host is ejected from the connection pool.
                                     nullable: true
                                     type: integer
-                                  consecutiveLocalOriginFailure:
+                                  consecutiveLocalOriginFailures:
                                     nullable: true
                                     type: integer
                                   interval:
@@ -862,7 +862,7 @@ spec:
                           from the connection pool.
                         nullable: true
                         type: integer
-                      consecutiveLocalOriginFailure:
+                      consecutiveLocalOriginFailures:
                         nullable: true
                         type: integer
                       interval:
@@ -1104,7 +1104,7 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailure:
+                            consecutiveLocalOriginFailures:
                               nullable: true
                               type: integer
                             interval:
@@ -1478,7 +1478,7 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailure:
+                            consecutiveLocalOriginFailures:
                               nullable: true
                               type: integer
                             interval:
@@ -1725,7 +1725,7 @@ spec:
                                       host is ejected from the connection pool.
                                     nullable: true
                                     type: integer
-                                  consecutiveLocalOriginFailure:
+                                  consecutiveLocalOriginFailures:
                                     nullable: true
                                     type: integer
                                   interval:
@@ -2046,7 +2046,7 @@ spec:
                           from the connection pool.
                         nullable: true
                         type: integer
-                      consecutiveLocalOriginFailure:
+                      consecutiveLocalOriginFailures:
                         nullable: true
                         type: integer
                       interval:
@@ -2288,7 +2288,7 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailure:
+                            consecutiveLocalOriginFailures:
                               nullable: true
                               type: integer
                             interval:
