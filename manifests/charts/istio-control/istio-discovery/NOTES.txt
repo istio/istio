@@ -3,3 +3,7 @@ Minimal control plane for Istio. Pilot and mesh config are included.
 MCP and injector should optionally be installed in the same namespace. Alternatively remote
 address of an MCP server can be set.
 
+
+Thank you for installing Istio 1.10.  Please take a few minutes to tell us about your install/upgrade experience!
+    https://forms.gle/KjkrDnMPByq7akrYA"
+
