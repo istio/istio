@@ -92,10 +92,16 @@ outer:
 		}
 
 		if annotationDef.Deprecated {
-			m := msg.NewDeprecatedAnnotation(r, ann, deprecationExtraMessages[annotationDef.Name])
-			util.AddLineNumber(r, ann, m)
+			if _, f := r.Metadata.Labels[annotation.SidecarInject.Name]; f && ann == annotation.SidecarInject.Name {
+				// Skip to avoid noise; the user has the deprecated annotation but they also have the replacement
+				// This means they are likely aware its deprecated, but are keeping both variants around for maximum
+				// compatibility
+			} else {
+				m := msg.NewDeprecatedAnnotation(r, ann, deprecationExtraMessages[annotationDef.Name])
+				util.AddLineNumber(r, ann, m)
 
-			ctx.Report(collectionType, m)
+				ctx.Report(collectionType, m)
+			}
 		}
 
 		// If the annotation def attaches to Any, exit early
