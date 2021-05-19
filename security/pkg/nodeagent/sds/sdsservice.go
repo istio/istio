@@ -155,14 +155,15 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 
 // Generate implements the XDS Generator interface. This allows the XDS server to dispatch requests
 // for SecretTypeV3 to our server to generate the Envoy response.
-func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// updates.Full indicates we should do a complete push of all updated resources
 	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
 	// all file certs).
 	if updates.Full {
 		resp, err := s.generate(w.ResourceNames)
 		pushLog(w.ResourceNames, err)
-		return resp, err
+		return resp, model.DefaultXdsLogDetails, err
 	}
 	names := []string{}
 	watched := sets.NewSet(w.ResourceNames...)
@@ -173,13 +174,7 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 	}
 	resp, err := s.generate(names)
 	pushLog(names, err)
-	return resp, err
-}
-
-var sdsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
-
-func (s *sdsservice) Metadata() *model.GeneratorMetadata {
-	return sdsGeneratorMetadata
+	return resp, model.DefaultXdsLogDetails, err
 }
 
 // register adds the SDS handle to the grpc server
