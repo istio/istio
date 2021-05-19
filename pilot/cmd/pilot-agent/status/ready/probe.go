@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
@@ -33,7 +32,6 @@ type Probe struct {
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
 	atleastOnceReady bool
 	Context          context.Context
-	proxyTerminating *atomic.Bool
 }
 
 type Prober interface {
@@ -67,13 +65,6 @@ func (p *Probe) checkConfigStatus() error {
 	LDSUpdated := s.LDSUpdatesSuccess > 0
 	if CDSUpdated && LDSUpdated {
 		p.receivedFirstUpdate = true
-		p.proxyTerminating = atomic.NewBool(false)
-		go func() {
-			if p.Context != nil {
-				<-p.Context.Done()
-				p.proxyTerminating.Store(true)
-			}
-		}()
 		return nil
 	}
 
@@ -82,26 +73,28 @@ func (p *Probe) checkConfigStatus() error {
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
-	// If proxy is terminating, just return the draining state.
-	if p.proxyTerminating != nil && p.proxyTerminating.Load() {
+	select {
+	case <-p.Context.Done():
 		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_DRAINING.String())
-	}
-	// If Envoy is ready atleast once i.e. server state is LIVE and workers
-	// have started, they will not go back in the life time of Envoy process.
-	// They will only change at hot restart or health check fails. Since Istio
-	// does not use both of them, it is safe to cache this value. Since the
-	// actual readiness probe goes via Envoy it ensures that Envoy is actively
-	// serving traffic and we can rely on that.
-	if p.atleastOnceReady {
-		return nil
-	}
+	default:
+		// If Envoy is ready atleast once i.e. server state is LIVE and workers
+		// have started, they will not go back in the life time of Envoy process.
+		// They will only change at hot restart or health check fails. Since Istio
+		// does not use both of them, it is safe to cache this value. Since the
+		// actual readiness probe goes via Envoy it ensures that Envoy is actively
+		// serving traffic and we can rely on that.
+		if p.atleastOnceReady {
+			return nil
+		}
 
-	err := checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
-	if err == nil {
-		metrics.RecordStartupTime()
-		p.atleastOnceReady = true
+		err := checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
+		if err == nil {
+			metrics.RecordStartupTime()
+			p.atleastOnceReady = true
+		}
+		return err
+
 	}
-	return err
 }
 
 // checkEnvoyStats actually executes the Stats Query on Envoy admin endpoint.
