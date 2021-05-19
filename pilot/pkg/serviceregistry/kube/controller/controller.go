@@ -53,13 +53,13 @@ import (
 
 const (
 	// NodeRegionLabel is the well-known label for kubernetes node region in beta
-	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
+	NodeRegionLabel = v1.LabelFailureDomainBetaRegion
 	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
-	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+	NodeZoneLabel = v1.LabelFailureDomainBetaZone
 	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
-	NodeRegionLabelGA = "topology.kubernetes.io/region"
+	NodeRegionLabelGA = v1.LabelTopologyRegion
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
-	NodeZoneLabelGA = "topology.kubernetes.io/zone"
+	NodeZoneLabelGA = v1.LabelTopologyZone
 
 	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
 	// TODO move gatewayPort to api repo
