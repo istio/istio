@@ -17,6 +17,7 @@ package destinationrule
 import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -51,7 +52,11 @@ func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx
 	drName := r.Metadata.FullName.String()
 	mode := dr.GetTrafficPolicy().GetTls().GetMode()
 
-	if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL {
+	serviceEntryHosts := util.InitServiceEntryHostMap(ctx)
+	drHost := util.GetDestinationHost(drNs, dr.GetHost(), serviceEntryHosts)
+
+	if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL &&
+		(drHost == nil || drHost.Location != v1alpha3.ServiceEntry_MESH_EXTERNAL) {
 		if dr.GetTrafficPolicy().GetTls().GetCaCertificates() == "" {
 			ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), msg.NewNoServerCertificateVerificationDestinationLevel(r, drName,
 				drNs.String(), mode.String(), dr.GetHost()))
@@ -61,7 +66,8 @@ func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx
 
 	for _, p := range portSettings {
 		mode = p.GetTls().GetMode()
-		if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL {
+		if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL &&
+			(drHost == nil || drHost.Location != v1alpha3.ServiceEntry_MESH_EXTERNAL) {
 			if p.GetTls().GetCaCertificates() == "" {
 				ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), msg.NewNoServerCertificateVerificationPortLevel(r, drName,
 					drNs.String(), mode.String(), dr.GetHost(), p.GetPort().String()))
