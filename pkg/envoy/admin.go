@@ -45,9 +45,6 @@ func DrainListeners(adminPort uint32, inboundonly bool) error {
 	}
 	res, err := doEnvoyPost(drainURL, "", "", adminPort)
 	log.Debugf("Drain listener endpoint response : %s", res.String())
-	if err != nil {
-		return err
-	}
 	return err
 }
 

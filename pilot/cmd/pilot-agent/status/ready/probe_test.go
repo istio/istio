@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 )
@@ -48,9 +49,9 @@ func TestEnvoyDraining(t *testing.T) {
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
-	probe.proxyTerminating = true
+	probe.proxyTerminating = atomic.NewBool(true)
 
-	err := probe.Check()
+	err := probe.isEnvoyReady()
 
 	g.Expect(err).To(HaveOccurred())
 }

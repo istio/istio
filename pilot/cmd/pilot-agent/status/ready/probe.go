@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
@@ -32,7 +33,7 @@ type Probe struct {
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
 	atleastOnceReady bool
 	Context          context.Context
-	proxyTerminating bool
+	proxyTerminating *atomic.Bool
 }
 
 type Prober interface {
@@ -66,10 +67,11 @@ func (p *Probe) checkConfigStatus() error {
 	LDSUpdated := s.LDSUpdatesSuccess > 0
 	if CDSUpdated && LDSUpdated {
 		p.receivedFirstUpdate = true
+		p.proxyTerminating = atomic.NewBool(false)
 		go func() {
 			if p.Context != nil {
 				<-p.Context.Done()
-				p.proxyTerminating = true
+				p.proxyTerminating.Store(true)
 			}
 		}()
 		return nil
@@ -81,7 +83,7 @@ func (p *Probe) checkConfigStatus() error {
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
 	// If proxy is terminating, just return the draining state.
-	if p.proxyTerminating {
+	if p.proxyTerminating != nil && p.proxyTerminating.Load() {
 		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_DRAINING.String())
 	}
 	// If Envoy is ready atleast once i.e. server state is LIVE and workers
