@@ -66,6 +66,10 @@ func (fa *K8sAnalyzer) Analyze(ctx analysis.Context) {
 	})
 }
 
+var deprecationExtraMessages = map[string]string{
+	annotation.SidecarInject.Name: ` in favor of the "sidecar.istio.io/inject" label`,
+}
+
 func (*K8sAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, kind string, collectionType collection.Name) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
@@ -88,7 +92,7 @@ outer:
 		}
 
 		if annotationDef.Deprecated {
-			m := msg.NewDeprecatedAnnotation(r, ann)
+			m := msg.NewDeprecatedAnnotation(r, ann, deprecationExtraMessages[annotationDef.Name])
 			util.AddLineNumber(r, ann, m)
 
 			ctx.Report(collectionType, m)
