@@ -28,10 +28,24 @@ import (
 )
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
-func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiWatch bool) mesh.Watcher {
+func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiWatch bool) *mesh.MultiWatcher {
 	defaultMesh := mesh.DefaultMeshConfig()
-	w := &mesh.InternalWatcher{MeshConfig: &defaultMesh}
+	w := &mesh.MultiWatcher{
+		InternalWatcher: mesh.InternalWatcher{
+			MeshConfig: &defaultMesh,
+		},
+		InternalNetworkWatcher: mesh.InternalNetworkWatcher{},
+	}
 	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
+		meshNetworks, err := ReadNetworksConfigMap(cm, "meshNetworks")
+		if err != nil {
+			// Keep the last known config in case there's a misconfiguration issue.
+			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
+			return
+		}
+		if meshNetworks != nil {
+			w.SetNetworks(meshNetworks)
+		}
 		if multiWatch {
 			meshConfig := meshConfigMapData(cm, key)
 			w.HandleMeshConfigData(meshConfig)
@@ -102,4 +116,24 @@ func ReadConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error)
 
 	log.Info("Loaded MeshConfig config from Kubernetes API server.")
 	return meshConfig, nil
+}
+
+func ReadNetworksConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshNetworks, error) {
+	if cm == nil {
+		log.Info("no ConfigMap found, using existing MeshNetworks config")
+		return nil, nil
+	}
+
+	cfgYaml, exists := cm.Data[key]
+	if !exists {
+		return nil, nil
+	}
+
+	meshNetworks, err := mesh.ParseMeshNetworks(cfgYaml)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading MeshNetworks config: %v. YAML:\n%s", err, cfgYaml)
+	}
+
+	log.Info("Loaded MeshNetworks config from Kubernetes API server.")
+	return meshNetworks, nil
 }
