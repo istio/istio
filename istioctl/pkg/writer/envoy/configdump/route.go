@@ -94,21 +94,19 @@ func describeRouteDomains(domains []string) string {
 	}
 
 	// Return the shortest non-numeric domain.  Count of domains seems uninteresting.
-	candidate := domains[0]
-	for _, domain := range domains {
-		if len(domain) == 0 {
-			continue
-		}
-		firstChar := domain[0]
-		if firstChar >= '1' && firstChar <= '9' {
-			continue
-		}
-		if len(domain) < len(candidate) {
-			candidate = domain
+	max := 2
+	withoutPort := make([]string, 0, len(domains))
+	for _, d := range domains {
+		if !strings.Contains(d, ":") {
+			withoutPort = append(withoutPort, d)
 		}
 	}
-
-	return candidate
+	visible := withoutPort[:max]
+	ret := strings.Join(visible, ", ")
+	if len(withoutPort) > max {
+		return fmt.Sprintf("%s + %d more...", ret, len(withoutPort)-max)
+	}
+	return ret
 }
 
 func describeManagement(metadata *envoy_config_core_v3.Metadata) string {
