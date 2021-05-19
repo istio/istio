@@ -48,6 +48,7 @@ func TestEnvoyDraining(t *testing.T) {
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.proxyTerminating = true
 
 	err := probe.Check()
 

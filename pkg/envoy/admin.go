@@ -48,8 +48,6 @@ func DrainListeners(adminPort uint32, inboundonly bool) error {
 	if err != nil {
 		return err
 	}
-	res, err = doEnvoyPost("healthcheck/fail", "", "", adminPort)
-	log.Debugf("health check fail endpoint response : %s", res.String())
 	return err
 }
 

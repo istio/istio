@@ -80,8 +80,9 @@ func (p *Probe) checkConfigStatus() error {
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
+	// If proxy is terminating, just return the draining state.
 	if p.proxyTerminating {
-		return nil // TODO : return error.
+		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_DRAINING.String())
 	}
 	// If Envoy is ready atleast once i.e. server state is LIVE and workers
 	// have started, they will not go back in the life time of Envoy process.
