@@ -701,10 +701,10 @@ metadata:
   namespace: istio-system
 spec:
   selector:
-    istio: eastwestgateway
+    istio: ingressgateway
   servers:
     - port:
-        number: 15443
+        number: 443
         name: tls
         protocol: TLS
       tls:
