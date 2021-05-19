@@ -258,8 +258,9 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, clusterID
 			}
 		}
 	}
-	shards.ServiceAccounts = serviceAccounts
+
 	if !oldServiceAccount.Equals(serviceAccounts) {
+		shards.ServiceAccounts = serviceAccounts
 		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
 			serviceName, oldServiceAccount, serviceAccounts)
 		return true
