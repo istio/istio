@@ -2,25 +2,26 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: external-service
-  namespace: istio-system
+  name: external-svc-https
 spec:
   hosts:
-    - service.example.com
+    - externalsvc.somedomain
   location: MESH_EXTERNAL
   ports:
-    - number: 443
-      name: https
+    - name: https
+      number: 443
       protocol: HTTPS
-  resolution: DNS
+  resolution: STATIC
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: external-service
-  namespace: istio-system
+  name: external-svc-https
 spec:
-  host: service.example.com
+  host: externalsvc.somedomain
   trafficPolicy:
     tls:
-      mode: SIMPLE
+      mode: MUTUAL
+      clientCertificate: /etc/certs/myclientcert.pem
+      privateKey: /etc/certs/client_private_key.pem
+      caCertificates: /etc/certs/rootcacerts.pem

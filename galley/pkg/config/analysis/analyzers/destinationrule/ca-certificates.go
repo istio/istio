@@ -34,7 +34,9 @@ func (c *CaCertificateAnalyzer) Metadata() analysis.Metadata {
 		Name:        "destinationrule.CaCertificateAnalyzer",
 		Description: "Checks if caCertificates is set when TLS mode is SIMPLE/MUTUAL",
 		Inputs: collection.Names{
+			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
 			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
+			collections.K8SCoreV1Services.Name(),
 		},
 	}
 }
