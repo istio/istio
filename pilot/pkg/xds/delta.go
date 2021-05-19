@@ -480,14 +480,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		info = " " + logdata.AdditionalInfo
 	}
 
-	if log.DebugEnabled() {
+	if log.DebugEnabled() && logdata.Incremental {
+		log.Debugf("%s: %s for node:%s resources:%d size:%s%s",
+			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
+	} else if log.DebugEnabled() {
 		// Add additional information to logs when debug mode enabled
 		log.Infof("%s: %s for node:%s resources:%d size:%s nonce:%v version:%v%s",
 			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.SystemVersionInfo, info)
-		if logdata.Incremental {
-			log.Debugf("%s: %s for node:%s resources:%d size:%s%s",
-				ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
-		}
 	} else {
 		log.Infof("%s: %s for node:%s resources:%d size:%s%s",
 			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
