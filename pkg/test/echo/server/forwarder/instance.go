@@ -86,7 +86,7 @@ func New(cfg Config) (*Instance, error) {
 func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) {
 	g := multierror.Group{}
 	responsesMu := sync.RWMutex{}
-	responses := make([]string, i.count)
+	responses, responseTimes := make([]string, i.count), make([]time.Duration, i.count)
 
 	var throttle *time.Ticker
 
@@ -121,19 +121,23 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 		}
 
 		if err := sem.Acquire(ctx, 1); err != nil {
-			return nil, fmt.Errorf("failed acquiring semaphore: %v", err)
+			// this should only occur for a timeout, fallthrough to the ctx.Done() select case
+			break
 		}
 		g.Go(func() error {
 			defer sem.Release(1)
 			if canceled {
 				return fmt.Errorf("request set timed out")
 			}
+			st := time.Now()
 			resp, err := i.p.makeRequest(ctx, &r)
+			rt := time.Since(st)
 			if err != nil {
 				return err
 			}
 			responsesMu.Lock()
 			responses[r.RequestID] = resp
+			responseTimes[r.RequestID] = rt
 			responsesMu.Unlock()
 			return nil
 		})
@@ -152,13 +156,19 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 	case <-ctx.Done():
 		responsesMu.RLock()
 		defer responsesMu.RUnlock()
-		c := 0
-		for _, res := range responses {
-			if res != "" {
+		var c int
+		var tt time.Duration
+		for id, res := range responses {
+			if res != "" && responseTimes[id] != 0 {
 				c++
+				tt += responseTimes[id]
 			}
 		}
-		return nil, fmt.Errorf("request set timed out after %v and only %d/%d requests completed", i.timeout, c, i.count)
+		var avgTime time.Duration
+		if c > 0 {
+			avgTime = tt / time.Duration(c)
+		}
+		return nil, fmt.Errorf("request set timed out after %v and only %d/%d requests completed (%v avg)", i.timeout, c, i.count, avgTime)
 	}
 
 	return &proto.ForwardEchoResponse{
