@@ -60,9 +60,9 @@ func All() []analysis.Analyzer {
 		&destinationrule.CaCertificateAnalyzer{},
 		&serviceentry.ProtocolAdressesAnalyzer{},
 		&webhook.Analyzer{},
-		&namespaceconflict.PeerAuthenticationConflictAnalyzer{},
-		&namespaceconflict.AuthorizationPolicyConflictAnalyzer{},
-		&namespaceconflict.RequestAuthenticationConflictAnalyzer{},
+		&namespaceconflict.Analyzer{},
+		// &namespaceconflict.AuthorizationPolicyConflictAnalyzer{},
+		// &namespaceconflict.RequestAuthenticationConflictAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

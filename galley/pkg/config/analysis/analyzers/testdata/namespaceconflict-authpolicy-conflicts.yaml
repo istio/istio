@@ -9,6 +9,58 @@ kind: Namespace
 metadata:
   name: bar
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nginx
+  name: nginx
+  namespace: bar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: nginx:latest
+        name: nginx
+        resources: {}
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nginx
+  name: nginx
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: nginx:latest
+        name: nginx
+        resources: {}
+status: {}
+---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -47,7 +99,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: dummy
+      app: nginx
   action: ALLOW
   rules:
   - {}
@@ -60,7 +112,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: dummy
+      app: nginx
   action: DENY
   rules:
   - {}
@@ -73,7 +125,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: dummy
+      app: nginx
   action: ALLOW           # Will generate a conflict since there's already a namespace wide configuration
   rules:
   - {}

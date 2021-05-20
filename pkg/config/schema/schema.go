@@ -80,8 +80,6 @@ func (m *Metadata) AllCollectionsInSnapshots(snapshotNames []string) []string {
 
 	for _, n := range snapshotNames {
 		s, ok := m.snapshots[n]
-		fmt.Println("line 83 schema.go:")
-		fmt.Println(s)
 		if !ok {
 			panic(fmt.Sprintf("Invalid snapshot name provided: %q", n))
 		}

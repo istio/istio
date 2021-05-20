@@ -175,34 +175,28 @@ var testGrid = []testCase{
 	{
 		name:       "PeerAuthentication namespace conflicts",
 		inputFiles: []string{"testdata/namespaceconflict-peerauth-conflicts.yaml"},
-		analyzer:   &namespaceconflict.PeerAuthenticationConflictAnalyzer{},
+		analyzer:   &namespaceconflict.Analyzer{},
 		expected: []message{
-			{msg.NamespaceResourceConflict, "PeerAuthentication defaultconfig2.default"},
 			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo.foo"},
 			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo2.foo"},
-			{msg.NamespaceResourceConflict, "PeerAuthentication seldummydefault.default"},
 		},
 	},
 	{
 		name:       "AuthorizationPolicy namespace conflicts",
 		inputFiles: []string{"testdata/namespaceconflict-authpolicy-conflicts.yaml"},
-		analyzer:   &namespaceconflict.AuthorizationPolicyConflictAnalyzer{},
+		analyzer:   &namespaceconflict.Analyzer{},
 		expected: []message{
-			{msg.NamespaceResourceConflict, "AuthorizationPolicy defaultconfig2.default"},
 			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar.bar"},
 			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar2.bar"},
-			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummydefault.default"},
 		},
 	},
 	{
 		name:       "RequestAuthentication namespace conflicts",
 		inputFiles: []string{"testdata/namespaceconflict-reqauth-conflicts.yaml"},
-		analyzer:   &namespaceconflict.RequestAuthenticationConflictAnalyzer{},
+		analyzer:   &namespaceconflict.Analyzer{},
 		expected: []message{
-			{msg.NamespaceResourceConflict, "RequestAuthentication defaultconfig2.default"},
 			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar.bar"},
 			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar2.bar"},
-			{msg.NamespaceResourceConflict, "RequestAuthentication seldummydefault.default"},
 		},
 	},
 	{
