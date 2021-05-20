@@ -76,63 +76,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 }
 
-func TestConstructValidationContext(t *testing.T) {
-	testCases := []struct {
-		name            string
-		rootCAFilePath  string
-		subjectAltNames []string
-		expected        *auth.CommonTlsContext_ValidationContext
-	}{
-		{
-			name:            "default CA",
-			rootCAFilePath:  "/root/ca",
-			subjectAltNames: []string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"},
-			expected: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/root/ca",
-						},
-					},
-					MatchSubjectAltNames: []*matcher.StringMatcher{
-						{
-							MatchPattern: &matcher.StringMatcher_Exact{
-								Exact: "SystemCACertificates.keychain",
-							},
-						},
-						{
-							MatchPattern: &matcher.StringMatcher_Exact{
-								Exact: "SystemRootCertificates.keychain",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:           "default CA without subjectAltNames",
-			rootCAFilePath: "/root/ca",
-			expected: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/root/ca",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range testCases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructValidationContext(c.rootCAFilePath, c.subjectAltNames); !cmp.Equal(got, c.expected, protocmp.Transform()) {
-				t.Errorf("ConstructValidationContext: got(%#v), want(%#v)\n", got, c.expected)
-			}
-		})
-	}
-}
-
 func TestApplyToCommonTLSContext(t *testing.T) {
 	testCases := []struct {
 		name               string

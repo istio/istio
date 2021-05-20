@@ -225,25 +225,6 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 	return cfg
 }
 
-// ConstructValidationContext constructs ValidationContext in CommonTLSContext.
-func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *tls.CommonTlsContext_ValidationContext {
-	ret := &tls.CommonTlsContext_ValidationContext{
-		ValidationContext: &tls.CertificateValidationContext{
-			TrustedCa: &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: rootCAFilePath,
-				},
-			},
-		},
-	}
-
-	if len(subjectAltNames) > 0 {
-		ret.ValidationContext.MatchSubjectAltNames = util.StringToExactMatch(subjectAltNames)
-	}
-
-	return ret
-}
-
 func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 	var res []string
 	for _, td := range trustDomainAliases {
