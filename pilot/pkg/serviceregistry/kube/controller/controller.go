@@ -793,10 +793,11 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	var workloadInstancesExist bool
 	c.RLock()
 	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
+	_, inRegistry := c.servicesMap[svc.Hostname]
 	c.RUnlock()
 
 	// Only select internal Kubernetes services with selectors
-	if !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB || svc.Attributes.LabelSelectors == nil {
 		return nil
 	}
