@@ -457,12 +457,12 @@ func TestGenerateServiceAccount(t *testing.T) {
 		t.Fatalf("could not parse k8s objects from generated YAML: %v", err)
 	}
 
-	_ = mustFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
-	_ = mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRole")
-	_ = mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
+	mustFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
+	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRole")
+	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
 }
 
-func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) object.K8sObject {
+func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) {
 	t.Helper()
 	var obj *object.K8sObject
 	for _, o := range objs {
@@ -473,9 +473,7 @@ func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) ob
 	}
 	if obj == nil {
 		t.Fatalf("expected %v/%v", name, kind)
-		return object.K8sObject{}
 	}
-	return *obj
 }
 
 func TestGetClusterServerFromKubeconfig(t *testing.T) {
