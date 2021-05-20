@@ -16,6 +16,7 @@ package kubeauth
 
 import (
 	"fmt"
+	"net/http"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
@@ -74,6 +75,15 @@ func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 
 const DefaultKubernetesAudience = "kubernetes.default.svc"
 
+func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+	targetJWT, err := security.ExtractRequestToken(req)
+	if err != nil {
+		return nil, fmt.Errorf("target JWT extraction error: %v", err)
+	}
+	clusterID := req.Header.Get(clusterIDMeta)
+	return a.authenticate(targetJWT, clusterID)
+}
+
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
 func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
@@ -82,8 +92,11 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := extractClusterID(ctx)
-	var id []string
 
+	return a.authenticate(targetJWT, clusterID)
+}
+
+func (a *KubeJWTAuthenticator) authenticate(targetJWT, clusterID string) (*security.Caller, error) {
 	kubeClient := a.GetKubeClient(clusterID)
 	if kubeClient == nil {
 		return nil, fmt.Errorf("could not get cluster %s's kube client", clusterID)
@@ -120,7 +133,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 		// is unbound and the setting to require bound tokens is off
 		aud = nil
 	}
-	id, err = tokenreview.ValidateK8sJwt(kubeClient, targetJWT, aud)
+	id, err := tokenreview.ValidateK8sJwt(kubeClient, targetJWT, aud)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate the JWT from cluster %q: %v", clusterID, err)
 	}
