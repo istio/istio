@@ -26,10 +26,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -53,13 +50,17 @@ import (
 
 const (
 	// NodeRegionLabel is the well-known label for kubernetes node region in beta
-	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
+	NodeRegionLabel = v1.LabelFailureDomainBetaRegion
 	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
-	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+	NodeZoneLabel = v1.LabelFailureDomainBetaZone
 	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
-	NodeRegionLabelGA = "topology.kubernetes.io/region"
+	NodeRegionLabelGA = v1.LabelTopologyRegion
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
+<<<<<<< HEAD
 	NodeZoneLabelGA = "topology.kubernetes.io/zone"
+=======
+	NodeZoneLabelGA = v1.LabelTopologyZone
+>>>>>>> master
 
 	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
 	// TODO move gatewayPort to api repo
@@ -201,9 +202,8 @@ type Controller struct {
 
 	queue queue.Instance
 
-	// TODO merge the namespace informers/listers
-	systemNsInformer cache.SharedIndexInformer
-	nsInformer       coreinformers.NamespaceInformer
+	nsInformer cache.SharedIndexInformer
+	nsLister   listerv1.NamespaceLister
 
 	serviceInformer filter.FilteredSharedIndexInformer
 	serviceLister   listerv1.ServiceLister
@@ -273,6 +273,7 @@ type Controller struct {
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	systemNamespace           string
 }
 
 // NewController creates a new Kubernetes controller
@@ -300,20 +301,25 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		initialSync:                 atomic.NewBool(false),
 		syncTimeout:                 options.SyncTimeout,
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
+		systemNamespace:             options.SystemNamespace,
 	}
 
+	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 	if options.SystemNamespace != "" {
-		c.systemNsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, options.ResyncPeriod,
-			informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
-				listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
-			})).Core().V1().Namespaces().Informer()
-		c.registerHandlers(c.systemNsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
+		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj interface{}) bool {
+			ns, ok := obj.(*v1.Namespace)
+			if !ok {
+				log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+				return false
+			}
+			return ns.Name == c.systemNamespace
+		}, c.nsInformer)
+		c.registerHandlers(nsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
-
-	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
 
 	if c.discoveryNamespacesFilter == nil {
-		c.discoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsInformer.Lister(), options.MeshWatcher.Mesh().DiscoverySelectors)
+		c.discoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
 
 	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.discoveryNamespacesFilter)
@@ -608,7 +614,7 @@ func (c *Controller) informersSynced() bool {
 		// registration/Run of informers hasn't occurred yet
 		return false
 	}
-	if (c.systemNsInformer != nil && !c.systemNsInformer.HasSynced()) ||
+	if (c.nsInformer != nil && !c.nsInformer.HasSynced()) ||
 		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
@@ -625,10 +631,10 @@ func (c *Controller) informersSynced() bool {
 func (c *Controller) SyncAll() error {
 	var err *multierror.Error
 
-	if c.systemNsInformer != nil {
-		ns := c.systemNsInformer.GetStore().List()
-		for _, ns := range ns {
-			err = multierror.Append(err, c.onSystemNamespaceEvent(ns, model.EventAdd))
+	if c.nsLister != nil {
+		sysNs, _ := c.nsLister.Get(c.systemNamespace)
+		if sysNs != nil {
+			err = multierror.Append(err, c.onSystemNamespaceEvent(sysNs, model.EventAdd))
 		}
 	}
 
@@ -677,10 +683,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.reloadMeshNetworks()
 		c.reloadNetworkGateways()
 	}
-	if c.systemNsInformer != nil {
-		go c.systemNsInformer.Run(stop)
-	}
 	c.informerInit.Store(true)
+
 	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
@@ -1033,21 +1037,24 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 }
 
 func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) error {
-	var nw string
-	if ev != model.EventDelete {
-		ns, ok := obj.(*v1.Namespace)
-		if !ok {
-			log.Warnf("Namespace watch getting wrong type in event: %T", obj)
-			return nil
-		}
-		nw = ns.Labels[label.TopologyNetwork.Name]
+	if ev == model.EventDelete {
+		return nil
 	}
+	ns, ok := obj.(*v1.Namespace)
+	if !ok {
+		log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+		return nil
+	}
+	if ns == nil {
+		return nil
+	}
+	nw := ns.Labels[label.TopologyNetwork.Name]
 	c.Lock()
 	oldDefaultNetwork := c.network
 	c.network = nw
 	c.Unlock()
 	// network changed, not using mesh networks, and controller has been initialized
-	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.systemNsInformer.HasSynced() {
+	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() {
 		// refresh pods/endpoints/services
 		c.onNetworkChanged()
 	}
