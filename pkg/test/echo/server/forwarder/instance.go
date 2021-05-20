@@ -164,7 +164,10 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 				tt += responseTimes[id]
 			}
 		}
-		avgTime := tt / time.Duration(c)
+		var avgTime time.Duration
+		if c > 0 {
+			avgTime = tt / time.Duration(c)
+		}
 		return nil, fmt.Errorf("request set timed out after %v and only %d/%d requests completed (%v avg)", i.timeout, c, i.count, avgTime)
 	}
 
