@@ -105,6 +105,7 @@ type Options struct {
 	IPv6                bool
 	Probes              []ready.Prober
 	EnvoyPrometheusPort int
+	Context             context.Context
 }
 
 // Server provides an endpoint for handling status probes.
@@ -145,6 +146,7 @@ func NewServer(config Options) (*Server, error) {
 	probes = append(probes, &ready.Probe{
 		LocalHostAddr: localhost,
 		AdminPort:     config.AdminPort,
+		Context:       config.Context,
 	})
 	probes = append(probes, config.Probes...)
 	s := &Server{
