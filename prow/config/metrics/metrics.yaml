@@ -1,3 +1,5 @@
+# Created with `curl -Ls https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.4.4/components.yaml > prow/config/metrics/metrics.yaml`
+# And special patches noted below
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -133,6 +135,7 @@ spec:
         - --secure-port=4443
         - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
         - --kubelet-use-node-status-port
+        - --kubelet-insecure-tls
         image: k8s.gcr.io/metrics-server/metrics-server:v0.4.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
