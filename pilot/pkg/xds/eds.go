@@ -259,7 +259,11 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, clusterID
 		}
 	}
 
+	fmt.Printf("old: %v, new %v\n", oldServiceAccount, serviceAccounts)
+
 	if !oldServiceAccount.Equals(serviceAccounts) {
+		fmt.Println("---------updated")
+
 		shards.ServiceAccounts = serviceAccounts
 		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
 			serviceName, oldServiceAccount, serviceAccounts)

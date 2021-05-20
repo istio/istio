@@ -471,7 +471,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 			expect: false,
 		},
 		{
-			name:      "deleted one endpoint with duplicate sa",
+			name:      "deleted one endpoint with unique sa",
 			clusterID: "c1",
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.1", ServiceAccount: "sa1"},
@@ -479,12 +479,12 @@ func TestUpdateServiceAccount(t *testing.T) {
 			expect: true,
 		},
 		{
-			name:      "deleted one endpoint with unique sa",
+			name:      "deleted one endpoint with duplicate sa",
 			clusterID: "c1",
 			endpoints: []*model.IstioEndpoint{
-				{Address: "10.172.0.2", ServiceAccount: "vsa-vm1"},
+				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
 			},
-			expect: true,
+			expect: false,
 		},
 		{
 			name:      "deleted endpoints",
