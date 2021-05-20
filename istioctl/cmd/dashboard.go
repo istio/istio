@@ -367,6 +367,42 @@ func controlZDashCmd() *cobra.Command {
 	return cmd
 }
 
+// port-forward to SkyWalking UI on istio-system
+func skywalkingDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	cmd := &cobra.Command{
+		Use:   "skywalking",
+		Short: "Open SkyWalking UI",
+		Long:  "Open the Istio dashboard in the SkyWalking UI",
+		Example: `  istioctl dashboard skywalking
+
+  # with short syntax
+  istioctl dash skywalking
+  istioctl d skywalking`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=skywalking-ui")
+			if err != nil {
+				return fmt.Errorf("not able to locate SkyWalking UI pod: %v", err)
+			}
+
+			if len(pl.Items) < 1 {
+				return errors.New("no SkyWalking UI pods found")
+			}
+
+			// only use the first pod in the list
+			return portForward(pl.Items[0].Name, addonNamespace, "SkyWalking",
+				"http://%s", bindAddress, 8080, client, cmd.OutOrStdout(), browser)
+		},
+	}
+
+	return cmd
+}
+
 // portForward first tries to forward localhost:remotePort to podName:remotePort, falls back to dynamic local port
 func portForward(podName, namespace, flavor, urlFormat, localAddress string, remotePort int,
 	client kube.ExtendedClient, writer io.Writer, browser bool) error {
@@ -474,6 +510,7 @@ func dashboard() *cobra.Command {
 	dashboardCmd.AddCommand(grafanaDashCmd())
 	dashboardCmd.AddCommand(jaegerDashCmd())
 	dashboardCmd.AddCommand(zipkinDashCmd())
+	dashboardCmd.AddCommand(skywalkingDashCmd())
 
 	envoy := envoyDashCmd()
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")

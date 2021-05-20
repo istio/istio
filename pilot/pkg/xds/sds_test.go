@@ -325,7 +325,7 @@ func TestGenerate(t *testing.T) {
 
 			gen := s.Discovery.Generators[v3.SecretType]
 
-			secrets, _ := gen.Generate(s.SetupProxy(tt.proxy), s.PushContext(),
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), s.PushContext(),
 				&model.WatchedResource{ResourceNames: tt.resources}, tt.request)
 			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 

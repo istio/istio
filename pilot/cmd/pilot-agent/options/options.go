@@ -80,7 +80,7 @@ var (
 		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
 	proxyXDSDebugViaAgent = env.RegisterBoolVar("PROXY_XDS_DEBUG_VIA_AGENT", true,
-		"If set to true, the agent will listen on 15009 and offer pilot's XDS istio.io/debug debug API there.").Get()
+		"If set to true, the agent will listen on 15004 and offer pilot's XDS istio.io/debug debug API there.").Get()
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
@@ -92,4 +92,9 @@ var (
 	// Ability of istio-agent to retrieve bootstrap via XDS
 	enableBootstrapXdsEnv = env.RegisterBoolVar("BOOTSTRAP_XDS_AGENT", false,
 		"If set to true, agent retrieves the bootstrap configuration prior to starting Envoy").Get()
+
+	envoyStatusPortEnv = env.RegisterIntVar("ENVOY_STATUS_PORT", 15021,
+		"Envoy health status port value").Get()
+	envoyPrometheusPortEnv = env.RegisterIntVar("ENVOY_PROMETHEUS_PORT", 15090,
+		"Envoy prometheus redirection port value").Get()
 )
