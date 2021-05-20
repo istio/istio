@@ -77,7 +77,6 @@ metadata:
 spec:
   mtls:
     mode: STRICT
-spec:
   selector:
     matchLabels:
       app: dummy      # Will generate a conflict since there's already a namespace wide configuration

@@ -93,7 +93,7 @@ func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c anal
 	// There should be only one resource associated with a selector
 	if len(matches) != 0 {
 
-		// The namespace in wich we will throw the conflict
+		// The namespace in which we will throw the conflict
 		xNS := r.Metadata.FullName.Namespace
 
 		// Cast the message to it's respective type to report the issue correctly
@@ -101,19 +101,25 @@ func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c anal
 		case *v1beta1.PeerAuthentication:
 			// Throw a Peer Authentication conflict
 			x := r.Message.(*v1beta1.PeerAuthentication)
-			m := msg.NewNamespaceResourceConflict(r, peerauthcollection.String(), string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(), matches.SortedList())
+			m := msg.NewNamespaceResourceConflict(r, peerauthcollection.String(),
+				string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(),
+				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Peerauthentications.Name(), m)
 			return
 		case *v1beta1.AuthorizationPolicy:
 			// Throw an Authorization Policy conflict
 			x := r.Message.(*v1beta1.AuthorizationPolicy)
-			m := msg.NewNamespaceResourceConflict(r, authpolicycollection.String(), string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(), matches.SortedList())
+			m := msg.NewNamespaceResourceConflict(r, authpolicycollection.String(),
+				string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(),
+				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
 			return
 		case *v1beta1.RequestAuthentication:
 			// Throw an Authorization Policy conflict
 			x := r.Message.(*v1beta1.RequestAuthentication)
-			m := msg.NewNamespaceResourceConflict(r, requestauthcollection.String(), string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(), matches.SortedList())
+			m := msg.NewNamespaceResourceConflict(r, requestauthcollection.String(),
+				string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(),
+				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Requestauthentications.Name(), m)
 			return
 		default:
@@ -124,7 +130,6 @@ func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c anal
 
 // Finds all resources that have the same selector as the resource we're checking
 func (a *Analyzer) findMatchingSelectors(r *resource.Instance, c analysis.Context) sets.Set {
-	// matches := []*resource.Instance{}
 	matches := sets.NewSet()
 
 	switch v := r.Message.(type) {
