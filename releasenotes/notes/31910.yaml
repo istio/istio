@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 31910
+releaseNotes:
+- |
+  **Fixed** PDB `maxUnavailable` field cannot be set in Istio operator
