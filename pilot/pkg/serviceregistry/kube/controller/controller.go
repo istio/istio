@@ -56,11 +56,7 @@ const (
 	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
 	NodeRegionLabelGA = v1.LabelTopologyRegion
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
-<<<<<<< HEAD
-	NodeZoneLabelGA = "topology.kubernetes.io/zone"
-=======
 	NodeZoneLabelGA = v1.LabelTopologyZone
->>>>>>> master
 
 	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
 	// TODO move gatewayPort to api repo
