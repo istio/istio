@@ -34,7 +34,7 @@ type Analyzer struct{}
 var _ analysis.Analyzer = &Analyzer{} // TODO: Rename this with simply "Analyzer"
 
 var (
-	peerAuthenticationCol = collections.IstioSecurityV1Beta1Peerauthentications.Name() // TODO: Match the syntax name of the authpolicy collection, looks cleaner.
+	peerauthcollection = collections.IstioSecurityV1Beta1Peerauthentications.Name() // TODO: Match the syntax name of the authpolicy collection, looks cleaner.
 	authpolicycollection  = collections.IstioSecurityV1Beta1Authorizationpolicies.Name()
 	requestauthcollection = collections.IstioSecurityV1Beta1Requestauthentications.Name()
 )
@@ -44,7 +44,7 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 		Name:        "namespaceconflict.Analyzer",
 		Description: "Checks conditions related to Peer Authentication conflicting namespace level resources",
 		Inputs: collection.Names{
-			peerAuthenticationCol,
+			peerauthcollection,
 			authpolicycollection,
 			requestauthcollection,
 		},
@@ -53,7 +53,7 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 
 func (a *Analyzer) Analyze(c analysis.Context) {
 	// Analyze collections.IstioSecurityV1Beta1Peerauthentications
-	c.ForEach(peerAuthenticationCol, func(r *resource.Instance) bool {
+	c.ForEach(peerauthcollection, func(r *resource.Instance) bool {
 		x := r.Message.(*v1beta1.PeerAuthentication)
 
 		// If the resource has workloads associated with it, analyze for conflicts with selector
@@ -101,7 +101,7 @@ func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c anal
 		case *v1beta1.PeerAuthentication:
 			// Throw a Peer Authentication conflict
 			x := r.Message.(*v1beta1.PeerAuthentication)
-			m := msg.NewNamespaceResourceConflict(r, peerAuthenticationCol.String(), string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(), matches.SortedList())
+			m := msg.NewNamespaceResourceConflict(r, peerauthcollection.String(), string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(), matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Peerauthentications.Name(), m)
 			return
 		case *v1beta1.AuthorizationPolicy:
@@ -134,7 +134,7 @@ func (a *Analyzer) findMatchingSelectors(r *resource.Instance, c analysis.Contex
 		xName := r.Metadata.FullName.String()
 		xNS := r.Metadata.FullName.Namespace
 		xSelector := k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String()
-		c.ForEach(peerAuthenticationCol, func(r1 *resource.Instance) bool {
+		c.ForEach(peerauthcollection, func(r1 *resource.Instance) bool {
 			y := r1.Message.(*v1beta1.PeerAuthentication)
 			yName := r1.Metadata.FullName.String()
 			yNS := r1.Metadata.FullName.Namespace
