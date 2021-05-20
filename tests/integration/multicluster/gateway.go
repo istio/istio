@@ -59,7 +59,7 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 						if err == nil {
 							istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: cluster})
 							scopes.Framework.Debugf("cluster Name %s", cluster.Name())
-							istioCtl.Invoke(args)
+							istioCtl.InvokeOrFail(t, args)
 							retry.UntilSuccessOrFail(t, func() error {
 								pods, err := cluster.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), metav1.ListOptions{})
 								if err != nil {
