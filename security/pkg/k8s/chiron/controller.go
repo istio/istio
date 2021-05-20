@@ -181,7 +181,9 @@ func (wc *WebhookController) Run(stopCh <-chan struct{}) {
 		// upsertSecret to update and insert secret
 		// it throws error if the secret cache is not synchronized, but the secret exists in the system.
 		// Hence waiting for the cache is synced.
-		cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced)
+		if !cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced) {
+			log.Error("failed to wait for cache sync")
+		}
 	}
 }
 

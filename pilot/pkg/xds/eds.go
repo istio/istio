@@ -356,9 +356,10 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
-		return nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var edsUpdatedServices map[string]struct{}
 	if !req.Full {
@@ -401,20 +402,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			eds.Server.Cache.Add(builder, token, resource)
 		}
 	}
-	if len(edsUpdatedServices) == 0 {
-		log.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
-			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
-	} else if log.DebugEnabled() {
-		log.Debugf("EDS: PUSH INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
-			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
-	}
-	return resources, nil
-}
-
-var edsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
-
-func (eds *EdsGenerator) Metadata() *model.GeneratorMetadata {
-	return edsGeneratorMetadata
+	return resources, model.XdsLogDetails{
+		Incremental:    len(edsUpdatedServices) != 0,
+		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
+	}, nil
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

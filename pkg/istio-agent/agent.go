@@ -191,7 +191,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
-func (a *Agent) initializeEnvoyAgent() error {
+func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	provCert, err := a.FindRootCAForXDS()
 	if err != nil {
 		return fmt.Errorf("failed to find root CA cert for XDS: %v", err)
@@ -260,24 +260,31 @@ func (a *Agent) initializeEnvoyAgent() error {
 	a.envoyWaitCh = make(chan error, 1)
 	if a.cfg.EnableDynamicBootstrap {
 		// Simulate an xDS request for a bootstrap
+		a.wg.Add(1)
 		go func() {
+			defer a.wg.Done()
+
 			// wait indefinitely and keep retrying with jittered exponential backoff
 			backoff := 500
 			max := 30000
-			request := &bootstrapDiscoveryRequest{
-				node:        node,
-				envoyWaitCh: a.envoyWaitCh,
-				envoyUpdate: envoyProxy.UpdateConfig,
-			}
 			for {
+				// handleStream hands on to request after exit, so create a fresh one instead.
+				request := &bootstrapDiscoveryRequest{
+					node:        node,
+					envoyWaitCh: a.envoyWaitCh,
+					envoyUpdate: envoyProxy.UpdateConfig,
+				}
 				_ = a.xdsProxy.handleStream(request)
 				if request.received {
 					break
 				}
-				request.sent = false
 				delay := time.Duration(rand.Int()%backoff) * time.Millisecond
 				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
-				time.Sleep(delay)
+				select {
+				case <-ctx.Done():
+					break
+				case <-time.After(delay):
+				}
 				if backoff < max/2 {
 					backoff *= 2
 				} else {
@@ -382,7 +389,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	}
 
 	if !a.envoyOpts.TestOnly {
-		err = a.initializeEnvoyAgent()
+		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
 		}
