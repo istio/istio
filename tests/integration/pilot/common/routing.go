@@ -521,10 +521,10 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 				}
 				childs = append(childs, TrafficCall{
 					name: fmt.Sprintf("mode:%v,sni:%v,alpn:%v", mode, sni, alpn),
-					call: apps.EastWest.CallEchoWithRetryOrFail,
+					call: apps.Ingress.CallEchoWithRetryOrFail,
 					opts: echo.CallOptions{
 						Port: &echo.Port{
-							ServicePort: 15443,
+							ServicePort: 443,
 							Protocol:    protocol.HTTPS,
 						},
 						ServerName: sni,
@@ -545,10 +545,10 @@ metadata:
   namespace: istio-system
 spec:
   selector:
-    istio: eastwestgateway
+    istio: ingressgateway
   servers:
     - port:
-        number: 15443
+        number: 443
         name: tls
         protocol: TLS
       tls:
