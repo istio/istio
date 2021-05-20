@@ -34,7 +34,7 @@ type Analyzer struct{}
 var _ analysis.Analyzer = &Analyzer{} // TODO: Rename this with simply "Analyzer"
 
 var (
-	peerauthcollection = collections.IstioSecurityV1Beta1Peerauthentications.Name() // TODO: Match the syntax name of the authpolicy collection, looks cleaner.
+	peerauthcollection    = collections.IstioSecurityV1Beta1Peerauthentications.Name() // TODO: Match the syntax name of the authpolicy collection, looks cleaner.
 	authpolicycollection  = collections.IstioSecurityV1Beta1Authorizationpolicies.Name()
 	requestauthcollection = collections.IstioSecurityV1Beta1Requestauthentications.Name()
 )
