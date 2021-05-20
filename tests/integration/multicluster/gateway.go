@@ -40,14 +40,14 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(feature).
-		Run(func(ctx framework.TestContext) {
-			ctx.NewSubTest("gateway").
-				Run(func(ctx framework.TestContext) {
-					cfg, err := istio.DefaultConfig(ctx)
+		Run(func(t framework.TestContext) {
+			t.NewSubTest("gateway").
+				Run(func(t framework.TestContext) {
+					cfg, err := istio.DefaultConfig(t)
 					if err != nil {
 						t.Fatalf("error ")
 					}
-					clusters := ctx.Environment().Clusters()
+					clusters := t.Environment().Clusters()
 					args := []string{
 						"install", "-f", filepath.Join(env.IstioSrc,
 							"tests/integration/multicluster/testdata/gateway.yaml"), "--manifests",
@@ -57,7 +57,7 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 						_, err = cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
 							"istiod-istio-system", metav1.GetOptions{})
 						if err == nil {
-							istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: cluster})
+							istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: cluster})
 							scopes.Framework.Debugf("cluster Name %s", cluster.Name())
 							istioCtl.InvokeOrFail(t, args)
 							retry.UntilSuccessOrFail(t, func() error {
