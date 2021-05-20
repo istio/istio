@@ -86,14 +86,15 @@ const (
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta       *metav1.TypeMeta
-	DeploymentMeta *metav1.ObjectMeta
-	ObjectMeta     metav1.ObjectMeta
-	Spec           corev1.PodSpec
-	ProxyConfig    *meshconfig.ProxyConfig
-	MeshConfig     *meshconfig.MeshConfig
-	Values         map[string]interface{}
-	Revision       string
+	TypeMeta             *metav1.TypeMeta
+	DeploymentMeta       *metav1.ObjectMeta
+	ObjectMeta           metav1.ObjectMeta
+	Spec                 corev1.PodSpec
+	ProxyConfig          *meshconfig.ProxyConfig
+	MeshConfig           *meshconfig.MeshConfig
+	Values               map[string]interface{}
+	Revision             string
+	EstimatedConcurrency int
 }
 
 type (
