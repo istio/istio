@@ -29,6 +29,7 @@ set -u
 # Print commands
 set -x
 
+sleep 25
 echo '{"debug":true}' > /etc/docker/daemon.json
 service docker restart
 sleep 10
