@@ -535,3 +535,18 @@ messages:
     description: "user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set."
     template: "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0148/"
+    
+  - name: "NamespaceResourceConflict"
+    code: IST0149
+    level: Warning
+    description: "Multiple specifiers of the same kind in a namespace select the same workload."
+    template: "More than one %s in namespace %q for workload %q: %v."
+    args:
+      - name: kind
+        type: string
+      - name: namespace
+        type: string
+      - name: workloadSelector
+        type: string
+      - name: conflictingCRs
+        type: "[]string"
