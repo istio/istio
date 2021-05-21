@@ -19,7 +19,7 @@
 # Example: retry.sh "connection timed out" ./my-flaky-script.sh some args
 # This will run "my-flaky-script.sh", retrying any failed runs that output "connection timed out" up
 # to 5 times.
-
+set -x
 function fail {
   echo "${1}" >&2
   exit 1
@@ -41,7 +41,7 @@ function retry {
     if [[ $? == 0 ]]; then
       break
     fi
-    if ! grep -q "${failureRegex}" "${tmpFile}"; then
+    if ! grep -Eq "${failureRegex}" "${tmpFile}"; then
       fail "Unexpected failure"
     fi
     if [[ $n -lt $max ]]; then
