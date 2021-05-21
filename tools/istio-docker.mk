@@ -243,9 +243,13 @@ dockerx:
 	@# Retry works around https://github.com/docker/buildx/issues/298
 	cat /var/log/docker.log
 	df -h
-	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker -D buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
-		{ docker logs buildx_buildkit_container-builder0; df -h; cat /var/log/docker.log; exit 1; }
+	docker ps
+	docker logs kind-registry
+	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer|grpc: the client connection is closing" docker -D buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
+		{ docker logs buildx_buildkit_container-builder0; docker ps; docker logs kind-registry; df -h; cat /var/log/docker.log; exit 1; }
 	cat /var/log/docker.log
+	docker ps
+	docker logs kind-registry
 	df -h
 
 # Support individual images like `dockerx.pilot`
