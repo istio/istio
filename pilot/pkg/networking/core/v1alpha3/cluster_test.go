@@ -1058,12 +1058,10 @@ func TestApplyOutlierDetection(t *testing.T) {
 				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
 			},
 			&cluster.OutlierDetection{
-				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 0},
-				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 0},
-				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
-				SplitExternalLocalOriginErrors:     true,
-				ConsecutiveLocalOriginFailure:      &wrappers.UInt32Value{Value: 10},
-				EnforcingLocalOriginSuccessRate:    &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:            &wrappers.UInt32Value{Value: 0},
+				SplitExternalLocalOriginErrors:  true,
+				ConsecutiveLocalOriginFailure:   &wrappers.UInt32Value{Value: 10},
+				EnforcingLocalOriginSuccessRate: &wrappers.UInt32Value{Value: 0},
 			},
 		},
 	}
