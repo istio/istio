@@ -30,8 +30,10 @@ set -u
 set -x
 
 sleep 25
+service docker stop
 echo '{"debug":true}' > /etc/docker/daemon.json
-service docker restart
+sleep 10
+service docker start
 sleep 10
 docker info
 
