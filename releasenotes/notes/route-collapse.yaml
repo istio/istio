@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 28659
+releaseNotes:
+- |
+  **Optimized** generated routing configuration to merge virtual hosts with the same routing configuration. This improves performance for Virtual Services with multiple hostnames defined.
