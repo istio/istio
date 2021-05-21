@@ -28,9 +28,6 @@ import (
 )
 
 const (
-	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
-	SDSStatPrefix = "sdsstat"
-
 	// SDSClusterName is the name of the cluster for SDS connections
 	SDSClusterName = "sds-grpc"
 
