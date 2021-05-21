@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/namespaceconflict"
 	schemaValidation "istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
@@ -182,6 +183,33 @@ var testGrid = []testCase{
 			{msg.NamespaceInjectionEnabledByDefault, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+		},
+	},
+	{
+		name:       "PeerAuthentication namespace conflicts",
+		inputFiles: []string{"testdata/namespaceconflict-peerauth-conflicts.yaml"},
+		analyzer:   &namespaceconflict.Analyzer{},
+		expected: []message{
+			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo.foo"},
+			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo2.foo"},
+		},
+	},
+	{
+		name:       "AuthorizationPolicy namespace conflicts",
+		inputFiles: []string{"testdata/namespaceconflict-authpolicy-conflicts.yaml"},
+		analyzer:   &namespaceconflict.Analyzer{},
+		expected: []message{
+			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar.bar"},
+			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar2.bar"},
+		},
+	},
+	{
+		name:       "RequestAuthentication namespace conflicts",
+		inputFiles: []string{"testdata/namespaceconflict-reqauth-conflicts.yaml"},
+		analyzer:   &namespaceconflict.Analyzer{},
+		expected: []message{
+			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar.bar"},
+			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar2.bar"},
 		},
 	},
 	{
