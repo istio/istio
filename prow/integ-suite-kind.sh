@@ -29,6 +29,10 @@ set -u
 # Print commands
 set -x
 
+echo '{"debug":true}' > /etc/docker/daemon.json
+service docker restart
+sleep 10
+docker info
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
