@@ -301,7 +301,13 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if b.MultiNetworkConfigured() {
 		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
-
+	if model.IsDNSSrvSubsetKey(b.clusterName) {
+		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
+		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
+		// request is a valid mTLS request or not, since its passthrough TLS.
+		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
+		llbOpts = b.EndpointsWithMTLSFilter(llbOpts)
+	}
 	llbOpts = b.ApplyTunnelSetting(llbOpts, b.tunnelType)
 
 	l := b.createClusterLoadAssignment(llbOpts)
@@ -350,9 +356,10 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
-		return nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var edsUpdatedServices map[string]struct{}
 	if !req.Full {
@@ -395,20 +402,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			eds.Server.Cache.Add(builder, token, resource)
 		}
 	}
-	if len(edsUpdatedServices) == 0 {
-		log.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
-			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
-	} else if log.DebugEnabled() {
-		log.Debugf("EDS: PUSH INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
-			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
-	}
-	return resources, nil
-}
-
-var edsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
-
-func (eds *EdsGenerator) Metadata() *model.GeneratorMetadata {
-	return edsGeneratorMetadata
+	return resources, model.XdsLogDetails{
+		Incremental:    len(edsUpdatedServices) != 0,
+		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
+	}, nil
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

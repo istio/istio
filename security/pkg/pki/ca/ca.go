@@ -38,20 +38,18 @@ const (
 	// istioCASecretType is the Istio secret annotation type.
 	istioCASecretType = "istio.io/ca-root"
 
-	// CaCertID is the CA certificate chain file.
-	CaCertID = "ca-cert.pem"
-	// caPrivateKeyID is the private key file of CA.
-	caPrivateKeyID = "ca-key.pem"
+	// CACertFile is the CA certificate chain file.
+	CACertFile = "ca-cert.pem"
+	// CAPrivateKeyFile is the private key file of CA.
+	CAPrivateKeyFile = "ca-key.pem"
 	// CASecret stores the key/cert of self-signed CA for persistency purpose.
 	CASecret = "istio-ca-secret"
-	// CertChainID is the ID/name for the certificate chain file.
-	CertChainID = "cert-chain.pem"
-	// PrivateKeyID is the ID/name for the private key file.
-	PrivateKeyID = "key.pem"
-	// RootCertID is the ID/name for the CA root certificate file.
-	RootCertID = "root-cert.pem"
-	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
-	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
+	// CertChainFile is the ID/name for the certificate chain file.
+	CertChainFile = "cert-chain.pem"
+	// PrivateKeyFile is the ID/name for the private key file.
+	PrivateKeyFile = "key.pem"
+	// RootCertFile is the ID/name for the CA root certificate file.
+	RootCertFile = "root-cert.pem"
 
 	// The standard key size to use when generating an RSA private key
 	rsaKeySize = 2048
@@ -177,12 +175,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 	} else {
 		pkiCaLog.Infof("Load signing key and cert from existing secret %s:%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := util.AppendRootCerts(caSecret.Data[CaCertID], rootCertFile)
+		rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rootCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 		}
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[CaCertID],
-			caSecret.Data[caPrivateKeyID], nil, rootCerts); err != nil {
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[CACertFile],
+			caSecret.Data[CAPrivateKeyFile], nil, rootCerts); err != nil {
 			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))

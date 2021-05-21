@@ -40,6 +40,7 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/file"
@@ -53,6 +54,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/tests/util/leak"
+	pkgenv "istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -331,6 +333,49 @@ func TestAgent(t *testing.T) {
 
 		a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
+	envoyReady := func(name string, port int) {
+		retry.UntilSuccessOrFail(t, func() error {
+			code, _, _ := env.HTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
+			if code != 200 {
+				return fmt.Errorf("envoy %q is not ready", name)
+			}
+			return nil
+		}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*15))
+	}
+	t.Run("Envoy lifecycle", func(t *testing.T) {
+		Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.ProxyConfig.StatusPort = 15020
+			a.ProxyConfig.ProxyAdminPort = 15000
+			a.AgentConfig.EnvoyPrometheusPort = 15090
+			a.AgentConfig.EnvoyStatusPort = 15021
+			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
+			return a
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		envoyReady("first agent", 15000)
+		Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.ProxyConfig.StatusPort = 25020
+			a.ProxyConfig.ProxyAdminPort = 25000
+			a.AgentConfig.EnvoyPrometheusPort = 25090
+			a.AgentConfig.EnvoyStatusPort = 25021
+			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
+			return a
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		envoyReady("second agent", 25000)
+	})
+	t.Run("Envoy bootstrap discovery", func(t *testing.T) {
+		Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.ProxyConfig.StatusPort = 15020
+			a.ProxyConfig.ProxyAdminPort = 15000
+			a.AgentConfig.EnvoyPrometheusPort = 15090
+			a.AgentConfig.EnvoyStatusPort = 15021
+			a.AgentConfig.EnableDynamicBootstrap = true
+			return a
+		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		envoyReady("bootstrap discovery", 15000)
+	})
 }
 
 type AgentTest struct {
@@ -340,6 +385,8 @@ type AgentTest struct {
 	AgentConfig      AgentOptions
 	XdsAuthenticator *security.FakeAuthenticator
 	CaAuthenticator  *security.FakeAuthenticator
+
+	envoyEnable bool
 
 	agent *Agent
 }
@@ -368,6 +415,12 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		// our CI, causing flakes. We use ECC as the default to speed this up.
 		ECCSigAlg: string(pkiutil.EcdsaSigAlg),
 	}
+	proxy := &model.Proxy{
+		ID:          "pod1.fake-namespace",
+		DNSDomain:   "fake-namespace.svc.cluster.local",
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"127.0.0.1"},
+	}
 	resp.ProxyConfig = mesh.DefaultProxyConfig()
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
@@ -377,16 +430,36 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CARootCerts:           rootCert,
 		XDSRootCerts:          rootCert,
 		XdsUdsPath:            filepath.Join(d, "XDS"),
+		ServiceNode:           proxy.ServiceNode(),
 	}
+
+	// Set-up envoy defaults
+	resp.ProxyConfig.ProxyBootstrapTemplatePath = filepath.Join(env.IstioSrc, "./tools/packaging/common/envoy_bootstrap.json")
+	resp.ProxyConfig.ConfigPath = d
+	resp.ProxyConfig.BinaryPath = filepath.Join(env.LocalOut, "envoy")
+	if path, exists := pkgenv.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
+		resp.ProxyConfig.BinaryPath = path
+	}
+	resp.ProxyConfig.TerminationDrainDuration = nil           // no need to be graceful in a test
+	resp.AgentConfig.ProxyIPAddresses = []string{"127.0.0.1"} // ensures IPv4 binding
+	resp.AgentConfig.Platform = &platform.Unknown{}           // disable discovery
+
 	// Run through opts again to apply settings
 	for _, opt := range opts {
 		resp = opt(resp)
 	}
-	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: true})
+	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
-	if err := a.Run(context.Background()); err != nil {
+	ctx, done := context.WithCancel(context.Background())
+
+	wait, err := a.Run(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
+	// First signal to terminate, then wait for completion (reverse order semantics).
+	t.Cleanup(wait)
+	t.Cleanup(done)
+
 	resp.agent = a
 	return &resp
 }

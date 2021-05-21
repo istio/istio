@@ -68,7 +68,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	if ids != nil {
 		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		log.Debug("Unauthenticated XDS: ", peerAddr)
+		log.Debugf("Unauthenticated XDS: %v", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
@@ -416,7 +416,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 
 	t0 := time.Now()
 
-	res, err := gen.Generate(con.proxy, push, w, req)
+	res, logdata, err := gen.Generate(con.proxy, push, w, req)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -471,16 +471,25 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		return err
 	}
 
-	// Some types handle logs inside Generate, skip them here.
-	if !gen.Metadata().LogsDetails {
-		if log.DebugEnabled() {
-			// Add additional information to logs when debug mode enabled
-			log.Infof("%s: PUSH for node:%s resources:%d size:%s nonce:%v version:%v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.SystemVersionInfo)
-		} else {
-			log.Infof("%s: PUSH for node:%s resources:%d size:%s",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
-		}
+	ptype := "PUSH"
+	info := ""
+	if logdata.Incremental {
+		ptype = "PUSH INC"
+	}
+	if len(info) > 0 {
+		info = " " + logdata.AdditionalInfo
+	}
+
+	if log.DebugEnabled() && logdata.Incremental {
+		log.Debugf("%s: %s for node:%s resources:%d size:%s%s",
+			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
+	} else if log.DebugEnabled() {
+		// Add additional information to logs when debug mode enabled
+		log.Infof("%s: %s for node:%s resources:%d size:%s nonce:%v version:%v%s",
+			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.SystemVersionInfo, info)
+	} else {
+		log.Infof("%s: %s for node:%s resources:%d size:%s%s",
+			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
 	}
 	return nil
 }

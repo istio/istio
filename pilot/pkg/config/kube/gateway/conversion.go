@@ -371,11 +371,41 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	return result
 }
 
+type localNamedReference struct {
+	Name      string
+	Namespace string
+}
+
 func createRouteStatus(gateways []string, obj config.Config, current []k8s.RouteGatewayStatus) []k8s.RouteGatewayStatus {
+	setGateways := map[localNamedReference]struct{}{}
+	for _, gw := range gateways {
+		ref := localNamedReference{}
+		if gw == constants.IstioMeshGateway {
+			ref.Name = experimentalMeshGatewayName
+			// TODO this is not namespaced but a namespace is required
+			ref.Namespace = "default"
+		} else {
+			s := strings.Split(gw, "/")
+			ref.Name = s[1]
+			ref.Namespace = s[0]
+		}
+		setGateways[ref] = struct{}{}
+	}
 	gws := make([]k8s.RouteGatewayStatus, 0, len(gateways))
 	// Fill in all of the gateways that are already present but not owned by use
 	for _, r := range current {
-		if r.GatewayRef.Controller == nil || *r.GatewayRef.Controller != ControllerName {
+		if r.GatewayRef.Controller == nil {
+			// Controller not set. This may be our own resource due to using old CRDs that prune the controller field
+			_, f := setGateways[localNamedReference{r.GatewayRef.Name, r.GatewayRef.Namespace}]
+			if !f {
+				// We are not going to set this gateway ref, so we should keep it, it may be owned by some other controller
+				gws = append(gws, r)
+			}
+			// Otherwise we are going to overwrite it with our own status. This could technically overwrite another controller,
+			// but there isn't much we can do here. If we appended a status, we would end up infinitely writing our own
+			// status
+		} else if *r.GatewayRef.Controller != ControllerName {
+			// We don't own this status, so keep it around
 			gws = append(gws, r)
 		}
 	}

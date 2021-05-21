@@ -167,7 +167,7 @@ func TestReplaceTrustDomainInPrincipal(t *testing.T) {
 				t.Errorf("%s: Expected empty SPIFFE ID but obtained a non-empty one: %s.", c.name, got)
 			}
 			if err.Error() != c.expectedError {
-				t.Errorf("%s: Expected error: %s but got error: %s.", c.name, err.Error(), c.expectedError)
+				t.Errorf("%s: Expected error: %s but got error: %s.", c.name, c.expectedError, err.Error())
 			}
 			continue
 		}

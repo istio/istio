@@ -134,6 +134,38 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	return filtered
 }
 
+// EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at
+// auto-mTLS, DestinationRule, and PeerAuthentication to determine if we would send mTLS to these endpoints.
+// Note there is no guarantee these destinations *actually* handle mTLS; just that we are configured to send mTLS to them.
+func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
+	// A new array of endpoints to be returned that will have both local and
+	// remote gateways (if any)
+	filtered := make([]*LocLbEndpointsAndOptions, 0)
+
+	// Go through all cluster endpoints and add those with mTLS enabled
+	for _, ep := range endpoints {
+		lbEndpoints := &LocLbEndpointsAndOptions{
+			llbEndpoints: endpoint.LocalityLbEndpoints{
+				Locality: ep.llbEndpoints.Locality,
+				Priority: ep.llbEndpoints.Priority,
+				// Endpoints and will be reset below.
+			},
+		}
+
+		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
+			if b.mtlsChecker.isMtlsDisabled(lbEp) {
+				// no mTLS, skip it
+				continue
+			}
+			lbEndpoints.emplace(lbEp, ep.tunnelMetadata[i])
+		}
+
+		filtered = append(filtered, lbEndpoints)
+	}
+
+	return filtered
+}
+
 // TODO: remove this, filtering should be done before generating the config, and
 // network metadata should not be included in output. A node only receives endpoints
 // in the same network as itself - so passing an network meta, with exactly

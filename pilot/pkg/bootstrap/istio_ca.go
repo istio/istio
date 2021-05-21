@@ -236,7 +236,7 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 		return nil
 	}
 
-	signingKeyFile := path.Join(dir, "ca-key.pem")
+	signingKeyFile := path.Join(dir, ca.CAPrivateKeyFile)
 	if _, err := os.Stat(signingKeyFile); !os.IsNotExist(err) {
 		return fmt.Errorf("signing key file %s already exists", signingKeyFile)
 	}
@@ -272,10 +272,10 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 	var err error
 
 	// In pods, this is the optional 'cacerts' Secret.
-	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
+	signingKeyFile := path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile)
 
 	// If not found, will default to ca-cert.pem. May contain multiple roots.
-	rootCertFile := path.Join(LocalCertDir.Get(), "root-cert.pem")
+	rootCertFile := path.Join(LocalCertDir.Get(), ca.RootCertFile)
 	if _, err := os.Stat(rootCertFile); err != nil {
 		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
 		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
@@ -314,8 +314,8 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 
 		// The cert corresponding to the key, self-signed or chain.
 		// rootCertFile will be added at the end, if present, to form 'rootCerts'.
-		signingCertFile := path.Join(LocalCertDir.Get(), "ca-cert.pem")
-		certChainFile := path.Join(LocalCertDir.Get(), "cert-chain.pem")
+		signingCertFile := path.Join(LocalCertDir.Get(), ca.CACertFile)
+		certChainFile := path.Join(LocalCertDir.Get(), ca.CertChainFile)
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
 			rootCertFile, workloadCertTTL.Get(), maxWorkloadCertTTL.Get(), caRSAKeySize.Get())
 		if err != nil {
