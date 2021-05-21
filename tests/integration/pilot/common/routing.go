@@ -520,7 +520,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 				}
 				childs = append(childs, TrafficCall{
 					name: fmt.Sprintf("mode:%v,sni:%v,alpn:%v", mode, sni, alpn),
-					call: apps.Ingress.CallWithRetryOrFail,
+					call: apps.Ingress.CallEchoWithRetryOrFail,
 					opts: echo.CallOptions{
 						Port: &echo.Port{
 							ServicePort: 443,
