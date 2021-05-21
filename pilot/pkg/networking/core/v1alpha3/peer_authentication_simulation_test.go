@@ -124,8 +124,7 @@ spec:
    protocol: HTTP
 ---`
 	mkCall := func(port int, tls simulation.TLSMode) simulation.Call {
-		// TODO https://github.com/istio/istio/issues/28506 address should not be required here
-		r := simulation.Call{Protocol: simulation.HTTP, Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
+		r := simulation.Call{Protocol: simulation.HTTP, Port: port, CallMode: simulation.CallModeInbound, TLS: tls}
 		if tls == simulation.MTLS {
 			r.Alpn = "istio"
 		}
@@ -460,8 +459,7 @@ spec:
     protocol: TCP
 ---`
 	mkCall := func(port int, tls simulation.TLSMode) simulation.Call {
-		// TODO https://github.com/istio/istio/issues/28506 address should not be required here
-		return simulation.Call{Protocol: simulation.TCP, Port: port, CallMode: simulation.CallModeInbound, TLS: tls, Address: "1.1.1.1"}
+		return simulation.Call{Protocol: simulation.TCP, Port: port, CallMode: simulation.CallModeInbound, TLS: tls}
 	}
 	cases := []struct {
 		name   string
