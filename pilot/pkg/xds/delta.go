@@ -68,7 +68,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	if ids != nil {
 		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		log.Debug("Unauthenticated XDS: ", peerAddr)
+		log.Debugf("Unauthenticated XDS: %v", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
