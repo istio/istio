@@ -23,13 +23,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/pkg/env"
 )
 
 // settableFlags are the flags used to istioctl
 var settableFlags = map[string]interface{}{
-	"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", constants.IstioSystemNamespace, "The istioctl --istioNamespace override"),
+	"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", controller.IstioNamespace, "The istioctl --istioNamespace override"),
 	"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "The istioctl --xds-address override"),
 	"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "The istioctl --xds-port override"),
 	"authority":           env.RegisterStringVar("ISTIOCTL_AUTHORITY", "", "The istioctl --authority override"),

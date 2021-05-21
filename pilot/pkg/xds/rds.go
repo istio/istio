@@ -24,6 +24,7 @@ import (
 )
 
 type RdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
@@ -59,10 +60,9 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !rdsNeedsPush(req) {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil
 	}
 	rawRoutes := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, push, w.ResourceNames)
 	resources := model.Resources{}
@@ -72,5 +72,5 @@ func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 			Resource: util.MessageToAny(c),
 		})
 	}
-	return resources, model.DefaultXdsLogDetails, nil
+	return resources, nil
 }

@@ -149,21 +149,6 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			return anypb.New(oc)
 		})
 
-	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service, provider.Skywalking.Port, 0, func(clusterName string) (*anypb.Any, error) {
-			s := &tracingcfg.SkyWalkingConfig{
-				GrpcService: &envoy_config_core_v3.GrpcService{
-					TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
-							ClusterName: clusterName,
-						},
-					},
-				},
-			}
-
-			return anypb.New(s)
-		})
-
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 		return buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
 			proj, ok := meta.PlatformMetadata[platform.GCPProject]

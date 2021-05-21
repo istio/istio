@@ -15,7 +15,6 @@
 package ready
 
 import (
-	"context"
 	"fmt"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -31,7 +30,6 @@ type Probe struct {
 	receivedFirstUpdate bool
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
 	atleastOnceReady bool
-	Context          context.Context
 }
 
 type Prober interface {
@@ -73,18 +71,6 @@ func (p *Probe) checkConfigStatus() error {
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
-	if p.Context == nil {
-		return p.checkEnvoyReadiness()
-	}
-	select {
-	case <-p.Context.Done():
-		return fmt.Errorf("server is not live, current state is: %s", admin.ServerInfo_DRAINING.String())
-	default:
-		return p.checkEnvoyReadiness()
-	}
-}
-
-func (p *Probe) checkEnvoyReadiness() error {
 	// If Envoy is ready atleast once i.e. server state is LIVE and workers
 	// have started, they will not go back in the life time of Envoy process.
 	// They will only change at hot restart or health check fails. Since Istio

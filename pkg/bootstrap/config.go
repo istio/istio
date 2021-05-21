@@ -255,10 +255,7 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts, getStatsOptions(node.Metadata)...)
 
-	opts = append(opts,
-		option.NodeMetadata(node.Metadata, node.RawMetadata),
-		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
-		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
+	opts = append(opts, option.NodeMetadata(node.Metadata, node.RawMetadata))
 	return opts
 }
 
@@ -459,8 +456,6 @@ type MetadataOptions struct {
 	OutlierLogPath      string
 	ProvCert            string
 	annotationFilePath  string
-	EnvoyStatusPort     int
-	EnvoyPrometheusPort int
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -499,8 +494,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if options.StsPort != 0 {
 		meta.StsPort = strconv.Itoa(options.StsPort)
 	}
-	meta.EnvoyStatusPort = options.EnvoyStatusPort
-	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 

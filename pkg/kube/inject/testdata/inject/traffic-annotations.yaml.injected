@@ -52,8 +52,6 @@ spec:
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
-        - --concurrency
-        - "4"
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -201,6 +199,16 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
+          - path: cpu-limit
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: limits.cpu
+          - path: cpu-request
+            resourceFieldRef:
+              containerName: istio-proxy
+              divisor: 1m
+              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:

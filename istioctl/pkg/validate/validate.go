@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	operator_validate "istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -417,7 +417,7 @@ func servicePortPrefixed(n string) bool {
 
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {
-		istioNamespace = constants.IstioSystemNamespace
+		istioNamespace = controller.IstioNamespace
 	}
 	return istioNamespace
 }

@@ -30,7 +30,7 @@ const errOutOfMemory = "signal: killed"
 func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) *Agent {
 	return &Agent{
 		proxy:                    proxy,
-		statusCh:                 make(chan exitStatus, 1), // context might stop drainage
+		statusCh:                 make(chan exitStatus),
 		abortCh:                  make(chan error, 1),
 		terminationDrainDuration: terminationDrainDuration,
 	}

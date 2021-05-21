@@ -17,7 +17,6 @@ package security
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -39,6 +38,9 @@ const (
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
+
+	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
+	DefaultLocalSDSPath = "./etc/istio/proxy/SDS"
 
 	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
 	SystemRootCerts = "SYSTEM"
@@ -74,12 +76,8 @@ var (
 	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
-)
 
-const (
-	BearerTokenPrefix = "Bearer "
-
-	K8sTokenPrefix = "Istio "
+	BearerTokenPrefix = "Bearer" + " "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -136,7 +134,6 @@ type Options struct {
 	// - istiod
 	// - kubernetes
 	// - custom
-	// - none
 	PilotCertProvider string
 
 	// secret TTL.
@@ -281,6 +278,9 @@ const (
 )
 
 const (
+	// IdentityTemplate is the SPIFFE format template of the identity.
+	IdentityTemplate = "spiffe://%s/ns/%s/sa/%s"
+
 	authorizationMeta = "authorization"
 )
 
@@ -293,7 +293,6 @@ type Caller struct {
 type Authenticator interface {
 	Authenticate(ctx context.Context) (*Caller, error)
 	AuthenticatorType() string
-	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {
@@ -311,22 +310,6 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 		if strings.HasPrefix(value, BearerTokenPrefix) {
 			return strings.TrimPrefix(value, BearerTokenPrefix), nil
 		}
-	}
-
-	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
-}
-
-func ExtractRequestToken(req *http.Request) (string, error) {
-	value := req.Header.Get(authorizationMeta)
-	if value == "" {
-		return "", fmt.Errorf("no HTTP authorization header exists")
-	}
-
-	if strings.HasPrefix(value, BearerTokenPrefix) {
-		return strings.TrimPrefix(value, BearerTokenPrefix), nil
-	}
-	if strings.HasPrefix(value, K8sTokenPrefix) {
-		return strings.TrimPrefix(value, K8sTokenPrefix), nil
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")

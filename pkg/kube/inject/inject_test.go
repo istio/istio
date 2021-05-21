@@ -17,7 +17,6 @@ package inject
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -846,40 +845,6 @@ func Test_updateClusterEnvs(t *testing.T) {
 			updateClusterEnvs(tt.args.container, tt.args.newKVs)
 			if !cmp.Equal(tt.args.container.Env, tt.want.Env) {
 				t.Fatalf("updateClusterEnvs got \n%+v, expected \n%+v", tt.args.container.Env, tt.want.Env)
-			}
-		})
-	}
-}
-
-func TestQuantityConversion(t *testing.T) {
-	for _, tt := range []struct {
-		in  string
-		out int
-		err error
-	}{
-		{
-			in:  "4000m",
-			out: 4,
-		},
-		{
-			in:  "6500m",
-			out: 7,
-		},
-		{
-			in:  "200mi",
-			err: errors.New("unable to parse"),
-		},
-	} {
-		t.Run(tt.in, func(t *testing.T) {
-			got, err := quantityToConcurrency(tt.in)
-			if err != nil {
-				if tt.err == nil {
-					t.Errorf("expected no error, got %v", err)
-				}
-			} else {
-				if tt.out != got {
-					t.Errorf("got %v, want %v", got, tt.out)
-				}
 			}
 		})
 	}

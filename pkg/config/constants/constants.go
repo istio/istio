@@ -93,6 +93,21 @@ const (
 	// This is typically set by the downward API
 	PodInfoAnnotationsPath = "./etc/istio/pod/annotations"
 
+	// PodInfoCPURequestsPath is the filepath that pod CPU requests will be stored
+	// This is typically set by the downward API
+	PodInfoCPURequestsPath = "./etc/istio/pod/cpu-request"
+
+	// PodInfoCPULimitsPath is the filepath that pod CPU limits will be stored
+	// This is typically set by the downward API
+	PodInfoCPULimitsPath = "./etc/istio/pod/cpu-limit"
+
+	// DefaultSdsUdsPath is the path used for SDS communication between istio-agent and proxy during
+	// mtls.
+	DefaultSdsUdsPath = "unix:./etc/istio/proxy/SDS"
+
+	// DefaultXdsUdsPath is the path used for XDS communication between istio-agent and proxy
+	DefaultXdsUdsPath = "./etc/istio/proxy/XDS"
+
 	// DefaultServiceAccountName is the default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-reader-service-account"
 
@@ -123,8 +138,6 @@ const (
 	CertProviderIstiod = "istiod"
 	// CertProviderKubernetes uses the Kubernetes CSR API to generate a DNS certificate for the control plane
 	CertProviderKubernetes = "kubernetes"
-	// CertProviderCustom uses the custom root certificate mounted in a well known location for the control plane
-	CertProviderCustom = "custom"
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"

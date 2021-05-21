@@ -49,6 +49,10 @@ pilot:
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
 sidecarInjectorWebhook:
+  # If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
+  # requests in Istiod, rather than at the webhook selection level.
+  # This is option is intended for migration purposes only and will be removed in Istio 1.10.
+  useLegacySelectors: false
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
   # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions

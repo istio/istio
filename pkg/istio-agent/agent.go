@@ -25,7 +25,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
@@ -110,9 +109,6 @@ type Agent struct {
 
 	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
 	localDNSServer *dns.LocalDNSServer
-
-	// Signals true completion (e.g. with delayed graceful termination of Envoy)
-	wg sync.WaitGroup
 }
 
 // AgentOptions contains additional config for the agent, not included in ProxyConfig.
@@ -165,17 +161,6 @@ type AgentOptions struct {
 
 	// Enables dynamic generation of bootstrap.
 	EnableDynamicBootstrap bool
-
-	// Envoy status port (that circles back to the agent status port). Really belongs to the proxy config.
-	// Cannot be eradicated because mistakes have been made.
-	EnvoyStatusPort int
-
-	// Envoy prometheus port that circles back to its admin port for prom endpoint. Really belongs to the
-	// proxy config.
-	EnvoyPrometheusPort int
-
-	// Cloud platform
-	Platform platform.Environment
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -191,7 +176,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
+func (a *Agent) initializeEnvoyAgent() error {
 	provCert, err := a.FindRootCAForXDS()
 	if err != nil {
 		return fmt.Errorf("failed to find root CA cert for XDS: %v", err)
@@ -213,7 +198,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
 		Envs:                os.Environ(),
-		Platform:            a.cfg.Platform,
+		Platform:            platform.Discover(),
 		InstanceIPs:         a.cfg.ProxyIPAddresses,
 		StsPort:             a.secOpts.STSPort,
 		ProxyConfig:         a.proxyConfig,
@@ -221,8 +206,6 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 		PilotSubjectAltName: pilotSAN,
 		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
 		ProvCert:            provCert,
-		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
-		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
@@ -246,7 +229,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 		a.envoyOpts.ConfigCleanup = true
 	}
 
-	// Back-fill envoy options from proxy config options
+	// Back-fill envoy options form proxy config options
 	a.envoyOpts.BinaryPath = a.proxyConfig.BinaryPath
 	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
@@ -260,31 +243,24 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	a.envoyWaitCh = make(chan error, 1)
 	if a.cfg.EnableDynamicBootstrap {
 		// Simulate an xDS request for a bootstrap
-		a.wg.Add(1)
 		go func() {
-			defer a.wg.Done()
-
 			// wait indefinitely and keep retrying with jittered exponential backoff
 			backoff := 500
 			max := 30000
+			request := &bootstrapDiscoveryRequest{
+				node:        node,
+				envoyWaitCh: a.envoyWaitCh,
+				envoyUpdate: envoyProxy.UpdateConfig,
+			}
 			for {
-				// handleStream hands on to request after exit, so create a fresh one instead.
-				request := &bootstrapDiscoveryRequest{
-					node:        node,
-					envoyWaitCh: a.envoyWaitCh,
-					envoyUpdate: envoyProxy.UpdateConfig,
-				}
 				_ = a.xdsProxy.handleStream(request)
 				if request.received {
 					break
 				}
+				request.sent = false
 				delay := time.Duration(rand.Int()%backoff) * time.Millisecond
 				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
-				select {
-				case <-ctx.Done():
-					break
-				case <-time.After(delay):
-				}
+				time.Sleep(delay)
 				if backoff < max/2 {
 					backoff *= 2
 				} else {
@@ -355,67 +331,59 @@ func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.B
 //    For example Google CA
 //
 // 2. Indirect, using istiod: using K8S cert.
-//
-// This is a non-blocking call which returns either an error or a function to await for completion.
-func (a *Agent) Run(ctx context.Context) (func(), error) {
+func (a *Agent) Run(ctx context.Context) error {
 	var err error
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
+		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 
 	if err = a.initLocalDNSServer(); err != nil {
-		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
+		return fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
 	if a.cfg.ProxyXDSViaAgent {
 		a.xdsProxy, err = initXdsProxy(a)
 		if err != nil {
-			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
+			return fmt.Errorf("failed to start xds proxy: %v", err)
 		}
 		if a.cfg.ProxyXDSDebugViaAgent {
 			err = a.xdsProxy.initDebugInterface()
 			if err != nil {
-				return nil, fmt.Errorf("failed to start istio tap server: %v", err)
+				return fmt.Errorf("failed to start istio tap server: %v", err)
 			}
 		}
 	}
 
 	if !a.envoyOpts.TestOnly {
-		err = a.initializeEnvoyAgent(ctx)
+		err = a.initializeEnvoyAgent()
 		if err != nil {
-			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
+			return fmt.Errorf("failed to start envoy agent: %v", err)
 		}
 
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
-
-			if a.cfg.EnableDynamicBootstrap {
-				start := time.Now()
-				var err error
-				select {
-				case err = <-a.envoyWaitCh:
-				case <-ctx.Done():
-					// Early cancellation before envoy started.
-					return
-				}
-				if err != nil {
-					log.Errorf("failed to write updated envoy bootstrap: %v", err)
-					return
-				}
-				log.Infof("received server-side bootstrap in %v", time.Since(start))
+		// This is a blocking call for graceful termination.
+		if a.cfg.EnableDynamicBootstrap {
+			start := time.Now()
+			var err error
+			select {
+			case err = <-a.envoyWaitCh:
+			case <-ctx.Done():
+				// Early cancellation before envoy started.
+				return nil
 			}
+			if err != nil {
+				return fmt.Errorf("failed to write updated envoy bootstrap: %v", err)
+			}
+			log.Infof("received server-side bootstrap in %v", time.Since(start))
 
-			// This is a blocking call for graceful termination.
-			a.envoyAgent.Run(ctx)
-		}()
+		}
+		a.envoyAgent.Run(ctx)
 	}
 
-	return a.wg.Wait, nil
+	return nil
 }
 
 func (a *Agent) initLocalDNSServer() (err error) {
@@ -467,12 +435,12 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 	} else if a.cfg.XDSRootCerts != "" {
 		// Using specific platform certs or custom roots
 		rootCAPath = a.cfg.XDSRootCerts
-	} else if fileExists(security.DefaultRootCertFilePath) {
+	} else if fileExists("./etc/certs/root-cert.pem") {
 		// Old style - mounted cert. This is used for XDS auth only,
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
-		return security.DefaultRootCertFilePath, nil
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
+		return "./etc/certs/root-cert.pem", nil
+	} else if a.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident (https://github.com/istio/istio/issues/22161)
 		rootCAPath = k8sCAPath
 	} else if a.secOpts.ProvCert != "" {
@@ -484,8 +452,6 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 	} else if a.secOpts.FileMountedCerts {
 		// FileMountedCerts - Load it from Proxy Metadata.
 		rootCAPath = a.proxyConfig.ProxyMetadata[MetadataClientRootCert]
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderNone {
-		return "", fmt.Errorf("root CA file for XDS required but configured provider as none")
 	} else {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S
@@ -508,39 +474,26 @@ func fileExists(path string) bool {
 }
 
 // Find the root CA to use when connecting to the CA (Istiod or external).
-func (a *Agent) FindRootCAForCA() (string, error) {
-	var rootCAPath string
-
+func (a *Agent) FindRootCAForCA() string {
 	if a.cfg.CARootCerts == security.SystemRootCerts {
-		return "", nil
+		return ""
 	} else if a.cfg.CARootCerts != "" {
-		rootCAPath = a.cfg.CARootCerts
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
+		return a.cfg.CARootCerts
+	} else if a.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident.
-		// API is GA.
-		rootCAPath = k8sCAPath // ./var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderCustom {
-		rootCAPath = security.DefaultRootCertFilePath // ./etc/certs/root-cert.pem
+		// API is alpha.
+		return k8sCAPath // ./var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+	} else if a.secOpts.PilotCertProvider == "custom" {
+		return security.DefaultRootCertFilePath // ./etc/certs/root-cert.pem
 	} else if a.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
-		// For VMs, the root cert file used to auth may be populated afterwards.
-		// Thus, return directly here and skip checking for existence.
-		return a.secOpts.ProvCert + "/root-cert.pem", nil
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderNone {
-		return "", fmt.Errorf("root CA file for CA required but configured provider as none")
+		return a.secOpts.ProvCert + "/root-cert.pem"
 	} else {
 		// This is the default - a mounted config map on K8S
-		rootCAPath = path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
+		return path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
 		// or: "./var/run/secrets/istio/root-cert.pem"
 	}
-
-	// Additional checks for root CA cert existence.
-	if fileExists(rootCAPath) {
-		return rootCAPath, nil
-	}
-
-	return "", fmt.Errorf("root CA file for CA does not exist %s", rootCAPath)
 }
 
 // newSecretManager creates the SecretManager for workload secrets
@@ -576,11 +529,7 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		log.Warn("Debug mode or IP-secure network")
 	}
 	if tls {
-		caCertFile, err := a.FindRootCAForCA()
-		if err != nil {
-			return nil, fmt.Errorf("failed to find root CA cert for CA: %v", err)
-		}
-
+		caCertFile := a.FindRootCAForCA()
 		if caCertFile == "" {
 			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
 		} else if rootCert, err = ioutil.ReadFile(caCertFile); err != nil {

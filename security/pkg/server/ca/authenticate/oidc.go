@@ -17,7 +17,6 @@ package authenticate
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
 	oidc "github.com/coreos/go-oidc"
@@ -68,14 +67,6 @@ func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, trustDomain string) (*JwtAuth
 	}, nil
 }
 
-func (j *JwtAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
-	targetJWT, err := security.ExtractRequestToken(req)
-	if err != nil {
-		return nil, fmt.Errorf("target JWT extraction error: %v", err)
-	}
-	return j.authenticate(req.Context(), targetJWT)
-}
-
 // Authenticate - based on the old OIDC authenticator for mesh expansion.
 func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
 	bearerToken, err := security.ExtractBearerToken(ctx)
@@ -83,10 +74,6 @@ func (j *JwtAuthenticator) Authenticate(ctx context.Context) (*security.Caller, 
 		return nil, fmt.Errorf("ID token extraction error: %v", err)
 	}
 
-	return j.authenticate(ctx, bearerToken)
-}
-
-func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string) (*security.Caller, error) {
 	idToken, err := j.verifier.Verify(ctx, bearerToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify the JWT token (error %v)", err)

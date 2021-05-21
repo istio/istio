@@ -213,7 +213,7 @@
                   "socket_address": {
                     "protocol": "TCP",
                     "address": "{{ .localhost }}",
-                    "port_value": {{ .config.StatusPort }}
+                    "port_value": 15020
                   }
                 }
               }
@@ -241,7 +241,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "{{ .config.ConfigPath }}/SDS"
+                    "path": "./etc/istio/proxy/SDS"
                   }
                 }
               }
@@ -310,7 +310,7 @@
                   "socket_address": {{ .pilot_grpc_address }}
                   {{- else }}
                   "pipe": {
-                    "path": "{{ .config.ConfigPath }}/XDS"
+                    "path": "./etc/istio/proxy/XDS"
                   }
                   {{- end }}
                 }
@@ -515,7 +515,7 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "{{ .wildcard }}",
-            "port_value": {{ .envoy_prometheus_port }}
+            "port_value": 15090
           }
         },
         "filter_chains": [
@@ -561,11 +561,11 @@
       },
       {
         "address": {
-           "socket_address": {
-             "protocol": "TCP",
-             "address": "{{ .wildcard }}",
-             "port_value": {{ .envoy_status_port }}
-           }
+          "socket_address": {
+            "protocol": "TCP",
+            "address": "{{ .wildcard }}",
+            "port_value": 15021
+          }
         },
         "filter_chains": [
           {

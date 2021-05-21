@@ -294,9 +294,6 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailures:
-                              nullable: true
-                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -306,10 +303,6 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
-                            splitExternalLocalOriginErrors:
-                              description: Determines whether to distinguish local
-                                origin failures from external errors.
-                              type: boolean
                           type: object
                         portLevelSettings:
                           description: Traffic policies specific to individual ports.
@@ -541,9 +534,6 @@ spec:
                                       host is ejected from the connection pool.
                                     nullable: true
                                     type: integer
-                                  consecutiveLocalOriginFailures:
-                                    nullable: true
-                                    type: integer
                                   interval:
                                     description: Time interval between ejection sweep
                                       analysis.
@@ -554,10 +544,6 @@ spec:
                                   minHealthPercent:
                                     format: int32
                                     type: integer
-                                  splitExternalLocalOriginErrors:
-                                    description: Determines whether to distinguish
-                                      local origin failures from external errors.
-                                    type: boolean
                                 type: object
                               port:
                                 properties:
@@ -862,9 +848,6 @@ spec:
                           from the connection pool.
                         nullable: true
                         type: integer
-                      consecutiveLocalOriginFailures:
-                        nullable: true
-                        type: integer
                       interval:
                         description: Time interval between ejection sweep analysis.
                         type: string
@@ -874,10 +857,6 @@ spec:
                       minHealthPercent:
                         format: int32
                         type: integer
-                      splitExternalLocalOriginErrors:
-                        description: Determines whether to distinguish local origin
-                          failures from external errors.
-                        type: boolean
                     type: object
                   portLevelSettings:
                     description: Traffic policies specific to individual ports.
@@ -1104,9 +1083,6 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailures:
-                              nullable: true
-                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -1116,10 +1092,6 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
-                            splitExternalLocalOriginErrors:
-                              description: Determines whether to distinguish local
-                                origin failures from external errors.
-                              type: boolean
                           type: object
                         port:
                           properties:
@@ -1478,9 +1450,6 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailures:
-                              nullable: true
-                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -1490,10 +1459,6 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
-                            splitExternalLocalOriginErrors:
-                              description: Determines whether to distinguish local
-                                origin failures from external errors.
-                              type: boolean
                           type: object
                         portLevelSettings:
                           description: Traffic policies specific to individual ports.
@@ -1725,9 +1690,6 @@ spec:
                                       host is ejected from the connection pool.
                                     nullable: true
                                     type: integer
-                                  consecutiveLocalOriginFailures:
-                                    nullable: true
-                                    type: integer
                                   interval:
                                     description: Time interval between ejection sweep
                                       analysis.
@@ -1738,10 +1700,6 @@ spec:
                                   minHealthPercent:
                                     format: int32
                                     type: integer
-                                  splitExternalLocalOriginErrors:
-                                    description: Determines whether to distinguish
-                                      local origin failures from external errors.
-                                    type: boolean
                                 type: object
                               port:
                                 properties:
@@ -2046,9 +2004,6 @@ spec:
                           from the connection pool.
                         nullable: true
                         type: integer
-                      consecutiveLocalOriginFailures:
-                        nullable: true
-                        type: integer
                       interval:
                         description: Time interval between ejection sweep analysis.
                         type: string
@@ -2058,10 +2013,6 @@ spec:
                       minHealthPercent:
                         format: int32
                         type: integer
-                      splitExternalLocalOriginErrors:
-                        description: Determines whether to distinguish local origin
-                          failures from external errors.
-                        type: boolean
                     type: object
                   portLevelSettings:
                     description: Traffic policies specific to individual ports.
@@ -2288,9 +2239,6 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
-                            consecutiveLocalOriginFailures:
-                              nullable: true
-                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -2300,10 +2248,6 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
-                            splitExternalLocalOriginErrors:
-                              description: Determines whether to distinguish local
-                                origin failures from external errors.
-                              type: boolean
                           type: object
                         port:
                           properties:

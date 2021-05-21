@@ -191,8 +191,6 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 		if err == nil {
 			break
 		}
-		log.Warnf("Istio CNI is configured as chained plugin, but cannot find existing CNI network config: %v", err)
-		log.Infof("Waiting for CNI network config file to be written in %v...", cfg.mountedCNINetDir)
 		if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
 			return "", err
 		}

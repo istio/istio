@@ -125,10 +125,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	scope.Info("Starting Pilot K8S CRD controller")
 
 	go func() {
-		if !cache.WaitForCacheSync(stop, cl.HasSynced) {
-			scope.Error("Failed to sync Pilot K8S CRD controller cache")
-			return
-		}
+		cache.WaitForCacheSync(stop, cl.HasSynced)
 		scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
 		cl.queue.Run(stop)
 	}()

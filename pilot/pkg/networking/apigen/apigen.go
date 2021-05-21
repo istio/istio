@@ -43,7 +43,9 @@ import (
 // Example: networking.istio.io/v1alpha3/VirtualService
 //
 // TODO: we can also add a special marker in the header)
-type APIGenerator struct{}
+type APIGenerator struct {
+	model.BaseGenerator
+}
 
 // TODO: take 'updates' into account, don't send pushes for resources that haven't changed
 // TODO: support WorkloadEntry - to generate endpoints (equivalent with EDS)
@@ -56,8 +58,7 @@ type APIGenerator struct{}
 // This provides similar functionality with MCP and :8080/debug/configz.
 //
 // Names are based on the current resource naming in istiod stores.
-func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
 	resp := model.Resources{}
 
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
@@ -70,7 +71,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	if len(kind) != 3 {
 		log.Warnf("ADS: Unknown watched resources %s", w.TypeUrl)
 		// Still return an empty response - to not break waiting code. It is fine to not know about some resource.
-		return resp, model.DefaultXdsLogDetails, nil
+		return resp, nil
 	}
 	// TODO: extra validation may be needed - at least logging that a resource
 	// of unknown type was requested. This should not be an error - maybe client asks
@@ -91,7 +92,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 				Resource: a,
 			})
 		}
-		return resp, model.DefaultXdsLogDetails, nil
+		return resp, nil
 	}
 
 	// TODO: what is the proper way to handle errors ?
@@ -102,7 +103,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	cfg, err := push.IstioConfigStore.List(rgvk, "")
 	if err != nil {
 		log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
-		return resp, model.DefaultXdsLogDetails, nil
+		return resp, nil
 	}
 	for _, c := range cfg {
 		// Right now model.Config is not a proto - until we change it, mcp.Resource.
@@ -161,7 +162,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		}
 	}
 
-	return resp, model.DefaultXdsLogDetails, nil
+	return resp, nil
 }
 
 // Convert from model.Config, which has no associated proto, to MCP Resource proto.

@@ -16,11 +16,9 @@ package options
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
@@ -35,10 +33,10 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	o := &security.Options{
 		CAEndpoint:                     caEndpointEnv,
 		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              features.PilotCertProvider.Get(),
+		PilotCertProvider:              pilotCertProvider,
 		OutputKeyCertToDir:             outputKeyCertToDir,
 		ProvCert:                       provCert,
-		WorkloadUDSPath:                filepath.Join(proxyConfig.ConfigPath, "SDS"),
+		WorkloadUDSPath:                security.DefaultLocalSDSPath,
 		ClusterID:                      clusterIDVar.Get(),
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              PodNamespaceVar.Get(),

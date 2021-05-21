@@ -25,14 +25,6 @@ function fail {
   exit 1
 }
 
-function isatty() {
- if [ -t 1 ] ; then
-   return 0
-  else
-   return 1
-  fi
-}
-
 function retry {
   local tmpFile
   tmpFile=$(mktemp)
@@ -44,13 +36,7 @@ function retry {
   local max=5
   while true; do
     unset SHELL # Don't let environment control which shell to use
-    if isatty; then
-      script --flush --quiet --return "${tmpFile}" --command "${*}"
-    else
-      # if we aren't a TTY, run directly as script will always run with a tty, which may output content that
-      # we cannot display
-      set -o pipefail; "$@" 2>&1 | tee "${tmpFile}"
-    fi
+    script --flush --quiet --return "${tmpFile}" --command "${*}"
     # shellcheck disable=SC2181
     if [[ $? == 0 ]]; then
       break

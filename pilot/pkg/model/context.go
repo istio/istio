@@ -164,7 +164,7 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
-// Resources is an alias for array of marshaled resources.
+// Request is an alias for array of marshaled resources.
 type Resources = []*discovery.Resource
 
 func AnyToUnnamedResources(r []*any.Any) Resources {
@@ -187,14 +187,11 @@ func ResourcesToAny(r Resources) []*any.Any {
 // See for example EDS incremental updates.
 type XdsUpdates = map[ConfigKey]struct{}
 
-// XdsLogDetails contains additional metadata that is captured by Generators and used by xds processors
-// like Ads and Delta to uniformly log.
-type XdsLogDetails struct {
-	Incremental    bool
-	AdditionalInfo string
+// GeneratorMetadata has information about generator it self that processors like ads/delta can use.
+type GeneratorMetadata struct {
+	// LogsDetails indicates whether the generator logs details during the generation.
+	LogsDetails bool
 }
-
-var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
@@ -203,7 +200,17 @@ var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
 // Note: any errors returned will completely close the XDS stream. Use with caution; typically and empty
 // or no response is preferred.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
+	Metadata() *GeneratorMetadata
+}
+
+// BaseGenerator is the base generator.
+type BaseGenerator struct{}
+
+var baseMetadata = &GeneratorMetadata{false}
+
+func (bg *BaseGenerator) Metadata() *GeneratorMetadata {
+	return baseMetadata
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -592,12 +599,6 @@ type NodeMetadata struct {
 	// StsPort specifies the port of security token exchange server (STS).
 	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`
-
-	// Envoy status port redirecting to agent status port.
-	EnvoyStatusPort int `json:"ENVOY_STATUS_PORT,omitempty"`
-
-	// Envoy prometheus port redirecting to admin port prometheus endpoint.
-	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,

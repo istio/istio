@@ -101,10 +101,7 @@ func (c *ServiceExportController) onServiceAdd(obj interface{}) {
 }
 
 func (c *ServiceExportController) Run(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
-		log.Error("Failed to sync ServiceExport controller cache")
-		return
-	}
+	cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced)
 	log.Infof("ServiceExport controller started")
 	go c.queue.Run(stopCh)
 }

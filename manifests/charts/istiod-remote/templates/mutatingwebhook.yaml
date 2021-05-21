@@ -40,7 +40,60 @@ metadata:
     app: sidecar-injector
     release: {{ .Release.Name }}
 webhooks:
-{{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
+{{- if .Values.sidecarInjectorWebhook.useLegacySelectors}}
+{{- /* Setup the "legacy" selectors. These are for backwards compatibility, will be removed in the future. */}}
+{{- include "core" . }}
+  namespaceSelector:
+  {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+    matchExpressions:
+    - key: name
+      operator: NotIn
+      values:
+      - {{ .Release.Namespace }}
+    - key: istio-injection
+      operator: NotIn
+      values:
+      - disabled
+    - key: istio-env
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+  {{- else if .Values.revision }}
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: In
+      values:
+      - {{ .Values.revision }}
+  {{- else }}
+    matchLabels:
+      istio-injection: enabled
+  {{- end }}
+  {{- if .Values.sidecarInjectorWebhook.objectSelector.enabled }}
+  objectSelector:
+    {{- if .Values.sidecarInjectorWebhook.objectSelector.autoInject }}
+    matchExpressions:
+    - key: "sidecar.istio.io/inject"
+      operator: NotIn
+      values:
+      - "false"
+    {{- else if .Values.revision }}
+    matchExpressions:
+    - key: "sidecar.istio.io/inject"
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: In
+      values:
+      - {{ .Values.revision }}
+    {{- else }}
+    matchLabels:
+      "sidecar.istio.io/inject": "true"
+    {{- end }}
+  {{- end }}
+{{- else }}
+
+  {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
 
 {{- /* Case 1: namespace selector matches, and object doesn't disable */}}
 {{- /* Note: if both revision and legacy selector, we give precedence to the legacy one */}}
@@ -140,5 +193,6 @@ webhooks:
       operator: DoesNotExist
 {{- end }}
 
+{{- end }}
 {{- end }}
 {{- end }}

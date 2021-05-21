@@ -29,6 +29,7 @@ import (
 // the agent will capture all DNS requests and attempt to resolve locally before forwarding to upstream
 // dns servers/
 type NdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
@@ -67,15 +68,14 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !ndsNeedsPush(req) {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil
 	}
 	nt := n.Server.ConfigGenerator.BuildNameTable(proxy, push)
 	if nt == nil {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil
 	}
 	resources := model.Resources{&discovery.Resource{Resource: util.MessageToAny(nt)}}
-	return resources, model.DefaultXdsLogDetails, nil
+	return resources, nil
 }

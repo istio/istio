@@ -51,6 +51,7 @@ const (
 
 // StatusGen is a Generator for XDS status: connections, syncz, configdump
 type StatusGen struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 
 	// TODO: track last N Nacks and connection events, with 'version' based on timestamp.
@@ -67,8 +68,7 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 // - connection status
 // - NACKs
 // We can also expose ACKS.
-func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
 	res := model.Resources{}
 
 	switch w.TypeUrl {
@@ -94,7 +94,7 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 			break
 		}
 	}
-	return res, model.DefaultXdsLogDetails, nil
+	return res, nil
 }
 
 // isSidecar ad-hoc method to see if connection represents a sidecar

@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	informersv1 "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	k8stesting "k8s.io/client-go/testing"
@@ -74,6 +75,8 @@ type authorizationResponse struct {
 }
 
 var _ secrets.Controller = &SecretsController{}
+
+type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
 func NewSecretsController(client kube.Client, clusterID string) *SecretsController {
 	// Informer is lazy loaded, load it now

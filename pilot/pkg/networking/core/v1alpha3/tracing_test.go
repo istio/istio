@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"testing"
 
-	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
@@ -35,11 +34,8 @@ import (
 )
 
 func TestConfigureTracing(t *testing.T) {
-	clusterName := "testcluster"
-	providerName := "foo"
-
 	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
-		return "testhost", clusterName, nil
+		return "testhost", "testcluster", nil
 	}
 	defer func() {
 		clusterLookupFn = extensionproviders.LookupCluster
@@ -59,14 +55,14 @@ func TestConfigureTracing(t *testing.T) {
 		{
 			name:   "only telemetry api (no provider)",
 			inSpec: fakeTracingSpecNoProvider(99.999, false),
-			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
+			opts:   fakeOptsOnlyTelemetryAPI(),
 			want:   fakeTracingConfigNoProvider(99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "only telemetry api (with provider)",
-			inSpec: fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
-			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
-			want:   fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
+			opts:   fakeOptsOnlyTelemetryAPI(),
+			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "both tracing enabled (no provider)",
@@ -82,21 +78,15 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:   "both tracing enabled (with provider)",
-			inSpec: fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
+			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
 			opts:   fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:   fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 		},
 		{
 			name:   "both tracing disabled (with provider)",
-			inSpec: fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
+			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
 			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:   fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
-		},
-		{
-			name:   "basic config (with skywalking provicer)",
-			inSpec: fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
-			opts:   fakeOptsOnlySkywalkingTelemetryAPI(),
-			want:   fakeTracingConfig(fakeSkywalkingProvider(clusterName, providerName), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 		},
 	}
 
@@ -177,7 +167,7 @@ func fakeOptsNoTelemetryAPI() buildListenerOpts {
 	return opts
 }
 
-func fakeOptsOnlyZipkinTelemetryAPI() buildListenerOpts {
+func fakeOptsOnlyTelemetryAPI() buildListenerOpts {
 	var opts buildListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -240,32 +230,6 @@ func fakeOptsMeshAndTelemetryAPI(enableTracing bool) buildListenerOpts {
 					},
 				},
 			},
-		},
-	}
-
-	return opts
-}
-
-func fakeOptsOnlySkywalkingTelemetryAPI() buildListenerOpts {
-	var opts buildListenerOpts
-	opts.push = &model.PushContext{
-		Mesh: &meshconfig.MeshConfig{
-			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
-				{
-					Name: "foo",
-					Provider: &meshconfig.MeshConfig_ExtensionProvider_Skywalking{
-						Skywalking: &meshconfig.MeshConfig_ExtensionProvider_SkyWalkingTracingProvider{
-							Service: "skywalking-oap.istio-system.svc.cluster.local",
-							Port:    11800,
-						},
-					},
-				},
-			},
-		},
-	}
-	opts.proxy = &model.Proxy{
-		Metadata: &model.NodeMetadata{
-			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
 	}
 
@@ -343,34 +307,17 @@ var fakeEnvTag = &tracing.CustomTag{
 	},
 }
 
-func fakeZipkinProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
-	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
-		CollectorCluster:         expectClusterName,
-		CollectorEndpoint:        "/api/v2/spans",
-		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
-		TraceId_128Bit:           true,
-		SharedSpanContext:        wrapperspb.Bool(false),
-	}
-	fakeZipkinAny, _ := anypb.New(fakeZipkinProviderConfig)
-	return &tracingcfg.Tracing_Http{
-		Name:       expectProviderName,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeZipkinAny},
-	}
+var fakeZipkinProviderConfig = &tracingcfg.ZipkinConfig{
+	CollectorCluster:         "testcluster",
+	CollectorEndpoint:        "/api/v2/spans",
+	CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+	TraceId_128Bit:           true,
+	SharedSpanContext:        wrapperspb.Bool(false),
 }
 
-func fakeSkywalkingProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
-	fakeSkywalkingProviderConfig := &tracingcfg.SkyWalkingConfig{
-		GrpcService: &envoy_config_core_v3.GrpcService{
-			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
-					ClusterName: expectClusterName,
-				},
-			},
-		},
-	}
-	fakeSkywalkingAny, _ := anypb.New(fakeSkywalkingProviderConfig)
-	return &tracingcfg.Tracing_Http{
-		Name:       expectProviderName,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeSkywalkingAny},
-	}
+var fakeZipkinAny, _ = anypb.New(fakeZipkinProviderConfig)
+
+var fakeZipkinProvider = &tracingcfg.Tracing_Http{
+	Name:       "foo",
+	ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeZipkinAny},
 }

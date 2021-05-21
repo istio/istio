@@ -384,7 +384,7 @@ message GlobalConfig {
   IstiodConfig istiod = 54;
 
   // Configure the Pilot certificate provider.
-  // Currently, four providers are supported: "kubernetes", "istiod", "custom" and "none".
+  // Currently, two providers are supported: "kubernetes" and "citadel".
   string pilotCertProvider = 56;
 
   // Configure the policy for validating JWT.
@@ -1004,7 +1004,7 @@ message SidecarInjectorConfig {
   // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
   // requests in Istiod, rather than at the webhook selection level.
   // This is option is intended for migration purposes only and will be removed in Istio 1.10.
-  google.protobuf.BoolValue useLegacySelectors = 4 [deprecated=true];
+  google.protobuf.BoolValue useLegacySelectors = 4;
 }
 
 // Configuration for each of the supported tracers.

@@ -59,7 +59,7 @@ func TestGetTokenForXDS(t *testing.T) {
 		PilotCertProvider:              "istiod",
 		OutputKeyCertToDir:             "",
 		ProvCert:                       "",
-		WorkloadUDSPath:                "./etc/istio/proxy/SDS",
+		WorkloadUDSPath:                security.DefaultLocalSDSPath,
 		ClusterID:                      "",
 		FileMountedCerts:               false,
 		WorkloadNamespace:              "",

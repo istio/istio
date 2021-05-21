@@ -241,6 +241,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	processingArgs := settings.DefaultArgs()
 	processingArgs.KubeConfig = args.RegistryOptions.KubeConfig
+	processingArgs.WatchedNamespaces = args.RegistryOptions.KubeOptions.WatchedNamespaces
 	processingArgs.EnableConfigAnalysis = true
 	meshSource := mesh.NewInmemoryMeshCfg()
 	meshSource.Set(s.environment.Mesh())

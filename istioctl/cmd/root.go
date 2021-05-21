@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
@@ -124,7 +124,7 @@ func ConfigAndEnvProcessing() error {
 }
 
 func init() {
-	viper.SetDefault("istioNamespace", constants.IstioSystemNamespace)
+	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	viper.SetDefault("xds-port", 15012)
 }
 

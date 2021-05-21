@@ -24,6 +24,11 @@ import (
 	protovalue "istio.io/istio/pkg/proto"
 )
 
+const (
+	// Service account for Pilot (hardcoded values at setup time)
+	PilotSvcAccName string = "istio-pilot-service-account"
+)
+
 // SupportedCiphers for server side TLS configuration.
 var SupportedCiphers = []string{
 	"ECDHE-ECDSA-AES256-GCM-SHA384",

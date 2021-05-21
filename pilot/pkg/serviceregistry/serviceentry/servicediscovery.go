@@ -902,7 +902,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
 	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
 	// So we bump X to 511, so that the resulting IP is 240.240.2.1
-	maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
+	maxIPs := 255 * 255 // are we going to exceeed this limit by processing 64K services?
 	x := 0
 	for _, svc := range services {
 		// we can allocate IPs only if

@@ -24,6 +24,7 @@ import (
 )
 
 type LdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
@@ -56,10 +57,9 @@ func ldsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
 	if !ldsNeedsPush(req) {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil
 	}
 	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, push)
 	resources := model.Resources{}
@@ -69,5 +69,5 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 			Resource: util.MessageToAny(c),
 		})
 	}
-	return resources, model.DefaultXdsLogDetails, nil
+	return resources, nil
 }

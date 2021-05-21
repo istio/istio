@@ -19,7 +19,6 @@ import (
 	"io"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -173,25 +172,14 @@ func (s *scope) waitForDone() {
 }
 
 func (s *scope) dump(ctx resource.Context) {
-	st := time.Now()
-	defer func() {
-		scopes.Framework.Infof("Done dumping scope: %s (%v)", s.id, time.Since(st))
-	}()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, c := range s.children {
 		c.dump(ctx)
 	}
-	wg := sync.WaitGroup{}
 	for _, c := range s.resources {
 		if d, ok := c.(resource.Dumper); ok {
-			d := d
-			wg.Add(1)
-			go func() {
-				d.Dump(ctx)
-				wg.Done()
-			}()
+			d.Dump(ctx)
 		}
 	}
-	wg.Wait()
 }

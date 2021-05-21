@@ -49,7 +49,7 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 	for {
 		caSecret, scrtErr = csc.client.Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 		if scrtErr == nil {
-			return caSecret, nil
+			return caSecret, scrtErr
 		}
 		k8sControllerLog.Errorf("Failed on loading CA secret %s:%s.",
 			namespace, secretName)
