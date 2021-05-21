@@ -129,20 +129,23 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	if logdata.Incremental {
 		ptype = "PUSH INC"
 	}
-	if len(info) > 0 {
+	if len(logdata.AdditionalInfo) > 0 {
 		info = " " + logdata.AdditionalInfo
 	}
 
-	if log.DebugEnabled() && logdata.Incremental {
-		log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
-			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
-	} else if log.DebugEnabled() {
-		// Add additional information to logs when debug mode enabled
-		log.Infof("%s: %s%s for node:%s resources:%d size:%s nonce:%v version:%v%s",
-			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), resp.Nonce, resp.VersionInfo, info)
-	} else {
-		log.Infof("%s: %s%s for node:%s resources:%d size:%s%s",
-			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+	switch {
+	case logdata.Incremental:
+		if log.DebugEnabled() {
+			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+		}
+	default:
+		debug := ""
+		if log.DebugEnabled() {
+			// Add additional information to logs when debug mode enabled.
+			debug = " size:" + util.ByteCount(ResourceSize(res)) + " nonce:" + resp.Nonce + " version:%" + resp.VersionInfo
+		}
+		log.Infof("%s: %s for node:%s resources:%d%s%s", ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), info, debug)
 	}
 
 	return nil

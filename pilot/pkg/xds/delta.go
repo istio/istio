@@ -476,21 +476,25 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if logdata.Incremental {
 		ptype = "PUSH INC"
 	}
-	if len(info) > 0 {
+	if len(logdata.AdditionalInfo) > 0 {
 		info = " " + logdata.AdditionalInfo
 	}
 
-	if log.DebugEnabled() && logdata.Incremental {
-		log.Debugf("%s: %s for node:%s resources:%d size:%s%s",
-			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
-	} else if log.DebugEnabled() {
-		// Add additional information to logs when debug mode enabled
-		log.Infof("%s: %s for node:%s resources:%d size:%s nonce:%v version:%v%s",
-			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.SystemVersionInfo, info)
-	} else {
-		log.Infof("%s: %s for node:%s resources:%d size:%s%s",
-			ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
+	switch {
+	case logdata.Incremental:
+		if log.DebugEnabled() {
+			log.Debugf("%s: %s for node:%s resources:%d size:%s%s",
+				ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), info)
+		}
+	default:
+		debug := ""
+		if log.DebugEnabled() {
+			// Add additional information to logs when debug mode enabled.
+			debug = " size:" + util.ByteCount(ResourceSize(res)) + " nonce:" + resp.Nonce + " version:%" + resp.SystemVersionInfo
+		}
+		log.Infof("%s: %s for node:%s resources:%d%s%s", ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), info, debug)
 	}
+
 	return nil
 }
 
