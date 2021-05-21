@@ -241,9 +241,12 @@ dockerx:
 		DOCKER_ARCHITECTURES=$(DOCKER_ARCHITECTURES) \
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	@# Retry works around https://github.com/docker/buildx/issues/298
-	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker -D buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
-		{ docker logs buildx_buildkit_container-builder0; cat /var/log/docker.log; exit 1; }
 	cat /var/log/docker.log
+	df -h
+	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker -D buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
+		{ docker logs buildx_buildkit_container-builder0; df -h; cat /var/log/docker.log; exit 1; }
+	cat /var/log/docker.log
+	df -h
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:
