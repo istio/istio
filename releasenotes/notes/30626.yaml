@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 30626
+releaseNotes:
+- |
+  **Added** Adding a namespace level analyzer, currently works with Peer Authentication, Request Authentication and Authorization Policies of v1beta1.
