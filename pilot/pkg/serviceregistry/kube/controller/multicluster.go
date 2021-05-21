@@ -359,7 +359,7 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
-			Reason: []model.TriggerReason{model.UnknownTrigger},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}
