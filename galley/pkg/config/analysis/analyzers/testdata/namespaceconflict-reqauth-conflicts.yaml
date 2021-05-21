@@ -1,0 +1,73 @@
+# Generate testing namespaces
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: defaultconfig
+  namespace: default
+spec:
+  jwtRules:
+  - issuer: "issuer-foo"
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: defaultconfig2
+  namespace: default    
+spec:
+  jwtRules:
+  - issuer: "issuer-bar"    # This will generate a conflict since there are two namespace wide configurations
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: fooconfig
+  namespace: foo
+spec:
+  jwtRules:
+  - issuer: "issuer-foo"  # Will not generate a conflict since it's on a new namespace 
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: seldummybar
+  namespace: bar
+spec:
+  selector:
+    matchLabels:
+      app: dummy
+  jwtRules:
+  - issuer: "issuer-foo"
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: seldummybar2
+  namespace: bar          # Will generate a conflict since there's a selector in bar for app:dummy
+spec:
+  selector:
+    matchLabels:
+      app: dummy
+  jwtRules:
+  - issuer: "issuer-bar"
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: seldummydefault
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: dummy          # Will generate a conflict since there's already a namespace wide configuration
+  jwtRules:
+  - issuer: "issuer-foo"

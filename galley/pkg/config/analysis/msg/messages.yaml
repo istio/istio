@@ -468,3 +468,19 @@ messages:
         type: string
       - name: hosts
         type: string
+
+
+  - name: "NamespaceResourceConflict"
+    code: IST0146
+    level: Warning
+    description: "Multiple specifiers of the same kind in a namespace select the same workload."
+    template: "More than one %s in namespace %q for workload %q: %v."
+    args:
+      - name: kind
+        type: string
+      - name: namespace
+        type: string
+      - name: workloadSelector
+        type: string
+      - name: conflictingCRs
+        type: "[]string"
