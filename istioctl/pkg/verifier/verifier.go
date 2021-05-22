@@ -394,13 +394,13 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 
 	revCount := 0
 	var hookmatch *admit_v1.MutatingWebhookConfiguration
-	for _, hook := range hooks.Items {
+	for i, hook := range hooks.Items {
 		rev := hook.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
 		if rev != "" {
 			revCount++
 			revision = rev
 			if revision == "" || revision == rev {
-				hookmatch = &hook
+				hookmatch = &hooks.Items[i]
 			}
 		}
 	}

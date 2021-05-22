@@ -1051,6 +1051,19 @@ func TestApplyOutlierDetection(t *testing.T) {
 				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
 			},
 		},
+		{
+			"Local origin errors is enabled",
+			&networking.OutlierDetection{
+				SplitExternalLocalOriginErrors: true,
+				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
+			},
+			&cluster.OutlierDetection{
+				EnforcingSuccessRate:            &wrappers.UInt32Value{Value: 0},
+				SplitExternalLocalOriginErrors:  true,
+				ConsecutiveLocalOriginFailure:   &wrappers.UInt32Value{Value: 10},
+				EnforcingLocalOriginSuccessRate: &wrappers.UInt32Value{Value: 0},
+			},
+		},
 	}
 
 	for _, tt := range tests {
