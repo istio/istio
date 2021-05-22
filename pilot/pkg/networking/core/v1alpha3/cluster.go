@@ -605,6 +605,15 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
 	}
 
+	if outlier.SplitExternalLocalOriginErrors {
+		out.SplitExternalLocalOriginErrors = true
+		if outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
+			out.ConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: outlier.ConsecutiveLocalOriginFailures.Value}
+		}
+		// SuccessRate based outlier detection should be disabled.
+		out.EnforcingLocalOriginSuccessRate = &wrappers.UInt32Value{Value: 0}
+	}
+
 	c.OutlierDetection = out
 
 	// Disable panic threshold by default as its not typically applicable in k8s environments
