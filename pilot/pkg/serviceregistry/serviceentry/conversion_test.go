@@ -138,7 +138,6 @@ var httpDNSnoEndpoints = &config.Config{
 		Name:              "httpDNSnoEndpoints",
 		Namespace:         "httpDNSnoEndpoints",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"google.com", "www.wikipedia.org"},
@@ -174,7 +173,6 @@ var httpDNS = &config.Config{
 		Name:              "httpDNS",
 		Namespace:         "httpDNS",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
@@ -209,7 +207,6 @@ var tcpDNS = &config.Config{
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"tcpdns.com"},
@@ -237,7 +234,6 @@ var tcpStatic = &config.Config{
 		Name:              "tcpStatic",
 		Namespace:         "tcpStatic",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcpstatic.com"},
@@ -266,7 +262,6 @@ var httpNoneInternal = &config.Config{
 		Name:              "httpNoneInternal",
 		Namespace:         "httpNoneInternal",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"*.google.com"},
@@ -285,7 +280,6 @@ var tcpNoneInternal = &config.Config{
 		Name:              "tcpNoneInternal",
 		Namespace:         "tcpNoneInternal",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcpinternal.com"},
@@ -304,7 +298,6 @@ var multiAddrInternal = &config.Config{
 		Name:              "multiAddrInternal",
 		Namespace:         "multiAddrInternal",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts:     []string{"tcp1.com", "tcp2.com"},
@@ -344,7 +337,6 @@ var selectorDNS = &config.Config{
 		Name:              "selector",
 		Namespace:         "selector",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
@@ -366,7 +358,6 @@ var selector = &config.Config{
 		Name:              "selector",
 		Namespace:         "selector",
 		CreationTimestamp: GlobalTime,
-		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
