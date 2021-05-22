@@ -143,9 +143,10 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		debug := ""
 		if log.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled.
-			debug = " size:" + util.ByteCount(ResourceSize(res)) + " nonce:" + resp.Nonce + " version:%" + resp.VersionInfo
+			debug = " nonce:" + resp.Nonce + " version:%" + resp.VersionInfo
 		}
-		log.Infof("%s: %s for node:%s resources:%d%s%s", ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), info, debug)
+		log.Infof("%s: %s for node:%s resources:%d size:%v%s%s", ptype, v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res),
+			util.ByteCount(ResourceSize(res)), info, debug)
 	}
 
 	return nil
