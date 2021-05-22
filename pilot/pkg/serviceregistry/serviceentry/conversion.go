@@ -226,6 +226,7 @@ func convertServices(cfg config.Config) []*model.Service {
 					Namespace:       cfg.Namespace,
 					ExportTo:        exportTo,
 					LabelSelectors:  labelSelectors,
+					Labels:          cfg.Labels,
 				},
 				ServiceAccounts: serviceEntry.SubjectAltNames,
 			})

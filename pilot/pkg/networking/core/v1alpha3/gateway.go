@@ -44,6 +44,17 @@ import (
 	"istio.io/pkg/log"
 )
 
+// DisableGatewayPortTranslationLabel is a label on Service that declares that, for that particular
+// service, we should not translate Gateway ports to target ports. For example, if I have a Service
+// on port 80 with target port 8080, with the label. Gateways on port 80 would *not* match. Instead,
+// only Gateways on port 8080 would be used. This prevents ambiguities when there are multiple
+// Services on port 80 referring to different target ports. Long term, this will be replaced by
+// Gateways directly referencing a Service, rather than label selectors. Warning: this label is
+// intended solely for as a workaround for Knative's Istio integration, and not intended for any
+// other usage. It can, and will, be removed immediately after the new direct reference is ready for
+// use.
+const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gateway-port-translation"
+
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
 		log.Debug("buildGatewayListeners: no gateways for router ", builder.node.ID)
@@ -62,7 +73,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	for portNumber, servers := range mergedGateway.Servers {
 		var si *model.ServiceInstance
 		services := make(map[host.Name]struct{}, len(builder.node.ServiceInstances))
+		foundDirectPortTranslation := false
 		for _, w := range builder.node.ServiceInstances {
+			_, directPortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]
+			if directPortTranslation {
+				if w.Endpoint.EndpointPort == portNumber {
+					foundDirectPortTranslation = true
+				}
+				continue
+			}
 			if w.ServicePort.Port == int(portNumber) {
 				if si == nil {
 					si = w
@@ -70,14 +89,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				services[w.Service.Hostname] = struct{}{}
 			}
 		}
-		if len(services) != 1 {
+		if len(services) == 0 && foundDirectPortTranslation {
+			log.Debugf("buildGatewayListeners: using direct port mapping due to disable label for %v",
+				portNumber)
+		} else if len(services) != 1 {
 			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
 				len(services), portNumber, services)
 		}
+
 		// if we found a ServiceInstance with matching ServicePort, listen on TargetPort
 		if si != nil && si.Endpoint != nil {
 			portNumber = si.Endpoint.EndpointPort
 		}
+
 		if builder.node.Metadata.UnprivilegedPod != "" && portNumber < 1024 {
 			log.Warnf("buildGatewayListeners: skipping privileged gateway port %d for node %s as it is an unprivileged pod",
 				portNumber, builder.node.ID)
