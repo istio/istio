@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -78,7 +77,6 @@ type Multicluster struct {
 
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
-	networksWatcher       mesh.NetworksWatcher
 	clusterLocal          model.ClusterLocalProvider
 
 	// fetchCaRoot maps the certificate name to the certificate
@@ -103,7 +101,6 @@ func NewMulticluster(
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	fetchCaRoot func() map[string]string,
-	networksWatcher mesh.NetworksWatcher,
 	clusterLocal model.ClusterLocalProvider,
 	s server.Instance,
 ) *Multicluster {
@@ -118,7 +115,6 @@ func NewMulticluster(
 		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
-		networksWatcher:       networksWatcher,
 		clusterLocal:          clusterLocal,
 		secretNamespace:       secretNamespace,
 		syncInterval:          opts.GetSyncInterval(),
