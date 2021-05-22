@@ -389,7 +389,6 @@ func (c *Controller) defaultNetwork() string {
 }
 
 func (c *Controller) Cleanup() error {
-	// TODO(landow) do we need to cleanup other things besides endpoint shards?
 	svcs, err := c.serviceLister.List(klabels.NewSelector())
 	if err != nil {
 		return fmt.Errorf("error listing services for deletion: %v", err)
@@ -397,7 +396,6 @@ func (c *Controller) Cleanup() error {
 	for _, s := range svcs {
 		name := kube.ServiceHostname(s.Name, s.Namespace, c.domainSuffix)
 		c.xdsUpdater.SvcUpdate(c.clusterID, string(name), s.Namespace, model.EventDelete)
-		// TODO(landow) do we need to notify service handlers?
 	}
 	return nil
 }

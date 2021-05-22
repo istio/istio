@@ -137,7 +137,6 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	}
 
 	fullPush := false
-
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
 	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
@@ -146,24 +145,9 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 		fullPush = true
 	}
 
-	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
-	serviceAccounts := sets.Set{}
-	for _, e := range istioEndpoints {
-		if e.ServiceAccount != "" {
-			serviceAccounts.Insert(e.ServiceAccount)
-		}
-	}
-
 	ep.mutex.Lock()
-	// For existing endpoints, we need to do full push if service accounts change.
-	if !fullPush && !serviceAccounts.Equals(ep.ServiceAccounts) {
-		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
-			hostname, ep.ServiceAccounts, serviceAccounts)
-		log.Infof("Full push, service accounts changed, %v", hostname)
-		fullPush = true
-	}
+	saUpdated := s.UpdateServiceAccount(ep, clusterID, hostname, istioEndpoints)
 	ep.Shards[clusterID] = istioEndpoints
-	ep.ServiceAccounts = serviceAccounts
 	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
 	// condition is introduced where an XDS response may be generated before the update, but not
 	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
@@ -178,6 +162,11 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	}: {}})
 	ep.mutex.Unlock()
 
+	// For existing endpoints, we need to do full push if service accounts change.
+	if saUpdated {
+		log.Infof("Full push, service accounts changed, %v", hostname)
+		fullPush = true
+	}
 	return fullPush
 }
 
@@ -228,25 +217,52 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 
 	if s.EndpointShardsByService[serviceName] != nil &&
 		s.EndpointShardsByService[serviceName][namespace] != nil {
-
-		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
-		shards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		epShards := s.EndpointShardsByService[serviceName][namespace]
+		epShards.mutex.Lock()
+		delete(epShards.Shards, cluster)
+		shardsLen := len(epShards.Shards)
+		s.UpdateServiceAccount(epShards, cluster, serviceName, nil)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 		s.Cache.Clear(map[model.ConfigKey]struct{}{{
 			Kind:      gvk.ServiceEntry,
 			Name:      serviceName,
 			Namespace: namespace,
 		}: {}})
-		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
-
-		if shards == 0 {
+		epShards.mutex.Unlock()
+		if shardsLen == 0 {
 			delete(s.EndpointShardsByService[serviceName], namespace)
 		}
 		if len(s.EndpointShardsByService[serviceName]) == 0 {
 			delete(s.EndpointShardsByService, serviceName)
 		}
 	}
+}
+
+// UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
+// Note: it is not concurrent safe.
+func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, clusterID, serviceName string, endpoints []*model.IstioEndpoint) bool {
+	oldServiceAccount := shards.ServiceAccounts
+	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
+	serviceAccounts := sets.Set{}
+	for cluster, epShards := range shards.Shards {
+		if cluster == clusterID {
+			epShards = endpoints
+		}
+		for _, ep := range epShards {
+			if ep.ServiceAccount != "" {
+				serviceAccounts.Insert(ep.ServiceAccount)
+			}
+		}
+	}
+
+	if !oldServiceAccount.Equals(serviceAccounts) {
+		shards.ServiceAccounts = serviceAccounts
+		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+			serviceName, oldServiceAccount, serviceAccounts)
+		return true
+	}
+
+	return false
 }
 
 // llbEndpointAndOptionsForCluster return the endpoints for a cluster
