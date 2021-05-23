@@ -8,6 +8,7 @@ ExecStopPost=/usr/local/bin/istio-start.sh clean
 Restart=always
 StartLimitInterval=0
 RestartSec=10
+KillMode=mixed
 
 [Install]
 WantedBy=multi-user.target
