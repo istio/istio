@@ -23,6 +23,7 @@ import (
 	"github.com/miekg/dns"
 
 	nds "istio.io/istio/pilot/pkg/proto"
+	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -354,9 +355,21 @@ func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNa
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
 	var hostFound bool
-	if _, hostFound = table.allHosts[hostname]; !hostFound {
-		// this is not from our registry
-		return nil, false
+
+	hname := host.Name(hostname)
+	if hname.IsWildCarded() {
+		// Check matching hosts for wildcard hosts.
+		for h := range table.allHosts {
+			if hname.Matches(host.Name(h)) {
+				hostFound = true
+				break
+			}
+		}
+	} else {
+		if _, hostFound = table.allHosts[hostname]; !hostFound {
+			// this is not from our registry
+			return nil, false
+		}
 	}
 
 	var out []dns.RR

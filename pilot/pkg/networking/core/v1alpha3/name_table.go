@@ -64,7 +64,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		// as two different TCP services are consuming the
 		// same wildcard passthrough TCP listener 0.0.0.0:3306.
 		//
-		if svc.Hostname.IsWildCarded() {
+		if svc.Hostname.IsWildCarded() && !hasHttpPorts(svc) {
 			continue
 		}
 
@@ -149,4 +149,15 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		out.Table[string(svc.Hostname)] = nameInfo
 	}
 	return out
+}
+
+// hasHttpPorts returns true if service has http ports.
+// nolint
+func hasHttpPorts(svc *model.Service) bool {
+	for _, port := range svc.Ports {
+		if port.Protocol.IsHTTP() {
+			return true
+		}
+	}
+	return false
 }

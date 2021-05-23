@@ -140,6 +140,11 @@ func TestDNS(t *testing.T) {
 			expected: a("dual.localhost.", []net.IP{net.ParseIP("2.2.2.2").To4()}),
 		},
 		{
+			name:     "success: wild card returns A record correctly",
+			host:     "*.wildcard.",
+			expected: a("*.wildcard.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
+		},
+		{
 			name:      "success: TypeAAAA query returns AAAA records only",
 			host:      "dual.localhost.",
 			queryAAAA: true,
@@ -440,6 +445,10 @@ func initDNS(t test.Failer) *LocalDNSServer {
 			},
 			"ipv4.localhost": {
 				Ips:      []string{"2.2.2.2"},
+				Registry: "External",
+			},
+			"*.wildcard": {
+				Ips:      []string{"10.10.10.10"},
 				Registry: "External",
 			},
 		},
