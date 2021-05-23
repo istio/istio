@@ -29,7 +29,7 @@ import (
 
 var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
 
-// upstreamServer holds the dns.Conn and the last used time for an upstream server.
+// upstreamServer holds the dns.Conn for an upstream server.
 type upstreamServer struct {
 	sync.RWMutex
 	c       *dns.Conn
@@ -309,7 +309,6 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 		if conn == nil {
 			upstream.initConnection(p.upstreamClient)
 		}
-
 		if cResponse, _, err := p.upstreamClient.ExchangeWithConn(req, conn); err == nil {
 			response = cResponse
 			break
