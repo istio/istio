@@ -407,7 +407,6 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	if revision == "" {
 		revision = "default"
 	}
-	labels[label.IoIstioRev.Name] = revision
 
 	return labels, nil
 }

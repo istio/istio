@@ -31,6 +31,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/api/label"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -49,6 +50,9 @@ var (
 		},
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name: istiod,
+			Labels: map[string]string{
+				label.IoIstioRev.Name: revision,
+			},
 		},
 		Webhooks: []kubeApiAdmission.ValidatingWebhook{{
 			Name: "hook0",
@@ -157,16 +161,17 @@ type fakeController struct {
 const (
 	namespace = "istio-system"
 	istiod    = "istiod"
+	revision  = "revision"
 )
 
 func createTestController(t *testing.T) *fakeController {
 	fakeClient := kube.NewFakeClient()
 	watcher := &keycertbundle.Watcher{}
 	o := Options{
-		WatchedNamespace:  namespace,
-		WebhookConfigName: istiod,
-		ServiceName:       istiod,
-		CABundleWatcher:   watcher,
+		WatchedNamespace: namespace,
+		ServiceName:      istiod,
+		CABundleWatcher:  watcher,
+		Revision:         revision,
 	}
 	watcher.SetAndNotify(nil, nil, caBundle0)
 
@@ -196,7 +201,10 @@ func reconcileHelper(t *testing.T, c *fakeController) {
 	t.Helper()
 
 	c.ClearActions()
-	if _, err := c.reconcileRequest(&reconcileRequest{"test"}); err != nil {
+	if _, err := c.reconcileRequest(&reconcileRequest{
+		event:       updateEvent,
+		webhookName: istiod,
+	}); err != nil {
 		t.Fatalf("unexpected reconciliation error: %v", err)
 	}
 }
@@ -235,7 +243,7 @@ func TestGreenfield(t *testing.T) {
 		return true, &v1alpha3.Gateway{}, kubeErrors.NewInternalError(errors.New(deniedRequestMessageFragment))
 	})
 	reconcileHelper(t, c)
-	g.Expect(c.Actions()[0].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
+	g.Expect(c.Actions()[2].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
 	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), istiod, kubeApiMeta.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleFail),
 			"istiod config created when endpoint is ready and invalid config is denied")

@@ -62,19 +62,13 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
 		}
 
-		o := controller.Options{
-			WatchedNamespace:  args.Namespace,
-			CABundleWatcher:   s.istiodCertBundleWatcher,
-			WebhookConfigName: webhookConfigName,
-			ServiceName:       "istiod",
-		}
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					whController, err := controller.New(o, s.kubeClient)
+					whController, err := controller.NewValidatingWebhookController(s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher)
 					if err != nil {
-						log.Errorf("failed to start validation controller")
+						log.Errorf("Failed to start validation controller: %v", err)
 						return
 					}
 					log.Infof("Starting validation controller")
@@ -84,7 +78,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 					// basically lazy loading the informer, if we stop it when we lose the lock we will never
 					// recreate it again.
 					s.kubeClient.RunAndWait(stop)
-					whController.Start(leaderStop)
+					whController.Run(leaderStop)
 				}).
 				Run(stop)
 			return nil

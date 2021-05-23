@@ -17,7 +17,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +38,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/webhooks"
+	"istio.io/istio/pkg/webhooks/validation/controller"
 )
 
 const (
@@ -262,11 +262,13 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		}
 		// Patch validation webhook cert
 		if m.caBundleWatcher != nil {
-			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
-			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
+			validationWebhookController, err := controller.NewValidatingWebhookController(client, m.revision,
 				m.secretNamespace, m.caBundleWatcher)
+			if err != nil {
+				log.Errorf("failed to start validation controller: %v", err)
+			}
 			if validationWebhookController != nil {
-				go validationWebhookController.Start(clusterStopCh)
+				go validationWebhookController.Run(clusterStopCh)
 			}
 		}
 	}
