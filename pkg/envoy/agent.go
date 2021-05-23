@@ -87,6 +87,12 @@ func (a *Agent) Run(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		a.terminate()
+		status := <-a.statusCh
+		if status.err == errAbort {
+			log.Infof("Epoch %d aborted normally", status.epoch)
+		} else {
+			log.Warnf("Epoch %d aborted abnormally", status.epoch)
+		}
 		log.Info("Agent has successfully terminated")
 		return nil
 	}
