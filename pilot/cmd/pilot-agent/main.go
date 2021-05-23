@@ -135,14 +135,14 @@ var (
 				Sidecar:           proxy.Type == model.SidecarProxy,
 				OutlierLogPath:    outlierLogPath,
 			}
-			agentOptions := options.NewAgentOptions(proxy)
+			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agent); err != nil {
+				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
 					return err
 				}
 			}
@@ -151,7 +151,12 @@ var (
 			go cmd.WaitSignalFunc(cancel)
 
 			// Start in process SDS, dns server, xds proxy, and Envoy.
-			return agent.Run(ctx)
+			wait, err := agent.Run(ctx)
+			if err != nil {
+				return err
+			}
+			wait()
+			return nil
 		},
 	}
 )
@@ -199,8 +204,10 @@ func init() {
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	probes ...ready.Prober) error {
+	envoyPrometheusPort int, probes ...ready.Prober) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, probes...)
+	o.EnvoyPrometheusPort = envoyPrometheusPort
+	o.Context = ctx
 	statusServer, err := status.NewServer(*o)
 	if err != nil {
 		return err

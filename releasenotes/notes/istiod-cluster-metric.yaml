@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+- |
+  **Added** a new metric (`istiod_managed_clusters`) to `istiod` to track the number of clusters managed by an
+  `istiod` instance.

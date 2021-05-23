@@ -98,7 +98,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	t0 := time.Now()
 
-	res, err := gen.Generate(con.proxy, push, w, req)
+	res, logdata, err := gen.Generate(con.proxy, push, w, req)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -124,15 +124,28 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		return err
 	}
 
-	// Some types handle logs inside Generate, skip them here
-	if !gen.Metadata().LogsDetails {
+	ptype := "PUSH"
+	info := ""
+	if logdata.Incremental {
+		ptype = "PUSH INC"
+	}
+	if len(logdata.AdditionalInfo) > 0 {
+		info = " " + logdata.AdditionalInfo
+	}
+
+	if logdata.Incremental {
+		if log.DebugEnabled() {
+			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+		}
+	} else {
 		if log.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled
-			log.Infof("%s: PUSH%s for node:%s resources:%d size:%s nonce:%v version:%v",
-				v3.GetShortType(w.TypeUrl), req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), resp.Nonce, resp.VersionInfo)
+			log.Infof("%s: %s%s for node:%s resources:%d size:%s nonce:%v version:%v%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), resp.Nonce, resp.VersionInfo, info)
 		} else {
-			log.Infof("%s: PUSH%s for node:%s resources:%d size:%s",
-				v3.GetShortType(w.TypeUrl), req.PushReason(), con.ConID, len(res), util.ByteCount(configSize))
+			log.Infof("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
 		}
 	}
 

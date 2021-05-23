@@ -201,8 +201,7 @@ data:
           "enabled": true
         },
         "rewriteAppHTTPProbe": true,
-        "templates": {},
-        "useLegacySelectors": false
+        "templates": {}
       }
     }
 
@@ -415,9 +414,9 @@ data:
           {{- if .Values.global.logAsJson }}
             - --log_as_json
           {{- end }}
-          {{- if gt .ProxyConfig.Concurrency.GetValue 0 }}
+          {{- if gt .EstimatedConcurrency 0 }}
             - --concurrency
-            - "{{ .ProxyConfig.Concurrency.GetValue }}"
+            - "{{ .EstimatedConcurrency }}"
           {{- end -}}
           {{- if .Values.global.proxy.lifecycle }}
             lifecycle:
@@ -643,16 +642,6 @@ data:
                 - path: "annotations"
                   fieldRef:
                     fieldPath: metadata.annotations
-                - path: "cpu-limit"
-                  resourceFieldRef:
-                    containerName: istio-proxy
-                    resource: limits.cpu
-                    divisor: 1m
-                - path: "cpu-request"
-                  resourceFieldRef:
-                    containerName: istio-proxy
-                    resource: requests.cpu
-                    divisor: 1m
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             projected:
@@ -871,16 +860,6 @@ data:
                 - path: "annotations"
                   fieldRef:
                     fieldPath: metadata.annotations
-                - path: "cpu-limit"
-                  resourceFieldRef:
-                    containerName: istio-proxy
-                    resource: limits.cpu
-                    divisor: 1m
-                - path: "cpu-request"
-                  resourceFieldRef:
-                    containerName: istio-proxy
-                    resource: requests.cpu
-                    divisor: 1m
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             projected:
@@ -1564,6 +1543,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
+                      "disable_host_header_fallback": true,
                       "metrics": [
                         {
                           "dimensions": {
@@ -1956,6 +1936,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
+                      "disable_host_header_fallback": true,
                       "metrics": [
                         {
                           "dimensions": {

@@ -317,9 +317,11 @@ func TestGolden(t *testing.T) {
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
 				},
-				OutlierLogPath:     "/dev/stdout",
-				ProxyViaAgent:      c.proxyViaAgent,
-				annotationFilePath: annoFile.Name(),
+				OutlierLogPath:      "/dev/stdout",
+				ProxyViaAgent:       c.proxyViaAgent,
+				annotationFilePath:  annoFile.Name(),
+				EnvoyPrometheusPort: 15090,
+				EnvoyStatusPort:     15021,
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -557,6 +559,9 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 		gobase = "../.."
 	}
 	cfg.CustomConfigFile = gobase + "/tools/packaging/common/envoy_bootstrap.json"
+	if cfg.StatusPort == 0 {
+		cfg.StatusPort = 15020
+	}
 	return cfg, nil
 }
 

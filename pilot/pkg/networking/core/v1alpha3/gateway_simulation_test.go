@@ -25,6 +25,230 @@ import (
 	"istio.io/pkg/env"
 )
 
+func TestTargetPort(t *testing.T) {
+	virtualServices := `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: a
+spec:
+  hosts:
+  - "example.com"
+  gateways:
+  - gateway80
+  - gateway8081
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: a
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: b
+spec:
+  hosts:
+  - "example.com"
+  gateways:
+  - gateway80
+  - gateway8081
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: b
+        port:
+          number: 8081`
+	runGatewayTest(t,
+		simulationTest{
+			name: "multiple target port, target port first",
+			config: createGateway("gateway80", "", `
+port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+`) + createGateway("gateway8081", "", `
+port:
+  number: 8081
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+  labels:
+    experimental.istio.io/disable-gateway-port-translation: "true"
+spec:
+  hosts: ["a.example.com"]
+  ports:
+  - number: 80
+    targetPort: 8081
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio: ingressgateway
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance-2
+  namespace: istio-system
+spec:
+  hosts: ["b.example.com"]
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio: ingressgateway
+---
+` + virtualServices,
+			calls: []simulation.Expect{
+				{
+					Name: "target port 1",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.80",
+						VirtualHostMatched: "example.com:80",
+					},
+				},
+				{
+					Name: "target port 2",
+					Call: simulation.Call{
+						Port:       8081,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8081",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8081",
+						VirtualHostMatched: "example.com:8081",
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "multiple target port, service port first",
+			config: createGateway("gateway80", "", `
+port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+`) + createGateway("gateway8081", "", `
+port:
+  number: 8081
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+  labels:
+    experimental.istio.io/disable-gateway-port-translation: "true"
+spec:
+  hosts: ["b.example.com"]
+  ports:
+  - number: 80
+    targetPort: 8081
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio: ingressgateway
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance-2
+  namespace: istio-system
+spec:
+  hosts: ["a.example.com"]
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio: ingressgateway
+---
+` + virtualServices,
+			calls: []simulation.Expect{
+				{
+					Name: "target port 1",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.80",
+						VirtualHostMatched: "example.com:80",
+					},
+				},
+				{
+					Name: "target port 2",
+					Call: simulation.Call{
+						Port:       8081,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8081",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8081",
+						VirtualHostMatched: "example.com:8081",
+					},
+				},
+			},
+		})
+}
+
 func TestHTTPGateway(t *testing.T) {
 	httpServer := `port:
   number: 80
@@ -811,13 +1035,14 @@ var debugMode = env.RegisterBoolVar("SIMULATION_DEBUG", true, "if enabled, will 
 
 func runGatewayTest(t *testing.T, cases ...simulationTest) {
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			proxy := &model.Proxy{
-				Metadata: &model.NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
-				Type:     model.Router,
-			}
-			runSimulationTest(t, proxy, xds.FakeOptions{}, tt)
-		})
+		proxy := &model.Proxy{
+			Metadata: &model.NodeMetadata{
+				Labels:    map[string]string{"istio": "ingressgateway"},
+				Namespace: "istio-system",
+			},
+			Type: model.Router,
+		}
+		runSimulationTest(t, proxy, xds.FakeOptions{}, tt)
 	}
 }
 

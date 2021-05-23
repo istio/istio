@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/pkg/log"
@@ -166,8 +167,13 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			}
 		}
 	} else {
-		log.Infof("User specified cert provider: %v", features.PilotCertProvider.Get())
-		return nil
+		customCACertPath := security.DefaultRootCertFilePath
+		log.Infof("User specified cert provider: %v, mounted in a well known location %v",
+			features.PilotCertProvider.Get(), customCACertPath)
+		caBundle, err = ioutil.ReadFile(customCACertPath)
+		if err != nil {
+			return fmt.Errorf("failed reading %s: %v", customCACertPath, err)
+		}
 	}
 	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
 	return nil
