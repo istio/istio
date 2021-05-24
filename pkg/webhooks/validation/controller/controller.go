@@ -99,26 +99,22 @@ type Controller struct {
 
 // NewValidatingWebhookController creates a new Controller.
 func NewValidatingWebhookController(client kube.Client,
-	revision, ns string, caBundleWatcher *keycertbundle.Watcher) (*Controller, error) {
+	revision, ns string, caBundleWatcher *keycertbundle.Watcher) *Controller {
 	o := Options{
 		WatchedNamespace: ns,
 		CABundleWatcher:  caBundleWatcher,
 		Revision:         revision,
 		ServiceName:      "istiod",
 	}
-	whController, err := newController(o, client)
-	if err != nil {
-		return nil, err
-	}
-	return whController, nil
+	return newController(o, client)
 }
 
-type eventType int
+type eventType string
 
 const (
-	quitEvent eventType = iota
-	retryEvent
-	updateEvent
+	quitEvent eventType = "quitEvent"
+	retryEvent = "retryEvent"
+	updateEvent = "updateEvent"
 )
 
 type reconcileRequest struct {
@@ -128,7 +124,7 @@ type reconcileRequest struct {
 }
 
 func (rr reconcileRequest) String() string {
-	return fmt.Sprintf("%s: %s", rr.description, rr.webhookName)
+	return fmt.Sprintf("(description) %s, (webhook) %s, (eventType) %s", rr.description, rr.webhookName, rr.event)
 }
 
 func filterWatchedObject(obj metav1.Object) (skip bool, key string) {
@@ -219,14 +215,14 @@ var (
 func newController(
 	o Options,
 	client kube.Client,
-) (*Controller, error) {
+) *Controller {
 	c := &Controller{
 		o:      o,
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
 	}
 
-	return c, nil
+	return c
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
@@ -243,10 +239,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		0,
 		makeHandler(c.queue, configGVK))
 
-	if !cache.WaitForCacheSync(stop, informer.HasSynced) {
-		log.Errorf("Failed waiting for cache sync")
-		return
-	}
+	c.client.RunAndWait(stop)
 	go informer.Run(stop)
 	go c.startCaBundleWatcher(stop)
 	go c.runWorker()
@@ -284,7 +277,7 @@ func (c *Controller) reconcileAll() error {
 		return err
 	}
 	for _, wh := range webhooks.Items {
-		c.queue.Add(&reconcileRequest{
+		c.queue.AddRateLimited(&reconcileRequest{
 			event:       updateEvent,
 			webhookName: wh.Name,
 			description: "CA bundle changed",
@@ -414,7 +407,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	// If the CRD does not exist, we will get this error. This is to handle when Pilot is run
 	// without CRDs - in this case, this check will not be possible.
 	if strings.Contains(err.Error(), missingResourceMessageFragment) {
-		log.Warnf("missing Gateway CRD, cannot perform validation check. Assuming validation is ready")
+		scope.Warnf("Missing Gateway CRD, cannot perform validation check. Assuming validation is ready")
 		return true, ""
 	}
 	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)

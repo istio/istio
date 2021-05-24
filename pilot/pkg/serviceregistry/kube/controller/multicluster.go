@@ -262,14 +262,8 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		}
 		// Patch validation webhook cert
 		if m.caBundleWatcher != nil {
-			validationWebhookController, err := controller.NewValidatingWebhookController(client, m.revision,
-				m.secretNamespace, m.caBundleWatcher)
-			if err != nil {
-				log.Errorf("failed to start validation controller: %v", err)
-			}
-			if validationWebhookController != nil {
-				go validationWebhookController.Run(clusterStopCh)
-			}
+			controller.NewValidatingWebhookController(client, m.revision,
+				m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
 		}
 	}
 
