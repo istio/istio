@@ -15,9 +15,7 @@ package xds
 
 import (
 	"net"
-	"sync"
 
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -28,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	controllermemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -62,8 +59,6 @@ type SimpleServer struct {
 	syncCh chan string
 
 	ConfigStoreCache model.ConfigStoreCache
-
-	m sync.RWMutex
 }
 
 // Creates an basic, functional discovery server, using the same code as Istiod, but
@@ -158,64 +153,4 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 		}
 	}()
 	return nil
-}
-
-// ProxyGen implements a proxy generator - any request is forwarded using the agent ADSC connection.
-// Responses are forwarded back on the connection that they are received.
-type ProxyGen struct {
-	adsc   *adsc.ADSC
-	server *SimpleServer
-}
-
-// HandleResponse will dispatch a response from a federated
-// XDS server to all connections listening for that type.
-func (p *ProxyGen) HandleResponse(con *adsc.ADSC, res *discovery.DiscoveryResponse) {
-	clients := p.server.DiscoveryServer.ClientsOf(res.TypeUrl)
-	if len(clients) == 0 {
-		return
-	}
-	// TODO: filter the push to only connections that
-	// match a filter.
-	p.server.DiscoveryServer.SendResponse(clients, res)
-}
-
-func (s *SimpleServer) NewProxy() *ProxyGen {
-	return &ProxyGen{
-		server: s,
-	}
-}
-
-func (p *ProxyGen) AddClient(adsc *adsc.ADSC) {
-	p.server.m.Lock()
-	p.adsc = adsc // TODO: list
-	p.server.m.Unlock()
-}
-
-func (p *ProxyGen) Close() {
-	if p.adsc != nil {
-		p.adsc.Close()
-	}
-}
-
-// TODO: remove clients, multiple clients (agent has only one)
-
-// Generate will forward the request to all remote XDS servers.
-// Responses will be forwarded back to the client.
-//
-// TODO: allow clients to indicate which requests they handle ( similar with topic )
-func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
-	if p.adsc == nil {
-		return nil, nil
-	}
-
-	// TODO: track requests to connections, so resonses from server are dispatched to the right con
-	//
-	// TODO: Envoy (or client) may send multiple requests without waiting for the ack.
-	// Need to change the signature of Generator to take Request as parameter.
-	err := p.adsc.Send(w.LastRequest)
-	if err != nil {
-		log.Debug("Failed to send, connection probably closed ", err)
-	}
-
-	return nil, nil
 }

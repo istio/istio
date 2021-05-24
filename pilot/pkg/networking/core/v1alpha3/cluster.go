@@ -146,8 +146,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	return clusters
 }
 
-var NilClusterPatcher = clusterPatcher{}
-
 type clusterPatcher struct {
 	efw            *model.EnvoyFilterWrapper
 	pctx           networking.EnvoyFilter_PatchContext
@@ -245,11 +243,6 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 			LbEndpoints: []*endpoint.LbEndpoint{lbEndpoint},
 		},
 	}
-}
-
-type ClusterInstances struct {
-	PrimaryInstance *model.ServiceInstance
-	AllInstances    []*model.ServiceInstance
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
