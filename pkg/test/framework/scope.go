@@ -174,10 +174,18 @@ func (s *scope) waitForDone() {
 	<-s.closeChan
 }
 
+func (s *scope) skipDumping() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.skipDump = true
+}
+
 func (s *scope) dump(ctx resource.Context) {
+	s.mu.Lock()
 	if s.skipDump {
 		return
 	}
+	s.mu.Unlock()
 	st := time.Now()
 	defer func() {
 		scopes.Framework.Infof("Done dumping scope: %s (%v)", s.id, time.Since(st))

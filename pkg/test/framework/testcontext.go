@@ -55,6 +55,7 @@ type TestContext interface {
 	// CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix in the workdir, or fails the test.
 	CreateTmpDirectoryOrFail(prefix string) string
 
+	// SkipDumping will skip dumping debug logs/configs/etc for this scope only (child scopes are not skipped).
 	SkipDumping()
 
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
@@ -242,7 +243,7 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 }
 
 func (c *testContext) SkipDumping() {
-	c.scope.skipDump = true
+	c.scope.skipDumping()
 }
 
 func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager {
