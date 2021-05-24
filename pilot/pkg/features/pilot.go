@@ -99,13 +99,18 @@ var (
 	)
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
-	//
 	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
 	// where Sidecar is enabled.
 	HTTP10 = env.RegisterBoolVar(
 		"PILOT_HTTP10",
 		false,
 		"Enables the use of HTTP 1.0 in the outbound HTTP listeners, to support legacy applications.",
+	).Get()
+
+	EnablePreserveHeaderKeyCase = env.RegisterBoolVar(
+		"PILOT_ENABLE_PRESERVE_HEADER_KEY_CASE",
+		true,
+		"If true, preserves the case of HTTP 1.1 header keys. When it is set to false, all header case will be in lower case",
 	).Get()
 
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
