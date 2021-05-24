@@ -146,8 +146,9 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	}
 
 	ep.mutex.Lock()
-	saUpdated := s.UpdateServiceAccount(ep, clusterID, hostname, istioEndpoints)
 	ep.Shards[clusterID] = istioEndpoints
+	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
+	saUpdated := s.UpdateServiceAccount(ep, hostname)
 	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
 	// condition is introduced where an XDS response may be generated before the update, but not
 	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
@@ -197,15 +198,16 @@ func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace s
 	defer s.mutex.Unlock()
 	if s.EndpointShardsByService[serviceName] != nil &&
 		s.EndpointShardsByService[serviceName][namespace] != nil {
-		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		epShards := s.EndpointShardsByService[serviceName][namespace]
+		epShards.mutex.Lock()
+		delete(epShards.Shards, cluster)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 		s.Cache.Clear(map[model.ConfigKey]struct{}{{
 			Kind:      gvk.ServiceEntry,
 			Name:      serviceName,
 			Namespace: namespace,
 		}: {}})
-		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+		epShards.mutex.Unlock()
 	}
 }
 
@@ -221,7 +223,7 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 		epShards.mutex.Lock()
 		delete(epShards.Shards, cluster)
 		shardsLen := len(epShards.Shards)
-		s.UpdateServiceAccount(epShards, cluster, serviceName, nil)
+		s.UpdateServiceAccount(epShards, serviceName)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 		s.Cache.Clear(map[model.ConfigKey]struct{}{{
 			Kind:      gvk.ServiceEntry,
@@ -240,14 +242,10 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 
 // UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
 // Note: it is not concurrent safe.
-func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, clusterID, serviceName string, endpoints []*model.IstioEndpoint) bool {
+func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, serviceName string) bool {
 	oldServiceAccount := shards.ServiceAccounts
-	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	serviceAccounts := sets.Set{}
-	for cluster, epShards := range shards.Shards {
-		if cluster == clusterID {
-			epShards = endpoints
-		}
+	for _, epShards := range shards.Shards {
 		for _, ep := range epShards {
 			if ep.ServiceAccount != "" {
 				serviceAccounts.Insert(ep.ServiceAccount)
