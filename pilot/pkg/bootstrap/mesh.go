@@ -99,6 +99,13 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
+	if mw, ok := s.environment.Watcher.(mesh.NetworksWatcher); ok {
+		// The mesh config watcher is also a NetworksWatcher, this is common for reading ConfigMap
+		// directly from Kubernetes
+		log.Infof("initializing mesh networks from mesh config watcher")
+		s.environment.NetworksWatcher = mw
+		return
+	}
 	log.Info("initializing mesh networks")
 	if args.NetworksConfigFile != "" {
 		var err error
