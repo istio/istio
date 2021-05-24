@@ -3342,6 +3342,12 @@ func TestValidateOutlierDetection(t *testing.T) {
 			valid: true,
 			warn:  true,
 		},
+		{
+			name: "consecutive local origin errors is set but split local origin errors is not set", in: networking.OutlierDetection{
+				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
