@@ -17,9 +17,11 @@ package kube
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"istio.io/pkg/version"
 	kubeApiCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -100,6 +102,23 @@ func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Confi
 	return config, nil
 }
 
+// adjustCommand returns the last component of the
+// OS-specific command path for use in User-Agent.
+func adjustCommand(p string) string {
+	// Unlikely, but better than returning "".
+	if len(p) == 0 {
+		return "unknown"
+	}
+	return filepath.Base(p)
+}
+
+// IstioUserAgent returns the user agent string based on the command being used.
+// example: pilot-discovery/1.9.5 or istioctl/1.10.0
+// This is a specialized version of rest.DefaultKubernetesUserAgent()
+func IstioUserAgent() string {
+	return adjustCommand(os.Args[0]) + "/" + version.Info.String()
+}
+
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.
 func SetRestDefaults(config *rest.Config) *rest.Config {
 	if config.GroupVersion == nil || config.GroupVersion.Empty() {
@@ -122,7 +141,7 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	}
 	if len(config.UserAgent) == 0 {
-		config.UserAgent = rest.DefaultKubernetesUserAgent()
+		config.UserAgent = IstioUserAgent()
 	}
 	return config
 }
