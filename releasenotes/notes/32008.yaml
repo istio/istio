@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 32008
+releaseNotes:
+- |
+  **Added** support for preserving case of header key in HTTP 1.1 keys. This can be turned off by
+  setting `PILOT_ENABLE_PRESERVE_HEADER_KEY_CASE`  to false.     
