@@ -508,7 +508,8 @@ func TestUpdateServiceAccount(t *testing.T) {
 					"sa-vm2": {},
 				},
 			}
-			ret := s.UpdateServiceAccount(originalEndpointsShard, "c1", "test-svc", tc.endpoints)
+			originalEndpointsShard.Shards[tc.clusterID] = tc.endpoints
+			ret := s.UpdateServiceAccount(originalEndpointsShard, "test-svc")
 			if ret != tc.expect {
 				t.Errorf("expect UpdateServiceAccount %v, but got %v", tc.expect, ret)
 			}
