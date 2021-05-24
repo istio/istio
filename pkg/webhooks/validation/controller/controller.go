@@ -113,8 +113,8 @@ type eventType string
 
 const (
 	quitEvent   eventType = "quitEvent"
-	retryEvent            = "retryEvent"
-	updateEvent           = "updateEvent"
+	retryEvent  eventType = "retryEvent"
+	updateEvent eventType = "updateEvent"
 )
 
 type reconcileRequest struct {
