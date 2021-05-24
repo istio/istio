@@ -15,23 +15,10 @@
 package bootstrap
 
 import (
-	"strings"
-
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
-)
-
-var (
-	validationWebhookConfigNameTemplateVar = "${namespace}"
-	// These should be an invalid DNS-1123 label to ensure the user
-	// doesn't specific a valid name that matches out template.
-	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
-
-	validationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", validationWebhookConfigNameTemplate,
-		"Name of validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.")
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
@@ -56,11 +43,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	})
 
-	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" && s.kubeClient != nil {
-		if webhookConfigName == validationWebhookConfigNameTemplate {
-			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
-		}
-
+	if s.kubeClient != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("Starting validation controller")
 			go controller.NewValidatingWebhookController(

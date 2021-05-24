@@ -46,13 +46,6 @@ const (
 	webhookName = "sidecar-injector.istio.io"
 )
 
-var (
-	validationWebhookConfigNameTemplateVar = "${namespace}"
-	// These should be an invalid DNS-1123 label to ensure the user
-	// doesn't specific a valid name that matches out template.
-	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
-)
-
 type kubeController struct {
 	*Controller
 	workloadEntryStore *serviceentry.ServiceEntryStore
