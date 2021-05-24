@@ -356,20 +356,23 @@ func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNa
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
 	var hostFound bool
 
-	hname := host.Name(hostname)
-	if hname.IsWildCarded() {
+	question := host.Name(hostname)
+	wildcard := false
+	// First check if host exists.
+	_, hostFound = table.allHosts[hostname]
+	if !hostFound {
 		// Check matching hosts for wildcard hosts.
 		for h := range table.allHosts {
-			if hname.Matches(host.Name(h)) {
+			if host.Name(h).Matches(question) {
+				hostname = h
 				hostFound = true
+				wildcard = true
 				break
 			}
 		}
-	} else {
-		if _, hostFound = table.allHosts[hostname]; !hostFound {
-			// this is not from our registry
-			return nil, false
-		}
+	}
+	if !hostFound {
+		return nil, false
 	}
 
 	var out []dns.RR
@@ -393,6 +396,12 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 	}
 
 	if len(ipAnswers) > 0 {
+		// For wildcard hosts, set the host that is being queried for.
+		if wildcard {
+			for _, answer := range ipAnswers {
+				answer.Header().Name = string(question)
+			}
+		}
 		// We will return a chained response. In a chained response, the first entry is the cname record,
 		// and the second one is the A/AAAA record itself. Some clients do not follow cname redirects
 		// with additional DNS queries. Instead, they expect all the resolved records to be in the same

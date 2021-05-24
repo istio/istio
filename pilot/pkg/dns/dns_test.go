@@ -141,8 +141,8 @@ func TestDNS(t *testing.T) {
 		},
 		{
 			name:     "success: wild card returns A record correctly",
-			host:     "*.wildcard.",
-			expected: a("*.wildcard.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
+			host:     "foo.wildcard.",
+			expected: a("foo.wildcard.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
 		},
 		{
 			name:      "success: TypeAAAA query returns AAAA records only",
