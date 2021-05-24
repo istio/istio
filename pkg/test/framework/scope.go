@@ -175,7 +175,7 @@ func (s *scope) waitForDone() {
 func (s *scope) dump(ctx resource.Context) {
 	st := time.Now()
 	defer func() {
-		scopes.Framework.Infof("Done dumping scope: %s (%v)", s.id, time.Since(st))
+		scopes.Framework.Debugf("Done dumping scope: %s (%v)", s.id, time.Since(st))
 	}()
 	s.mu.Lock()
 	defer s.mu.Unlock()
