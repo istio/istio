@@ -24,12 +24,14 @@ import (
 // Task to be performed.
 type Task func(entry cacheEntry)
 
-// Worker queue implements an expandable goroutine pool which executes at most one concurrent routine per target
+type ResourceStatus interface{}
+
+// WorkerQueue implements an expandable goroutine pool which executes at most one concurrent routine per target
 // resource.  Multiple calls to Push() will not schedule multiple executions per target resource, but will ensure that
 // the single execution uses the latest value.
 type WorkerQueue interface {
 	// Push a task.
-	Push(target Resource, progress Progress)
+	Push(target Resource, progress ResourceStatus)
 	// Run the loop until a signal on the context
 	Run(ctx context.Context)
 	// Delete a task
@@ -38,9 +40,9 @@ type WorkerQueue interface {
 
 type cacheEntry struct {
 	// the cacheVale represents the latest version of the resource, including ResourceVersion
-	cacheVal *Resource
-	// the cacheProgress represents the latest version of the Progress
-	cacheProgress *Progress
+	cacheResource Resource
+	// the cacheStatus represents the latest version of the ResourceStatus
+	cacheStatus ResourceStatus
 }
 
 type lockResource struct {
@@ -68,13 +70,13 @@ type WorkQueue struct {
 	OnPush func()
 }
 
-func (wq *WorkQueue) Push(target Resource, progress Progress) {
+func (wq *WorkQueue) Push(target Resource, progress ResourceStatus) {
 	wq.lock.Lock()
 	key := convert(target)
 	_, inqueue := wq.cache[key]
 	wq.cache[key] = cacheEntry{
-		cacheVal:      &target,
-		cacheProgress: &progress,
+		cacheResource: target,
+		cacheStatus:   progress,
 	}
 	if !inqueue {
 		wq.tasks = append(wq.tasks, key)
@@ -86,7 +88,7 @@ func (wq *WorkQueue) Push(target Resource, progress Progress) {
 }
 
 // Pop returns the first item in the queue not in exclusion, along with it's latest progress
-func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target *Resource, progress *Progress) {
+func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target Resource, progress ResourceStatus) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
 	for i := 0; i < len(wq.tasks); i++ {
@@ -95,12 +97,12 @@ func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target *Resource,
 			t, ok := wq.cache[wq.tasks[i]]
 			wq.tasks = append(wq.tasks[:i], wq.tasks[i+1:]...)
 			if !ok {
-				return nil, nil
+				return Resource{}, nil
 			}
-			return t.cacheVal, t.cacheProgress
+			return t.cacheResource, t.cacheStatus
 		}
 	}
-	return nil, nil
+	return Resource{}, nil
 }
 
 func (wq *WorkQueue) Length() int {
@@ -109,10 +111,10 @@ func (wq *WorkQueue) Length() int {
 	return len(wq.tasks)
 }
 
-func (wq *WorkQueue) Delete(target *Resource) {
+func (wq *WorkQueue) Delete(target Resource) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
-	delete(wq.cache, convert(*target))
+	delete(wq.cache, convert(target))
 }
 
 type WorkerPool struct {
@@ -120,7 +122,7 @@ type WorkerPool struct {
 	// indicates the queue is closing
 	closing bool
 	// the function which will be run for each task in queue
-	work func(*Resource, *Progress)
+	work func(Resource, ResourceStatus)
 	// current worker routine count
 	workerCount uint
 	// maximum worker routine count
@@ -129,7 +131,14 @@ type WorkerPool struct {
 	lock             sync.Mutex
 }
 
-func NewWorkerPool(work func(*Resource, *Progress), maxWorkers uint) WorkerQueue {
+func NewProgressWorkerPool(work func(Resource, Progress), maxWorkers uint) WorkerQueue {
+	untypedWork := func(r Resource, s ResourceStatus) {
+		work(r, s.(Progress))
+	}
+	return NewWorkerPool(untypedWork, maxWorkers)
+}
+
+func NewWorkerPool(work func(Resource, ResourceStatus), maxWorkers uint) WorkerQueue {
 	return &WorkerPool{
 		work:             work,
 		maxWorkers:       maxWorkers,
@@ -143,10 +152,10 @@ func NewWorkerPool(work func(*Resource, *Progress), maxWorkers uint) WorkerQueue
 }
 
 func (wp *WorkerPool) Delete(target Resource) {
-	wp.q.Delete(&target)
+	wp.q.Delete(target)
 }
 
-func (wp *WorkerPool) Push(target Resource, progress Progress) {
+func (wp *WorkerPool) Push(target Resource, progress ResourceStatus) {
 	wp.q.Push(target, progress)
 	wp.maybeAddWorker()
 }
@@ -181,20 +190,20 @@ func (wp *WorkerPool) maybeAddWorker() {
 
 			target, c := wp.q.Pop(wp.currentlyWorking)
 
-			if target == nil {
+			if target == (Resource{}) {
 				// continue or return?
 				// could have been deleted, or could be no items in queueu not currently worked on.  need a way to differentiate.
 				wp.lock.Unlock()
 				continue
 			}
 			wp.q.Delete(target)
-			wp.currentlyWorking[convert(*target)] = struct{}{}
+			wp.currentlyWorking[convert(target)] = struct{}{}
 			wp.lock.Unlock()
 			// work should be done without holding the lock
 			wp.work(target, c)
 
 			wp.lock.Lock()
-			delete(wp.currentlyWorking, convert(*target))
+			delete(wp.currentlyWorking, convert(target))
 			wp.lock.Unlock()
 		}
 	}()
