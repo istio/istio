@@ -182,7 +182,7 @@ func createTestController(t *testing.T) *fakeController {
 	}
 
 	var err error
-	fc.Controller, err = newController(o, fakeClient)
+	fc.Controller = newController(o, fakeClient)
 	if err != nil {
 		t.Fatalf("failed to create test controller: %v", err)
 	}
