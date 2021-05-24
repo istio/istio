@@ -112,9 +112,9 @@ func NewValidatingWebhookController(client kube.Client,
 type eventType string
 
 const (
-	quitEvent eventType = "quitEvent"
-	retryEvent = "retryEvent"
-	updateEvent = "updateEvent"
+	quitEvent   eventType = "quitEvent"
+	retryEvent            = "retryEvent"
+	updateEvent           = "updateEvent"
 )
 
 type reconcileRequest struct {
