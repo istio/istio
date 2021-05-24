@@ -42,6 +42,8 @@ type scope struct {
 
 	closeChan chan struct{}
 
+	skipDump bool
+
 	// Mutex to lock changes to resources, children, and closers that can be done concurrently
 	mu sync.Mutex
 }
@@ -173,6 +175,9 @@ func (s *scope) waitForDone() {
 }
 
 func (s *scope) dump(ctx resource.Context) {
+	if s.skipDump {
+		return
+	}
 	st := time.Now()
 	defer func() {
 		scopes.Framework.Infof("Done dumping scope: %s (%v)", s.id, time.Since(st))
