@@ -348,7 +348,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	if ctx.Clusters().IsMulticluster() {
+	if ctx.Clusters().IsMulticluster() && !i.isExternalControlPlane(){
 		// For multicluster, configure direct access so each control plane can get endpoints from all
 		// API servers.
 		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
@@ -541,6 +541,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, cluster cluste
 		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 			// enable namespace controller writing to remote clusters
 			installSettings = append(installSettings, "--set", "values.pilot.env.EXTERNAL_ISTIOD=true")
+			clusterName = cluster.Config().Name()
 		}
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+clusterName)
 	}
