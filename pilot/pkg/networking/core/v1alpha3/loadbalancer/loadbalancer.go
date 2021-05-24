@@ -67,11 +67,6 @@ func GetTopologyKeys(
 	return mesh
 }
 
-type TopologyFailOver struct {
-	From string
-	To   []string
-}
-
 func ApplyLBSetting(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	proxyLocality *core.Locality,
