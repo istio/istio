@@ -16,6 +16,7 @@ package loadbalancer
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
 )
@@ -32,32 +33,55 @@ func localityMatch(proxyLocality *core.Locality, ruleLocality string) bool {
 	return false
 }
 
-func LbPriority(proxyLocality *core.Locality, endpointsLocality *core.Locality,
-	proxyNetwork, endpointNetwork string, enabledNetworkFailover bool) int {
-	if !enabledNetworkFailover {
-		if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
-			if proxyLocality.GetZone() == endpointsLocality.GetZone() {
-				if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
-					return 0
-				}
-				return 1
+func localityLbPriority(proxyLocality *core.Locality, endpointsLocality *core.Locality) int {
+	if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
+		if proxyLocality.GetZone() == endpointsLocality.GetZone() {
+			if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
+				return 0
 			}
-			return 2
+			return 1
 		}
-		return 3
+		return 2
+	}
+	return 3
+}
+
+func topologyLbPriority(proxyLocality *core.Locality, endpointsLocality *core.Locality,
+	proxyNetwork, endpointNetwork string, topologyKeys []*networking.TopologyKeys) int {
+	// If not matched, the priority equals length of topology keys list
+	p := len(topologyKeys)
+	for priority, keys := range topologyKeys {
+		if topologyKeysMatched(proxyLocality, endpointsLocality, proxyNetwork, endpointNetwork, keys.GetKeys()) {
+			p = priority
+			break
+		}
 	}
 
-	if model.IsSameNetwork(proxyNetwork, endpointNetwork) {
-		if proxyLocality.GetRegion() == endpointsLocality.GetRegion() {
-			if proxyLocality.GetZone() == endpointsLocality.GetZone() {
-				if proxyLocality.GetSubZone() == endpointsLocality.GetSubZone() {
-					return 0
-				}
-				return 1
+	return p
+}
+
+func topologyKeysMatched(proxyLocality *core.Locality, endpointsLocality *core.Locality,
+	proxyNetwork, endpointNetwork string, keys []networking.TopologyKeys_TopologyKey) bool {
+	for _, key := range keys {
+		switch key {
+		case networking.TopologyKeys_NETWORK:
+			if proxyNetwork != endpointNetwork {
+				return false
 			}
-			return 2
+		case networking.TopologyKeys_REGION:
+			if proxyLocality.GetRegion() != endpointsLocality.GetRegion() {
+				return false
+			}
+		case networking.TopologyKeys_ZONE:
+			if proxyLocality.GetZone() != endpointsLocality.GetZone() {
+				return false
+			}
+		case networking.TopologyKeys_SUBZONE:
+			if proxyLocality.GetSubZone() != endpointsLocality.GetSubZone() {
+				return false
+			}
 		}
-		return 3
 	}
-	return 5
+
+	return true
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
@@ -57,29 +56,11 @@ func GetLocalityLbSetting(
 	return mesh
 }
 
-func GetNetworkLbSetting(
-	mesh *v1alpha3.NetworkLoadBalancerSetting,
-	destrule *v1alpha3.NetworkLoadBalancerSetting,
-) *v1alpha3.NetworkLoadBalancerSetting {
-	var enabled bool
-	// Locality lb is enabled if its not explicitly disabled in mesh global config
-	if mesh != nil && (mesh.Enabled == nil || mesh.Enabled.Value) {
-		enabled = true
-	}
-	// Unless we explicitly override this in destination rule
-	if destrule != nil {
-		if destrule.Enabled != nil && !destrule.Enabled.Value {
-			enabled = false
-		} else {
-			enabled = true
-		}
-	}
-	if !enabled {
-		return nil
-	}
-
-	// Destination Rule overrides mesh config. If its defined, use that
-	if destrule != nil {
+func GetTopologyKeys(
+	mesh []*v1alpha3.TopologyKeys,
+	destrule []*v1alpha3.TopologyKeys,
+) []*v1alpha3.TopologyKeys {
+	if len(destrule) > 0 {
 		return destrule
 	}
 	// Otherwise fall back to mesh default
@@ -96,30 +77,30 @@ func ApplyLBSetting(
 	proxyLocality *core.Locality,
 	localityLB *v1alpha3.LocalityLoadBalancerSetting,
 	proxyNetwork string,
-	networkLB *v1alpha3.NetworkLoadBalancerSetting,
+	topologyKeys []*v1alpha3.TopologyKeys,
 	enableFailover bool,
 ) {
-	if localityLB == nil && networkLB == nil {
-		return
-	}
-	if networkLB == nil && proxyLocality == nil {
+	if proxyLocality == nil {
 		return
 	}
 
-	// one of Distribute or Failover settings can be applied.
+	if localityLB == nil && len(topologyKeys) == 0 {
+		return
+	}
+
+	// apply locality distribute.
 	if localityLB.GetDistribute() != nil {
 		applyLocalityWeight(proxyLocality, loadAssignment, localityLB.GetDistribute())
 		// Failover needs outlier detection, otherwise Envoy will never drop down to a lower priority.
 		// Do not apply default failover when locality LB is disabled.
 	} else if enableFailover {
-		if networkLB == nil {
+		if localityLB != nil {
 			applyLocalityFailover(proxyLocality, loadAssignment, localityLB.Failover)
+			return
 		}
-		if localityLB == nil {
-			applyNetworkFailover(loadAssignment, proxyNetwork, networkLB.Failover)
-		}
-		if networkLB != nil && localityLB != nil {
-			applyTopologyFailover(loadAssignment, proxyLocality, localityLB.Failover, proxyNetwork, networkLB.Failover)
+		if len(topologyKeys) > 0 {
+			applyTopologyLb(loadAssignment, proxyLocality, proxyNetwork, topologyKeys)
+			return
 		}
 	}
 }
@@ -197,7 +178,7 @@ func applyLocalityFailover(
 		// if region/zone match, the priority is 1.
 		// if region matches, the priority is 2.
 		// if locality not match, the priority is 3.
-		priority := LbPriority(locality, localityEndpoint.Locality, "", "", false)
+		priority := localityLbPriority(locality, localityEndpoint.Locality)
 		// region not match, apply failover settings when specified
 		// update localityLbEndpoints' priority to 4 if failover not match
 		if priority == 3 {
@@ -217,85 +198,20 @@ func applyLocalityFailover(
 	refreshPriority(loadAssignment, priorityMap)
 }
 
-// set network loadbalancing priority
-func applyNetworkFailover(
-	loadAssignment *endpoint.ClusterLoadAssignment,
-	proxyNetwork string,
-	networkFailover []*v1alpha3.NetworkLoadBalancerSetting_Failover) {
-	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
-	priorityMap := map[int][]int{}
-
-	// 1. calculate the LocalityLbEndpoints.Priority compared with proxy network
-	for i, localityEndpoint := range loadAssignment.Endpoints {
-		// all the LbEndpoints belong to same network as we have filtered in ep_filter.go
-		epNetwork := util.IstioMetadata(localityEndpoint.LbEndpoints[0], "network")
-		// if network matches, the priority is 0.
-		// if network matches the failover.To, the priority is 1.
-		// for others, the priority is 2.
-		var priority int
-		if model.IsSameNetwork(proxyNetwork, epNetwork) {
-			priority = 0
-		} else {
-			priority = 2
-			for _, failover := range networkFailover {
-				if model.IsSameNetwork(epNetwork, failover.To) {
-					priority = 1
-					break
-				}
-			}
-		}
-		loadAssignment.Endpoints[i].Priority = uint32(priority)
-		priorityMap[priority] = append(priorityMap[priority], i)
-	}
-
-	refreshPriority(loadAssignment, priorityMap)
-}
-
-// set loadbalancing priority
-func applyTopologyFailover(
+// set loadbalancing priority by topology keys
+func applyTopologyLb(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	proxyLocality *core.Locality,
-	localityFailover []*v1alpha3.LocalityLoadBalancerSetting_Failover,
 	proxyNetwork string,
-	networkFailover []*v1alpha3.NetworkLoadBalancerSetting_Failover,
+	topologyKeys []*v1alpha3.TopologyKeys,
 ) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}
-
 	// 1. calculate the LocalityLbEndpoints.Priority compared with proxy locality
 	for i, localityEndpoint := range loadAssignment.Endpoints {
 		// all the LbEndpoints belong to same network as we have filtered in ep_filter.go
 		epNetwork := util.IstioMetadata(localityEndpoint.LbEndpoints[0], "network")
-		// 1. if network/region/zone/subZone all match, the priority is 0.
-		// 2. if network/region/zone match, the priority is 1.
-		// 3. if network/region matches, the priority is 2.
-		// 4. if network matches
-		//    4.1. network matches and region matches failover.To, the priority is 3.
-		//    4.2. network matches and region do not match failover.To, the priority is 4.
-		// 5. if network does not match
-		//    5.1. network matches failover.To, the priority is 5.
-		//    5.2. all others, the priority is 6.
-		priority := LbPriority(proxyLocality, localityEndpoint.Locality, proxyNetwork, epNetwork, true)
-		// process match condition 4
-		if priority == 3 {
-			for _, failoverSetting := range localityFailover {
-				if failoverSetting.From == proxyLocality.Region {
-					if localityEndpoint.Locality == nil || localityEndpoint.Locality.Region != failoverSetting.To {
-						priority = 4
-					}
-					break
-				}
-			}
-		} else if priority == 5 { // process match condition 5
-			for _, failover := range networkFailover {
-				if model.IsSameNetwork(failover.From, proxyNetwork) {
-					if model.IsSameNetwork(epNetwork, failover.To) {
-						priority = 6
-					}
-					break
-				}
-			}
-		}
+		priority := topologyLbPriority(proxyLocality, localityEndpoint.Locality, proxyNetwork, epNetwork, topologyKeys)
 		loadAssignment.Endpoints[i].Priority = uint32(priority)
 		priorityMap[priority] = append(priorityMap[priority], i)
 	}
