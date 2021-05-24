@@ -8,9 +8,7 @@ _INTEGRATION_TEST_FLAGS ?= $(INTEGRATION_TEST_FLAGS)
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 ifneq ($(CI),)
-# TODO(https://github.com/istio/istio/issues/32985) re-enable dumping
-# This is disabled as dumping leads to massive IO and we want to investigate if removal will improve things
-#	_INTEGRATION_TEST_FLAGS += --istio.test.ci
+	_INTEGRATION_TEST_FLAGS += --istio.test.ci
 	_INTEGRATION_TEST_FLAGS += --istio.test.pullpolicy=IfNotPresent
 endif
 
