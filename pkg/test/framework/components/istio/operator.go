@@ -932,7 +932,7 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, clu
 		if err != nil {
 			return err
 		}
-		ep, err = cluster.CoreV1().Endpoints(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
+		ep, err := cluster.CoreV1().Endpoints(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return err
 		}
