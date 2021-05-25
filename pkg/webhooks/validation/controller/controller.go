@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	v1 "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -93,6 +94,7 @@ type Controller struct {
 	o      Options
 	client kube.Client
 
+	webhookInformer               v1.ValidatingWebhookConfigurationInformer
 	queue                         workqueue.RateLimitingInterface
 	dryRunOfInvalidConfigRejected bool
 }
@@ -220,6 +222,7 @@ func newController(
 		o:      o,
 		client: client,
 		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
+		webhookInformer: client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations(),
 	}
 
 	return c
@@ -233,14 +236,13 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		func(options *metav1.ListOptions) {
 			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision)
 		})
-	_, informer := cache.NewInformer(
+	informer := cache.NewSharedIndexInformer(
 		watchList,
 		&kubeApiAdmission.ValidatingWebhookConfiguration{},
 		0,
-		makeHandler(c.queue, configGVK))
+		cache.Indexers{})
+	informer.AddEventHandler(makeHandler(c.queue, configGVK))
 
-	c.client.RunAndWait(stop)
-	go informer.Run(stop)
 	go c.startCaBundleWatcher(stop)
 	go c.runWorker()
 
