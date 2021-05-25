@@ -190,6 +190,8 @@ func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, src echo.Instance
 			testFn(ctx, srcInstance)
 		} else {
 			ctx.NewSubTestf("from %s", srcInstance.Config().Cluster.StableName()).Run(func(ctx framework.TestContext) {
+				// assumes we don't change config from cluster to cluster
+				ctx.SkipDumping()
 				testFn(ctx, srcInstance)
 			})
 		}
