@@ -1428,10 +1428,10 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
 	if ps.Mesh.RootNamespace != "" {
-		for _, sidecarConfig := range sidecarConfigs {
+		for i, sidecarConfig := range sidecarConfigs {
 			if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
-				rootNSConfig = &sidecarConfig
+				rootNSConfig = &sidecarConfigs[i]
 				break
 			}
 		}

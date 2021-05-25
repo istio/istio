@@ -194,10 +194,10 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		} else {
 			// Look up the port.
 			found := false
-			for _, port := range targetPorts {
+			for i, port := range targetPorts {
 				if opts.PortName == port.Name {
 					found = true
-					opts.Port = &port
+					opts.Port = &targetPorts[i]
 					break
 				}
 			}

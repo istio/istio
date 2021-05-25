@@ -19,6 +19,7 @@ import (
 	"io"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -40,6 +41,8 @@ type scope struct {
 	children []*scope
 
 	closeChan chan struct{}
+
+	skipDump bool
 
 	// Mutex to lock changes to resources, children, and closers that can be done concurrently
 	mu sync.Mutex
@@ -171,15 +174,37 @@ func (s *scope) waitForDone() {
 	<-s.closeChan
 }
 
+func (s *scope) skipDumping() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.skipDump = true
+}
+
 func (s *scope) dump(ctx resource.Context) {
+	s.mu.Lock()
+	if s.skipDump {
+		return
+	}
+	s.mu.Unlock()
+	st := time.Now()
+	defer func() {
+		scopes.Framework.Debugf("Done dumping scope: %s (%v)", s.id, time.Since(st))
+	}()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, c := range s.children {
 		c.dump(ctx)
 	}
+	wg := sync.WaitGroup{}
 	for _, c := range s.resources {
 		if d, ok := c.(resource.Dumper); ok {
-			d.Dump(ctx)
+			d := d
+			wg.Add(1)
+			go func() {
+				d.Dump(ctx)
+				wg.Done()
+			}()
 		}
 	}
+	wg.Wait()
 }

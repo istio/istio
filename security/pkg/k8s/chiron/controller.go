@@ -40,8 +40,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-type WebhookType int
-
 /* #nosec: disable gas linter */
 const (
 	// The Istio DNS secret annotation type

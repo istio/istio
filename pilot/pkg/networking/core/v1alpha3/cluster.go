@@ -146,8 +146,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	return clusters
 }
 
-var NilClusterPatcher = clusterPatcher{}
-
 type clusterPatcher struct {
 	efw            *model.EnvoyFilterWrapper
 	pctx           networking.EnvoyFilter_PatchContext
@@ -245,11 +243,6 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 			LbEndpoints: []*endpoint.LbEndpoint{lbEndpoint},
 		},
 	}
-}
-
-type ClusterInstances struct {
-	PrimaryInstance *model.ServiceInstance
-	AllInstances    []*model.ServiceInstance
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
@@ -603,6 +596,15 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
+	}
+
+	if outlier.SplitExternalLocalOriginErrors {
+		out.SplitExternalLocalOriginErrors = true
+		if outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
+			out.ConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: outlier.ConsecutiveLocalOriginFailures.Value}
+		}
+		// SuccessRate based outlier detection should be disabled.
+		out.EnforcingLocalOriginSuccessRate = &wrappers.UInt32Value{Value: 0}
 	}
 
 	c.OutlierDetection = out

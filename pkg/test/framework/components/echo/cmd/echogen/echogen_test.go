@@ -39,6 +39,8 @@ func TestGenerate(t *testing.T) {
 			_ = f.Value.Set("testtag")
 		case "istio.test.hub":
 			_ = f.Value.Set("testhub")
+		case "istio.test.pullpolicy":
+			_ = f.Value.Set("IfNotPresent")
 		}
 	})
 	out := bytes.NewBuffer([]byte{})

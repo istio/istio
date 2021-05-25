@@ -17,6 +17,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -73,8 +74,12 @@ var (
 	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
+)
 
-	BearerTokenPrefix = "Bearer" + " "
+const (
+	BearerTokenPrefix = "Bearer "
+
+	K8sTokenPrefix = "Istio "
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -276,9 +281,6 @@ const (
 )
 
 const (
-	// IdentityTemplate is the SPIFFE format template of the identity.
-	IdentityTemplate = "spiffe://%s/ns/%s/sa/%s"
-
 	authorizationMeta = "authorization"
 )
 
@@ -291,6 +293,7 @@ type Caller struct {
 type Authenticator interface {
 	Authenticate(ctx context.Context) (*Caller, error)
 	AuthenticatorType() string
+	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {
@@ -308,6 +311,22 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 		if strings.HasPrefix(value, BearerTokenPrefix) {
 			return strings.TrimPrefix(value, BearerTokenPrefix), nil
 		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
+}
+
+func ExtractRequestToken(req *http.Request) (string, error) {
+	value := req.Header.Get(authorizationMeta)
+	if value == "" {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	if strings.HasPrefix(value, BearerTokenPrefix) {
+		return strings.TrimPrefix(value, BearerTokenPrefix), nil
+	}
+	if strings.HasPrefix(value, K8sTokenPrefix) {
+		return strings.TrimPrefix(value, K8sTokenPrefix), nil
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
