@@ -1,7 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if not .Values.global.externalIstiod }}
   name: istiod-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}{{ .Release.Namespace }}
+{{- else }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+{{- end }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
@@ -19,11 +23,11 @@ rules:
   # istio configuration
   # removing CRD permissions can break older versions of Istio running alongside this control plane (https://github.com/istio/istio/issues/29382)
   # please proceed with caution
-  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io"{{- if not .Values.global.externalIstiod }}, "telemetry.istio.io"{{- end }}]
     verbs: ["get", "watch", "list"]
     resources: ["*"]
 {{- if .Values.global.istiod.enableAnalysis }}
-  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io"]
+  - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io"{{- if not .Values.global.externalIstiod }}, "telemetry.istio.io"{{- end }}]
     verbs: ["update"]
     # TODO: should be on just */status but wildcard is not supported
     resources: ["*"]
@@ -115,7 +119,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+{{- if not .Values.global.externalIstiod }}
   name: istio-reader-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+{{- else }}
+  name: istio-reader{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+{{- end }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
@@ -149,7 +157,7 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
-{{- if or .Values.global.externalIstiod }}
+{{- if .Values.global.externalIstiod }}
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "get", "list", "watch", "update"]

@@ -93,8 +93,6 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewPilotComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
-	case name.IstiodRemoteComponentName:
-		component = NewIstiodRemoteComponent(opts)
 	default:
 		scope.Errorf("Unknown component componentName: " + string(cn))
 	}
@@ -236,52 +234,6 @@ func (c *CNIComponent) Namespace() string {
 
 // Enabled implements the IstioComponent interface.
 func (c *CNIComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// IstiodRemoteComponent is the istiod remote component.
-type IstiodRemoteComponent struct {
-	*CommonComponentFields
-}
-
-// NewIstiodRemoteComponent creates a new NewIstiodRemoteComponent and returns a pointer to it.
-func NewIstiodRemoteComponent(opts *Options) *IstiodRemoteComponent {
-	cn := name.IstiodRemoteComponentName
-	return &IstiodRemoteComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			ComponentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
