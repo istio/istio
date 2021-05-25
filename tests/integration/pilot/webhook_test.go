@@ -25,6 +25,9 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -71,6 +74,13 @@ func TestWebhook(t *testing.T) {
 				}
 				return nil
 			})
+
+			revision := "default"
+			if t.Settings().Revision != "" {
+				revision = t.Settings().Revision
+			}
+			verifyRejectsInvalidConfig(t, revision, true)
+			verifyRejectsInvalidConfig(t, "fake-revision", false)
 		})
 }
 
@@ -93,8 +103,33 @@ func verifyValidatingWebhookConfiguration(c *kubeApiAdmission.ValidatingWebhookC
 				i, *wh.FailurePolicy, kubeApiAdmission.Fail)
 		}
 		if len(wh.ClientConfig.CABundle) == 0 {
-			return fmt.Errorf("webhook #%v: caBundle not matched", i)
+			return fmt.Errorf("webhook #%v: caBundle not patched", i)
 		}
 	}
 	return nil
+}
+
+func verifyRejectsInvalidConfig(t framework.TestContext, configRevision string, shouldReject bool) {
+	t.Helper()
+	const istioNamespace = "istio-system"
+	revLabel := map[string]string{}
+	if configRevision != "" {
+		revLabel[label.IoIstioRev.Name] = configRevision
+	}
+	invalidGateway := &v1alpha3.Gateway{
+		ObjectMeta: kubeApiMeta.ObjectMeta{
+			Name:      "invalid-istio-gateway",
+			Namespace: istioNamespace,
+			Labels:    revLabel,
+		},
+		Spec: networking.Gateway{},
+	}
+
+	createOptions := kubeApiMeta.CreateOptions{DryRun: []string{kubeApiMeta.DryRunAll}}
+	istioClient := t.Clusters().Default().Istio().NetworkingV1alpha3()
+	_, err := istioClient.Gateways(istioNamespace).Create(context.TODO(), invalidGateway, createOptions)
+	rejected := err != nil
+	if rejected != shouldReject {
+		t.Errorf("Config rejected: %t, expected config rejected: %t", rejected, shouldReject)
+	}
 }
