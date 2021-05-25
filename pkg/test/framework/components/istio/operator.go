@@ -348,7 +348,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	if ctx.Clusters().IsMulticluster() && !i.isExternalControlPlane(){
+	if ctx.Clusters().IsMulticluster() {
 		// For multicluster, configure direct access so each control plane can get endpoints from all
 		// API servers.
 		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
