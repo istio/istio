@@ -155,7 +155,7 @@ EOF
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=600s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
