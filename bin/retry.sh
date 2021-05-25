@@ -55,7 +55,7 @@ function retry {
     if [[ $? == 0 ]]; then
       break
     fi
-    if ! grep -q "${failureRegex}" "${tmpFile}"; then
+    if ! grep -Eq "${failureRegex}" "${tmpFile}"; then
       fail "Unexpected failure"
     fi
     if [[ $n -lt $max ]]; then
