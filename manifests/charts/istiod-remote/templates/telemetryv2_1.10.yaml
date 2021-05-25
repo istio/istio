@@ -227,7 +227,7 @@ spec:
                       "stat_prefix": "istio"
                     }
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {{- end }}
                 vm_config:
                   vm_id: stats_outbound
@@ -282,7 +282,7 @@ spec:
                       ]
                     }
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {{- end }}
                 vm_config:
                   vm_id: stats_inbound
@@ -329,7 +329,7 @@ spec:
                       "disable_host_header_fallback": true
                     }
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {{- end }}
                 vm_config:
                   vm_id: stats_outbound
@@ -396,7 +396,7 @@ spec:
                       ]
                     }
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {{- end }}
                 vm_config:
                   vm_id: tcp_stats_inbound
@@ -440,7 +440,7 @@ spec:
                       "stat_prefix": "istio"
                     }
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -484,7 +484,7 @@ spec:
                       "stat_prefix": "istio"
                     }
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -544,7 +544,7 @@ spec:
                     {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
                     {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}"}
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.stackdriver.configOverride }}
                     {{- end }}
                 vm_config:
                   vm_id: stackdriver_outbound
@@ -579,7 +579,7 @@ spec:
                     {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
                     {"disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "access_logging": "{{ .Values.telemetry.v2.stackdriver.inboundAccessLogging }}", "disable_host_header_fallback": true}
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.stackdriver.configOverride }}
                     {{- end }}
                 vm_config:
                   vm_id: stackdriver_inbound
@@ -613,7 +613,7 @@ spec:
                     {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
                     {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}", "disable_host_header_fallback": true}
                     {{- else }}
-                    {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                    {{ toPrettyJson .Values.telemetry.v2.stackdriver.configOverride }}
                     {{- end }}
                 vm_config:
                   vm_id: stackdriver_outbound
@@ -660,7 +660,7 @@ spec:
                   {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
                   {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}"}
                   {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{ toPrettyJson .Values.telemetry.v2.stackdriver.configOverride }}
                   {{- end }}
               vm_config:
                 vm_id: stackdriver_outbound
@@ -693,7 +693,7 @@ spec:
                   {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
                   {"disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}, "access_logging": "{{ .Values.telemetry.v2.stackdriver.inboundAccessLogging }}"}
                   {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{ toPrettyJson .Values.telemetry.v2.stackdriver.configOverride }}
                   {{- end }}
               vm_config:
                 vm_id: stackdriver_inbound
@@ -725,7 +725,7 @@ spec:
                   {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
                   {"access_logging": "{{ .Values.telemetry.v2.stackdriver.outboundAccessLogging }}"}
                   {{- else }}
-                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{ toPrettyJson .Values.telemetry.v2.stackdriver.configOverride }}
                   {{- end }}
               vm_config:
                 vm_id: stackdriver_outbound
