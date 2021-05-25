@@ -875,7 +875,7 @@ func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model
 	t.Helper()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
-		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}})
+		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
 		sortServiceInstances(instances)
 		sortServiceInstances(expected)
 		if err := compare(t, instances, expected); err != nil {
