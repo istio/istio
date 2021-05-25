@@ -267,7 +267,9 @@ func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			_ = c.reconcileAll()
+			if err := c.reconcileAll(); err != nil {
+				scope.Errorf("Failed to reconcile all revisions: %v", err)
+			}
 		case <-stop:
 			return
 		}
