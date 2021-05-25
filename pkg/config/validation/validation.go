@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
+	"github.com/lestrrat-go/jwx/jwt"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -1776,6 +1777,13 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if len(rule.JwksUri) != 0 {
 		if _, err := security.ParseJwksURI(rule.JwksUri); err != nil {
 			errs = multierror.Append(errs, err)
+		}
+	}
+
+	if rule.Jwks != "" {
+		_, err := jwt.Parse([]byte(rule.Jwks))
+		if err != nil {
+			errs = multierror.Append(errs, errors.New("jwks parse error"))
 		}
 	}
 
