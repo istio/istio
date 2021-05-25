@@ -28,6 +28,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	v1 "k8s.io/client-go/informers/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -94,7 +95,7 @@ type Controller struct {
 	o      Options
 	client kube.Client
 
-	webhookInformer               v1.ValidatingWebhookConfigurationInformer
+	webhookInformer               cache.SharedInformer
 	queue                         workqueue.RateLimitingInterface
 	dryRunOfInvalidConfigRejected bool
 }
@@ -219,29 +220,37 @@ func newController(
 	client kube.Client,
 ) *Controller {
 	c := &Controller{
-		o:               o,
-		client:          client,
-		queue:           workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
-		webhookInformer: client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		o:      o,
+		client: client,
+		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
 	}
+	webhookInformer := cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision)
+				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision)
+				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
+			},
+		},
+		&corev1.Secret{}, 0, cache.Indexers{},
+	)
+
+	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK))
+	c.webhookInformer = webhookInformer
 
 	return c
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	watchList := cache.NewFilteredListWatchFromClient(
-		c.client.AdmissionregistrationV1().RESTClient(),
-		"validatingwebhookconfigurations",
-		"",
-		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision)
-		})
-	informer := cache.NewSharedInformer(
-		watchList,
-		&kubeApiAdmission.ValidatingWebhookConfiguration{},
-		0)
-	informer.AddEventHandler(makeHandler(c.queue, configGVK))
-
+	defer c.queue.ShutDown()
+	c.client.RunAndWait(stop)
+	go c.webhookInformer.Run(stop)
+	if !cache.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
+		return
+	}
 	go c.startCaBundleWatcher(stop)
 	go c.runWorker()
 

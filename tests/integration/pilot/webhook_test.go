@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	vwcName = "istiod-istio-system"
+	vwcName = "istiod"
 )
 
 func TestWebhook(t *testing.T) {
