@@ -229,7 +229,6 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	// httpStaticOverlayUpdatedNop is the same as httpStaticOverlayUpdated but with a NOP change
 	httpStaticOverlayUpdatedNop := func() *config.Config {
 		c := httpStaticOverlayUpdated.DeepCopy()
-		c.ResourceVersion = "foo"
 		return &c
 	}()
 
