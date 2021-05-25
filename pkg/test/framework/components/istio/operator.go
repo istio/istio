@@ -932,10 +932,16 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, clu
 		if err != nil {
 			return err
 		}
-		_, err = cluster.CoreV1().Endpoints(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
+		ep, err = cluster.CoreV1().Endpoints(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
 		if err != nil {
 			return err
 		}
+		for _, ss := range ep.Subsets {
+			for _, ea := range ss.Addresses {
+				scopes.Framework.Infof("get endpoints:", ea )
+			}
+		}
+
 		return nil
 	}, componentDeployTimeout, componentDeployDelay)
 	return err
