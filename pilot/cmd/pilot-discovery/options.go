@@ -42,7 +42,7 @@ func secureTLSCipherNames() []string {
 	return cipherKeys.List()
 }
 
-func ValidateFlags(serverArgs *bootstrap.PilotArgs) error {
+func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 	if serverArgs == nil {
 		return nil
 	}

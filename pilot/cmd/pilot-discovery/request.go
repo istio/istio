@@ -41,7 +41,3 @@ var requestCmd = &cobra.Command{
 		return command.Do(args[0], args[1], body)
 	},
 }
-
-func init() {
-	rootCmd.AddCommand(requestCmd)
-}
