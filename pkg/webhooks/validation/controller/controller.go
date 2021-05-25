@@ -236,11 +236,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		func(options *metav1.ListOptions) {
 			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision)
 		})
-	informer := cache.NewSharedIndexInformer(
+	informer := cache.NewSharedInformer(
 		watchList,
 		&kubeApiAdmission.ValidatingWebhookConfiguration{},
-		0,
-		cache.Indexers{})
+		0)
 	informer.AddEventHandler(makeHandler(c.queue, configGVK))
 
 	go c.startCaBundleWatcher(stop)
