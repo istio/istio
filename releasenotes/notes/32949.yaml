@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 32949
+releaseNotes:
+- |
+  **Removed** the istiodRemote component and charts. Use values.global.externalIstiod for the external control plane (alpha) feature instead.
