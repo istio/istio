@@ -41,7 +41,7 @@ const (
 var (
 	serverStart = time.Now()
 
-	uptime = monitoring.NewDerivedGauge(
+	uptime = monitoring.NewDerivedGauge( // nolint: deadcode, varcheck
 		"istiod_uptime_seconds",
 		"Current istiod server uptime in seconds",
 		func() float64 {
