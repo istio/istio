@@ -81,6 +81,7 @@ func TestWebhook(t *testing.T) {
 			}
 			verifyRejectsInvalidConfig(t, revision, true)
 			verifyRejectsInvalidConfig(t, "fake-revision", false)
+			verifyRejectsInvalidConfig(t, "", true)
 		})
 }
 
