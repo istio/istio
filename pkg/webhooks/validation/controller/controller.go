@@ -219,9 +219,9 @@ func newController(
 	client kube.Client,
 ) *Controller {
 	c := &Controller{
-		o:      o,
-		client: client,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
+		o:               o,
+		client:          client,
+		queue:           workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
 		webhookInformer: client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations(),
 	}
 
