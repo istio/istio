@@ -28,7 +28,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -235,7 +234,7 @@ func newController(
 				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
-		&corev1.Secret{}, 0, cache.Indexers{},
+		&kubeApiAdmission.ValidatingWebhookConfiguration{}, 0, cache.Indexers{},
 	)
 
 	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK))
