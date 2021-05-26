@@ -15,6 +15,7 @@
 package ready
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -128,6 +129,20 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 
 	err := probe.Check()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
+func TestEnvoyDraining(t *testing.T) {
+	g := NewWithT(t)
+
+	server := testserver.CreateAndStartServer(liveServerStats)
+	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), Context: ctx}
+	cancel()
+
+	err := probe.isEnvoyReady()
 
 	g.Expect(err).To(HaveOccurred())
 }
