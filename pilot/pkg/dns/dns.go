@@ -57,10 +57,6 @@ type LookupTable struct {
 	// for hosts that will never resolve (e.g., AAAA for svc1.ns1.svc.cluster.local.svc.cluster.local.)
 	allHosts map[string]struct{}
 
-	// This table contains domains of wildcard hosts i.e. for "*.example.com" this stores "example.com" so that
-	// name can be looked up later.
-	wildcardHosts map[string]struct{}
-
 	// The key is a FQDN matching a DNS query (like example.com.), the value is pre-created DNS RR records
 	// of A or AAAA type as appropriate.
 	name4 map[string][]dns.RR
@@ -362,19 +358,23 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 
 	question := host.Name(hostname)
 	wildcard := false
-	// First check if host exists in normal hosts.
+	// First check if host exists in all hosts.
 	_, hostFound = table.allHosts[hostname]
+	// If it is not found, check if a wildcard host exists for it.
+	// For example for "*.example.com", with the question "svc.svcns.example.com",
+	// we check if we have entries for "*.svcns.example.com", "*.example.com" etc.
 	if !hostFound {
-		// Check if it is part of wildcard hosts.
-		for h := range table.allHosts {
-			if host.Name(h).Matches(question) {
-				hostname = h
-				hostFound = true
+		labels := dns.SplitDomainName(hostname)
+		for idx := range labels {
+			qhost := "*." + strings.Join(labels[idx+1:], ".") + "."
+			if _, hostFound = table.allHosts[qhost]; hostFound {
 				wildcard = true
+				hostname = qhost
 				break
 			}
 		}
 	}
+
 	if !hostFound {
 		return nil, false
 	}
@@ -435,12 +435,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, searchNamespaces []string) {
 	for h := range altHosts {
 		h = strings.ToLower(h)
-		if len(h) > 2 && h[0] == '*' {
-			h = h[2:]
-			table.wildcardHosts[h] = struct{}{}
-		} else {
-			table.allHosts[h] = struct{}{}
-		}
+		table.allHosts[h] = struct{}{}
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
 		}
