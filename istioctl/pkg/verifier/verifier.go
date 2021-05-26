@@ -141,7 +141,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision,
 		v.kubeconfig, v.context, v.logger)
 	if err != nil {
-		return nil
+		return err
 	}
 	crdCount, istioDeploymentCount, err := v.verifyPostInstallIstioOperator(
 		mergedIOP, fmt.Sprintf("in cluster operator %s", mergedIOP.GetName()))
