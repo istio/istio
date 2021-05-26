@@ -42,9 +42,6 @@ const (
 	maxSecretNameLength = 8
 	randomLength        = 18
 
-	// The Istio DNS secret annotation type
-	IstioDNSSecretType = "istio.io/dns-key-and-cert"
-
 	// The size of a private key for a leaf certificate.
 	keySize = 2048
 
