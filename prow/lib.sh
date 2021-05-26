@@ -88,7 +88,13 @@ function download_untar_istio_release() {
 function buildx-create() {
   export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.8.3 --name container-builder
+    # For debugging https://github.com/istio/istio/issues/32985, as recommended by docker team
+    cat <<EOF > /tmp/buildkit.toml
+[worker.oci]
+  max-parallelism = 1
+EOF
+    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit@sha256:5ec05e19066e0aac6c6fff226e6c10958714c77d69255011671aee9630975146 \
+      --name container-builder --config /tmp/buildkit.toml
     # Pre-warm the builder. If it fails, fetch logs, but continue
     docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
   fi
