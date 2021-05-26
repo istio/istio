@@ -180,6 +180,10 @@ func (c *controller) Recompute() error {
 
 	if !anyApisUsed(input) {
 		// Early exit for common case of no gateway-api used.
+		c.stateMu.Lock()
+		defer c.stateMu.Unlock()
+		// make sure we clear out the state, to handle the last gateway-api resource being removed
+		c.state = OutputResources{}
 		return nil
 	}
 
