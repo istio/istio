@@ -17,6 +17,7 @@ package stackdriver
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -32,38 +33,125 @@ import (
 )
 
 const (
-	dryRunServerLogEntry         = "testdata/security_authz_dry_run/server_access_log.json.tmpl"
-	dryRunTCPServerLogEntry      = "testdata/security_authz_dry_run/tcp_server_access_log.json.tmpl"
-	dryRunAuthorizationPolicy    = "testdata/security_authz_dry_run/authorization_policy.yaml.tmpl"
-	dryRunTCPAuthorizationPolicy = "testdata/security_authz_dry_run/tcp_authorization_policy.yaml.tmpl"
+	dryRunAuthorizationPolicyAllow      = "testdata/security_authz_dry_run/policy_allow.yaml.tmpl"
+	dryRunAuthorizationPolicyDeny       = "testdata/security_authz_dry_run/policy_deny.yaml.tmpl"
+	dryRunServerLogEntryAllowNoPolicy   = "testdata/security_authz_dry_run/server_access_log_allow_no_policy.json.tmpl"
+	dryRunServerLogEntryAllowWithPolicy = "testdata/security_authz_dry_run/server_access_log_allow_with_policy.json.tmpl"
+	dryRunServerLogEntryDenyNoPolicy    = "testdata/security_authz_dry_run/server_access_log_deny_no_policy.json.tmpl"
+	dryRunServerLogEntryDenyWithPolicy  = "testdata/security_authz_dry_run/server_access_log_deny_with_policy.json.tmpl"
+	dryRunTCPAuthorizationPolicy        = "testdata/security_authz_dry_run/tcp_authorization_policy.yaml.tmpl"
+	dryRunTCPServerLogEntry             = "testdata/security_authz_dry_run/tcp_server_access_log.json.tmpl"
 )
 
-// TestStackdriverAuthzDryRun verifies that stackdriver WASM filter exports dry-run logs with expected labels for HTTP traffic.
-func TestStackdriverAuthzDryRun(t *testing.T) {
+type dryRunCase struct {
+	name    string
+	headers http.Header
+	wantLog string
+}
+
+func testDryRun(t *testing.T, policies []string, cases []dryRunCase) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
-			createDryRunPolicy(t, ctx, dryRunAuthorizationPolicy)
-			g, _ := errgroup.WithContext(context.Background())
-			for _, cltInstance := range clt {
-				cltInstance := cltInstance
-				g.Go(func() error {
-					err := retry.UntilSuccess(func() error {
-						if err := sendTraffic(t, cltInstance); err != nil {
-							return err
-						}
-						return verifyAccessLog(t, cltInstance, dryRunServerLogEntry)
-					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
-					if err != nil {
-						return err
+			for _, policy := range policies {
+				createDryRunPolicy(t, ctx, policy)
+			}
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					g, _ := errgroup.WithContext(context.Background())
+					for _, cltInstance := range clt {
+						cltInstance := cltInstance
+						g.Go(func() error {
+							err := retry.UntilSuccess(func() error {
+								if err := sendTraffic(t, cltInstance, tc.headers); err != nil {
+									return err
+								}
+								return verifyAccessLog(t, cltInstance, tc.wantLog)
+							}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
+							if err != nil {
+								return err
+							}
+							return nil
+						})
 					}
-					return nil
+					if err := g.Wait(); err != nil {
+						t.Fatalf("test failed: %v", err)
+					}
 				})
 			}
-			if err := g.Wait(); err != nil {
-				t.Fatalf("test failed: %v", err)
-			}
 		})
+}
+
+// TestStackdriverAuthzDryRun_Deny verifies that stackdriver WASM filter exports dry-run logs with expected labels
+// when there are only deny authorization policy.
+func TestStackdriverAuthzDryRun_Deny(t *testing.T) {
+	// DENY policy:
+	// 1. matched    -> AuthzDenied + deny policy name
+	// 2. notMatched -> AuthzAllowed
+	testDryRun(t, []string{dryRunAuthorizationPolicyDeny}, []dryRunCase{
+		{
+			name:    "matched",
+			headers: http.Header{"dry-run-deny": []string{"matched"}},
+			wantLog: dryRunServerLogEntryDenyWithPolicy,
+		},
+		{
+			name:    "notMatched",
+			headers: http.Header{"dry-run-deny": []string{"notMatched"}},
+			wantLog: dryRunServerLogEntryAllowNoPolicy,
+		},
+	})
+}
+
+// TestStackdriverAuthzDryRun_Allow verifies that stackdriver WASM filter exports dry-run logs with expected labels
+// when there are only allow authorization policy.
+func TestStackdriverAuthzDryRun_Allow(t *testing.T) {
+	// ALLOW policy:
+	// 1. matched    -> AuthzAllowed + allow policy name
+	// 2. notMatched -> AuthzDenied
+	testDryRun(t, []string{dryRunAuthorizationPolicyAllow}, []dryRunCase{
+		{
+			name:    "matched",
+			headers: http.Header{"dry-run-allow": []string{"matched"}},
+			wantLog: dryRunServerLogEntryAllowWithPolicy,
+		},
+		{
+			name:    "notMatched",
+			headers: http.Header{"dry-run-allow": []string{"notMatched"}},
+			wantLog: dryRunServerLogEntryDenyNoPolicy,
+		},
+	})
+}
+
+// TestStackdriverAuthzDryRun_DenyAndAllow verifies that stackdriver WASM filter exports dry-run logs with expected labels
+// when there are both allow and deny authorization policy.
+func TestStackdriverAuthzDryRun_DenyAndAllow(t *testing.T) {
+	// DENY and ALLOW policy:
+	// 1. DENY matched, ALLOW matched       -> AuthzDenied + deny policy name
+	// 2. DENY matched, ALLOW notMatched    -> AuthzDenied + deny policy name
+	// 3. DENY notMatched, ALLOW matched    -> AuthzAllowed + allow policy name
+	// 4. DENY notMatched, ALLOW notMatched -> AuthzDenied
+	testDryRun(t, []string{dryRunAuthorizationPolicyDeny, dryRunAuthorizationPolicyAllow}, []dryRunCase{
+		{
+			name:    "matchedBoth",
+			headers: http.Header{"dry-run-deny": []string{"matched"}, "dry-run-allow": []string{"matched"}},
+			wantLog: dryRunServerLogEntryDenyWithPolicy,
+		},
+		{
+			name:    "matchedDeny",
+			headers: http.Header{"dry-run-deny": []string{"matched"}, "dry-run-allow": []string{"notMatched"}},
+			wantLog: dryRunServerLogEntryDenyWithPolicy,
+		},
+		{
+			name:    "matchedAllow",
+			headers: http.Header{"dry-run-deny": []string{"notMatched"}, "dry-run-allow": []string{"matched"}},
+			wantLog: dryRunServerLogEntryAllowWithPolicy,
+		},
+		{
+			name:    "matchedNone",
+			headers: http.Header{"dry-run-deny": []string{"notMatched"}, "dry-run-allow": []string{"notMatched"}},
+			wantLog: dryRunServerLogEntryDenyNoPolicy,
+		},
+	})
 }
 
 // TestTCPStackdriverAuthzDryRun verifies that stackdriver WASM filter exports dry-run logs with expected labels for TCP traffic.
