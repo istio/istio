@@ -758,26 +758,6 @@ func (node *Proxy) ServiceNode() string {
 	}, serviceNodeSeparator)
 }
 
-// RouterMode decides the behavior of Istio Gateway (normal or sni-dnat)
-type RouterMode string
-
-const (
-	// StandardRouter is the normal gateway mode
-	StandardRouter RouterMode = "standard"
-
-	// SniDnatRouter is used for bridging two networks
-	SniDnatRouter RouterMode = "sni-dnat"
-)
-
-// GetRouterMode returns the operating mode associated with the router.
-// Assumes that the proxy is of type Router
-func (node *Proxy) GetRouterMode() RouterMode {
-	if RouterMode(node.Metadata.RouterMode) == SniDnatRouter {
-		return SniDnatRouter
-	}
-	return StandardRouter
-}
-
 // SetSidecarScope identifies the sidecar scope object associated with this
 // proxy and updates the proxy Node. This is a convenience hack so that
 // callers can simply call push.Services(node) while the implementation of
