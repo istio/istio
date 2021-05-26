@@ -1034,7 +1034,7 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayApiChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1056,7 +1056,7 @@ func (ps *PushContext) updateContext(
 			gvk.PeerAuthentication:
 			authnChanged = true
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
-			gatewayApiChanged = true
+			gatewayAPIChanged = true
 			virtualServicesChanged = true
 			gatewayChanged = true
 		case gvk.Telemetry:
@@ -1075,7 +1075,7 @@ func (ps *PushContext) updateContext(
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
 	}
 
-	if gatewayApiChanged {
+	if gatewayAPIChanged {
 		if err := ps.initKubernetesGateways(env); err != nil {
 			return err
 		}
@@ -1848,8 +1848,8 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects
 func (ps *PushContext) initKubernetesGateways(env *Environment) error {
-	if env.GatewayApiController != nil {
-		return env.GatewayApiController.Recompute()
+	if env.GatewayAPIController != nil {
+		return env.GatewayAPIController.Recompute()
 	}
 	return nil
 }

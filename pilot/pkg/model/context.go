@@ -85,7 +85,7 @@ type Environment struct {
 
 	clusterLocalServices ClusterLocalProvider
 
-	GatewayApiController GatewayController
+	GatewayAPIController GatewayController
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
