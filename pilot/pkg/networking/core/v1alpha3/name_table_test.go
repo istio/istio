@@ -101,25 +101,6 @@ func TestNameTable(t *testing.T) {
 		},
 	}
 
-	wildcardTCPService := &model.Service{
-		Hostname:    host.Name("*.testns.svc.cluster.local"),
-		Address:     "172.10.10.10",
-		ClusterVIPs: make(map[string]string),
-		Ports: model.PortList{
-			&model.Port{
-				Name:     "tcp-port",
-				Port:     9000,
-				Protocol: protocol.TCP,
-			},
-		},
-		Resolution: model.ClientSideLB,
-		Attributes: model.ServiceAttributes{
-			Name:            "wildcard-svc",
-			Namespace:       "testns",
-			ServiceRegistry: string(serviceregistry.Kubernetes),
-		},
-	}
-
 	push := model.NewPushContext()
 	push.AddPublicServices([]*model.Service{headlessService})
 	push.AddServiceInstances(headlessService,
@@ -129,9 +110,6 @@ func TestNameTable(t *testing.T) {
 
 	wpush := model.NewPushContext()
 	wpush.AddPublicServices([]*model.Service{wildcardService})
-
-	wtpush := model.NewPushContext()
-	wtpush.AddPublicServices([]*model.Service{wildcardTCPService})
 
 	cases := []struct {
 		name              string
@@ -167,7 +145,7 @@ func TestNameTable(t *testing.T) {
 			},
 		},
 		{
-			name:  "wildcard http service pods",
+			name:  "wildcard service pods",
 			proxy: proxy,
 			push:  wpush,
 			expectedNameTable: &nds.NameTable{
@@ -179,14 +157,6 @@ func TestNameTable(t *testing.T) {
 						Namespace: "testns",
 					},
 				},
-			},
-		},
-		{
-			name:  "wildcard tcp service pods",
-			proxy: proxy,
-			push:  wtpush,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{},
 			},
 		},
 	}

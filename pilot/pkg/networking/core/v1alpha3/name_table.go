@@ -39,35 +39,6 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 	}
 
 	for _, svc := range push.Services(node) {
-		// we cannot take services with wildcards in the address field. The reason
-		// is that even if we provide some dummy IP (subject to enabling this
-		// feature in Envoy), after capturing the traffic from the app, the
-		// sidecar would need to forward to the real IP. But to determine the real
-		// IP, the sidecar would have to know the non-wildcard FQDN that the
-		// application was trying to resolve. This information is not available
-		// for TCP services. The wildcard hostname is not a problem for HTTP
-		// services though, as we usually setup a listener on 0.0.0.0, process
-		// based on http virtual host and forward to the orig destination IP.
-		//
-		// Long story short, if the user has a TCP service of the form
-		//
-		// host: *.mysql.aws.com, port 3306,
-		//
-		// our only recourse is to allocate a 0.0.0.0:3306 passthrough listener and forward to
-		// original dest IP. It is now the user's responsibility to not allocate
-		// another wildcard service on the same port. i.e.
-		//
-		// 1. host: *.mysql.aws.com, port 3306
-		// 2. host: *.mongo.aws.com, port 3306 will result in conflict.
-		//
-		// Traffic will still flow but metrics wont be correct
-		// as two different TCP services are consuming the
-		// same wildcard passthrough TCP listener 0.0.0.0:3306.
-		//
-		if svc.Hostname.IsWildCarded() && !hasHttpPorts(svc) {
-			continue
-		}
-
 		svcAddress := svc.GetServiceAddressForProxy(node)
 		var addressList []string
 
@@ -149,15 +120,4 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		out.Table[string(svc.Hostname)] = nameInfo
 	}
 	return out
-}
-
-// hasHttpPorts returns true if service has http ports.
-// nolint
-func hasHttpPorts(svc *model.Service) bool {
-	for _, port := range svc.Ports {
-		if port.Protocol.IsHTTP() {
-			return true
-		}
-	}
-	return false
 }

@@ -57,6 +57,10 @@ type LookupTable struct {
 	// for hosts that will never resolve (e.g., AAAA for svc1.ns1.svc.cluster.local.svc.cluster.local.)
 	allHosts map[string]struct{}
 
+	// This table contains domains of wildcard hosts i.e. for "*.example.com" this stores "example.com" so that
+	// name can be looked up later.
+	wildcardHosts map[string]struct{}
+
 	// The key is a FQDN matching a DNS query (like example.com.), the value is pre-created DNS RR records
 	// of A or AAAA type as appropriate.
 	name4 map[string][]dns.RR
@@ -358,10 +362,10 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 
 	question := host.Name(hostname)
 	wildcard := false
-	// First check if host exists.
+	// First check if host exists in normal hosts.
 	_, hostFound = table.allHosts[hostname]
 	if !hostFound {
-		// Check matching hosts for wildcard hosts.
+		// Check if it is part of wildcard hosts.
 		for h := range table.allHosts {
 			if host.Name(h).Matches(question) {
 				hostname = h
@@ -431,7 +435,12 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []net.IP, ipv6 []net.IP, searchNamespaces []string) {
 	for h := range altHosts {
 		h = strings.ToLower(h)
-		table.allHosts[h] = struct{}{}
+		if len(h) > 2 && h[0] == '*' {
+			h = h[2:]
+			table.wildcardHosts[h] = struct{}{}
+		} else {
+			table.allHosts[h] = struct{}{}
+		}
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
 		}
