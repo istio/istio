@@ -260,14 +260,6 @@ func TestSubmitCSR(t *testing.T) {
 		}
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
-		// wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-		// 	client.CoreV1(), client.CertificatesV1beta1(),
-		// 	tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
-		// if err != nil {
-		// 	t.Errorf("failed at creating webhook controller: %v", err)
-		// 	continue
-		// }
-
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
 		numRetries := 3
 		csrPEM := "fake-csr"
