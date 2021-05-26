@@ -309,8 +309,14 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	}
 
 	excludePorts := "15090,15021"
-	if config.StatusPort != 15090 && config.StatusPort != 15021 && config.StatusPort != 0 {
-		excludePorts += fmt.Sprintf(",%d", config.StatusPort)
+	if config.StatusPort != 15090 && config.StatusPort != 15021 {
+		if config.StatusPort != 0 {
+			// Explicit status port set, use that
+			excludePorts += fmt.Sprintf(",%d", config.StatusPort)
+		} else {
+			// use default status port
+			excludePorts += ",15020"
+		}
 	}
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	overrides := map[string]string{
