@@ -19,11 +19,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -44,16 +44,11 @@ type PodInfo struct {
 
 // newK8sClient returns a Kubernetes client
 func newK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
+
 	// Some config can be passed in a kubeconfig file
 	kubeconfig := conf.Kubernetes.Kubeconfig
 
-	// Config can be overridden by config passed in explicitly in the network config.
-	configOverrides := &clientcmd.ConfigOverrides{}
-
-	// Use the kubernetes client code to load the kubeconfig file and combine it with the overrides.
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig},
-		configOverrides).ClientConfig()
+	config, err := kube.DefaultRestConfig(kubeconfig, "")
 	if err != nil {
 		log.Infof("Failed setting up kubernetes client with kubeconfig %s", kubeconfig)
 		return nil, err

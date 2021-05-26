@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -443,7 +444,7 @@ type ExecClient interface {
 
 // NewClient is the constructor for the client wrapper
 func NewClient(kubeconfig, configContext string) (*Client, error) {
-	config, err := defaultRestConfig(kubeconfig, configContext)
+	config, err := kube.DefaultRestConfig(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}

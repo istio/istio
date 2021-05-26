@@ -30,11 +30,11 @@ import (
 	"github.com/spf13/viper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"istio.io/istio/cni/pkg/taint"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -180,10 +180,8 @@ func parseFlags() (options *ControllerOptions) {
 
 // Set up Kubernetes client using kubeconfig (or in-cluster config if no file provided)
 func clientSetup() (clientset *client.Clientset, err error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	config, err := kubeConfig.ClientConfig()
+
+	config, err := kube.DefaultRestConfig("", "")
 	if err != nil {
 		return
 	}
