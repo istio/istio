@@ -36,13 +36,6 @@ import (
 )
 
 const (
-	// defaultCertGracePeriodRatio is the default length of certificate rotation grace period,
-	// configured as the ratio of the certificate TTL.
-	defaultCertGracePeriodRatio = 0.5
-
-	// defaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
-	defaultMinCertGracePeriod = 10 * time.Minute
-
 	// Default CA certificate path
 	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
 	defaultCACertPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
