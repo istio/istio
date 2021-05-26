@@ -32,6 +32,7 @@ var ist istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Skip("https://github.com/istio/istio/pull/33045").
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(func(ctx resource.Context) error {
