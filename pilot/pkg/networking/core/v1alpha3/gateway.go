@@ -446,9 +446,6 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpProtoOpts.AcceptHttp_10 = true
 	}
-	if features.EnablePreserveHeaderKeyCase {
-		httpProtoOpts.HeaderKeyFormat = PreserveCaseFormatter
-	}
 	xffNumTrustedHops := uint32(0)
 	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.Topology_SANITIZE_SET)
 
