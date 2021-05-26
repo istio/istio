@@ -66,7 +66,6 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -152,9 +151,8 @@ type Server struct {
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
 
-	certController *chiron.WebhookController
-	CA             *ca.IstioCA
-	RA             ra.RegistrationAuthority
+	CA *ca.IstioCA
+	RA ra.RegistrationAuthority
 
 	// TrustAnchors for workload to workload mTLS
 	workloadTrustBundle     *tb.TrustBundle
@@ -993,11 +991,6 @@ func (s *Server) getIstiodCertificate(info *tls.ClientHelloInfo) (*tls.Certifica
 // initControllers initializes the controllers.
 func (s *Server) initControllers(args *PilotArgs) error {
 	log.Info("initializing controllers")
-	// Certificate controller is created before MCP controller in case MCP server pod
-	// waits to mount a certificate to be provisioned by the certificate controller.
-	if err := s.initCertController(args); err != nil {
-		return fmt.Errorf("error initializing certificate controller: %v", err)
-	}
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
 	}

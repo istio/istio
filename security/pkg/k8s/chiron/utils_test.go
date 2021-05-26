@@ -129,16 +129,8 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		}
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
-		if err != nil {
-			t.Errorf("failed at creating webhook controller: %v", err)
-			continue
-		}
-
-		_, _, _, err = GenKeyCertK8sCA(wc.certClient.CertificateSigningRequests(), tc.dnsNames[0], tc.secretNames[0],
-			tc.serviceNamespaces[0], wc.k8sCaCertFile)
+		_, _, _, err := GenKeyCertK8sCA(client.CertificatesV1beta1().CertificateSigningRequests(), tc.dnsNames[0], tc.secretNames[0],
+			tc.serviceNamespaces[0], tc.k8sCaCertFile)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -217,60 +209,6 @@ func TestIsTCPReachable(t *testing.T) {
 	}
 }
 
-func TestReloadCACert(t *testing.T) {
-	testCases := map[string]struct {
-		gracePeriodRatio  float32
-		minGracePeriod    time.Duration
-		k8sCaCertFile     string
-		dnsNames          []string
-		secretNames       []string
-		serviceNamespaces []string
-
-		expectFail    bool
-		expectChanged bool
-	}{
-		"reload from valid CA cert path": {
-			gracePeriodRatio:  0.6,
-			dnsNames:          []string{"foo"},
-			secretNames:       []string{"istio.webhook.foo"},
-			serviceNamespaces: []string{"foo.ns"},
-			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
-			expectFail:        false,
-			expectChanged:     false,
-		},
-	}
-
-	for _, tc := range testCases {
-		client := fake.NewSimpleClientset()
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
-		if err != nil {
-			t.Errorf("failed at creating webhook controller: %v", err)
-			continue
-		}
-		changed, err := reloadCACert(wc)
-		if tc.expectFail {
-			if err == nil {
-				t.Errorf("should have failed at reloading CA cert")
-			}
-			continue
-		} else if err != nil {
-			t.Errorf("failed at reloading CA cert: %v", err)
-			continue
-		}
-		if tc.expectChanged {
-			if !changed {
-				t.Error("expect changed but not changed")
-			}
-		} else {
-			if changed {
-				t.Error("expect unchanged but changed")
-			}
-		}
-	}
-}
-
 func TestSubmitCSR(t *testing.T) {
 	testCases := map[string]struct {
 		gracePeriodRatio  float32
@@ -322,13 +260,13 @@ func TestSubmitCSR(t *testing.T) {
 		}
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
-		if err != nil {
-			t.Errorf("failed at creating webhook controller: %v", err)
-			continue
-		}
+		// wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
+		// 	client.CoreV1(), client.CertificatesV1beta1(),
+		// 	tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
+		// if err != nil {
+		// 	t.Errorf("failed at creating webhook controller: %v", err)
+		// 	continue
+		// }
 
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
 		numRetries := 3
@@ -355,7 +293,7 @@ func TestSubmitCSR(t *testing.T) {
 					},
 				},
 			}
-			reqRet, errRet := wc.certClient.CertificateSigningRequests().Create(context.TODO(), k8sCSR, metav1.CreateOptions{})
+			reqRet, errRet := client.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), k8sCSR, metav1.CreateOptions{})
 			if errRet != nil && reqRet == nil {
 				t.Errorf("failed to create a CSR, return is nil or error (%v)", errRet)
 				continue
@@ -371,7 +309,7 @@ func TestSubmitCSR(t *testing.T) {
 				cert.UsageClientAuth,
 			},
 		}
-		r, err := submitCSR(wc.certClient.CertificateSigningRequests(), csrName, csrSpec, numRetries)
+		r, err := submitCSR(client.CertificatesV1beta1().CertificateSigningRequests(), csrName, csrSpec, numRetries)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -445,18 +383,10 @@ func TestReadSignedCertificate(t *testing.T) {
 		}
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
-		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.CertificatesV1beta1(),
-			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
-		if err != nil {
-			t.Errorf("failed at creating webhook controller: %v", err)
-			continue
-		}
-
 		// 4. Read the signed certificate
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
-		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName,
-			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile, true)
+		_, _, err := readSignedCertificate(client.CertificatesV1beta1().CertificateSigningRequests(), csrName,
+			certReadInterval, certWatchTimeout, maxNumCertRead, tc.k8sCaCertFile, true)
 
 		if tc.expectFail {
 			if err == nil {
