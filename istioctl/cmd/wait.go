@@ -267,7 +267,7 @@ func getAndWatchResource(ictx context.Context) *watcher {
 				return ictx.Err()
 			default:
 				continue
-			}	
+			}
 		}
 
 		return nil
