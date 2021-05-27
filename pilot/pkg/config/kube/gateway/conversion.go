@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -420,7 +419,7 @@ func createRouteStatus(gateways []string, obj config.Config, current []k8s.Route
 			ref.Namespace = "default"
 		} else {
 			s := strings.Split(gw, "/")
-			ref.Name = s[1]
+			ref.Name = s[1] // TODO name here is the internal name, need to use the external name
 			ref.Namespace = s[0]
 		}
 		gws = append(gws, k8s.RouteGatewayStatus{
