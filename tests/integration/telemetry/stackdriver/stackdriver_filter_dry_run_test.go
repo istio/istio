@@ -91,12 +91,12 @@ func TestStackdriverAuthzDryRun_Deny(t *testing.T) {
 	testDryRun(t, []string{dryRunAuthorizationPolicyDeny}, []dryRunCase{
 		{
 			name:    "matched",
-			headers: http.Header{"dry-run-deny": []string{"matched"}},
+			headers: http.Header{"Dry-Run-Deny": []string{"matched"}},
 			wantLog: dryRunServerLogEntryDenyWithPolicy,
 		},
 		{
 			name:    "notMatched",
-			headers: http.Header{"dry-run-deny": []string{"notMatched"}},
+			headers: http.Header{"Dry-Run-Deny": []string{"notMatched"}},
 			wantLog: dryRunServerLogEntryAllowNoPolicy,
 		},
 	})
@@ -111,12 +111,12 @@ func TestStackdriverAuthzDryRun_Allow(t *testing.T) {
 	testDryRun(t, []string{dryRunAuthorizationPolicyAllow}, []dryRunCase{
 		{
 			name:    "matched",
-			headers: http.Header{"dry-run-allow": []string{"matched"}},
+			headers: http.Header{"Dry-Run-Allow": []string{"matched"}},
 			wantLog: dryRunServerLogEntryAllowWithPolicy,
 		},
 		{
 			name:    "notMatched",
-			headers: http.Header{"dry-run-allow": []string{"notMatched"}},
+			headers: http.Header{"Dry-Run-Allow": []string{"notMatched"}},
 			wantLog: dryRunServerLogEntryDenyNoPolicy,
 		},
 	})
@@ -133,22 +133,22 @@ func TestStackdriverAuthzDryRun_DenyAndAllow(t *testing.T) {
 	testDryRun(t, []string{dryRunAuthorizationPolicyDeny, dryRunAuthorizationPolicyAllow}, []dryRunCase{
 		{
 			name:    "matchedBoth",
-			headers: http.Header{"dry-run-deny": []string{"matched"}, "dry-run-allow": []string{"matched"}},
+			headers: http.Header{"Dry-Run-Deny": []string{"matched"}, "Dry-Run-Allow": []string{"matched"}},
 			wantLog: dryRunServerLogEntryDenyWithPolicy,
 		},
 		{
 			name:    "matchedDeny",
-			headers: http.Header{"dry-run-deny": []string{"matched"}, "dry-run-allow": []string{"notMatched"}},
+			headers: http.Header{"Dry-Run-Deny": []string{"matched"}, "Dry-Run-Allow": []string{"notMatched"}},
 			wantLog: dryRunServerLogEntryDenyWithPolicy,
 		},
 		{
 			name:    "matchedAllow",
-			headers: http.Header{"dry-run-deny": []string{"notMatched"}, "dry-run-allow": []string{"matched"}},
+			headers: http.Header{"Dry-Run-Deny": []string{"notMatched"}, "Dry-Run-Allow": []string{"matched"}},
 			wantLog: dryRunServerLogEntryAllowWithPolicy,
 		},
 		{
-			name:    "matchedNone",
-			headers: http.Header{"dry-run-deny": []string{"notMatched"}, "dry-run-allow": []string{"notMatched"}},
+			name:    "notMatched",
+			headers: http.Header{"Dry-Run-Deny": []string{"notMatched"}, "Dry-Run-Allow": []string{"notMatched"}},
 			wantLog: dryRunServerLogEntryDenyNoPolicy,
 		},
 	})
