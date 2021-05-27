@@ -135,7 +135,7 @@ var (
 
 	// DeprecatedAnnotation defines a diag.MessageType for message "DeprecatedAnnotation".
 	// Description: A resource is using a deprecated Istio annotation.
-	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated and may not work in future Istio versions.")
+	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated%s and may not work in future Istio versions.")
 
 	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
 	// Description: An Istio annotation may not be suitable for production.
@@ -541,11 +541,12 @@ func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
 }
 
 // NewDeprecatedAnnotation returns a new diag.Message based on DeprecatedAnnotation.
-func NewDeprecatedAnnotation(r *resource.Instance, annotation string) diag.Message {
+func NewDeprecatedAnnotation(r *resource.Instance, annotation string, extra string) diag.Message {
 	return diag.NewMessage(
 		DeprecatedAnnotation,
 		r,
 		annotation,
+		extra,
 	)
 }
 
