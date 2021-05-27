@@ -2331,6 +2331,7 @@ spec:
                       - HTTP_ROUTE
                       - CLUSTER
                       - EXTENSION_CONFIG
+                      - BOOTSTRAP
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
