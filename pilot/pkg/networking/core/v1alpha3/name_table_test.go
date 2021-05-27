@@ -101,6 +101,30 @@ func TestNameTable(t *testing.T) {
 		},
 	}
 
+	cidrService := &model.Service{
+		Hostname:    host.Name("*.testns.svc.cluster.local"),
+		Address:     "172.217.0.0/16",
+		ClusterVIPs: make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     9000,
+				Protocol: protocol.TCP,
+			},
+			&model.Port{
+				Name:     "http-port",
+				Port:     8000,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Name:            "cidr-svc",
+			Namespace:       "testns",
+			ServiceRegistry: string(serviceregistry.Kubernetes),
+		},
+	}
+
 	push := model.NewPushContext()
 	push.AddPublicServices([]*model.Service{headlessService})
 	push.AddServiceInstances(headlessService,
@@ -110,6 +134,9 @@ func TestNameTable(t *testing.T) {
 
 	wpush := model.NewPushContext()
 	wpush.AddPublicServices([]*model.Service{wildcardService})
+
+	cpush := model.NewPushContext()
+	wpush.AddPublicServices([]*model.Service{cidrService})
 
 	cases := []struct {
 		name              string
@@ -157,6 +184,14 @@ func TestNameTable(t *testing.T) {
 						Namespace: "testns",
 					},
 				},
+			},
+		},
+		{
+			name:  "cidr service",
+			proxy: proxy,
+			push:  cpush,
+			expectedNameTable: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{},
 			},
 		},
 	}
