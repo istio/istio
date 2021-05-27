@@ -118,7 +118,24 @@ func parseConfig(stdin []byte) (*PluginConf, error) {
 }
 
 // cmdAdd is called for ADD requests
-func cmdAdd(args *skel.CmdArgs) error {
+func cmdAdd(args *skel.CmdArgs) (err error) {
+	// Defer a panic recover, so that in case if panic we can still return
+	// a proper error to the runtime.
+	defer func() {
+		if e := recover(); e != nil {
+			msg := fmt.Sprintf("istio-cni panicked during ADD: %s", e)
+			if err != nil {
+				// If we're recovering and there was also an error, then we need to
+				// present both.
+				msg = fmt.Sprintf("%s: error=%s", msg, err)
+			}
+			err = fmt.Errorf(msg)
+		}
+		if err != nil {
+			log.Errorf("Final result of istio-cni ADD was an error.")
+		}
+	}()
+
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
 		log.Errorf("istio-cni cmdAdd parsing config %v", err)
@@ -258,7 +275,24 @@ func cmdGet(args *skel.CmdArgs) error {
 }
 
 // cmdDel is called for DELETE requests
-func cmdDel(args *skel.CmdArgs) error {
+func cmdDel(args *skel.CmdArgs) (err error) {
+	// Defer a panic recover, so that in case we panic we can still return
+	// a proper error to the runtime.
+	defer func() {
+		if e := recover(); e != nil {
+			msg := fmt.Sprintf("istio-cni panicked during DELETE: %s", e)
+			if err != nil {
+				// If we're recovering and there was also an error, then we need to
+				// present both.
+				msg = fmt.Sprintf("%s: error=%s", msg, err)
+			}
+			err = fmt.Errorf(msg)
+		}
+		if err != nil {
+			log.Errorf("Final result of istio-cni DELETE was an error.")
+		}
+	}()
+
 	log.Info("istio-cni cmdDel parsing config")
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
