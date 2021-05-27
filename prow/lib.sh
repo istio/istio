@@ -88,7 +88,7 @@ function download_untar_istio_release() {
 function buildx-create() {
   export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.8.3 --name container-builder
+    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.8.3 --name container-builder --buildkitd-flags="--debug"
     # Pre-warm the builder. If it fails, fetch logs, but continue
     docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
   fi
@@ -112,10 +112,10 @@ function build_images() {
   targets+="docker.operator "
   targets+="docker.install-cni "
   if [[ "${VARIANT:-default}" == "distroless" ]]; then
-    DOCKER_BUILD_VARIANTS="distroless" DOCKER_TARGETS="${targets}" make dockerx.pushx
-    DOCKER_BUILD_VARIANTS="default" DOCKER_TARGETS="${nonDistrolessTargets}" make dockerx.pushx
+    DOCKER_BUILD_VARIANTS="distroless" DOCKER_TARGETS="${targets}" make docker.push
+    DOCKER_BUILD_VARIANTS="default" DOCKER_TARGETS="${nonDistrolessTargets}" make docker.push
   else
-    DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets} ${nonDistrolessTargets}" make dockerx.pushx
+    DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets} ${nonDistrolessTargets}" make docker.push
   fi
 }
 

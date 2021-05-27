@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/fake"
 	svc "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -85,7 +85,7 @@ var (
 
 func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
-	clientSet := fake.NewSimpleClientset()
+	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, controller2.Options{})
 
@@ -98,7 +98,7 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 func TestListGatewayResourceType(t *testing.T) {
 	g := NewWithT(t)
 
-	clientSet := fake.NewSimpleClientset()
+	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, controller2.Options{})
 
@@ -133,6 +133,7 @@ func TestListGatewayResourceType(t *testing.T) {
 		Spec: httpRouteSpec,
 	})
 
+	g.Expect(controller.Recompute()).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.Gateway, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
@@ -147,7 +148,7 @@ func TestListGatewayResourceType(t *testing.T) {
 func TestListVirtualServiceResourceType(t *testing.T) {
 	g := NewWithT(t)
 
-	clientSet := fake.NewSimpleClientset()
+	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, controller2.Options{})
 
@@ -180,6 +181,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 		Spec: httpRouteSpec,
 	})
 
+	g.Expect(controller.Recompute()).ToNot(HaveOccurred())
 	cfg, err := controller.List(gvk.VirtualService, "ns1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(cfg).To(HaveLen(1))
