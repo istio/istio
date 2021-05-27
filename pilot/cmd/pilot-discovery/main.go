@@ -17,9 +17,8 @@ package main
 import (
 	"os"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/cmd/pilot-discovery/app"
+	"istio.io/pkg/log"
 )
 
 func main() {
