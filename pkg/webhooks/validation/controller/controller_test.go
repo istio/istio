@@ -160,7 +160,7 @@ type fakeController struct {
 
 const (
 	namespace = "istio-system"
-	istiod    = "istiod"
+	istiod    = "istiod-revision"
 	revision  = "revision"
 )
 
@@ -202,8 +202,7 @@ func reconcileHelper(t *testing.T, c *fakeController) {
 
 	c.ClearActions()
 	if _, err := c.reconcileRequest(&reconcileRequest{
-		event:       updateEvent,
-		webhookName: istiod,
+		event: updateEvent,
 	}); err != nil {
 		t.Fatalf("unexpected reconciliation error: %v", err)
 	}
