@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -221,7 +222,19 @@ func newController(
 		webhookName: o.validatingWebhookName(),
 	}
 
-	webhookInformer := client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations().Informer()
+	webhookInformer := cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
+			},
+			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
+			},
+		},
+		&kubeApiAdmission.ValidatingWebhookConfiguration{}, 0, cache.Indexers{},
+	)
 	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK))
 	c.webhookInformer = webhookInformer
 
