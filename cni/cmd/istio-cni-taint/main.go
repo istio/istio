@@ -180,7 +180,6 @@ func parseFlags() (options *ControllerOptions) {
 
 // Set up Kubernetes client using kubeconfig (or in-cluster config if no file provided)
 func clientSetup() (clientset *client.Clientset, err error) {
-
 	config, err := kube.DefaultRestConfig("", "")
 	if err != nil {
 		return

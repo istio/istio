@@ -15,12 +15,13 @@
 package kubeclient
 
 import (
-	"istio.io/istio/pkg/kube"
 	"k8s.io/client-go/kubernetes"
 
 	//  Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pkg/kube"
 )
 
 // New creates a rest.Config qne Clientset from the given kubeconfig path and Context.
