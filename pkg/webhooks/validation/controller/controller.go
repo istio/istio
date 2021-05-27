@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -95,6 +94,7 @@ type Controller struct {
 	client kube.Client
 
 	webhookInformer               cache.SharedInformer
+	webhookName                   string
 	queue                         workqueue.RateLimitingInterface
 	dryRunOfInvalidConfigRejected bool
 }
@@ -121,12 +121,11 @@ const (
 
 type reconcileRequest struct {
 	event       eventType
-	webhookName string
 	description string
 }
 
 func (rr reconcileRequest) String() string {
-	return fmt.Sprintf("(description) %s, (webhook) %s, (eventType) %s", rr.description, rr.webhookName, rr.event)
+	return fmt.Sprintf("[description] %s, [eventType] %s", rr.description, rr.event)
 }
 
 func filterWatchedObject(obj metav1.Object) (skip bool, key string) {
@@ -151,7 +150,6 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			}
 			req := &reconcileRequest{
 				event:       updateEvent,
-				webhookName: obj.GetName(),
 				description: fmt.Sprintf("add event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
 			}
 			queue.Add(req)
@@ -175,7 +173,6 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			}
 			req := &reconcileRequest{
 				event:       updateEvent,
-				webhookName: currObj.GetName(),
 				description: fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
 			}
 			queue.Add(req)
@@ -201,7 +198,6 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			}
 			req := &reconcileRequest{
 				event:       updateEvent,
-				webhookName: currObj.GetName(),
 				description: fmt.Sprintf("delete event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
 			}
 			queue.Add(req)
@@ -219,24 +215,13 @@ func newController(
 	client kube.Client,
 ) *Controller {
 	c := &Controller{
-		o:      o,
-		client: client,
-		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
+		o:           o,
+		client:      client,
+		queue:       workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
+		webhookName: o.validatingWebhookName(),
 	}
-	webhookInformer := cache.NewSharedIndexInformer(
-		&cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision)
-				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision)
-				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
-			},
-		},
-		&kubeApiAdmission.ValidatingWebhookConfiguration{}, 0, cache.Indexers{},
-	)
 
+	webhookInformer := client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations().Informer()
 	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK))
 	c.webhookInformer = webhookInformer
 
@@ -267,35 +252,14 @@ func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			if err := c.reconcileAll(); err != nil {
-				scope.Errorf("Failed to reconcile all revisions: %v", err)
-			}
+			c.queue.AddRateLimited(&reconcileRequest{
+				updateEvent,
+				"CA bundle update",
+			})
 		case <-stop:
 			return
 		}
 	}
-}
-
-// reconcileAll reconciles all validatingwebhookconfigurations with matching revision.
-func (c *Controller) reconcileAll() error {
-	scope.Infof("Reconciling all validatingwebhookconfigurations")
-	webhooks, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(
-		context.Background(),
-		metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, c.o.Revision),
-		})
-	if err != nil {
-		return err
-	}
-	for _, wh := range webhooks.Items {
-		c.queue.AddRateLimited(&reconcileRequest{
-			event:       updateEvent,
-			webhookName: wh.Name,
-			description: "CA bundle changed",
-		})
-	}
-
-	return nil
 }
 
 func (c *Controller) runWorker() {
@@ -327,7 +291,6 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		if retry {
 			c.queue.AddRateLimited(&reconcileRequest{
 				event:       retryEvent,
-				webhookName: req.webhookName,
 				description: "retry reconcile request",
 			})
 			return true
@@ -346,9 +309,9 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	_, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
+	_, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
 	if err != nil && kubeErrors.IsNotFound(err) {
-		scope.Infof("Skip patching webhook, webhook not found")
+		scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
 		return false, nil
 	}
 
@@ -367,7 +330,7 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
 		// no point in retrying unless cert file changes.
 		return !ready, nil
 	}
-	return !ready, c.updateValidatingWebhookConfiguration(req.webhookName, caBundle, failurePolicy)
+	return !ready, c.updateValidatingWebhookConfiguration(c.webhookName, caBundle, failurePolicy)
 }
 
 func (c *Controller) readyForFailClose() bool {
@@ -383,7 +346,7 @@ func (c *Controller) readyForFailClose() bool {
 }
 
 const (
-	deniedRequestMessageFragment   = `admission webhook "validation.istio.io" denied the request`
+	deniedRequestMessageFragment   = `denied the request`
 	missingResourceMessageFragment = `the server could not find the requested resource`
 )
 
@@ -465,6 +428,17 @@ func (c *Controller) updateValidatingWebhookConfiguration(webhookName string, ca
 		webhookName, failurePolicy, current.ResourceVersion)
 
 	return nil
+}
+
+func (o *Options) validatingWebhookName() string {
+	name := "istiod"
+	if o.Revision != "default" {
+		name = fmt.Sprintf("%s-%s", name, o.Revision)
+	}
+	if o.WatchedNamespace != "istio-system" {
+		name = fmt.Sprintf("%s-%s", name, o.WatchedNamespace)
+	}
+	return name
 }
 
 type configError struct {

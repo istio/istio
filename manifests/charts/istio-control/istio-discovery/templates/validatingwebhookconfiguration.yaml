@@ -13,7 +13,9 @@ metadata:
     istio: istiod
     istio.io/rev: {{ .Values.revision | default "default" }}
 webhooks:
-  - name: validation.istio.io
+  # Webhook handling per-revision validation. Mostly here so we can determine whether webhooks
+  # are rejecting invalid configs on a per-revision basis.
+  - name: rev.validation.istio.io
     clientConfig:
       # Should change from base but cannot for API compat
       {{- if .Values.base.validationURL }}
@@ -52,5 +54,36 @@ webhooks:
           {{- else }}
           - "{{ .Values.revision }}"
           {{- end }}
+  # Webhook handling default validation
+  - name: validation.istio.io
+    clientConfig:
+      # Should change from base but cannot for API compat
+      {{- if .Values.base.validationURL }}
+      url: {{ .Values.base.validationURL }}
+      {{- else }}
+      service:
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+        namespace: {{ .Values.global.istioNamespace }}
+        path: "/validate"
+      {{- end }}
+      caBundle: ""
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: DoesNotExist
 ---
 {{- end }}
