@@ -158,10 +158,10 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		si := convertWorkloadEntryToWorkloadInstance(curr)
-		if si != nil {
+		wi := convertWorkloadEntryToWorkloadInstance(curr)
+		if wi != nil {
 			for _, h := range s.workloadHandlers {
-				h(si, event)
+				h(wi, event)
 			}
 		}
 	}
