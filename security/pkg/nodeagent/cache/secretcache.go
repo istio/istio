@@ -626,7 +626,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			sc.certMutex.RUnlock()
 			// Trigger callbacks for all resources referencing this file. This is practically always
 			// a single resource.
-			cacheLog.Infof("event for file certificate %s : %s", event.Name, event.Op.String())
+			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
 			for k := range resources {
 				if k.Filename == event.Name {
 					sc.CallUpdateCallback(k.ResourceName)
