@@ -158,10 +158,10 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		si := convertWorkloadEntryToWorkloadInstance(curr)
-		if si != nil {
+		wi := convertWorkloadEntryToWorkloadInstance(curr)
+		if wi != nil {
 			for _, h := range s.workloadHandlers {
-				h(si, event)
+				h(wi, event)
 			}
 		}
 	}
@@ -791,7 +791,15 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model
 	for _, ip := range node.IPAddresses {
 		instances, found := s.ip2instance[ip]
 		if found {
-			out = append(out, instances...)
+			for _, i := range instances {
+				// Insert all instances for this IP for services within the same namespace This ensures we
+				// match Kubernetes logic where Services do not cross namespace boundaries and avoids
+				// possibility of other namespaces inserting service instances into namespaces they do not
+				// control.
+				if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
+					out = append(out, i)
+				}
+			}
 		}
 	}
 	return out

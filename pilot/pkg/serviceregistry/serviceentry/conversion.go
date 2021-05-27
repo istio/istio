@@ -364,8 +364,8 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 	return out
 }
 
-// Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
-// port names) and the namespace - k8s will consume this service instance when selecting workload entries
+// Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
+// port names) and the namespace - k8s will consume this workload instance when selecting workload entries
 func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
 	// we will merge labels from metadata with spec, with precedence to the metadata
