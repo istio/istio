@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/pkg/version"
+	istioversion "istio.io/pkg/version"
 	kubeApiCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,7 +121,7 @@ func adjustCommand(p string) string {
 // example: pilot-discovery/1.9.5 or istioctl/1.10.0
 // This is a specialized version of rest.DefaultKubernetesUserAgent()
 func IstioUserAgent() string {
-	return adjustCommand(os.Args[0]) + "/" + version.Info.String()
+	return adjustCommand(os.Args[0]) + "/" + istioversion.Info.String()
 }
 
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.
