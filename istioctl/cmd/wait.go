@@ -256,19 +256,18 @@ func getAndWatchResource(ictx context.Context) *watcher {
 		}
 		for w := range watch.ResultChan() {
 			o, okay := w.Object.(metav1.Object)
-			if okay {
-				if o.GetName() == nf {
-					result <- strconv.FormatInt(o.GetGeneration(), 10)
-				}
-				select {
-				case <-ictx.Done():
-					return ictx.Err()
-				default:
-					continue
-				}
-			} else {
+			if !okay {
 				continue
 			}
+			if o.GetName() == nf {
+				result <- strconv.FormatInt(o.GetGeneration(), 10)
+			}
+			select {
+			case <-ictx.Done():
+				return ictx.Err()
+			default:
+				continue
+			}	
 		}
 
 		return nil
