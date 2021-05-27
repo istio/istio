@@ -989,6 +989,10 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 		return err
 	}
 
+	if err := ps.initKubernetesGateways(env); err != nil {
+		return err
+	}
+
 	if err := ps.initVirtualServices(env); err != nil {
 		return err
 	}
@@ -1030,7 +1034,7 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1052,6 +1056,7 @@ func (ps *PushContext) updateContext(
 			gvk.PeerAuthentication:
 			authnChanged = true
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
+			gatewayAPIChanged = true
 			virtualServicesChanged = true
 			gatewayChanged = true
 		case gvk.Telemetry:
@@ -1068,6 +1073,12 @@ func (ps *PushContext) updateContext(
 		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+	}
+
+	if gatewayAPIChanged {
+		if err := ps.initKubernetesGateways(env); err != nil {
+			return err
+		}
 	}
 
 	if virtualServicesChanged {
@@ -1833,4 +1844,12 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 
 	// Fallback to discovery call.
 	return ps.InstancesByPort(svc, port, labels)
+}
+
+// initKubernetesGateways initializes Kubernetes gateway-api objects
+func (ps *PushContext) initKubernetesGateways(env *Environment) error {
+	if env.GatewayAPIController != nil {
+		return env.GatewayAPIController.Recompute()
+	}
+	return nil
 }

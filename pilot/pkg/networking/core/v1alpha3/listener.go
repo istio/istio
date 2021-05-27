@@ -27,7 +27,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	hcase "github.com/envoyproxy/go-control-plane/envoy/extensions/http/header_formatters/preserve_case/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -78,15 +77,6 @@ const (
 	// TODO: allow configuration through mesh config
 	ProxyInboundListenPort = 15006
 )
-
-var PreserveCaseFormatter = &core.Http1ProtocolOptions_HeaderKeyFormat{
-	HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
-		StatefulFormatter: &core.TypedExtensionConfig{
-			Name:        "preserve_case",
-			TypedConfig: util.MessageToAny(&hcase.PreserveCaseFormatterConfig{}),
-		},
-	},
-}
 
 // MutableListener represents a listener that is being built.
 type MutableListener struct {
@@ -303,13 +293,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		}
 	}
 
-	httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{}
-
 	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
-		httpOpts.connectionManager.HttpProtocolOptions.AcceptHttp_10 = true
-	}
-	if features.EnablePreserveHeaderKeyCase {
-		httpOpts.connectionManager.HttpProtocolOptions.HeaderKeyFormat = PreserveCaseFormatter
+		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			AcceptHttp_10: true,
+		}
 	}
 
 	return httpOpts
@@ -667,9 +654,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
 		httpOpts.AcceptHttp_10 = true
 	}
-	if features.EnablePreserveHeaderKeyCase {
-		httpOpts.HeaderKeyFormat = PreserveCaseFormatter
-	}
+
 	opts := buildListenerOpts{
 		push:  push,
 		proxy: node,
@@ -784,16 +769,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		// such as "x-envoy-upstream-rq-timeout-ms" set by the calling application.
 		useRemoteAddress: features.UseRemoteAddress,
 		rds:              rdsName,
-		connectionManager: &hcm.HttpConnectionManager{
-			HttpProtocolOptions: &core.Http1ProtocolOptions{},
-		},
 	}
 
 	if features.HTTP10 || listenerOpts.proxy.Metadata.HTTP10 == "1" {
-		httpOpts.connectionManager.HttpProtocolOptions.AcceptHttp_10 = true
-	}
-	if features.EnablePreserveHeaderKeyCase {
-		httpOpts.connectionManager.HttpProtocolOptions.HeaderKeyFormat = PreserveCaseFormatter
+		httpOpts.connectionManager = &hcm.HttpConnectionManager{
+			HttpProtocolOptions: &core.Http1ProtocolOptions{
+				AcceptHttp_10: true,
+			},
+		}
 	}
 
 	return true, []*filterChainOpts{{
