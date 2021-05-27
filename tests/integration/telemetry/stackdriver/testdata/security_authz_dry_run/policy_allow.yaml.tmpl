@@ -2,12 +2,12 @@ apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   namespace: "{{ .Namespace }}"
-  name: "dry-run-deny"
+  name: "dry-run-allow"
   annotations:
     "istio.io/dry-run": "true"
 spec:
-  action: DENY
+  action: ALLOW
   rules:
   - when:
-    - key: request.headers[dry-run-deny]
+    - key: request.headers[dry-run-allow]
       values: ["matched"]
