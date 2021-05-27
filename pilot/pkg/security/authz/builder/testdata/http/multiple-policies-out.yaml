@@ -73,20 +73,12 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: principals1
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: principals2
+                - authenticated:
+                    principalName:
+                      exact: spiffe://principals1
+                - authenticated:
+                    principalName:
+                      exact: spiffe://principals2
       ns[foo]-policy[httpbin-6]-rule[0]:
         permissions:
         - andRules:
@@ -121,24 +113,16 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/namespaces1/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/namespaces2/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/namespaces1/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/namespaces2/.*
       ns[foo]-policy[httpbin-8]-rule[0]:
         permissions:
         - andRules:
