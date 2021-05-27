@@ -255,8 +255,8 @@ func getAndWatchResource(ictx context.Context) *watcher {
 			return err
 		}
 		for w := range watch.ResultChan() {
-			o, okay := w.Object.(metav1.Object)
-			if !okay {
+			o, ok := w.Object.(metav1.Object)
+			if !ok {
 				continue
 			}
 			if o.GetName() == nf {
