@@ -54,7 +54,7 @@ status:
   gateways:
   - conditions:
     - lastTransitionTime: fake
-      message: Route admitted
+      message: Route was valid
       reason: RouteAdmitted
       status: "True"
       type: Admitted
@@ -74,7 +74,7 @@ status:
   gateways:
   - conditions:
     - lastTransitionTime: fake
-      message: Route admitted
+      message: Route was valid
       reason: RouteAdmitted
       status: "True"
       type: Admitted

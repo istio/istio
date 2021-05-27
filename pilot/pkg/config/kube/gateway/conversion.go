@@ -288,8 +288,9 @@ func convertVirtualService(r *KubernetesResources, routeMap map[RouteKey][]strin
 			continue
 		}
 
-		vsConfig := buildTCPVirtualService(obj, gateways, r.Domain)
-		result = append(result, vsConfig)
+		if vsConfig := buildTCPVirtualService(obj, gateways, r.Domain); vsConfig != nil {
+			result = append(result, *vsConfig)
+		}
 	}
 
 	for _, obj := range r.TLSRoute {
@@ -299,8 +300,9 @@ func convertVirtualService(r *KubernetesResources, routeMap map[RouteKey][]strin
 			continue
 		}
 
-		vsConfig := buildTLSVirtualService(obj, gateways, r.Domain)
-		result = append(result, vsConfig)
+		if vsConfig := buildTLSVirtualService(obj, gateways, r.Domain); vsConfig != nil {
+			result = append(result, *vsConfig)
+		}
 	}
 
 	for _, obj := range r.HTTPRoute {
@@ -319,12 +321,14 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	result := []config.Config{}
 
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		rs := s.(*k8s.HTTPRouteStatus)
-		// TODO report skipped routes
-		rs.Gateways = createRouteStatus(gateways, obj, rs.Gateways)
-		return rs
-	})
+
+	reportError := func(routeErr *RouteError) {
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			rs := s.(*k8s.HTTPRouteStatus)
+			rs.Gateways = createRouteStatus(gateways, obj, rs.Gateways, routeErr)
+			return rs
+		})
+	}
 
 	name := fmt.Sprintf("%s-%s", obj.Name, constants.KubernetesGatewayName)
 
@@ -334,10 +338,25 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 		// TODO: implement redirect, rewrite, timeout, mirror, corspolicy, retries
 		vs := &istio.HTTPRoute{}
 		for _, match := range r.Matches {
+			uri, err := createURIMatch(match)
+			if err != nil {
+				reportError(err)
+				return nil
+			}
+			headers, err := createHeadersMatch(match)
+			if err != nil {
+				reportError(err)
+				return nil
+			}
+			qp, err := createQueryParamsMatch(match)
+			if err != nil {
+				reportError(err)
+				return nil
+			}
 			vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
-				Uri:         createURIMatch(match),
-				Headers:     createHeadersMatch(match),
-				QueryParams: createQueryParamsMatch(match),
+				Uri:         uri,
+				Headers:     headers,
+				QueryParams: qp,
 			})
 		}
 		for _, filter := range r.Filters {
@@ -345,13 +364,23 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
 				vs.Headers = createHeadersFilter(filter.RequestHeaderModifier)
 			default:
-				log.Warnf("unsupported filter type %q", filter.Type)
+				reportError(&RouteError{
+					Reason:  InvalidFilter,
+					Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
+				})
+				return nil
 			}
 		}
 
-		vs.Route = buildHTTPDestination(r.ForwardTo, obj.Namespace, domain)
+		route, err := buildHTTPDestination(r.ForwardTo, obj.Namespace, domain)
+		if err != nil {
+			reportError(err)
+			return nil
+		}
+		vs.Route = route
 		httproutes = append(httproutes, vs)
 	}
+	reportError(nil)
 	vsConfig := config.Config{
 		Meta: config.Meta{
 			CreationTimestamp: obj.CreationTimestamp,
@@ -375,7 +404,7 @@ type localNamedReference struct {
 	Namespace string
 }
 
-func createRouteStatus(gateways []string, obj config.Config, current []k8s.RouteGatewayStatus) []k8s.RouteGatewayStatus {
+func createRouteStatus(gateways []string, obj config.Config, current []k8s.RouteGatewayStatus, routeErr *RouteError) []k8s.RouteGatewayStatus {
 	setGateways := map[localNamedReference]struct{}{}
 	for _, gw := range gateways {
 		ref := localNamedReference{}
@@ -422,19 +451,48 @@ func createRouteStatus(gateways []string, obj config.Config, current []k8s.Route
 			ref.Name = s[1] // TODO name here is the internal name, need to use the external name
 			ref.Namespace = s[0]
 		}
-		gws = append(gws, k8s.RouteGatewayStatus{
-			GatewayRef: ref,
-			Conditions: []metav1.Condition{{
+		var condition metav1.Condition
+		if routeErr != nil {
+			condition = metav1.Condition{
+				Type:               string(k8s.ConditionRouteAdmitted),
+				Status:             kstatus.StatusFalse,
+				ObservedGeneration: obj.Generation,
+				LastTransitionTime: metav1.Now(),
+				Reason:             string(routeErr.Reason),
+				Message:            routeErr.Message,
+			}
+		} else {
+			condition = metav1.Condition{
 				Type:               string(k8s.ConditionRouteAdmitted),
 				Status:             kstatus.StatusTrue,
 				ObservedGeneration: obj.Generation,
 				LastTransitionTime: metav1.Now(),
 				Reason:             "RouteAdmitted",
-				Message:            "Route admitted",
-			}},
+				Message:            "Route was valid",
+			}
+		}
+		gws = append(gws, k8s.RouteGatewayStatus{
+			GatewayRef: ref,
+			Conditions: []metav1.Condition{condition},
 		})
 	}
 	return gws
+}
+
+type RouteErrorReason string
+
+const (
+	// InvalidDestination indicates an issue with the destination
+	InvalidDestination RouteErrorReason = "InvalidDestination"
+	// InvalidFilter indicates an issue with the filters
+	InvalidFilter RouteErrorReason = "InvalidFilter"
+	// InvalidConfiguration indicates a generic error for all other invalid configurations
+	InvalidConfiguration RouteErrorReason = "InvalidConfiguration"
+)
+
+type RouteError struct {
+	Reason  RouteErrorReason
+	Message string
 }
 
 func hostnameToStringList(h []k8s.Hostname) []string {
@@ -445,25 +503,32 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 	return res
 }
 
-func buildTCPVirtualService(obj config.Config, gateways []string, domain string) config.Config {
+func buildTCPVirtualService(obj config.Config, gateways []string, domain string) *config.Config {
 	route := obj.Spec.(*k8s.TCPRouteSpec)
 
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		rs := s.(*k8s.TCPRouteStatus)
-		// TODO report skipped routes
-		rs.Gateways = createRouteStatus(gateways, obj, nil)
-		return rs
-	})
+	reportError := func(routeErr *RouteError) {
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			rs := s.(*k8s.TCPRouteStatus)
+			rs.Gateways = createRouteStatus(gateways, obj, rs.Gateways, routeErr)
+			return rs
+		})
+	}
 
 	routes := []*istio.TCPRoute{}
 	for _, r := range route.Rules {
+		route, err := buildTCPDestination(r.ForwardTo, obj.Namespace, domain)
+		if err != nil {
+			reportError(err)
+			return nil
+		}
 		ir := &istio.TCPRoute{
 			Match: buildTCPMatch(r.Matches),
-			Route: buildTCPDestination(r.ForwardTo, obj.Namespace, domain),
+			Route: route,
 		}
 		routes = append(routes, ir)
 	}
 
+	reportError(nil)
 	vsConfig := config.Config{
 		Meta: config.Meta{
 			CreationTimestamp: obj.CreationTimestamp,
@@ -479,28 +544,35 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 			Tcp:      routes,
 		},
 	}
-	return vsConfig
+	return &vsConfig
 }
 
-func buildTLSVirtualService(obj config.Config, gateways []string, domain string) config.Config {
+func buildTLSVirtualService(obj config.Config, gateways []string, domain string) *config.Config {
 	route := obj.Spec.(*k8s.TLSRouteSpec)
 
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		rs := s.(*k8s.TLSRouteStatus)
-		// TODO report skipped routes
-		rs.Gateways = createRouteStatus(gateways, obj, nil)
-		return rs
-	})
+	reportError := func(routeErr *RouteError) {
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			rs := s.(*k8s.TLSRouteStatus)
+			rs.Gateways = createRouteStatus(gateways, obj, rs.Gateways, routeErr)
+			return rs
+		})
+	}
 
 	routes := []*istio.TLSRoute{}
 	for _, r := range route.Rules {
+		route, err := buildTCPDestination(r.ForwardTo, obj.Namespace, domain)
+		if err != nil {
+			reportError(err)
+			return nil
+		}
 		ir := &istio.TLSRoute{
 			Match: buildTLSMatch(r.Matches),
-			Route: buildTCPDestination(r.ForwardTo, obj.Namespace, domain),
+			Route: route,
 		}
 		routes = append(routes, ir)
 	}
 
+	reportError(nil)
 	vsConfig := config.Config{
 		Meta: config.Meta{
 			CreationTimestamp: obj.CreationTimestamp,
@@ -516,12 +588,12 @@ func buildTLSVirtualService(obj config.Config, gateways []string, domain string)
 			Tls:      routes,
 		},
 	}
-	return vsConfig
+	return &vsConfig
 }
 
-func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) []*istio.RouteDestination {
+func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) ([]*istio.RouteDestination, *RouteError) {
 	if len(action) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	weights := []int{}
@@ -535,13 +607,16 @@ func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) []*isti
 	weights = standardizeWeights(weights)
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
-		dst := buildGenericDestination(fwd, ns, domain)
+		dst, err := buildGenericDestination(fwd, ns, domain)
+		if err != nil {
+			return nil, err
+		}
 		res = append(res, &istio.RouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
 		})
 	}
-	return res
+	return res, nil
 }
 
 func buildTCPMatch([]k8s.TCPRouteMatch) []*istio.L4MatchAttributes {
@@ -581,9 +656,9 @@ func intSum(n []int) int {
 	return r
 }
 
-func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain string) []*istio.HTTPRouteDestination {
+func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain string) ([]*istio.HTTPRouteDestination, *RouteError) {
 	if action == nil {
-		return nil
+		return nil, nil
 	}
 
 	weights := []int{}
@@ -597,7 +672,10 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain str
 	weights = standardizeWeights(weights)
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst := buildDestination(fwd, ns, domain)
+		dst, err := buildDestination(fwd, ns, domain)
+		if err != nil {
+			return nil, err
+		}
 		rd := &istio.HTTPRouteDestination{
 			Destination: dst,
 			Weight:      int32(weights[i]),
@@ -607,15 +685,15 @@ func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain str
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
 				rd.Headers = createHeadersFilter(filter.RequestHeaderModifier)
 			default:
-				log.Warnf("unsupported filter type %q", filter.Type)
+				return nil, &RouteError{Reason: InvalidFilter, Message: fmt.Sprintf("unsupported filter type %q", filter.Type)}
 			}
 		}
 		res = append(res, rd)
 	}
-	return res
+	return res, nil
 }
 
-func buildDestination(to k8s.HTTPRouteForwardTo, ns, domain string) *istio.Destination {
+func buildDestination(to k8s.HTTPRouteForwardTo, ns, domain string) (*istio.Destination, *RouteError) {
 	res := &istio.Destination{}
 	if to.Port != nil {
 		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
@@ -626,13 +704,14 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns, domain string) *istio.Desti
 	if to.ServiceName != nil {
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
-		// TODO support this
-		log.Errorf("referencing unsupported destination; backendRef is not supported")
+		// TODO support this. Possible supported destinations are VirtualService (delegation), ServiceEntry or some other concept for external service
+		// For now we don't support these though, so return an error
+		return nil, &RouteError{Reason: InvalidDestination, Message: "referencing unsupported destination; backendRef is not supported"}
 	}
-	return res
+	return res, nil
 }
 
-func buildGenericDestination(to k8s.RouteForwardTo, ns, domain string) *istio.Destination {
+func buildGenericDestination(to k8s.RouteForwardTo, ns, domain string) (*istio.Destination, *RouteError) {
 	res := &istio.Destination{}
 	if to.Port != nil {
 		// TODO: "If unspecified, the destination port in the request is used when forwarding to a backendRef or serviceName."
@@ -643,10 +722,11 @@ func buildGenericDestination(to k8s.RouteForwardTo, ns, domain string) *istio.De
 	if to.ServiceName != nil {
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
-		// TODO support this
-		log.Errorf("referencing unsupported destination; backendRef is not supported")
+		// TODO support this. Possible supported destinations are VirtualService (delegation), ServiceEntry or some other concept for external service
+		// For now we don't support these though, so return an error
+		return nil, &RouteError{Reason: InvalidDestination, Message: "referencing unsupported destination; backendRef is not supported"}
 	}
-	return res
+	return res, nil
 }
 
 // standardizeWeights migrates a list of weights from relative weights, to weights out of 100
@@ -717,9 +797,9 @@ func createHeadersFilter(filter *k8s.HTTPRequestHeaderFilter) *istio.Headers {
 	}
 }
 
-func createQueryParamsMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
+func createQueryParamsMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch, *RouteError) {
 	if match.QueryParams == nil {
-		return nil
+		return nil, nil
 	}
 	res := map[string]*istio.StringMatch{}
 	tp := k8s.QueryParamMatchExact
@@ -740,15 +820,15 @@ func createQueryParamsMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMa
 			}
 		}
 	default:
-		log.Warnf("unknown type: %v is not supported QueryParams type", tp)
-		return nil
+		// Should never happen, unless a new field is added
+		return nil, &RouteError{Reason: InvalidConfiguration, Message: fmt.Sprintf("unknown type: %q is not supported QueryParams type", tp)}
 	}
-	return res
+	return res, nil
 }
 
-func createHeadersMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
+func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch, *RouteError) {
 	if match.Headers == nil {
-		return nil
+		return nil, nil
 	}
 	res := map[string]*istio.StringMatch{}
 	tp := k8s.HeaderMatchExact
@@ -769,13 +849,13 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMatch 
 			}
 		}
 	default:
-		log.Warnf("unknown type: %v is not supported Header type", tp)
-		return nil
+		// Should never happen, unless a new field is added
+		return nil, &RouteError{Reason: InvalidConfiguration, Message: fmt.Sprintf("unknown type: %q is not supported Header type", tp)}
 	}
-	return res
+	return res, nil
 }
 
-func createURIMatch(match k8s.HTTPRouteMatch) *istio.StringMatch {
+func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *RouteError) {
 	tp := k8s.PathMatchPrefix
 	if match.Path.Type != nil {
 		tp = *match.Path.Type
@@ -788,18 +868,18 @@ func createURIMatch(match k8s.HTTPRouteMatch) *istio.StringMatch {
 	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
-		}
+		}, nil
 	case k8s.PathMatchExact:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: dest},
-		}
+		}, nil
 	case k8s.PathMatchRegularExpression:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Regex{Regex: dest},
-		}
+		}, nil
 	default:
-		log.Warnf("unknown type: %s is not supported Path match type", match.Path.Type)
-		return nil
+		// Should never happen, unless a new field is added
+		return nil, &RouteError{Reason: InvalidConfiguration, Message: fmt.Sprintf("unknown type: %q is not supported Path match type", tp)}
 	}
 }
 
