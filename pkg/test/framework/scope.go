@@ -182,10 +182,11 @@ func (s *scope) skipDumping() {
 
 func (s *scope) dump(ctx resource.Context) {
 	s.mu.Lock()
-	if s.skipDump {
+	skip := s.skipDump
+	s.mu.Unlock()
+	if skip {
 		return
 	}
-	s.mu.Unlock()
 	st := time.Now()
 	defer func() {
 		scopes.Framework.Debugf("Done dumping scope: %s (%v)", s.id, time.Since(st))

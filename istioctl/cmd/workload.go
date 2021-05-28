@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -553,7 +554,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	if revision != "" && revision != "default" {
 		istiod = fmt.Sprintf("%s-%s", istiod, revision)
 	}
-	if ingressIP != "" {
+	if net.ParseIP(ingressIP) != nil {
 		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
 	} else {
 		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)

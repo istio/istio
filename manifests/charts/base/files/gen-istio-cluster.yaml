@@ -2331,6 +2331,7 @@ spec:
                       - HTTP_ROUTE
                       - CLUSTER
                       - EXTENSION_CONFIG
+                      - BOOTSTRAP
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
@@ -5935,7 +5936,6 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/validate"
-      caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
         - CREATE
