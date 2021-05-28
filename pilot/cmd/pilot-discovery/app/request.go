@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package app
 
 import (
 	"net/http"
@@ -40,8 +40,4 @@ var requestCmd = &cobra.Command{
 		}
 		return command.Do(args[0], args[1], body)
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(requestCmd)
 }
