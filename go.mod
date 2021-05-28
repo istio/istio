@@ -84,15 +84,15 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.42.0
 	google.golang.org/genproto v0.0.0-20210323160006-e668133fea6a
-	google.golang.org/grpc v1.37.0
+	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.5.3
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210526004857-ec23a4cdbf9d
-	istio.io/client-go v0.0.0-20210525155258-27b10e57b306
+	istio.io/api v0.0.0-20210527204548-4c02bf77abb7
+	istio.io/client-go v0.0.0-20210527210318-b77fb2a4fb33
 	istio.io/gogo-genproto v0.0.0-20210405163638-fcb891f20a5a
 	istio.io/pkg v0.0.0-20210526005301-f1296438339b
 	k8s.io/api v0.21.0

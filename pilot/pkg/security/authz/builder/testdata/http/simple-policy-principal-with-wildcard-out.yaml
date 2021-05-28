@@ -13,38 +13,26 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .+
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
         - andIds:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        suffix: /ns/foo/sa/rule[0]-from[1]-principal[0]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: td1/ns/foo/sa/rule[0]-from[1]-principal[1]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        suffix: bar/ns/foo/sa/rule[0]-from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://.*/ns/foo/sa/rule[0]-from[1]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/foo/sa/rule[0]-from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://.*bar/ns/foo/sa/rule[0]-from[1]-principal[1]
   shadowRulesStatPrefix: istio_dry_run_allow_

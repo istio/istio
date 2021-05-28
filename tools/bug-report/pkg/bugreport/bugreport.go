@@ -101,6 +101,7 @@ var (
 )
 
 func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
+	kubectlcmd.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
 		return err
 	}
