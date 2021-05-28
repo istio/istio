@@ -405,11 +405,19 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
-	certChain, err := sc.readFileWithTimeout(certChainPath)
+	// There is a remote possibility that key is written and cert is not written yet.
+	// To handle that case, we wait for some time here.
+	timer := time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+	<-timer
+	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
+}
+
+func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*security.SecretItem, error) {
+	certChain, err := sc.readFileWithTimeout(cert)
 	if err != nil {
 		return nil, err
 	}
-	keyPEM, err := sc.readFileWithTimeout(keyPath)
+	keyPEM, err := sc.readFileWithTimeout(key)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +432,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
-		ResourceName:     resourceName,
+		ResourceName:     resource,
 		CreatedTime:      now,
 		ExpireTime:       certExpireTime,
 	}, nil
