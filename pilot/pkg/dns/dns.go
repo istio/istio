@@ -33,8 +33,10 @@ var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
 // upstreamServer holds the dns.Conn for an upstream server.
 type upstreamServer struct {
 	sync.RWMutex
-	c       *dns.Conn
-	address string
+	c          *dns.Conn
+	address    string
+	hcInflight bool
+	hcChan     chan struct{}
 }
 
 // Holds configurations for the DNS downstreamUDPServer in Istio Agent
@@ -80,6 +82,13 @@ const (
 	// TODO: make it configurable
 	defaultTTLInSeconds = 30
 )
+
+func newUpstream(address string) *upstreamServer {
+	return &upstreamServer{
+		address: address,
+		hcChan:  make(chan struct{}),
+	}
+}
 
 func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
@@ -304,13 +313,7 @@ func (h *LocalDNSServer) Close() {
 func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range p.upstreamServers {
-		upstream.RLock()
-		conn := upstream.c
-		upstream.RUnlock()
-		if conn == nil {
-			upstream.initConnection(p.upstreamClient)
-		}
-		if cResponse, _, err := p.upstreamClient.ExchangeWithConn(req, conn); err == nil {
+		if cResponse, err := upstream.query(req, p.upstreamClient, scope); err == nil {
 			response = cResponse
 			break
 		} else {
@@ -318,7 +321,6 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 			// Request failed - do a health check and reset connection if needed.
 			upstream.maybeResetConnection(p.upstreamClient)
 		}
-
 	}
 	if response == nil {
 		response = new(dns.Msg)
@@ -328,26 +330,46 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	return response
 }
 
-func (u *upstreamServer) initConnection(uc *dns.Client) {
+func (u *upstreamServer) initConnection(uc *dns.Client) error {
 	conn, err := uc.Dial(u.address)
 	if err != nil {
 		log.Warnf("unable to establish connection for upstream %s: %v", u.address, err)
-		return
+		return err
 	}
 	u.Lock()
 	u.c = conn
 	u.Unlock()
+	return nil
 }
 
-// Inspired by from https://github.com/coredns/coredns/blob/fbf3f07f469a99fcbb5985a41c260a3fad26f908/plugin/forward/health.go#L76.
+func (u *upstreamServer) query(req *dns.Msg, upstreamClient *dns.Client, scope *istiolog.Scope) (*dns.Msg, error) {
+	u.RLock()
+	hcInflight := u.hcInflight
+	u.RUnlock()
+	if hcInflight {
+		scope.Debugf("waiting for health check : %v", u.address)
+		<-u.hcChan
+	}
+	u.RLock()
+	conn := u.c
+	u.RUnlock()
+	cResponse, _, err := upstreamClient.ExchangeWithConn(req, conn)
+	return cResponse, err
+}
+
 func (u *upstreamServer) maybeResetConnection(upstreamClient *dns.Client) {
 	// It is OK to a function wide lock here and reset connection. This happens rarely.
 	u.Lock()
 	defer u.Unlock()
-	if u.c == nil {
-		u.initConnection(upstreamClient)
+	if u.hcInflight {
 		return
 	}
+	u.hcInflight = true
+	go u.healthCheck(upstreamClient)
+}
+
+// Inspired by from https://github.com/coredns/coredns/blob/fbf3f07f469a99fcbb5985a41c260a3fad26f908/plugin/forward/health.go#L76.
+func (u *upstreamServer) healthCheck(upstreamClient *dns.Client) {
 	ping := new(dns.Msg)
 	ping.SetQuestion(".", dns.TypeNS)
 
@@ -365,6 +387,8 @@ func (u *upstreamServer) maybeResetConnection(upstreamClient *dns.Client) {
 			u.c = c
 		}
 	}
+	u.hcInflight = false
+	u.hcChan <- struct{}{}
 }
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {

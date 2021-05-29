@@ -67,7 +67,7 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 func (p *dnsProxy) initUpstreamServers() {
 	p.upstreamServers = nil
 	for _, us := range p.resolver.upstreamServers {
-		p.upstreamServers = append(p.upstreamServers, &upstreamServer{address: us})
+		p.upstreamServers = append(p.upstreamServers, newUpstream(us))
 	}
 }
 
