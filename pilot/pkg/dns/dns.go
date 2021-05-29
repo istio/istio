@@ -377,21 +377,25 @@ func (u *upstreamServer) healthCheck(upstreamClient *dns.Client) {
 	ping.SetQuestion(".", dns.TypeNS)
 
 	m, _, err := upstreamClient.ExchangeWithConn(ping, u.c)
+	healthy := false
 	// If we got a header, we're alright, basically only care about I/O errors 'n stuff.
 	if err != nil && m != nil {
 		// Silly check, something sane came back.
 		if m.Response || m.Opcode == dns.OpcodeQuery {
 			err = nil
+			healthy = true
 		}
 	}
 	var conn *dns.Conn
-	if err != nil {
-		if c, err := upstreamClient.Dial(u.address); err == nil {
+	if !healthy {
+		if c, derr := upstreamClient.Dial(u.address); derr == nil {
+			// Do we keep doing health checks till it is healthy?
 			conn = c
+			err = derr
 		}
 	}
 	u.Lock()
-	if err != nil {
+	if !healthy && err == nil {
 		u.c = conn
 	}
 	u.hcInflight = false
