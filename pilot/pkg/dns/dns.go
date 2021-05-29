@@ -360,11 +360,14 @@ func (u *upstreamServer) query(req *dns.Msg, upstreamClient *dns.Client, scope *
 func (u *upstreamServer) maybeResetConnection(upstreamClient *dns.Client) {
 	// It is OK to a function wide lock here and reset connection. This happens rarely.
 	u.Lock()
-	defer u.Unlock()
-	if u.hcInflight {
+	hcInflight := u.hcInflight
+	if !hcInflight {
+		u.hcInflight = true
+	}
+	u.Unlock()
+	if hcInflight {
 		return
 	}
-	u.hcInflight = true
 	go u.healthCheck(upstreamClient)
 }
 
@@ -381,13 +384,18 @@ func (u *upstreamServer) healthCheck(upstreamClient *dns.Client) {
 			err = nil
 		}
 	}
-
+	var conn *dns.Conn
 	if err != nil {
 		if c, err := upstreamClient.Dial(u.address); err == nil {
-			u.c = c
+			conn = c
 		}
 	}
+	u.Lock()
+	if err != nil {
+		u.c = conn
+	}
 	u.hcInflight = false
+	u.Unlock()
 	u.hcChan <- struct{}{}
 }
 

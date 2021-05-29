@@ -74,6 +74,7 @@ func (p *dnsProxy) initUpstreamServers() {
 func (p *dnsProxy) start() {
 	log.Infof("Starting local %s DNS server at localhost:15053", p.protocol)
 	for _, us := range p.upstreamServers {
+		// nolint
 		us.initConnection(p.upstreamClient)
 	}
 	err := p.server.ActivateAndServe()
