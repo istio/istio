@@ -1122,6 +1122,10 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 		scope.Warnf(warn)
 		errs = appendValidation(errs, WrapWarning(errors.New(warn)))
 	}
+	if !outlier.SplitExternalLocalOriginErrors && outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
+		err := "outlier detection consecutive local origin failures is specified, but split external local origin errors is set to false"
+		errs = appendValidation(errs, errors.New(err))
+	}
 	if outlier.Interval != nil {
 		errs = appendValidation(errs, ValidateDurationGogo(outlier.Interval))
 	}

@@ -97,7 +97,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
-		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
@@ -145,8 +145,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 	return clusters
 }
-
-var NilClusterPatcher = clusterPatcher{}
 
 type clusterPatcher struct {
 	efw            *model.EnvoyFilterWrapper
@@ -245,11 +243,6 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 			LbEndpoints: []*endpoint.LbEndpoint{lbEndpoint},
 		},
 	}
-}
-
-type ClusterInstances struct {
-	PrimaryInstance *model.ServiceInstance
-	AllInstances    []*model.ServiceInstance
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {

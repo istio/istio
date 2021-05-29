@@ -228,69 +228,41 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: principal
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        prefix: principal-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        suffix: -suffix-principal
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .+
+                - authenticated:
+                    principalName:
+                      exact: spiffe://principal
+                - authenticated:
+                    principalName:
+                      prefix: spiffe://principal-prefix-
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://.*-suffix-principal
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
             - notId:
                 orIds:
                   ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          exact: not-principal
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          prefix: not-principal-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          suffix: -not-suffix-principal
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .+
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://not-principal
+                  - authenticated:
+                      principalName:
+                        prefix: spiffe://not-principal-prefix-
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: spiffe://.*-not-suffix-principal
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .+
             - orIds:
                 ids:
                 - metadata:
@@ -358,81 +330,49 @@ typedConfig:
                             regex: .+
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/ns/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/ns-prefix-.*/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/.*-ns-suffix/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/.*/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns-prefix-.*/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*-ns-suffix/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*/.*
             - notId:
                 orIds:
                   ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/not-ns/.*
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/not-ns-prefix-.*/.*
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/.*-not-ns-suffix/.*
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/.*/.*
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/not-ns/.*
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/not-ns-prefix-.*/.*
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*-not-ns-suffix/.*
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: .*/ns/.*/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -532,146 +472,86 @@ typedConfig:
                       prefixLen: 24
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns-prefix-.*/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*-ns-suffix/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/.*/.*
+            - notId:
+                orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/ns/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
+                          regex: .*/ns/not-ns/.*
+                  - authenticated:
+                      principalName:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/ns-prefix-.*/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
+                          regex: .*/ns/not-ns-prefix-.*/.*
+                  - authenticated:
+                      principalName:
                         safeRegex:
                           googleRe2: {}
-                          regex: .*/ns/.*-ns-suffix/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
+                          regex: .*/ns/.*-not-ns-suffix/.*
+                  - authenticated:
+                      principalName:
                         safeRegex:
                           googleRe2: {}
                           regex: .*/ns/.*/.*
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      exact: spiffe://principal
+                - authenticated:
+                    principalName:
+                      prefix: spiffe://principal-prefix-
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: spiffe://.*-suffix-principal
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .+
             - notId:
                 orIds:
                   ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/not-ns/.*
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/not-ns-prefix-.*/.*
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/.*-not-ns-suffix/.*
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .*/ns/.*/.*
-            - orIds:
-                ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: principal
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        prefix: principal-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        suffix: -suffix-principal
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
+                  - authenticated:
+                      principalName:
+                        exact: spiffe://not-principal
+                  - authenticated:
+                      principalName:
+                        prefix: spiffe://not-principal-prefix-
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          googleRe2: {}
+                          regex: spiffe://.*-not-suffix-principal
+                  - authenticated:
+                      principalName:
                         safeRegex:
                           googleRe2: {}
                           regex: .+
-            - notId:
-                orIds:
-                  ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          exact: not-principal
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          prefix: not-principal-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          suffix: -not-suffix-principal
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: source.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            googleRe2: {}
-                            regex: .+
             - orIds:
                 ids:
                 - metadata:

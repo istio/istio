@@ -213,6 +213,7 @@ spec:
 						})),
 			},
 			workloadAgnostic: true,
+			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
 			name: "redirect",
@@ -280,7 +281,7 @@ spec:
 					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
+								return ExpectString(response.URL, "/new/path?key=value#hash", "URL")
 							})
 						})),
 			},
@@ -595,6 +596,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 					echo.ExpectKey("Proto", "HTTP/2.0"),
 				),
 			},
+			minIstioVersion: "1.10.0",
 		},
 		TrafficTestCase{
 			name:   "use client protocol with h1",

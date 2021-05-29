@@ -66,6 +66,10 @@ type MergedGateway struct {
 
 	// TLSServerInfo maps from server to a corresponding TLS information like TLS Routename and SNIHosts.
 	TLSServerInfo map[*networking.Server]*TLSServerInfo
+
+	// ContainsAutoPassthroughGateways determines if there are any type AUTO_PASSTHROUGH Gateways, requiring additional
+	// clusters to be sent to the workload
+	ContainsAutoPassthroughGateways bool
 }
 
 var (
@@ -98,6 +102,7 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
 	tlsHostsByPort := map[uint32]sets.Set{} // port -> host set
+	autoPassthrough := false
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, gatewayConfig := range gateways {
@@ -138,6 +143,9 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 					continue
 				}
 				tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s), RouteName: routeName}
+				if s.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
+					autoPassthrough = true
+				}
 			}
 			serverPort := ServerPort{s.Port.Number, s.Port.Protocol, s.Bind}
 			serverProtocol := protocol.Parse(serverPort.Protocol)
@@ -228,10 +236,11 @@ func MergeGateways(gateways ...config.Config) *MergedGateway {
 	}
 
 	return &MergedGateway{
-		MergedServers:        mergedServers,
-		GatewayNameForServer: gatewayNameForServer,
-		TLSServerInfo:        tlsServerInfo,
-		ServersByRouteName:   serversByRouteName,
+		MergedServers:                   mergedServers,
+		GatewayNameForServer:            gatewayNameForServer,
+		TLSServerInfo:                   tlsServerInfo,
+		ServersByRouteName:              serversByRouteName,
+		ContainsAutoPassthroughGateways: autoPassthrough,
 	}
 }
 
