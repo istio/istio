@@ -804,11 +804,22 @@ func (s *DiscoveryServer) adsClientCount() int {
 	return len(s.adsClients)
 }
 
-func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
+func (s *DiscoveryServer) ProxyUpdate(clusterID, ip, network string) {
 	var connection *Connection
 
 	for _, v := range s.Clients() {
-		if v.proxy.Metadata.ClusterID == clusterID && v.proxy.IPAddresses[0] == ip {
+		// NOTE: It is important to consider network/L3-domain while matching
+		// the connection to which we have to push xDS updates. Consider the
+		// following scenario where there are two workload entries with the
+		// same IP address 172.18.10.50, but in different networks - neteast
+		// and netwest. Clearly, they are different sidecars. When one of them
+		// joins newly (say, netwest), then the push could be triggered to the
+		// neteast where as it should have actually triggered to the one in netwest.
+		//
+		// Most of this times this does not happen as it is a corner case. But for
+		// correctness it is necessary.
+		if v.proxy.Metadata.ClusterID == clusterID &&
+			v.proxy.IPAddresses[0] == ip && v.proxy.Metadata.Network == network {
 			connection = v
 			break
 		}

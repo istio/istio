@@ -51,7 +51,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_, _, _ string) {
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "proxy"}:
 	default:

@@ -64,6 +64,8 @@ type configKey struct {
 	namespace string
 }
 
+// ipWithNetDomain is used to represent an IP address within an L3 domain
+// This is used as an index.
 type ipWithNetDomain struct {
 	ip      string
 	network string
@@ -77,11 +79,11 @@ type ServiceEntryStore struct { // nolint:golint
 
 	storeMutex sync.RWMutex
 
-	ip2instance map[ipWithNetDomain][]*model.ServiceInstance
+	ip2instance map[ipWithNetDomain]map[configKey][]*model.ServiceInstance
 	// Endpoints table
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// workload instances from kubernetes pods - map of ip -> workload instance
-	workloadInstancesByIP map[ipWithNetDomain]*model.WorkloadInstance
+	workloadInstancesByIP map[ipWithNetDomain]map[string]*model.WorkloadInstance
 	// Stores a map of workload instance name/namespace to address
 	workloadInstancesIPsByName map[string]ipWithNetDomain
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
@@ -118,9 +120,9 @@ func NewServiceDiscovery(
 	s := &ServiceEntryStore{
 		XdsUpdater:                 xdsUpdater,
 		store:                      store,
-		ip2instance:                map[ipWithNetDomain][]*model.ServiceInstance{},
+		ip2instance:                map[ipWithNetDomain]map[configKey][]*model.ServiceInstance{},
 		instances:                  map[instancesKey]map[configKey][]*model.ServiceInstance{},
-		workloadInstancesByIP:      map[ipWithNetDomain]*model.WorkloadInstance{},
+		workloadInstancesByIP:      map[ipWithNetDomain]map[string]*model.WorkloadInstance{},
 		workloadInstancesIPsByName: map[string]ipWithNetDomain{},
 		refreshIndexes:             atomic.NewBool(true),
 		processServiceEntry:        true,
@@ -229,7 +231,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 		s.edsUpdate(append(instancesUpdated, instancesDeleted...), true)
 		// trigger full xds push to the related sidecar proxy
 		if event == model.EventAdd {
-			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
+			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address, wle.Network)
 		}
 		return
 	}
@@ -406,25 +408,52 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 			// multiple delete events for the same pod (succeeded/failed/unknown status repeating).
 			redundantEventForPod = true
 		} else {
-			delete(s.workloadInstancesByIP, ipWithDomain)
-			delete(s.workloadInstancesIPsByName, k)
+			// when a workload instance for an IP is found, we should check further
+			// to see if there is a workload instance with given ns/name, else redundant.
+			// If one exists, then remove only that ns/name combination. If there are no
+			// workload instances with given {ip,network}, then the key can be safely removed
+			if _, exists := s.workloadInstancesByIP[ipWithDomain][k]; !exists {
+				redundantEventForPod = true
+			} else {
+				delete(s.workloadInstancesByIP[ipWithDomain], k)
+				if len(s.workloadInstancesByIP[ipWithDomain]) == 0 {
+					delete(s.workloadInstancesByIP, ipWithDomain)
+				}
+				delete(s.workloadInstancesIPsByName, k)
+			}
 		}
 	default: // add or update
 		// Check to see if the workload entry changed. If it did, clear the old entry
-		existing := s.workloadInstancesIPsByName[k]
-		if existing.ip != "" && existing != ipWithDomain {
-			delete(s.workloadInstancesByIP, ipWithDomain)
-			addressToDelete = ipWithDomain
-		}
-		if old, exists := s.workloadInstancesByIP[ipWithDomain]; exists {
-			// If multiple k8s services select the same pod or a service has multiple ports,
-			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
-			if model.WorkloadInstancesEqual(old, wi) {
-				// ignore the update as nothing has changed
-				redundantEventForPod = true
+		existing, ok := s.workloadInstancesIPsByName[k]
+		if ok && existing != ipWithDomain {
+			// This is the case of a workload entry/pod with
+			// ip/l3-domain address changed. Fix the mapping. So
+			// delete whatever was there before
+			if _, ok := s.workloadInstancesByIP[ipWithDomain]; ok {
+				// mark that *some* service instances with the given IP
+				// and network domain needs to be deleted due to the update
+				addressToDelete = ipWithDomain
+				delete(s.workloadInstancesByIP[ipWithDomain], k)
+			}
+			if len(s.workloadInstancesByIP[ipWithDomain]) == 0 {
+				delete(s.workloadInstancesByIP, ipWithDomain)
 			}
 		}
-		s.workloadInstancesByIP[ipWithDomain] = wi
+		if oldWls, exists := s.workloadInstancesByIP[ipWithDomain]; exists {
+			for _, old := range oldWls {
+				// If multiple k8s services select the same pod or a service has multiple ports,
+				// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
+				if model.WorkloadInstancesEqual(old, wi) {
+					// ignore the update as nothing has changed
+					redundantEventForPod = true
+					break
+				}
+			}
+		}
+		if _, ok := s.workloadInstancesByIP[ipWithDomain]; !ok {
+			s.workloadInstancesByIP[ipWithDomain] = make(map[string]*model.WorkloadInstance)
+		}
+		s.workloadInstancesByIP[ipWithDomain][k] = wi
 		s.workloadInstancesIPsByName[k] = ipWithDomain
 	}
 	// We will only select entries in the same namespace
@@ -438,14 +467,16 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 
 	log.Debugf("Handle event %s for service instance (from %s) in namespace %s", event,
 		wi.Endpoint.Address, wi.Namespace)
-	instances := []*model.ServiceInstance{}
-	instancesDeleted := []*model.ServiceInstance{}
+	instances := make([]*model.ServiceInstance, 0)
+	instancesDeleted := make([]*model.ServiceInstance, 0)
 	for _, se := range entries {
 		workloadLabels := labels.Collection{wi.Endpoint.Labels}
 		if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
 			// Not a match, skip this one
 			continue
 		}
+		// When the workload matches workloadSelector of a ServiceEntry, then it is
+		// considered as part of the service defined by the ServiceEntry.
 		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, se.services, se.entry)
 		instances = append(instances, instance...)
 		if addressToDelete.ip != "" {
@@ -574,7 +605,7 @@ func (s *ServiceEntryStore) ResyncEDS() {
 // And triggers a push if `push` is true.
 func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
 	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new addes instances
+	// otherwise may get no instances or miss some newly added instances
 	s.maybeRefreshIndexes()
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
@@ -661,11 +692,11 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	defer s.refreshIndexes.Store(false)
 
 	instanceMap := map[instancesKey]map[configKey][]*model.ServiceInstance{}
-	ip2instances := map[ipWithNetDomain][]*model.ServiceInstance{}
+	ip2instances := map[ipWithNetDomain]map[configKey][]*model.ServiceInstance{}
 
 	// First refresh service entry
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
-	allServices := []*model.Service{}
+	allServices := make([]*model.Service, 0)
 	if s.processServiceEntry {
 		for _, cfg := range s.store.ServiceEntries() {
 			key := configKey{
@@ -686,26 +717,28 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	}
 
 	// Second, refresh workload instances(pods)
-	for _, workloadInstance := range s.workloadInstancesByIP {
-		key := configKey{
-			kind:      workloadInstanceConfigType,
-			name:      workloadInstance.Name,
-			namespace: workloadInstance.Namespace,
-		}
-
-		instances := []*model.ServiceInstance{}
-		// We will only select entries in the same namespace
-		entries := seWithSelectorByNamespace[workloadInstance.Namespace]
-		for _, se := range entries {
-			workloadLabels := labels.Collection{workloadInstance.Endpoint.Labels}
-			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-				// Not a match, skip this one
-				continue
+	for _, workloadInstances := range s.workloadInstancesByIP {
+		for _, workloadInstance := range workloadInstances {
+			key := configKey{
+				kind:      workloadInstanceConfigType,
+				name:      workloadInstance.Name,
+				namespace: workloadInstance.Namespace,
 			}
-			instance := convertWorkloadInstanceToServiceInstance(workloadInstance.Endpoint, se.services, se.entry)
-			instances = append(instances, instance...)
+
+			instances := []*model.ServiceInstance{}
+			// We will only select entries in the same namespace
+			entries := seWithSelectorByNamespace[workloadInstance.Namespace]
+			for _, se := range entries {
+				workloadLabels := labels.Collection{workloadInstance.Endpoint.Labels}
+				if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
+					// Not a match, skip this one
+					continue
+				}
+				instance := convertWorkloadInstanceToServiceInstance(workloadInstance.Endpoint, se.services, se.entry)
+				instances = append(instances, instance...)
+			}
+			updateInstances(key, instances, instanceMap, ip2instances)
 		}
-		updateInstances(key, instances, instanceMap, ip2instances)
 	}
 
 	// Third, refresh workload entry
@@ -748,11 +781,16 @@ func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []
 
 // This method is not concurrent safe.
 func deleteInstances(key configKey, instances []*model.ServiceInstance, instanceMap map[instancesKey]map[configKey][]*model.ServiceInstance,
-	ip2instance map[ipWithNetDomain][]*model.ServiceInstance) {
+	ip2instance map[ipWithNetDomain]map[configKey][]*model.ServiceInstance) {
 	for _, i := range instances {
 		delete(instanceMap[makeInstanceKey(i)], key)
 		ipWithDomain := ipWithNetDomain{ip: i.Endpoint.Address, network: i.Endpoint.Network}
-		delete(ip2instance, ipWithDomain)
+		if _, ok := ip2instance[ipWithDomain]; ok {
+			delete(ip2instance[ipWithDomain], key)
+			if len(ip2instance[ipWithDomain]) == 0 {
+				delete(ip2instance, ipWithDomain)
+			}
+		}
 	}
 }
 
@@ -770,15 +808,30 @@ func (s *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []
 // This is not concurrent safe.
 func updateInstances(key configKey, instances []*model.ServiceInstance,
 	instanceMap map[instancesKey]map[configKey][]*model.ServiceInstance,
-	ip2instance map[ipWithNetDomain][]*model.ServiceInstance) {
+	ip2instance map[ipWithNetDomain]map[configKey][]*model.ServiceInstance) {
 	for _, instance := range instances {
+		// fix the service instance index for a hostname within a namespace
 		ikey := makeInstanceKey(instance)
 		if _, f := instanceMap[ikey]; !f {
 			instanceMap[ikey] = map[configKey][]*model.ServiceInstance{}
 		}
+		if _, f := instanceMap[ikey][key]; !f {
+			instanceMap[ikey][key] = make([]*model.ServiceInstance, 0)
+		}
 		instanceMap[ikey][key] = append(instanceMap[ikey][key], instance)
-		instanceAddrWithDomain := ipWithNetDomain{ip: instance.Endpoint.Address, network: instance.Endpoint.Network}
-		ip2instance[instanceAddrWithDomain] = append(ip2instance[instanceAddrWithDomain], instance)
+
+		// fix the service instance index by IP address and L3 domain
+		instanceAddrWithDomain := ipWithNetDomain{
+			ip:      instance.Endpoint.Address,
+			network: instance.Endpoint.Network,
+		}
+		if _, ok := ip2instance[instanceAddrWithDomain]; !ok {
+			ip2instance[instanceAddrWithDomain] = make(map[configKey][]*model.ServiceInstance)
+		}
+		if _, ok := ip2instance[instanceAddrWithDomain][key]; !ok {
+			ip2instance[instanceAddrWithDomain][key] = make([]*model.ServiceInstance, 0)
+		}
+		ip2instance[instanceAddrWithDomain][key] = append(ip2instance[instanceAddrWithDomain][key], instance)
 	}
 }
 
@@ -799,15 +852,17 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model
 
 	for _, ip := range node.IPAddresses {
 		ipWithDomain := ipWithNetDomain{ip: ip, network: node.Metadata.Network}
-		instances, found := s.ip2instance[ipWithDomain]
+		instancesWithKey, found := s.ip2instance[ipWithDomain]
 		if found {
-			for _, i := range instances {
-				// Insert all instances for this IP for services within the same namespace This ensures we
-				// match Kubernetes logic where Services do not cross namespace boundaries and avoids
-				// possibility of other namespaces inserting service instances into namespaces they do not
-				// control.
-				if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
-					out = append(out, i)
+			for _, instances := range instancesWithKey {
+				for _, i := range instances {
+					// Insert all instances for this IP for services within the same namespace This ensures we
+					// match Kubernetes logic where Services do not cross namespace boundaries and avoids
+					// possibility of other namespaces inserting service instances into namespaces they do not
+					// control.
+					if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
+						out = append(out, i)
+					}
 				}
 			}
 		}
@@ -825,10 +880,12 @@ func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Co
 
 	for _, ip := range proxy.IPAddresses {
 		ipWithDomain := ipWithNetDomain{ip: ip, network: proxy.Metadata.Network}
-		instances, found := s.ip2instance[ipWithDomain]
+		instancesWithKey, found := s.ip2instance[ipWithDomain]
 		if found {
-			for _, instance := range instances {
-				out = append(out, instance.Endpoint.Labels)
+			for _, instances := range instancesWithKey {
+				for _, instance := range instances {
+					out = append(out, instance.Endpoint.Labels)
+				}
 			}
 		}
 	}

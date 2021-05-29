@@ -270,7 +270,7 @@ type XDSUpdater interface {
 
 	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
 	// The requests may be collapsed and throttled.
-	ProxyUpdate(clusterID, ip string)
+	ProxyUpdate(clusterID, ip, network string)
 }
 
 // PushRequest defines a request to push to proxies
