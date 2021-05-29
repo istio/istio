@@ -191,6 +191,10 @@ type controllerInterface interface {
 
 var _ controllerInterface = &Controller{}
 
+type ipWithNetwork struct {
+	address, network string
+}
+
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
@@ -240,9 +244,9 @@ type Controller struct {
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 	// workload instances from workload entries  - map of ip -> workload instance
-	workloadInstancesByIP map[string]*model.WorkloadInstance
+	workloadInstancesByIP map[ipWithNetwork]*model.WorkloadInstance
 	// Stores a map of workload instance name/namespace to address
-	workloadInstancesIPsByName map[string]string
+	workloadInstancesIPsByName map[string]ipWithNetwork
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -286,8 +290,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
-		workloadInstancesIPsByName:  make(map[string]string),
+		workloadInstancesByIP:       make(map[ipWithNetwork]*model.WorkloadInstance),
+		workloadInstancesIPsByName:  make(map[string]ipWithNetwork),
 		registryServiceNameGateways: make(map[host.Name]uint32),
 		networkGateways:             make(map[host.Name]map[string][]*model.Gateway),
 		networksWatcher:             options.NetworksWatcher,
@@ -882,9 +886,12 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	if len(proxy.IPAddresses) > 0 {
-		proxyIP := proxy.IPAddresses[0]
+		proxyIPWithNetwork := ipWithNetwork{
+			address: proxy.IPAddresses[0],
+			network: proxy.Metadata.Network,
+		}
 		c.RLock()
-		workload, f := c.workloadInstancesByIP[proxyIP]
+		workload, f := c.workloadInstancesByIP[proxyIPWithNetwork]
 		c.RUnlock()
 		if f {
 			return c.hydrateWorkloadInstance(workload)
@@ -977,18 +984,19 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	// this is from a workload entry. Store it in separate map so that
 	// the InstancesByPort can use these as well as the k8s pods.
 	c.Lock()
+	ipAddr := ipWithNetwork{address: si.Endpoint.Address, network: si.Endpoint.Network}
 	switch event {
 	case model.EventDelete:
-		delete(c.workloadInstancesByIP, si.Endpoint.Address)
+		delete(c.workloadInstancesByIP, ipAddr)
 	default: // add or update
 		// Check to see if the workload entry changed. If it did, clear the old entry
 		k := si.Namespace + "/" + si.Name
 		existing := c.workloadInstancesIPsByName[k]
-		if existing != si.Endpoint.Address {
+		if existing != ipAddr {
 			delete(c.workloadInstancesByIP, existing)
 		}
-		c.workloadInstancesByIP[si.Endpoint.Address] = si
-		c.workloadInstancesIPsByName[k] = si.Endpoint.Address
+		c.workloadInstancesByIP[ipAddr] = si
+		c.workloadInstancesIPsByName[k] = ipAddr
 	}
 	c.Unlock()
 
