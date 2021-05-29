@@ -951,6 +951,15 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 	}
 	// Marshall Http Protocol options if they exist.
 	if mc.httpProtocolOptions != nil {
+		// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier
+		// we need to set it to default http protocol options.
+		if mc.httpProtocolOptions.UpstreamProtocolOptions == nil {
+			mc.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+				},
+			}
+		}
 		mc.cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
 			v3.HttpProtocolOptionsType: util.MessageToAny(mc.httpProtocolOptions),
 		}
