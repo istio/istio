@@ -21,33 +21,37 @@ import (
 	"github.com/miekg/dns"
 )
 
-type dnsProxy struct {
-	serveMux *dns.ServeMux
-	server   *dns.Server
+type Protocol string
 
-	// This is the upstream Client used to make upstream DNS queries
-	// in case the data is not in our name table.
-	upstreamClient  *dns.Client
-	upstreamServers []*upstreamServer
-	protocol        string
-	resolver        *LocalDNSServer
+const (
+	Tcp Protocol = "tcp"
+	Udp Protocol = "udp"
+)
+
+type dnsProxy struct {
+	serveMux  *dns.ServeMux
+	server    *dns.Server
+	client    *dns.Client // Upstream Client used to make forward DNS queries.
+	upstreams []*Upstream
+	protocol  Protocol
+	resolver  *LocalDNSServer
 }
 
 func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	p := &dnsProxy{
 		serveMux: dns.NewServeMux(),
 		server:   &dns.Server{},
-		upstreamClient: &dns.Client{
+		client: &dns.Client{
 			Net:          protocol,
 			DialTimeout:  5 * time.Second,
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,
 		},
-		protocol: protocol,
+		protocol: Protocol(protocol),
 		resolver: resolver,
 	}
 
-	p.initUpstreamServers()
+	p.initUpstreamResolvers()
 
 	var err error
 	p.serveMux.Handle(".", p)
@@ -64,19 +68,15 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	return p, nil
 }
 
-func (p *dnsProxy) initUpstreamServers() {
-	p.upstreamServers = nil
+func (p *dnsProxy) initUpstreamResolvers() {
+	p.upstreams = nil
 	for _, us := range p.resolver.upstreamServers {
-		p.upstreamServers = append(p.upstreamServers, newUpstream(us))
+		p.upstreams = append(p.upstreams, newUpstream(us))
 	}
 }
 
 func (p *dnsProxy) start() {
 	log.Infof("Starting local %s DNS server at localhost:15053", p.protocol)
-	for _, us := range p.upstreamServers {
-		// nolint
-		us.initConnection(p.upstreamClient)
-	}
 	err := p.server.ActivateAndServe()
 	if err != nil {
 		log.Errorf("Local %s DNS server terminated: %v", p.protocol, err)
@@ -93,4 +93,8 @@ func (p *dnsProxy) close() {
 
 func (p *dnsProxy) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	p.resolver.ServeDNS(p, w, req)
+}
+
+func (p *dnsProxy) IsTcp() bool {
+	return p.protocol == Tcp
 }

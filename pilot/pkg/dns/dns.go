@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/miekg/dns"
@@ -28,15 +30,21 @@ import (
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+var (
+	log                   = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+	defaultTimeout        = 1 * time.Second
+	maxfails       uint32 = 2
+	hcInterval            = 500 * time.Millisecond
+)
 
-// upstreamServer holds the dns.Conn for an upstream server.
-type upstreamServer struct {
+// Upstream holds the dns.Conn for an upstream resolver server.
+type Upstream struct {
 	sync.RWMutex
-	c          *dns.Conn
-	address    string
-	hcInflight bool
-	hcChan     chan struct{}
+	// TODO(ramaraochavali): Implement default expiry for these connections.
+	c            *dns.Conn
+	address      string
+	fails        uint32
+	hcInprogress bool
 }
 
 // Holds configurations for the DNS downstreamUDPServer in Istio Agent
@@ -44,11 +52,12 @@ type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
 	lookupTable atomic.Value
 
-	udpDNSProxy *dnsProxy
-	tcpDNSProxy *dnsProxy
+	udpProxy *dnsProxy
+	tcpProxy *dnsProxy
 
 	upstreamServers  []string
 	searchNamespaces []string
+
 	// The namespace where the proxy resides
 	// determines the hosts used for shortname resolution
 	proxyNamespace string
@@ -83,10 +92,10 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func newUpstream(address string) *upstreamServer {
-	return &upstreamServer{
+func newUpstream(address string) *Upstream {
+	return &Upstream{
 		address: address,
-		hcChan:  make(chan struct{}),
+		fails:   0,
 	}
 }
 
@@ -129,10 +138,10 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 
 	log.WithLabels("search", h.searchNamespaces, "servers", h.upstreamServers).Debugf("initialized DNS")
 
-	if h.udpDNSProxy, err = newDNSProxy("udp", h); err != nil {
+	if h.udpProxy, err = newDNSProxy("udp", h); err != nil {
 		return nil, err
 	}
-	if h.tcpDNSProxy, err = newDNSProxy("tcp", h); err != nil {
+	if h.tcpProxy, err = newDNSProxy("tcp", h); err != nil {
 		return nil, err
 	}
 
@@ -141,8 +150,8 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 
 // StartDNS starts the DNS-over-UDP downstreamUDPServer.
 func (h *LocalDNSServer) StartDNS() {
-	go h.udpDNSProxy.start()
-	go h.tcpDNSProxy.start()
+	go h.udpProxy.start()
+	go h.tcpProxy.start()
 }
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
@@ -234,7 +243,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
-	response.Truncate(size(proxy.protocol, req))
+	response.Truncate(size(string(proxy.protocol), req))
 	_ = w.WriteMsg(response)
 }
 
@@ -306,22 +315,42 @@ func roundRobinShuffle(records []dns.RR) {
 }
 
 func (h *LocalDNSServer) Close() {
-	h.udpDNSProxy.close()
-	h.tcpDNSProxy.close()
+	h.udpProxy.close()
+	h.tcpProxy.close()
 }
 
+// Queries upstream resolvers and retuns the response from them - Inspired by forward plugin of coredns.
 func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	var response *dns.Msg
-	for _, upstream := range p.upstreamServers {
-		if cResponse, err := upstream.query(req, p.upstreamClient, scope); err == nil {
-			response = cResponse
+	fails := 0
+	for _, upstream := range p.upstreams {
+		if upstream.Down(maxfails) {
+			fails++
+			if fails < len(p.upstreams) {
+				continue
+			}
+			scope.Warn("all upstream resolvers are unhealthy")
 			break
+		}
+
+		if cresponse, err := upstream.query(req, p.client, scope); err == nil {
+			response = cresponse
 		} else {
-			scope.Debugf("upstream failure : %v", err)
-			// Request failed - do a health check and reset connection if needed.
-			upstream.maybeResetConnection(p.upstreamClient)
+			if isConnectionError(err) {
+				atomic.AddUint32(&upstream.fails, 1)
+				// Kick off health check to see if upstream is broken.
+				if maxfails != 0 {
+					upstream.HealthCheck(p.client)
+				}
+
+				if fails < len(p.upstreams) {
+					continue
+				}
+				break
+			}
 		}
 	}
+
 	if response == nil {
 		response = new(dns.Msg)
 		response.SetReply(req)
@@ -330,77 +359,106 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	return response
 }
 
-func (u *upstreamServer) initConnection(uc *dns.Client) error {
-	conn, err := uc.Dial(u.address)
+// Dial returns a cached connection if available otherwise initiates a new connection.
+func (u *Upstream) Dial(uc *dns.Client) *dns.Conn {
+	var conn *dns.Conn
+	var err error
+	u.RLock()
+	conn = u.c
+	u.RUnlock()
+
+	if conn != nil {
+		return conn
+	}
+
+	conn, err = uc.Dial(u.address)
 	if err != nil {
 		log.Warnf("unable to establish connection for upstream %s: %v", u.address, err)
-		return err
+		return nil
 	}
+
 	u.Lock()
 	u.c = conn
+	if uc.Net == "tcp" {
+		u.c.Conn.(*net.TCPConn).SetKeepAlive(true)
+	}
 	u.Unlock()
-	return nil
+	return conn
 }
 
-func (u *upstreamServer) query(req *dns.Msg, upstreamClient *dns.Client, scope *istiolog.Scope) (*dns.Msg, error) {
-	u.RLock()
-	hcInflight := u.hcInflight
-	u.RUnlock()
-	if hcInflight {
-		scope.Debugf("waiting for health check : %v", u.address)
-		<-u.hcChan
-	}
-	u.RLock()
-	conn := u.c
-	u.RUnlock()
-	cResponse, _, err := upstreamClient.ExchangeWithConn(req, conn)
+// Runs actual query to upstream resolver.
+func (u *Upstream) query(req *dns.Msg, uc *dns.Client, scope *istiolog.Scope) (*dns.Msg, error) {
+	conn := u.Dial(uc)
+	cResponse, _, err := uc.ExchangeWithConn(req, conn)
 	return cResponse, err
 }
 
-func (u *upstreamServer) maybeResetConnection(upstreamClient *dns.Client) {
-	// It is OK to a function wide lock here and reset connection. This happens rarely.
-	u.Lock()
-	hcInflight := u.hcInflight
-	if !hcInflight {
-		u.hcInflight = true
+func isConnectionError(err error) bool {
+	if netError, ok := err.(net.Error); ok && netError.Timeout() {
+		return true
 	}
-	u.Unlock()
-	if hcInflight {
-		return
+
+	switch err.(type) {
+	case *net.OpError:
+	case syscall.Errno:
+		return true
+	default:
+		return false
 	}
-	go u.healthCheck(upstreamClient)
+	return false
 }
 
-// Inspired by from https://github.com/coredns/coredns/blob/fbf3f07f469a99fcbb5985a41c260a3fad26f908/plugin/forward/health.go#L76.
-func (u *upstreamServer) healthCheck(upstreamClient *dns.Client) {
+// Healthcheck kicks of a round of health checks for this upstream.
+// If a health check is already in progress this is a noop.
+func (u *Upstream) HealthCheck(uc *dns.Client) {
+	u.Lock()
+	inprogress := u.hcInprogress
+	u.hcInprogress = true
+	u.Unlock()
+
+	if inprogress {
+		return
+	}
+
+	go func() {
+		for {
+			if err := u.ping(uc); err == nil {
+				break
+			}
+			atomic.AddUint32(&u.fails, 1)
+			time.Sleep(hcInterval)
+		}
+
+		u.Lock()
+		u.hcInprogress = false
+		u.Unlock()
+		atomic.StoreUint32(&u.fails, 0)
+	}()
+}
+
+// Inspired by coredns forward plugin health check implementation.
+func (u *Upstream) ping(uc *dns.Client) error {
 	ping := new(dns.Msg)
 	ping.SetQuestion(".", dns.TypeNS)
-
-	m, _, err := upstreamClient.ExchangeWithConn(ping, u.c)
-	healthy := false
+	m, _, err := uc.Exchange(ping, u.address)
 	// If we got a header, we're alright, basically only care about I/O errors 'n stuff.
 	if err != nil && m != nil {
 		// Silly check, something sane came back.
 		if m.Response || m.Opcode == dns.OpcodeQuery {
 			err = nil
-			healthy = true
 		}
 	}
-	var conn *dns.Conn
-	if !healthy {
-		if c, derr := upstreamClient.Dial(u.address); derr == nil {
-			// Do we keep doing health checks till it is healthy?
-			conn = c
-			err = derr
-		}
+	return err
+}
+
+// Down returns true if this upstream is down, i.e. has *more* fails than maxfails.
+func (u *Upstream) Down(maxfails uint32) bool {
+	if maxfails == 0 {
+		return false
 	}
-	u.Lock()
-	if !healthy && err == nil {
-		u.c = conn
-	}
-	u.hcInflight = false
-	u.Unlock()
-	u.hcChan <- struct{}{}
+
+	fails := atomic.LoadUint32(&u.fails)
+	return fails > maxfails
 }
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
