@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -139,6 +140,57 @@ func TestNodeMetadata(t *testing.T) {
 			}
 			if !reflect.DeepEqual(meta, tt.inOut) {
 				t.Fatalf("Got metadata\n%#v, expected\n%#v", meta, tt.inOut)
+			}
+		})
+	}
+}
+
+func TestNodeMetadataIdleTimeout(t *testing.T) {
+	cases := []struct {
+		name                string
+		idleTimeout         string
+		expectedIdleTimeout *durationpb.Duration
+	}{
+		{
+			"no idle time passed",
+			"",
+			nil,
+		},
+		{
+			"specified idle time in second passed",
+			"10s",
+			durationpb.New(10 * time.Second),
+		},
+		{
+			"specified idle time in hour passed",
+			"10h",
+			durationpb.New(10 * time.Hour),
+		},
+		{
+			"non-parsable idle time passed",
+			"123",
+			nil,
+		},
+		{
+			"negative idle time passed",
+			"-1h",
+			nil,
+		},
+		{
+			"idle time disabled (passed with 0)",
+			"0s",
+			durationpb.New(0 * time.Second),
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			nodeMetadata := model.NodeMetadata{}
+			nodeMetadata.IdleTimeout = tt.idleTimeout
+
+			idleTimeout := nodeMetadata.IdleTimeoutOrDefault()
+			if !reflect.DeepEqual(tt.expectedIdleTimeout, idleTimeout) {
+				t.Fatalf("Unexpected IdleTimeout, Expecting %v, Got %v", tt.expectedIdleTimeout, idleTimeout)
 			}
 		})
 	}
