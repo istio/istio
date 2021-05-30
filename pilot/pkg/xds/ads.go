@@ -804,29 +804,27 @@ func (s *DiscoveryServer) adsClientCount() int {
 	return len(s.adsClients)
 }
 
-func (s *DiscoveryServer) ProxyUpdate(clusterID, ip, network string) {
-	var connection *Connection
+func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
+	var connections []*Connection
 
+	// There could be a case where multiple workloads can exist with
+	// same IP address, but different L3 networks. To be on safe-side
+	// push to all of them when there is an update on one of them. Missing
+	// is not okay where as redundant pushes are.
+	//
+	// Why not consider network(L3-domain) to match the client?
+	// This is called from two codepaths - service-discovery through service and
+	// workload entries and another one from pod controller. We can get network
+	// information from the former, but it is a little bit complicated in the
+	// latter. So until it is sorted out, just pick all of them and fire an update
 	for _, v := range s.Clients() {
-		// NOTE: It is important to consider network/L3-domain while matching
-		// the connection to which we have to push xDS updates. Consider the
-		// following scenario where there are two workload entries with the
-		// same IP address 172.18.10.50, but in different networks - neteast
-		// and netwest. Clearly, they are different sidecars. When one of them
-		// joins newly (say, netwest), then the push could be triggered to the
-		// neteast where as it should have actually triggered to the one in netwest.
-		//
-		// Most of this times this does not happen as it is a corner case. But for
-		// correctness it is necessary.
-		if v.proxy.Metadata.ClusterID == clusterID &&
-			v.proxy.IPAddresses[0] == ip && v.proxy.Metadata.Network == network {
-			connection = v
-			break
+		if v.proxy.Metadata.ClusterID == clusterID && v.proxy.IPAddresses[0] == ip {
+			connections = append(connections, v)
 		}
 	}
 
 	// It is possible that the envoy has not connected to this pilot, maybe connected to another pilot
-	if connection == nil {
+	if len(connections) == 0 {
 		return
 	}
 	if log.DebugEnabled() {
@@ -835,13 +833,14 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip, network string) {
 			log.Debugf("Starting new push while %v were still pending", currentlyPending)
 		}
 	}
-
-	s.pushQueue.Enqueue(connection, &model.PushRequest{
-		Full:   true,
-		Push:   s.globalPushContext(),
-		Start:  time.Now(),
-		Reason: []model.TriggerReason{model.ProxyUpdate},
-	})
+	for _, connection := range connections {
+		s.pushQueue.Enqueue(connection, &model.PushRequest{
+			Full:   true,
+			Push:   s.globalPushContext(),
+			Start:  time.Now(),
+			Reason: []model.TriggerReason{model.ProxyUpdate},
+		})
+	}
 }
 
 // AdsPushAll will send updates to all nodes, for a full config or incremental EDS.

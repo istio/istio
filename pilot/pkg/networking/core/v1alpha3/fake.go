@@ -306,4 +306,4 @@ func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {}
 
-func (f *FakeXdsUpdater) ProxyUpdate(_, _, _ string) {}
+func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {}

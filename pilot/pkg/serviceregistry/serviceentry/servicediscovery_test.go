@@ -74,7 +74,6 @@ type Event struct {
 	host      string
 	namespace string
 	proxyIP   string
-	proxyNet  string
 	endpoints int
 	pushReq   *model.PushRequest
 }
@@ -97,8 +96,8 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	fx.Events <- Event{kind: "xds", pushReq: req}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_, ip, net string) {
-	fx.Events <- Event{kind: "xds", proxyIP: ip, proxyNet: net}
+func (fx *FakeXdsUpdater) ProxyUpdate(_, ip string) {
+	fx.Events <- Event{kind: "xds", proxyIP: ip}
 }
 
 func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, event model.Event) {
