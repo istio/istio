@@ -337,6 +337,7 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 			response = cresponse
 		} else {
 			if isConnectionError(err) {
+				scope.Infof("upstream failure: %v", err)
 				atomic.AddUint32(&upstream.fails, 1)
 				// Kick off health check to see if upstream is broken.
 				if maxfails != 0 {
