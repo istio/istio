@@ -36,7 +36,7 @@ var (
 )
 
 // Creates an in-process discovery server, using the same code as Istiod, but
-// backed by an in-memory config and endpoint store.
+// backed by an in-memory config and endpoint Store.
 func initDS() *xds.SimpleServer {
 	ds := xds.NewXDS(make(chan struct{}))
 
@@ -56,7 +56,7 @@ func initDS() *xds.SimpleServer {
 // to represent the names. The protocol is based on GRPC resolution of XDS resources.
 func TestAPIGen(t *testing.T) {
 	ds := initDS()
-	ds.DiscoveryServer.Generators["api"] = &apigen.APIGenerator{}
+	ds.DiscoveryServer.Generators["api"] = apigen.NewGenerator(ds.DiscoveryServer.Env.IstioConfigStore)
 	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
 	ds.DiscoveryServer.Generators["api/"+v3.EndpointType] = epGen
 
