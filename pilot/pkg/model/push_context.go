@@ -189,12 +189,6 @@ type PushContext struct {
 	// Mesh configuration for the mesh.
 	Mesh *meshconfig.MeshConfig `json:"-"`
 
-	// Discovery interface for listing services and instances.
-	ServiceDiscovery `json:"-"`
-
-	// Config interface for listing routing rules
-	IstioConfigStore `json:"-"`
-
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
 
@@ -529,7 +523,6 @@ func init() {
 
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
-	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
 		ServiceIndex:            newServiceIndex(),
 		virtualServiceIndex:     newVirtualServiceIndex(),
@@ -955,8 +948,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env.ServiceDiscovery
-	ps.IstioConfigStore = env.IstioConfigStore
 	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first
