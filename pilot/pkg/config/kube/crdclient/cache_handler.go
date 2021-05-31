@@ -15,6 +15,7 @@
 package crdclient
 
 import (
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"reflect"
 	"sync"
 
@@ -85,15 +86,20 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 	currObject, err := h.lister(obj.Namespace).Get(obj.Name)
 	// if current obj is not exists , it is a delete event
 	if err != nil {
-		event = model.EventDelete
-		currStore, ok := h.currentObjMap.Load(types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace})
-		if !ok {
-			return nil
-		}
-		currObject, ok = currStore.(runtime.Object)
-		if !ok {
-			scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", currStore, currStore)
-			return nil
+		if kerrors.IsNotFound(err) {
+			event = model.EventDelete
+			currStore, ok := h.currentObjMap.Load(types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace})
+			if !ok {
+				return nil
+			}
+			currObject, ok = currStore.(runtime.Object)
+			if !ok {
+				scope.Warnf("New Object can not be converted to runtime Object %+v", currStore)
+				return nil
+			}
+		} else {
+			scope.Errorf("Get Object can not be converted to runtime Object %+v", obj)
+			return err
 		}
 	}
 
@@ -109,12 +115,11 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 			event = model.EventUpdate
 			oldItem, ok := oldStore.(runtime.Object)
 			if !ok {
-				log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", oldStore, oldStore)
+				log.Warnf("Old Object can not be converted to runtime Object %+v", oldStore)
 				return nil
 			}
 			oldConfig = *TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 		}
-
 	}
 
 	for _, f := range h.handlers {
@@ -144,6 +149,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			newObj, ok := obj.(metav1.Object)
 			if !ok {
 				log.Errorf("eventHandler %s parse obj err", kind)
+				return
 			}
 			workerQueue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 		},
