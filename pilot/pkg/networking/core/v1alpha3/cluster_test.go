@@ -582,7 +582,7 @@ func buildSniTestClustersForSidecar(t *testing.T, sniValue string) []*cluster.Cl
 }
 
 func buildSniDnatTestClustersForGateway(t *testing.T, sniValue string) []*cluster.Cluster {
-	return buildSniTestClustersWithMetadata(t, sniValue, model.Router, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
+	return buildSniTestClustersWithMetadata(t, sniValue, model.Router, &model.NodeMetadata{})
 }
 
 func buildSniTestClustersWithMetadata(t testing.TB, sniValue string, typ model.NodeType, meta *model.NodeMetadata) []*cluster.Cluster {
@@ -1314,7 +1314,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+			meta: &model.NodeMetadata{},
 		}))
 
 	if c.CommonLbConfig == nil {
@@ -1356,7 +1356,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					},
 				},
 			}, // peerAuthn
-			meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+			meta: &model.NodeMetadata{},
 		}))
 
 	if c.CommonLbConfig == nil {

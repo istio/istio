@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
 {{- if not .Values.global.externalIstiod }}
-  name: istio-reader-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+  name: istio-reader-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- else }}
   name: istio-reader{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
 {{- end }}
@@ -13,14 +13,14 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
 {{- if not .Values.global.externalIstiod }}
-  name: istio-reader-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+  name: istio-reader-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- else }}
   name: istio-reader{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
 {{- end }}
 subjects:
   - kind: ServiceAccount
 {{- if not .Values.global.externalIstiod }}
-    name: istio-reader{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+    name: istio-reader-aggregate
 {{- else }}
     name: istio-reader-service-account
 {{- end }}
@@ -30,7 +30,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
 {{- if not .Values.global.externalIstiod }}
-  name: istiod-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}{{ .Release.Namespace }}
+  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- else }}
   name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
 {{- end }}
@@ -41,7 +41,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
 {{- if not .Values.global.externalIstiod }}
-  name: istiod-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}{{ .Release.Namespace }}
+  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 {{- else }}
   name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
 {{- end }}

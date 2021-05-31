@@ -2331,6 +2331,7 @@ spec:
                       - HTTP_ROUTE
                       - CLUSTER
                       - EXTENSION_CONFIG
+                      - BOOTSTRAP
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
@@ -5661,12 +5662,9 @@ spec:
 ---
 
 ---
-# Source: base/templates/serviceaccount.yaml
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-# DO NOT EDIT!
-# THIS IS A LEGACY CHART HERE FOR BACKCOMPAT
-# UPDATED CHART AT manifests/charts/istio-control/istio-discovery
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# Source: base/templates/reader-serviceaccount.yaml
+# This service account aggregates reader permissions for the revisions in a given cluster
+# Should be used for remote secret creation.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -5677,6 +5675,11 @@ metadata:
     release: istio
 ---
 # Source: base/templates/serviceaccount.yaml
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# DO NOT EDIT!
+# THIS IS A LEGACY CHART HERE FOR BACKCOMPAT
+# UPDATED CHART AT manifests/charts/istio-control/istio-discovery
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -5935,7 +5938,6 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/validate"
-      caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
         - CREATE

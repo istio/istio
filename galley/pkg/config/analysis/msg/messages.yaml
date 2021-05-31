@@ -358,9 +358,11 @@ messages:
     code: IST0135
     level: Info
     description: "A resource is using a deprecated Istio annotation."
-    template: "Annotation %q has been deprecated and may not work in future Istio versions."
+    template: "Annotation %q has been deprecated%s and may not work in future Istio versions."
     args:
       - name: annotation
+        type: string
+      - name: extra
         type: string
 
   - name: "AlphaAnnotation"

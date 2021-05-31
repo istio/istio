@@ -86,20 +86,12 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[0]-from[0]-principal[1]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[0]-from[0]-principal[2]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[0]-from[0]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[0]-from[0]-principal[2]
             - orIds:
                 ids:
                 - metadata:
@@ -118,24 +110,16 @@ typedConfig:
                         exact: rule[0]-from[0]-requestPrincipal[2]
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[0]-from[0]-ns[1]/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[0]-from[0]-ns[2]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[0]-from[0]-ns[1]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[0]-from[0]-ns[2]/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -175,20 +159,12 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[0]-from[1]-principal[1]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[0]-from[1]-principal[2]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[0]-from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[0]-from[1]-principal[2]
             - orIds:
                 ids:
                 - metadata:
@@ -207,24 +183,16 @@ typedConfig:
                         exact: rule[0]-from[1]-requestPrincipal[2]
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[0]-from[1]-ns[1]/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[0]-from[1]-ns[2]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[0]-from[1]-ns[1]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[0]-from[1]-ns[2]/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -330,20 +298,12 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[1]-from[0]-principal[1]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[1]-from[0]-principal[2]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[1]-from[0]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[1]-from[0]-principal[2]
             - orIds:
                 ids:
                 - metadata:
@@ -362,24 +322,16 @@ typedConfig:
                         exact: rule[1]-from[0]-requestPrincipal[2]
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[1]-from[0]-ns[1]/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[1]-from[0]-ns[2]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[1]-from[0]-ns[1]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[1]-from[0]-ns[2]/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -400,20 +352,12 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[1]-from[1]-principal[1]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: rule[1]-from[1]-principal[2]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[1]-from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://rule[1]-from[1]-principal[2]
             - orIds:
                 ids:
                 - metadata:
@@ -432,24 +376,16 @@ typedConfig:
                         exact: rule[1]-from[1]-requestPrincipal[2]
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[1]-from[1]-ns[1]/.*
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[1]-from[1]-ns[2]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[1]-from[1]-ns[1]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[1]-from[1]-ns[2]/.*
             - orIds:
                 ids:
                 - remoteIp:
