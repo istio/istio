@@ -78,7 +78,7 @@ func GetConfigDump(adminPort uint32) (*envoyAdmin.ConfigDump, error) {
 }
 
 func doEnvoyGet(path string, adminPort uint32) (*bytes.Buffer, error) {
-	requestURL := fmt.Sprintf("http://127.0.0.1:%d/%s", adminPort, path)
+	requestURL := fmt.Sprintf("http://localhost:%d/%s", adminPort, path)
 	buffer, err := doHTTPGet(requestURL)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func doEnvoyGet(path string, adminPort uint32) (*bytes.Buffer, error) {
 }
 
 func doEnvoyPost(path, contentType, body string, adminPort uint32) (*bytes.Buffer, error) {
-	requestURL := fmt.Sprintf("http://127.0.0.1:%d/%s", adminPort, path)
+	requestURL := fmt.Sprintf("http://localhost:%d/%s", adminPort, path)
 	buffer, err := doHTTPPost(requestURL, contentType, body)
 	if err != nil {
 		return nil, err
