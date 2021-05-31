@@ -31,10 +31,9 @@ import (
 )
 
 var (
-	log                   = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
-	defaultTimeout        = 1 * time.Second
-	maxfails       uint32 = 2
-	hcInterval            = 500 * time.Millisecond
+	log               = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+	maxfails   uint32 = 2
+	hcInterval        = 500 * time.Millisecond
 )
 
 // Upstream holds the dns.Conn for an upstream resolver server.
@@ -237,7 +236,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	} else {
 		// We did not find the host in our internal cache. Query upstream and return the response as is.
 		log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
-		response = proxy.queryUpstream(req, log)
+		response = proxy.queryUpstream(req)
 		log.Debugf("upstream response for hostname %q : %v", hostname, response)
 	}
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
@@ -319,8 +318,8 @@ func (h *LocalDNSServer) Close() {
 	h.tcpProxy.close()
 }
 
-// Queries upstream resolvers and retuns the response from them - Inspired by forward plugin of coredns.
-func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
+// Queries upstream resolvers and returns the response from them - Inspired by forward plugin of coredns.
+func (p *dnsProxy) queryUpstream(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	fails := 0
 	for _, upstream := range p.upstreams {
@@ -329,26 +328,24 @@ func (p *dnsProxy) queryUpstream(req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 			if fails < len(p.upstreams) {
 				continue
 			}
-			scope.Warn("all upstream resolvers are unhealthy")
+			log.Warn("all upstream resolvers are unhealthy")
 			break
 		}
 
-		if cresponse, err := upstream.query(req, p.client, scope); err == nil {
+		if cresponse, err := upstream.query(req, p.client); err == nil {
 			response = cresponse
-		} else {
-			if isConnectionError(err) {
-				scope.Infof("upstream failure: %v", err)
-				atomic.AddUint32(&upstream.fails, 1)
-				// Kick off health check to see if upstream is broken.
-				if maxfails != 0 {
-					upstream.HealthCheck(p.client)
-				}
-
-				if fails < len(p.upstreams) {
-					continue
-				}
-				break
+		} else if isConnectionError(err) {
+			log.Infof("upstream failure: %v", err)
+			atomic.AddUint32(&upstream.fails, 1)
+			// Kick off health check to see if upstream is broken.
+			if maxfails != 0 {
+				upstream.HealthCheck(p.client)
 			}
+
+			if fails < len(p.upstreams) {
+				continue
+			}
+			break
 		}
 	}
 
@@ -380,15 +377,16 @@ func (u *Upstream) Dial(uc *dns.Client) *dns.Conn {
 
 	u.Lock()
 	u.c = conn
-	if uc.Net == "tcp" {
-		u.c.Conn.(*net.TCPConn).SetKeepAlive(true)
+	if con, ok := u.c.Conn.(*net.TCPConn); ok {
+		// TODO: set keep alive period also?
+		con.SetKeepAlive(true)
 	}
 	u.Unlock()
 	return conn
 }
 
 // Runs actual query to upstream resolver.
-func (u *Upstream) query(req *dns.Msg, uc *dns.Client, scope *istiolog.Scope) (*dns.Msg, error) {
+func (u *Upstream) query(req *dns.Msg, uc *dns.Client) (*dns.Msg, error) {
 	conn := u.Dial(uc)
 	cResponse, _, err := uc.ExchangeWithConn(req, conn)
 	return cResponse, err

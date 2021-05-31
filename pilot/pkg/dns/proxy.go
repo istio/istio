@@ -24,17 +24,20 @@ import (
 type Protocol string
 
 const (
-	Tcp Protocol = "tcp"
-	Udp Protocol = "udp"
+	TCP Protocol = "tcp"
+	UDP Protocol = "udp"
 )
 
 type dnsProxy struct {
-	serveMux  *dns.ServeMux
-	server    *dns.Server
-	client    *dns.Client // Upstream Client used to make forward DNS queries.
+	serveMux *dns.ServeMux
+	server   *dns.Server
+	// Upstream Client used to make forward DNS queries.
+	client *dns.Client
+	// Upstream resolvers.
 	upstreams []*Upstream
 	protocol  Protocol
-	resolver  *LocalDNSServer
+	// Local resolver.
+	resolver *LocalDNSServer
 }
 
 func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
@@ -93,8 +96,4 @@ func (p *dnsProxy) close() {
 
 func (p *dnsProxy) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	p.resolver.ServeDNS(p, w, req)
-}
-
-func (p *dnsProxy) IsTcp() bool {
-	return p.protocol == Tcp
 }
