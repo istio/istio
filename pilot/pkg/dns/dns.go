@@ -379,7 +379,9 @@ func (u *Upstream) Dial(uc *dns.Client) *dns.Conn {
 	u.c = conn
 	if con, ok := u.c.Conn.(*net.TCPConn); ok {
 		// TODO: set keep alive period also?
-		con.SetKeepAlive(true)
+		if err := con.SetKeepAlive(true); err != nil {
+			log.Warnf("unable to set tcp keep alives for upstream %s :%v", u.address, err)
+		}
 	}
 	u.Unlock()
 	return conn
