@@ -16,8 +16,11 @@ package crdclient
 
 import (
 	"reflect"
+	"sync"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 
 	//  import GKE cluster authentication plugin
@@ -36,11 +39,12 @@ import (
 // cacheHandler abstracts the logic of an informer with a set of handlers. Handlers can be added at runtime
 // and will be invoked on each informer event.
 type cacheHandler struct {
-	client   *Client
-	informer cache.SharedIndexInformer
-	handlers []func(config.Config, config.Config, model.Event)
-	schema   collection.Schema
-	lister   func(namespace string) cache.GenericNamespaceLister
+	client        *Client
+	informer      cache.SharedIndexInformer
+	handlers      []func(config.Config, config.Config, model.Event)
+	schema        collection.Schema
+	lister        func(namespace string) cache.GenericNamespaceLister
+	currentObjMap sync.Map
 }
 
 func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Event) error {
@@ -72,6 +76,54 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 	return nil
 }
 
+func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
+	// get current obj
+	event := model.EventAdd
+	oldConfig := config.Config{}
+	currConfig := config.Config{}
+
+	currObject, err := h.lister(obj.Namespace).Get(obj.Name)
+	// if current obj is not exists , it is a delete event
+	if err != nil {
+		event = model.EventDelete
+		currStore, ok := h.currentObjMap.Load(types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace})
+		if !ok {
+			return nil
+		}
+		currObject, ok = currStore.(runtime.Object)
+		if !ok {
+			scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", currStore, currStore)
+			return nil
+		}
+	}
+
+	if err := h.client.checkReadyForEvents(currObject); err != nil {
+		return err
+	}
+
+	currConfig = *TranslateObject(currObject, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+
+	if event != model.EventDelete {
+		oldStore, ok := h.currentObjMap.Load(types.NamespacedName{Name: currConfig.Name, Namespace: currConfig.Namespace})
+		if ok {
+			event = model.EventUpdate
+			oldItem, ok := oldStore.(runtime.Object)
+			if !ok {
+				log.Warnf("Old Object can not be converted to runtime Object %v, is type %T", oldStore, oldStore)
+				return nil
+			}
+			oldConfig = *TranslateObject(oldItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+		}
+
+	}
+
+	for _, f := range h.handlers {
+		f(oldConfig, currConfig, event)
+	}
+	h.currentObjMap.Store(types.NamespacedName{Name: currConfig.Name, Namespace: currConfig.Namespace}, currObject)
+	return nil
+}
+
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
 	h := &cacheHandler{
 		client:   cl,
@@ -84,29 +136,38 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		}
 		return i.Lister().ByNamespace(namespace)
 	}
-	kind := schema.Resource().Kind()
+	kind := schema.Resource().GroupVersionKind()
+	workerQueue := cl.queueMap[kind]
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			incrementEvent(kind, "add")
-			cl.queue.Push(func() error {
-				return h.onEvent(nil, obj, model.EventAdd)
-			})
+			incrementEvent(kind.Kind, "add")
+			newObj, ok := obj.(metav1.Object)
+			if !ok {
+				log.Errorf("eventHandler %s parse obj err", kind)
+			}
+			workerQueue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			if !reflect.DeepEqual(old, cur) {
-				incrementEvent(kind, "update")
-				cl.queue.Push(func() error {
-					return h.onEvent(old, cur, model.EventUpdate)
-				})
+				incrementEvent(kind.Kind, "update")
+				newObj, ok := cur.(metav1.Object)
+				if !ok {
+					log.Errorf("eventHandler %s parse obj err", kind)
+					return
+				}
+				workerQueue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 			} else {
-				incrementEvent(kind, "updatesame")
+				incrementEvent(kind.Kind, "updatesame")
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			incrementEvent(kind, "delete")
-			cl.queue.Push(func() error {
-				return h.onEvent(nil, obj, model.EventDelete)
-			})
+			incrementEvent(kind.Kind, "delete")
+			newObj, ok := obj.(metav1.Object)
+			if !ok {
+				log.Errorf("eventHandler %s parse obj err", kind)
+				return
+			}
+			workerQueue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 		},
 	})
 	return h

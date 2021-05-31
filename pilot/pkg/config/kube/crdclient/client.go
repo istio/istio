@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/util/workqueue"
 
 	//  import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -56,7 +57,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
 )
 
@@ -77,7 +77,8 @@ type Client struct {
 
 	// kinds keeps track of all cache handlers for known types
 	kinds map[config.GroupVersionKind]*cacheHandler
-	queue queue.Instance
+
+	queueMap map[config.GroupVersionKind]workqueue.RateLimitingInterface
 
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
@@ -130,7 +131,38 @@ func (cl *Client) Run(stop <-chan struct{}) {
 			return
 		}
 		scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
-		cl.queue.Run(stop)
+		for kind, q := range cl.queueMap {
+			handler, ok := cl.kinds[kind]
+			if !ok {
+				continue
+			}
+			scope.Infof("start go kind: %s queueMap len:%d", kind, len(cl.queueMap))
+			for i := 0; i < 2; i++ {
+				go func(i int, k config.GroupVersionKind, queue workqueue.RateLimitingInterface) {
+					defer func() {
+						scope.Infof("goroutine %d exit kind :%+v queue len: %d", i, k, q.Len())
+					}()
+					for {
+						obj, shutdown := queue.Get()
+						if shutdown {
+							scope.Infof("goroutine %d kind :%+v queue len: %d shutdown", i, k, q.Len())
+							return
+						}
+						namespacedObj, ok := obj.(types.NamespacedName)
+						if !ok {
+							queue.Done(obj)
+							continue
+						}
+						err := handler.onEventNew(namespacedObj)
+						if err != nil {
+							queue.AddAfter(namespacedObj, time.Second*1)
+							continue
+						}
+						queue.Done(obj)
+					}
+				}(i, kind, q)
+			}
+		}
 	}()
 
 	<-stop
@@ -160,7 +192,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		domainSuffix:     domainSuffix,
 		schemas:          schemas,
 		revision:         revision,
-		queue:            queue.NewQueue(1 * time.Second),
+		queueMap:         map[config.GroupVersionKind]workqueue.RateLimitingInterface{},
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
@@ -184,6 +216,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 			if err != nil {
 				return nil, err
 			}
+			out.queueMap[s.Resource().GroupVersionKind()] = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), s.Resource().GroupVersionKind().String())
 			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 		} else {
 			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
