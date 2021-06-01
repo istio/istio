@@ -87,7 +87,7 @@ spec:
 `
 
 	deploymentYAML = `
-{{- $revVerMap := .IstioVersions }}
+{{- $revVerMap := .Revisions }}
 {{- $subsets := .Subsets }}
 {{- $cluster := .Cluster }}
 {{- range $i, $subset := $subsets }}
@@ -474,7 +474,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := GenerateDeployment(cfg, nil, ctx.Settings().IstioVersions)
+	deploymentYAML, err := GenerateDeployment(cfg, nil, ctx.Settings().Revisions)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
@@ -571,8 +571,8 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func GenerateDeployment(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
-	params, err := templateParams(cfg, settings, versions)
+func GenerateDeployment(cfg echo.Config, settings *image.Settings, revisions resource.RevVerMap) (string, error) {
+	params, err := templateParams(cfg, settings, revisions)
 	if err != nil {
 		return "", err
 	}
@@ -604,7 +604,7 @@ var VMImages = map[echo.VMDistro]string{
 	echo.Centos8:      "app_sidecar_centos_8",
 }
 
-func templateParams(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, settings *image.Settings, revisions resource.RevVerMap) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
 		settings, err = image.SettingsFromCommandLine()
@@ -650,8 +650,8 @@ func templateParams(cfg echo.Config, settings *image.Settings, versions resource
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"IstioVersions":   versions.TemplateMap(),
-		"IsMultiVersion":  versions.IsMultiVersion(),
+		"Revisions":       revisions.TemplateMap(),
+		"IsMultiVersion":  revisions.IsMultiVersion(),
 	}
 	return params, nil
 }
