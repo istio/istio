@@ -155,8 +155,6 @@ type Server struct {
 
 	// certWatcher watches the certificates for changes and triggers a notification to Istiod.
 	cacertsWatcher *fsnotify.Watcher
-	cacertsMap     map[string]bool
-	cacertsMutex   sync.RWMutex
 	dnsNames       []string
 
 	certController *chiron.WebhookController

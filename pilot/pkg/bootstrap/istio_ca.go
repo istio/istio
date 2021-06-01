@@ -270,38 +270,16 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 // isValidCACertsFile As we are watching entire directory, but interested
 // in only 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem' and 'cert-chain.pem'.
 // Events on other files are ignored.
-func isValidCACertsFile(path string) (string, bool) {
+func isValidCACertsFile(path string) bool {
 	_, file := filepath.Split(path)
 
 	for _, name := range []string{"ca-cert.pem", "ca-key.pem", "root-cert.pem", "cert-chain.pem"} {
 		if file == name {
-			return file, true
+			return true
 		}
 	}
 
-	return "", false
-}
-
-// updateCACertsMap updates the map with cacerts files on Create or Modify events
-func updateCACertsMap(s *Server, file string) {
-	s.cacertsMutex.Lock()
-	s.cacertsMap[file] = true
-	s.cacertsMutex.Unlock()
-}
-
-func resetCACertsMap(s *Server) {
-	s.cacertsMutex.Lock()
-	for _, file := range []string{"ca-cert.pem", "ca-key.pem", "root-cert.pem", "cert-chain.pem"} {
-		s.cacertsMap[file] = false
-	}
-	s.cacertsMutex.Unlock()
-}
-
-func areCACertsFilesCreatedorModified(s *Server) bool {
-	return (s.cacertsMap["ca-cert.pem"] &&
-		s.cacertsMap["ca-key.pem"] &&
-		s.cacertsMap["root-cert.pem"] &&
-		s.cacertsMap["cert-chain.pem"])
+	return false
 }
 
 // handleEvent handles the events on cacerts related files.
@@ -311,56 +289,46 @@ func areCACertsFilesCreatedorModified(s *Server) bool {
 // and generates new dns certs.
 // TODO(rveerama1): Add support for new ROOT-CA rotation also.
 func handleEvent(s *Server) {
-	if areCACertsFilesCreatedorModified(s) {
-		log.Info("Update Istiod cacerts")
+	log.Info("Update Istiod cacerts")
 
-		currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-		newCABundle, err := ioutil.ReadFile(path.Join(LocalCertDir.Get(), "root-cert.pem"))
-		if err != nil {
-			log.Error("failed reading root-cert.pem: ", err)
-			return
-		}
+	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
+	newCABundle, err := ioutil.ReadFile(path.Join(LocalCertDir.Get(), "root-cert.pem"))
+	if err != nil {
+		log.Error("failed reading root-cert.pem: ", err)
+		return
+	}
 
-		// Only updating intermediate CA is supported now
-		if !bytes.Equal(currentCABundle, newCABundle) {
-			log.Info("Updating new ROOT-CA not supported")
-			return
-		}
+	// Only updating intermediate CA is supported now
+	if !bytes.Equal(currentCABundle, newCABundle) {
+		log.Info("Updating new ROOT-CA not supported")
+		return
+	}
 
-		err = s.CA.GetCAKeyCertBundle().UpdateNewPluggedInCACerts(
-			path.Join(LocalCertDir.Get(), "/ca-cert.pem"),
-			path.Join(LocalCertDir.Get(), "ca-key.pem"),
-			path.Join(LocalCertDir.Get(), "cert-chain.pem"),
-			path.Join(LocalCertDir.Get(), "root-cert.pem"))
-		if err != nil {
-			log.Error("Failed to update new Plug-in CA certs: ", err)
-			return
-		}
+	err = s.CA.GetCAKeyCertBundle().UpdateNewPluggedInCACerts(
+		path.Join(LocalCertDir.Get(), "/ca-cert.pem"),
+		path.Join(LocalCertDir.Get(), "ca-key.pem"),
+		path.Join(LocalCertDir.Get(), "cert-chain.pem"),
+		path.Join(LocalCertDir.Get(), "root-cert.pem"))
+	if err != nil {
+		log.Error("Failed to update new Plug-in CA certs: ", err)
+		return
+	}
 
-		err = s.updatePluggedinRootCertAndGenKeyCert()
-		if err != nil {
-			log.Error("Failed generating plugged-in istiod key cert: ", err)
-			return
-		}
+	err = s.updatePluggedinRootCertAndGenKeyCert()
+	if err != nil {
+		log.Error("Failed generating plugged-in istiod key cert: ", err)
+		return
 	}
 }
 
 // handleCACertsFileWatch handles the events on cacerts files
 func (s *Server) handleCACertsFileWatch() {
-	s.cacertsMap = map[string]bool{
-		"ca-cert.pem":    false,
-		"ca-key.pem":     false,
-		"root-cert.pem":  false,
-		"cert-chain.pem": false,
-	}
-
 	var timerC <-chan time.Time
 	for {
 		select {
 		case <-timerC:
 			timerC = nil
 			handleEvent(s)
-			resetCACertsMap(s)
 
 		case event, ok := <-s.cacertsWatcher.Events:
 			if !ok {
@@ -369,12 +337,9 @@ func (s *Server) handleCACertsFileWatch() {
 			}
 
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-				file, ok := isValidCACertsFile(event.Name)
-				if ok {
-					if timerC == nil {
-						timerC = time.After(100 * time.Millisecond)
-					}
-					updateCACertsMap(s, file)
+				valid := isValidCACertsFile(event.Name)
+				if valid && timerC == nil {
+					timerC = time.After(100 * time.Millisecond)
 				}
 			}
 
@@ -482,7 +447,9 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 	}
 
-	s.initCACertsWatcher()
+	if features.EnableAvoidRestartIstiod {
+		s.initCACertsWatcher()
+	}
 
 	// TODO: provide an endpoint returning all the roots. SDS can only pull a single root in current impl.
 	// ca.go saves or uses the secret, but also writes to the configmap "istio-security", under caTLSRootCert
