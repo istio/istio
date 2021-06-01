@@ -189,12 +189,6 @@ type PushContext struct {
 	// Mesh configuration for the mesh.
 	Mesh *meshconfig.MeshConfig `json:"-"`
 
-	// Discovery interface for listing services and instances.
-	ServiceDiscovery `json:"-"`
-
-	// Config interface for listing routing rules
-	IstioConfigStore `json:"-"`
-
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
 
@@ -529,7 +523,6 @@ func init() {
 
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
-	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
 		ServiceIndex:            newServiceIndex(),
 		virtualServiceIndex:     newVirtualServiceIndex(),
@@ -955,8 +948,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env.ServiceDiscovery
-	ps.IstioConfigStore = env.IstioConfigStore
 	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first
@@ -976,7 +967,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initMeshNetworks(env.Networks())
+	ps.initMeshNetworks(env)
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
@@ -1167,7 +1158,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
 			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
 		}
 
@@ -1751,12 +1742,13 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 }
 
 // pre computes gateways for each network
-func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
+func (ps *PushContext) initMeshNetworks(env *Environment) {
 	ps.networksMu.Lock()
 	defer ps.networksMu.Unlock()
 	ps.networkGateways = map[string][]*Gateway{}
 
 	// First, use addresses directly specified in meshNetworks
+	meshNetworks := env.Networks()
 	if meshNetworks != nil {
 		for network, networkConf := range meshNetworks.Networks {
 			gws := networkConf.Gateways
@@ -1770,7 +1762,7 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	}
 
 	// Second, load registry specific gateways.
-	for network, gateways := range ps.ServiceDiscovery.NetworkGateways() {
+	for network, gateways := range env.NetworkGateways() {
 		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
 		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
 		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
@@ -1841,9 +1833,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 			return instances
 		}
 	}
-
-	// Fallback to discovery call.
-	return ps.InstancesByPort(svc, port, labels)
+	return nil
 }
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects
