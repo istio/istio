@@ -28,6 +28,7 @@ import (
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
@@ -101,10 +102,34 @@ func describeRouteDomains(domains []string) string {
 			withoutPort = append(withoutPort, d)
 		}
 	}
+	withoutPort = unexpandDomains(withoutPort)
 	visible := withoutPort[:max]
 	ret := strings.Join(visible, ", ")
 	if len(withoutPort) > max {
 		return fmt.Sprintf("%s + %d more...", ret, len(withoutPort)-max)
+	}
+	return ret
+}
+
+func unexpandDomains(domains []string) []string {
+	unique := sets.NewSet(domains...)
+	shouldDelete := sets.NewSet()
+	for _, h := range domains {
+		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
+		if _, f := unique[stripFull]; f && stripFull != h {
+			shouldDelete.Insert(h)
+		}
+		stripPartial := strings.TrimSuffix(h, ".svc")
+		if _, f := unique[stripPartial]; f && stripPartial != h {
+			shouldDelete.Insert(h)
+		}
+	}
+	// Filter from original list to keep original order
+	ret := make([]string, 0, len(domains))
+	for _, h := range domains {
+		if _, f := shouldDelete[h]; !f {
+			ret = append(ret, h)
+		}
 	}
 	return ret
 }
