@@ -103,12 +103,11 @@ func describeRouteDomains(domains []string) string {
 		}
 	}
 	withoutPort = unexpandDomains(withoutPort)
-	visible := withoutPort[:max]
-	ret := strings.Join(visible, ", ")
 	if len(withoutPort) > max {
+		ret := strings.Join(withoutPort[:max], ", ")
 		return fmt.Sprintf("%s + %d more...", ret, len(withoutPort)-max)
 	}
-	return ret
+	return strings.Join(withoutPort, ", ")
 }
 
 func unexpandDomains(domains []string) []string {
