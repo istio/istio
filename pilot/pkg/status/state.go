@@ -103,11 +103,7 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 
 	// this will list all existing configmaps, as well as updates, right?
 	ctx := NewIstioContext(stop)
-	// Make sure informaer and DistributionController use context separately due to
-	// panic when losing and regaining leader election.
-	informerStop := make(chan struct{})
-	informerCtx := NewIstioContext(informerStop)
-	go c.cmInformer.Run(informerCtx.Done())
+	go c.cmInformer.Run(ctx.Done())
 
 	c.workers = NewProgressWorkerPool(func(resource Resource, progress Progress) {
 		c.writeStatus(resource, progress)
@@ -121,8 +117,6 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 		for {
 			select {
 			case <-ctx.Done():
-				// Close informer stop channel for informer context.
-				close(informerStop)
 				return
 			case <-t:
 				staleReporters := c.writeAllStatus()
