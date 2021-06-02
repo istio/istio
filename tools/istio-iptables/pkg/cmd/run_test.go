@@ -409,6 +409,44 @@ func TestHandleInboundIpv6RulesWithUidGid(t *testing.T) {
 	}
 }
 
+func TestHandleInboundIpv6RulesWithOutboundPorts(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = ""
+	cfg.OutboundPortsInclude = "32000,31000"
+	cfg.EnableInboundIPv6 = true
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	ipv6Range := NetworkRange{
+		IsWildcard: false,
+		IPNets:     nil,
+	}
+	iptConfigurator.handleInboundIpv6Rules(ipv6Range, ipv6Range)
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	expected := []string{
+		"ip6tables -t nat -N ISTIO_INBOUND",
+		"ip6tables -t nat -N ISTIO_REDIRECT",
+		"ip6tables -t nat -N ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -N ISTIO_OUTPUT",
+		"ip6tables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
+		"ip6tables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
+		"ip6tables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
+		"ip6tables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -s ::6/128 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo ! -d ::1/128 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport 32000 -j ISTIO_REDIRECT",
+		"ip6tables -t nat -A ISTIO_OUTPUT -p tcp --dport 31000 -j ISTIO_REDIRECT",
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+}
+
 func TestHandleInboundIpv4RulesWithWildCard(t *testing.T) {
 	cfg := constructTestConfig()
 
