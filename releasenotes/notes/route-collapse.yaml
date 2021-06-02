@@ -1,0 +1,20 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 28659
+releaseNotes:
+- |
+  **Optimized** generated routing configuration to merge virtual hosts with the same routing configuration. This improves performance for Virtual Services with multiple hostnames defined.
+
+upgradeNotes:
+- title: EnvoyFilter `match.routeConfiguration.vhost.name` semantics change
+  content: |
+    `EnvoyFilter` matches rely on internal implementation details to match generated XDS segments, which is subject to change at any time.
+
+    In this release, the [virtual host name match](https://istio.io/latest/docs/reference/config/networking/envoy-filter/#EnvoyFilter-RouteConfigurationMatch-VirtualHostMatch) may have different results.
+
+    Previously, each domain name had its own virtual host. As an optimization, multiple domains may use a single virtual host.
+    This means that a Envoy Filter previously matching a specific virtual host may now apply to more domains than in previous releases.
+
+    This optimization may be temporarily disabled by setting `PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION=false` on the Istiod deployment.

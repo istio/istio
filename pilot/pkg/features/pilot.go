@@ -447,6 +447,9 @@ var (
 	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
 
+	EnableRouteCollapse = env.RegisterBoolVar("PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION", true,
+		"If true, Pilot will merge virtual hosts with the same routes into a single virtual host, as an optimization.").Get()
+
 	delayedCloseTimeoutVar = env.RegisterDurationVar(
 		"PILOT_HTTP_DELAYED_CLOSE_TIMEOUT",
 		1*time.Second,

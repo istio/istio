@@ -15,9 +15,13 @@
 package v1alpha3
 
 import (
+	"crypto/md5"
+	"encoding/binary"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -383,6 +387,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}}
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
+		vHostDedupMap = collapseDuplicateRoutes(vHostDedupMap)
 		for _, v := range vHostDedupMap {
 			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
@@ -399,6 +404,89 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	return routeCfg
+}
+
+// hashRouteList returns a hash of a list of pointers
+func hashRouteList(r []*route.Route) uint64 {
+	hash := md5.New()
+	for _, v := range r {
+		u := uintptr(unsafe.Pointer(v))
+		size := unsafe.Sizeof(u)
+		b := make([]byte, size)
+		switch size {
+		case 4:
+			binary.LittleEndian.PutUint32(b, uint32(u))
+		default:
+			binary.LittleEndian.PutUint64(b, uint64(u))
+		}
+		hash.Write(b)
+	}
+	var tmp [md5.Size]byte
+	sum := hash.Sum(tmp[:0])
+	return binary.LittleEndian.Uint64(sum)
+}
+
+// collapseDuplicateRoutes prevents cardinality explosion when we have multiple hostnames defined for the same set of routes
+// with virtual service: {hosts: [a, b], routes: [r1, r2]}
+// before: [{vhosts: [a], routes: [r1, r2]},{vhosts: [b], routes: [r1, r2]}]
+// after: [{vhosts: [a,b], routes: [r1, r2]}]
+// Note: At this point in the code, r1 and r2 are just pointers. However, once we send them over the wire
+// they are fully expanded and expensive, so the optimization is important.
+func collapseDuplicateRoutes(input map[host.Name]*route.VirtualHost) map[host.Name]*route.VirtualHost {
+	if !features.EnableRouteCollapse {
+		return input
+	}
+	dedupe := make(map[host.Name]*route.VirtualHost, len(input))
+	known := make(map[uint64]host.Name, len(input))
+
+	// In order to ensure stable XDS, we need to sort things. First vhost alphabetically will be the "primary"
+	var hostnameKeys host.Names = make([]host.Name, 0, len(input))
+	for k := range input {
+		hostnameKeys = append(hostnameKeys, k)
+	}
+	sort.Sort(hostnameKeys)
+	for _, h := range hostnameKeys {
+		vh := input[h]
+		hash := hashRouteList(vh.Routes)
+		eh, f := known[hash]
+		if f && vhostMergeable(vh, dedupe[eh]) {
+			// Merge domains, routes are identical. We check the hash *and* routesEqual so that we don't depend on not having
+			// collisions.
+			// routesEqual is fairly cheap, but not cheap enough to do n^2 checks, so both are needed
+			dedupe[eh].Domains = append(dedupe[eh].Domains, vh.Domains...)
+		} else {
+			known[hash] = h
+			dedupe[h] = vh
+		}
+	}
+	return dedupe
+}
+
+// vhostMergeable checks if two virtual hosts can be merged
+// We explicitly do not check domains or name, as those are the keys for the merge
+func vhostMergeable(a, b *route.VirtualHost) bool {
+	if a.IncludeRequestAttemptCount != b.IncludeRequestAttemptCount {
+		return false
+	}
+	if a.RequireTls != b.RequireTls {
+		return false
+	}
+	if !routesEqual(a.Routes, b.Routes) {
+		return false
+	}
+	return true
+}
+
+func routesEqual(a, b []*route.Route) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
