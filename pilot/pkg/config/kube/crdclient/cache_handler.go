@@ -17,12 +17,15 @@ package crdclient
 import (
 	"reflect"
 	"sync"
+	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/util/workqueue"
 
 	//  import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -40,12 +43,15 @@ import (
 // cacheHandler abstracts the logic of an informer with a set of handlers. Handlers can be added at runtime
 // and will be invoked on each informer event.
 type cacheHandler struct {
-	client        *Client
-	informer      cache.SharedIndexInformer
-	handlers      []func(config.Config, config.Config, model.Event)
-	schema        collection.Schema
-	lister        func(namespace string) cache.GenericNamespaceLister
-	currentObjMap sync.Map
+	client              *Client
+	informer            cache.SharedIndexInformer
+	handlers            []func(config.Config, config.Config, model.Event)
+	schema              collection.Schema
+	lister              func(namespace string) cache.GenericNamespaceLister
+	currentObjMap       sync.Map
+	queue               workqueue.RateLimitingInterface
+	jitterPeriod        time.Duration
+	maxConcurrentWorker int
 }
 
 func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Event) error {
@@ -75,6 +81,37 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 		f(oldConfig, currConfig, event)
 	}
 	return nil
+}
+
+func (h *cacheHandler) StartWorker(stop <-chan struct{}) {
+	for i := 0; i < h.maxConcurrentWorker; i++ {
+		go wait.Until(h.worker, h.jitterPeriod, stop)
+	}
+}
+
+func (h *cacheHandler) worker() {
+	for {
+		h.processWorkerItem()
+	}
+}
+
+func (h *cacheHandler) processWorkerItem() {
+	obj, shutdown := h.queue.Get()
+	if shutdown {
+		scope.Infof("kind :%+v queue len: %d shutdown", h.schema.Resource().Kind(), h.queue.Len())
+		return
+	}
+	namespacedObj, ok := obj.(types.NamespacedName)
+	if !ok {
+		h.queue.Done(obj)
+		return
+	}
+	err := h.onEventNew(namespacedObj)
+	if err != nil {
+		h.queue.AddRateLimited(namespacedObj)
+		return
+	}
+	h.queue.Done(obj)
 }
 
 func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
@@ -131,9 +168,12 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
 	h := &cacheHandler{
-		client:   cl,
-		schema:   schema,
-		informer: i.Informer(),
+		client:              cl,
+		schema:              schema,
+		informer:            i.Informer(),
+		queue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), schema.Resource().Kind()),
+		jitterPeriod:        time.Millisecond * 100,
+		maxConcurrentWorker: 1,
 	}
 	h.lister = func(namespace string) cache.GenericNamespaceLister {
 		if schema.Resource().IsClusterScoped() {
@@ -142,7 +182,6 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		return i.Lister().ByNamespace(namespace)
 	}
 	kind := schema.Resource().GroupVersionKind()
-	workerQueue := cl.queueMap[kind]
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			incrementEvent(kind.Kind, "add")
@@ -151,7 +190,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 				log.Errorf("eventHandler %s parse obj err", kind)
 				return
 			}
-			workerQueue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
+			h.queue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 		},
 		UpdateFunc: func(old, cur interface{}) {
 			if !reflect.DeepEqual(old, cur) {
@@ -161,7 +200,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 					log.Errorf("eventHandler %s parse obj err", kind)
 					return
 				}
-				workerQueue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
+				h.queue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 			} else {
 				incrementEvent(kind.Kind, "updatesame")
 			}
@@ -173,7 +212,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 				log.Errorf("eventHandler %s parse obj err", kind)
 				return
 			}
-			workerQueue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
+			h.queue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 		},
 	})
 	return h

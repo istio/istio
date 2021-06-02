@@ -131,37 +131,8 @@ func (cl *Client) Run(stop <-chan struct{}) {
 			return
 		}
 		scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
-		for kind, q := range cl.queueMap {
-			handler, ok := cl.kinds[kind]
-			if !ok {
-				continue
-			}
-			scope.Infof("start go kind: %s queueMap len:%d", kind, len(cl.queueMap))
-			for i := 0; i < 2; i++ {
-				go func(i int, k config.GroupVersionKind, queue workqueue.RateLimitingInterface) {
-					defer func() {
-						scope.Infof("goroutine %d exit kind :%+v queue len: %d", i, k, q.Len())
-					}()
-					for {
-						obj, shutdown := queue.Get()
-						if shutdown {
-							scope.Infof("goroutine %d kind :%+v queue len: %d shutdown", i, k, q.Len())
-							return
-						}
-						namespacedObj, ok := obj.(types.NamespacedName)
-						if !ok {
-							queue.Done(obj)
-							continue
-						}
-						err := handler.onEventNew(namespacedObj)
-						if err != nil {
-							queue.AddAfter(namespacedObj, time.Second*1)
-							continue
-						}
-						queue.Done(obj)
-					}
-				}(i, kind, q)
-			}
+		for _, handler := range cl.kinds {
+			handler.StartWorker(stop)
 		}
 	}()
 
@@ -216,7 +187,6 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 			if err != nil {
 				return nil, err
 			}
-			out.queueMap[s.Resource().GroupVersionKind()] = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), s.Resource().GroupVersionKind().String())
 			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 		} else {
 			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
