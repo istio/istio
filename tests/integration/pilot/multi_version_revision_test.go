@@ -35,11 +35,14 @@ import (
 )
 
 const (
-	NMinusOne   = "1.9.0"
-	NMinusTwo   = "1.8.3"
-	NMinusThree = "1.7.6"
-	NMinusFour  = "1.6.11"
+	NMinusOne   = "1.10.0"
+	NMinusTwo   = "1.9.5"
+	NMinusThree = "1.8.6"
+	NMinusFour  = "1.7.6"
+	NMinusFive  = "1.6.11"
 )
+
+var versions = []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour, NMinusFive}
 
 type revisionedNamespace struct {
 	revision  string
@@ -55,9 +58,6 @@ func TestMultiVersionRevision(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			skipIfK8sVersionUnsupported(t)
 
-			// keep these at the latest patch version of each minor version
-			installVersions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}
-
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
 			t.ConditionalCleanup(func() {
@@ -67,7 +67,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			})
 
 			revisionedNamespaces := []revisionedNamespace{}
-			for _, v := range installVersions {
+			for _, v := range versions {
 				installRevisionOrFail(t, v, configs)
 
 				// create a namespace pointed to the revisioned control plane we just installed

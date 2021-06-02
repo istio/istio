@@ -247,8 +247,9 @@ func TestDNS(t *testing.T) {
 							t.Errorf("upstream dns resolution for %s failed: %v", tt.host, res)
 						}
 					} else {
-						if tt.expectResolutionFailure != res.Rcode {
-							t.Errorf("expected resolution failure but it succeeded for %s: %v", tt.host, res)
+						if tt.expectResolutionFailure > 0 && tt.expectResolutionFailure != res.Rcode {
+							t.Errorf("expected resolution failure does not match with response code for %s: expected: %v, got: %v",
+								tt.host, tt.expectResolutionFailure, res.Rcode)
 						}
 						if !equalsDNSrecords(res.Answer, tt.expected) {
 							t.Log(res)

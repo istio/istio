@@ -836,7 +836,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
-			autoDetected,
+			userSupplied,
 		},
 		{
 			"Auto fill nil settings when mTLS nil for internal service in strict mode",
@@ -906,7 +906,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			nil,
 			userSupplied,
 		},
-
 		{
 			"TLS nil auto build tls with metadata cert path",
 			nil,

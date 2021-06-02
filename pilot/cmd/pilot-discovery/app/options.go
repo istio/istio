@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package app
 
 import (
 	"crypto/tls"
@@ -42,7 +42,7 @@ func secureTLSCipherNames() []string {
 	return cipherKeys.List()
 }
 
-func ValidateFlags(serverArgs *bootstrap.PilotArgs) error {
+func validateFlags(serverArgs *bootstrap.PilotArgs) error {
 	if serverArgs == nil {
 		return nil
 	}

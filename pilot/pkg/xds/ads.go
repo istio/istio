@@ -621,7 +621,7 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushReq
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetServiceInstances(s.globalPushContext().ServiceDiscovery)
+	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become

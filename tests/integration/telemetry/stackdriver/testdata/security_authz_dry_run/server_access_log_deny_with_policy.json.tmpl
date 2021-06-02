@@ -1,0 +1,39 @@
+{
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "http://srv.{{ .EchoNamespace }}.svc.cluster.local/",
+      "status": 200,
+      "protocol": "http"
+    },
+    "labels": {
+      "source_app": "clt-{{ .ClusterName }}",
+      "destination_canonical_service": "srv",
+      "destination_workload": "srv-v1",
+      "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
+      "destination_app": "srv",
+      "source_canonical_service": "clt-{{ .ClusterName }}",
+      "destination_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
+      "destination_namespace": "{{ .EchoNamespace }}",
+      "destination_canonical_revision": "v1",
+      "source_workload": "clt-{{ .ClusterName }}-v1",
+      "source_namespace": "{{ .EchoNamespace }}",
+      "destination_service_name": "srv",
+      "destination_version": "v1",
+      "log_sampled": "true",
+      "mesh_uid": "proj-test-mesh",
+      "protocol": "http",
+      "requested_server_name": "outbound_.80_._.srv.{{ .EchoNamespace }}.svc.cluster.local",
+      "response_details": "via_upstream",
+      "response_flag": "-",
+      "route_name": "default",
+      "service_authentication_policy": "MUTUAL_TLS",
+      "source_version": "v1",
+      "upstream_cluster": "inbound|8888||",
+      "source_principal": "spiffe://{{ .TrustDomain }}/ns/{{ .EchoNamespace }}/sa/default",
+      "source_canonical_revision": "v1",
+      "dry_run_result": "AuthzDenied",
+      "dry_run_policy_name": "{{ .EchoNamespace }}.dry-run-deny",
+      "dry_run_policy_rule": "0"
+    },
+    "trace_sampled":true
+}
