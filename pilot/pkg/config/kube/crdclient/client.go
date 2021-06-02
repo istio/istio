@@ -46,7 +46,6 @@ import (
 	//  import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	"istio.io/api/label"
@@ -77,8 +76,6 @@ type Client struct {
 
 	// kinds keeps track of all cache handlers for known types
 	kinds map[config.GroupVersionKind]*cacheHandler
-
-	queueMap map[config.GroupVersionKind]workqueue.RateLimitingInterface
 
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
@@ -163,7 +160,6 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		domainSuffix:     domainSuffix,
 		schemas:          schemas,
 		revision:         revision,
-		queueMap:         map[config.GroupVersionKind]workqueue.RateLimitingInterface{},
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
