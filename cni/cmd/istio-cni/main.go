@@ -124,12 +124,10 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			msg := fmt.Sprintf("istio-cni panicked during cmdAdd: %v", e)
-			log.Errorf(msg)
 			if err != nil {
 				// If we're recovering and there was also an error, then we need to
 				// present both.
 				msg = fmt.Sprintf("%s: %v", msg, err)
-				log.Errorf(msg)
 			}
 			err = fmt.Errorf(msg)
 		}

@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 33137
-releaseNotes:
-  - |
-    **Fixed** the CNI plugin has no crash recover.
