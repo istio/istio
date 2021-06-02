@@ -17,7 +17,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -39,18 +38,12 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/webhooks"
+	"istio.io/istio/pkg/webhooks/validation/controller"
 )
 
 const (
 	// Name of the webhook config in the config - no need to change it.
 	webhookName = "sidecar-injector.istio.io"
-)
-
-var (
-	validationWebhookConfigNameTemplateVar = "${namespace}"
-	// These should be an invalid DNS-1123 label to ensure the user
-	// doesn't specific a valid name that matches out template.
-	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
 )
 
 type kubeController struct {
@@ -262,12 +255,8 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		}
 		// Patch validation webhook cert
 		if m.caBundleWatcher != nil {
-			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
-			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-				m.secretNamespace, m.caBundleWatcher)
-			if validationWebhookController != nil {
-				go validationWebhookController.Start(clusterStopCh)
-			}
+			controller.NewValidatingWebhookController(client, m.revision,
+				m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
 		}
 	}
 
