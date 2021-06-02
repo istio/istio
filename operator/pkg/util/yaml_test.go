@@ -348,3 +348,152 @@ foo: bar
 		})
 	}
 }
+
+func TestYAMLReducedDiff(t *testing.T) {
+	tests := []struct {
+		desc   string
+		diff1  string
+		diff2  string
+		expect string
+	}{
+		{
+			desc: "1-line-diff",
+			diff1: `---
+hola: yo
+foo: bar
+goo: tar`,
+			diff2: `---
+hola: yo
+foo: bar
+notgoo: nottar`,
+			// Cannot use backtick because the expected results contain
+			// color control characters which must be escaped. Noticed
+			// that the \033[31m are the characters for color red,
+			// the \033[32m are the characters for color green.
+			expect: " ---\n" +
+				" hola: yo\n" +
+				" foo: bar\n" +
+				"\033[31m-goo: tar\033[0m\n" +
+				"\033[32m+notgoo: nottar\033[0m",
+		},
+		{
+			desc:  "empty-to-non-empty-diff",
+			diff1: "",
+			diff2: `hola: yo
+foo: bar
+notgoo: nottar`,
+			// Cannot use backtick because the expected results contain
+			// color control characters which must be escaped. Noticed
+			// that the \033[31m are the characters for color red,
+			// the \033[32m are the characters for color green.
+			expect: "\033[32m+hola: yo\033[0m\n" +
+				"\033[32m+foo: bar\033[0m\n" +
+				"\033[32m+notgoo: nottar\033[0m",
+		},
+		{
+			desc: "non-empty-to-empty-diff",
+			diff1: `hola: yo
+foo: bar
+notgoo: nottar`,
+			diff2: ``,
+			// Cannot use backtick because the expected results contain
+			// color control characters which must be escaped. Noticed
+			// that the \033[31m are the characters for color red,
+			// the \033[32m are the characters for color green.
+			expect: "\033[31m-hola: yo\033[0m\n" +
+				"\033[31m-foo: bar\033[0m\n" +
+				"\033[31m-notgoo: nottar\033[0m",
+		},
+		{
+			desc: "multiple-line-same-1-line-diff",
+			diff1: `hola: yo
+foo: bar
+goo: tar
+goo1: a
+goo2: b
+goo3: c
+goo4: d
+goo5: e`,
+			diff2: `hola: yo
+foo: bar
+notgoo: nottar
+goo1: a
+goo2: b
+goo3: c
+goo4: d
+goo5: e`,
+			// Cannot use backtick because the expected results contain
+			// color control characters which must be escaped.
+			expect: " hola: yo\n" +
+				" foo: bar\n" +
+				"\033[31m-goo: tar\033[0m\n" +
+				"\033[32m+notgoo: nottar\033[0m\n" +
+				` goo1: a
+ goo2: b
+ goo3: c`,
+		},
+		{
+			desc: "multiple-sections-diff",
+			diff1: `---
+hola: yo
+foo: bar
+goo: tar
+diff1: firstSection
+goo1: a
+goo2: b
+goo3: c
+goo4: d
+goo5: e
+goo6: a
+goo7: b
+goo8: c
+diff22: secondSection
+goo5: e`,
+			diff2: `---
+hola: yo
+foo: bar
+goo: tar
+diff21: aaa
+goo1: a
+goo2: b
+goo3: c
+goo4: d
+goo5: e
+goo6: a
+goo7: b
+goo8: c
+diff23: d
+goo5: e`,
+			// Cannot use backtick because the expected results contain
+			// color control characters which must be escaped.
+			expect: " hola: yo\n" +
+				" foo: bar\n" +
+				" goo: tar\n" +
+				"\033[31m-diff1: firstSection\033[0m\n" +
+				"\033[32m+diff21: aaa\033[0m\n" +
+				` goo1: a
+ goo2: b
+ goo3: c
+ ...
+ goo6: a
+ goo7: b
+ goo8: c` +
+				"\n\033[31m-diff22: secondSection\033[0m\n" +
+				"\033[32m+diff23: d\033[0m\n" +
+				" goo5: e",
+		},
+		{
+			desc:   "no-diff",
+			diff1:  `foo: bar`,
+			diff2:  `foo: bar`,
+			expect: ``,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := YAMLReducedDiff(tt.diff1, tt.diff2, 3); got != tt.expect {
+				t.Errorf("%s: expect:\n%s \n got:\n%s", tt.desc, tt.expect, got)
+			}
+		})
+	}
+}

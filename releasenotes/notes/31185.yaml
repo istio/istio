@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 31185
+releaseNotes:
+- |
+  **Fixed** Show changes that will be made in the cluster before applying in istioctl
+

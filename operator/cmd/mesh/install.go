@@ -24,6 +24,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -33,10 +34,13 @@ import (
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
+	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
+	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -236,7 +240,97 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, res
 		return iop, err
 	}
 
+	if dryRun {
+		currentObj, err := reconciler.GetObject(iop)
+		if err != nil {
+			return iop, err
+		}
+		obj, err := object.ParseYAMLToK8sObject([]byte(iopStr))
+		if err != nil {
+			return iop, err
+		}
+		expectedObj := obj.UnstructuredObject()
+		result, err := showDifferences(currentObj, expectedObj)
+		if err != nil {
+			return iop, err
+		}
+		fmt.Println(result)
+	}
 	return iop, saveIOPToCluster(reconciler, iopStr)
+}
+
+func showDifferences(existing, target *unstructured.Unstructured) (string, error) {
+	// We are only interested in seeing the differences between the specs
+	obj := make(map[string]interface{})
+	obj["spec"] = existing.Object["spec"]
+	existing.Object = obj
+	existingK8sObj := object.NewK8sObject(existing, nil, nil)
+	existingObj, err := existingK8sObj.YAML()
+	if err != nil {
+		return "", err
+	}
+	obj = make(map[string]interface{})
+	obj["spec"] = target.Object["spec"]
+	target.Object = obj
+	targetK8sObj := object.NewK8sObject(target, nil, nil)
+	targetObj, err := targetK8sObj.YAML()
+	if err != nil {
+		return "", err
+	}
+
+	result := "\n\nConfiguration differences:"
+	result += util.YAMLReducedDiff(string(existingObj), string(targetObj), 3)
+
+	existingManifest, err := ManifestFromString(string(existingObj))
+	if err != nil {
+		return "", err
+	}
+	targetManifest, err := ManifestFromString(string(targetObj))
+	if err != nil {
+		return "", err
+	}
+
+	result += "\nManifest differences..."
+	maniDiff, err := compare.ManifestDiff(existingManifest, targetManifest, false)
+	if err != nil {
+		return "", err
+	}
+	result += maniDiff
+	return result, nil
+}
+
+// ManifestString returns manifest based on given a yaml string,
+func ManifestFromString(iopsYAML string) (string, error) {
+	liop := &v1alpha12.IstioOperator{}
+	if err := util.UnmarshalWithJSONPB(iopsYAML, liop, true); err != nil {
+		return "", fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
+	}
+
+	t := translate.NewTranslator()
+
+	cp, err := controlplane.NewIstioControlPlane(liop.Spec, t)
+	if err != nil {
+		return "", err
+	}
+	if err := cp.Run(); err != nil {
+		return "", err
+	}
+
+	manifests, errs := cp.RenderManifest()
+	if errs != nil {
+		return "", errs.ToError()
+	}
+	ordered, err := orderedManifests(manifests)
+	if err != nil {
+		return "", err
+	}
+
+	retStr := ""
+	for _, m := range ordered {
+		retStr += object.YAMLSeparator + m
+	}
+
+	return retStr, nil
 }
 
 func savedIOPName(iop *v1alpha12.IstioOperator) string {

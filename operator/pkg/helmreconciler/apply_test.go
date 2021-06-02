@@ -95,6 +95,120 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 	}
 }
 
+func TestHelmReconciler_GetObject(t *testing.T) {
+	getK8sObj := func(content string) *object.K8sObject {
+		obj, err := object.ParseYAMLToK8sObject([]byte(content))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return obj
+	}
+
+	testInput1 := `---
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: example-istiocontrolplane
+spec:
+  dummy:
+  traffic_management:
+    components:
+    namespace: istio-traffic-management`
+	testInput2 := `---
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-operator-test
+  name: test-operator
+  resourceVersion: "999"
+spec:
+  dummy:
+  traffic_management:
+    components:
+    namespace: istio-traffic-management`
+	tests := []struct {
+		name      string
+		input     string
+		want      *unstructured.Unstructured
+		searchIop *v1alpha1.IstioOperator
+		hasErr    bool
+	}{
+		{
+			name:  "object not present",
+			input: testInput1,
+			searchIop: &v1alpha1.IstioOperator{
+				Kind:       "IstioOperator",
+				ApiVersion: "install.istio.io/v1alpha1",
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "test-operator",
+					Namespace: "istio-operator-test",
+				},
+				Spec: &v1alpha12.IstioOperatorSpec{},
+			},
+			want:   nil,
+			hasErr: false,
+		},
+		{
+			name:  "object presents",
+			input: testInput2,
+			searchIop: &v1alpha1.IstioOperator{
+				Kind:       "IstioOperator",
+				ApiVersion: "install.istio.io/v1alpha1",
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "test-operator",
+					Namespace: "istio-operator-test",
+				},
+				Spec: &v1alpha12.IstioOperatorSpec{},
+			},
+			want:   getK8sObj(testInput2).UnstructuredObject(),
+			hasErr: false,
+		},
+		{
+			name:  "error object missing required data",
+			input: testInput2,
+			searchIop: &v1alpha1.IstioOperator{
+				Kind:       "IstioOperator",
+				ApiVersion: "",
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "test-operator",
+					Namespace: "istio-operator-test",
+				},
+				Spec: &v1alpha12.IstioOperatorSpec{},
+			},
+			want:   nil,
+			hasErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cl := &fakeClientWrapper{fake.NewClientBuilder().WithRuntimeObjects(getK8sObj(tt.input).UnstructuredObject()).Build()}
+			h := &HelmReconciler{
+				client:        cl,
+				opts:          &Options{},
+				iop:           tt.searchIop,
+				countLock:     &sync.Mutex{},
+				prunedKindSet: map[schema.GroupKind]struct{}{},
+			}
+			ret, err := h.GetObject(h.iop)
+			if !tt.hasErr && err != nil {
+				t.Errorf("Expected no error but got error %v", err)
+			}
+
+			if tt.hasErr && err == nil {
+				t.Error("wanted error returned but err was nil")
+			}
+
+			if !tt.hasErr && !reflect.DeepEqual(ret, tt.want) {
+				t.Errorf("wanted:\n%v\ngot:\n%v",
+					object.NewK8sObject(tt.want, nil, nil).YAMLDebugString(),
+					object.NewK8sObject(ret, nil, nil).YAMLDebugString(),
+				)
+			}
+		})
+	}
+}
+
 type fakeClientWrapper struct {
 	client.Client
 }

@@ -27,6 +27,7 @@ import (
 	util2 "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
@@ -229,4 +230,23 @@ func (h *HelmReconciler) serverSideApply(obj *unstructured.Unstructured) error {
 		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)
 	}
 	return nil
+}
+
+// GetObject retrieves the object from the running system based on passed in operator
+// name, namespace, api version, and kind.
+func (h *HelmReconciler) GetObject(iop *v1alpha12.IstioOperator) (*unstructured.Unstructured, error) {
+	receiver := &unstructured.Unstructured{}
+	receiver.SetAPIVersion(iop.ApiVersion)
+	receiver.SetKind(iop.Kind)
+	objectKey := client.ObjectKeyFromObject(iop)
+
+	err := h.client.Get(context.TODO(), objectKey, receiver)
+
+	switch {
+	case errors2.IsNotFound(err):
+		return nil, nil
+	case err == nil:
+		return receiver, nil
+	}
+	return nil, err
 }

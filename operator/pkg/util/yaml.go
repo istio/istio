@@ -167,6 +167,81 @@ func YAMLDiff(a, b string) string {
 	return diff.Diff(string(ay), string(by))
 }
 
+// YAMLReducedDiff this method compares two yaml strings to determine
+// the differences between the two. It uses github.com/kylelemons/godebug/diff
+// library as a base. This method will keep lines based on `contextNoOfLines`
+// parameter to provide context of the changes. Added lines start with plus
+// sign and will appear to be `Green`, removed lines start with minus sign,
+// will appear to be `Red`. ... represent same content from both strings.
+func YAMLReducedDiff(a, b string, contextNoOfLines int) string {
+	aLines := strings.Split(a, "\n")
+	bLines := strings.Split(b, "\n")
+
+	chunks := diff.DiffChunks(aLines, bLines)
+	buf := new(bytes.Buffer)
+	isChunkImportant := func(chunk diff.Chunk) bool {
+		// When only one element exists
+		if len(chunk.Added)+len(chunk.Deleted)+len(chunk.Equal) == 1 {
+			all := append(chunk.Added, chunk.Deleted...)
+			all = append(all, chunk.Equal...)
+			return len(strings.Join(all, "")) > 0
+		}
+		return true
+	}
+	if len(chunks) > 0 && !isChunkImportant(chunks[0]) {
+		chunks = chunks[1:]
+	}
+	if len(chunks) > 0 && !isChunkImportant(chunks[len(chunks)-1]) {
+		chunks = chunks[0 : len(chunks)-1]
+	}
+
+	noOfChunks := len(chunks)
+	for i, c := range chunks {
+		for _, line := range c.Added {
+			fmt.Fprintf(buf, "\033[32m+%s\033[0m\n", line)
+		}
+		for _, line := range c.Deleted {
+			fmt.Fprintf(buf, "\033[31m-%s\033[0m\n", line)
+		}
+
+		equalNoOfLines := len(c.Equal)
+		var linesToKeep []string
+		switch {
+		case equalNoOfLines <= contextNoOfLines:
+			linesToKeep = c.Equal
+		case equalNoOfLines <= contextNoOfLines*2:
+			if i < noOfChunks-1 {
+				// this is not the last chunk
+				if len(c.Added) > 0 || len(c.Deleted) > 0 {
+					linesToKeep = c.Equal
+				} else {
+					linesToKeep = c.Equal[equalNoOfLines-contextNoOfLines:]
+				}
+			} else {
+				// this is the last chunk
+				linesToKeep = c.Equal[0:contextNoOfLines]
+			}
+		default:
+			if i < noOfChunks-1 {
+				// this is not the last chunk
+				if len(c.Added) > 0 || len(c.Deleted) > 0 {
+					linesToKeep = c.Equal[0:contextNoOfLines]
+					linesToKeep = append(linesToKeep, "...")
+				}
+				linesToKeep = append(linesToKeep, c.Equal[equalNoOfLines-contextNoOfLines:]...)
+			} else {
+				// this is the last chunk
+				linesToKeep = c.Equal[0:contextNoOfLines]
+			}
+		}
+
+		for _, line := range linesToKeep {
+			fmt.Fprintf(buf, " %s\n", line)
+		}
+	}
+	return strings.TrimRight(buf.String(), "\n")
+}
+
 // IsYAMLEqual reports whether the YAML in strings a and b are equal.
 func IsYAMLEqual(a, b string) bool {
 	if strings.TrimSpace(a) == "" && strings.TrimSpace(b) == "" {
