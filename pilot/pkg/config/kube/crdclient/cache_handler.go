@@ -125,7 +125,7 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			event = model.EventDelete
-			currStore, ok := h.currentObjMap.Load(types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace})
+			currStore, ok := h.currentObjMap.Load(obj)
 			if !ok {
 				return nil
 			}
@@ -147,7 +147,7 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 	currConfig = *TranslateObject(currObject, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 
 	if event != model.EventDelete {
-		oldStore, ok := h.currentObjMap.Load(types.NamespacedName{Name: currConfig.Name, Namespace: currConfig.Namespace})
+		oldStore, ok := h.currentObjMap.Load(obj)
 		if ok {
 			event = model.EventUpdate
 			oldItem, ok := oldStore.(runtime.Object)
@@ -162,7 +162,12 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 	for _, f := range h.handlers {
 		f(oldConfig, currConfig, event)
 	}
-	h.currentObjMap.Store(types.NamespacedName{Name: currConfig.Name, Namespace: currConfig.Namespace}, currObject)
+	if event == model.EventDelete {
+		h.currentObjMap.Store(obj, currObject)
+	} else {
+		h.currentObjMap.Delete(obj)
+	}
+
 	return nil
 }
 
