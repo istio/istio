@@ -92,15 +92,13 @@ func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
 		cfgs = append(cfgs, cl...)
 	}
 	for i, c := range cfgs {
-		ws := c.Status.(*kstatus.WrappedStatus)
-		if !ws.Dirty {
-			continue
-		}
 		c = c.DeepCopy()
 		c.Spec = nil
 		c.Labels = nil
 		c.Annotations = nil
-		c.Status = c.Status.(*kstatus.WrappedStatus).Status
+		if c.Status.(*kstatus.WrappedStatus) != nil {
+			c.Status = c.Status.(*kstatus.WrappedStatus).Status
+		}
 		cfgs[i] = c
 	}
 	return timestampRegex.ReplaceAll(marshalYaml(t, cfgs), []byte("lastTransitionTime: fake"))
