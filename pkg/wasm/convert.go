@@ -152,6 +152,10 @@ func convert(resource *any.Any, cache Cache) (newExtensionConfig *any.Any, sendN
 		wasmLog.Errorf("wasm remote fetch %+v does not have httpUri specified", remote)
 		return
 	}
+	// checksum sent by istiod can be "nil" if not set by user - magic value used to avoid unmarshaling errors
+	if remote.Sha256 == "nil" {
+		remote.Sha256 = ""
+	}
 	timeout := time.Duration(0)
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()

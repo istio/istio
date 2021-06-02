@@ -1,0 +1,7 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: invalid
+spec:
+  url: ftp://domain.com/module.wasm
+  sha256: test

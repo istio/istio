@@ -80,6 +80,7 @@ var (
 		"istio.io/api/telemetry/v1alpha1":       "telemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2": "gatewayv1alpha2",
 		"istio.io/api/meta/v1alpha1":            "metav1alpha1",
+		"istio.io/api/extensions/v1alpha1":      "extensionsv1alpha1",
 	}
 	// Mapping from istio/api path import to client go import path
 	clientGoImport = map[string]string{
@@ -87,6 +88,7 @@ var (
 		"istio.io/api/security/v1beta1":         "clientsecurityv1beta1",
 		"istio.io/api/telemetry/v1alpha1":       "clienttelemetryv1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2": "gatewayv1alpha2",
+		"istio.io/api/extensions/v1alpha1":      "clientextensionsv1alpha1",
 	}
 	// Translates an api import path to the top level path in client-go
 	clientGoAccessPath = map[string]string{
@@ -94,6 +96,7 @@ var (
 		"istio.io/api/security/v1beta1":         "SecurityV1beta1",
 		"istio.io/api/telemetry/v1alpha1":       "TelemetryV1alpha1",
 		"sigs.k8s.io/gateway-api/apis/v1alpha2": "GatewayV1alpha2",
+		"istio.io/api/extensions/v1alpha1":      "ExtensionsV1alpha1",
 	}
 	// Translates a plural type name to the type path in client-go
 	// TODO: can we automatically derive this? I don't think we can, its internal to the kubegen
@@ -115,6 +118,7 @@ var (
 		"tlsroutes":              "TLSRoutes",
 		"referencepolicies":      "ReferencePolicies",
 		"telemetries":            "Telemetries",
+		"wasmplugins":            "WasmPlugins",
 	}
 )
 
