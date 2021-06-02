@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -113,10 +114,13 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	s.addTerminatingStartFunc(mc.Run)
 
 	// start remote cluster controllers
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		mc.InitSecretController(stop)
-		return nil
-	})
+	// If XDS Identity check is enabled, we already start secret controller - see initSDSServer in server.go.
+	if !features.EnableXDSIdentityCheck {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			mc.InitSecretController(stop)
+			return nil
+		})
+	}
 
 	s.multicluster = mc
 	return
