@@ -182,7 +182,7 @@ func NewController(
 		removeCallback: removeCallback,
 	}
 
-	log.Info("Setting up event handlers")
+	log.Info("Setting up event handlers for secret controller")
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
@@ -249,13 +249,17 @@ func (c *Controller) close() {
 
 func (c *Controller) hasSynced() bool {
 	if !c.initialSync.Load() {
+		log.Debug("secret controller did not syncup secrets presented at startup")
 		// we haven't finished processing the secrets that were present at startup
 		return false
 	}
 	c.cs.RLock()
+	rc := c.cs.remoteClusters
+	c.cs.RUnlock()
 	defer c.cs.RUnlock()
-	for _, cluster := range c.cs.remoteClusters {
+	for _, cluster := range rc {
 		if !cluster.HasSynced() {
+			log.Debugf("remote cluster %s secrets have not been synced up yet", cluster.secretName)
 			return false
 		}
 	}
