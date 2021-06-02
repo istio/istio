@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
@@ -269,6 +270,9 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 // port and translating to the targetPort in addition to just directly referencing a port. In this
 // case, we just make a best effort guess by picking the first match.
 func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySelector bool) []uint32 {
+	if !features.UseTargetPortForGatewayRoutes {
+		return []uint32{number}
+	}
 	ports := map[uint32]struct{}{}
 	for _, w := range instances {
 		if _, directPortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; directPortTranslation {
