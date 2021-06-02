@@ -219,22 +219,27 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
+	t0 := time.Now()
 	log.Info("Starting Secrets controller")
 
 	go c.informer.Run(stopCh)
 
-	// Wait for the caches to be synced before starting workers
-	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
-		return
-	}
-	// all secret events before this signal must be processed before we're marked "ready"
-	c.queue.Add(initialSyncSignal)
-	if features.RemoteClusterTimeout != 0 {
-		time.AfterFunc(features.RemoteClusterTimeout, func() {
-			c.remoteSyncTimeout.Store(true)
-		})
-	}
-	go wait.Until(c.runWorker, 5*time.Second, stopCh)
+	go func() {
+		if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
+			log.Error("Failed to sync secret controller cache")
+			return
+		}
+		log.Info("Secret controller synced ", time.Since(t0))
+		// all secret events before this signal must be processed before we're marked "ready"
+		c.queue.Add(initialSyncSignal)
+		if features.RemoteClusterTimeout != 0 {
+			time.AfterFunc(features.RemoteClusterTimeout, func() {
+				c.remoteSyncTimeout.Store(true)
+			})
+		}
+		go wait.Until(c.runWorker, 5*time.Second, stopCh)
+	}()
+
 	<-stopCh
 	c.close()
 }
@@ -256,7 +261,6 @@ func (c *Controller) hasSynced() bool {
 	c.cs.RLock()
 	rc := c.cs.remoteClusters
 	c.cs.RUnlock()
-	defer c.cs.RUnlock()
 	for _, cluster := range rc {
 		if !cluster.HasSynced() {
 			log.Debugf("remote cluster %s secrets have not been synced up yet", cluster.secretName)

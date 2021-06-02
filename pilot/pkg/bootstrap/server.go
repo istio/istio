@@ -793,11 +793,7 @@ func (s *Server) addTerminatingStartFunc(fn server.Component) {
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	log.Info("Waiting for caches to be synced")
-	start := time.Now()
-	if !cache.WaitForCacheSync(stop, func() bool {
-		// log which controller is not synced if sync takes more than 5 mins.
-		return s.cachesSynced(time.Since(start) > 5*time.Minute)
-	}) {
+	if !cache.WaitForCacheSync(stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
@@ -818,29 +814,17 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 }
 
 // cachesSynced checks whether caches have been synced.
-func (s *Server) cachesSynced(debug bool) bool {
+func (s *Server) cachesSynced() bool {
 	if s.secretsController != nil && !s.secretsController.HasSynced() {
-		if debug {
-			log.Debug("secret controller has not yet synced up")
-		}
 		return false
 	}
 	if s.multicluster != nil && !s.multicluster.HasSynced() {
-		if debug {
-			log.Debug("multi cluster has not yet synced up")
-		}
 		return false
 	}
 	if !s.ServiceController().HasSynced() {
-		if debug {
-			log.Debug("service controller has not yet synced up")
-		}
 		return false
 	}
 	if !s.configController.HasSynced() {
-		if debug {
-			log.Debug("service controller has not yet synced up")
-		}
 		return false
 	}
 	return true
