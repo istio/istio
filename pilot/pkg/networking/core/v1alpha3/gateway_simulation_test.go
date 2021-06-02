@@ -25,7 +25,7 @@ import (
 	"istio.io/pkg/env"
 )
 
-func TestTargetPort(t *testing.T) {
+func TestDisablePortTranslation(t *testing.T) {
 	virtualServices := `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -137,7 +137,7 @@ spec:
 					Result: simulation.Result{
 						ListenerMatched:    "0.0.0.0_8080",
 						ClusterMatched:     "outbound|80||a.default",
-						RouteConfigMatched: "http.80",
+						RouteConfigMatched: "http.8080",
 						VirtualHostMatched: "example.com:80",
 					},
 				},
@@ -227,7 +227,7 @@ spec:
 					Result: simulation.Result{
 						ListenerMatched:    "0.0.0.0_8080",
 						ClusterMatched:     "outbound|80||a.default",
-						RouteConfigMatched: "http.80",
+						RouteConfigMatched: "http.8080",
 						VirtualHostMatched: "example.com:80",
 					},
 				},

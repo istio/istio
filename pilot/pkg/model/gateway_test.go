@@ -118,7 +118,11 @@ func TestMergeGateways(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			mgw := MergeGateways(tt.gwConfig...)
+			instances := []gatewayWithInstances{}
+			for _, c := range tt.gwConfig {
+				instances = append(instances, gatewayWithInstances{c, true, nil})
+			}
+			mgw := MergeGateways(instances)
 			if len(mgw.MergedServers) != tt.mergedServersNum {
 				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
 			}
