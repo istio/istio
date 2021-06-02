@@ -39,14 +39,16 @@ type CAClient struct {
 	bundle          *util.KeyCertBundle
 	certLifetime    time.Duration
 	GeneratedCerts  [][]string // Cache the generated certificates for verification purpose.
+	mockTrustAnchor bool
 }
 
 // NewMockCAClient creates an instance of CAClient. errors is used to specify the number of errors
 // before CSRSign returns a valid response. certLifetime specifies the TTL for the newly issued workload cert.
-func NewMockCAClient(certLifetime time.Duration) (*CAClient, error) {
+func NewMockCAClient(certLifetime time.Duration, mockTrustAnchor bool) (*CAClient, error) {
 	cl := CAClient{
 		SignInvokeCount: 0,
 		certLifetime:    certLifetime,
+		mockTrustAnchor: mockTrustAnchor,
 	}
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath)
 	if err != nil {
@@ -83,6 +85,15 @@ func (c *CAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, er
 	ret := []string{string(cert), string(certChain), string(rootCert)}
 	c.GeneratedCerts = append(c.GeneratedCerts, ret)
 	return ret, nil
+}
+
+func (c *CAClient) GetRootCertBundle() ([]string, error) {
+	if c.mockTrustAnchor {
+		rootCertBytes := c.bundle.GetRootCertPem()
+		return []string{string(rootCertBytes)}, nil
+	}
+
+	return []string{}, nil
 }
 
 // TokenExchangeServer is the mocked token exchange server for testing.
