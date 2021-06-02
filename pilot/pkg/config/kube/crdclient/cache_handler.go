@@ -118,7 +118,6 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 	// get current obj
 	event := model.EventAdd
 	oldConfig := config.Config{}
-	currConfig := config.Config{}
 
 	currObject, err := h.lister(obj.Namespace).Get(obj.Name)
 	// if current obj is not exists , it is a delete event
@@ -144,7 +143,7 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 		return err
 	}
 
-	currConfig = *TranslateObject(currObject, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+	currConfig := *TranslateObject(currObject, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 
 	if event != model.EventDelete {
 		oldStore, ok := h.currentObjMap.Load(obj)
