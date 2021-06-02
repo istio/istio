@@ -17,11 +17,14 @@ package xds
 import (
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/tests/util/leak"
 )
@@ -291,6 +294,81 @@ func TestProxyQueue(t *testing.T) {
 			mu.RLock()
 			defer mu.RUnlock()
 			t.Fatalf("failed to get all updates, still pending: %v", len(expected))
+		}
+	})
+
+	t.Run("concurrent with deterministic order", func(t *testing.T) {
+		t.Parallel()
+		p := NewPushQueue()
+		defer p.ShutDown()
+		con := &Connection{ConID: "proxy-test"}
+
+		// We will trigger many pushes for eds services to the proxy. In the end we will expect
+		// all of these to be dequeue, but order is deterministic.
+		expected := make([]string, 100)
+		for eds := 0; eds < 100; eds++ {
+			expected[eds] = fmt.Sprintf("%d", eds)
+		}
+		go func() {
+			// send to pushQueue
+			for eds := 0; eds < 100; eds++ {
+				p.Enqueue(con, &model.PushRequest{
+					ConfigsUpdated: map[model.ConfigKey]struct{}{{
+						Kind: config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: fmt.Sprintf("%d", eds)},
+						Name: fmt.Sprintf("%d", eds),
+					}: {}},
+				})
+			}
+		}()
+
+		var processed = make([]string, 0, 100)
+		done := make(chan struct{})
+		pushChannel := make(chan *model.PushRequest)
+		go func() {
+			// dequeue pushQueue and send to pushChannel
+			for {
+				_, request, shuttingdown := p.Dequeue()
+				if shuttingdown {
+					close(pushChannel)
+					return
+				}
+				pushChannel <- request
+			}
+		}()
+
+		go func() {
+			// recv from pushChannel and simulate push
+			for {
+				request := <-pushChannel
+				if request == nil {
+					return
+				}
+				updated := make([]string, 0, len(request.ConfigsUpdated))
+				for configkey := range request.ConfigsUpdated {
+					updated = append(updated, configkey.Kind.Kind)
+				}
+				sort.Slice(updated, func(i, j int) bool {
+					l, _ := strconv.Atoi(updated[i])
+					r, _ := strconv.Atoi(updated[j])
+					return l < r
+
+				})
+				processed = append(processed, updated...)
+				if len(processed) == 100 {
+					done <- struct{}{}
+				}
+				p.MarkDone(con)
+			}
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(time.Second * 10):
+			t.Fatalf("failed to get all updates, still pending:  got %v", len(processed))
+		}
+
+		if !reflect.DeepEqual(expected, processed) {
+			t.Fatalf("expected order %v, but got %v", expected, processed)
 		}
 	})
 }
