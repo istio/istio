@@ -409,9 +409,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		action.MaxGrpcTimeout = d
 		out.Action = &route.Route_Route{Route: action}
 
-		action.PrefixRewrite = in.Rewrite.GetUri()
-		if in.Rewrite.GetAuthority() != "" {
-			authority = in.Rewrite.GetAuthority()
+		if in.Rewrite != nil {
+			action.PrefixRewrite = in.Rewrite.GetUri()
+			if in.Rewrite.GetAuthority() != "" {
+				authority = in.Rewrite.GetAuthority()
+			}
 		}
 		if authority != "" {
 			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{

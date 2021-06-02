@@ -106,7 +106,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
-						if err := sendTraffic(t, cltInstance); err != nil {
+						if err := sendTraffic(t, cltInstance, http.Header{}); err != nil {
 							return err
 						}
 						clName := cltInstance.Config().Cluster.Name()
@@ -279,7 +279,7 @@ func testSetup(ctx resource.Context) (err error) {
 }
 
 // send both a grpc and http requests (http with forced tracing).
-func sendTraffic(t *testing.T, cltInstance echo.Instance) error {
+func sendTraffic(t *testing.T, cltInstance echo.Instance, headers http.Header) error {
 	t.Helper()
 	//  All server instance have same names, so setting target as srv[0].
 	// Sending the number of total request same as number of servers, so that load balancing gets a chance to send request to all the clusters.
@@ -289,11 +289,10 @@ func sendTraffic(t *testing.T, cltInstance echo.Instance) error {
 		Count:    telemetry.RequestCountMultipler * len(srv),
 	}
 	// an HTTP request with forced tracing
-	hdr := http.Header{}
 	httpOpts := echo.CallOptions{
 		Target:   srv[0],
 		PortName: "http",
-		Headers:  hdr,
+		Headers:  headers,
 		Count:    telemetry.RequestCountMultipler * len(srv),
 	}
 	if _, err := cltInstance.Call(grpcOpts); err != nil {

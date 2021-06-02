@@ -118,7 +118,24 @@ func parseConfig(stdin []byte) (*PluginConf, error) {
 }
 
 // cmdAdd is called for ADD requests
-func cmdAdd(args *skel.CmdArgs) error {
+func cmdAdd(args *skel.CmdArgs) (err error) {
+	// Defer a panic recover, so that in case if panic we can still return
+	// a proper error to the runtime.
+	defer func() {
+		if e := recover(); e != nil {
+			msg := fmt.Sprintf("istio-cni panicked during cmdAdd: %v", e)
+			if err != nil {
+				// If we're recovering and there was also an error, then we need to
+				// present both.
+				msg = fmt.Sprintf("%s: %v", msg, err)
+			}
+			err = fmt.Errorf(msg)
+		}
+		if err != nil {
+			log.Errorf("istio-cni cmdAdd error: %v", err)
+		}
+	}()
+
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
 		log.Errorf("istio-cni cmdAdd parsing config %v", err)
@@ -259,15 +276,7 @@ func cmdGet(args *skel.CmdArgs) error {
 
 // cmdDel is called for DELETE requests
 func cmdDel(args *skel.CmdArgs) error {
-	log.Info("istio-cni cmdDel parsing config")
-	conf, err := parseConfig(args.StdinData)
-	if err != nil {
-		return err
-	}
-	_ = conf
-
-	// Do your delete here
-
+	// nothing to cleanup for istio-cni
 	return nil
 }
 
