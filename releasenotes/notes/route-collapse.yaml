@@ -17,4 +17,4 @@ upgradeNotes:
     Previously, each domain name had its own virtual host. As an optimization, multiple domains may use a single virtual host.
     This means that a Envoy Filter previously matching a specific virtual host may now apply to more domains than in previous releases.
 
-    This optimization may be temporarily disabled by setting PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION=false on the Istiod deployment.
+    This optimization may be temporarily disabled by setting `PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION=false` on the Istiod deployment.
