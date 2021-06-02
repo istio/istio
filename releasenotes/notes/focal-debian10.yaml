@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issues:
+- 29326
+
+releaseNotes:
+- |
+  **Updated** the base image versions to be built on `ubuntu:focal` and `debian10` (for distroless).
+- |
+  **Improved** the size of docker images, decreasing each image by up to 50mb. As a result, the `linux-tools-generic` package, as well as dependencies (including `python`) are no longer installed.
