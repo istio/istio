@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -55,6 +56,9 @@ func TestMultiVersionRevision(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Features("installation.upgrade").
+		// Requires installation of CPs from manifests, won't succeed
+		// if existing CPs have different root cert
+		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			skipIfK8sVersionUnsupported(t)
 
