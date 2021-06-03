@@ -211,7 +211,6 @@ spec:
 						})),
 			},
 			workloadAgnostic: true,
-			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
 			name: "redirect",
