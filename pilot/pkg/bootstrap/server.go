@@ -803,6 +803,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
 	if !cache.WaitForCacheSync(stop, func() bool {
+		log.Errorf("====waitForCacheSync: committed %d, expected %d", s.XDSServer.CommittedUpdates.Load(), expected)
 		return s.XDSServer.CommittedUpdates.Load() >= expected
 	}) {
 		log.Errorf("Failed waiting for push context initialization")
