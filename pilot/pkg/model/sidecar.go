@@ -160,8 +160,6 @@ type IstioEgressListenerWrapper struct {
 	// a private virtual service for serviceA from the local namespace,
 	// with a different path rewrite or no path rewrites.
 	virtualServices []config.Config
-
-	listenerHosts map[string][]host.Name
 }
 
 const defaultSidecar = "default-sidecar"
@@ -328,7 +326,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		// Services chosen here will not override services explicitly requested in listener.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
-		vsservices := make([]*Service, 0)
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
 			out.AddConfigDependencies(ConfigKey{
@@ -341,7 +338,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					vsservices = append(vsservices, s)
+					addService(s)
 				} else {
 
 					// We couldn't find the hostname in our config namespace
@@ -364,14 +361,8 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						sort.Strings(ns)
 						// Pick first namespace alphabetically
 						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-						vsservices = append(vsservices, byNamespace[ns[0]])
-
+						addService(byNamespace[ns[0]])
 					}
-				}
-			}
-			for _, svc := range vsservices {
-				if s := serviceMatchesListenerPort(svc, listener); s != nil {
-					addService(s)
 				}
 			}
 		}
@@ -414,7 +405,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		IstioListener: istioListener,
 	}
 
-	out.listenerHosts = make(map[string][]host.Name)
+	listenerHosts := make(map[string][]host.Name)
 	for _, h := range istioListener.Hosts {
 		parts := strings.SplitN(h, "/", 2)
 		if len(parts) < 2 {
@@ -424,10 +415,10 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		if parts[0] == currentNamespace {
 			parts[0] = configNamespace
 		}
-		if _, exists := out.listenerHosts[parts[0]]; !exists {
-			out.listenerHosts[parts[0]] = make([]host.Name, 0)
+		if _, exists := listenerHosts[parts[0]]; !exists {
+			listenerHosts[parts[0]] = make([]host.Name, 0)
 		}
-		out.listenerHosts[parts[0]] = append(out.listenerHosts[parts[0]], host.Name(parts[1]))
+		listenerHosts[parts[0]] = append(listenerHosts[parts[0]], host.Name(parts[1]))
 	}
 
 	dummyNode := Proxy{
@@ -435,9 +426,9 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
-	out.virtualServices = out.selectVirtualServices(vses, out.listenerHosts)
+	out.virtualServices = out.selectVirtualServices(vses, listenerHosts)
 	svces := ps.Services(&dummyNode)
-	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
+	out.services = out.selectServices(svces, configNamespace, listenerHosts)
 
 	return out
 }
@@ -680,35 +671,17 @@ func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgre
 	for _, importedHost := range importedHosts {
 		// Check if the hostnames match per usual hostname matching rules
 		if importedHost.Matches(service.Hostname) {
-			if !needsPortMatch {
+			if needsPortMatch {
+				for _, port := range service.Ports {
+					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+						sc := service.DeepCopy()
+						sc.Ports = []*Port{port}
+						return sc
+					}
+				}
+			} else {
 				return service
 			}
-			for _, port := range service.Ports {
-				if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-					sc := service.DeepCopy()
-					sc.Ports = []*Port{port}
-					return sc
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// serviceMatchesListenerPort checks if the service has matching port for the listener and returns service if it has.
-func serviceMatchesListenerPort(service *Service, ilw *IstioEgressListenerWrapper) *Service {
-	// If a listener is defined with a port, we should match services with port except in the following case.
-	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
-	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
-		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
-	if !needsPortMatch {
-		return service
-	}
-	for _, port := range service.Ports {
-		if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-			sc := service.DeepCopy()
-			sc.Ports = []*Port{port}
-			return sc
 		}
 	}
 	return nil
