@@ -206,7 +206,6 @@ func (cl *Client) HasSynced() bool {
 func (cl *Client) SyncAll() {
 	wg := sync.WaitGroup{}
 	for _, h := range cl.kinds {
-		// skip service entry, workload entry, workload group which have not been registered
 		if len(h.handlers) == 0 {
 			continue
 		}
