@@ -508,7 +508,7 @@ spec:
             - name: file-sd-volume
               mountPath: /etc/file_sd
         - name: vm-discovery
-          image: "jackyzz/vm-discovery:latest"
+          image: "istioecosystem/vm-discovery:latest"
           imagePullPolicy: "IfNotPresent"
       hostNetwork: false
       dnsPolicy: ClusterFirst

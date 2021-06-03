@@ -522,7 +522,7 @@ spec:
             - name: istio-certs
               mountPath: /etc/prom-certs/
         - name: vm-discovery
-          image: "jackyzz/vm-discovery:latest"
+          image: "istioecosystem/vm-discovery:latest"
           imagePullPolicy: "IfNotPresent"
       hostNetwork: false
       dnsPolicy: ClusterFirst
