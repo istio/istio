@@ -184,7 +184,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.SyncAll()
 	cl.initialSync.Store(true)
 	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
-	go cl.queue.Run(stop)
+	cl.queue.Run(stop)
 	<-stop
 	scope.Info("controller terminated")
 }
@@ -211,8 +211,8 @@ func (cl *Client) SyncAll() {
 			continue
 		}
 		h := h
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 			objects := h.informer.GetIndexer().List()
 			for _, object := range objects {
