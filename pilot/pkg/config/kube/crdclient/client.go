@@ -26,10 +26,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v2"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -84,68 +86,12 @@ type Client struct {
 
 	// The gateway-api client we will use to access objects
 	gatewayAPIClient gatewayapiclient.Interface
+
+	// initialSync is set to true after performing an initial processing of all objects.
+	initialSync *atomic.Bool
 }
 
 var _ model.ConfigStoreCache = &Client{}
-
-// Validate we are ready to handle events. Until the informers are synced, we will block the queue
-func (cl *Client) checkReadyForEvents(curr interface{}) error {
-	if !cl.HasSynced() {
-		return errors.New("waiting till full synchronization")
-	}
-	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
-	if err != nil {
-		scope.Infof("Error retrieving key: %v", err)
-	}
-	return nil
-}
-
-func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
-	h, exists := cl.kinds[kind]
-	if !exists {
-		return
-	}
-
-	h.handlers = append(h.handlers, handler)
-}
-
-func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	var errs error
-	for _, h := range cl.kinds {
-		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
-}
-
-// Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
-func (cl *Client) Run(stop <-chan struct{}) {
-	t0 := time.Now()
-	scope.Info("Starting Pilot K8S CRD controller")
-
-	go func() {
-		if !cache.WaitForCacheSync(stop, cl.HasSynced) {
-			scope.Error("Failed to sync Pilot K8S CRD controller cache")
-			return
-		}
-		scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
-		cl.queue.Run(stop)
-	}()
-
-	<-stop
-	scope.Info("controller terminated")
-}
-
-func (cl *Client) HasSynced() bool {
-	for kind, ctl := range cl.kinds {
-		if !ctl.informer.HasSynced() {
-			scope.Infof("controller %q is syncing...", kind)
-			return false
-		}
-	}
-	return true
-}
 
 func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
 	schemas := collections.Pilot
@@ -192,6 +138,97 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 	}
 
 	return out, nil
+}
+
+// Validate we are ready to handle events. Until the informers are synced, we will block the queue
+func (cl *Client) checkReadyForEvents(curr interface{}) error {
+	if !cl.informerSynced() {
+		return errors.New("waiting till full synchronization")
+	}
+	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
+	if err != nil {
+		scope.Infof("Error retrieving key: %v", err)
+	}
+	return nil
+}
+
+func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
+	h, exists := cl.kinds[kind]
+	if !exists {
+		return
+	}
+
+	h.handlers = append(h.handlers, handler)
+}
+
+func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	var errs error
+	for _, h := range cl.kinds {
+		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
+}
+
+// Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
+func (cl *Client) Run(stop <-chan struct{}) {
+	t0 := time.Now()
+	scope.Info("Starting Pilot K8S CRD controller")
+
+	if !cache.WaitForCacheSync(stop, cl.informerSynced) {
+		scope.Error("Failed to sync Pilot K8S CRD controller cache")
+		return
+	}
+	cl.SyncAll()
+	cl.initialSync.Store(true)
+	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
+	go cl.queue.Run(stop)
+	<-stop
+	scope.Info("controller terminated")
+}
+
+func (cl *Client) informerSynced() bool {
+	for kind, ctl := range cl.kinds {
+		if !ctl.informer.HasSynced() {
+			scope.Infof("controller %q is syncing...", kind)
+			return false
+		}
+	}
+	return true
+}
+
+func (cl *Client) HasSynced() bool {
+	return cl.initialSync.Load()
+}
+
+// SyncAll syncs all the objects during bootstrap to make the configs updated to caches
+func (cl *Client) SyncAll() {
+	wg := sync.WaitGroup{}
+	for _, h := range cl.kinds {
+		// skip service entry, workload entry, workload group which have not been registered
+		if len(h.handlers) == 0 {
+			continue
+		}
+		h := h
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
+			objects := h.informer.GetIndexer().List()
+			for _, object := range objects {
+				currItem, ok := object.(runtime.Object)
+				if !ok {
+					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
+					continue
+				}
+				currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+				for _, f := range h.handlers {
+					f(config.Config{}, currConfig, model.EventAdd)
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // Schemas for the store
