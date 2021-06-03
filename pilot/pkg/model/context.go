@@ -641,10 +641,16 @@ func (node *Proxy) GetNetworkView() map[string]bool {
 // InNetwork returns true if the proxy is on the given network, or if either
 // the proxy's network or the given network is unspecified ("").
 func (node *Proxy) InNetwork(network string) bool {
-	return node == nil || IsSameNetwork(network, node.Metadata.Network)
+	return node == nil || SameOrEmpty(network, node.Metadata.Network)
 }
 
-func IsSameNetwork(a, b string) bool {
+// InCluster returns true if the proxy is in the given cluster, or if either
+// the proxy's cluster id or the given cluster id is unspecified ("").
+func (node *Proxy) InCluster(cluster string) bool {
+	return node == nil || SameOrEmpty(cluster, node.Metadata.ClusterID)
+}
+
+func SameOrEmpty(a, b string) bool {
 	return a == UnnamedNetwork || b == UnnamedNetwork || a == b
 }
 
