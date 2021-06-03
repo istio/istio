@@ -110,6 +110,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
+		initialSync:      atomic.NewBool(false),
 	}
 
 	known, err := knownCRDs(ctx, client.Ext())
