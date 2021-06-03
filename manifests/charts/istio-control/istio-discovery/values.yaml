@@ -382,7 +382,9 @@ global:
   # If not set explicitly, default to the Istio discovery address.
   caAddress: ""
 
-  # External istiod controls all remote clusters: disabled by default
+  # Configure a remote cluster data plane controlled by an external istiod.
+  # When set to true, istiod is not deployed locally and only a subset of the other
+  # discovery charts are enabled.
   externalIstiod: false
 
   # Configure the policy for validating JWT.

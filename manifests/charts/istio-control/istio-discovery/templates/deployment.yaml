@@ -1,3 +1,4 @@
+{{- if not .Values.global.externalIstiod }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -213,3 +214,4 @@ spec:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
 ---
+{{- end }}
