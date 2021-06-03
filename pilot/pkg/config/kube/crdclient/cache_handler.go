@@ -161,7 +161,7 @@ func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
 	for _, f := range h.handlers {
 		f(oldConfig, currConfig, event)
 	}
-	if event == model.EventDelete {
+	if event != model.EventDelete {
 		h.currentObjMap.Store(obj, currObject)
 	} else {
 		h.currentObjMap.Delete(obj)
