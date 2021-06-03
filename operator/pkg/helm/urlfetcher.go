@@ -23,9 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mholt/archiver/v3"
-
 	"istio.io/istio/operator/pkg/httprequest"
+	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/operator/pkg/version"
 )
 
@@ -82,8 +81,12 @@ func (f *URLFetcher) Fetch() error {
 		return err
 	}
 
-	targz := archiver.TarGz{Tar: &archiver.Tar{OverwriteExisting: true}}
-	return targz.Unarchive(saved, f.destDirRoot)
+	reader, err := os.Open(saved)
+	if err != nil {
+		return err
+	}
+
+	return tgz.Extract(reader, f.destDirRoot)
 }
 
 // DownloadTo downloads from remote srcURL to dest local file path
@@ -101,13 +104,13 @@ func DownloadTo(srcURL, dest string) (string, error) {
 	destFile := filepath.Join(dest, name)
 	dir := filepath.Dir(destFile)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err := os.Mkdir(dir, 0755)
+		err := os.Mkdir(dir, 0o755)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	if err := ioutil.WriteFile(destFile, data, 0644); err != nil {
+	if err := ioutil.WriteFile(destFile, data, 0o644); err != nil {
 		return destFile, err
 	}
 
