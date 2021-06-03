@@ -77,6 +77,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/version"
 )
 
@@ -363,17 +364,21 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.istioInformer = istioinformer.NewSharedInformerFactory(c.istio, resyncInterval)
 
-	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
-	if err != nil {
-		return nil, err
+	if features.EnableServiceApis {
+		c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
+		if err != nil {
+			return nil, err
+		}
+		c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 	}
-	c.gatewayapiInformer = gatewayapiinformer.NewSharedInformerFactory(c.gatewayapi, resyncInterval)
 
-	c.mcsapis, err = mcsapisClient.NewForConfig(c.config)
-	if err != nil {
-		return nil, err
+	if features.EnableMCSServiceExport {
+		c.mcsapis, err = mcsapisClient.NewForConfig(c.config)
+		if err != nil {
+			return nil, err
+		}
+		c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
 	}
-	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
 
 	ext, err := kubeExtClient.NewForConfig(c.config)
 	if err != nil {
@@ -459,7 +464,9 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.dynamicInformer.Start(stop)
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
-	c.gatewayapiInformer.Start(stop)
+	if c.gatewayapiInformer != nil {
+		c.gatewayapiInformer.Start(stop)
+	}
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
@@ -468,7 +475,9 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		fastWaitForCacheSyncDynamic(c.dynamicInformer)
 		fastWaitForCacheSyncDynamic(c.metadataInformer)
 		fastWaitForCacheSync(c.istioInformer)
-		fastWaitForCacheSync(c.gatewayapiInformer)
+		if c.gatewayapiInformer != nil {
+			fastWaitForCacheSync(c.gatewayapiInformer)
+		}
 		_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
 			if c.informerWatchesPending.Load() == 0 {
 				return true, nil
@@ -480,7 +489,9 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.dynamicInformer.WaitForCacheSync(stop)
 		c.metadataInformer.WaitForCacheSync(stop)
 		c.istioInformer.WaitForCacheSync(stop)
-		c.gatewayapiInformer.WaitForCacheSync(stop)
+		if c.gatewayapiInformer != nil {
+			c.gatewayapiInformer.WaitForCacheSync(stop)
+		}
 	}
 }
 
