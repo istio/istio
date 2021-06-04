@@ -42,7 +42,7 @@ type ConfigEvent struct {
 	event  model.Event
 }
 
-type configstoreMonitor struct {
+type configStoreMonitor struct {
 	store    model.ConfigStore
 	handlers map[config2.GroupVersionKind][]Handler
 	eventCh  chan ConfigEvent
@@ -68,7 +68,7 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Moni
 		handlers[s.Resource().GroupVersionKind()] = make([]Handler, 0)
 	}
 
-	return &configstoreMonitor{
+	return &configStoreMonitor{
 		store:    store,
 		handlers: handlers,
 		eventCh:  make(chan ConfigEvent, bufferSize),
@@ -76,7 +76,7 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Moni
 	}
 }
 
-func (m *configstoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
+func (m *configStoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
 	if m.sync {
 		m.processConfigEvent(configEvent)
 	} else {
@@ -84,7 +84,7 @@ func (m *configstoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
 	}
 }
 
-func (m *configstoreMonitor) Run(stop <-chan struct{}) {
+func (m *configStoreMonitor) Run(stop <-chan struct{}) {
 	if m.sync {
 		<-stop
 		return
@@ -101,7 +101,7 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 	}
 }
 
-func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
+func (m *configStoreMonitor) processConfigEvent(ce ConfigEvent) {
 	if _, exists := m.handlers[ce.config.GroupVersionKind]; !exists {
 		log.Warnf("Config GroupVersionKind %s does not exist in config store", ce.config.GroupVersionKind)
 		return
@@ -109,11 +109,11 @@ func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
 	m.applyHandlers(ce.old, ce.config, ce.event)
 }
 
-func (m *configstoreMonitor) AppendEventHandler(typ config2.GroupVersionKind, h Handler) {
+func (m *configStoreMonitor) AppendEventHandler(typ config2.GroupVersionKind, h Handler) {
 	m.handlers[typ] = append(m.handlers[typ], h)
 }
 
-func (m *configstoreMonitor) applyHandlers(old config2.Config, config config2.Config, e model.Event) {
+func (m *configStoreMonitor) applyHandlers(old config2.Config, config config2.Config, e model.Event) {
 	for _, f := range m.handlers[config.GroupVersionKind] {
 		f(old, config, e)
 	}
