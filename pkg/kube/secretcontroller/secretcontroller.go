@@ -224,7 +224,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 
 	go c.informer.Run(stopCh)
 
-	if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
+	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
 		log.Error("Failed to sync secret controller cache")
 		return
 	}
