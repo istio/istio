@@ -15,6 +15,6 @@
 
 yes | ./dotdotpwn.pl "$@"
 
-# The dotdotpwn.pl always return non-zero exist code, overwrite to just return zero as the test code will check the report
+# The dotdotpwn.pl always return non-zero exit code, overwrite to just return zero as the test code will check the report
 # separately to determine if it should fail.
 exit 0
