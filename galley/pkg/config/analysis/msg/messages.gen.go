@@ -135,14 +135,14 @@ var (
 
 	// DeprecatedAnnotation defines a diag.MessageType for message "DeprecatedAnnotation".
 	// Description: A resource is using a deprecated Istio annotation.
-	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated and may not work in future Istio versions.")
+	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated%s and may not work in future Istio versions.")
 
 	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
 	// Description: An Istio annotation may not be suitable for production.
 	AlphaAnnotation = diag.NewMessageType(diag.Info, "IST0136", "Annotation %q is part of an alpha-phase feature and may be incompletely supported.")
 
 	// DeploymentConflictingPorts defines a diag.MessageType for message "DeploymentConflictingPorts".
-	// Description: Two services selecting the same workload with same target port are MUST refer to the same port.
+	// Description: Two services selecting the same workload with the same targetPort MUST refer to the same port.
 	DeploymentConflictingPorts = diag.NewMessageType(diag.Warning, "IST0137", "This deployment %s is associated with multiple services %v using targetPort %q but different ports: %v.")
 
 	// GatewayDuplicateCertificate defines a diag.MessageType for message "GatewayDuplicateCertificate".
@@ -156,6 +156,26 @@ var (
 	// IngressRouteRulesNotAffected defines a diag.MessageType for message "IngressRouteRulesNotAffected".
 	// Description: Route rules have no effect on ingress gateway requests
 	IngressRouteRulesNotAffected = diag.NewMessageType(diag.Warning, "IST0140", "Subset in virtual service %s has no effect on ingress gateway %s requests")
+
+	// InsufficientPermissions defines a diag.MessageType for message "InsufficientPermissions".
+	// Description: Required permissions to install Istio are missing.
+	InsufficientPermissions = diag.NewMessageType(diag.Error, "IST0141", "Missing required permission to create resource %v (%v)")
+
+	// UnsupportedKubernetesVersion defines a diag.MessageType for message "UnsupportedKubernetesVersion".
+	// Description: The Kubernetes version is not supported
+	UnsupportedKubernetesVersion = diag.NewMessageType(diag.Error, "IST0142", "The Kubernetes Version %q is lower than the minimum version: %v")
+
+	// LocalhostListener defines a diag.MessageType for message "LocalhostListener".
+	// Description: A port exposed in a Service is bound to a localhost address
+	LocalhostListener = diag.NewMessageType(diag.Error, "IST0143", "Port %v is exposed in a Service but listens on localhost. It will not be exposed to other pods.")
+
+	// InvalidApplicationUID defines a diag.MessageType for message "InvalidApplicationUID".
+	// Description: Application pods should not run as user ID (UID) 1337
+	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "User ID (UID) 1337 is reserved for the sidecar proxy.")
+
+	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
+	// Description: Gateway should not have the same selector, port and matched hosts of server
+	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
 )
 
 // All returns a list of all known message types.
@@ -198,6 +218,11 @@ func All() []*diag.MessageType {
 		GatewayDuplicateCertificate,
 		InvalidWebhook,
 		IngressRouteRulesNotAffected,
+		InsufficientPermissions,
+		UnsupportedKubernetesVersion,
+		LocalhostListener,
+		InvalidApplicationUID,
+		ConflictingGateways,
 	}
 }
 
@@ -516,11 +541,12 @@ func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
 }
 
 // NewDeprecatedAnnotation returns a new diag.Message based on DeprecatedAnnotation.
-func NewDeprecatedAnnotation(r *resource.Instance, annotation string) diag.Message {
+func NewDeprecatedAnnotation(r *resource.Instance, annotation string, extra string) diag.Message {
 	return diag.NewMessage(
 		DeprecatedAnnotation,
 		r,
 		annotation,
+		extra,
 	)
 }
 
@@ -570,5 +596,54 @@ func NewIngressRouteRulesNotAffected(r *resource.Instance, virtualservicesubset 
 		r,
 		virtualservicesubset,
 		virtualservice,
+	)
+}
+
+// NewInsufficientPermissions returns a new diag.Message based on InsufficientPermissions.
+func NewInsufficientPermissions(r *resource.Instance, resource string, error string) diag.Message {
+	return diag.NewMessage(
+		InsufficientPermissions,
+		r,
+		resource,
+		error,
+	)
+}
+
+// NewUnsupportedKubernetesVersion returns a new diag.Message based on UnsupportedKubernetesVersion.
+func NewUnsupportedKubernetesVersion(r *resource.Instance, version string, minimumVersion string) diag.Message {
+	return diag.NewMessage(
+		UnsupportedKubernetesVersion,
+		r,
+		version,
+		minimumVersion,
+	)
+}
+
+// NewLocalhostListener returns a new diag.Message based on LocalhostListener.
+func NewLocalhostListener(r *resource.Instance, port string) diag.Message {
+	return diag.NewMessage(
+		LocalhostListener,
+		r,
+		port,
+	)
+}
+
+// NewInvalidApplicationUID returns a new diag.Message based on InvalidApplicationUID.
+func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
+	return diag.NewMessage(
+		InvalidApplicationUID,
+		r,
+	)
+}
+
+// NewConflictingGateways returns a new diag.Message based on ConflictingGateways.
+func NewConflictingGateways(r *resource.Instance, gateway string, selector string, portnumber string, hosts string) diag.Message {
+	return diag.NewMessage(
+		ConflictingGateways,
+		r,
+		gateway,
+		selector,
+		portnumber,
+		hosts,
 	)
 }

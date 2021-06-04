@@ -88,6 +88,7 @@ const (
 	IptablesProbePort         = "iptables-probe-port"
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
+	CaptureAllDNS             = "capture-all-dns"
 )
 
 const (

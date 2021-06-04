@@ -24,9 +24,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -64,7 +64,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -89,7 +89,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
@@ -128,7 +128,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -549,7 +549,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						HttpProtocolOptions: &core.Http1ProtocolOptions{
 							AcceptHttp_10: true,
 						},
-						StripPortMode: stripPortMode,
+						StripPortMode:       stripPortMode,
+						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -578,7 +579,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -603,7 +604,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -640,6 +641,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
+						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -668,7 +670,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -693,7 +695,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -730,6 +732,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
+						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -758,7 +761,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -783,7 +786,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -820,6 +823,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
+						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -855,6 +859,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
+						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -888,7 +893,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -913,7 +918,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -950,6 +955,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
+						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 				},
 			},
@@ -985,7 +991,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 								Name: "default",
 								SdsConfig: &core.ConfigSource{
 									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									InitialFetchTimeout: durationpb.New(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType:                   core.ApiConfigSource_GRPC,
@@ -1010,7 +1016,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 									Name: "ROOTCA",
 									SdsConfig: &core.ConfigSource{
 										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										InitialFetchTimeout: durationpb.New(time.Second * 0),
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
 												ApiType:                   core.ApiConfigSource_GRPC,
@@ -1046,6 +1052,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 						ServerName:          EnvoyServerName,
 						HttpProtocolOptions: &core.Http1ProtocolOptions{},
 						StripPortMode:       stripPortMode,
+						DelayedCloseTimeout: features.DelayedCloseTimeout,
 					},
 					statPrefix: "server1",
 				},
@@ -1538,25 +1545,27 @@ func TestBuildGatewayListeners(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		cg := NewConfigGenTest(t, TestOptions{
-			Configs: []config.Config{{Meta: config.Meta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}},
-		})
-		proxy := cg.SetupProxy(&proxyGateway)
-		proxy.ServiceInstances = tt.node.ServiceInstances
-		if tt.node.Metadata != nil {
-			proxy.Metadata = tt.node.Metadata
-		} else {
-			proxy.Metadata = &proxyGatewayMetadata
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: []config.Config{{Meta: config.Meta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}},
+			})
+			cg.MemRegistry.WantGetProxyServiceInstances = tt.node.ServiceInstances
+			proxy := cg.SetupProxy(&proxyGateway)
+			if tt.node.Metadata != nil {
+				proxy.Metadata = tt.node.Metadata
+			} else {
+				proxy.Metadata = &proxyGatewayMetadata
+			}
 
-		builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
-		listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
-		sort.Strings(listeners)
-		sort.Strings(tt.expectedListeners)
-		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
-			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.MergedServers)
-		}
-		xdstest.ValidateListeners(t, builder.gatewayListeners)
+			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
+			listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
+			sort.Strings(listeners)
+			sort.Strings(tt.expectedListeners)
+			if !reflect.DeepEqual(listeners, tt.expectedListeners) {
+				t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.MergedServers)
+			}
+			xdstest.ValidateListeners(t, builder.gatewayListeners)
+		})
 	}
 }
 

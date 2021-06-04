@@ -31,10 +31,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -600,7 +600,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						Name: VirtualInboundListenerName,
+						Name: model.VirtualInboundListenerName,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							DestinationPort: 6380,
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
@@ -658,7 +658,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						Name: VirtualInboundListenerName,
+						Name: model.VirtualInboundListenerName,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Name: "filter-chain-name-match",
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
@@ -1085,12 +1085,12 @@ func TestApplyListenerPatches(t *testing.T) {
 	faultFilterIn := &fault.HTTPFault{
 		UpstreamCluster: "foobar",
 	}
-	faultFilterInAny, _ := ptypes.MarshalAny(faultFilterIn)
+	faultFilterInAny, _ := anypb.New(faultFilterIn)
 	faultFilterOut := &fault.HTTPFault{
 		UpstreamCluster: "scooby",
 		DownstreamNodes: []string{"foo"},
 	}
-	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
+	faultFilterOutAny, _ := anypb.New(faultFilterOut)
 
 	gatewayIn := []*listener.Listener{
 		{
@@ -1206,7 +1206,7 @@ func TestApplyListenerPatches(t *testing.T) {
 
 	sidecarVirtualInboundIn := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
+			Name:             model.VirtualInboundListenerName,
 			UseOriginalDst:   istio_proto.BoolTrue,
 			TrafficDirection: core.TrafficDirection_INBOUND,
 			Address: &core.Address{
@@ -1296,7 +1296,7 @@ func TestApplyListenerPatches(t *testing.T) {
 
 	sidecarVirtualInboundOut := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
+			Name:             model.VirtualInboundListenerName,
 			UseOriginalDst:   istio_proto.BoolTrue,
 			TrafficDirection: core.TrafficDirection_INBOUND,
 			Address: &core.Address{

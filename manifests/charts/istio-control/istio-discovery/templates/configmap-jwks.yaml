@@ -1,4 +1,4 @@
-{{- if .Values.pilot.jwksResolverExtraRootCA }}
+{{- if and (not .Values.global.externalIstiod) .Values.pilot.jwksResolverExtraRootCA }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

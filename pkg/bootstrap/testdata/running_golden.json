@@ -1,7 +1,7 @@
 {
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
-    "cluster": "istio-proxy",
+    "cluster": "test.test",
     "locality": {
       "region": "regionA"
       ,
@@ -9,7 +9,7 @@
       ,
       "sub_zone": "sub_zoneC"
     },
-    "metadata": {"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","version":"v1alpha1"},"NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_CERT_PROVIDER":"istiod","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/running","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:1001","drainDuration":"5s","parentShutdownDuration":"6s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","tracing":{"zipkin":{"address":"localhost:6000"}}},"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
+    "metadata": {"ANNOTATIONS":{"istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}"},"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","INTERCEPTION_MODE":"REDIRECT","ISTIO_PROXY_SHA":"istio-proxy:sha","ISTIO_VERSION":"release-3.1","LABELS":{"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","version":"v1alpha1"},"NAME":"svc-0-0-0-6944fb884d-4pgx8","NAMESPACE":"test","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"POD_NAME":"svc-0-0-0-6944fb884d-4pgx8","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/running","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:1001","drainDuration":"5s","parentShutdownDuration":"6s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","statusPort":15020,"tracing":{"zipkin":{"address":"localhost:6000"}}},"app":"test","istio-locality":"regionA.zoneB.sub_zoneC","istio.io/insecurepath":"{\"paths\":[\"/metrics\",\"/live\"]}","version":"v1alpha1"}
   },
   "layered_runtime": {
       "layers": [
@@ -17,8 +17,9 @@
               "name": "deprecation",
               "static_layer": {
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
-                  "envoy.reloadable_features.strict_1xx_and_204_response_headers": false,
-                  "re2.max_program_size.error_level": 1024
+                  "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
+                  "re2.max_program_size.error_level": 1024,
+                  "envoy.reloadable_features.treat_host_like_authority": false
               }
           },
           {
@@ -169,14 +170,6 @@
         "tag_name": "connection_security_policy"
       },
       {
-        "regex": "(permissive_response_code=\\.=(.*?);\\.;)",
-        "tag_name": "permissive_response_code"
-      },
-      {
-        "regex": "(permissive_response_policyid=\\.=(.*?);\\.;)",
-        "tag_name": "permissive_response_policyid"
-      },
-      {
         "regex": "(source_canonical_service=\\.=(.*?);\\.;)",
         "tag_name": "source_canonical_service"
       },
@@ -207,6 +200,18 @@
       {
         "regex": "(wasm_filter\\.(.+?)\\.)",
         "tag_name": "wasm_filter"
+      },
+      {
+        "tag_name": "authz_enforce_result",
+        "regex": "rbac(\\.(allowed|denied))"
+      },
+      {
+        "tag_name": "authz_dry_run_action",
+        "regex": "(\\.istio_dry_run_(allow|deny)_)"
+      },
+      {
+        "tag_name": "authz_dry_run_result",
+        "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
     "stats_matcher": {
@@ -231,6 +236,18 @@
           "prefix": "wasm"
           },
           {
+          "suffix": "rbac.allowed"
+          },
+          {
+          "suffix": "rbac.denied"
+          },
+          {
+          "suffix": "shadow_allowed"
+          },
+          {
+          "suffix": "shadow_denied"
+          },
+          {
           "prefix": "component"
           }
         ]
@@ -250,10 +267,12 @@
   "dynamic_resources": {
     "lds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "cds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "ads_config": {
@@ -318,7 +337,14 @@
       {
         "name": "sds-grpc",
         "type": "STATIC",
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
@@ -328,7 +354,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./etc/istio/proxy/SDS"
+                    "path": "/tmp/bootstrap/running/SDS"
                   }
                 }
               }
@@ -413,7 +439,14 @@
           }
         },
         "max_requests_per_connection": 1,
-        "http2_protocol_options": { }
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        }
       }
       
       ,
@@ -493,11 +526,11 @@
       },
       {
         "address": {
-          "socket_address": {
-            "protocol": "TCP",
-            "address": "0.0.0.0",
-            "port_value": 15021
-          }
+           "socket_address": {
+             "protocol": "TCP",
+             "address": "0.0.0.0",
+             "port_value": 15021
+           }
         },
         "filter_chains": [
           {

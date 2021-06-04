@@ -43,7 +43,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.Mut
 		return nil
 	}
 
-	return buildFilter(in, mutable, false)
+	return buildFilter(in, mutable)
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
@@ -54,29 +54,20 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Muta
 		// Only care about sidecar.
 		return nil
 	}
-	return buildFilter(in, mutable, false)
+	return buildFilter(in, mutable)
 }
 
-func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isPassthrough bool) error {
+func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	ns := in.Node.Metadata.Namespace
 	applier := factory.NewPolicyApplier(in.Push, ns, labels.Collection{in.Node.Metadata.Labels})
-	endpointPort := uint32(0)
-	if in.ServiceInstance != nil {
-		endpointPort = in.ServiceInstance.Endpoint.EndpointPort
-	}
 
 	for i := range mutable.FilterChains {
-		if isPassthrough {
-			// Get the real port from the filter chain match if this is generated for pass through filter chain.
-			endpointPort = mutable.FilterChains[i].FilterChainMatch.GetDestinationPort().GetValue()
-		}
 		if mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			istioMutualGateway := (in.Node.Type == model.Router) && mutable.FilterChains[i].IstioMutualGateway
-			if filter := applier.AuthNFilter(in.Node.Type, endpointPort, istioMutualGateway); filter != nil {
+			if filter := applier.AuthNFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}
@@ -92,7 +83,7 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 		return nil
 	}
 
-	return buildFilter(in, mutable, true)
+	return buildFilter(in, mutable)
 }
 
 func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
@@ -132,7 +123,7 @@ func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
 	// If there is any Sidecar defined, check if the port is explicitly defined there.
 	// This means the Sidecar resource takes precedence over the service. A port defined in service but not in Sidecar
 	// means the port is going to be handled by the pass through filter chain.
-	if node.SidecarScope.HasCustomIngressListeners {
+	if node.SidecarScope.HasIngressListener() {
 		for _, ingressListener := range node.SidecarScope.Sidecar.Ingress {
 			if port == ingressListener.Port.Number {
 				return false

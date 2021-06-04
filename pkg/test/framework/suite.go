@@ -16,7 +16,6 @@ package framework
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -31,12 +30,15 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/config"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/pkg/log"
 )
 
@@ -95,8 +97,10 @@ type Suite interface {
 	RequireMaxClusters(maxClusters int) Suite
 	// RequireSingleCluster is a utility method that requires that there be exactly 1 cluster in the environment.
 	RequireSingleCluster() Suite
-	// RequireEnvironmentVersion validates the environment meets a minimum version
-	RequireEnvironmentVersion(version string) Suite
+	// RequireMinVersion validates the environment meets a minimum version
+	RequireMinVersion(minorVersion uint) Suite
+	// RequireMaxVersion validates the environment meets a maximum version
+	RequireMaxVersion(minorVersion uint) Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
 	// Run the suite. This method calls os.Exit and does not return.
@@ -227,17 +231,35 @@ func (s *suiteImpl) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
-func (s *suiteImpl) RequireEnvironmentVersion(version string) Suite {
+func (s *suiteImpl) RequireMinVersion(minorVersion uint) Suite {
 	fn := func(ctx resource.Context) error {
 		for _, c := range ctx.Clusters().Kube() {
 			ver, err := c.GetKubernetesVersion()
 			if err != nil {
 				return fmt.Errorf("failed to get Kubernetes version: %v", err)
 			}
-			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-			if serverVersion < version {
-				s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
-					version, serverVersion))
+			if !kubelib.IsAtLeastVersion(c, minorVersion) {
+				s.Skip(fmt.Sprintf("Required Kubernetes version (1.%v) is greater than current: %v",
+					minorVersion, ver.String()))
+			}
+		}
+		return nil
+	}
+
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
+func (s *suiteImpl) RequireMaxVersion(minorVersion uint) Suite {
+	fn := func(ctx resource.Context) error {
+		for _, c := range ctx.Clusters().Kube() {
+			ver, err := c.GetKubernetesVersion()
+			if err != nil {
+				return fmt.Errorf("failed to get Kubernetes version: %v", err)
+			}
+			if !kubelib.IsLessThanVersion(c, minorVersion+1) {
+				s.Skip(fmt.Sprintf("Maximum Kubernetes version (1.%v) is less than current: %v",
+					minorVersion, ver.String()))
 			}
 		}
 		return nil
@@ -391,7 +413,11 @@ func clusters(ctx resource.Context) []cluster.Cluster {
 
 func (s *suiteImpl) writeOutput() {
 	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
-	artifactsPath := os.Getenv("ARTIFACTS")
+	artifactsPath, err := file.NormalizePath(os.Getenv("ARTIFACTS"))
+	if err != nil {
+		artifactsPath = os.Getenv("ARTIFACTS")
+		log.Warnf("failed normalizing %s: %v", artifactsPath, err)
+	}
 	if artifactsPath != "" {
 		ctx := rt.suiteContext()
 		ctx.outcomeMu.RLock()
@@ -487,8 +513,8 @@ func newEnvironment(ctx resource.Context) (resource.Environment, error) {
 
 func getSettings(testID string) (*resource.Settings, error) {
 	// Parse flags and init logging.
-	if !flag.Parsed() {
-		flag.Parse()
+	if !config.Parsed() {
+		config.Parse()
 	}
 
 	return resource.SettingsFromCommandLine(testID)

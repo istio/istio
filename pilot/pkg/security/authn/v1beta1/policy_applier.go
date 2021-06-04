@@ -29,12 +29,12 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	security_utils "istio.io/istio/pilot/pkg/security"
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -84,58 +84,6 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, istioMutualGateway bool,
-	config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
-	if proxyType != model.SidecarProxy && !istioMutualGateway {
-		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
-		return config
-	}
-
-	if config == nil {
-		config = defaultAuthnFilter()
-	}
-	p := config.Policy
-	p.Peers = []*authn_alpha.PeerAuthenticationMethod{}
-
-	var effectiveMTLSMode model.MutualTLSMode
-	if proxyType == model.SidecarProxy {
-		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
-
-		// Skip authn filter peer config when mtls is disabled.
-		if effectiveMTLSMode == model.MTLSDisable {
-			authnLog.Debugf("AuthnFilter: skip setting peer authn when mtls is disabled")
-			return nil
-		}
-	} else {
-		// this is for gateway with a server whose TLS mode is ISTIO_MUTUAL
-		// this is effectively the same as strict mode. We dont really
-		// care about permissive or strict here. We simply need to validate that the peer cert is
-		// a proper spiffe cert so that authz policies can use source principal based validations here.
-		effectiveMTLSMode = model.MTLSStrict
-		// we should accept traffic from any trust domain. We expect the use of authZ policies to
-		// restrict which domains are actually allowed.
-		config.SkipValidateTrustDomain = true
-	}
-
-	if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
-		mode := authn_alpha.MutualTls_PERMISSIVE
-		if effectiveMTLSMode == model.MTLSStrict {
-			mode = authn_alpha.MutualTls_STRICT
-		}
-		p.Peers = []*authn_alpha.PeerAuthenticationMethod{
-			{
-				Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-					Mtls: &authn_alpha.MutualTls{
-						Mode: mode,
-					},
-				},
-			},
-		}
-	}
-
-	return config
-}
-
 func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if len(a.processedJwtRules) == 0 {
 		// (beta) RequestAuthentication is not set for workload, do nothing.
@@ -171,20 +119,20 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 }
 
 // AuthNFilter returns the Istio authn filter config:
-// - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32, istioMutualGateway bool) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter() *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
-	// Override the config with peer authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, istioMutualGateway, filterConfigProto)
 	// Override the config with request authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
 
 	if filterConfigProto == nil {
 		return nil
 	}
+
+	// Note: in previous Istio versions, the authn filter also handled PeerAuthentication, to extract principal.
+	// This has been modified to rely on the TCP filter
 
 	return &http_conn.HttpFilter{
 		Name:       authn_model.AuthnFilterName,
@@ -193,7 +141,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 }
 
 func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *model.Proxy, trustDomainAliases []string) plugin.MTLSSettings {
-	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
+	effectiveMTLSMode := a.GetMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
 	return plugin.MTLSSettings{
 		Port: endpointPort,
@@ -286,7 +234,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					port = 80 // If port is not specified or there is an error in parsing default to 80.
 				}
 			}
-			_, cluster, err := security_utils.LookupCluster(push, host, port)
+			_, cluster, err := extensionproviders.LookupCluster(push, host, port)
 
 			if err == nil && len(cluster) > 0 {
 				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
@@ -396,7 +344,7 @@ func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthen
 	return a.consolidatedPeerPolicy.PortLevelMtls
 }
 
-func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
+func (a *v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
 	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
 		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
 			return getMutualTLSMode(portMtls)
@@ -409,16 +357,7 @@ func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) mode
 // getMutualTLSMode returns the MutualTLSMode enum corresponding peer MutualTLS settings.
 // Input cannot be nil.
 func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTLSMode {
-	switch mtls.Mode {
-	case v1beta1.PeerAuthentication_MutualTLS_DISABLE:
-		return model.MTLSDisable
-	case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
-		return model.MTLSPermissive
-	case v1beta1.PeerAuthentication_MutualTLS_STRICT:
-		return model.MTLSStrict
-	default:
-		return model.MTLSUnknown
-	}
+	return model.ConvertToMutualTLSMode(mtls.Mode)
 }
 
 // composePeerAuthentication returns the effective PeerAuthentication given the list of applicable

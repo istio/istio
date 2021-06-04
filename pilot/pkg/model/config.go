@@ -15,12 +15,14 @@
 package model
 
 import (
-	"hash/crc32"
+	"crypto/md5"
+	"encoding/binary"
 	"net"
 	"sort"
 	"strings"
 
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	"k8s.io/client-go/tools/cache"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -41,14 +43,20 @@ type ConfigKey struct {
 	Namespace string
 }
 
-func (key ConfigKey) HashCode() uint32 {
-	var result uint32
-	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Kind))
-	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Version))
-	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Group))
-	result = 31*result + crc32.ChecksumIEEE([]byte(key.Namespace))
-	result = 31*result + crc32.ChecksumIEEE([]byte(key.Name))
-	return result
+func (key ConfigKey) HashCode() uint64 {
+	hash := md5.New()
+	for _, v := range []string{
+		key.Name,
+		key.Namespace,
+		key.Kind.Kind,
+		key.Kind.Group,
+		key.Kind.Version,
+	} {
+		hash.Write([]byte(v))
+	}
+	var tmp [md5.Size]byte
+	sum := hash.Sum(tmp[:0])
+	return binary.BigEndian.Uint64(sum)
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
@@ -163,6 +171,8 @@ type ConfigStoreCache interface {
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
+
+	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool

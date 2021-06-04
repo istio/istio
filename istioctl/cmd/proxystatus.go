@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
@@ -201,12 +200,9 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 				xdsRequest := xdsapi.DiscoveryRequest{
 					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
-					Node: &envoy_corev3.Node{
-						Id: "debug~0.0.0.0~istioctl~cluster.local",
-					},
-					TypeUrl: pilotxds.TypeDebugConfigDump,
+					TypeUrl:       pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, "", "", kubeClient)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
 				if err != nil {
 					return err
 				}
@@ -218,12 +214,9 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			}
 
 			xdsRequest := xdsapi.DiscoveryRequest{
-				Node: &envoy_corev3.Node{
-					Id: "debug~0.0.0.0~istioctl~cluster.local",
-				},
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, "", "", kubeClient)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, "", "", kubeClient)
 			if err != nil {
 				return err
 			}

@@ -19,7 +19,15 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-// Setup runs the given function in the source deployment context. For example, given apps a, b, and c in 2 clusters,
+type (
+	srcSetupFn     func(ctx framework.TestContext, src echo.Callers) error
+	svcPairSetupFn func(ctx framework.TestContext, src echo.Callers, dsts echo.Services) error
+	dstSetupFn     func(ctx framework.TestContext, dsts echo.Instances) error
+)
+
+// Setup runs the given function in the source deployment context.
+//
+// For example, given apps a, b, and c in 2 clusters,
 // these tests would all run before the the context is cleaned up:
 //     a/to_b/from_cluster-1
 //     a/to_b/from_cluster-2
@@ -28,12 +36,16 @@ import (
 //     cleanup...
 //     b/to_a/from_cluster-1
 //     ...
-func (t *T) Setup(setupFn func(t framework.TestContext, src echo.Instances) error) *T {
+func (t *T) Setup(setupFn srcSetupFn) *T {
 	t.sourceDeploymentSetup = append(t.sourceDeploymentSetup, setupFn)
 	return t
 }
 
-func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
+func (t *T) setup(ctx framework.TestContext, srcInstances echo.Callers) {
+	if !t.hasSourceSetup() {
+		ctx.SkipDumping()
+		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+	}
 	for _, setupFn := range t.sourceDeploymentSetup {
 		if err := setupFn(ctx, srcInstances); err != nil {
 			ctx.Fatal(err)
@@ -41,21 +53,55 @@ func (t *T) setup(ctx framework.TestContext, srcInstances echo.Instances) {
 	}
 }
 
-// SetupForPair runs the given function in the source + destination deployment context. For example, given apps a, b,
-// and c in 2 clusters, these tests would all run before the the context is cleaned up:
+func (t *T) hasSourceSetup() bool {
+	return len(t.sourceDeploymentSetup) > 0
+}
+
+// SetupForPair runs the given function for every source instance in every cluster in combination with every
+// destination service.
+//
+// Example of how long this setup lasts before the given context is cleaned up:
 //     a/to_b/from_cluster-1
 //     a/to_b/from_cluster-2
 //     cleanup...
 //     a/to_b/from_cluster-2
 //     ...
-func (t *T) SetupForPair(setupFn func(t framework.TestContext, src echo.Instances, dst echo.Instances) error) *T {
+func (t *T) SetupForPair(setupFn func(ctx framework.TestContext, src echo.Callers, dsts echo.Instances) error) *T {
+	return t.SetupForServicePair(func(ctx framework.TestContext, src echo.Callers, dsts echo.Services) error {
+		return setupFn(ctx, src, dsts.Instances())
+	})
+}
+
+// SetupForServicePair works similarly to SetupForPair, but the setup function accepts echo.Services, which
+// contains instances for multiple services and should be used in combination with RunForN.
+// The length of dsts services will alyas be N.
+func (t *T) SetupForServicePair(setupFn svcPairSetupFn) *T {
 	t.deploymentPairSetup = append(t.deploymentPairSetup, setupFn)
 	return t
 }
 
-func (t *T) setupPair(ctx framework.TestContext, src echo.Instances, dst echo.Instances) {
+// SetupForDestination is run each time the destination Service (but not destination cluser) changes.
+func (t *T) SetupForDestination(setupFn dstSetupFn) *T {
+	t.destinationDeploymentSetup = append(t.destinationDeploymentSetup, setupFn)
+	return t
+}
+
+func (t *T) hasDestinationSetup() bool {
+	return len(t.deploymentPairSetup)+len(t.destinationDeploymentSetup) > 0
+}
+
+func (t *T) setupPair(ctx framework.TestContext, src echo.Callers, dsts echo.Services) {
+	if !t.hasDestinationSetup() {
+		ctx.SkipDumping()
+		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+	}
 	for _, setupFn := range t.deploymentPairSetup {
-		if err := setupFn(ctx, src, dst); err != nil {
+		if err := setupFn(ctx, src, dsts); err != nil {
+			ctx.Fatal(err)
+		}
+	}
+	for _, setupFn := range t.destinationDeploymentSetup {
+		if err := setupFn(ctx, dsts.Instances()); err != nil {
 			ctx.Fatal(err)
 		}
 	}

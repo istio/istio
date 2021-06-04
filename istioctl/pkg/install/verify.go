@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/verifier"
 	"istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 )
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
@@ -85,7 +85,7 @@ istioctl experimental precheck.
 	}
 
 	flags := verifyInstallCmd.PersistentFlags()
-	flags.StringVarP(&istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
+	flags.StringVarP(&istioNamespace, "istioNamespace", "i", constants.IstioSystemNamespace,
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	flags.StringSliceVarP(&filenames, "filename", "f", filenames, "Istio YAML installation file.")
@@ -95,9 +95,5 @@ istioctl experimental precheck.
 }
 
 func strPtr(val string) *string {
-	return &val
-}
-
-func boolPtr(val bool) *bool {
 	return &val
 }

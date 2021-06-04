@@ -15,12 +15,13 @@
 package ready
 
 import (
+	"context"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 )
 
 var (
@@ -33,13 +34,30 @@ var (
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(liveServerStats)
+	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.Context = ctx
 
 	err := probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
+}
+
+func TestEnvoyDraining(t *testing.T) {
+	g := NewWithT(t)
+
+	server := testserver.CreateAndStartServer(liveServerStats)
+	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), Context: ctx}
+	cancel()
+
+	err := probe.isEnvoyReady()
+
+	g.Expect(err).To(HaveOccurred())
 }
 
 func TestEnvoyStats(t *testing.T) {
@@ -87,10 +105,12 @@ server.state: 0`,
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			server := createAndStartServer(tt.stats)
+			server := testserver.CreateAndStartServer(tt.stats)
 			defer server.Close()
-			probe := Probe{AdminPort: 1234}
-
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+			probe.Context = ctx
 			err := probe.Check()
 
 			// Expect no error
@@ -111,10 +131,12 @@ server.state: 0`,
 func TestEnvoyInitializing(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(initServerStats)
+	server := testserver.CreateAndStartServer(initServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.Context = ctx
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -123,10 +145,12 @@ func TestEnvoyInitializing(t *testing.T) {
 func TestEnvoyNoClusterManagerStats(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(onlyServerStats)
+	server := testserver.CreateAndStartServer(onlyServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.Context = ctx
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -135,10 +159,12 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 func TestEnvoyNoServerStats(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(noServerStats)
+	server := testserver.CreateAndStartServer(noServerStats)
 	defer server.Close()
-	probe := Probe{AdminPort: 1234}
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.Context = ctx
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -147,8 +173,11 @@ func TestEnvoyNoServerStats(t *testing.T) {
 func TestEnvoyReadinessCache(t *testing.T) {
 	g := NewWithT(t)
 
-	server := createAndStartServer(noServerStats)
-	probe := Probe{AdminPort: 1234}
+	server := testserver.CreateAndStartServer(noServerStats)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.Context = ctx
 	err := probe.Check()
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeFalse())
@@ -157,13 +186,15 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	g.Expect(probe.atleastOnceReady).Should(BeFalse())
 	server.Close()
 
-	server = createAndStartServer(liveServerStats)
+	server = testserver.CreateAndStartServer(liveServerStats)
+	probe.AdminPort = uint16(server.Listener.Addr().(*net.TCPAddr).Port)
 	err = probe.Check()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
 	server.Close()
 
-	server = createAndStartServer(noServerStats)
+	server = testserver.CreateAndStartServer(noServerStats)
+	probe.AdminPort = uint16(server.Listener.Addr().(*net.TCPAddr).Port)
 	err = probe.Check()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
@@ -172,36 +203,4 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	err = probe.Check()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
-}
-
-func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
-	return map[string]func(rw http.ResponseWriter, _ *http.Request){
-
-		"/stats": func(rw http.ResponseWriter, _ *http.Request) {
-			// Send response to be tested
-			rw.Write([]byte(statsToReturn))
-		},
-	}
-}
-
-func createAndStartServer(statsToReturn string) *httptest.Server {
-	return createHTTPServer(createDefaultFuncMap(statsToReturn))
-}
-
-func createHTTPServer(handlers map[string]func(rw http.ResponseWriter, _ *http.Request)) *httptest.Server {
-	mux := http.NewServeMux()
-	for k, v := range handlers {
-		mux.HandleFunc(k, http.HandlerFunc(v))
-	}
-
-	// Start a local HTTP server
-	server := httptest.NewUnstartedServer(mux)
-
-	l, err := net.Listen("tcp", "127.0.0.1:1234")
-	if err != nil {
-		panic("Could not create listener for test: " + err.Error())
-	}
-	server.Listener = l
-	server.Start()
-	return server
 }

@@ -15,6 +15,8 @@
 package xds
 
 import (
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -49,18 +51,22 @@ func ecdsNeedsPush(req *model.PushRequest) bool {
 }
 
 // Generate returns ECDS resources for a given proxy.
-func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
+func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !ecdsNeedsPush(req) {
-		return nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, push, w.ResourceNames)
 	if ec == nil {
-		return nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 
 	resources := make(model.Resources, 0, len(ec))
 	for _, c := range ec {
-		resources = append(resources, util.MessageToAny(c))
+		resources = append(resources, &discovery.Resource{
+			Name:     c.Name,
+			Resource: util.MessageToAny(c),
+		})
 	}
-	return resources, nil
+	return resources, model.DefaultXdsLogDetails, nil
 }

@@ -15,7 +15,6 @@
 package mesh_test
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -33,20 +32,27 @@ import (
 
 func TestNewWatcherWithBadInputShouldFail(t *testing.T) {
 	g := NewWithT(t)
-	_, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), "")
+	_, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), "", false)
 	g.Expect(err).ToNot(BeNil())
 }
 
 func TestWatcherShouldNotifyHandlers(t *testing.T) {
+	watcherShouldNotifyHandlers(t, false)
+}
+
+func TestMultiWatcherShouldNotifyHandlers(t *testing.T) {
+	watcherShouldNotifyHandlers(t, true)
+}
+
+func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	g := NewWithT(t)
 
 	path := newTempFile(t)
-	defer removeSilent(path)
 
 	m := mesh.DefaultMeshConfig()
 	writeMessage(t, path, &m)
 
-	w := newWatcher(t, path)
+	w := newWatcher(t, path, multi)
 	g.Expect(w.Mesh()).To(Equal(&m))
 
 	doneCh := make(chan struct{}, 1)
@@ -71,9 +77,9 @@ func TestWatcherShouldNotifyHandlers(t *testing.T) {
 	}
 }
 
-func newWatcher(t testing.TB, filename string) mesh.Watcher {
+func newWatcher(t testing.TB, filename string, multi bool) mesh.Watcher {
 	t.Helper()
-	w, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), filename)
+	w, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), filename, multi)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,11 +88,12 @@ func newWatcher(t testing.TB, filename string) mesh.Watcher {
 
 func newTempFile(t testing.TB) string {
 	t.Helper()
-	f, err := ioutil.TempFile("", t.Name())
+
+	f, err := ioutil.TempFile(t.TempDir(), t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeSilent(f)
+	t.Cleanup(func() { _ = f.Close() })
 
 	path, err := filepath.Abs(f.Name())
 	if err != nil {
@@ -106,13 +113,9 @@ func writeMessage(t testing.TB, path string, msg proto.Message) {
 
 func writeFile(t testing.TB, path, content string) {
 	t.Helper()
-	if err := ioutil.WriteFile(path, []byte(content), 0666); err != nil {
+	if err := ioutil.WriteFile(path, []byte(content), 0o666); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func closeSilent(c io.Closer) {
-	_ = c.Close()
 }
 
 func removeSilent(path string) {
@@ -128,7 +131,7 @@ func BenchmarkGetMesh(b *testing.B) {
 	m := mesh.DefaultMeshConfig()
 	writeMessage(b, path, &m)
 
-	w := newWatcher(b, path)
+	w := newWatcher(b, path, false)
 
 	b.StartTimer()
 

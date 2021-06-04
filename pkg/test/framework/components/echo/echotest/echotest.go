@@ -29,8 +29,9 @@ type T struct {
 
 	destinationFilters []CombinationFilter
 
-	sourceDeploymentSetup []func(ctx framework.TestContext, src echo.Instances) error
-	deploymentPairSetup   []func(ctx framework.TestContext, src, dst echo.Instances) error
+	sourceDeploymentSetup      []srcSetupFn
+	deploymentPairSetup        []svcPairSetupFn
+	destinationDeploymentSetup []dstSetupFn
 }
 
 // New creates a *T using the given applications as sources and destinations for each subtest.

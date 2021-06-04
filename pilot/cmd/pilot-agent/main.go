@@ -20,7 +20,6 @@ import (
 	"net"
 	"os"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
@@ -31,8 +30,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
-	"istio.io/istio/pkg/bootstrap"
-	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -125,74 +122,41 @@ var (
 				defer stsServer.Stop()
 			}
 
-			agentOptions := options.NewAgentOptions(proxy)
-			var pilotSAN []string
-			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-				// Obtain Pilot SAN, using DNS.
-				pilotSAN = []string{config.GetPilotSan(proxyConfig.DiscoveryAddress)}
-			}
-			log.Infof("Pilot SAN: %v", pilotSAN)
-
-			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts)
-			// Start in process SDS.
-			if err := agent.Start(); err != nil {
-				log.Fatala("Failed to start in-process SDS", err)
-			}
-
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
 			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
 				proxyConfig.ProxyBootstrapTemplatePath = templateFile
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			// If a status port was provided, start handling status probes.
-			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agent); err != nil {
-					return err
-				}
-			}
-
-			provCert := agent.FindRootCAForXDS()
-			if provCert == "" {
-				// Envoy only supports load from file. If we want to use system certs, use best guess
-				// To be more correct this could lookup all the "well known" paths but this is extremely \
-				// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
-				provCert = "/etc/ssl/certs/ca-certificates.crt"
-			}
-			node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
-				ID:                  proxy.ServiceNode(),
-				Envs:                os.Environ(),
-				Platform:            platform.Discover(),
-				InstanceIPs:         proxy.IPAddresses,
-				StsPort:             stsPort,
-				ProxyConfig:         proxyConfig,
-				ProxyViaAgent:       agentOptions.ProxyXDSViaAgent,
-				PilotSubjectAltName: pilotSAN,
-				OutlierLogPath:      outlierLogPath,
-				PilotCertProvider:   secOpts.PilotCertProvider,
-				ProvCert:            provCert,
-			})
-			if err != nil {
-				log.Error("Failed to extract node metadata: ", err)
-				os.Exit(1)
-			}
-			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
-				Node:              node,
+			envoyOptions := envoy.ProxyConfig{
 				LogLevel:          proxyLogLevel,
 				ComponentLogLevel: proxyComponentLogLevel,
 				LogAsJSON:         loggingOptions.JSONEncoding,
 				NodeIPs:           proxy.IPAddresses,
 				Sidecar:           proxy.Type == model.SidecarProxy,
-			})
+				OutlierLogPath:    outlierLogPath,
+			}
+			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
+			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
-			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
-			envoyAgent := envoy.NewAgent(envoyProxy, drainDuration)
+			// If a status port was provided, start handling status probes.
+			if proxyConfig.StatusPort > 0 {
+				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
+					return err
+				}
+			}
+
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
 			go cmd.WaitSignalFunc(cancel)
 
-			return envoyAgent.Run(ctx)
+			// Start in process SDS, dns server, xds proxy, and Envoy.
+			wait, err := agent.Run(ctx)
+			if err != nil {
+				return err
+			}
+			wait()
+			return nil
 		},
 	}
 )
@@ -207,7 +171,7 @@ func init() {
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
 		"Token provider specific plugin name.")
-	// Flags for proxy configuration
+	// DEPRECATED. Flags for proxy configuration
 	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", constants.ServiceClusterName, "Service cluster")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "warning",
@@ -240,8 +204,10 @@ func init() {
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	probes ...ready.Prober) error {
+	envoyPrometheusPort int, probes ...ready.Prober) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, probes...)
+	o.EnvoyPrometheusPort = envoyPrometheusPort
+	o.Context = ctx
 	statusServer, err := status.NewServer(*o)
 	if err != nil {
 		return err

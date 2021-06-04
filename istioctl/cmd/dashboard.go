@@ -45,6 +45,8 @@ var (
 	labelSelector = ""
 
 	addonNamespace = ""
+
+	envoyDashNs = ""
 )
 
 // port-forward to Istio System Prometheus; open browser
@@ -261,7 +263,7 @@ func envoyDashCmd() *cobra.Command {
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(addonNamespace, defaultNamespace), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -279,7 +281,7 @@ func envoyDashCmd() *cobra.Command {
 				ns = pl.Items[0].Namespace
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(addonNamespace, defaultNamespace),
+					handlers.HandleNamespace(envoyDashNs, defaultNamespace),
 					client.UtilFactory())
 				if err != nil {
 					return err
@@ -359,6 +361,42 @@ func controlZDashCmd() *cobra.Command {
 
 			return portForward(podName, ns, fmt.Sprintf("ControlZ %s", podName),
 				"http://%s", bindAddress, controlZport, client, c.OutOrStdout(), browser)
+		},
+	}
+
+	return cmd
+}
+
+// port-forward to SkyWalking UI on istio-system
+func skywalkingDashCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	cmd := &cobra.Command{
+		Use:   "skywalking",
+		Short: "Open SkyWalking UI",
+		Long:  "Open the Istio dashboard in the SkyWalking UI",
+		Example: `  istioctl dashboard skywalking
+
+  # with short syntax
+  istioctl dash skywalking
+  istioctl d skywalking`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=skywalking-ui")
+			if err != nil {
+				return fmt.Errorf("not able to locate SkyWalking UI pod: %v", err)
+			}
+
+			if len(pl.Items) < 1 {
+				return errors.New("no SkyWalking UI pods found")
+			}
+
+			// only use the first pod in the list
+			return portForward(pl.Items[0].Name, addonNamespace, "SkyWalking",
+				"http://%s", bindAddress, 8080, client, cmd.OutOrStdout(), browser)
 		},
 	}
 
@@ -472,10 +510,11 @@ func dashboard() *cobra.Command {
 	dashboardCmd.AddCommand(grafanaDashCmd())
 	dashboardCmd.AddCommand(jaegerDashCmd())
 	dashboardCmd.AddCommand(zipkinDashCmd())
+	dashboardCmd.AddCommand(skywalkingDashCmd())
 
 	envoy := envoyDashCmd()
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	envoy.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
+	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", defaultNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	dashboardCmd.AddCommand(envoy)
 

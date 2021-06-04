@@ -28,12 +28,12 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -46,7 +46,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -219,7 +218,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			anyOptions := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
 			httpProtocolOptions := &http.HttpProtocolOptions{}
 			if anyOptions != nil {
-				ptypes.UnmarshalAny(anyOptions, httpProtocolOptions)
+				anyOptions.UnmarshalTo(httpProtocolOptions)
 			}
 
 			if tc.useDownStreamProtocol && tc.proxyType == model.SidecarProxy {
@@ -234,7 +233,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 
 			// Verify that the values were set correctly.
 			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Not(BeNil()))
-			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Equal(ptypes.DurationProto(time.Duration(15000000000))))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Equal(durationpb.New(time.Duration(15000000000))))
 		})
 	}
 }
@@ -470,7 +469,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 
 			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
 			g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(tt.expectedRingSize)))
-			g.Expect(c.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
+			g.Expect(c.ConnectTimeout).To(Equal(durationpb.New(time.Duration(10000000001))))
 		})
 	}
 }
@@ -570,11 +569,11 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		g.Expect(tlsContext).NotTo(BeNil())
 
 		rootSdsConfig := tlsContext.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig()
-		g.Expect(rootSdsConfig.GetName()).To(Equal("file-root:/defaultCaCert.pem"))
+		g.Expect(rootSdsConfig.GetName()).To(Equal("file-root:/clientRootCertFromNodeMetadata.pem"))
 
 		certSdsConfig := tlsContext.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()
 		g.Expect(certSdsConfig).To(HaveLen(1))
-		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/defaultCert.pem~/defaultPrivateKey.pem"))
+		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/clientCertFromNodeMetadata.pem~/clientKeyFromNodeMetadata.pem"))
 	}
 }
 
@@ -583,7 +582,7 @@ func buildSniTestClustersForSidecar(t *testing.T, sniValue string) []*cluster.Cl
 }
 
 func buildSniDnatTestClustersForGateway(t *testing.T, sniValue string) []*cluster.Cluster {
-	return buildSniTestClustersWithMetadata(t, sniValue, model.Router, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
+	return buildSniTestClustersWithMetadata(t, sniValue, model.Router, &model.NodeMetadata{})
 }
 
 func buildSniTestClustersWithMetadata(t testing.TB, sniValue string, typ model.NodeType, meta *model.NodeMetadata) []*cluster.Cluster {
@@ -819,31 +818,10 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			userSupplied,
 		},
 		{
-			"Destination rule TLS sni and SAN override absent",
-			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{},
-				Sni:               "",
-			},
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown,
-			&networking.ClientTLSSettings{
-				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
-				Sni:             "foo.com",
-			},
-			userSupplied,
-		},
-		{
-			"Cert path override",
+			"Metadata cert path override ISTIO_MUTUAL",
 			tlsSettings,
-			[]string{},
-			"",
+			[]string{"custom.foo.com"},
+			"custom.foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/chain.pem",
 				TLSClientKey:       "/custom/key.pem",
@@ -851,10 +829,10 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			}},
 			false, false, model.MTLSUnknown,
 			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    "/custom/root.pem",
-				ClientCertificate: "/custom/chain.pem",
+				Mode:              networking.ClientTLSSettings_MUTUAL,
 				PrivateKey:        "/custom/key.pem",
+				ClientCertificate: "/custom/chain.pem",
+				CaCertificates:    "/custom/root.pem",
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
@@ -928,6 +906,27 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			nil,
 			userSupplied,
 		},
+		{
+			"TLS nil auto build tls with metadata cert path",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
+			}},
+			true, false, model.MTLSPermissive,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/custom/chain.pem",
+				PrivateKey:        "/custom/key.pem",
+				CaCertificates:    "/custom/root.pem",
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+			autoDetected,
+		},
 	}
 
 	for _, tt := range tests {
@@ -938,7 +937,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
 			if gotCtxType != tt.wantCtxType {
-				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotTLS)
+				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotCtxType)
 			}
 		})
 	}
@@ -1049,6 +1048,19 @@ func TestApplyOutlierDetection(t *testing.T) {
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
 				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Local origin errors is enabled",
+			&networking.OutlierDetection{
+				SplitExternalLocalOriginErrors: true,
+				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
+			},
+			&cluster.OutlierDetection{
+				EnforcingSuccessRate:            &wrappers.UInt32Value{Value: 0},
+				SplitExternalLocalOriginErrors:  true,
+				ConsecutiveLocalOriginFailure:   &wrappers.UInt32Value{Value: 10},
+				EnforcingLocalOriginSuccessRate: &wrappers.UInt32Value{Value: 0},
 			},
 		},
 	}
@@ -1301,7 +1313,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+			meta: &model.NodeMetadata{},
 		}))
 
 	if c.CommonLbConfig == nil {
@@ -1343,7 +1355,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					},
 				},
 			}, // peerAuthn
-			meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+			meta: &model.NodeMetadata{},
 		}))
 
 	if c.CommonLbConfig == nil {
@@ -1543,6 +1555,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+				TrackRemaining:     true,
 			},
 		},
 		{
@@ -1575,6 +1588,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+				TrackRemaining:     true,
 			},
 		},
 	}

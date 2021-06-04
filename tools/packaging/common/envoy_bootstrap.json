@@ -27,8 +27,9 @@
               "name": "deprecation",
               "static_layer": {
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
-                  "envoy.reloadable_features.strict_1xx_and_204_response_headers": false,
-                  "re2.max_program_size.error_level": 1024
+                  "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
+                  "re2.max_program_size.error_level": 1024,
+                  "envoy.reloadable_features.treat_host_like_authority": false
               }
           },
           {
@@ -99,6 +100,18 @@
       {
         "regex": "(wasm_filter\\.(.+?)\\.)",
         "tag_name": "wasm_filter"
+      },
+      {
+        "tag_name": "authz_enforce_result",
+        "regex": "rbac(\\.(allowed|denied))"
+      },
+      {
+        "tag_name": "authz_dry_run_action",
+        "regex": "(\\.istio_dry_run_(allow|deny)_)"
+      },
+      {
+        "tag_name": "authz_dry_run_result",
+        "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
     "stats_matcher": {
@@ -142,14 +155,16 @@
   "dynamic_resources": {
     "lds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "cds_config": {
       "ads": {},
+      "initial_fetch_timeout": "0s",
       "resource_api_version": "V3"
     },
     "ads_config": {
-      "api_type": "GRPC",
+      "api_type": "{{ .xds_type }}",
       "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
@@ -199,7 +214,7 @@
                   "socket_address": {
                     "protocol": "TCP",
                     "address": "{{ .localhost }}",
-                    "port_value": 15020
+                    "port_value": {{ .config.StatusPort }}
                   }
                 }
               }
@@ -210,7 +225,14 @@
       {
         "name": "sds-grpc",
         "type": "STATIC",
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
@@ -220,7 +242,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./etc/istio/proxy/SDS"
+                    "path": "{{ .config.ConfigPath }}/SDS"
                   }
                 }
               }
@@ -289,7 +311,7 @@
                   "socket_address": {{ .pilot_grpc_address }}
                   {{- else }}
                   "pipe": {
-                    "path": "./etc/istio/proxy/XDS"
+                    "path": "{{ .config.ConfigPath }}/XDS"
                   }
                   {{- end }}
                 }
@@ -319,7 +341,14 @@
           }
         },
         "max_requests_per_connection": 1,
-        "http2_protocol_options": { }
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        }
       }
       {{ if .zipkin }}
       ,
@@ -354,7 +383,14 @@
         {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
         {{- end }}
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
@@ -414,7 +450,14 @@
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "load_assignment": {
           "cluster_name": "envoy_metrics_service",
           "endpoints": [{
@@ -444,7 +487,14 @@
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        "http2_protocol_options": {},
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
         "load_assignment": {
           "cluster_name": "envoy_accesslog_service",
           "endpoints": [{
@@ -466,7 +516,7 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "{{ .wildcard }}",
-            "port_value": 15090
+            "port_value": {{ .envoy_prometheus_port }}
           }
         },
         "filter_chains": [
@@ -512,11 +562,11 @@
       },
       {
         "address": {
-          "socket_address": {
-            "protocol": "TCP",
-            "address": "{{ .wildcard }}",
-            "port_value": 15021
-          }
+           "socket_address": {
+             "protocol": "TCP",
+             "address": "{{ .wildcard }}",
+             "port_value": {{ .envoy_status_port }}
+           }
         },
         "filter_chains": [
           {
@@ -638,11 +688,7 @@
           "target_uri": "cloudtrace.googleapis.com",
           "stat_prefix": "oc_stackdriver_tracer",
           "channel_credentials": {
-            "ssl_credentials": {
-              "root_certs": {
-                "filename": "/etc/ssl/certs/ca-certificates.crt"
-              }
-            }
+            "ssl_credentials": {}
           },
           "call_credentials": [{
             "sts_service": {

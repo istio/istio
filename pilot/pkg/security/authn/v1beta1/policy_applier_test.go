@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
@@ -1021,6 +1022,7 @@ func humanReadableAuthnFilterDump(filter *http_conn.HttpFilter) string {
 		return "<nil>"
 	}
 	config := &authn_filter.FilterConfig{}
+	// nolint: staticcheck
 	ptypes.UnmarshalAny(filter.GetTypedConfig(), config)
 	return spew.Sdump(*config)
 }
@@ -1033,85 +1035,14 @@ func TestAuthnFilterConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name                         string
-		isGateway                    bool
-		gatewayServerUsesIstioMutual bool
-		jwtIn                        []*config.Config
-		peerIn                       []*config.Config
-		expected                     *http_conn.HttpFilter
+		name     string
+		jwtIn    []*config.Config
+		peerIn   []*config.Config
+		expected *http_conn.HttpFilter
 	}{
 		{
-			name: "no-policy",
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
-						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_PERMISSIVE,
-										},
-									},
-								},
-							},
-						},
-						SkipValidateTrustDomain: true,
-					}),
-				},
-			},
-		},
-		{
-			name:      "no-policy-for-gateway-with-non-istio-mutual-servers",
-			isGateway: true,
-			expected:  nil,
-		},
-		{
-			name:                         "policy-for-gateway-with-istio-mutual-server",
-			isGateway:                    true,
-			gatewayServerUsesIstioMutual: true,
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
-						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_STRICT,
-										},
-									},
-								},
-							},
-						},
-						SkipValidateTrustDomain: true,
-					}),
-				},
-			},
-		},
-		{
-			name: "no-request-authn-rule-skip-trust-domain",
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
-						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_PERMISSIVE,
-										},
-									},
-								},
-							},
-						},
-						SkipValidateTrustDomain: true,
-					}),
-				},
-			},
+			name:     "no-policy",
+			expected: nil,
 		},
 		{
 			name: "beta-jwt",
@@ -1131,50 +1062,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
 					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
-						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_PERMISSIVE,
-										},
-									},
-								},
-							},
-							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.foo.com",
-									},
-								},
-							},
-							OriginIsOptional: true,
-							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-						},
 						SkipValidateTrustDomain: true,
-					}),
-				},
-			},
-		},
-		{
-			name:      "beta-jwt-for-gateway",
-			isGateway: true,
-			jwtIn: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "https://secret.foo.com",
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-			},
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
 						Policy: &authn_alpha.Policy{
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
 								{
@@ -1186,52 +1074,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
-						SkipValidateTrustDomain: true,
-					}),
-				},
-			},
-		},
-		{
-			name:                         "beta-jwt-for-gateway-with-istio-mutual",
-			isGateway:                    true,
-			gatewayServerUsesIstioMutual: true,
-			jwtIn: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "https://secret.foo.com",
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-			},
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
-						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_STRICT,
-										},
-									},
-								},
-							},
-							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.foo.com",
-									},
-								},
-							},
-							OriginIsOptional: true,
-							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-						},
-						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1267,16 +1109,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
 					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_PERMISSIVE,
-										},
-									},
-								},
-							},
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
 								{
 									Jwt: &authn_alpha.Jwt{
@@ -1292,7 +1126,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
-						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1328,16 +1161,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
 					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+						SkipValidateTrustDomain: true,
 						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_PERMISSIVE,
-										},
-									},
-								},
-							},
 							Origins: []*authn_alpha.OriginAuthenticationMethod{
 								{
 									Jwt: &authn_alpha.Jwt{
@@ -1353,7 +1178,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
-						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1369,25 +1193,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
-						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_STRICT,
-										},
-									},
-								},
-							},
-						},
-						SkipValidateTrustDomain: true,
-					}),
-				},
-			},
+			expected: nil,
 		},
 		{
 			name: "beta-mtls-disable",
@@ -1396,20 +1202,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 					Spec: &v1beta1.PeerAuthentication{
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
 							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-						},
-					},
-				},
-			},
-			expected: nil,
-		},
-		{
-			name:      "beta-mtls-for-gateway-does-not-respect-mtls-configs",
-			isGateway: true,
-			peerIn: []*config.Config{
-				{
-					Spec: &v1beta1.PeerAuthentication{
-						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
 						},
 					},
 				},
@@ -1427,34 +1219,12 @@ func TestAuthnFilterConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: &http_conn.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &http_conn.HttpFilter_TypedConfig{
-					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
-						Policy: &authn_alpha.Policy{
-							Peers: []*authn_alpha.PeerAuthenticationMethod{
-								{
-									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-										Mtls: &authn_alpha.MutualTls{
-											Mode: authn_alpha.MutualTls_STRICT,
-										},
-									},
-								},
-							},
-						},
-						SkipValidateTrustDomain: true,
-					}),
-				},
-			},
+			expected: nil,
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			proxyType := model.SidecarProxy
-			if c.isGateway {
-				proxyType = model.Router
-			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, &model.PushContext{}).AuthNFilter(proxyType, 80, c.gatewayServerUsesIstioMutual)
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn, &model.PushContext{}).AuthNFilter()
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}
@@ -1484,7 +1254,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 								},
 							},
 						},
-						InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+						InitialFetchTimeout: durationpb.New(time.Second * 0),
 						ResourceApiVersion:  core.ApiVersion_V3,
 					},
 				},
@@ -1509,7 +1279,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 									},
 								},
 							},
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 						},
 					},

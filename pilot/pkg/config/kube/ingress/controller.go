@@ -23,6 +23,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	ingress "k8s.io/api/networking/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/version"
@@ -283,6 +284,17 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(c
 	}
 }
 
+func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	var errs error
+	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	if err := c.ingressInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	return errs
+}
+
 func (c *controller) HasSynced() bool {
 	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
 		(c.classes == nil || c.classes.Informer().HasSynced())
@@ -290,7 +302,10 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	go func() {
-		cache.WaitForCacheSync(stop, c.HasSynced)
+		if !cache.WaitForCacheSync(stop, c.HasSynced) {
+			log.Error("Failed to sync controller cache")
+			return
+		}
 		c.queue.Run(stop)
 	}()
 	<-stop

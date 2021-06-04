@@ -272,6 +272,9 @@ func verifyRevisionOutput(t framework.TestContext, descr *cmd.RevisionDescriptio
 	actualComponents := map[string]bool{}
 	for _, iop := range descr.IstioOperatorCRs {
 		for _, comp := range iop.Components {
+			if comp == "cni" {
+				continue
+			}
 			actualComponents[comp] = true
 		}
 	}
@@ -361,7 +364,7 @@ func subsetOf(a map[string]bool, b map[string]bool) bool {
 // K8s 1.15 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#mutatingwebhookconfiguration-v1beta1-admissionregistration-k8s-io
 // K8s 1.16 - https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.16/#mutatingwebhookconfiguration-v1-admissionregistration-k8s-io
 func skipIfUnsupportedKubernetesVersion(t framework.TestContext) {
-	if !t.Clusters().Default().MinKubeVersion(1, 16) {
+	if !t.Clusters().Default().MinKubeVersion(16) {
 		t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.16")
 	}
 }

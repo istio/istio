@@ -19,7 +19,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -28,9 +28,6 @@ import (
 )
 
 const (
-	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
-	SDSStatPrefix = "sdsstat"
-
 	// SDSClusterName is the name of the cluster for SDS connections
 	SDSClusterName = "sds-grpc"
 
@@ -71,6 +68,9 @@ var SDSAdsConfig = &core.ConfigSource{
 	ConfigSourceSpecifier: &core.ConfigSource_Ads{
 		Ads: &core.AggregatedConfigSource{},
 	},
+	// We intentionally do *not* set InitialFetchTimeout to 0s here, as this is used for
+	// credentialName SDS which may refer to secrets which do not exist. We do not want to block the
+	// entire listener/cluster in these cases.
 	ResourceApiVersion: core.ApiVersion_V3,
 }
 
@@ -110,7 +110,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	legacyRootSDSConfig = &tls.SdsSecretConfig{
@@ -130,7 +130,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	defaultSDSConfig = &tls.SdsSecretConfig{
@@ -151,7 +151,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	rootSDSConfig = &tls.SdsSecretConfig{
@@ -172,7 +172,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 )
@@ -220,25 +220,6 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 		cfg.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
 	}
 	return cfg
-}
-
-// ConstructValidationContext constructs ValidationContext in CommonTLSContext.
-func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *tls.CommonTlsContext_ValidationContext {
-	ret := &tls.CommonTlsContext_ValidationContext{
-		ValidationContext: &tls.CertificateValidationContext{
-			TrustedCa: &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: rootCAFilePath,
-				},
-			},
-		},
-	}
-
-	if len(subjectAltNames) > 0 {
-		ret.ValidationContext.MatchSubjectAltNames = util.StringToExactMatch(subjectAltNames)
-	}
-
-	return ret
 }
 
 func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {

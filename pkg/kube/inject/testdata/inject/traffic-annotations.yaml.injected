@@ -49,11 +49,11 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --serviceCluster
-        - traffic.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
+        - --concurrency
+        - "4"
         env:
         - name: JWT_POLICY
           value: third-party-jwt
@@ -81,14 +81,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: CANONICAL_SERVICE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-name']
-        - name: CANONICAL_REVISION
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
             {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar"}}
@@ -103,9 +95,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"proxy.istio.io/config":"discoveryAddress: foo:123\nconcurrency: 0\nproxyMetadata:\n  FOO: bar","sidecar.istio.io/proxyCPU":"4000m","traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/excludeOutboundPorts":"7,8,9","traffic.sidecar.istio.io/includeInboundPorts":"1,2,3","traffic.sidecar.istio.io/includeOutboundIPRanges":"127.0.0.1/24,10.96.0.1/24"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: traffic
         - name: ISTIO_META_OWNER
@@ -212,16 +201,6 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-          - path: cpu-limit
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: limits.cpu
-          - path: cpu-request
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:

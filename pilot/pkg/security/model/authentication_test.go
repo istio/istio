@@ -22,9 +22,9 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/spiffe"
@@ -76,63 +76,6 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 	}
 }
 
-func TestConstructValidationContext(t *testing.T) {
-	testCases := []struct {
-		name            string
-		rootCAFilePath  string
-		subjectAltNames []string
-		expected        *auth.CommonTlsContext_ValidationContext
-	}{
-		{
-			name:            "default CA",
-			rootCAFilePath:  "/root/ca",
-			subjectAltNames: []string{"SystemCACertificates.keychain", "SystemRootCertificates.keychain"},
-			expected: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/root/ca",
-						},
-					},
-					MatchSubjectAltNames: []*matcher.StringMatcher{
-						{
-							MatchPattern: &matcher.StringMatcher_Exact{
-								Exact: "SystemCACertificates.keychain",
-							},
-						},
-						{
-							MatchPattern: &matcher.StringMatcher_Exact{
-								Exact: "SystemRootCertificates.keychain",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:           "default CA without subjectAltNames",
-			rootCAFilePath: "/root/ca",
-			expected: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/root/ca",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range testCases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructValidationContext(c.rootCAFilePath, c.subjectAltNames); !cmp.Equal(got, c.expected, protocmp.Transform()) {
-				t.Errorf("ConstructValidationContext: got(%#v), want(%#v)\n", got, c.expected)
-			}
-		})
-	}
-}
-
 func TestApplyToCommonTLSContext(t *testing.T) {
 	testCases := []struct {
 		name               string
@@ -152,7 +95,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					{
 						Name: "default",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -177,7 +120,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -211,7 +154,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					{
 						Name: "default",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -240,7 +183,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -348,7 +291,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 								},
 							},
 							ResourceApiVersion:  core.ApiVersion_V3,
-							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
 						},
 					},
 				},
@@ -373,7 +316,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 									},
 								},
 								ResourceApiVersion:  core.ApiVersion_V3,
-								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
 							},
 						},
 					},

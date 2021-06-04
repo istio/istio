@@ -118,7 +118,24 @@ func parseConfig(stdin []byte) (*PluginConf, error) {
 }
 
 // cmdAdd is called for ADD requests
-func cmdAdd(args *skel.CmdArgs) error {
+func cmdAdd(args *skel.CmdArgs) (err error) {
+	// Defer a panic recover, so that in case if panic we can still return
+	// a proper error to the runtime.
+	defer func() {
+		if e := recover(); e != nil {
+			msg := fmt.Sprintf("istio-cni panicked during cmdAdd: %v", e)
+			if err != nil {
+				// If we're recovering and there was also an error, then we need to
+				// present both.
+				msg = fmt.Sprintf("%s: %v", msg, err)
+			}
+			err = fmt.Errorf(msg)
+		}
+		if err != nil {
+			log.Errorf("istio-cni cmdAdd error: %v", err)
+		}
+	}()
+
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
 		log.Errorf("istio-cni cmdAdd parsing config %v", err)
@@ -166,12 +183,10 @@ func cmdAdd(args *skel.CmdArgs) error {
 				return err
 			}
 			log.Debugf("Created Kubernetes client: %v", client)
-			var containers []string
-			var initContainersMap map[string]struct{}
-			var annotations map[string]string
+			pi := &PodInfo{}
 			var k8sErr error
 			for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
-				containers, initContainersMap, _, annotations, k8sErr = getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+				pi, k8sErr = getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 				if k8sErr == nil {
 					break
 				}
@@ -184,7 +199,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 			}
 
 			// Check if istio-init container is present; in that case exclude pod
-			if _, present := initContainersMap[ISTIOINIT]; present {
+			if _, present := pi.InitContainers[ISTIOINIT]; present {
 				log.WithLabels(
 					"pod", string(k8sArgs.K8S_POD_NAME),
 					"namespace", string(k8sArgs.K8S_POD_NAMESPACE)).
@@ -192,16 +207,16 @@ func cmdAdd(args *skel.CmdArgs) error {
 				excludePod = true
 			}
 
-			log.Infof("Found containers %v", containers)
-			if len(containers) > 1 {
+			log.Infof("Found containers %v", pi.Containers)
+			if len(pi.Containers) > 1 {
 				log.WithLabels(
 					"ContainerID", args.ContainerID,
 					"netns", args.Netns,
 					"pod", string(k8sArgs.K8S_POD_NAME),
 					"Namespace", string(k8sArgs.K8S_POD_NAMESPACE),
-					"annotations", annotations).
+					"annotations", pi.Annotations).
 					Info("Checking annotations prior to redirect for Istio proxy")
-				if val, ok := annotations[injectAnnotationKey]; ok {
+				if val, ok := pi.Annotations[injectAnnotationKey]; ok {
 					log.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
 						if !injectEnabled {
@@ -210,13 +225,13 @@ func cmdAdd(args *skel.CmdArgs) error {
 						}
 					}
 				}
-				if _, ok := annotations[sidecarStatusKey]; !ok {
+				if _, ok := pi.Annotations[sidecarStatusKey]; !ok {
 					log.Infof("Pod %s excluded due to not containing sidecar annotation", string(k8sArgs.K8S_POD_NAME))
 					excludePod = true
 				}
 				if !excludePod {
 					log.Infof("setting up redirect")
-					if redirect, redirErr := NewRedirect(annotations); redirErr != nil {
+					if redirect, redirErr := NewRedirect(pi); redirErr != nil {
 						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
 					} else {
 						log.Infof("Redirect local ports: %v", redirect.includePorts)
@@ -261,15 +276,7 @@ func cmdGet(args *skel.CmdArgs) error {
 
 // cmdDel is called for DELETE requests
 func cmdDel(args *skel.CmdArgs) error {
-	log.Info("istio-cni cmdDel parsing config")
-	conf, err := parseConfig(args.StdinData)
-	if err != nil {
-		return err
-	}
-	_ = conf
-
-	// Do your delete here
-
+	// nothing to cleanup for istio-cni
 	return nil
 }
 

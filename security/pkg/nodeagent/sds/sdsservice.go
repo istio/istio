@@ -84,10 +84,6 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 
 // newSDSService creates Secret Discovery Service which implements envoy SDS API.
 func newSDSService(st security.SecretManager, options *security.Options) *sdsservice {
-	if st == nil {
-		return nil
-	}
-
 	ret := &sdsservice{
 		st:   st,
 		stop: make(chan struct{}),
@@ -149,21 +145,24 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 		}
 
 		res := util.MessageToAny(toEnvoySecret(secret))
-		resources = append(resources, res)
+		resources = append(resources, &discovery.Resource{
+			Name:     resourceName,
+			Resource: res,
+		})
 	}
 	return resources, nil
 }
 
 // Generate implements the XDS Generator interface. This allows the XDS server to dispatch requests
 // for SecretTypeV3 to our server to generate the Envoy response.
-func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// updates.Full indicates we should do a complete push of all updated resources
 	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
 	// all file certs).
 	if updates.Full {
 		resp, err := s.generate(w.ResourceNames)
-		pushLog(w.ResourceNames, err)
-		return resp, err
+		return resp, pushLog(w.ResourceNames), err
 	}
 	names := []string{}
 	watched := sets.NewSet(w.ResourceNames...)
@@ -173,8 +172,7 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 		}
 	}
 	resp, err := s.generate(names)
-	pushLog(names, err)
-	return resp, err
+	return resp, pushLog(names), err
 }
 
 // register adds the SDS handle to the grpc server
@@ -237,13 +235,10 @@ func toEnvoySecret(s *security.SecretItem) *tls.Secret {
 	return secret
 }
 
-func pushLog(names []string, err error) {
-	if err != nil {
-		return
-	}
+func pushLog(names []string) model.XdsLogDetails {
 	if len(names) == 1 {
-		sdsServiceLog.WithLabels("resource", names[0]).Infof("SDS: PUSH")
-	} else {
-		sdsServiceLog.WithLabels("resources", len(names)).Infof("SDS: PUSH")
+		// For common case of single resource, show which resource it was
+		return model.XdsLogDetails{AdditionalInfo: "resource:" + names[0]}
 	}
+	return model.DefaultXdsLogDetails
 }

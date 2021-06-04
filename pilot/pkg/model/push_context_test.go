@@ -578,7 +578,6 @@ func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
 	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
 
@@ -668,7 +667,6 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	sd := &localServiceDiscovery{}
 	env.ServiceDiscovery = sd
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 
 	configStore := NewFakeStore()
 
@@ -1200,7 +1198,6 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 	configStore := NewFakeStore()
 	gatewayName := "default/gateway"
 
@@ -1351,7 +1348,6 @@ func TestInitVirtualService(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 	configStore := NewFakeStore()
 	gatewayName := "ns1/gateway"
 
@@ -1449,7 +1445,6 @@ func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 
 	svc1 := &Service{
 		Hostname: "svc1",
@@ -1524,118 +1519,6 @@ func TestServiceWithExportTo(t *testing.T) {
 		if !reflect.DeepEqual(gotHosts, tt.wantHosts) {
 			t.Errorf("proxy in %s namespace: want %+v, got %+v", tt.proxyNs, tt.wantHosts, gotHosts)
 		}
-	}
-}
-
-func TestMergeGatewayServerPort(t *testing.T) {
-	cases := []struct {
-		name        string
-		gateways    []config.Config
-		services    []*ServiceInstance
-		wantedPorts map[uint32]struct{}
-	}{
-		{
-			name: "basic",
-			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
-			},
-			services: []*ServiceInstance{
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 7},
-					ServicePort: &Port{Port: 8},
-				},
-			},
-			wantedPorts: map[uint32]struct{}{8: {}},
-		},
-		{
-			name: "merge",
-			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
-			},
-			services: []*ServiceInstance{
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 7},
-					ServicePort: &Port{Port: 8},
-				},
-			},
-			wantedPorts: map[uint32]struct{}{8: {}},
-		},
-		{
-			name: "skip",
-			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
-			},
-			services: []*ServiceInstance{
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 7},
-					ServicePort: &Port{Port: 8},
-				},
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 6},
-					ServicePort: &Port{Port: 7},
-				},
-			},
-			wantedPorts: map[uint32]struct{}{8: {}, 7: {}},
-		},
-		{
-			name: "service target same",
-			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", ""),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 8, "ingressgateway", ""),
-			},
-			services: []*ServiceInstance{
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 8},
-					ServicePort: &Port{Port: 8},
-				},
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 7},
-					ServicePort: &Port{Port: 7},
-				},
-			},
-			wantedPorts: map[uint32]struct{}{7: {}, 8: {}},
-		},
-		{
-			name: "same service port different targets",
-			gateways: []config.Config{
-				makeConfig("foo", "not-default", "foo.bar.com", "name1", "http", 8, "ingressgateway", ""),
-				makeConfig("foo", "not-default", "foo.bar.com", "name2", "http", 7, "ingressgateway", ""),
-			},
-			services: []*ServiceInstance{
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 9},
-					ServicePort: &Port{Port: 8},
-				},
-				{
-					Endpoint:    &IstioEndpoint{EndpointPort: 7},
-					ServicePort: &Port{Port: 8},
-				},
-			},
-			wantedPorts: map[uint32]struct{}{8: {}},
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			proxy := &Proxy{
-				Metadata:         &NodeMetadata{Labels: map[string]string{"istio": "ingressgateway"}},
-				ServiceInstances: c.services,
-			}
-			pc := &PushContext{
-				gatewayIndex: gatewayIndex{all: c.gateways},
-			}
-			mg := pc.mergeGateways(proxy)
-			if len(mg.MergedServers) != len(c.wantedPorts) {
-				t.Errorf("number of servers want %v got %v", c.wantedPorts, mg.MergedServers)
-			}
-			for p := range mg.MergedServers {
-				if _, ok := c.wantedPorts[p.Number]; !ok {
-					t.Errorf("server port want %v got %v", c.wantedPorts, p)
-					break
-				}
-			}
-		})
 	}
 }
 

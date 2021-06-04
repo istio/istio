@@ -15,24 +15,10 @@
 package bootstrap
 
 import (
-	"strings"
-
-	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
-)
-
-var (
-	validationWebhookConfigNameTemplateVar = "${namespace}"
-	// These should be an invalid DNS-1123 label to ensure the user
-	// doesn't specific a valid name that matches out template.
-	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
-
-	validationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", validationWebhookConfigNameTemplate,
-		"Name of validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.")
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
@@ -57,40 +43,11 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	})
 
-	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" && s.kubeClient != nil {
-		if webhookConfigName == validationWebhookConfigNameTemplate {
-			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
-		}
-
-		caBundlePath := s.caBundlePath
-		if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
-			caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
-		}
-		o := controller.Options{
-			WatchedNamespace:  args.Namespace,
-			CAPath:            caBundlePath,
-			WebhookConfigName: webhookConfigName,
-			ServiceName:       "istiod",
-		}
-		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					whController, err := controller.New(o, s.kubeClient)
-					if err != nil {
-						log.Errorf("failed to start validation controller")
-						return
-					}
-					log.Infof("Starting validation controller")
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					s.kubeClient.RunAndWait(stop)
-					whController.Start(leaderStop)
-				}).
-				Run(stop)
+	if s.kubeClient != nil {
+		s.addStartFunc(func(stop <-chan struct{}) error {
+			log.Infof("Starting validation controller")
+			go controller.NewValidatingWebhookController(
+				s.kubeClient, args.Revision, args.Namespace, s.istiodCertBundleWatcher).Run(stop)
 			return nil
 		})
 	}

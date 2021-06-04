@@ -172,6 +172,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 					Interface: fake.NewSimpleClientset(
 						&v1.ServiceAccount{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
+							Secrets:    []v1.ObjectReference{{Name: "test"}},
 						},
 						&v1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "istio-ca-root-cert"},
@@ -183,6 +184,12 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
 							},
 						},
+						&v1.Secret{
+							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
+							Data: map[string][]byte{
+								"token": []byte{},
+							},
+						},
 					),
 				}, nil
 			}
@@ -190,6 +197,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			cmd := []string{
 				"x", "workload", "entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
+				"--workloadIP", "10.10.10.10",
 				"-o", testdir,
 			}
 			if _, err := runTestCmd(t, cmd); err != nil {
@@ -198,7 +206,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 
 			checkFiles := map[string]bool{
 				// outputs to check
-				"mesh.yaml": true, "istio-token": true, "hosts": true, "root-cert.pem": true, "cluster.env": true,
+				"mesh.yaml": true, "istio-token": true, "hosts": true, "root-cert.pem": true, "cluster.env": true, "sidecar.env": true,
 				// inputs that we allow to exist, if other files seep in unexpectedly we fail the test
 				".gitignore": false, "meshconfig.yaml": false, "workloadgroup.yaml": false,
 			}

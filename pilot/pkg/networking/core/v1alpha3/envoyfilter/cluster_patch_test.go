@@ -214,7 +214,7 @@ func TestClusterPatching(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"protocol_selection":"USE_DOWNSTREAM_PROTOCOL"}`),
+				Value:     buildPatchStruct(`{"type":"EDS"}`),
 			},
 		},
 		{
@@ -404,7 +404,7 @@ func TestClusterPatching(t *testing.T) {
 	}
 	sidecarInboundServiceOut := []*cluster.Cluster{
 		{
-			Name: "inbound|7443||", ProtocolSelection: cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+			Name: "inbound|7443||", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 			DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH,
 		},
 	}
@@ -480,7 +480,8 @@ func TestClusterPatching(t *testing.T) {
 			output := []*cluster.Cluster{}
 			for _, c := range tc.input {
 				if ShouldKeepCluster(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)}) {
-					output = append(output, ApplyClusterMerge(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)}))
+					pc, _ := ApplyClusterMerge(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)})
+					output = append(output, pc)
 				}
 			}
 			output = append(output, InsertedClusters(tc.patchContext, efw)...)

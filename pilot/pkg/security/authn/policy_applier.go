@@ -34,8 +34,12 @@ type PolicyApplier interface {
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(proxyType model.NodeType, port uint32, istioMutualGateway bool) *http_conn.HttpFilter
+	AuthNFilter() *http_conn.HttpFilter
 
 	// PortLevelSetting returns port level mTLS settings.
 	PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS
+
+	// GetMutualTLSModeForPort gets the mTLS mode for the given port. If there is no port level setting, it
+	// returns the inherited namespace/mesh level setting.
+	GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode
 }

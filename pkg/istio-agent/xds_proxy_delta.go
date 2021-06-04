@@ -19,11 +19,16 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 
+	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/istio-agent/metrics"
+	"istio.io/istio/pkg/wasm"
 )
 
 // requests from envoy
@@ -32,6 +37,7 @@ import (
 // upstream -> istiod (in front of xds proxy)?
 func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
+
 	con := &ProxyConnection{
 		upstreamError:      make(chan error, 2), // can be produced by recv and send
 		downstreamError:    make(chan error, 2), // can be produced by recv and send
@@ -98,12 +104,14 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 		ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 	}
 	// We must propagate upstream termination to Envoy. This ensures that we resume the full XDS sequence on new connection
-	return p.HandleUpstream(ctx, con, xds)
+	return p.HandleDeltaUpstream(ctx, con, xds)
 }
 
 func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection, xds discovery.AggregatedDiscoveryServiceClient) error {
-	deltaUpstream, err := xds.DeltaAggregatedResources(ctx, grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
+	deltaUpstream, err := xds.DeltaAggregatedResources(ctx,
+		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
+		// Envoy logs errors again, so no need to log beyond debug level
 		proxyLog.Debugf("failed to create delta upstream grpc client: %v", err)
 		return err
 	}
@@ -124,7 +132,7 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		}
 	}()
 
-	go p.handleUpstreamDeltaRequest(ctx, con)
+	go p.handleUpstreamDeltaRequest(con)
 	go p.handleUpstreamDeltaResponse(con)
 
 	// todo wasm load conversion
@@ -132,17 +140,17 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("upstream terminated with status %v", err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
 				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
-			return nil
+			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				proxyLog.Debugf("downstream terminated with status %v", err)
 				metrics.EnvoyConnectionCancellations.Increment()
 			} else {
@@ -158,7 +166,7 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 	}
 }
 
-func (p *XdsProxy) handleUpstreamDeltaRequest(ctx context.Context, con *ProxyConnection) {
+func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 	defer func() {
 		_ = con.upstreamDeltas.CloseSend()
 	}()
@@ -170,7 +178,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(ctx context.Context, con *ProxyCon
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstreamDeltaWithTimeout(ctx, con.upstreamDeltas, req); err != nil {
+			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				con.upstreamError <- err
 				return
@@ -188,36 +196,37 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
-			// TODO(howardjohn) implement handlers. We need to make handlers take in a list of
-			// resources or something probably
-			//if h, f := p.handlers[resp.TypeUrl]; f {
-			//	err := h(resp)
-			//	var errorResp *google_rpc.Status
-			//	if err != nil {
-			//		errorResp = &google_rpc.Status{
-			//			Code:    int32(codes.Internal),
-			//			Message: err.Error(),
-			//		}
-			//	}
-			//	// Send ACK/NACK
-			//	con.requestsChan <- &discovery.DiscoveryRequest{
-			//		VersionInfo:   resp.VersionInfo,
-			//		TypeUrl:       resp.TypeUrl,
-			//		ResponseNonce: resp.Nonce,
-			//		ErrorDetail:   errorResp,
-			//	}
-			//	continue
-			//}
+			if h, f := p.handlers[resp.TypeUrl]; f {
+				if len(resp.Resources) == 0 {
+					// Empty response, nothing to do
+					// This assumes internal types are always singleton
+					return
+				}
+				err := h(resp.Resources[0].Resource)
+				var errorResp *google_rpc.Status
+				if err != nil {
+					errorResp = &google_rpc.Status{
+						Code:    int32(codes.Internal),
+						Message: err.Error(),
+					}
+				}
+				// Send ACK/NACK
+				con.deltaRequestsChan <- &discovery.DeltaDiscoveryRequest{
+					TypeUrl:       resp.TypeUrl,
+					ResponseNonce: resp.Nonce,
+					ErrorDetail:   errorResp,
+				}
+				continue
+			}
 			switch resp.TypeUrl {
-			// TODO: fix WASM
-			// case v3.ExtensionConfigurationType:
-			//	//if features.WasmRemoteLoadConversion {
-			//	//	// If Wasm remote load conversion feature is enabled, rewrite and send.
-			//	//	go p.rewriteAndForward(con, resp)
-			//	//} else {
-			//		// Otherwise, forward ECDS resource update directly to Envoy.
-			//		forwardDeltaToEnvoy(con, resp)
-			//	}
+			case v3.ExtensionConfigurationType:
+				if features.WasmRemoteLoadConversion {
+					// If Wasm remote load conversion feature is enabled, rewrite and send.
+					go p.deltaRewriteAndForward(con, resp)
+				} else {
+					// Otherwise, forward ECDS resource update directly to Envoy.
+					forwardDeltaToEnvoy(con, resp)
+				}
 			default:
 				forwardDeltaToEnvoy(con, resp)
 			}
@@ -227,8 +236,26 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 	}
 }
 
+func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
+	sendNack := wasm.MaybeConvertWasmExtensionConfigDelta(resp.Resources, p.wasmCache)
+	if sendNack {
+		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
+		con.deltaRequestsChan <- &discovery.DeltaDiscoveryRequest{
+			TypeUrl:       v3.ExtensionConfigurationType,
+			ResponseNonce: resp.Nonce,
+			ErrorDetail: &google_rpc.Status{
+				// TODO(bianpengyuan): make error message more informative.
+				Message: "failed to fetch wasm module",
+			},
+		}
+		return
+	}
+	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
+	forwardDeltaToEnvoy(con, resp)
+}
+
 func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
-	if err := sendDownstreamDeltaWithTimout(con.downstreamDeltas, resp); err != nil {
+	if err := sendDownstreamDelta(con.downstreamDeltas, resp); err != nil {
 		select {
 		case con.downstreamError <- err:
 			proxyLog.Errorf("downstream send error: %v", err)
@@ -240,20 +267,14 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 	}
 }
 
-func sendUpstreamDeltaWithTimeout(ctx context.Context, deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
+func sendUpstreamDelta(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient,
 	req *discovery.DeltaDiscoveryRequest) error {
-	return sendWithTimeout(ctx, func(errChan chan error) {
-		errChan <- deltaUpstream.Send(req)
-		close(errChan)
-	})
+	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) })
 }
 
-func sendDownstreamDeltaWithTimout(deltaUpstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
-	req *discovery.DeltaDiscoveryResponse) error {
-	return sendWithTimeout(context.Background(), func(errChan chan error) {
-		errChan <- deltaUpstream.Send(req)
-		close(errChan)
-	})
+func sendDownstreamDelta(deltaDownstream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer,
+	res *discovery.DeltaDiscoveryResponse) error {
+	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
 func (p *XdsProxy) PersistDeltaRequest(req *discovery.DeltaDiscoveryRequest) {

@@ -23,6 +23,7 @@ import (
 	"github.com/miekg/dns"
 
 	nds "istio.io/istio/pilot/pkg/proto"
+	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -173,8 +174,6 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		_ = w.WriteMsg(response)
 		return
 	}
-	// we expect only one question in the query even though the spec allows many
-	// clients usually do not do more than one query either.
 
 	lp := h.lookupTable.Load()
 	hostname := strings.ToLower(req.Question[0].Name)
@@ -189,7 +188,9 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	lookupTable := lp.(*LookupTable)
 	var answers []dns.RR
 
-	// This name will always end in a dot
+	// This name will always end in a dot.
+	// We expect only one question in the query even though the spec allows many
+	// clients usually do not do more than one query either.
 	answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
 
 	if hostFound {
@@ -206,19 +207,13 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		// This matches standard kube-dns behavior. We only do this for cached responses as the
 		// upstream DNS server would already round robin if desired.
 		roundRobinResponse(response)
-		// Truncate response if its too big for the request. In practice, this will only happen with
-		// ~28 headless service replicas. When there are more than that clients need to use eDNS or
-		// TCP (almost every client does this transparently).
-		// In other cases, this is a NOP.
-		response.Truncate(size(proxy.protocol, req))
 		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
-		_ = w.WriteMsg(response)
-		return
+	} else {
+		// We did not find the host in our internal cache. Query upstream and return the response as is.
+		log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
+		response = h.queryUpstream(proxy.upstreamClient, req, log)
+		log.Debugf("upstream response for hostname %q : %v", hostname, response)
 	}
-
-	// We did not find the host in our internal cache. Query upstream and return the response as is.
-	log.Debugf("response for hostname %q (found=false): %v", hostname, response)
-	response = h.queryUpstream(proxy.upstreamClient, req, log)
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
@@ -360,8 +355,27 @@ func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNa
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
 	var hostFound bool
-	if _, hostFound = table.allHosts[hostname]; !hostFound {
-		// this is not from our registry
+
+	question := host.Name(hostname)
+	wildcard := false
+	// First check if host exists in all hosts.
+	_, hostFound = table.allHosts[hostname]
+	// If it is not found, check if a wildcard host exists for it.
+	// For example for "*.example.com", with the question "svc.svcns.example.com",
+	// we check if we have entries for "*.svcns.example.com", "*.example.com" etc.
+	if !hostFound {
+		labels := dns.SplitDomainName(hostname)
+		for idx := range labels {
+			qhost := "*." + strings.Join(labels[idx+1:], ".") + "."
+			if _, hostFound = table.allHosts[qhost]; hostFound {
+				wildcard = true
+				hostname = qhost
+				break
+			}
+		}
+	}
+
+	if !hostFound {
 		return nil, false
 	}
 
@@ -386,6 +400,12 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 	}
 
 	if len(ipAnswers) > 0 {
+		// For wildcard hosts, set the host that is being queried for.
+		if wildcard {
+			for _, answer := range ipAnswers {
+				answer.Header().Name = string(question)
+			}
+		}
 		// We will return a chained response. In a chained response, the first entry is the cname record,
 		// and the second one is the A/AAAA record itself. Some clients do not follow cname redirects
 		// with additional DNS queries. Instead, they expect all the resolved records to be in the same

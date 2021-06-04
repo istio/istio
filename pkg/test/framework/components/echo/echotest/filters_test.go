@@ -16,6 +16,7 @@ package echotest
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -23,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -34,38 +36,38 @@ var (
 	cls2 = &cluster.FakeCluster{Topology: cluster.Topology{ClusterName: "cls2", Network: "n2", Index: 1, ClusterKind: cluster.Fake}}
 
 	// simple pod
-	a1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "a"}
-	a2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "a"}
+	a1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "a"}
+	a2 = &fakeInstance{Cluster: cls2, Namespace: namespace.Static("echo"), Service: "a"}
 	// simple pod with different svc
-	b1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "b"}
-	b2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "b"}
+	b1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "b"}
+	b2 = &fakeInstance{Cluster: cls2, Namespace: namespace.Static("echo"), Service: "b"}
 	// another simple pod with different svc
-	c1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "c"}
-	c2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "c"}
+	c1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "c"}
+	c2 = &fakeInstance{Cluster: cls2, Namespace: namespace.Static("echo"), Service: "c"}
 	// simple pod with a different namespace
-	aNs1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo2"), Service: "a"}
-	aNs2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo2"), Service: "a"}
+	aNs1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo2"), Service: "a"}
+	aNs2 = &fakeInstance{Cluster: cls2, Namespace: namespace.Static("echo2"), Service: "a"}
 	// virtual machine
-	vm1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "vm", DeployAsVM: true}
-	vm2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "vm", DeployAsVM: true}
+	vm1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "vm", DeployAsVM: true}
+	vm2 = &fakeInstance{Cluster: cls2, Namespace: namespace.Static("echo"), Service: "vm", DeployAsVM: true}
 	// headless
-	headless1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "headless", Headless: true}
-	headless2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "headless", Headless: true}
+	headless1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "headless", Headless: true}
+	headless2 = &fakeInstance{Cluster: cls2, Namespace: namespace.Static("echo"), Service: "headless", Headless: true}
 	// naked pod (uninjected)
-	naked1 = &fakeInstance{Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
+	naked1 = &fakeInstance{Cluster: cls1, Namespace: namespace.Static("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
 		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 	}}}
-	naked2 = &fakeInstance{Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
+	naked2 = &fakeInstance{Cluster: cls2, Namespace: namespace.Static("echo"), Service: "naked", Subsets: []echo.SubsetConfig{{
 		Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
 	}}}
 	// external svc
 	external1 = &fakeInstance{
-		Cluster: cls1, Namespace: fakeNamespace("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
+		Cluster: cls1, Namespace: namespace.Static("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
 			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
 		}},
 	}
 	external2 = &fakeInstance{
-		Cluster: cls2, Namespace: fakeNamespace("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
+		Cluster: cls2, Namespace: namespace.Static("echo"), Service: "external", DefaultHostHeader: "external.com", Subsets: []echo.SubsetConfig{{
 			Annotations: map[echo.Annotation]*echo.AnnotationValue{echo.SidecarInject: {Value: strconv.FormatBool(false)}},
 		}},
 	}
@@ -91,7 +93,7 @@ func TestIsRegularPod(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.app.Config().Service, func(t *testing.T) {
-			if got := isRegularPod(tt.app); got != tt.expect {
+			if got := RegularPod(tt.app); got != tt.expect {
 				t.Errorf("got %v expected %v", got, tt.expect)
 			}
 		})
@@ -114,6 +116,15 @@ func TestIsNaked(t *testing.T) {
 				t.Errorf("got %v expected %v", got, tt.expect)
 			}
 		})
+	}
+}
+
+func TestDeployments(t *testing.T) {
+	if diff := cmp.Diff(
+		all.Services().Services(),
+		[]string{"a", "a", "b", "c", "external", "headless", "naked", "vm"},
+	); diff != "" {
+		t.Fatal(diff)
 	}
 }
 
@@ -174,54 +185,6 @@ func TestFilters(t *testing.T) {
 	}
 }
 
-func TestDefaultFilters(t *testing.T) {
-	// source svc/cluster -> dest services -> number of subtests (should == num clusters)
-	testTopology := map[string]map[string]int{}
-	framework.NewTest(t).Run(func(t framework.TestContext) {
-		New(t, all).
-			WithDefaultFilters().
-			Run(func(ctx framework.TestContext, src echo.Instance, dst echo.Instances) {
-				// TODO if the destinations would change based on which cluster then add cluster to srCkey
-				srcKey := src.Config().FQDN()
-				dstKey := dst[0].Config().FQDN()
-				if testTopology[srcKey] == nil {
-					testTopology[srcKey] = map[string]int{}
-				}
-				testTopology[srcKey][dstKey]++
-			})
-	})
-	if diff := cmp.Diff(testTopology, map[string]map[string]int{
-		"a.echo.svc.cluster.local": {
-			"b.echo.svc.cluster.local":        2,
-			"external.echo.svc.cluster.local": 2,
-			"headless.echo.svc.cluster.local": 2,
-			"naked.echo.svc.cluster.local":    2,
-			"vm.echo.svc.cluster.local":       2,
-		},
-		"headless.echo.svc.cluster.local": {
-			"b.echo.svc.cluster.local":        2,
-			"external.echo.svc.cluster.local": 2,
-			"headless.echo.svc.cluster.local": 2,
-			"naked.echo.svc.cluster.local":    2,
-			"vm.echo.svc.cluster.local":       2,
-		},
-		"naked.echo.svc.cluster.local": {
-			"b.echo.svc.cluster.local":        2,
-			"external.echo.svc.cluster.local": 2,
-			"headless.echo.svc.cluster.local": 2,
-			"naked.echo.svc.cluster.local":    2,
-		},
-		"vm.echo.svc.cluster.local": {
-			"b.echo.svc.cluster.local":        2,
-			"headless.echo.svc.cluster.local": 2,
-			"naked.echo.svc.cluster.local":    2,
-			"vm.echo.svc.cluster.local":       2,
-		},
-	}); diff != "" {
-		t.Errorf(diff)
-	}
-}
-
 func compare(t *testing.T, got echo.Instances, want echo.Instances) {
 	if len(got) != len(want) {
 		t.Errorf("got %d instnaces but expected %d", len(got), len(want))
@@ -248,4 +211,101 @@ func compare(t *testing.T, got echo.Instances, want echo.Instances) {
 	if len(expected) > 0 {
 		t.Errorf("did not include %v", expected)
 	}
+}
+
+func TestRun(t *testing.T) {
+	// source svc/cluster -> dest services -> number of subtests (should == num clusters)
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		tests := map[string]struct {
+			run    func(t framework.TestContext, testTopology map[string]map[string]int)
+			expect map[string]map[string]int
+		}{
+			"Run_WithDefaultFilters": {
+				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
+					New(t, all).
+						WithDefaultFilters().
+						Run(func(ctx framework.TestContext, src echo.Instance, dst echo.Instances) {
+							// TODO if the destinations would change based on which cluster then add cluster to srCkey
+							srcKey := src.Config().FQDN()
+							dstKey := dst[0].Config().FQDN()
+							if testTopology[srcKey] == nil {
+								testTopology[srcKey] = map[string]int{}
+							}
+							testTopology[srcKey][dstKey]++
+						})
+				},
+				expect: map[string]map[string]int{
+					"a.echo.svc.cluster.local": {
+						"b.echo.svc.cluster.local":        2,
+						"external.echo.svc.cluster.local": 2,
+						"headless.echo.svc.cluster.local": 2,
+						"naked.echo.svc.cluster.local":    2,
+						"vm.echo.svc.cluster.local":       2,
+					},
+					"headless.echo.svc.cluster.local": {
+						"b.echo.svc.cluster.local":        2,
+						"external.echo.svc.cluster.local": 2,
+						"headless.echo.svc.cluster.local": 2,
+						"naked.echo.svc.cluster.local":    2,
+						"vm.echo.svc.cluster.local":       2,
+					},
+					"naked.echo.svc.cluster.local": {
+						"b.echo.svc.cluster.local":        2,
+						"external.echo.svc.cluster.local": 2,
+						"headless.echo.svc.cluster.local": 2,
+						"naked.echo.svc.cluster.local":    2,
+					},
+					"vm.echo.svc.cluster.local": {
+						"b.echo.svc.cluster.local":        2,
+						"headless.echo.svc.cluster.local": 2,
+						"naked.echo.svc.cluster.local":    2,
+						"vm.echo.svc.cluster.local":       2,
+					},
+				},
+			},
+			"RunToN": {
+				run: func(t framework.TestContext, testTopology map[string]map[string]int) {
+					noNaked := Not(FilterMatch(echo.IsNaked()))
+					noHeadless := Not(FilterMatch(echo.IsHeadless()))
+					New(t, all).
+						WithDefaultFilters().
+						From(noNaked, noHeadless).
+						To(noHeadless).
+						RunToN(3, func(ctx framework.TestContext, src echo.Instance, dsts echo.Services) {
+							srcKey := src.Config().FQDN()
+							if testTopology[srcKey] == nil {
+								testTopology[srcKey] = map[string]int{}
+							}
+							var dstnames []string
+							for _, dst := range dsts {
+								dstnames = append(dstnames, dst[0].Config().FQDN())
+							}
+							dstKey := strings.Join(dstnames, "_")
+							testTopology[srcKey][dstKey]++
+						})
+				},
+				expect: map[string]map[string]int{
+					"a.echo.svc.cluster.local": {
+						"b.echo.svc.cluster.local_external.echo.svc.cluster.local_naked.echo.svc.cluster.local":  2,
+						"external.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local": 2,
+					},
+					"vm.echo.svc.cluster.local": {
+						// VM cannot hit external services (https://github.com/istio/istio/issues/27154)
+						"b.echo.svc.cluster.local_naked.echo.svc.cluster.local_vm.echo.svc.cluster.local": 2,
+					},
+				},
+			},
+		}
+
+		for name, tt := range tests {
+			tt := tt
+			t.NewSubTest(name).Run(func(t framework.TestContext) {
+				testTopology := map[string]map[string]int{}
+				tt.run(t, testTopology)
+				if diff := cmp.Diff(testTopology, tt.expect); diff != "" {
+					t.Errorf(diff)
+				}
+			})
+		}
+	})
 }

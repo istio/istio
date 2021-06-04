@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,8 +28,12 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
+	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/option"
@@ -49,11 +54,16 @@ const (
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 
+	rbacEnvoyStatsMatcherInclusionSuffix = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
+
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component"
+
+	// TODO: add this to istio/api repo.
+	extraTagsAnnotation = "sidecar.istio.io/extraStatTags"
 )
 
 // Config for creating a bootstrap file.
@@ -66,14 +76,21 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
 	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
+
+	xdsType := "GRPC"
+	if features.DeltaXds.Get() {
+		xdsType = "DELTA_GRPC"
+	}
+
 	opts = append(opts,
 		option.NodeID(cfg.ID),
+		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.ProxyViaAgent(cfg.Metadata.ProxyViaAgent),
-		option.PilotCertProvider(cfg.Metadata.PilotCertProvider),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.ProvCert(cfg.Metadata.ProvCert),
-		option.DiscoveryHost(discHost))
+		option.DiscoveryHost(discHost),
+		option.XdsType(xdsType))
 
 	if cfg.Metadata.StsPort != "" {
 		stsPort, err := strconv.Atoi(cfg.Metadata.StsPort)
@@ -160,8 +177,6 @@ var DefaultStatTags = []string{
 	"response_flags",
 	"grpc_response_status",
 	"connection_security_policy",
-	"permissive_response_code",
-	"permissive_response_policyid",
 	"source_canonical_service",
 	"destination_canonical_service",
 	"source_canonical_revision",
@@ -171,6 +186,12 @@ var DefaultStatTags = []string{
 func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	nodeIPs := meta.InstanceIPs
 	config := meta.ProxyConfig
+
+	tagAnno := meta.Annotations[extraTagsAnnotation]
+	prefixAnno := meta.Annotations[annotation.SidecarStatsInclusionPrefixes.Name]
+	RegexAnno := meta.Annotations[annotation.SidecarStatsInclusionRegexps.Name]
+	suffixAnno := meta.Annotations[annotation.SidecarStatsInclusionSuffixes.Name]
+
 	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
@@ -200,7 +221,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			extraStatTags = append(extraStatTags, tag)
 		}
 	}
-	for _, tag := range strings.Split(meta.ExtraStatTags, ",") {
+	for _, tag := range strings.Split(tagAnno, ",") {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)
 		}
@@ -215,10 +236,11 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	}
 
 	return []option.Instance{
-		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes,
+		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "", proxyConfigSuffixes)),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "", proxyConfigRegexps)),
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
+			rbacEnvoyStatsMatcherInclusionSuffix, proxyConfigSuffixes)),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
@@ -233,12 +255,32 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts, getStatsOptions(node.Metadata)...)
 
-	opts = append(opts, option.NodeMetadata(node.Metadata, node.RawMetadata))
+	opts = append(opts,
+		option.NodeMetadata(node.Metadata, node.RawMetadata),
+		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
+		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
 }
 
 func getLocalityOptions(l *core.Locality) []option.Instance {
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
+}
+
+func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
+	serviceCluster := metadata.ProxyConfig.ServiceCluster
+
+	// Update the default value to something more informative.
+	if serviceCluster == "" || serviceCluster == "istio-proxy" {
+		if app, ok := metadata.Labels["app"]; ok {
+			serviceCluster = app + "." + metadata.Namespace
+		} else if metadata.WorkloadName != "" {
+			serviceCluster = metadata.WorkloadName + "." + metadata.Namespace
+		} else if metadata.Namespace != "" {
+			serviceCluster = "istio-proxy." + metadata.Namespace
+		}
+	}
+
+	return serviceCluster
 }
 
 func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
@@ -248,7 +290,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 	opts := make([]option.Instance, 0)
 
 	opts = append(opts, option.ProxyConfig(config),
-		option.Cluster(config.ServiceCluster),
+		option.Cluster(getServiceCluster(metadata)),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
 		option.StatsdAddress(config.StatsdUdpAddress))
@@ -415,8 +457,10 @@ type MetadataOptions struct {
 	ProxyViaAgent       bool
 	PilotSubjectAltName []string
 	OutlierLogPath      string
-	PilotCertProvider   string
 	ProvCert            string
+	annotationFilePath  string
+	EnvoyStatusPort     int
+	EnvoyPrometheusPort int
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -455,6 +499,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if options.StsPort != 0 {
 		meta.StsPort = strconv.Itoa(options.StsPort)
 	}
+	meta.EnvoyStatusPort = options.EnvoyStatusPort
+	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
@@ -479,6 +525,24 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		}
 	}
 
+	// Add all pod annotations found from filesystem
+	// These are typically volume mounted by the downward API
+	annos, err := ReadPodAnnotations(options.annotationFilePath)
+	if err == nil {
+		if meta.Annotations == nil {
+			meta.Annotations = map[string]string{}
+		}
+		for k, v := range annos {
+			meta.Annotations[k] = v
+		}
+	} else {
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod annotations: %v", err)
+		} else {
+			log.Warnf("failed to read pod annotations: %v", err)
+		}
+	}
+
 	var l *core.Locality
 	if meta.Labels[model.LocalityLabel] == "" && options.Platform != nil {
 		// The locality string was not set, try to get locality from platform
@@ -491,7 +555,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.ProxyViaAgent = options.ProxyViaAgent
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
 	meta.OutlierLogPath = options.OutlierLogPath
-	meta.PilotCertProvider = options.PilotCertProvider
 	meta.ProvCert = options.ProvCert
 
 	return &model.Node{
@@ -500,6 +563,62 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+// ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
+func ConvertNodeToXDSNode(node *model.Node) *core.Node {
+	// First pass translates typed metadata
+	js, err := json.Marshal(node.Metadata)
+	if err != nil {
+		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
+	}
+	pbst := &structpb.Struct{}
+	if err = jsonpb.UnmarshalString(string(js), pbst); err != nil {
+		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
+	}
+	// Second pass translates untyped metadata for "unknown" fields
+	for k, v := range node.RawMetadata {
+		if _, f := pbst.Fields[k]; !f {
+			fjs, err := json.Marshal(v)
+			if err != nil {
+				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
+			}
+			pbv := &structpb.Value{}
+			if err = jsonpb.UnmarshalString(string(fjs), pbv); err != nil {
+				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
+			}
+			pbst.Fields[k] = pbv
+		}
+	}
+	return &core.Node{
+		Id:       node.ID,
+		Cluster:  getServiceCluster(node.Metadata),
+		Locality: node.Locality,
+		Metadata: pbst,
+	}
+}
+
+// ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
+func ConvertXDSNodeToNode(node *core.Node) *model.Node {
+	buf := &bytes.Buffer{}
+	err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, node.Metadata)
+	if err != nil {
+		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
+	}
+	metadata := &model.BootstrapNodeMetadata{}
+	err = json.Unmarshal(buf.Bytes(), metadata)
+	if err != nil {
+		log.Warnf("Failed to unmarshal node metadata from JSON %q: %v", node.Metadata, err)
+	}
+	if metadata.ProxyConfig == nil {
+		metadata.ProxyConfig = &model.NodeMetaProxyConfig{}
+	}
+	metadata.ProxyConfig.ServiceCluster = node.Cluster
+	return &model.Node{
+		ID:       node.Id,
+		Locality: node.Locality,
+		Metadata: metadata,
+	}
 }
 
 // Extracts instance labels for the platform into model.NodeMetadata.Labels
@@ -519,6 +638,17 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 
 func readPodLabels() (map[string]string, error) {
 	b, err := ioutil.ReadFile(constants.PodInfoLabelsPath)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownwardAPI(string(b))
+}
+
+func ReadPodAnnotations(path string) (map[string]string, error) {
+	if path == "" {
+		path = constants.PodInfoAnnotationsPath
+	}
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

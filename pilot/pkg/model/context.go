@@ -84,6 +84,8 @@ type Environment struct {
 	TrustBundle *trustbundle.TrustBundle
 
 	clusterLocalServices ClusterLocalProvider
+
+	GatewayAPIController GatewayController
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -164,12 +166,37 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
-// Request is an alias for array of marshaled resources.
-type Resources = []*any.Any
+// Resources is an alias for array of marshaled resources.
+type Resources = []*discovery.Resource
+
+func AnyToUnnamedResources(r []*any.Any) Resources {
+	a := make(Resources, 0, len(r))
+	for _, rr := range r {
+		a = append(a, &discovery.Resource{Resource: rr})
+	}
+	return a
+}
+
+func ResourcesToAny(r Resources) []*any.Any {
+	a := make([]*any.Any, 0, len(r))
+	for _, rr := range r {
+		a = append(a, rr.Resource)
+	}
+	return a
+}
 
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
 type XdsUpdates = map[ConfigKey]struct{}
+
+// XdsLogDetails contains additional metadata that is captured by Generators and used by xds processors
+// like Ads and Delta to uniformly log.
+type XdsLogDetails struct {
+	Incremental    bool
+	AdditionalInfo string
+}
+
+var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
@@ -178,7 +205,7 @@ type XdsUpdates = map[ConfigKey]struct{}
 // Note: any errors returned will completely close the XDS stream. Use with caution; typically and empty
 // or no response is preferred.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -258,6 +285,9 @@ type Proxy struct {
 
 	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
 	WatchedResources map[string]*WatchedResource
+
+	// XdsNode is the xDS node identifier
+	XdsNode *core.Node
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -366,7 +396,7 @@ func (l *PodPortList) UnmarshalJSON(data []byte) error {
 	var pl []PodPort
 	pls, err := strconv.Unquote(string(data))
 	if err != nil {
-		return nil
+		return err
 	}
 	if err := json.Unmarshal([]byte(pls), &pl); err != nil {
 		return err
@@ -443,18 +473,6 @@ type BootstrapNodeMetadata struct {
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
 
-	// PlatformMetadata contains any platform specific metadata
-	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
-
-	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
-	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
-	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
-	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
-
-	// StsPort specifies the port of security token exchange server (STS).
-	// Used by envoy filters
-	StsPort string `json:"STS_PORT,omitempty"`
-
 	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
 	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
 
@@ -464,11 +482,14 @@ type BootstrapNodeMetadata struct {
 	// OutlierLogPath is the cluster manager outlier event log path.
 	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
 
-	// PilotCertProvider is the provider of the xDS server DNS certificate.
-	PilotCertProvider string `json:"PILOT_CERT_PROVIDER,omitempty"`
-
 	// ProvCertDir is the directory containing pre-provisioned certs.
 	ProvCert string `json:"PROV_CERT,omitempty"`
+
+	// AppContainers is the list of containers in the pod.
+	AppContainers string `json:"APP_CONTAINERS,omitempty"`
+
+	// IstioProxySHA is the SHA of the proxy version.
+	IstioProxySHA string `json:"ISTIO_PROXY_SHA,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
@@ -488,6 +509,9 @@ type NodeMetadata struct {
 
 	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
 	Labels map[string]string `json:"LABELS,omitempty"`
+
+	// Labels specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
+	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
 
 	// InstanceIPs is the set of IPs attached to this proxy
 	InstanceIPs StringList `json:"INSTANCE_IPS,omitempty"`
@@ -564,6 +588,19 @@ type NodeMetadata struct {
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
 
+	// PlatformMetadata contains any platform specific metadata
+	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
+	StsPort string `json:"STS_PORT,omitempty"`
+
+	// Envoy status port redirecting to agent status port.
+	EnvoyStatusPort int `json:"ENVOY_STATUS_PORT,omitempty"`
+
+	// Envoy prometheus port redirecting to admin port prometheus endpoint.
+	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
@@ -577,6 +614,44 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
 	}
 	return def
+}
+
+// UnnamedNetwork is the default network that proxies in the mesh
+// get when they don't request a specific network view.
+const UnnamedNetwork = ""
+
+// GetNetworkView returns the networks that the proxy requested.
+// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
+// endpoints corresponding to the networks that the proxy wants to see.
+// If not set, we assume that the proxy wants to see endpoints in any network.
+func (node *Proxy) GetNetworkView() map[string]bool {
+	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+		return nil
+	}
+
+	nmap := make(map[string]bool)
+	for _, n := range node.Metadata.RequestedNetworkView {
+		nmap[n] = true
+	}
+	nmap[UnnamedNetwork] = true
+
+	return nmap
+}
+
+// InNetwork returns true if the proxy is on the given network, or if either
+// the proxy's network or the given network is unspecified ("").
+func (node *Proxy) InNetwork(network string) bool {
+	return node == nil || SameOrEmpty(network, node.Metadata.Network)
+}
+
+// InCluster returns true if the proxy is in the given cluster, or if either
+// the proxy's cluster id or the given cluster id is unspecified ("").
+func (node *Proxy) InCluster(cluster string) bool {
+	return node == nil || SameOrEmpty(cluster, node.Metadata.ClusterID)
+}
+
+func SameOrEmpty(a, b string) bool {
+	return a == UnnamedNetwork || b == UnnamedNetwork || a == b
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
@@ -691,26 +766,6 @@ func (node *Proxy) ServiceNode() string {
 	}, serviceNodeSeparator)
 }
 
-// RouterMode decides the behavior of Istio Gateway (normal or sni-dnat)
-type RouterMode string
-
-const (
-	// StandardRouter is the normal gateway mode
-	StandardRouter RouterMode = "standard"
-
-	// SniDnatRouter is used for bridging two networks
-	SniDnatRouter RouterMode = "sni-dnat"
-)
-
-// GetRouterMode returns the operating mode associated with the router.
-// Assumes that the proxy is of type Router
-func (node *Proxy) GetRouterMode() RouterMode {
-	if RouterMode(node.Metadata.RouterMode) == SniDnatRouter {
-		return SniDnatRouter
-	}
-	return StandardRouter
-}
-
 // SetSidecarScope identifies the sidecar scope object associated with this
 // proxy and updates the proxy Node. This is a convenience hack so that
 // callers can simply call push.Services(node) while the implementation of
@@ -738,6 +793,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
+// Must be called after ServiceInstances are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	if node.Type != Router {
 		return
@@ -805,28 +861,6 @@ func (node *Proxy) SupportsIPv4() bool {
 // SupportsIPv6 returns true if proxy supports IPv6 addresses.
 func (node *Proxy) SupportsIPv6() bool {
 	return node.ipv6Support
-}
-
-// UnnamedNetwork is the default network that proxies in the mesh
-// get when they don't request a specific network view.
-const UnnamedNetwork = ""
-
-// GetNetworkView returns the networks that the proxy requested.
-// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
-// endpoints corresponding to the networks that the proxy wants to see.
-// If not set, we assume that the proxy wants to see endpoints in any network.
-func GetNetworkView(node *Proxy) map[string]bool {
-	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
-		return nil
-	}
-
-	nmap := make(map[string]bool)
-	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[n] = true
-	}
-	nmap[UnnamedNetwork] = true
-
-	return nmap
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
@@ -1011,4 +1045,9 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 func (node *Proxy) IsVM() bool {
 	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
 	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
+}
+
+type GatewayController interface {
+	ConfigStoreCache
+	Recompute() error
 }

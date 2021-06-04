@@ -120,14 +120,14 @@ func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
 	return &cs, nil
 }
 
-func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (containers []string,
-	initContainers map[string]struct{}, labels map[string]string, annotations map[string]string, err error) {
-	containers = testContainers
-	labels = testLabels
-	annotations = testAnnotations
-	initContainers = testInitContainers
+func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (*PodInfo, error) {
+	pi := PodInfo{}
+	pi.Containers = testContainers
+	pi.Labels = testLabels
+	pi.Annotations = testAnnotations
+	pi.InitContainers = testInitContainers
 
-	return containers, initContainers, labels, annotations, nil
+	return &pi, nil
 }
 
 func resetGlobalTestVariables() {
@@ -426,20 +426,6 @@ func TestCmdAddNoPrevResult(t *testing.T) {
 
 	defer resetGlobalTestVariables()
 	testCmdAddWithStdinData(t, confNoPrevResult)
-}
-
-func TestCmdDel(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
-	args := testSetArgs(cniConf)
-
-	err := cmdDel(args)
-	if err != nil {
-		t.Fatalf("failed with error: %v", err)
-	}
-}
-
-func TestCmdDelInvalidVersion(t *testing.T) {
-	testCmdInvalidVersion(t, cmdDel)
 }
 
 func MockInterceptRuleMgrCtor() InterceptRuleMgr {

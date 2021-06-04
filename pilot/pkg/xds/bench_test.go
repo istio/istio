@@ -28,7 +28,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -101,6 +100,11 @@ var testCases = []ConfigInput{
 		Name:     "peerauthentication",
 		Services: 100,
 	},
+	{
+		Name:      "knative-gateway",
+		Services:  100,
+		ProxyType: model.Router,
+	},
 }
 
 func disableLogging() {
@@ -139,7 +143,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _ = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
+				c, _, _ = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no routes!")
 				}
@@ -153,13 +157,13 @@ func BenchmarkRouteGeneration(b *testing.B) {
 // update our benchmark doesn't become useless.
 func TestValidateTelemetry(t *testing.T) {
 	s, proxy := setupAndInitializeTest(t, ConfigInput{Name: "telemetry", Services: 1})
-	c, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
+	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
 	if len(c) == 0 {
 		t.Fatal("Got no clusters!")
 	}
 	for _, r := range c {
 		cls := &cluster.Cluster{}
-		if err := ptypes.UnmarshalAny(r, cls); err != nil {
+		if err := r.GetResource().UnmarshalTo(cls); err != nil {
 			t.Fatal(err)
 		}
 		for _, ff := range cls.Filters {
@@ -179,7 +183,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
+				c, _, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
@@ -197,7 +201,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _ = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
+				c, _, _ = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no listeners!")
 				}
@@ -215,7 +219,7 @@ func BenchmarkNameTableGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _ = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
+				c, _, _ = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 && tt.ProxyType != model.Router {
 					b.Fatal("Got no name tables!")
 				}
@@ -258,7 +262,7 @@ func BenchmarkSecretGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _ = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
+				c, _, _ = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
 				if len(c) == 0 {
 					b.Fatal("Got no secrets!")
 				}
@@ -306,7 +310,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
 			}
-			logDebug(b, response.GetResources())
+			logDebug(b, model.AnyToUnnamedResources(response.GetResources()))
 		})
 	}
 }
@@ -328,7 +332,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.10.0",
+			IstioVersion: "1.11.0",
 		},
 		ConfigNamespace: "default",
 	}
@@ -424,7 +428,7 @@ func logDebug(b *testing.B, m model.Resources) {
 	}
 	bytes := 0
 	for _, r := range m {
-		bytes += len(r.Value)
+		bytes += len(r.GetResource().Value)
 	}
 	b.ReportMetric(float64(bytes)/1000, "kb/msg")
 	b.ReportMetric(float64(len(m)), "resources/msg")

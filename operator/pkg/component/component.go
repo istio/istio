@@ -93,8 +93,6 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewPilotComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
-	case name.IstiodRemoteComponentName:
-		component = NewIstiodRemoteComponent(opts)
 	default:
 		scope.Errorf("Unknown component componentName: " + string(cn))
 	}
@@ -239,52 +237,6 @@ func (c *CNIComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
-// IstiodRemoteComponent is the istiod remote component.
-type IstiodRemoteComponent struct {
-	*CommonComponentFields
-}
-
-// NewIstiodRemoteComponent creates a new NewIstiodRemoteComponent and returns a pointer to it.
-func NewIstiodRemoteComponent(opts *Options) *IstiodRemoteComponent {
-	cn := name.IstiodRemoteComponentName
-	return &IstiodRemoteComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			ComponentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *IstiodRemoteComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
 // IngressComponent is the ingress gateway component.
 type IngressComponent struct {
 	*CommonComponentFields
@@ -332,7 +284,7 @@ func (c *IngressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *IngressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return c.componentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
 }
 
 // EgressComponent is the egress gateway component.
@@ -382,7 +334,7 @@ func (c *EgressComponent) Namespace() string {
 // Enabled implements the IstioComponent interface.
 func (c *EgressComponent) Enabled() bool {
 	// type assert is guaranteed to work in this context.
-	return boolValue(c.componentSpec.(*v1alpha1.GatewaySpec).Enabled)
+	return c.componentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
 }
 
 // runComponent performs startup tasks for the component defined by the given CommonComponentFields.
@@ -491,12 +443,4 @@ func disabledYAMLStr(componentName name.ComponentName, resourceName string) stri
 		fullName += " " + resourceName
 	}
 	return fmt.Sprintf("%s %s %s\n", yamlCommentStr, fullName, componentDisabledStr)
-}
-
-// boolValue returns true is v is not nil and v.Value is true, or false otherwise.
-func boolValue(v *v1alpha1.BoolValueForPB) bool {
-	if v == nil {
-		return false
-	}
-	return v.Value
 }

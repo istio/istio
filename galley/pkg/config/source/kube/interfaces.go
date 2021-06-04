@@ -23,6 +23,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pkg/kube"
 )
 
 // Interfaces interface allows access to the Kubernetes API Service methods. It is mainly used for
@@ -69,4 +71,26 @@ func (k *interfaces) APIExtensionsClientset() (clientset.Interface, error) {
 // KubeClient returns a new kubernetes Interface client.
 func (k *interfaces) KubeClient() (kubernetes.Interface, error) {
 	return kubernetes.NewForConfig(k.cfg)
+}
+
+type wrapper struct {
+	kube.Client
+}
+
+func (w wrapper) DynamicInterface() (dynamic.Interface, error) {
+	return w.Dynamic(), nil
+}
+
+func (w wrapper) APIExtensionsClientset() (clientset.Interface, error) {
+	return w.Client.Ext(), nil
+}
+
+func (w wrapper) KubeClient() (kubernetes.Interface, error) {
+	return w.Kube(), nil
+}
+
+var _ Interfaces = &wrapper{}
+
+func NewInterfacesFromClient(client kube.Client) Interfaces {
+	return wrapper{client}
 }

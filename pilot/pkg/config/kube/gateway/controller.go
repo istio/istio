@@ -15,22 +15,30 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	klabels "k8s.io/apimachinery/pkg/labels"
+	listerv1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/kube"
+	istiolog "istio.io/pkg/log"
 )
+
+var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)
 
 var (
 	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
@@ -38,13 +46,39 @@ var (
 )
 
 type controller struct {
-	client kubernetes.Interface
-	cache  model.ConfigStoreCache
-	domain string
+	client            kube.Client
+	cache             model.ConfigStoreCache
+	namespaceLister   listerv1.NamespaceLister
+	namespaceInformer cache.SharedIndexInformer
+	domain            string
+
+	state   OutputResources
+	stateMu sync.RWMutex
+	status  status.WorkerQueue
 }
 
-func NewController(client kubernetes.Interface, c model.ConfigStoreCache, options controller2.Options) model.ConfigStoreCache {
-	return &controller{client, c, options.DomainSuffix}
+var _ model.GatewayController = &controller{}
+
+func NewController(client kube.Client, c model.ConfigStoreCache, options controller2.Options) model.GatewayController {
+	return &controller{
+		client:            client,
+		cache:             c,
+		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
+		namespaceInformer: client.KubeInformer().Core().V1().Namespaces().Informer(),
+		domain:            options.DomainSuffix,
+		status: status.NewWorkerPool(func(resource status.Resource, resourceStatus status.ResourceStatus) {
+			log.Debugf("updating status for %v", resource.String())
+			_, err := c.UpdateStatus(config.Config{
+				// TODO stop round tripping this status.Resource<->config.Meta
+				Meta:   status.ResourceToModelConfig(resource),
+				Status: resourceStatus.(config.Status),
+			})
+			if err != nil {
+				// TODO should we requeue or wait for another event to trigger an update?
+				log.Errorf("failed to update status for %v/: %v", resource.String(), err)
+			}
+		}, uint(features.StatusMaxWorkers.Get())),
+	}
 }
 
 func (c *controller) Schemas() collection.Schemas {
@@ -55,7 +89,7 @@ func (c *controller) Schemas() collection.Schemas {
 	)
 }
 
-func (c controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
+func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	return nil
 }
 
@@ -72,34 +106,66 @@ func deepCopyStatus(configs []config.Config) []config.Config {
 	return res
 }
 
-func (c controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
+	if namespace == metav1.NamespaceAll {
+		return cfgs
+	}
+	filtered := make([]config.Config, 0, len(cfgs))
+	for _, c := range cfgs {
+		if c.Namespace == namespace {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	if typ != gvk.Gateway && typ != gvk.VirtualService && typ != gvk.DestinationRule {
 		return nil, errUnsupportedType
 	}
 
-	gatewayClass, err := c.cache.List(gvk.GatewayClass, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list type GatewayClass: %v", err)
+	c.stateMu.RLock()
+	defer c.stateMu.RUnlock()
+	switch typ {
+	case gvk.Gateway:
+		return filterNamespace(c.state.Gateway, namespace), nil
+	case gvk.VirtualService:
+		return filterNamespace(c.state.VirtualService, namespace), nil
+	case gvk.DestinationRule:
+		return filterNamespace(c.state.DestinationRule, namespace), nil
+	default:
+		return nil, errUnsupportedType
 	}
-	gateway, err := c.cache.List(gvk.ServiceApisGateway, namespace)
+}
+
+func (c *controller) Recompute() error {
+	t0 := time.Now()
+	defer func() {
+		log.Debugf("recompute complete in %v", time.Since(t0))
+	}()
+	gatewayClass, err := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type Gateway: %v", err)
+		return fmt.Errorf("failed to list type GatewayClass: %v", err)
 	}
-	httpRoute, err := c.cache.List(gvk.HTTPRoute, namespace)
+	gateway, err := c.cache.List(gvk.ServiceApisGateway, metav1.NamespaceAll)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type HTTPRoute: %v", err)
+		return fmt.Errorf("failed to list type Gateway: %v", err)
 	}
-	tcpRoute, err := c.cache.List(gvk.TCPRoute, namespace)
+	httpRoute, err := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type TCPRoute: %v", err)
+		return fmt.Errorf("failed to list type HTTPRoute: %v", err)
 	}
-	tlsRoute, err := c.cache.List(gvk.TLSRoute, namespace)
+	tcpRoute, err := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type TLSRoute: %v", err)
+		return fmt.Errorf("failed to list type TCPRoute: %v", err)
 	}
-	backendPolicy, err := c.cache.List(gvk.BackendPolicy, namespace)
+	tlsRoute, err := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type BackendPolicy: %v", err)
+		return fmt.Errorf("failed to list type TLSRoute: %v", err)
+	}
+	backendPolicy, err := c.cache.List(gvk.BackendPolicy, metav1.NamespaceAll)
+	if err != nil {
+		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
 	}
 
 	input := &KubernetesResources{
@@ -114,36 +180,34 @@ func (c controller) List(typ config.GroupVersionKind, namespace string) ([]confi
 
 	if !anyApisUsed(input) {
 		// Early exit for common case of no gateway-api used.
-		return nil, nil
+		c.stateMu.Lock()
+		defer c.stateMu.Unlock()
+		// make sure we clear out the state, to handle the last gateway-api resource being removed
+		c.state = OutputResources{}
+		return nil
 	}
 
-	nsl, err := c.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	nsl, err := c.namespaceLister.List(klabels.Everything())
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type Namespaces: %v", err)
+		return fmt.Errorf("failed to list type Namespaces: %v", err)
 	}
 	namespaces := map[string]*corev1.Namespace{}
-	for i, ns := range nsl.Items {
-		namespaces[ns.Name] = &nsl.Items[i]
+	for _, ns := range nsl {
+		namespaces[ns.Name] = ns
 	}
 	input.Namespaces = namespaces
 	output := convertResources(input)
 
 	// Handle all status updates
-	// TODO we should probably place these on a queue using pilot/pkg/status
-	input.UpdateStatuses(c)
+	c.QueueStatusUpdates(input)
 
-	switch typ {
-	case gvk.Gateway:
-		return output.Gateway, nil
-	case gvk.VirtualService:
-		return output.VirtualService, nil
-	case gvk.DestinationRule:
-		return output.DestinationRule, nil
-	}
-	return nil, errUnsupportedOp
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	c.state = output
+	return nil
 }
 
-func (r *KubernetesResources) UpdateStatuses(c controller) {
+func (c *controller) QueueStatusUpdates(r *KubernetesResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
@@ -152,20 +216,12 @@ func (r *KubernetesResources) UpdateStatuses(c controller) {
 	c.handleStatusUpdates(r.BackendPolicy)
 }
 
-func (c controller) handleStatusUpdates(configs []config.Config) {
+func (c *controller) handleStatusUpdates(configs []config.Config) {
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
-
 		if ws.Dirty {
-			_, err := c.cache.UpdateStatus(config.Config{
-				Meta:   cfg.Meta,
-				Status: ws.Unwrap(),
-			})
-			// TODO make this more resilient. When we add a queue we can make transient failures retry
-			// and drop permanent failures
-			if err != nil {
-				log.Errorf("failed to update status for %v/%v: %v", cfg.GroupVersionKind, cfg.Name, err)
-			}
+			res := status.ResourceFromModelConfig(cfg)
+			c.status.Push(res, ws.Unwrap())
 		}
 	}
 }
@@ -179,33 +235,38 @@ func anyApisUsed(input *KubernetesResources) bool {
 		len(input.BackendPolicy) > 0
 }
 
-func (c controller) Create(config config.Config) (revision string, err error) {
+func (c *controller) Create(config config.Config) (revision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c controller) Update(config config.Config) (newRevision string, err error) {
+func (c *controller) Update(config config.Config) (newRevision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c controller) UpdateStatus(config config.Config) (newRevision string, err error) {
+func (c *controller) UpdateStatus(config config.Config) (newRevision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
+func (c *controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
+func (c *controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
 	return errUnsupportedOp
 }
 
-func (c controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
 	// do nothing as c.cache has been registered
 }
 
-func (c controller) Run(stop <-chan struct{}) {
+func (c *controller) Run(stop <-chan struct{}) {
+	cache.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
 }
 
-func (c controller) HasSynced() bool {
+func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	return c.cache.SetWatchErrorHandler(handler)
+}
+
+func (c *controller) HasSynced() bool {
 	return c.cache.HasSynced()
 }

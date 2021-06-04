@@ -33,6 +33,8 @@
 // dataset/security-v1beta1-PeerAuthentication-valid.yaml
 // dataset/security-v1beta1-RequestAuthentication-invalid.yaml
 // dataset/security-v1beta1-RequestAuthentication-valid.yaml
+// dataset/telemetry-v1alpha1-Telemetry-invalid.yaml
+// dataset/telemetry-v1alpha1-Telemetry-valid.yaml
 package validation
 
 import (
@@ -1047,6 +1049,54 @@ func datasetSecurityV1beta1RequestauthenticationValidYaml() (*asset, error) {
 	return a, nil
 }
 
+var _datasetTelemetryV1alpha1TelemetryInvalidYaml = []byte(`apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: invalid
+spec:
+  tracing:
+    asdfasdf: asdfasd
+`)
+
+func datasetTelemetryV1alpha1TelemetryInvalidYamlBytes() ([]byte, error) {
+	return _datasetTelemetryV1alpha1TelemetryInvalidYaml, nil
+}
+
+func datasetTelemetryV1alpha1TelemetryInvalidYaml() (*asset, error) {
+	bytes, err := datasetTelemetryV1alpha1TelemetryInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/telemetry-v1alpha1-Telemetry-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetTelemetryV1alpha1TelemetryValidYaml = []byte(`apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: valid
+spec:
+  tracing:
+  - randomSamplingPercentage: 10.00
+`)
+
+func datasetTelemetryV1alpha1TelemetryValidYamlBytes() ([]byte, error) {
+	return _datasetTelemetryV1alpha1TelemetryValidYaml, nil
+}
+
+func datasetTelemetryV1alpha1TelemetryValidYaml() (*asset, error) {
+	bytes, err := datasetTelemetryV1alpha1TelemetryValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/telemetry-v1alpha1-Telemetry-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -1132,6 +1182,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/security-v1beta1-PeerAuthentication-valid.yaml":         datasetSecurityV1beta1PeerauthenticationValidYaml,
 	"dataset/security-v1beta1-RequestAuthentication-invalid.yaml":    datasetSecurityV1beta1RequestauthenticationInvalidYaml,
 	"dataset/security-v1beta1-RequestAuthentication-valid.yaml":      datasetSecurityV1beta1RequestauthenticationValidYaml,
+	"dataset/telemetry-v1alpha1-Telemetry-invalid.yaml":              datasetTelemetryV1alpha1TelemetryInvalidYaml,
+	"dataset/telemetry-v1alpha1-Telemetry-valid.yaml":                datasetTelemetryV1alpha1TelemetryValidYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -1209,6 +1261,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"security-v1beta1-PeerAuthentication-valid.yaml":         &bintree{datasetSecurityV1beta1PeerauthenticationValidYaml, map[string]*bintree{}},
 		"security-v1beta1-RequestAuthentication-invalid.yaml":    &bintree{datasetSecurityV1beta1RequestauthenticationInvalidYaml, map[string]*bintree{}},
 		"security-v1beta1-RequestAuthentication-valid.yaml":      &bintree{datasetSecurityV1beta1RequestauthenticationValidYaml, map[string]*bintree{}},
+		"telemetry-v1alpha1-Telemetry-invalid.yaml":              &bintree{datasetTelemetryV1alpha1TelemetryInvalidYaml, map[string]*bintree{}},
+		"telemetry-v1alpha1-Telemetry-valid.yaml":                &bintree{datasetTelemetryV1alpha1TelemetryValidYaml, map[string]*bintree{}},
 	}},
 }}
 

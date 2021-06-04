@@ -24,10 +24,11 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/ptypes"
+	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
@@ -94,21 +95,42 @@ func describeRouteDomains(domains []string) string {
 	}
 
 	// Return the shortest non-numeric domain.  Count of domains seems uninteresting.
-	candidate := domains[0]
-	for _, domain := range domains {
-		if len(domain) == 0 {
-			continue
-		}
-		firstChar := domain[0]
-		if firstChar >= '1' && firstChar <= '9' {
-			continue
-		}
-		if len(domain) < len(candidate) {
-			candidate = domain
+	max := 2
+	withoutPort := make([]string, 0, len(domains))
+	for _, d := range domains {
+		if !strings.Contains(d, ":") {
+			withoutPort = append(withoutPort, d)
 		}
 	}
+	withoutPort = unexpandDomains(withoutPort)
+	if len(withoutPort) > max {
+		ret := strings.Join(withoutPort[:max], ", ")
+		return fmt.Sprintf("%s + %d more...", ret, len(withoutPort)-max)
+	}
+	return strings.Join(withoutPort, ", ")
+}
 
-	return candidate
+func unexpandDomains(domains []string) []string {
+	unique := sets.NewSet(domains...)
+	shouldDelete := sets.NewSet()
+	for _, h := range domains {
+		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
+		if _, f := unique[stripFull]; f && stripFull != h {
+			shouldDelete.Insert(h)
+		}
+		stripPartial := strings.TrimSuffix(h, ".svc")
+		if _, f := unique[stripPartial]; f && stripPartial != h {
+			shouldDelete.Insert(h)
+		}
+	}
+	// Filter from original list to keep original order
+	ret := make([]string, 0, len(domains))
+	for _, h := range domains {
+		if _, f := shouldDelete[h]; !f {
+			ret = append(ret, h)
+		}
+	}
+	return ret
 }
 
 func describeManagement(metadata *envoy_config_core_v3.Metadata) string {
@@ -138,7 +160,7 @@ func renderConfig(configPath string) string {
 }
 
 // PrintRouteDump prints the relevant routes in the config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
+func (c *ConfigWriter) PrintRouteDump(filter RouteFilter, outputFormat string) error {
 	_, routes, err := c.setupRouteConfigWriter()
 	if err != nil {
 		return err
@@ -152,6 +174,11 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 	out, err := json.MarshalIndent(filteredRoutes, "", "    ")
 	if err != nil {
 		return err
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintln(c.Stdout, string(out))
 	return nil
@@ -180,7 +207,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}
@@ -192,7 +219,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}

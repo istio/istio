@@ -92,6 +92,7 @@ meshConfig:
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: tracing.GetIngressInstance().HTTPAddress()})
+	addr, _ := tracing.GetIngressInstance().HTTPAddress()
+	_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: addr})
 	return
 }

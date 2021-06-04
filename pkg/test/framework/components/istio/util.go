@@ -18,15 +18,21 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
+	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const (
@@ -109,12 +115,12 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		for _, p := range pods.Items {
 			names = append(names, p.Name)
 		}
-		scopes.Framework.Debugf("Querying remote service %s, pods:\n%v\n", svcName, names)
+		scopes.Framework.Debugf("Querying remote service %s, pods:%v", svcName, names)
 		if len(pods.Items) == 0 {
 			return nil, false, fmt.Errorf("no remote service pod found")
 		}
 
-		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
+		scopes.Framework.Debugf("Found pod: %v", pods.Items[0].Name)
 		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
 			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")
@@ -149,12 +155,17 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		return nil, false, err
 	}
 
-	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-		return nil, false, fmt.Errorf("service %s is not available yet: %s/%s", svcName, svc.Namespace, svc.Name)
+	if len(svc.Status.LoadBalancer.Ingress) == 0 {
+		return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
 	}
-
-	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: port}, true, nil
+	ingr := svc.Status.LoadBalancer.Ingress[0]
+	if ingr.IP == "" && ingr.Hostname == "" {
+		return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
+	}
+	if ingr.IP != "" {
+		return net.TCPAddr{IP: net.ParseIP(ingr.IP), Port: port}, true, nil
+	}
+	return net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)), true, nil
 }
 
 func (i *operatorComponent) isExternalControlPlane() bool {
@@ -164,4 +175,72 @@ func (i *operatorComponent) isExternalControlPlane() bool {
 		}
 	}
 	return false
+}
+
+func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Clusters, patch string) {
+	errG := multierror.Group{}
+	origCfg := map[string]string{}
+	mu := sync.RWMutex{}
+
+	cmName := "istio"
+	if rev := t.Settings().Revision; rev != "default" && rev != "" {
+		cmName += "-" + rev
+	}
+	for _, c := range clusters.Kube() {
+		c := c
+		errG.Go(func() error {
+			cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			mcYaml, ok := cm.Data["mesh"]
+			if !ok {
+				return fmt.Errorf("mesh config was missing in istio config map for %s", c.Name())
+			}
+			mu.Lock()
+			origCfg[c.Name()] = cm.Data["mesh"]
+			mu.Unlock()
+			mc := &meshconfig.MeshConfig{}
+			if err := gogoprotomarshal.ApplyYAML(mcYaml, mc); err != nil {
+				return err
+			}
+			if err := gogoprotomarshal.ApplyYAML(patch, mc); err != nil {
+				return err
+			}
+			cm.Data["mesh"], err = gogoprotomarshal.ToYAML(mc)
+			if err != nil {
+				return err
+			}
+			_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+			scopes.Framework.Infof("patched %s meshconfig:\n%s", c.Name(), cm.Data["mesh"])
+			return nil
+		})
+	}
+	t.Cleanup(func() {
+		errG := multierror.Group{}
+		mu.RLock()
+		defer mu.RUnlock()
+		for cn, mcYaml := range origCfg {
+			cn, mcYaml := cn, mcYaml
+			c := clusters.GetByName(cn)
+			errG.Go(func() error {
+				cm, err := c.CoreV1().ConfigMaps(ns).Get(context.TODO(), cmName, v1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				cm.Data["mesh"] = mcYaml
+				_, err = c.CoreV1().ConfigMaps(ns).Update(context.TODO(), cm, v1.UpdateOptions{})
+				return err
+			})
+		}
+		if err := errG.Wait().ErrorOrNil(); err != nil {
+			scopes.Framework.Errorf("failed cleaning up cluster-local config: %v", err)
+		}
+	})
+	if err := errG.Wait().ErrorOrNil(); err != nil {
+		t.Fatal(err)
+	}
 }

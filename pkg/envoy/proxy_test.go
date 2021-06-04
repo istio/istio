@@ -30,17 +30,16 @@ func TestEnvoyArgs(t *testing.T) {
 	proxyConfig.Concurrency = &types.Int32Value{Value: 8}
 
 	cfg := ProxyConfig{
-		Node: &model.Node{
-			ID: "my-node",
-			Metadata: &model.BootstrapNodeMetadata{
-				NodeMetadata: model.NodeMetadata{
-					ProxyConfig: &proxyConfig,
-				},
-			},
-		},
-		LogLevel:          "trace",
-		ComponentLogLevel: "misc:error",
-		NodeIPs:           []string{"10.75.2.9", "192.168.11.18"},
+		LogLevel:               "trace",
+		ComponentLogLevel:      "misc:error",
+		NodeIPs:                []string{"10.75.2.9", "192.168.11.18"},
+		BinaryPath:             proxyConfig.BinaryPath,
+		ConfigPath:             proxyConfig.ConfigPath,
+		ConfigCleanup:          true,
+		AdminPort:              proxyConfig.ProxyAdminPort,
+		DrainDuration:          proxyConfig.DrainDuration,
+		ParentShutdownDuration: proxyConfig.ParentShutdownDuration,
+		Concurrency:            8,
 	}
 
 	test := &envoy{
@@ -60,8 +59,6 @@ func TestEnvoyArgs(t *testing.T) {
 		"--drain-time-s", "45",
 		"--drain-strategy", "immediate",
 		"--parent-shutdown-time-s", "60",
-		"--service-cluster", "my-cluster",
-		"--service-node", "my-node",
 		"--local-address-ip-version", "v4",
 		"--bootstrap-version", "3",
 		"--disable-hot-restart",

@@ -23,6 +23,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ingressinformer "k8s.io/client-go/informers/networking/v1"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -237,6 +239,17 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(c
 	}
 }
 
+func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	var errs error
+	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	if err := c.ingressInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	return errs
+}
+
 func (c *controller) HasSynced() bool {
 	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
 		(c.classes == nil || c.classes.Informer().HasSynced())
@@ -244,7 +257,10 @@ func (c *controller) HasSynced() bool {
 
 func (c *controller) Run(stop <-chan struct{}) {
 	go func() {
-		cache.WaitForCacheSync(stop, c.HasSynced)
+		if !cache.WaitForCacheSync(stop, c.HasSynced) {
+			log.Error("Failed to sync controller cache")
+			return
+		}
 		c.queue.Run(stop)
 	}()
 	<-stop

@@ -24,7 +24,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/xds"
@@ -43,7 +42,8 @@ type writerStatus struct {
 
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
 type XdsStatusWriter struct {
-	Writer io.Writer
+	Writer                 io.Writer
+	InternalDebugAllIstiod bool
 }
 
 type xdsWriterStatus struct {
@@ -159,13 +159,14 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*xdsapi.DiscoveryResponse
 func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, error) {
 	// Gather the statuses before printing so they may be sorted
 	var fullStatus []*xdsWriterStatus
+	mappedResp := map[string]string{}
 	var w *tabwriter.Writer
-	for _, dr := range drs {
+	for id, dr := range drs {
 		for _, resource := range dr.Resources {
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
 				clientConfig := xdsstatus.ClientConfig{}
-				err := ptypes.UnmarshalAny(resource, &clientConfig)
+				err := resource.UnmarshalTo(&clientConfig)
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
@@ -192,11 +193,24 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 				})
 			default:
 				for _, resource := range dr.Resources {
-					s.Writer.Write(resource.Value) // nolint: errcheck
+					if s.InternalDebugAllIstiod {
+						mappedResp[id] = string(resource.Value) + "\n"
+					} else {
+						_, _ = s.Writer.Write(resource.Value)
+						_, _ = s.Writer.Write([]byte("\n"))
+					}
 				}
 				fullStatus = nil
 			}
 		}
+	}
+	if len(mappedResp) > 0 {
+		mresp, err := json.MarshalIndent(mappedResp, "", "  ")
+		if err != nil {
+			return nil, nil, err
+		}
+		_, _ = s.Writer.Write(mresp)
+		_, _ = s.Writer.Write([]byte("\n"))
 	}
 
 	return w, fullStatus, nil

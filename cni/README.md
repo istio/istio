@@ -13,7 +13,7 @@ removes the need for a privileged, `NET_ADMIN` container in the Istio users' app
 
 ## Usage
 
-A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation site under [Install Istio with the Istio CNI plugin](https://preliminary.istio.io/latest/docs/setup/additional-setup/cni/).
+A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation site under [Install Istio with the Istio CNI plugin](https://istio.io/latest/docs/setup/additional-setup/cni/).
 
 ## Troubleshooting
 

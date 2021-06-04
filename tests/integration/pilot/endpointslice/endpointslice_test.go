@@ -36,7 +36,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireEnvironmentVersion("1.17").
+		RequireMinVersion(17).
 		Setup(istio.Setup(&i, func(t resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
@@ -55,6 +55,6 @@ func TestTraffic(t *testing.T) {
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(t framework.TestContext) {
-			common.RunAllTrafficTests(t, apps)
+			common.RunAllTrafficTests(t, i, apps)
 		})
 }

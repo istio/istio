@@ -85,7 +85,7 @@ spec:
     - destination: 
         host: reviews
 `)
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
 		})
 }
@@ -114,6 +114,32 @@ func TestVersion(t *testing.T) {
 		})
 }
 
+// This test requires `--istio.test.env=kube` because it tests istioctl doing PodExec
+// TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
+func TestXdsVersion(t *testing.T) {
+	framework.
+		NewTest(t).Features("usability.observability.version").
+		RequiresSingleCluster().
+		RequireIstioVersion("1.10.0").
+		Run(func(t framework.TestContext) {
+			cfg := i.Settings()
+
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			args := []string{"x", "version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
+
+			output, _ := istioCtl.InvokeOrFail(t, args)
+
+			// istioctl will return a single "control plane version" if all control plane versions match.
+			// This test accepts any version with a "." (period) in it -- we mostly want to fail on "MISSING CP VERSION"
+			controlPlaneRegex := regexp.MustCompile(`control plane version: [a-z0-9\-]+\.[a-z0-9\-]+`)
+			if controlPlaneRegex.MatchString(output) {
+				return
+			}
+
+			t.Fatalf("Did not find valid control plane version: %v", output)
+		})
+}
+
 func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
 		RequiresSingleCluster().
@@ -139,7 +165,7 @@ func TestDescribe(t *testing.T) {
 					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
 				}
 				return nil
-			}, retry.Timeout(time.Second*5))
+			}, retry.Timeout(time.Second*20))
 
 			retry.UntilSuccessOrFail(t, func() error {
 				podID, err := getPodID(apps.PodA[0])
@@ -158,7 +184,7 @@ func TestDescribe(t *testing.T) {
 					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describePodAOutput)
 				}
 				return nil
-			}, retry.Timeout(time.Second*5))
+			}, retry.Timeout(time.Second*20))
 		})
 }
 
@@ -191,7 +217,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(t)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 
 			var output string
 			var args []string
@@ -220,7 +246,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 					}
 				}
 				return nil
-			}, retry.Delay(time.Second))
+			}, retry.Delay(time.Second), retry.Timeout(time.Minute))
 
 			args = []string{
 				fmt.Sprintf("--namespace=%s", ns.Name()),
@@ -475,7 +501,7 @@ func TestAuthZCheck(t *testing.T) {
 				},
 			}
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			for _, c := range cases {
 				args := []string{"experimental", "authz", "check", c.pod}
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
@@ -490,6 +516,20 @@ func TestAuthZCheck(t *testing.T) {
 						return nil
 					}, retry.Timeout(time.Second*5))
 				})
+			}
+		})
+}
+
+func TestKubeInject(t *testing.T) {
+	framework.NewTest(t).Features("usability.helpers.kube-inject").
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			var output string
+			args := []string{"kube-inject", "-f", "testdata/hello.yaml", "--revision=" + t.Settings().Revision}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			if !strings.Contains(output, "istio-proxy") {
+				t.Fatal("istio-proxy has not been injected")
 			}
 		})
 }

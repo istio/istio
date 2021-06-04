@@ -379,7 +379,7 @@ func (r *JwksResolver) refresher() {
 					// update to exponential backoff if last time also failed.
 					r.refreshInterval *= 2
 					if r.refreshInterval > JwtPubKeyRefreshIntervalOnFailureResetThreshold {
-						r.refreshInterval = r.refreshIntervalOnFailure
+						r.refreshInterval = JwtPubKeyRefreshIntervalOnFailureResetThreshold
 					}
 				} else {
 					// change to the refreshIntervalOnFailure if failed for the first time.

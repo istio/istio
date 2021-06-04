@@ -27,10 +27,10 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -271,14 +271,13 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
-allroutes:
+	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				out = append(out, r)
 			}
-			// We have a rule with catch all match. Other rules are of no use.
-			break
+			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
@@ -286,10 +285,14 @@ allroutes:
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
 					if isCatchAllMatch(match) {
-						break allroutes
+						catchall = true
+						break
 					}
 				}
 			}
+		}
+		if catchall {
+			break
 		}
 	}
 
@@ -329,13 +332,13 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
-	// Match by source labels/gateway names inside the match condition
-	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
+	// Match by the destination port specified in the match condition
+	if match != nil && match.Port != 0 && match.Port != uint32(port) {
 		return nil
 	}
 
-	// Match by the destination port specified in the match condition
-	if match != nil && match.Port != 0 && match.Port != uint32(port) {
+	// Match by source labels/gateway names inside the match condition
+	if !sourceMatchHTTP(match, labels.Collection{node.Metadata.Labels}, gatewayNames, node.Metadata.Namespace) {
 		return nil
 	}
 
@@ -350,14 +353,16 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 	// add a name to the route
 	out.Name = routeName
+	authority := ""
+	if in.Headers != nil {
+		operations := translateHeadersOperations(in.Headers)
+		out.RequestHeadersToAdd = operations.requestHeadersToAdd
+		out.ResponseHeadersToAdd = operations.responseHeadersToAdd
+		out.RequestHeadersToRemove = operations.requestHeadersToRemove
+		out.ResponseHeadersToRemove = operations.responseHeadersToRemove
+		authority = operations.authority
+	}
 
-	operations := translateHeadersOperations(in.Headers)
-	out.RequestHeadersToAdd = operations.requestHeadersToAdd
-	out.ResponseHeadersToAdd = operations.responseHeadersToAdd
-	out.RequestHeadersToRemove = operations.requestHeadersToRemove
-	out.ResponseHeadersToRemove = operations.responseHeadersToRemove
-
-	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
@@ -392,27 +397,27 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		}
 
 		// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
+		var d *duration.Duration
 		if in.Timeout != nil {
-			action.Timeout = gogo.DurationToProtoDuration(in.Timeout)
+			d = gogo.DurationToProtoDuration(in.Timeout)
 		} else {
-			action.Timeout = features.DefaultRequestTimeout
+			d = features.DefaultRequestTimeout
 		}
-
-		// Set the GrpcTimeoutHeaderMax so that Envoy respects grpc-timeout header.
-		// Only set if explicit timeout is defined otherwise Envoy will just use grpc-timeout header
-		// instead of disabling the timeout which is Istio's default behavior.
-		if action.Timeout.AsDuration().Nanoseconds() > 0 {
-			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{
-				MaxStreamDuration:    action.Timeout,
-				GrpcTimeoutHeaderMax: action.Timeout,
-			}
-		}
+		action.Timeout = d
+		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+		// nolint: staticcheck
+		action.MaxGrpcTimeout = d
 		out.Action = &route.Route_Route{Route: action}
 
-		if rewrite := in.Rewrite; rewrite != nil {
-			action.PrefixRewrite = rewrite.Uri
+		if in.Rewrite != nil {
+			action.PrefixRewrite = in.Rewrite.GetUri()
+			if in.Rewrite.GetAuthority() != "" {
+				authority = in.Rewrite.GetAuthority()
+			}
+		}
+		if authority != "" {
 			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-				HostRewriteLiteral: rewrite.Authority,
+				HostRewriteLiteral: authority,
 			}
 		}
 
@@ -439,19 +444,18 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 					continue
 				}
 			}
-
-			operations := translateHeadersOperations(dst.Headers)
-
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
-
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
-				Name:                    n,
-				Weight:                  weight,
-				RequestHeadersToAdd:     operations.requestHeadersToAdd,
-				RequestHeadersToRemove:  operations.requestHeadersToRemove,
-				ResponseHeadersToAdd:    operations.responseHeadersToAdd,
-				ResponseHeadersToRemove: operations.responseHeadersToRemove,
+				Name:   n,
+				Weight: weight,
+			}
+			if dst.Headers != nil {
+				operations := translateHeadersOperationsForDestination(dst.Headers)
+				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
+				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
+				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
+				clusterWeight.ResponseHeadersToRemove = operations.responseHeadersToRemove
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -486,6 +490,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
 	if fault := in.Fault; fault != nil {
+		out.TypedPerFilterConfig = make(map[string]*any.Any)
 		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
@@ -543,12 +548,96 @@ func (b SortHeaderValueOption) Swap(i, j int) {
 }
 
 // translateAppendHeaders translates headers
-func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
+func translateAppendHeaders(headers map[string]string, appendFlag bool) ([]*core.HeaderValueOption, string) {
+	if len(headers) == 0 {
+		return nil, ""
+	}
+	authority := ""
+	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
+	for key, value := range headers {
+		if isAuthorityHeader(key) {
+			// If there are multiple, last one wins; validation will reject
+			authority = value
+		}
+		if isInternalHeader(key) {
+			continue
+		}
+		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
+			Header: &core.HeaderValue{
+				Key:   key,
+				Value: value,
+			},
+			Append: &wrappers.BoolValue{Value: appendFlag},
+		})
+	}
+	sort.Stable(SortHeaderValueOption(headerValueOptionList))
+	return headerValueOptionList, authority
+}
+
+type headersOperations struct {
+	requestHeadersToAdd     []*core.HeaderValueOption
+	responseHeadersToAdd    []*core.HeaderValueOption
+	requestHeadersToRemove  []string
+	responseHeadersToRemove []string
+	authority               string
+}
+
+// isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy
+func isInternalHeader(headerKey string) bool {
+	return strings.HasPrefix(headerKey, ":") || strings.EqualFold(headerKey, "host")
+}
+
+// isAuthorityHeader returns true if a header refers to the authority header
+func isAuthorityHeader(headerKey string) bool {
+	return strings.EqualFold(headerKey, ":authority") || strings.EqualFold(headerKey, "host")
+}
+
+func dropInternal(keys []string) []string {
+	result := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if isInternalHeader(k) {
+			continue
+		}
+		result = append(result, k)
+	}
+	return result
+}
+
+// translateHeadersOperationsForDestination translates headers operations for a HTTPRouteDestination
+// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
+func translateHeadersOperationsForDestination(headers *networking.Headers) headersOperations {
+	req := headers.GetRequest()
+	resp := headers.GetResponse()
+
+	requestHeadersToAdd := translateAppendHeadersForDestination(req.GetSet(), false)
+	reqAdd := translateAppendHeadersForDestination(req.GetAdd(), true)
+	requestHeadersToAdd = append(requestHeadersToAdd, reqAdd...)
+
+	responseHeadersToAdd := translateAppendHeadersForDestination(resp.GetSet(), false)
+	respAdd := translateAppendHeadersForDestination(resp.GetAdd(), true)
+	responseHeadersToAdd = append(responseHeadersToAdd, respAdd...)
+
+	return headersOperations{
+		requestHeadersToAdd:     requestHeadersToAdd,
+		responseHeadersToAdd:    responseHeadersToAdd,
+		requestHeadersToRemove:  dropInternal(req.GetRemove()),
+		responseHeadersToRemove: dropInternal(resp.GetRemove()),
+	}
+}
+
+// translateAppendHeadersForDestination translates headers
+// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
+func translateAppendHeadersForDestination(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
 	if len(headers) == 0 {
 		return nil
 	}
 	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
 	for key, value := range headers {
+		// Unlike for translateHeadersOperations, Host header is fine but : prefix is not.
+		// Controlled by envoy.reloadable_features.treat_host_like_authority; long term Envoy will likely change the API
+		if strings.HasPrefix(key, ":") {
+			continue
+		}
 		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
 			Header: &core.HeaderValue{
 				Key:   key,
@@ -561,29 +650,30 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 	return headerValueOptionList
 }
 
-type headersOperations struct {
-	requestHeadersToAdd     []*core.HeaderValueOption
-	responseHeadersToAdd    []*core.HeaderValueOption
-	requestHeadersToRemove  []string
-	responseHeadersToRemove []string
-}
-
 // translateHeadersOperations translates headers operations
 func translateHeadersOperations(headers *networking.Headers) headersOperations {
 	req := headers.GetRequest()
 	resp := headers.GetResponse()
 
-	requestHeadersToAdd := translateAppendHeaders(req.GetSet(), false)
-	requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(req.GetAdd(), true)...)
+	requestHeadersToAdd, setAuthority := translateAppendHeaders(req.GetSet(), false)
+	reqAdd, addAuthority := translateAppendHeaders(req.GetAdd(), true)
+	requestHeadersToAdd = append(requestHeadersToAdd, reqAdd...)
 
-	responseHeadersToAdd := translateAppendHeaders(resp.GetSet(), false)
-	responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(resp.GetAdd(), true)...)
+	responseHeadersToAdd, _ := translateAppendHeaders(resp.GetSet(), false)
+	respAdd, _ := translateAppendHeaders(resp.GetAdd(), true)
+	responseHeadersToAdd = append(responseHeadersToAdd, respAdd...)
 
+	auth := addAuthority
+	if setAuthority != "" {
+		// If authority is set in 'add' and 'set', pick the one from 'set'
+		auth = setAuthority
+	}
 	return headersOperations{
 		requestHeadersToAdd:     requestHeadersToAdd,
 		responseHeadersToAdd:    responseHeadersToAdd,
-		requestHeadersToRemove:  append([]string{}, req.GetRemove()...), // copy slice
-		responseHeadersToRemove: append([]string{}, resp.GetRemove()...),
+		requestHeadersToRemove:  dropInternal(req.GetRemove()),
+		responseHeadersToRemove: dropInternal(resp.GetRemove()),
+		authority:               auth,
 	}
 }
 
@@ -822,7 +912,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
 func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
-	notimeout := ptypes.DurationProto(0)
+	notimeout := durationpb.New(0)
 	routeAction := &route.RouteAction{
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 		Timeout:          notimeout,

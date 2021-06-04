@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/protobuf/ptypes/any"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"go.uber.org/atomic"
@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/monitoring"
 )
 
@@ -89,11 +90,24 @@ func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEnt
 	}
 }
 
+func indexType(typeIndex map[config.GroupVersionKind]sets.Set, k string, entry XdsCacheEntry) {
+	for _, t := range entry.DependentTypes() {
+		if typeIndex[t] == nil {
+			typeIndex[t] = sets.NewSet()
+		}
+		typeIndex[t].Insert(k)
+	}
+}
+
 // XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
 type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
+	// DependentTypes are config types that this cache key is dependant on.
+	// Whenever any configs of this type changes, we should invalidate this cache entry.
+	// Note: DependentConfigs should be preferred wherever possible.
+	DependentTypes() []config.GroupVersionKind
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
 	DependentConfigs() []ConfigKey
@@ -112,7 +126,7 @@ type XdsCache interface {
 	// invalided between when a token is fetched from Get and when Add is called, the write will be
 	// dropped. This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
-	Add(entry XdsCacheEntry, token CacheToken, value *any.Any)
+	Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource)
 	// Get retrieves the cached value if it exists. The boolean indicates
 	// whether the entry exists in the cache.
 	//
@@ -123,7 +137,7 @@ type XdsCache interface {
 	// Standard usage:
 	// if obj, token, f := cache.Get(key); f { ...do something... }
 	// else { computed := expensive(); cache.Add(key, token, computed); }
-	Get(entry XdsCacheEntry) (*any.Any, CacheToken, bool)
+	Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bool)
 	// Clear removes the cache entries that are dependent on the configs passed.
 	Clear(map[ConfigKey]struct{})
 	// ClearAll clears the entire cache.
@@ -138,6 +152,7 @@ func NewXdsCache() XdsCache {
 		enableAssertions: features.EnableUnsafeAssertions,
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
+		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 		nextToken:        atomic.NewUint64(0),
 	}
 }
@@ -148,6 +163,7 @@ func NewLenientXdsCache() XdsCache {
 		enableAssertions: false,
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
+		typesIndex:       map[config.GroupVersionKind]sets.Set{},
 		nextToken:        atomic.NewUint64(0),
 	}
 }
@@ -160,6 +176,7 @@ type lruCache struct {
 	nextToken   *atomic.Uint64
 	mu          sync.RWMutex
 	configIndex map[ConfigKey]sets.Set
+	typesIndex  map[config.GroupVersionKind]sets.Set
 }
 
 var _ XdsCache = &lruCache{}
@@ -182,7 +199,7 @@ func newLru() simplelru.LRUCache {
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func (l *lruCache) assertUnchanged(existing *any.Any, replacement *any.Any) {
+func (l *lruCache) assertUnchanged(existing *discovery.Resource, replacement *discovery.Resource) {
 	if l.enableAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
@@ -196,7 +213,7 @@ func (l *lruCache) assertUnchanged(existing *any.Any, replacement *any.Any) {
 	}
 }
 
-func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
+func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource) {
 	if !entry.Cacheable() {
 		return
 	}
@@ -227,15 +244,16 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *any.Any) {
 	}
 	l.store.Add(k, toWrite)
 	indexConfig(l.configIndex, entry.Key(), entry)
+	indexType(l.typesIndex, entry.Key(), entry)
 	size(l.store.Len())
 }
 
 type cacheValue struct {
-	value *any.Any
+	value *discovery.Resource
 	token CacheToken
 }
 
-func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, CacheToken, bool) {
+func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bool) {
 	if !entry.Cacheable() {
 		return nil, 0, false
 	}
@@ -271,6 +289,11 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 		for key := range referenced {
 			l.store.Remove(key)
 		}
+		tReferenced := l.typesIndex[ckey.Kind]
+		delete(l.typesIndex, ckey.Kind)
+		for key := range tReferenced {
+			l.store.Remove(key)
+		}
 	}
 	size(l.store.Len())
 }
@@ -299,9 +322,9 @@ type DisabledCache struct{}
 
 var _ XdsCache = &DisabledCache{}
 
-func (d DisabledCache) Add(key XdsCacheEntry, token CacheToken, value *any.Any) {}
+func (d DisabledCache) Add(key XdsCacheEntry, token CacheToken, value *discovery.Resource) {}
 
-func (d DisabledCache) Get(XdsCacheEntry) (*any.Any, CacheToken, bool) {
+func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, CacheToken, bool) {
 	return nil, 0, false
 }
 

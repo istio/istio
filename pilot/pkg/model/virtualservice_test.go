@@ -351,7 +351,7 @@ func TestMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					// mis match, this route will be ignored
+					// mismatch, this route will be ignored
 					Match: []*networking.HTTPMatchRequest{
 						{
 							Name: "mismatch",

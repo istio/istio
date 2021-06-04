@@ -31,15 +31,19 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
-	NMinusOne   = "1.9.0"
-	NMinusTwo   = "1.8.3"
-	NMinusThree = "1.7.6"
-	NMinusFour  = "1.6.11"
+	NMinusOne   = "1.10.0"
+	NMinusTwo   = "1.9.5"
+	NMinusThree = "1.8.6"
+	NMinusFour  = "1.7.6"
+	NMinusFive  = "1.6.11"
 )
+
+var versions = []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour, NMinusFive}
 
 type revisionedNamespace struct {
 	revision  string
@@ -52,11 +56,11 @@ func TestMultiVersionRevision(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Features("installation.upgrade").
+		// Requires installation of CPs from manifests, won't succeed
+		// if existing CPs have different root cert
+		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			skipIfK8sVersionUnsupported(t)
-
-			// keep these at the latest patch version of each minor version
-			installVersions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
@@ -67,7 +71,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			})
 
 			revisionedNamespaces := []revisionedNamespace{}
-			for _, v := range installVersions {
+			for _, v := range versions {
 				installRevisionOrFail(t, v, configs)
 
 				// create a namespace pointed to the revisioned control plane we just installed
@@ -192,7 +196,7 @@ func ReadInstallFile(f string) (string, error) {
 // skipIfK8sVersionUnsupported skips the test if we're running on a k8s version that is not expected to work
 // with any of the revision versions included in the test (i.e. istio 1.7 not supported on k8s 1.15)
 func skipIfK8sVersionUnsupported(t framework.TestContext) {
-	if !t.Clusters().Default().MinKubeVersion(1, 16) {
+	if !t.Clusters().Default().MinKubeVersion(16) {
 		t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.16")
 	}
 }

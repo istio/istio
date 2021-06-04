@@ -29,6 +29,7 @@ import (
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
+	"github.com/hashicorp/go-multierror"
 	"gomodules.xyz/jsonpatch/v2"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -108,13 +109,26 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler fun
 	h.handlers = append(h.handlers, handler)
 }
 
+func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	var errs error
+	for _, h := range cl.kinds {
+		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return errs
+}
+
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	scope.Info("Starting Pilot K8S CRD controller")
 
 	go func() {
-		cache.WaitForCacheSync(stop, cl.HasSynced)
+		if !cache.WaitForCacheSync(stop, cl.HasSynced) {
+			scope.Error("Failed to sync Pilot K8S CRD controller cache")
+			return
+		}
 		scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
 		cl.queue.Run(stop)
 	}()
@@ -138,10 +152,10 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 	if features.EnableServiceApis {
 		schemas = collections.PilotServiceApi
 	}
-	return NewForSchemas(client, revision, domainSuffix, schemas)
+	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
 }
 
-func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
+func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
 	out := &Client{
 		domainSuffix:     domainSuffix,
 		schemas:          schemas,
@@ -151,8 +165,12 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
 	}
-	known := knownCRDs(client.Ext())
-	for _, s := range out.schemas.All() {
+
+	known, err := knownCRDs(ctx, client.Ext())
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
 		if _, f := known[name]; f {
@@ -169,6 +187,7 @@ func NewForSchemas(client kube.Client, revision, domainSuffix string, schemas co
 			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
 		} else {
 			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			out.schemas = out.schemas.Remove(s)
 		}
 	}
 
@@ -291,13 +310,16 @@ func (cl *Client) objectInRevision(o *config.Config) bool {
 }
 
 // knownCRDs returns all CRDs present in the cluster, with retries
-func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
+func knownCRDs(ctx context.Context, crdClient apiextensionsclient.Interface) (map[string]struct{}, error) {
 	delay := time.Second
 	maxDelay := time.Minute
 	var res *crd.CustomResourceDefinitionList
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		var err error
-		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
+		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{})
 		if err == nil {
 			break
 		}
@@ -313,7 +335,7 @@ func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 	for _, r := range res.Items {
 		mp[r.Name] = struct{}{}
 	}
-	return mp
+	return mp, nil
 }
 
 func TranslateObject(r runtime.Object, gvk config.GroupVersionKind, domainSuffix string) *config.Config {

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 31772
+releaseNotes:
+- |
+  **Added** new metric for tracking distribution of configuration resource sizes being pushed by istiod.

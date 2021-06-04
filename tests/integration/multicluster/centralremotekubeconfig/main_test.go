@@ -32,6 +32,7 @@ var ist istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Skip("https://github.com/istio/istio/pull/33045").
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(func(ctx resource.Context) error {
@@ -54,11 +55,9 @@ func TestMain(m *testing.M) {
   base:
     enabled: true
   pilot:
-    enabled: false
+    enabled: true
   telemetry:
     enabled: false
-  istiodRemote:
-    enabled: true
   ingressGateways:
   - enabled: false
     name: istio-ingressgateway
@@ -66,6 +65,8 @@ func TestMain(m *testing.M) {
   - enabled: false
     name: istio-egressgateway
 values:
+  global:
+    externalIstiod: true
   istiodRemote:
     injectionURL: https://istiod.istio-system.svc:15017/inject
   base:

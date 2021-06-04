@@ -1,0 +1,54 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/rule[0]/sa/from[0]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[0]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://some-td/ns/rule[0]/sa/from[0]-principal[0]
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://some-td/ns/rule[0]/sa/from[1]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://some-td/ns/rule[0]/sa/from[1]-principal[1]
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[0]-from[1]-ns[0]/.*
+  shadowRulesStatPrefix: istio_dry_run_allow_
