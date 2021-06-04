@@ -185,7 +185,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.initialSync.Store(true)
 	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
 	cl.queue.Run(stop)
-	<-stop
 	scope.Info("controller terminated")
 }
 
