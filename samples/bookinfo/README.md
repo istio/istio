@@ -85,7 +85,7 @@ $ kubectl exec -it "$(kubectl get pod -l app=ratings -o jsonpath='{.items[0].met
 <title>Simple Bookstore App</title>
 ```
 
-You can also test it by hitting productpage in the browser.
+You can also test it by hitting producpage in the browser.
 
 ```bash
 http://192.168.39.116:31395/productpage
