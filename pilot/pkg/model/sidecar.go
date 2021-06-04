@@ -369,10 +369,10 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 					}
 				}
 			}
-			for _, svc := range vsservices {
-				if s := serviceMatchesListenerPort(svc, listener); s != nil {
-					addService(s)
-				}
+		}
+		for _, svc := range vsservices {
+			if s := serviceMatchesListenerPort(svc, listener); s != nil {
+				addService(s)
 			}
 		}
 	}
