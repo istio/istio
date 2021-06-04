@@ -46,10 +46,8 @@ spec:
         istio: pilot
         {{- end }}
       annotations:
-        {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
-        {{- end }}
         sidecar.istio.io/inject: "false"
         {{- if .Values.pilot.podAnnotations }}
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
