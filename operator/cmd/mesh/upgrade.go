@@ -145,7 +145,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
 		return err
 	}
-	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
+	setFlags := applyFlagAliases(args.set, args.manifestsPath, "", true, true)
 	// Generate IOPS parseObjectSetFromManifest
 	targetIOPYaml, targetIOP, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, restConfig, l)
 	if err != nil {

@@ -72,6 +72,10 @@ type installArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// defaultRevision determines whether this control plane revision performs validation and default injection.
+	defaultRevision bool
+	// defaultRevisionSet determines whether defaultRevision was set by the user.
+	defaultRevisionSet bool
 }
 
 func addInstallFlags(cmd *cobra.Command, args *installArgs) {
@@ -87,6 +91,7 @@ func addInstallFlags(cmd *cobra.Command, args *installArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().BoolVar(&args.defaultRevision, "default-revision", true, defaultRevisionFlagHelpStr)
 }
 
 // InstallCmd generates an Istio install manifest and applies it to a cluster
@@ -147,7 +152,8 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err != nil {
 		return err
 	}
-	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
+	iArgs.defaultRevisionSet = cmd.Flag("default-revision").Changed
+	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision, iArgs.defaultRevision, iArgs.defaultRevisionSet)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {

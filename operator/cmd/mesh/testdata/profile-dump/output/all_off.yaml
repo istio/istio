@@ -16,6 +16,7 @@ spec:
       enabled: false
     pilot:
       enabled: false
+  defaultRevision: true
   hub: gcr.io/istio-testing
 
   meshConfig:

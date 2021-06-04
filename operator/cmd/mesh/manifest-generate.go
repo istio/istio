@@ -46,6 +46,10 @@ type manifestGenerateArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// defaultRevision determines whether this control plane revision performs validation and default injection.
+	defaultRevision bool
+	// defaultRevisionSet determines whether defaultRevision was set by the user.
+	defaultRevisionSet bool
 	// components is a list of strings specifying which component's manifests to be generated.
 	components []string
 }
@@ -58,6 +62,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
+	cmd.PersistentFlags().BoolVarP(&args.defaultRevision, "default-revision", "", true, defaultRevisionFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.components, "component", nil, ComponentFlagHelpStr)
 }
 
@@ -87,6 +92,7 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
+			mgArgs.defaultRevisionSet = cmd.Flag("default-revision").Changed
 			return manifestGenerate(rootArgs, mgArgs, logOpts, l)
 		},
 	}
@@ -97,7 +103,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision, mgArgs.defaultRevision, mgArgs.defaultRevisionSet), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
@@ -182,7 +188,7 @@ func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.Comp
 		fname := filepath.Join(dirName, componentName) + ".yaml"
 		l.LogAndPrintf("Writing manifest to %s", fname)
 		if !dryRun {
-			if err := ioutil.WriteFile(fname, []byte(ym), 0644); err != nil {
+			if err := ioutil.WriteFile(fname, []byte(ym), 0o644); err != nil {
 				return fmt.Errorf("could not write manifest config; %s", err)
 			}
 		}

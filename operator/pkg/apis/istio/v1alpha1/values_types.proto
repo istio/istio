@@ -987,17 +987,17 @@ message SidecarInjectorConfig {
   TypeMapStringInterface templates = 23;
 
   // Default templates specifies a set of default templates that are used in sidecar injection.
-  // By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
-  // To inject other additional templates, define it using the `templates` option, and add it to 
+  // By default, a template `sidecar` is always provided, which contains the template of default sidecar.
+  // To inject other additional templates, define it using the `templates` option, and add it to
   // the default templates list.
   // For example:
-  
+
   // templates:
   //   hello: |
   //     metadata:
   //       labels:
   //         hello: world
-  
+
   // defaultTemplates: ["sidecar", "hello"]
   repeated string defaultTemplates = 24;
 
@@ -1105,6 +1105,8 @@ message Values {
   IstiodRemoteConfig istiodRemote = 38;
 
   repeated string revisionTags = 39;
+
+  bool defaultRevision = 40;
 }
 
 // GOTYPE: map[string]interface{}

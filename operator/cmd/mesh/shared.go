@@ -208,12 +208,15 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 
 // --manifests is an alias for --set installPackagePath=
 // --revision is an alias for --set revision=
-func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
+func applyFlagAliases(flags []string, manifestsPath, revision string, defaultRevision, defaultRevisionSet bool) []string {
 	if manifestsPath != "" {
 		flags = append(flags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
 	}
 	if revision != "" {
 		flags = append(flags, fmt.Sprintf("revision=%s", revision))
+	}
+	if defaultRevisionSet {
+		flags = append(flags, fmt.Sprintf("defaultRevision=%t", defaultRevision))
 	}
 	return flags
 }
