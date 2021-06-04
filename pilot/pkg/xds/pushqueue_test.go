@@ -351,7 +351,6 @@ func TestProxyQueue(t *testing.T) {
 					l, _ := strconv.Atoi(updated[i])
 					r, _ := strconv.Atoi(updated[j])
 					return l < r
-
 				})
 				processed = append(processed, updated...)
 				if len(processed) == 100 {
