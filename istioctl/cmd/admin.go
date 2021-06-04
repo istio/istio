@@ -28,11 +28,14 @@ func adminCmd() *cobra.Command {
 		Example: `  # Retrieve information about istiod configuration.
   istioctl admin log`,
 		Aliases: []string{"istiod"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
 			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
 			return nil
 		},
 	}
