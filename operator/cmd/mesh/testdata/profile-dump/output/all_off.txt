@@ -6,7 +6,6 @@ components.ingressGateways[0].enabled=true
 components.ingressGateways[0].name="istio-ingressgateway"
 components.istiodRemote.enabled=false
 components.pilot.enabled=false
-defaultRevision=true
 hub="gcr.io/istio-testing"
 meshConfig.enablePrometheusMerge=true
 profile="default"
