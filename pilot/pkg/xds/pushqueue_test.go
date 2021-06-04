@@ -321,7 +321,7 @@ func TestProxyQueue(t *testing.T) {
 			}
 		}()
 
-		var processed = make([]string, 0, 100)
+		processed := make([]string, 0, 100)
 		done := make(chan struct{})
 		pushChannel := make(chan *model.PushRequest)
 		go func() {
