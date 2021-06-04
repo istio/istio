@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 33280
+releaseNotes:
+- |
+  **Fixed** an issue where prometheus scraping annotations are not added to Istiod when metric merging is disabled.
