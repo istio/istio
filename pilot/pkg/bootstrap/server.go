@@ -804,7 +804,8 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	// received.We wait to ensure we have committed at least this many updates. This avoids a race
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
-	if !cache.WaitForCacheSync(stop, s.pushContextReady) {
+	expected := s.XDSServer.InboundUpdates.Load()
+	if !cache.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
 		log.Errorf("Failed waiting for push context initialization")
 		return false
 	}
@@ -813,8 +814,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 }
 
 // pushContextReady indicates whether pushcontext has processed all inbound config updates.
-func (s *Server) pushContextReady() bool {
-	expected := s.XDSServer.InboundUpdates.Load()
+func (s *Server) pushContextReady(expected int64) bool {
 	committed := s.XDSServer.CommittedUpdates.Load()
 	if committed < expected {
 		log.Infof("Waiting for pushcontext to process inbound updates, inbound: %v, committed : %v", expected, committed)
