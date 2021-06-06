@@ -606,6 +606,10 @@ type NodeMetadata struct {
 	Raw map[string]interface{} `json:"-"`
 }
 
+func (m *NodeMetadata) HasConfiguredCerts() bool {
+	return m.TLSClientRootCert != "" || m.TLSServerRootCert != ""
+}
+
 // ProxyConfigOrDefault is a helper function to get the ProxyConfig from metadata, or fallback to a default
 // This is useful as the logic should check for proxy config from proxy first and then defer to mesh wide defaults
 // if not present.
