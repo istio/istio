@@ -222,6 +222,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 				newObj, ok = tombstone.Obj.(metav1.Object)
 				if !ok {
 					log.Errorf("tombstone contained object parse error", obj)
+					return
 				}
 			}
 			h.queue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
