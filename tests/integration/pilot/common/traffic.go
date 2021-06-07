@@ -228,8 +228,6 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 }
 
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDeployments) {
-	// TODO don't merge
-	t.Fatal("test dumping")
 	cases := map[string][]TrafficTestCase{}
 	cases["virtualservice"] = virtualServiceCases(t.Settings().SkipVM)
 	cases["sniffing"] = protocolSniffingCases()
