@@ -272,11 +272,11 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 	v := &validator{}
 
 	var errs, err error
-	var reader io.Reader
+	var reader io.ReadCloser
 	warningsByFilename := map[string]validation.Warning{}
 	for _, filename := range filenames {
 		if filename == "-" {
-			reader = os.Stdin
+			reader = io.NopCloser(os.Stdin)
 		} else {
 			reader, err = os.Open(filename)
 		}
@@ -288,6 +288,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
+		reader.Close()
 		warningsByFilename[filename] = warning
 	}
 
