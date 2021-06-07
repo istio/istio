@@ -44,10 +44,6 @@ type cacheHandler struct {
 }
 
 func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Event) error {
-	if err := h.client.checkReadyForEvents(curr); err != nil {
-		return err
-	}
-
 	currItem, ok := curr.(runtime.Object)
 	if !ok {
 		scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", curr, curr)

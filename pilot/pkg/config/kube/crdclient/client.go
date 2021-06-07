@@ -77,7 +77,7 @@ type Client struct {
 
 	// kinds keeps track of all cache handlers for known types
 	kinds map[config.GroupVersionKind]*cacheHandler
-	queue queue.Instance
+	queue queue.SyncInstance
 
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
@@ -90,7 +90,7 @@ var _ model.ConfigStoreCache = &Client{}
 
 // Validate we are ready to handle events. Until the informers are synced, we will block the queue
 func (cl *Client) checkReadyForEvents(curr interface{}) error {
-	if !cl.HasSynced() {
+	if !cl.informersSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
@@ -125,7 +125,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	scope.Info("Starting Pilot K8S CRD controller")
 
 	go func() {
-		if !cache.WaitForCacheSync(stop, cl.HasSynced) {
+		if !cache.WaitForCacheSync(stop, cl.informersSynced) {
 			scope.Error("Failed to sync Pilot K8S CRD controller cache")
 			return
 		}
@@ -137,7 +137,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	scope.Info("controller terminated")
 }
 
-func (cl *Client) HasSynced() bool {
+func (cl *Client) informersSynced() bool {
 	for kind, ctl := range cl.kinds {
 		if !ctl.informer.HasSynced() {
 			scope.Infof("controller %q is syncing...", kind)
@@ -145,6 +145,13 @@ func (cl *Client) HasSynced() bool {
 		}
 	}
 	return true
+}
+
+func (cl *Client) HasSynced() bool {
+	if !cl.informersSynced() {
+		return false
+	}
+	return cl.queue.MarkSynced()
 }
 
 func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
@@ -160,7 +167,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		domainSuffix:     domainSuffix,
 		schemas:          schemas,
 		revision:         revision,
-		queue:            queue.NewQueue(1 * time.Second),
+		queue:            queue.NewSync(queue.NewQueue(1 * time.Second)),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),

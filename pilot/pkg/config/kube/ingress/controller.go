@@ -80,7 +80,7 @@ type controller struct {
 	meshWatcher  mesh.Holder
 	domainSuffix string
 
-	queue                  queue.Instance
+	queue                  queue.SyncInstance
 	virtualServiceHandlers []func(config.Config, config.Config, model.Event)
 	gatewayHandlers        []func(config.Config, config.Config, model.Event)
 
@@ -138,7 +138,7 @@ func NetworkingIngressAvailable(client kube.Client) bool {
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
 	// queue requires a time duration for a retry delay after a handler error
-	q := queue.NewQueue(1 * time.Second)
+	q := queue.NewSync(queue.NewQueue(1 * time.Second))
 
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
@@ -296,6 +296,13 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 }
 
 func (c *controller) HasSynced() bool {
+	if !c.informersSynced() {
+		return false
+	}
+	return c.queue.MarkSynced()
+}
+
+func (c *controller) informersSynced() bool {
 	return c.ingressInformer.HasSynced() && c.serviceInformer.HasSynced() &&
 		(c.classes == nil || c.classes.Informer().HasSynced())
 }
