@@ -360,5 +360,5 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 }
 
 func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
-	dumpProxyCommand(c, pods, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 /debug/ndsz")
+	dumpProxyCommand(c, pods, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 GET /debug/ndsz")
 }
