@@ -90,29 +90,29 @@ func (h *cacheHandler) StartWorker(stop <-chan struct{}) {
 }
 
 func (h *cacheHandler) worker() {
-	for {
-		h.processWorkerItem()
+	for h.processWorkerItem() {
 	}
 }
 
-func (h *cacheHandler) processWorkerItem() {
+func (h *cacheHandler) processWorkerItem() bool {
 	obj, shutdown := h.queue.Get()
 	if shutdown {
 		scope.Infof("kind :%+v queue len: %d shutdown", h.schema.Resource().Kind(), h.queue.Len())
-		return
+		return false
 	}
 	defer h.queue.Done(obj)
 	namespacedObj, ok := obj.(types.NamespacedName)
 	if !ok {
 		h.queue.Done(obj)
-		return
+		return true
 	}
 	err := h.onEventNew(namespacedObj)
 	if err != nil {
 		h.queue.AddRateLimited(namespacedObj)
-		return
+		return true
 	}
 	h.queue.Forget(obj)
+	return true
 }
 
 func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
