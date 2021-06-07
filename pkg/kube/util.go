@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/transport"
 
 	//  allow out of cluster authentication
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -45,7 +47,15 @@ const (
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
 func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
-	return BuildClientCmd(kubeconfig, context).ClientConfig()
+	c, err := BuildClientCmd(kubeconfig, context).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
+	})
+
+	return c, nil
 }
 
 // BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
@@ -90,6 +100,11 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 	for _, fn := range fns {
 		fn(c)
 	}
+
+	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
+	})
+
 	return kubernetes.NewForConfig(c)
 }
 
@@ -149,6 +164,10 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 	if len(config.UserAgent) == 0 {
 		config.UserAgent = IstioUserAgent()
 	}
+
+	config.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
+	})
 	return config
 }
 

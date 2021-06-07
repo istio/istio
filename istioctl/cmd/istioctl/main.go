@@ -15,11 +15,15 @@
 package main
 
 import (
+	goflag "flag"
 	"fmt"
 	"os"
 
+	flag "github.com/spf13/pflag"
+
 	// import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/klog/v2"
 
 	"istio.io/istio/istioctl/cmd"
 )
@@ -32,6 +36,11 @@ func main() {
 	}
 
 	rootCmd := cmd.GetRootCmd(os.Args[1:])
+
+	klog.InitFlags(nil)
+	goflag.Parse()
+	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
+	klog.SetLogger(nil)
 
 	if err := rootCmd.Execute(); err != nil {
 		exitCode := cmd.GetExitCode(err)

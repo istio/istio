@@ -63,6 +63,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/transport"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
@@ -387,12 +388,19 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
+	c, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
+	})
 	return newClientInternal(newClientFactory(clientConfig), revision)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
-func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "")
+func NewClient(clientConfig clientcmd.ClientConfig) (cl Client, err error) {
+	return NewExtendedClient(clientConfig, "")
 }
 
 func (c *client) RESTConfig() *rest.Config {
