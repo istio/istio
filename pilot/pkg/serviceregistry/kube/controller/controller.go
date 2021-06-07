@@ -191,12 +191,29 @@ type controllerInterface interface {
 
 var _ controllerInterface = &Controller{}
 
+type FilterFunc func() bool
+
+type wrappedQueue struct {
+	queue  queue.Instance
+	filter FilterFunc
+}
+
+func (w *wrappedQueue) Push(task queue.Task) {
+	if w.filter() {
+		w.queue.Push(task)
+	}
+}
+
+func (w *wrappedQueue) Run(stop <-chan struct{}) {
+	w.queue.Run(stop)
+}
+
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
 	client kubernetes.Interface
 
-	queue queue.Instance
+	queue wrappedQueue
 
 	nsInformer cache.SharedIndexInformer
 	nsLister   listerv1.NamespaceLister
@@ -259,6 +276,8 @@ type Controller struct {
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
 	informerInit *atomic.Bool
+	// beginInitialSync is set to true when calling SyncAll.
+	beginInitialSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
 	// syncTimeout signals that the registry should mark itself synced even if informers haven't been processed yet.
@@ -275,11 +294,9 @@ type Controller struct {
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
-	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
 		domainSuffix:                options.DomainSuffix,
 		client:                      kubeClient.Kube(),
-		queue:                       queue.NewQueue(1 * time.Second),
 		clusterID:                   options.ClusterID,
 		xdsUpdater:                  options.XDSUpdater,
 		servicesMap:                 make(map[host.Name]*model.Service),
@@ -294,12 +311,16 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 		syncInterval:                options.GetSyncInterval(),
 		informerInit:                atomic.NewBool(false),
+		beginInitialSync:            atomic.NewBool(false),
 		initialSync:                 atomic.NewBool(false),
 		syncTimeout:                 options.SyncTimeout,
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
 		systemNamespace:             options.SystemNamespace,
 	}
-
+	// The queue requires a time duration for a retry delay after a handler error
+	c.queue = wrappedQueue{queue.NewQueue(1 * time.Second), func() bool {
+		return c.beginInitialSync.Load()
+	}}
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 	if options.SystemNamespace != "" {
@@ -623,6 +644,7 @@ func (c *Controller) informersSynced() bool {
 // This can cause great performance cost in multi clusters scenario.
 // Maybe just sync the cache and trigger one push at last.
 func (c *Controller) SyncAll() error {
+	c.beginInitialSync.Store(true)
 	var err *multierror.Error
 
 	if c.nsLister != nil {

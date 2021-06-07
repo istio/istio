@@ -88,6 +88,9 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			incrementEvent(kind, "add")
+			if !cl.beginInitialSync.Load() {
+				return
+			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
@@ -95,6 +98,9 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		UpdateFunc: func(old, cur interface{}) {
 			if !reflect.DeepEqual(old, cur) {
 				incrementEvent(kind, "update")
+				if !cl.beginInitialSync.Load() {
+					return
+				}
 				cl.queue.Push(func() error {
 					return h.onEvent(old, cur, model.EventUpdate)
 				})
@@ -104,6 +110,9 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 		},
 		DeleteFunc: func(obj interface{}) {
 			incrementEvent(kind, "delete")
+			if !cl.beginInitialSync.Load() {
+				return
+			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventDelete)
 			})
