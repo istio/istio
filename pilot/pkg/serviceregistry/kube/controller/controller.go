@@ -191,29 +191,12 @@ type controllerInterface interface {
 
 var _ controllerInterface = &Controller{}
 
-type FilterFunc func() bool
-
-type wrappedQueue struct {
-	queue  queue.Instance
-	filter FilterFunc
-}
-
-func (w *wrappedQueue) Push(task queue.Task) {
-	if w.filter() {
-		w.queue.Push(task)
-	}
-}
-
-func (w *wrappedQueue) Run(stop <-chan struct{}) {
-	w.queue.Run(stop)
-}
-
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
 	client kubernetes.Interface
 
-	queue wrappedQueue
+	queue queue.Instance
 
 	nsInformer cache.SharedIndexInformer
 	nsLister   listerv1.NamespaceLister
@@ -318,9 +301,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		systemNamespace:             options.SystemNamespace,
 	}
 	// The queue requires a time duration for a retry delay after a handler error
-	c.queue = wrappedQueue{queue.NewQueue(1 * time.Second), func() bool {
-		return c.beginInitialSync.Load()
-	}}
+	c.queue = queue.NewQueue(1 * time.Second)
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
 	if options.SystemNamespace != "" {
@@ -377,9 +358,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			log.Debugf("Endpoint %v not found, skipping stale endpoint", key)
 			return
 		}
-		c.queue.Push(func() error {
-			return c.endpoints.onEvent(item, model.EventUpdate)
-		})
+		if shouldEnqueue("Pods", c.beginInitialSync) {
+			c.queue.Push(func() error {
+				return c.endpoints.onEvent(item, model.EventUpdate)
+			})
+		}
 	})
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
 
@@ -578,6 +561,9 @@ func (c *Controller) registerHandlers(
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
+				if !shouldEnqueue(otype, c.beginInitialSync) {
+					return
+				}
 				c.queue.Push(func() error {
 					return wrappedHandler(obj, model.EventAdd)
 				})
@@ -585,6 +571,9 @@ func (c *Controller) registerHandlers(
 			UpdateFunc: func(old, cur interface{}) {
 				if !filter(old, cur) {
 					incrementEvent(otype, "update")
+					if !shouldEnqueue(otype, c.beginInitialSync) {
+						return
+					}
 					c.queue.Push(func() error {
 						return wrappedHandler(cur, model.EventUpdate)
 					})
@@ -594,6 +583,9 @@ func (c *Controller) registerHandlers(
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
+				if !shouldEnqueue(otype, c.beginInitialSync) {
+					return
+				}
 				c.queue.Push(func() error {
 					return handler(obj, model.EventDelete)
 				})
