@@ -256,13 +256,11 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	go func() {
-		if !cache.WaitForCacheSync(stop, c.HasSynced) {
-			log.Error("Failed to sync controller cache")
-			return
-		}
-		c.queue.Run(stop)
-	}()
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+		log.Error("Failed to sync controller cache")
+		return
+	}
+	c.queue.Run(stop)
 	<-stop
 }
 

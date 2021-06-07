@@ -50,7 +50,6 @@ type istioComponentSetSpec struct {
 	Base            *baseComponentSpec `json:"base" patchStrategy:"merge"`
 	Pilot           *componentSpec     `json:"pilot" patchStrategy:"merge"`
 	Cni             *componentSpec     `json:"cni" patchStrategy:"merge"`
-	IstiodRemote    *componentSpec     `json:"istiodRemote" patchStrategy:"merge"`
 	IngressGateways []*gatewaySpec     `json:"ingressGateways" patchStrategy:"merge" patchMergeKey:"name"`
 	EgressGateways  []*gatewaySpec     `json:"egressGateways" patchStrategy:"merge" patchMergeKey:"name"`
 }

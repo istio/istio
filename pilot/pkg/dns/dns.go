@@ -34,6 +34,9 @@ type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
 	lookupTable atomic.Value
 
+	// nameTable holds the original NameTable, for debugging
+	nameTable atomic.Value
+
 	udpDNSProxy *dnsProxy
 	tcpDNSProxy *dnsProxy
 
@@ -154,6 +157,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 		lookupTable.buildDNSAnswers(altHosts, ipv4, ipv6, h.searchNamespaces)
 	}
 	h.lookupTable.Store(lookupTable)
+	h.nameTable.Store(nt)
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
@@ -224,6 +228,14 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 // IsReady returns true if DNS lookup table is updated atleast once.
 func (h *LocalDNSServer) IsReady() bool {
 	return h.lookupTable.Load() != nil
+}
+
+func (h *LocalDNSServer) NameTable() *nds.NameTable {
+	lt := h.nameTable.Load()
+	if lt == nil {
+		return nil
+	}
+	return lt.(*nds.NameTable)
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go

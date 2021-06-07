@@ -23,7 +23,7 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Listeners valid
+    message: Listeners valid, assigned to service(s) istio-ingressgateway.default.svc.domain.suffix
     reason: ListenersValid
     status: "True"
     type: Ready

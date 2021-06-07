@@ -51,6 +51,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					sameNetwork := node.InNetwork(instance.Endpoint.Network)
+					sameCluster := node.InCluster(instance.Endpoint.Locality.ClusterID)
 					// Add individual addresses even for cross cluster.
 					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
@@ -68,7 +69,8 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 							Namespace: svc.Attributes.Namespace,
 							Shortname: shortName,
 						}
-						if _, f := out.Table[host]; !f || instance.Endpoint.Locality.ClusterID == node.Metadata.ClusterID {
+
+						if _, f := out.Table[host]; !f || sameCluster {
 							// We may have the same pod in two clusters (ie mysql-0 deployed in both places).
 							// We can only return a single IP for these queries. We should prefer the local cluster,
 							// so if the entry already exists only overwrite it if the instance is in our own cluster.
@@ -76,7 +78,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						}
 					}
 
-					skipForMulticluster := !features.MulticlusterHeadlessEnabled && instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID
+					skipForMulticluster := !features.MulticlusterHeadlessEnabled && !sameCluster
 					if skipForMulticluster || !sameNetwork {
 						// We take only cluster-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.

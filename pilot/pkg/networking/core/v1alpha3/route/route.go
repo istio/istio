@@ -451,7 +451,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				Weight: weight,
 			}
 			if dst.Headers != nil {
-				operations := translateHeadersOperations(dst.Headers)
+				operations := translateHeadersOperationsForDestination(dst.Headers)
 				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
 				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
 				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
@@ -601,6 +601,53 @@ func dropInternal(keys []string) []string {
 		result = append(result, k)
 	}
 	return result
+}
+
+// translateHeadersOperationsForDestination translates headers operations for a HTTPRouteDestination
+// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
+func translateHeadersOperationsForDestination(headers *networking.Headers) headersOperations {
+	req := headers.GetRequest()
+	resp := headers.GetResponse()
+
+	requestHeadersToAdd := translateAppendHeadersForDestination(req.GetSet(), false)
+	reqAdd := translateAppendHeadersForDestination(req.GetAdd(), true)
+	requestHeadersToAdd = append(requestHeadersToAdd, reqAdd...)
+
+	responseHeadersToAdd := translateAppendHeadersForDestination(resp.GetSet(), false)
+	respAdd := translateAppendHeadersForDestination(resp.GetAdd(), true)
+	responseHeadersToAdd = append(responseHeadersToAdd, respAdd...)
+
+	return headersOperations{
+		requestHeadersToAdd:     requestHeadersToAdd,
+		responseHeadersToAdd:    responseHeadersToAdd,
+		requestHeadersToRemove:  dropInternal(req.GetRemove()),
+		responseHeadersToRemove: dropInternal(resp.GetRemove()),
+	}
+}
+
+// translateAppendHeadersForDestination translates headers
+// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
+func translateAppendHeadersForDestination(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
+	if len(headers) == 0 {
+		return nil
+	}
+	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
+	for key, value := range headers {
+		// Unlike for translateHeadersOperations, Host header is fine but : prefix is not.
+		// Controlled by envoy.reloadable_features.treat_host_like_authority; long term Envoy will likely change the API
+		if strings.HasPrefix(key, ":") {
+			continue
+		}
+		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
+			Header: &core.HeaderValue{
+				Key:   key,
+				Value: value,
+			},
+			Append: &wrappers.BoolValue{Value: appendFlag},
+		})
+	}
+	sort.Stable(SortHeaderValueOption(headerValueOptionList))
+	return headerValueOptionList
 }
 
 // translateHeadersOperations translates headers operations

@@ -50,7 +50,7 @@ const (
 	EgressReleaseName   = EgressGatewayChart
 	ControlChartsDir    = "istio-control"
 	GatewayChartsDir    = "gateways"
-	retryDelay          = 2 * time.Second
+	RetryDelay          = 2 * time.Second
 	RetryTimeOut        = 5 * time.Minute
 	Timeout             = 2 * time.Minute
 )
@@ -169,6 +169,6 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 			return fmt.Errorf("istio egress gateway pod is not ready: %v", err)
 		}
 		return nil
-	}, retry.Timeout(RetryTimeOut), retry.Delay(retryDelay))
+	}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
 	scopes.Framework.Infof("=== succeeded ===")
 }

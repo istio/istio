@@ -25,10 +25,10 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -420,6 +420,7 @@ func createRouteStatus(gateways []string, obj config.Config, current []k8s.Route
 		setGateways[ref] = struct{}{}
 	}
 	gws := make([]k8s.RouteGatewayStatus, 0, len(gateways))
+
 	// Fill in all of the gateways that are already present but not owned by use
 	for _, r := range current {
 		if r.GatewayRef.Controller == nil {
@@ -932,6 +933,32 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 		})
 		name := obj.Name + "-" + constants.KubernetesGatewayName
 		var servers []*istio.Server
+		gatewayServices := []string{}
+		skippedAddresses := []string{}
+		for _, addr := range kgw.Addresses {
+			if addr.Type != nil && *addr.Type != k8s.NamedAddressType {
+				skippedAddresses = append(skippedAddresses, addr.Value)
+				continue
+			}
+			// TODO: For now we are using Addresses. There has been some discussion of allowing inline
+			// parameters on the class field like a URL, in which case we will probably just use that. See
+			// https://github.com/kubernetes-sigs/gateway-api/pull/614
+			fqdn := addr.Value
+			if !strings.Contains(fqdn, ".") {
+				// Short name, expand it
+				fqdn = fmt.Sprintf("%s.%s.svc.%s", fqdn, obj.Namespace, r.Domain)
+			}
+			// TODO assert its a valid reference. Can we do that? We may need to actually look if there is
+			// any associated service instances. This would just apply to status; an invalid reference
+			// would not end up applying as we validate it in push context.
+			gatewayServices = append(gatewayServices, fqdn)
+		}
+		if len(kgw.Addresses) == 0 {
+			// If nothing is defined, setup a default
+			// TODO: set default in GatewayClass instead.
+			// Maybe we only have a default when obj.Namespace == SystemNamespace
+			gatewayServices = []string{fmt.Sprintf("istio-ingressgateway.%s.svc.%s", obj.Namespace, r.Domain)}
+		}
 		for i, l := range kgw.Listeners {
 			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gs := s.(*k8s.GatewayStatus)
@@ -991,24 +1018,37 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 				Name:              name,
 				Namespace:         obj.Namespace,
 				Domain:            r.Domain,
+				Annotations: map[string]string{
+					model.InternalGatewayServiceAnnotation: strings.Join(gatewayServices, ","),
+				},
 			},
 			Spec: &istio.Gateway{
 				Servers: servers,
-				// TODO derive this from gatewayclass param ref
-				Selector: labels.Instance{constants.IstioLabel: "ingressgateway"},
 			},
 		}
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
 			// TODO: report invalid configurations
-			gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
-				Type:               string(k8s.GatewayConditionReady),
-				Status:             kstatus.StatusTrue,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "ListenersValid",
-				Message:            "Listeners valid",
-			})
+			if len(skippedAddresses) == 0 {
+				gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
+					Type:               string(k8s.GatewayConditionReady),
+					Status:             kstatus.StatusTrue,
+					ObservedGeneration: obj.Generation,
+					LastTransitionTime: metav1.Now(),
+					Reason:             "ListenersValid",
+					Message:            fmt.Sprintf("Listeners valid, assigned to service(s) %s", strings.Join(gatewayServices, ", ")),
+				})
+			} else {
+				// TODO report named service that does not exist
+				gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
+					Type:               string(k8s.GatewayConditionReady),
+					Status:             kstatus.StatusTrue,
+					ObservedGeneration: obj.Generation,
+					LastTransitionTime: metav1.Now(),
+					Reason:             string(k8s.GatewayReasonAddressNotAssigned),
+					Message:            fmt.Sprintf("Only NamedAddress is supported, ignoring %v", skippedAddresses),
+				})
+			}
 			// TODO: when we implement "address" support in status, we should report unscheduled
 			// if there is no associated Service.
 			gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
