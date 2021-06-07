@@ -103,7 +103,6 @@ func (h *cacheHandler) processWorkerItem() bool {
 	defer h.queue.Done(obj)
 	namespacedObj, ok := obj.(types.NamespacedName)
 	if !ok {
-		h.queue.Done(obj)
 		return true
 	}
 	err := h.onEventNew(namespacedObj)
