@@ -432,11 +432,6 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	return result
 }
 
-type localNamedReference struct {
-	Name      string
-	Namespace string
-}
-
 func hostnameToStringList(h []k8s.Hostname) []string {
 	res := make([]string, 0, len(h))
 	for _, i := range h {
