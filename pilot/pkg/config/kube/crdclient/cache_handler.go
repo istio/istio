@@ -214,8 +214,15 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			incrementEvent(kind.Kind, "delete")
 			newObj, ok := obj.(metav1.Object)
 			if !ok {
-				log.Errorf("eventHandler %s parse obj err", kind)
-				return
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Errorf("couldn't get object from tombstone %+v", obj)
+					return
+				}
+				newObj, ok = tombstone.Obj.(metav1.Object)
+				if !ok {
+					log.Errorf("tombstone contained object parse error", obj)
+				}
 			}
 			h.queue.Add(types.NamespacedName{Name: newObj.GetName(), Namespace: newObj.GetNamespace()})
 		},
