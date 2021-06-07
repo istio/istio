@@ -182,7 +182,6 @@ func NewController(
 		removeCallback: removeCallback,
 	}
 
-	log.Info("Setting up event handlers")
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
@@ -219,14 +218,16 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
+	t0 := time.Now()
 	log.Info("Starting Secrets controller")
 
 	go c.informer.Run(stopCh)
 
-	// Wait for the caches to be synced before starting workers
 	if !kube.WaitForCacheSyncInterval(stopCh, c.syncInterval, c.informer.HasSynced) {
+		log.Error("Failed to sync secret controller cache")
 		return
 	}
+	log.Infof("Secret controller cache synced in %v", time.Since(t0))
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
 	if features.RemoteClusterTimeout != 0 {
@@ -249,6 +250,7 @@ func (c *Controller) close() {
 
 func (c *Controller) hasSynced() bool {
 	if !c.initialSync.Load() {
+		log.Debug("secret controller did not syncup secrets presented at startup")
 		// we haven't finished processing the secrets that were present at startup
 		return false
 	}
@@ -256,6 +258,7 @@ func (c *Controller) hasSynced() bool {
 	defer c.cs.RUnlock()
 	for _, cluster := range c.cs.remoteClusters {
 		if !cluster.HasSynced() {
+			log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.secretName)
 			return false
 		}
 	}
