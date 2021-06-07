@@ -1505,8 +1505,8 @@ func updateEndpoints(controller *FakeController, name, namespace string, portNam
 
 	// Update endpoint slice as well
 	esps := make([]discovery.EndpointPort, 0)
-	for _, name := range portNames {
-		esps = append(esps, discovery.EndpointPort{Name: &name, Port: &portNum})
+	for i := range portNames {
+		esps = append(esps, discovery.EndpointPort{Name: &portNames[i], Port: &portNum})
 	}
 	endpointSlice := &discovery.EndpointSlice{
 		ObjectMeta: metaV1.ObjectMeta{

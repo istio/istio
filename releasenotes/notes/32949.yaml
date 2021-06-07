@@ -1,0 +1,39 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 32949
+
+releaseNotes:
+- |
+  **Removed** the istiodRemote component and charts. Use values.global.externalIstiod for the external control plane (alpha) feature instead.
+
+upgradeNotes:
+- title: The istiodRemote installation component has been removed.
+  content: |
+    Installing Istio on a remote cluster that is using an external control plane was previously done by disabling the `pilot` component and
+    enabling the `istiodRemote` component in the IOP:
+
+    {{< text yaml >}}
+    components:
+      pilot:
+        enabled: false
+      istiodRemote:
+        enabled: true
+    {{< /text >}}
+
+    This did not actually install a different component, but rather a slightly modified subset of the `pilot` charts, essentially everything
+    but istiod itself which is installed separately on a different cluster or other infrastructure.
+
+    To simplify the implementation, as well as to clarify the user model, the `istiodRemote` component and corresponding charts have
+    been removed. Installing Istio on a remote external control plane cluster is now done by enabling `pilot` and setting
+    `values.global.externalIstiod=true` to indicate that only the client subset of the `pilot` component should be installed.
+
+    {{< text yaml >}}
+    components:
+      pilot:
+        enabled: true
+    values:
+      global:
+        externalIstiod: true
+    {{< /text >}}

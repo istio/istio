@@ -1545,25 +1545,27 @@ func TestBuildGatewayListeners(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		cg := NewConfigGenTest(t, TestOptions{
-			Configs: []config.Config{{Meta: config.Meta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}},
-		})
-		proxy := cg.SetupProxy(&proxyGateway)
-		proxy.ServiceInstances = tt.node.ServiceInstances
-		if tt.node.Metadata != nil {
-			proxy.Metadata = tt.node.Metadata
-		} else {
-			proxy.Metadata = &proxyGatewayMetadata
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: []config.Config{{Meta: config.Meta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}},
+			})
+			cg.MemRegistry.WantGetProxyServiceInstances = tt.node.ServiceInstances
+			proxy := cg.SetupProxy(&proxyGateway)
+			if tt.node.Metadata != nil {
+				proxy.Metadata = tt.node.Metadata
+			} else {
+				proxy.Metadata = &proxyGatewayMetadata
+			}
 
-		builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
-		listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
-		sort.Strings(listeners)
-		sort.Strings(tt.expectedListeners)
-		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
-			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.MergedServers)
-		}
-		xdstest.ValidateListeners(t, builder.gatewayListeners)
+			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
+			listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
+			sort.Strings(listeners)
+			sort.Strings(tt.expectedListeners)
+			if !reflect.DeepEqual(listeners, tt.expectedListeners) {
+				t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.MergedServers)
+			}
+			xdstest.ValidateListeners(t, builder.gatewayListeners)
+		})
 	}
 }
 

@@ -97,7 +97,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
-		if proxy.Type == model.Router && proxy.GetRouterMode() == model.SniDnatRouter {
+		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
@@ -145,8 +145,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 	return clusters
 }
-
-var NilClusterPatcher = clusterPatcher{}
 
 type clusterPatcher struct {
 	efw            *model.EnvoyFilterWrapper
@@ -245,11 +243,6 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 			LbEndpoints: []*endpoint.LbEndpoint{lbEndpoint},
 		},
 	}
-}
-
-type ClusterInstances struct {
-	PrimaryInstance *model.ServiceInstance
-	AllInstances    []*model.ServiceInstance
 }
 
 func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
@@ -421,7 +414,7 @@ func buildAutoMtlsSettings(
 	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
 		// Update TLS settings for ISTIO_MUTUAL.
-		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
+		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI.
 		// user specified SNIs in the istio mtls settings are useful when routing via gateways.
 		sniToUse := tls.Sni
 		if len(sniToUse) == 0 {
@@ -431,14 +424,16 @@ func buildAutoMtlsSettings(
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
-		// For backward compatibility, use metadata certs if provided
+
+		// For backward compatibility, use metadata certs if provided.
 		if proxy.Metadata.TLSClientRootCert != "" {
-			return buildMutualTLS(subjectAltNamesToUse, sniToUse, proxy), autoDetected
+			return buildMutualTLS(subjectAltNamesToUse, sniToUse, proxy), userSupplied
 		}
 
 		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
 			return tls, userSupplied
 		}
+
 		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
 	}
 
@@ -446,7 +441,7 @@ func buildAutoMtlsSettings(
 		return nil, userSupplied
 	}
 
-	// For backward compatibility, use metadata certs if provided
+	// For backward compatibility, use metadata certs if provided.
 	if proxy.Metadata.TLSClientRootCert != "" {
 		return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
 	}
@@ -521,6 +516,8 @@ type buildClusterOpts struct {
 	proxy           *model.Proxy
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
+	// Indicates the service registry of the cluster being built.
+	serviceRegistry string
 }
 
 type upgradeTuple struct {
@@ -603,6 +600,15 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 	if outlier.MaxEjectionPercent > 0 {
 		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
+	}
+
+	if outlier.SplitExternalLocalOriginErrors {
+		out.SplitExternalLocalOriginErrors = true
+		if outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
+			out.ConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: outlier.ConsecutiveLocalOriginFailures.Value}
+		}
+		// SuccessRate based outlier detection should be disabled.
+		out.EnforcingLocalOriginSuccessRate = &wrappers.UInt32Value{Value: 0}
 	}
 
 	c.OutlierDetection = out

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -309,8 +310,14 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	}
 
 	excludePorts := "15090,15021"
-	if config.StatusPort != 15090 && config.StatusPort != 15021 && config.StatusPort != 0 {
-		excludePorts += fmt.Sprintf(",%d", config.StatusPort)
+	if config.StatusPort != 15090 && config.StatusPort != 15021 {
+		if config.StatusPort != 0 {
+			// Explicit status port set, use that
+			excludePorts += fmt.Sprintf(",%d", config.StatusPort)
+		} else {
+			// use default status port
+			excludePorts += ",15020"
+		}
 	}
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	overrides := map[string]string{
@@ -547,7 +554,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	if revision != "" && revision != "default" {
 		istiod = fmt.Sprintf("%s-%s", istiod, revision)
 	}
-	if ingressIP != "" {
+	if net.ParseIP(ingressIP) != nil {
 		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
 	} else {
 		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)

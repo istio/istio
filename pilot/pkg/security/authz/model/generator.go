@@ -123,16 +123,10 @@ func (srcNamespaceGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (srcNamespaceGenerator) principal(_, value string, forTCP bool) (*rbacpb.Principal, error) {
+func (srcNamespaceGenerator) principal(_, value string, _ bool) (*rbacpb.Principal, error) {
 	v := strings.Replace(value, "*", ".*", -1)
 	m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", v))
-	if forTCP {
-		return principalAuthenticated(m), nil
-	}
-	// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
-	// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
-	metadata := matcher.MetadataStringMatcher(sm.AuthnFilterName, attrSrcPrincipal, m)
-	return principalMetadata(metadata), nil
+	return principalAuthenticated(m), nil
 }
 
 type srcPrincipalGenerator struct{}
@@ -141,13 +135,9 @@ func (srcPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (srcPrincipalGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix)
-		return principalAuthenticated(m), nil
-	}
-	metadata := matcher.MetadataStringMatcher(sm.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(metadata), nil
+func (srcPrincipalGenerator) principal(key, value string, _ bool) (*rbacpb.Principal, error) {
+	m := matcher.StringMatcherWithPrefix(value, spiffe.URIPrefix)
+	return principalAuthenticated(m), nil
 }
 
 type requestPrincipalGenerator struct{}

@@ -15,9 +15,13 @@
 package v1alpha3
 
 import (
+	"crypto/md5"
+	"encoding/binary"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -60,23 +64,44 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	for port, ms := range mergedGateway.MergedServers {
 		servers := ms.Servers
 		var si *model.ServiceInstance
-		services := make(map[host.Name]struct{}, len(builder.node.ServiceInstances))
-		for _, w := range builder.node.ServiceInstances {
-			if w.ServicePort.Port == int(port.Number) {
-				if si == nil {
-					si = w
+
+		// Legacy behavior; for new cases we will do this translation in the MergeGateway (which also applies to routes)
+		// TODO(Istio 1.12) remove this
+		if !features.UseTargetPortForGatewayRoutes {
+			services := make(map[host.Name]struct{}, len(builder.node.ServiceInstances))
+			foundDirectPortTranslation := false
+			for _, w := range builder.node.ServiceInstances {
+				_, directPortTranslation := w.Service.Attributes.Labels[model.DisableGatewayPortTranslationLabel]
+				if directPortTranslation {
+					if w.Endpoint.EndpointPort == port.Number {
+						foundDirectPortTranslation = true
+					}
+					continue
 				}
-				services[w.Service.Hostname] = struct{}{}
+				if w.ServicePort.Port == int(port.Number) {
+					if si == nil {
+						si = w
+					}
+					services[w.Service.Hostname] = struct{}{}
+				}
+			}
+			if len(services) == 0 && foundDirectPortTranslation {
+				log.Debugf("buildGatewayListeners: using direct port mapping due to disable label for %v",
+					port.Number)
+			} else if len(services) != 1 {
+				log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
+					len(services), port.Number, services)
+			}
+
+			// if we found a ServiceInstance with matching ServicePort, listen on TargetPort
+			if si != nil && si.Endpoint != nil {
+				port.Number = si.Endpoint.EndpointPort
 			}
 		}
-		if len(services) != 1 {
-			log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
-				len(services), port.Number, services)
-		}
-		// if we found a ServiceInstance with matching ServicePort, listen on TargetPort
-		if si != nil && si.Endpoint != nil {
-			port.Number = si.Endpoint.EndpointPort
-		}
+
+		// Skip ports we cannot bind to. Note that MergeGateways will already translate Service port to
+		// targetPort, which handles the common case of exposing ports like 80 and 443 but listening on
+		// higher numbered ports.
 		if builder.node.Metadata.UnprivilegedPod != "" && port.Number < 1024 {
 			log.Warnf("buildGatewayListeners: skipping privileged gateway port %d for node %s as it is an unprivileged pod",
 				port.Number, builder.node.ID)
@@ -254,13 +279,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	servers := merged.ServersByRouteName[routeName]
-	port := int(servers[0].Port.Number) // all these servers are for the same routeName, and therefore same port
 
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
+		port := int(server.Port.Number)
 
 		var virtualServices []config.Config
 		var exists bool
@@ -350,6 +375,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
+		port := int(servers[0].Port.Number)
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
 			Name:    domainName("blackhole", port),
@@ -359,6 +385,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}}
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
+		vHostDedupMap = collapseDuplicateRoutes(vHostDedupMap)
 		for _, v := range vHostDedupMap {
 			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
@@ -375,6 +402,89 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	return routeCfg
+}
+
+// hashRouteList returns a hash of a list of pointers
+func hashRouteList(r []*route.Route) uint64 {
+	hash := md5.New()
+	for _, v := range r {
+		u := uintptr(unsafe.Pointer(v))
+		size := unsafe.Sizeof(u)
+		b := make([]byte, size)
+		switch size {
+		case 4:
+			binary.LittleEndian.PutUint32(b, uint32(u))
+		default:
+			binary.LittleEndian.PutUint64(b, uint64(u))
+		}
+		hash.Write(b)
+	}
+	var tmp [md5.Size]byte
+	sum := hash.Sum(tmp[:0])
+	return binary.LittleEndian.Uint64(sum)
+}
+
+// collapseDuplicateRoutes prevents cardinality explosion when we have multiple hostnames defined for the same set of routes
+// with virtual service: {hosts: [a, b], routes: [r1, r2]}
+// before: [{vhosts: [a], routes: [r1, r2]},{vhosts: [b], routes: [r1, r2]}]
+// after: [{vhosts: [a,b], routes: [r1, r2]}]
+// Note: At this point in the code, r1 and r2 are just pointers. However, once we send them over the wire
+// they are fully expanded and expensive, so the optimization is important.
+func collapseDuplicateRoutes(input map[host.Name]*route.VirtualHost) map[host.Name]*route.VirtualHost {
+	if !features.EnableRouteCollapse {
+		return input
+	}
+	dedupe := make(map[host.Name]*route.VirtualHost, len(input))
+	known := make(map[uint64]host.Name, len(input))
+
+	// In order to ensure stable XDS, we need to sort things. First vhost alphabetically will be the "primary"
+	var hostnameKeys host.Names = make([]host.Name, 0, len(input))
+	for k := range input {
+		hostnameKeys = append(hostnameKeys, k)
+	}
+	sort.Sort(hostnameKeys)
+	for _, h := range hostnameKeys {
+		vh := input[h]
+		hash := hashRouteList(vh.Routes)
+		eh, f := known[hash]
+		if f && vhostMergeable(vh, dedupe[eh]) {
+			// Merge domains, routes are identical. We check the hash *and* routesEqual so that we don't depend on not having
+			// collisions.
+			// routesEqual is fairly cheap, but not cheap enough to do n^2 checks, so both are needed
+			dedupe[eh].Domains = append(dedupe[eh].Domains, vh.Domains...)
+		} else {
+			known[hash] = h
+			dedupe[h] = vh
+		}
+	}
+	return dedupe
+}
+
+// vhostMergeable checks if two virtual hosts can be merged
+// We explicitly do not check domains or name, as those are the keys for the merge
+func vhostMergeable(a, b *route.VirtualHost) bool {
+	if a.IncludeRequestAttemptCount != b.IncludeRequestAttemptCount {
+		return false
+	}
+	if a.RequireTls != b.RequireTls {
+		return false
+	}
+	if !routesEqual(a.Routes, b.Routes) {
+		return false
+	}
+	return true
+}
+
+func routesEqual(a, b []*route.Route) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)

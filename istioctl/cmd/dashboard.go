@@ -484,12 +484,14 @@ func dashboard() *cobra.Command {
 		Use:     "dashboard",
 		Aliases: []string{"dash", "d"},
 		Short:   "Access to Istio web UIs",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown dashboard %q", args[0])
 			}
-
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
 			return nil
 		},
 	}

@@ -333,7 +333,7 @@ func TestAgent(t *testing.T) {
 
 		a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
-	envoyReady := func(name string, port int) {
+	envoyReady := func(t test.Failer, name string, port int) {
 		retry.UntilSuccessOrFail(t, func() error {
 			code, _, _ := env.HTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
 			if code != 200 {
@@ -352,7 +352,7 @@ func TestAgent(t *testing.T) {
 			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
 			return a
 		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-		envoyReady("first agent", 15000)
+		envoyReady(t, "first agent", 15000)
 		Setup(t, func(a AgentTest) AgentTest {
 			a.envoyEnable = true
 			a.ProxyConfig.StatusPort = 25020
@@ -362,7 +362,7 @@ func TestAgent(t *testing.T) {
 			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
 			return a
 		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-		envoyReady("second agent", 25000)
+		envoyReady(t, "second agent", 25000)
 	})
 	t.Run("Envoy bootstrap discovery", func(t *testing.T) {
 		Setup(t, func(a AgentTest) AgentTest {
@@ -374,7 +374,7 @@ func TestAgent(t *testing.T) {
 			a.AgentConfig.EnableDynamicBootstrap = true
 			return a
 		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-		envoyReady("bootstrap discovery", 15000)
+		envoyReady(t, "bootstrap discovery", 15000)
 	})
 }
 

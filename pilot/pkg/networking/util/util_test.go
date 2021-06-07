@@ -649,6 +649,7 @@ func TestMergeAnyWithStruct(t *testing.T) {
 		AddUserAgent:      proto2.BoolTrue,
 		StreamIdleTimeout: newTimeout,
 		UseRemoteAddress:  proto2.BoolTrue,
+		// nolint: staticcheck
 		XffNumTrustedHops: 5,
 		ServerName:        "foobar",
 		HttpFilters: []*http_conn.HttpFilter{
@@ -662,6 +663,7 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	expectedHCM.AddUserAgent = userHCM.AddUserAgent
 	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
 	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
+	// nolint: staticcheck
 	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
 	expectedHCM.HttpFilters = append(expectedHCM.HttpFilters, userHCM.HttpFilters...)
 	expectedHCM.ServerName = userHCM.ServerName

@@ -96,7 +96,7 @@ func Test_KubeSecretController(t *testing.T) {
 			ResyncPeriod: ResyncPeriod,
 			SyncInterval: time.Microsecond,
 			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
-		}, mockserviceController, nil, nil, "default", nil, nil, nil, s)
+		}, mockserviceController, nil, nil, "default", nil, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)

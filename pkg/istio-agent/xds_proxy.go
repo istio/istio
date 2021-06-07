@@ -310,11 +310,6 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	// Handle downstream xds
 	initialRequestsSent := false
 	go func() {
-		// Send initial request
-		p.connectedMutex.RLock()
-		initialRequest := p.initialRequest
-		p.connectedMutex.RUnlock()
-
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
@@ -338,9 +333,12 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 					}
 				}
 				// Fire of a configured initial request, if there is one
+				p.connectedMutex.RLock()
+				initialRequest := p.initialRequest
 				if initialRequest != nil {
 					con.requestsChan <- initialRequest
 				}
+				p.connectedMutex.RUnlock()
 				initialRequestsSent = true
 			}
 		}

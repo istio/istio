@@ -155,7 +155,7 @@ EOF
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=180s); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     exit 1
   fi
@@ -230,6 +230,15 @@ EOF
     CONTAINER_IP=$(docker inspect "${CLUSTER_NAME}-control-plane" --format "{{ .NetworkSettings.Networks.kind.IPAddress }}")
     kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
       sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
+    if [ ! -s "${CLUSTER_KUBECONFIG}" ]; then
+      # TODO(https://github.com/istio/istio/issues/33096) remove this retry
+      echo "FAIL: unable to get kubeconfig on first try, trying again"
+      sleep 10
+      # Output for debugging
+      kind get kubeconfig --name "${CLUSTER_NAME}" --internal
+      kind get kubeconfig --name "${CLUSTER_NAME}" --internal | \
+        sed "s/${CLUSTER_NAME}-control-plane/${CONTAINER_IP}/g" > "${CLUSTER_KUBECONFIG}"
+    fi
 
     # Enable core dumps
     docker exec "${CLUSTER_NAME}"-control-plane bash -c "sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited"

@@ -162,8 +162,7 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 	// all file certs).
 	if updates.Full {
 		resp, err := s.generate(w.ResourceNames)
-		pushLog(w.ResourceNames, err)
-		return resp, model.DefaultXdsLogDetails, err
+		return resp, pushLog(w.ResourceNames), err
 	}
 	names := []string{}
 	watched := sets.NewSet(w.ResourceNames...)
@@ -173,8 +172,7 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 		}
 	}
 	resp, err := s.generate(names)
-	pushLog(names, err)
-	return resp, model.DefaultXdsLogDetails, err
+	return resp, pushLog(names), err
 }
 
 // register adds the SDS handle to the grpc server
@@ -237,13 +235,10 @@ func toEnvoySecret(s *security.SecretItem) *tls.Secret {
 	return secret
 }
 
-func pushLog(names []string, err error) {
-	if err != nil {
-		return
-	}
+func pushLog(names []string) model.XdsLogDetails {
 	if len(names) == 1 {
-		sdsServiceLog.WithLabels("resource", names[0]).Infof("SDS: PUSH")
-	} else {
-		sdsServiceLog.WithLabels("resources", len(names)).Infof("SDS: PUSH")
+		// For common case of single resource, show which resource it was
+		return model.XdsLogDetails{AdditionalInfo: "resource:" + names[0]}
 	}
+	return model.DefaultXdsLogDetails
 }

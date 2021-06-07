@@ -55,6 +55,9 @@ type TestContext interface {
 	// CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix in the workdir, or fails the test.
 	CreateTmpDirectoryOrFail(prefix string) string
 
+	// SkipDumping will skip dumping debug logs/configs/etc for this scope only (child scopes are not skipped).
+	SkipDumping()
+
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
 	// allocated resources.
 	Done()
@@ -239,6 +242,10 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
+func (c *testContext) SkipDumping() {
+	c.scope.skipDumping()
+}
+
 func (c *testContext) Config(clusters ...cluster.Cluster) resource.ConfigManager {
 	return newConfigManager(c, clusters)
 }
@@ -293,7 +300,9 @@ func (c *testContext) Cleanup(fn func()) {
 func (c *testContext) Done() {
 	if c.Failed() && c.Settings().CIMode {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
-		rt.Dump(c)
+		// make sure we dump suite-level resources, but don't dump sibling tests or their children
+		rt.DumpShallow(c)
+		c.scope.dump(c, true)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
 	}
 

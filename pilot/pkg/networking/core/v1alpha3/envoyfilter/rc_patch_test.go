@@ -106,6 +106,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 		rc           *route.RouteConfiguration
 		patchContext networking.EnvoyFilter_PatchContext
 		cp           *model.EnvoyFilterConfigPatchWrapper
+		portMap      model.GatewayPortMap
 	}
 	tests := []struct {
 		name string
@@ -205,10 +206,70 @@ func Test_routeConfigurationMatch(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "http target port match",
+			args: args{
+				patchContext: networking.EnvoyFilter_GATEWAY,
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								PortNumber: 80,
+							},
+						},
+					},
+				},
+				rc: &route.RouteConfiguration{Name: "http.8080"},
+				portMap: map[int]map[int]struct{}{
+					8080: {80: {}, 81: {}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "http target port no match",
+			args: args{
+				patchContext: networking.EnvoyFilter_GATEWAY,
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								PortNumber: 9090,
+							},
+						},
+					},
+				},
+				rc: &route.RouteConfiguration{Name: "http.9090"},
+				portMap: map[int]map[int]struct{}{
+					8080: {80: {}, 81: {}},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "https.443.app1.gw1.ns1",
+			args: args{
+				patchContext: networking.EnvoyFilter_GATEWAY,
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								PortNumber: 443,
+							},
+						},
+					},
+				},
+				rc: &route.RouteConfiguration{Name: "http.8443"},
+				portMap: map[int]map[int]struct{}{
+					8443: {443: {}},
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := routeConfigurationMatch(tt.args.patchContext, tt.args.rc, tt.args.cp); got != tt.want {
+			if got := routeConfigurationMatch(tt.args.patchContext, tt.args.rc, tt.args.cp, tt.args.portMap); got != tt.want {
 				t.Errorf("routeConfigurationMatch() = %v, want %v", got, tt.want)
 			}
 		})

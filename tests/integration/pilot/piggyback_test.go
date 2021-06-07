@@ -30,6 +30,7 @@ func TestPiggyback(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.proxy-status"). // TODO create new "agent-piggyback" feature
 		RequiresSingleCluster().
+		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			execCmd := fmt.Sprintf(
 				"kubectl -n %s exec %s -c istio-proxy -- curl localhost:15004/debug/syncz",

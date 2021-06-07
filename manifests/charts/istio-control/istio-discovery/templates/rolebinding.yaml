@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}{{- if .Values.global.externalIstiod }}-{{ .Values.global.istioNamespace }}{{- end }}
   namespace: {{ .Values.global.istioNamespace }}
   labels:
     app: istiod
@@ -9,8 +9,12 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}{{- if .Values.global.externalIstiod }}-{{ .Values.global.istioNamespace }}{{- end }}
 subjects:
   - kind: ServiceAccount
+{{- if not .Values.global.externalIstiod }}
     name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+{{- else }}
+    name: istiod-service-account
+{{- end }}
     namespace: {{ .Values.global.istioNamespace }}

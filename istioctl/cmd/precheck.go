@@ -227,7 +227,7 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
 	v, err := cli.GetKubernetesVersion()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get the Kubernetes version: %v", err)
 	}
 	compatible, err := k8sversion.CheckKubernetesVersion(v)
 	if err != nil {

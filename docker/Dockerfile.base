@@ -1,6 +1,4 @@
-FROM ubuntu:bionic
-# Base image for debug builds.
-# Built manually uploaded as "istionightly/base_debug"
+FROM ubuntu:focal
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -23,7 +21,6 @@ RUN apt-get update && \
   bsdmainutils \
   net-tools \
   lsof \
-  linux-tools-generic \
   sudo \
   && update-ca-certificates \
   && apt-get upgrade -y \

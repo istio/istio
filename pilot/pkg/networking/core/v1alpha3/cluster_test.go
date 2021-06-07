@@ -582,7 +582,7 @@ func buildSniTestClustersForSidecar(t *testing.T, sniValue string) []*cluster.Cl
 }
 
 func buildSniDnatTestClustersForGateway(t *testing.T, sniValue string) []*cluster.Cluster {
-	return buildSniTestClustersWithMetadata(t, sniValue, model.Router, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
+	return buildSniTestClustersWithMetadata(t, sniValue, model.Router, &model.NodeMetadata{})
 }
 
 func buildSniTestClustersWithMetadata(t testing.TB, sniValue string, typ model.NodeType, meta *model.NodeMetadata) []*cluster.Cluster {
@@ -836,7 +836,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
-			autoDetected,
+			userSupplied,
 		},
 		{
 			"Auto fill nil settings when mTLS nil for internal service in strict mode",
@@ -906,7 +906,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			nil,
 			userSupplied,
 		},
-
 		{
 			"TLS nil auto build tls with metadata cert path",
 			nil,
@@ -1049,6 +1048,19 @@ func TestApplyOutlierDetection(t *testing.T) {
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
 				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Local origin errors is enabled",
+			&networking.OutlierDetection{
+				SplitExternalLocalOriginErrors: true,
+				ConsecutiveLocalOriginFailures: &types.UInt32Value{Value: 10},
+			},
+			&cluster.OutlierDetection{
+				EnforcingSuccessRate:            &wrappers.UInt32Value{Value: 0},
+				SplitExternalLocalOriginErrors:  true,
+				ConsecutiveLocalOriginFailure:   &wrappers.UInt32Value{Value: 10},
+				EnforcingLocalOriginSuccessRate: &wrappers.UInt32Value{Value: 0},
 			},
 		},
 	}
@@ -1301,7 +1313,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					},
 				},
 			},
-			meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+			meta: &model.NodeMetadata{},
 		}))
 
 	if c.CommonLbConfig == nil {
@@ -1343,7 +1355,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 					},
 				},
 			}, // peerAuthn
-			meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
+			meta: &model.NodeMetadata{},
 		}))
 
 	if c.CommonLbConfig == nil {

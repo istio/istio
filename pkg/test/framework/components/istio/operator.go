@@ -135,7 +135,7 @@ type istioctlConfigFiles struct {
 
 func (i *operatorComponent) Ingresses() ingress.Instances {
 	var out ingress.Instances
-	for _, c := range i.ctx.Clusters() {
+	for _, c := range i.ctx.Clusters().Kube() {
 		// call IngressFor in-case initialization is needed.
 		out = append(out, i.IngressFor(c))
 	}

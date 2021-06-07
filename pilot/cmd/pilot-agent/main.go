@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
@@ -204,8 +203,8 @@ func init() {
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	envoyPrometheusPort int, probes ...ready.Prober) error {
-	o := options.NewStatusServerOptions(proxy, proxyConfig, probes...)
+	envoyPrometheusPort int, agent *istio_agent.Agent) error {
+	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.Context = ctx
 	statusServer, err := status.NewServer(*o)

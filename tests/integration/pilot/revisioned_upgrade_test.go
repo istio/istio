@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/pkg/log"
 )
@@ -42,6 +43,9 @@ const (
 func TestRevisionedUpgrade(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
+		// Requires installation of CPs from manifests, won't succeed
+		// if existing CPs have different root cert
+		Label(label.CustomSetup).
 		Features("installation.upgrade").
 		Run(func(t framework.TestContext) {
 			versions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}

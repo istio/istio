@@ -58,6 +58,7 @@ func (s *Server) UpdateCallback(resourceName string) {
 		ConfigsUpdated: map[model.ConfigKey]struct{}{
 			{Kind: gvk.Secret, Name: resourceName}: {},
 		},
+		Reason: []model.TriggerReason{model.SecretTrigger},
 	})
 }
 

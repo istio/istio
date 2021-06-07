@@ -273,7 +273,7 @@ func almostEquals(a, b, precision int) bool {
 func (r ParsedResponses) CheckKey(key, expected string) error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if response.RawResponse[key] != expected {
-			return fmt.Errorf("response[%d] %s: expected %s, received %s", i, key, expected, response.RawResponse[key])
+			return fmt.Errorf("response[%d] %s: HTTP code %s, expected %s, received %s", i, key, response.Code, expected, response.RawResponse[key])
 		}
 		return nil
 	})

@@ -17,6 +17,8 @@ package security
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 	"testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -25,18 +27,66 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 )
 
+func supportedPercentEncode(i int) bool {
+	special := map[int]struct{}{
+		0x2d: {}, // -
+		0x2e: {}, // .
+		0x2f: {}, // /
+		0x5c: {}, // \
+		0x5f: {}, // _
+		0x7e: {}, // ~
+	}
+	if _, found := special[i]; found {
+		return true
+	}
+	if 0x30 <= i && i <= 0x39 {
+		// 0-9
+		return true
+	}
+	if 0x41 <= i && i <= 0x5a {
+		// A-Z
+		return true
+	}
+	if 0x61 <= i && i <= 0x7a {
+		// a-z
+		return true
+	}
+	return false
+}
+
 func TestNormalization(t *testing.T) {
-	framework.NewTest(t).
-		Features("traffic.routing").
-		Run(func(t framework.TestContext) {
-			type expect struct {
-				in, out string
+	type expect struct {
+		in, out string
+	}
+	var percentEncodedCases []expect
+	for i := 1; i <= 0xff; i++ {
+		input := fmt.Sprintf("/admin%%%.2x", i)
+		output := input
+		if supportedPercentEncode(i) {
+			var err error
+			output, err = url.PathUnescape(input)
+			switch i {
+			case 0x5c:
+				output = strings.ReplaceAll(output, `\`, `/`)
+			case 0x7e:
+				output = strings.ReplaceAll(output, `%7e`, `~`)
 			}
+			if err != nil {
+				t.Errorf("failed to unescape percent encoded path %s: %v", input, err)
+			}
+		}
+		percentEncodedCases = append(percentEncodedCases, expect{in: input, out: output})
+	}
+	framework.NewTest(t).
+		Features("security.normalization").
+		Run(func(t framework.TestContext) {
 			cases := []struct {
+				name         string
 				ntype        meshconfig.MeshConfig_ProxyPathNormalization_NormalizationType
 				expectations []expect
 			}{
 				{
+					"None",
 					meshconfig.MeshConfig_ProxyPathNormalization_NONE,
 					[]expect{
 						{"/", "/"},
@@ -57,6 +107,7 @@ func TestNormalization(t *testing.T) {
 					},
 				},
 				{
+					"Base",
 					meshconfig.MeshConfig_ProxyPathNormalization_BASE,
 					[]expect{
 						{"/", "/"},
@@ -77,6 +128,7 @@ func TestNormalization(t *testing.T) {
 					},
 				},
 				{
+					"MergeSlashes",
 					meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES,
 					[]expect{
 						{"/", "/"},
@@ -97,6 +149,7 @@ func TestNormalization(t *testing.T) {
 					},
 				},
 				{
+					"DecodeAndMergeSlashes",
 					meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES,
 					[]expect{
 						{"/", "/"},
@@ -114,22 +167,70 @@ func TestNormalization(t *testing.T) {
 						{`/%5Capp%2f%5c%2F%2e%2e%2fadmin%5c\abc`, `/app/admin/abc`},
 						{`/app//../admin`, `/app/admin`},
 						{`/app//../../admin`, `/admin`},
+						{`/%c0%2e%c0%2e/admin`, `/%c0.%c0./admin`},
+						{`/%c0%2fadmin`, `/%c0/admin`},
+					},
+				},
+				{
+					"NotNormalized",
+					meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES,
+					[]expect{
+						{`/0x2e0x2e/admin`, `/0x2e0x2e/admin`},
+						{`/0x2e0x2e0x2fadmin`, `/0x2e0x2e0x2fadmin`},
+						{`/0x2e0x2e0x5cadmin`, `/0x2e0x2e0x5cadmin`},
+						{`/0x2f0x2fadmin`, `/0x2f0x2fadmin`},
+						{`/0x5c0x5cadmin`, `/0x5c0x5cadmin`},
+						{`/%25c0%25ae%25c1%259cadmin`, `/%25c0%25ae%25c1%259cadmin`},
+						{`/%25c0%25ae%25c0%25ae/admin`, `/%25c0%25ae%25c0%25ae/admin`},
+						{`/%25c0%25afadmin`, `/%25c0%25afadmin`},
+						{`/%25c1%259cadmin`, `/%25c1%259cadmin`},
+						{`/%252e%252e/admin`, `/%252e%252e/admin`},
+						{`/%252e%252e%252fadmin`, `/%252e%252e%252fadmin`},
+						{`/%c1%9cadmin`, `/%c1%9cadmin`},
+						{`/%c0%ae%c0%ae/admin`, `/%c0%ae%c0%ae/admin`},
+						{`/%c0%afadmin`, `/%c0%afadmin`},
+						{`/.../admin`, `/.../admin`},
+						{`/..../admin`, `/..../admin`},
+						{`/..;/admin`, `/..;/admin`},
+						{`/;/admin`, `/;/admin`},
+						{`/admin;a=b`, `/admin;a=b`},
+						{`/admin;a=b/xyz`, `/admin;a=b/xyz`},
+						{`/admin,a=b/xyz`, `/admin,a=b/xyz`},
+						{`/Admin`, `/Admin`},
+						{`/ADMIN`, `/ADMIN`},
+					},
+				},
+				{
+					// Test percent encode cases from %01 to %ff. (%00 is covered in the invalid group below).
+					name:         "PercentEncoded",
+					ntype:        meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES,
+					expectations: percentEncodedCases,
+				},
+				{
+					"Invalid",
+					meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES,
+					[]expect{
+						{`/admin%00`, `400`},
 					},
 				},
 			}
 			for _, tt := range cases {
-				t.NewSubTest(tt.ntype.String()).Run(func(t framework.TestContext) {
+				t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), fmt.Sprintf(`
 pathNormalization:
   normalization: %v`, tt.ntype.String()))
 					for _, c := range apps.A {
 						for _, tt := range tt.expectations {
 							t.NewSubTest(tt.in).Run(func(t framework.TestContext) {
+								validator := echo.ExpectKey("URL", tt.out)
+								if tt.out == "400" {
+									validator = echo.ExpectCode("400")
+								}
 								c.CallWithRetryOrFail(t, echo.CallOptions{
 									Target:    apps.B[0],
 									Path:      tt.in,
 									PortName:  "http",
-									Validator: echo.ExpectKey("URL", tt.out),
+									Validator: validator,
 								})
 							})
 						}

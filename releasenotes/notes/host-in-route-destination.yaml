@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issues:
+- 33226
+releaseNotes:
+- |
+  **Fixed** an issue causing the `Host` header to not be modifiable for specific destinations in `VirtualService`.

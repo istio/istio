@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -90,6 +91,8 @@ func CreateTokenManager(tokenManagerType string, config Config) security.TokenMa
 				projectInfo.Number, projectInfo.clusterURL, true); err == nil {
 				tm.plugin = p
 			}
+		} else {
+			log.Warnf("%v token manager specified but failed to ready GCP project information", GoogleTokenExchange)
 		}
 	}
 	return tm

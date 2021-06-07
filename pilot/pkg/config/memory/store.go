@@ -29,6 +29,8 @@ import (
 var (
 	errNotFound      = errors.New("item not found")
 	errAlreadyExists = errors.New("item already exists")
+	// TODO: can we make this compatible with kerror.IsConflict without imports the library?
+	errConflict = errors.New("conflicting resource version, try again")
 )
 
 // Make creates an in-memory config store from a config schemas
@@ -197,6 +199,14 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 		return "", errNotFound
 	}
 
+	existing, exists := ns.Load(cfg.Name)
+	if !exists {
+		return "", errNotFound
+	}
+	if hasConflict(existing.(config.Config), cfg) {
+		return "", errConflict
+	}
+
 	rev := time.Now().String()
 	cfg.ResourceVersion = rev
 	ns.Store(cfg.Name, cfg)
@@ -222,9 +232,12 @@ func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
 		return "", errNotFound
 	}
 
-	_, exists = ns.Load(cfg.Name)
+	existing, exists := ns.Load(cfg.Name)
 	if !exists {
 		return "", errNotFound
+	}
+	if hasConflict(existing.(config.Config), cfg) {
+		return "", errConflict
 	}
 
 	rev := time.Now().String()
@@ -264,4 +277,17 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 	ns.Store(cfg.Name, cfg)
 
 	return rev, nil
+}
+
+// hasConflict checks if the two resources have a conflict, which will block Update calls
+func hasConflict(existing, replacement config.Config) bool {
+	if replacement.ResourceVersion == "" {
+		// We don't care about resource version, so just always overwrite
+		return false
+	}
+	// We set a resource version but its not matched, it is a conflict
+	if replacement.ResourceVersion != existing.ResourceVersion {
+		return true
+	}
+	return false
 }

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -81,6 +82,9 @@ type TrafficTestCase struct {
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
 	templateVars func(src echo.Callers, dest echo.Instances) map[string]interface{}
+
+	// minIstioVersion allows conditionally skipping based on required version
+	minIstioVersion string
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -129,6 +133,12 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
 			if c.skip {
 				t.SkipNow()
+			}
+			if c.minIstioVersion != "" {
+				if resource.IstioVersion(c.minIstioVersion).
+					Compare(t.Settings().Revisions.Minimum()) > 0 {
+					t.SkipNow()
+				}
 			}
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
@@ -183,6 +193,12 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	job := func(t framework.TestContext) {
 		if c.skip {
 			t.SkipNow()
+		}
+		if c.minIstioVersion != "" {
+			if resource.IstioVersion(c.minIstioVersion).
+				Compare(t.Settings().Revisions.Minimum()) > 0 {
+				t.SkipNow()
+			}
 		}
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)

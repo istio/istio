@@ -198,15 +198,6 @@ const (
 	trafficDirectionInboundSrvPrefix = string(TrafficDirectionInbound) + "_"
 )
 
-// Probe represents a health probe associated with an instance of service.
-type Probe struct {
-	Port *Port  `json:"port,omitempty"`
-	Path string `json:"path,omitempty"`
-}
-
-// ProbeList is a set of probes
-type ProbeList []*Probe
-
 // ServiceInstance represents an individual instance of a specific version
 // of a service. It binds a network endpoint (ip:port), the service
 // description (which is oblivious to various versions) and a set of labels

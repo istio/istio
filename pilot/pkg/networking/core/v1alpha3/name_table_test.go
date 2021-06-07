@@ -76,12 +76,67 @@ func TestNameTable(t *testing.T) {
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 		},
 	}
+
+	wildcardService := &model.Service{
+		Hostname:    host.Name("*.testns.svc.cluster.local"),
+		Address:     "172.10.10.10",
+		ClusterVIPs: make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     9000,
+				Protocol: protocol.TCP,
+			},
+			&model.Port{
+				Name:     "http-port",
+				Port:     8000,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Name:            "wildcard-svc",
+			Namespace:       "testns",
+			ServiceRegistry: string(serviceregistry.Kubernetes),
+		},
+	}
+
+	cidrService := &model.Service{
+		Hostname:    host.Name("*.testns.svc.cluster.local"),
+		Address:     "172.217.0.0/16",
+		ClusterVIPs: make(map[string]string),
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp-port",
+				Port:     9000,
+				Protocol: protocol.TCP,
+			},
+			&model.Port{
+				Name:     "http-port",
+				Port:     8000,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Name:            "cidr-svc",
+			Namespace:       "testns",
+			ServiceRegistry: string(serviceregistry.Kubernetes),
+		},
+	}
+
 	push := model.NewPushContext()
 	push.AddPublicServices([]*model.Service{headlessService})
 	push.AddServiceInstances(headlessService,
 		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc"))
 	push.AddServiceInstances(headlessService,
 		makeServiceInstances(pod2, headlessService, "pod2", "headless-svc"))
+
+	wpush := model.NewPushContext()
+	wpush.AddPublicServices([]*model.Service{wildcardService})
+
+	cpush := model.NewPushContext()
+	wpush.AddPublicServices([]*model.Service{cidrService})
 
 	cases := []struct {
 		name              string
@@ -114,6 +169,29 @@ func TestNameTable(t *testing.T) {
 						Namespace: "testns",
 					},
 				},
+			},
+		},
+		{
+			name:  "wildcard service pods",
+			proxy: proxy,
+			push:  wpush,
+			expectedNameTable: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{
+					"*.testns.svc.cluster.local": {
+						Ips:       []string{"172.10.10.10"},
+						Registry:  "Kubernetes",
+						Shortname: "wildcard-svc",
+						Namespace: "testns",
+					},
+				},
+			},
+		},
+		{
+			name:  "cidr service",
+			proxy: proxy,
+			push:  cpush,
+			expectedNameTable: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{},
 			},
 		},
 	}

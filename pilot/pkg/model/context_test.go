@@ -204,7 +204,7 @@ func TestPodPortList(t *testing.T) {
 				if err.Error() != tt.expUnmarshalErr {
 					t.Fatalf("%s: Expected error: %s but got error: %s.", tt.name, tt.expUnmarshalErr, err.Error())
 				}
-				t.Skip()
+				return
 			}
 			if !reflect.DeepEqual(out, tt.expect) {
 				t.Fatalf("%s: Expected %v, got %v", tt.name, tt.expect, out)

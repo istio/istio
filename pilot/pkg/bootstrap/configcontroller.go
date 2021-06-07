@@ -159,7 +159,8 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableServiceApis {
-		s.ConfigStores = append(s.ConfigStores, gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions))
+		s.environment.GatewayAPIController = gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {
@@ -299,10 +300,12 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.XDSServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			controller := status.NewController(*s.kubeRestConfig, args.Namespace, s.RWConfigStore)
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
+					// Controller should be created for calling the run function every time, so it can
+					// avoid concurrently calling of informer Run() for controller in controller.Start
+					controller := status.NewController(*s.kubeRestConfig, args.Namespace, s.RWConfigStore)
 					s.statusReporter.SetController(controller)
 					controller.Start(stop)
 				}).Run(stop)

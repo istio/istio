@@ -26,7 +26,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -69,10 +69,13 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 	}
 
+	// Do not use url.Parse() as it will fail to parse paths with invalid encoding that we intentionally used in the test.
 	rawURL := cfg.Request.Url
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed parsing request URL %s: %v", cfg.Request.Url, err)
+	var urlScheme string
+	if i := strings.IndexByte(rawURL, ':'); i > 0 {
+		urlScheme = strings.ToLower(rawURL[0:i])
+	} else {
+		return nil, fmt.Errorf("missing protocol scheme in the request URL: %s", rawURL)
 	}
 
 	timeout := common.GetTimeout(cfg.Request)
@@ -153,7 +156,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	if cfg.Request.FollowRedirects {
 		redirectFn = nil
 	}
-	switch scheme.Instance(u.Scheme) {
+	switch scheme.Instance(urlScheme) {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
 			tlsConfig.NextProtos = []string{"http/1.1"}
@@ -174,14 +177,14 @@ func newProtocol(cfg Config) (protocol, error) {
 			},
 			do: cfg.Dialer.HTTP,
 		}
-		if cfg.Request.Http3 && scheme.Instance(u.Scheme) == scheme.HTTP {
+		if cfg.Request.Http3 && scheme.Instance(urlScheme) == scheme.HTTP {
 			return nil, fmt.Errorf("http3 requires HTTPS")
 		} else if cfg.Request.Http3 {
 			proto.client.Transport = &http3.RoundTripper{
 				TLSClientConfig: tlsConfig,
 				QuicConfig:      &quic.Config{},
 			}
-		} else if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
+		} else if cfg.Request.Http2 && scheme.Instance(urlScheme) == scheme.HTTPS {
 			if cfg.Request.Alpn == nil {
 				tlsConfig.NextProtos = []string{"h2"}
 			}
@@ -215,7 +218,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 
 		// Strip off the scheme from the address.
-		address := rawURL[len(u.Scheme+"://"):]
+		address := rawURL[len(urlScheme+"://"):]
 
 		// Connect to the GRPC server.
 		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
@@ -248,7 +251,7 @@ func newProtocol(cfg Config) (protocol, error) {
 				dialer := net.Dialer{
 					Timeout: timeout,
 				}
-				address := rawURL[len(u.Scheme+"://"):]
+				address := rawURL[len(urlScheme+"://"):]
 
 				ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
 				defer cancel()
@@ -261,5 +264,5 @@ func newProtocol(cfg Config) (protocol, error) {
 		}, nil
 	}
 
-	return nil, fmt.Errorf("unrecognized protocol %q", u.String())
+	return nil, fmt.Errorf("unrecognized protocol %q", urlScheme)
 }

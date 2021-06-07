@@ -39,35 +39,6 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 	}
 
 	for _, svc := range push.Services(node) {
-		// we cannot take services with wildcards in the address field. The reason
-		// is that even if we provide some dummy IP (subject to enabling this
-		// feature in Envoy), after capturing the traffic from the app, the
-		// sidecar would need to forward to the real IP. But to determine the real
-		// IP, the sidecar would have to know the non-wildcard FQDN that the
-		// application was trying to resolve. This information is not available
-		// for TCP services. The wildcard hostname is not a problem for HTTP
-		// services though, as we usually setup a listener on 0.0.0.0, process
-		// based on http virtual host and forward to the orig destination IP.
-		//
-		// Long story short, if the user has a TCP service of the form
-		//
-		// host: *.mysql.aws.com, port 3306,
-		//
-		// our only recourse is to allocate a 0.0.0.0:3306 passthrough listener and forward to
-		// original dest IP. It is now the user's responsibility to not allocate
-		// another wildcard service on the same port. i.e.
-		//
-		// 1. host: *.mysql.aws.com, port 3306
-		// 2. host: *.mongo.aws.com, port 3306 will result in conflict.
-		//
-		// Traffic will still flow but metrics wont be correct
-		// as two different TCP services are consuming the
-		// same wildcard passthrough TCP listener 0.0.0.0:3306.
-		//
-		if svc.Hostname.IsWildCarded() {
-			continue
-		}
-
 		svcAddress := svc.GetServiceAddressForProxy(node)
 		var addressList []string
 
@@ -80,6 +51,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					sameNetwork := node.InNetwork(instance.Endpoint.Network)
+					sameCluster := node.InCluster(instance.Endpoint.Locality.ClusterID)
 					// Add individual addresses even for cross cluster.
 					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
@@ -97,7 +69,8 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 							Namespace: svc.Attributes.Namespace,
 							Shortname: shortName,
 						}
-						if _, f := out.Table[host]; !f || instance.Endpoint.Locality.ClusterID == node.Metadata.ClusterID {
+
+						if _, f := out.Table[host]; !f || sameCluster {
 							// We may have the same pod in two clusters (ie mysql-0 deployed in both places).
 							// We can only return a single IP for these queries. We should prefer the local cluster,
 							// so if the entry already exists only overwrite it if the instance is in our own cluster.
@@ -105,7 +78,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						}
 					}
 
-					skipForMulticluster := !features.MulticlusterHeadlessEnabled && instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID
+					skipForMulticluster := !features.MulticlusterHeadlessEnabled && !sameCluster
 					if skipForMulticluster || !sameNetwork {
 						// We take only cluster-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.

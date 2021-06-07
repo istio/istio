@@ -219,14 +219,14 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 func (r *Reporter) AddInProgressResource(res config.Config) {
 	tryLedgerPut(r.ledger, res)
 	myRes := ResourceFromModelConfig(res)
-	if myRes == nil {
+	if myRes == (Resource{}) {
 		scope.Errorf("Unable to locate schema for %v, will not update status.", res)
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.inProgressResources[myRes.ToModelKey()] = &inProgressEntry{
-		Resource:            *myRes,
+		Resource:            myRes,
 		completedIterations: 0,
 	}
 }

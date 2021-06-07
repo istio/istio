@@ -213,6 +213,40 @@ spec:
 						})),
 			},
 			workloadAgnostic: true,
+			minIstioVersion:  "1.10.0",
+		},
+		TrafficTestCase{
+			name: "set host header in destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: my-custom-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["Host"], "my-custom-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
 			name: "redirect",
@@ -280,7 +314,7 @@ spec:
 					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
+								return ExpectString(response.URL, "/new/path?key=value#hash", "URL")
 							})
 						})),
 			},
@@ -595,6 +629,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 					echo.ExpectKey("Proto", "HTTP/2.0"),
 				),
 			},
+			minIstioVersion: "1.10.0",
 		},
 		TrafficTestCase{
 			name:   "use client protocol with h1",

@@ -52,7 +52,7 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
+			t.Config().ApplyYAMLOrFail(t, "", `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -64,6 +64,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -71,32 +72,41 @@ spec:
     port: 80
     protocol: HTTP
     routes:
+      namespaces:
+        from: All
       kind: HTTPRoute
   - port: 31400
     protocol: TCP
     routes:
+      namespaces:
+        from: All
       kind: TCPRoute
----
+---`)
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http
 spec:
- hostnames: ["my.domain.example"]
- rules:
- - matches:
-   - path:
-       type: Prefix
-       value: /get
-   forwardTo:
-     - serviceName: b
-       port: 80
+  hostnames: ["my.domain.example"]
+  gateways:
+    allow: All
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+    forwardTo:
+    - serviceName: b
+      port: 80
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: TCPRoute
 metadata:
   name: tcp
 spec:
+  gateways:
+    allow: All
   rules:
   - forwardTo:
      - serviceName: b

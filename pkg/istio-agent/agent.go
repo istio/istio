@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/model"
+	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -435,6 +436,13 @@ func (a *Agent) Check() (err error) {
 		if !a.localDNSServer.IsReady() {
 			return errors.New("istio DNS capture is turned ON and DNS lookup table is not ready yet")
 		}
+	}
+	return nil
+}
+
+func (a *Agent) GetDNSTable() *nds.NameTable {
+	if a.localDNSServer != nil {
+		return a.localDNSServer.NameTable()
 	}
 	return nil
 }

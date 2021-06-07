@@ -111,15 +111,11 @@ func TestGenerator(t *testing.T) {
 			g:     srcNamespaceGenerator{},
 			value: "foo",
 			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: source.principal
-          value:
-            stringMatch:
-              safeRegex:
-                googleRe2: {}
-                regex: .*/ns/foo/.*`),
+         authenticated:
+          principalName:
+            safeRegex:
+              googleRe2: {}
+              regex: .*/ns/foo/.*`),
 		},
 		{
 			name:   "srcNamespaceGenerator-tcp",
@@ -139,13 +135,9 @@ func TestGenerator(t *testing.T) {
 			key:   "source.principal",
 			value: "foo",
 			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: source.principal
-          value:
-            stringMatch:
-              exact: foo`),
+         authenticated:
+          principalName:
+            exact: spiffe://foo`),
 		},
 		{
 			name:   "srcPrincipalGenerator-tcp",

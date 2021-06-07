@@ -31,9 +31,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Experimental/WIP: this is not yet ready for production use.
-// You can continue to use 1.5 Galley until this is ready.
-//
 // APIGenerator supports generation of high-level API resources, similar with the MCP
 // protocol. This is a replacement for MCP, using XDS (and in future UDPA) as a transport.
 // Based on lessons from MCP, the protocol allows incremental updates by
@@ -43,7 +40,16 @@ import (
 // Example: networking.istio.io/v1alpha3/VirtualService
 //
 // TODO: we can also add a special marker in the header)
-type APIGenerator struct{}
+type APIGenerator struct {
+	// ConfigStore interface for listing istio api resources.
+	store model.IstioConfigStore `json:"-"`
+}
+
+func NewGenerator(store model.IstioConfigStore) *APIGenerator {
+	return &APIGenerator{
+		store: store,
+	}
+}
 
 // TODO: take 'updates' into account, don't send pushes for resources that haven't changed
 // TODO: support WorkloadEntry - to generate endpoints (equivalent with EDS)
@@ -99,7 +105,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	// even if k8s is disconnected, we still cache all previous results.
 	// This needs further consideration - I don't think XDS or MCP transports
 	// have a clear recommendation.
-	cfg, err := push.IstioConfigStore.List(rgvk, "")
+	cfg, err := g.store.List(rgvk, "")
 	if err != nil {
 		log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
 		return resp, model.DefaultXdsLogDetails, nil

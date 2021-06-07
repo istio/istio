@@ -46,20 +46,25 @@ func ApplyRouteConfigurationPatches(
 
 	applied := false
 
+	var portMap model.GatewayPortMap
+	if proxy.MergedGateway != nil {
+		portMap = proxy.MergedGateway.PortMap
+	}
+
 	// only merge is applicable for route configuration.
 	for _, rp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
 		if rp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			continue
 		}
 		if commonConditionMatch(patchContext, rp) &&
-			routeConfigurationMatch(patchContext, routeConfiguration, rp) {
+			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
 			proto.Merge(routeConfiguration, rp.Value)
 		} else {
 			applied = false
 		}
 	}
 	IncrementEnvoyFilterMetric(filterKey, Route, applied)
-	patchVirtualHosts(patchContext, filterKey, efw.Patches, routeConfiguration)
+	patchVirtualHosts(patchContext, filterKey, efw.Patches, routeConfiguration, portMap)
 
 	return routeConfiguration
 }
@@ -67,11 +72,11 @@ func ApplyRouteConfigurationPatches(
 func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 	filterKey string,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration) {
+	routeConfiguration *route.RouteConfiguration, portMap model.GatewayPortMap) {
 	virtualHostsRemoved := false
 	// first do removes/merges
 	for _, vhost := range routeConfiguration.VirtualHosts {
-		patchVirtualHost(patchContext, filterKey, patches, routeConfiguration, vhost, &virtualHostsRemoved)
+		patchVirtualHost(patchContext, filterKey, patches, routeConfiguration, vhost, &virtualHostsRemoved, portMap)
 	}
 
 	applied := false
@@ -81,7 +86,7 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 			continue
 		}
 		if commonConditionMatch(patchContext, rp) &&
-			routeConfigurationMatch(patchContext, routeConfiguration, rp) {
+			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
 			applied = true
 			routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, proto.Clone(rp.Value).(*route.VirtualHost))
 		}
@@ -102,11 +107,11 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 	filterKey string,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool, portMap model.GatewayPortMap) {
 	applied := false
 	for _, rp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		if commonConditionMatch(patchContext, rp) &&
-			routeConfigurationMatch(patchContext, routeConfiguration, rp) &&
+			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
 			virtualHostMatch(virtualHost, rp) {
 			applied = true
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
@@ -120,7 +125,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	IncrementEnvoyFilterMetric(filterKey, VirtualHost, applied)
-	patchHTTPRoutes(patchContext, filterKey, patches, routeConfiguration, virtualHost)
+	patchHTTPRoutes(patchContext, filterKey, patches, routeConfiguration, virtualHost, portMap)
 }
 
 func hasRouteMatch(rp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -140,18 +145,18 @@ func hasRouteMatch(rp *model.EnvoyFilterConfigPatchWrapper) bool {
 func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	filterKey string,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap) {
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		patchHTTPRoute(patchContext, filterKey, patches, routeConfiguration, virtualHost, index, &routesRemoved)
+		patchHTTPRoute(patchContext, filterKey, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap)
 	}
 
 	applied := false
 	// now for the adds
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		if !commonConditionMatch(patchContext, rp) ||
-			!routeConfigurationMatch(patchContext, routeConfiguration, rp) ||
+			!routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) ||
 			!virtualHostMatch(virtualHost, rp) {
 			continue
 		}
@@ -232,11 +237,11 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 	filterKey string,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap) {
 	applied := false
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		if commonConditionMatch(patchContext, rp) &&
-			routeConfigurationMatch(patchContext, routeConfiguration, rp) &&
+			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
 			virtualHostMatch(virtualHost, rp) &&
 			routeMatch(virtualHost.Routes[routeIndex], rp) {
 
@@ -256,7 +261,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, rc *route.RouteConfiguration,
-	rp *model.EnvoyFilterConfigPatchWrapper) bool {
+	rp *model.EnvoyFilterConfigPatchWrapper, portMap model.GatewayPortMap) bool {
 	rMatch := rp.Match.GetRouteConfiguration()
 	if rMatch == nil {
 		return true
@@ -286,8 +291,8 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	}
 
 	// This is a gateway. Get all the fields in the gateway's RDS route name
-	portNumber, portName, gateway := model.ParseGatewayRDSRouteName(rc.Name)
-	if rMatch.PortNumber != 0 && int(rMatch.PortNumber) != portNumber {
+	routePortNumber, portName, gateway := model.ParseGatewayRDSRouteName(rc.Name)
+	if rMatch.PortNumber != 0 && !anyPortMatches(portMap, routePortNumber, int(rMatch.PortNumber)) {
 		return false
 	}
 	if rMatch.PortName != "" && rMatch.PortName != portName {
@@ -302,6 +307,20 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	}
 
 	return true
+}
+
+func anyPortMatches(m model.GatewayPortMap, number int, matchNumber int) bool {
+	if servicePorts, f := m[number]; f {
+		// We do have service ports mapping to this, see if we match those
+		for s := range servicePorts {
+			if s == matchNumber {
+				return true
+			}
+		}
+		return false
+	}
+	// Otherwise, check the port directly
+	return number == matchNumber
 }
 
 func virtualHostMatch(vh *route.VirtualHost, rp *model.EnvoyFilterConfigPatchWrapper) bool {

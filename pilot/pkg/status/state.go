@@ -105,8 +105,8 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
 
-	c.workers = NewWorkerPool(func(resource *Resource, progress *Progress) {
-		c.writeStatus(*resource, *progress)
+	c.workers = NewProgressWorkerPool(func(resource Resource, progress Progress) {
+		c.writeStatus(resource, progress)
 	}, uint(features.StatusMaxWorkers.Get()))
 	c.workers.Run(ctx)
 
@@ -223,7 +223,7 @@ func (c *DistributionController) queueWriteStatus(config Resource, state Progres
 
 func (c *DistributionController) configDeleted(res config.Config) {
 	r := ResourceFromModelConfig(res)
-	c.workers.Delete(*r)
+	c.workers.Delete(r)
 }
 
 func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {

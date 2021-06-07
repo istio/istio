@@ -100,7 +100,6 @@ func (c *podController) Run(stop <-chan struct{}) {
 	go c.informer.Run(stop)
 	cache.WaitForCacheSync(stop, c.HasSynced)
 	go c.q.Run(stop)
-	<-stop
 }
 
 func (c *podController) HasSynced() bool {
