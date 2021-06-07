@@ -259,8 +259,8 @@ type Controller struct {
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
 	informerInit *atomic.Bool
-	// beginInitialSync is set to true when calling SyncAll.
-	beginInitialSync *atomic.Bool
+	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
+	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
 	// syncTimeout signals that the registry should mark itself synced even if informers haven't been processed yet.
@@ -294,7 +294,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 		syncInterval:                options.GetSyncInterval(),
 		informerInit:                atomic.NewBool(false),
-		beginInitialSync:            atomic.NewBool(false),
+		beginSync:                   atomic.NewBool(false),
 		initialSync:                 atomic.NewBool(false),
 		syncTimeout:                 options.SyncTimeout,
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
@@ -358,7 +358,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			log.Debugf("Endpoint %v not found, skipping stale endpoint", key)
 			return
 		}
-		if shouldEnqueue("Pods", c.beginInitialSync) {
+		if shouldEnqueue("Pods", c.beginSync) {
 			c.queue.Push(func() error {
 				return c.endpoints.onEvent(item, model.EventUpdate)
 			})
@@ -561,7 +561,7 @@ func (c *Controller) registerHandlers(
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
-				if !shouldEnqueue(otype, c.beginInitialSync) {
+				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
 				c.queue.Push(func() error {
@@ -571,7 +571,7 @@ func (c *Controller) registerHandlers(
 			UpdateFunc: func(old, cur interface{}) {
 				if !filter(old, cur) {
 					incrementEvent(otype, "update")
-					if !shouldEnqueue(otype, c.beginInitialSync) {
+					if !shouldEnqueue(otype, c.beginSync) {
 						return
 					}
 					c.queue.Push(func() error {
@@ -583,7 +583,7 @@ func (c *Controller) registerHandlers(
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
-				if !shouldEnqueue(otype, c.beginInitialSync) {
+				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
 				c.queue.Push(func() error {
@@ -636,7 +636,7 @@ func (c *Controller) informersSynced() bool {
 // This can cause great performance cost in multi clusters scenario.
 // Maybe just sync the cache and trigger one push at last.
 func (c *Controller) SyncAll() error {
-	c.beginInitialSync.Store(true)
+	c.beginSync.Store(true)
 	var err *multierror.Error
 
 	if c.nsLister != nil {
