@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 33203
+releaseNotes:
+  - |
+    **Fixed** istio-proxy on virtual machine failed to bootstrap using cient cert after restarting.
