@@ -304,13 +304,14 @@ func dumpProxyCommand(c cluster.Cluster, pods []corev1.Pod, workDir, filename, c
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
 			if container.Name != "istio-proxy" && !isVM {
+				// if we don't have istio-proxy container, and we're not running as a VM, agent isn't running
 				continue
 			}
 
 			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
 				fname := podOutputPath(workDir, c, pod, filename)
 				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-					scopes.Framework.Errorf("Unable to write ouput for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
+					scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
 				}
 			} else {
 				scopes.Framework.Errorf("Unable to get execute command %q on pod: %s/%s for: %v", command, pod.Namespace, pod.Name, err)
@@ -359,5 +360,5 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 }
 
 func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
-	dumpProxyCommand(c, pods, workDir, "ndsz.json", "curl -s localhost:15020/debug/ndsz")
+	dumpProxyCommand(c, pods, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 /debug/ndsz")
 }
