@@ -22,6 +22,42 @@ spec:
       kind: HTTPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: invalid-gateway-address
+  namespace: invalid-gateway-address
+spec:
+  gatewayClassName: istio
+  addresses:
+  - value: 1.2.3.4
+    type: IPAddress
+  listeners:
+  - hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    routes:
+      kind: HTTPRoute
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: invalid-tls
+spec:
+  gatewayClassName: istio
+  listeners:
+  - hostname: "domain.example"
+    port: 34000
+    protocol: HTTPS
+    routes:
+      kind: HTTPRoute
+    tls:
+      mode: Terminate
+      certificateRef:
+        name: my-cert-http
+        group: core
+        kind: unknown
+---
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: invalid-filter
@@ -49,3 +85,28 @@ spec:
         name: httpbin
         group: core
       port: 80
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: BackendPolicy
+metadata:
+  name: bad-ca-cert
+spec:
+  backendRefs:
+  - name: httpbin1
+    group: core
+    kind: Service
+  tls:
+    certificateAuthorityRef:
+      name: ca-cert
+      group: core
+      kind: unknown
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: BackendPolicy
+metadata:
+  name: bad-backend
+spec:
+  backendRefs:
+  - name: httpbin1
+    group: core
+    kind: unknown
