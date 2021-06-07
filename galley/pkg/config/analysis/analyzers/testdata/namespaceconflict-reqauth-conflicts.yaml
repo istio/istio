@@ -59,15 +59,3 @@ spec:
       app: dummy
   jwtRules:
   - issuer: "issuer-bar"
----
-apiVersion: security.istio.io/v1beta1
-kind: RequestAuthentication
-metadata:
-  name: seldummydefault
-  namespace: default
-spec:
-  selector:
-    matchLabels:
-      app: dummy          # Will generate a conflict since there's already a namespace wide configuration
-  jwtRules:
-  - issuer: "issuer-foo"
