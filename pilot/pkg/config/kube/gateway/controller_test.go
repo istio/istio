@@ -67,9 +67,6 @@ var (
 				Hosts: []string{"*"},
 			},
 		},
-		Selector: map[string]string{
-			"istio": "ingressgateway",
-		},
 	}
 
 	expectedvs = &networking.VirtualService{

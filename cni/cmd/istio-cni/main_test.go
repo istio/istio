@@ -428,20 +428,6 @@ func TestCmdAddNoPrevResult(t *testing.T) {
 	testCmdAddWithStdinData(t, confNoPrevResult)
 }
 
-func TestCmdDel(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
-	args := testSetArgs(cniConf)
-
-	err := cmdDel(args)
-	if err != nil {
-		t.Fatalf("failed with error: %v", err)
-	}
-}
-
-func TestCmdDelInvalidVersion(t *testing.T) {
-	testCmdInvalidVersion(t, cmdDel)
-}
-
 func MockInterceptRuleMgrCtor() InterceptRuleMgr {
 	return NewMockInterceptRuleMgr()
 }

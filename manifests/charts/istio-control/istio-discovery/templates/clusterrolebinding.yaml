@@ -1,32 +1,56 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+{{- if not .Values.global.externalIstiod }}
+  name: istio-reader-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- else }}
+  name: istio-reader{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+{{- end }}
   labels:
     app: istio-reader
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istio-reader-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+{{- if not .Values.global.externalIstiod }}
+  name: istio-reader-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- else }}
+  name: istio-reader{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+{{- end }}
 subjects:
   - kind: ServiceAccount
-    name: istio-reader{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+{{- if not .Values.global.externalIstiod }}
+    name: istio-reader-aggregate
+{{- else }}
+    name: istio-reader-service-account
+{{- end }}
     namespace: {{ .Values.global.istioNamespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istiod-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}{{ .Release.Namespace }}
+{{- if not .Values.global.externalIstiod }}
+  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- else }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+{{- end }}
   labels:
     app: istiod
     release: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: istiod-cr{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}{{ .Release.Namespace }}
+{{- if not .Values.global.externalIstiod }}
+  name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- else }}
+  name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+{{- end }}
 subjects:
   - kind: ServiceAccount
+{{- if not .Values.global.externalIstiod }}
     name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+{{- else }}
+    name: istiod-service-account
+{{- end }}
     namespace: {{ .Values.global.istioNamespace }}
 ---

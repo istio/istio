@@ -121,6 +121,7 @@ features:
         jwt:
         webhook:
       plugin-cert:
+    normalization:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
     wasm:

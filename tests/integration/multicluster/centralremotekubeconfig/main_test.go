@@ -55,11 +55,9 @@ func TestMain(m *testing.M) {
   base:
     enabled: true
   pilot:
-    enabled: false
+    enabled: true
   telemetry:
     enabled: false
-  istiodRemote:
-    enabled: true
   ingressGateways:
   - enabled: false
     name: istio-ingressgateway
@@ -67,6 +65,8 @@ func TestMain(m *testing.M) {
   - enabled: false
     name: istio-egressgateway
 values:
+  global:
+    externalIstiod: true
   istiodRemote:
     injectionURL: https://istiod.istio-system.svc:15017/inject
   base:

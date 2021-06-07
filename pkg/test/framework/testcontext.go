@@ -300,7 +300,9 @@ func (c *testContext) Cleanup(fn func()) {
 func (c *testContext) Done() {
 	if c.Failed() && c.Settings().CIMode {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
-		rt.Dump(c)
+		// make sure we dump suite-level resources, but don't dump sibling tests or their children
+		rt.DumpShallow(c)
+		c.scope.dump(c, true)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
 	}
 

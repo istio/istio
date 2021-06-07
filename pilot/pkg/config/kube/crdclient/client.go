@@ -26,11 +26,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gomodules.xyz/jsonpatch/v3"
+	"sync"
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
-	"gomodules.xyz/jsonpatch/v2"
+	"go.uber.org/atomic"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,13 +84,63 @@ type Client struct {
 
 	// The gateway-api client we will use to access objects
 	gatewayAPIClient gatewayapiclient.Interface
+
+	// initialSync is set to true after performing an initial processing of all objects.
+	initialSync *atomic.Bool
 }
 
 var _ model.ConfigStoreCache = &Client{}
 
+func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
+	schemas := collections.Pilot
+	if features.EnableServiceApis {
+		schemas = collections.PilotServiceApi
+	}
+	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
+}
+
+func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
+	out := &Client{
+		domainSuffix:     domainSuffix,
+		schemas:          schemas,
+		revision:         revision,
+		kinds:            map[config.GroupVersionKind]*cacheHandler{},
+		istioClient:      client.Istio(),
+		gatewayAPIClient: client.GatewayAPI(),
+		initialSync:      atomic.NewBool(false),
+	}
+
+	known, err := knownCRDs(ctx, client.Ext())
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range schemas.All() {
+		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
+		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
+		if _, f := known[name]; f {
+			var i informers.GenericInformer
+			var err error
+			if s.Resource().Group() == "networking.x-k8s.io" {
+				i, err = client.GatewayAPIInformer().ForResource(s.Resource().GroupVersionResource())
+			} else {
+				i, err = client.IstioInformer().ForResource(s.Resource().GroupVersionResource())
+			}
+			if err != nil {
+				return nil, err
+			}
+			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
+		} else {
+			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
+			out.schemas = out.schemas.Remove(s)
+		}
+	}
+
+	return out, nil
+}
+
 // Validate we are ready to handle events. Until the informers are synced, we will block the queue
 func (cl *Client) checkReadyForEvents(curr interface{}) error {
-	if !cl.HasSynced() {
+	if !cl.informerSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
@@ -122,22 +174,20 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	scope.Info("Starting Pilot K8S CRD controller")
 
-	go func() {
-		if !cache.WaitForCacheSync(stop, cl.HasSynced) {
-			scope.Error("Failed to sync Pilot K8S CRD controller cache")
-			return
-		}
-		scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
-		for _, handler := range cl.kinds {
-			handler.StartWorker(stop)
-		}
-	}()
-
-	<-stop
+	if !cache.WaitForCacheSync(stop, cl.informerSynced) {
+		scope.Error("Failed to sync Pilot K8S CRD controller cache")
+		return
+	}
+	cl.SyncAll()
+	cl.initialSync.Store(true)
+	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
+	for _, handler := range cl.kinds {
+		handler.StartWorker(stop)
+	}
 	scope.Info("controller terminated")
 }
 
-func (cl *Client) HasSynced() bool {
+func (cl *Client) informerSynced() bool {
 	for kind, ctl := range cl.kinds {
 		if !ctl.informer.HasSynced() {
 			scope.Infof("controller %q is syncing...", kind)
@@ -147,50 +197,36 @@ func (cl *Client) HasSynced() bool {
 	return true
 }
 
-func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
-	schemas := collections.Pilot
-	if features.EnableServiceApis {
-		schemas = collections.PilotServiceApi
-	}
-	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
+func (cl *Client) HasSynced() bool {
+	return cl.initialSync.Load()
 }
 
-func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
-	out := &Client{
-		domainSuffix:     domainSuffix,
-		schemas:          schemas,
-		revision:         revision,
-		kinds:            map[config.GroupVersionKind]*cacheHandler{},
-		istioClient:      client.Istio(),
-		gatewayAPIClient: client.GatewayAPI(),
-	}
-
-	known, err := knownCRDs(ctx, client.Ext())
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range schemas.All() {
-		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
-		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
-		if _, f := known[name]; f {
-			var i informers.GenericInformer
-			var err error
-			if s.Resource().Group() == "networking.x-k8s.io" {
-				i, err = client.GatewayAPIInformer().ForResource(s.Resource().GroupVersionResource())
-			} else {
-				i, err = client.IstioInformer().ForResource(s.Resource().GroupVersionResource())
-			}
-			if err != nil {
-				return nil, err
-			}
-			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
-		} else {
-			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
-			out.schemas = out.schemas.Remove(s)
+// SyncAll syncs all the objects during bootstrap to make the configs updated to caches
+func (cl *Client) SyncAll() {
+	wg := sync.WaitGroup{}
+	for _, h := range cl.kinds {
+		if len(h.handlers) == 0 {
+			continue
 		}
+		h := h
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			objects := h.informer.GetIndexer().List()
+			for _, object := range objects {
+				currItem, ok := object.(runtime.Object)
+				if !ok {
+					scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", object, object)
+					continue
+				}
+				currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
+				for _, f := range h.handlers {
+					f(config.Config{}, currConfig, model.EventAdd)
+				}
+			}
+		}()
 	}
-
-	return out, nil
+	wg.Wait()
 }
 
 // Schemas for the store

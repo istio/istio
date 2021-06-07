@@ -396,24 +396,6 @@ var (
 		},
 	}
 
-	configs15 = &config.Config{
-		Meta: config.Meta{
-			Name: "sidecar-scope-with-virtual-service",
-		},
-		Spec: &networking.Sidecar{
-			Egress: []*networking.IstioEgressListener{
-				{
-					Port: &networking.Port{
-						Number:   7443,
-						Protocol: "http",
-						Name:     "grpc-tls",
-					},
-					Hosts: []string{"*/*"},
-				},
-			},
-		},
-	}
-
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -734,25 +716,6 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "random",
 				Namespace: "randomns", // nolint
-			},
-		},
-	}
-
-	services17 = []*Service{
-		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
-			Attributes: ServiceAttributes{
-				Name:      "foo",
-				Namespace: "ns1",
-			},
-		},
-		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7442,
-			Attributes: ServiceAttributes{
-				Name:      "baz",
-				Namespace: "ns3",
 			},
 		},
 	}
@@ -1108,18 +1071,6 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 				{
 					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
-				},
-			},
-		},
-		{
-			"virtual-service-destinations-matching-ports",
-			configs15,
-			services17,
-			virtualServices1,
-			[]*Service{
-				{
-					Hostname: "foo.svc.cluster.local",
 					Ports:    port7443,
 				},
 			},
