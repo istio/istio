@@ -355,6 +355,7 @@ using the default (native) environment, you can simply type:
 
 ```console
 $ go test -tags=integ ./tests/integration/mycomponent/...
+
 ```
 
 Note that samples below invoking variations of ```go test ./...``` are intended to be run from the ```tests/integration``` directory.

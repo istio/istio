@@ -195,15 +195,6 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "AuthorizationPolicy namespace conflicts",
-		inputFiles: []string{"testdata/namespaceconflict-authpolicy-conflicts.yaml"},
-		analyzer:   &namespaceconflict.Analyzer{},
-		expected: []message{
-			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar.bar"},
-			{msg.NamespaceResourceConflict, "AuthorizationPolicy seldummybar2.bar"},
-		},
-	},
-	{
 		name:       "RequestAuthentication namespace conflicts",
 		inputFiles: []string{"testdata/namespaceconflict-reqauth-conflicts.yaml"},
 		analyzer:   &namespaceconflict.Analyzer{},
