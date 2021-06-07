@@ -301,11 +301,14 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	if !cache.WaitForCacheSync(stop, c.HasSynced) {
-		log.Error("Failed to sync controller cache")
-		return
-	}
-	c.queue.Run(stop)
+	go func() {
+		if !cache.WaitForCacheSync(stop, c.HasSynced) {
+			log.Error("Failed to sync controller cache")
+			return
+		}
+		c.queue.Run(stop)
+	}()
+	<-stop
 }
 
 func (c *controller) Schemas() collection.Schemas {

@@ -859,7 +859,7 @@ func (s *Server) initRegistryEventHandlers() {
 	s.ServiceController().AppendServiceHandler(serviceHandler)
 
 	if s.configController != nil {
-		configHandler := func(_ config.Config, curr config.Config, event model.Event) {
+		configHandler := func(old config.Config, curr config.Config, event model.Event) {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
