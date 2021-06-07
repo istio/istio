@@ -303,6 +303,9 @@ func hideFromOutput(ns resource.Namespace) bool {
 }
 
 func injectionDisabled(pod *v1.Pod) bool {
+	if pod.ObjectMeta.GetAnnotations() == nil{
+		return false
+	}
 	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
 	return strings.EqualFold(inject, "false")
 }
