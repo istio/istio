@@ -926,6 +926,15 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[RouteKey][]st
 			}
 		}
 
+		if len(skippedAddresses) > 0 {
+			gatewayConditions[string(k8s.GatewayConditionReady)].error = &ConfigError{
+				Reason:  string(k8s.GatewayReasonAddressNotAssigned),
+				Message: fmt.Sprintf("Only NamedAddress is supported, ignoring %v", skippedAddresses),
+			}
+		} else {
+			gatewayConditions[string(k8s.GatewayConditionReady)].message = fmt.Sprintf("Listeners valid, assigned to service(s) %s", strings.Join(gatewayServices, ", "))
+		}
+
 		reportGatewayCondition(obj, gatewayConditions)
 
 		if len(servers) == 0 {
@@ -946,42 +955,6 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[RouteKey][]st
 				Servers: servers,
 			},
 		}
-		// TODO
-		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			gs := s.(*k8s.GatewayStatus)
-			// TODO: report invalid configurations
-			if len(skippedAddresses) == 0 {
-				gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
-					Type:               string(k8s.GatewayConditionReady),
-					Status:             kstatus.StatusTrue,
-					ObservedGeneration: obj.Generation,
-					LastTransitionTime: metav1.Now(),
-					Reason:             "ListenersValid",
-					Message:            fmt.Sprintf("Listeners valid, assigned to service(s) %s", strings.Join(gatewayServices, ", ")),
-				})
-			} else {
-				// TODO report named service that does not exist
-				gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
-					Type:               string(k8s.GatewayConditionReady),
-					Status:             kstatus.StatusTrue,
-					ObservedGeneration: obj.Generation,
-					LastTransitionTime: metav1.Now(),
-					Reason:             string(k8s.GatewayReasonAddressNotAssigned),
-					Message:            fmt.Sprintf("Only NamedAddress is supported, ignoring %v", skippedAddresses),
-				})
-			}
-			// TODO: when we implement "address" support in status, we should report unscheduled
-			// if there is no associated Service.
-			gs.Conditions = kstatus.ConditionallyUpdateCondition(gs.Conditions, metav1.Condition{
-				Type:               string(k8s.GatewayConditionScheduled),
-				Status:             kstatus.StatusTrue,
-				ObservedGeneration: obj.Generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "ResourcesAvailable",
-				Message:            "Resources available",
-			})
-			return gs
-		})
 		result = append(result, gatewayConfig)
 	}
 	for _, k := range r.fetchMeshRoutes() {

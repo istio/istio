@@ -26,32 +26,41 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
+func createGatewayReference(gw string) k8s.RouteStatusGatewayReference {
+	ref := k8s.RouteStatusGatewayReference{}
+	if gw == constants.IstioMeshGateway {
+		ref.Name = experimentalMeshGatewayName
+		// TODO this is not namespaced but a namespace is required
+		ref.Namespace = "default"
+	} else {
+		s := strings.Split(gw, "/")
+		ref.Name = s[1] // TODO name here is the internal name, need to use the external name
+		ref.Namespace = s[0]
+	}
+	return ref
+}
+
 func createRouteStatus(gateways []string, obj config.Config, current []k8s.RouteGatewayStatus, routeErr *ConfigError) []k8s.RouteGatewayStatus {
-	setGateways := map[localNamedReference]struct{}{}
+	setGateways := map[k8s.RouteStatusGatewayReference]struct{}{}
 	for _, gw := range gateways {
-		ref := localNamedReference{}
-		if gw == constants.IstioMeshGateway {
-			ref.Name = experimentalMeshGatewayName
-			// TODO this is not namespaced but a namespace is required
-			ref.Namespace = "default"
-		} else {
-			s := strings.Split(gw, "/")
-			ref.Name = s[1]
-			ref.Namespace = s[0]
-		}
-		setGateways[ref] = struct{}{}
+		setGateways[createGatewayReference(gw)] = struct{}{}
 	}
 	gws := make([]k8s.RouteGatewayStatus, 0, len(gateways))
-	// Fill in all of the gateways that are already present but not owned by use
+	// Fill in all of the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
+	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
+	// removing gateway references when they are removed), without mangling other controller's status.
 	for _, r := range current {
 		if r.GatewayRef.Controller == nil {
-			// Controller not set. This may be our own resource due to using old CRDs that prune the controller field
-			_, f := setGateways[localNamedReference{r.GatewayRef.Name, r.GatewayRef.Namespace}]
+			// Controller not set. This may be our own resource due to using old CRDs that prune the controller field,
+			// or it could be some other controller not handling the spec well
+			_, f := setGateways[r.GatewayRef]
 			if !f {
 				// We are not going to set this gateway ref, so we should keep it, it may be owned by some other controller
+				// If this was our resource, but the old CRDs that did not have controller field are present, this will leak; there
+				// isn't much we can do here, users should update their CRDs.
 				gws = append(gws, r)
 			}
-			// Otherwise we are going to overwrite it with our own status. This could technically overwrite another controller,
+			// Otherwise we are going to overwrite it with our own status later in the code. This could technically overwrite another controller,
 			// but there isn't much we can do here. If we appended a status, we would end up infinitely writing our own
 			// status
 		} else if *r.GatewayRef.Controller != ControllerName {
@@ -61,18 +70,8 @@ func createRouteStatus(gateways []string, obj config.Config, current []k8s.Route
 	}
 	// Now we fill in all of the ones we do own
 	for _, gw := range gateways {
-		ref := k8s.RouteStatusGatewayReference{
-			Controller: StrPointer(ControllerName),
-		}
-		if gw == constants.IstioMeshGateway {
-			ref.Name = experimentalMeshGatewayName
-			// TODO this is not namespaced but a namespace is required
-			ref.Namespace = "default"
-		} else {
-			s := strings.Split(gw, "/")
-			ref.Name = s[1] // TODO name here is the internal name, need to use the external name
-			ref.Namespace = s[0]
-		}
+		ref := createGatewayReference(gw)
+		ref.Controller = StrPointer(ControllerName)
 		var condition metav1.Condition
 		if routeErr != nil {
 			condition = metav1.Condition{
@@ -143,6 +142,13 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	sort.Strings(condKeys)
 	for _, k := range condKeys {
 		cond := conditions[k]
+		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
+		// ListenerValid), so in order to determine the status we should set each `condition` defines its
+		// default positive status. When there is an error, we will invert that. Example: If we have
+		// condition ListenerInvalid, the status will be set to StatusFalse. If an error is reported, it
+		// will be inverted to StatusTrue to indicate listeners are invalid. See
+		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+		// for more information
 		if cond.error != nil {
 			existingConditions = kstatus.ConditionallyUpdateCondition(existingConditions, metav1.Condition{
 				Type:               k,

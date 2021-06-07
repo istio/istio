@@ -24,6 +24,23 @@ spec:
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
+  name: invalid-gateway-address
+  namespace: invalid-gateway-address
+spec:
+  gatewayClassName: istio
+  addresses:
+  - value: 1.2.3.4
+    type: IPAddress
+  listeners:
+  - hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    routes:
+      kind: HTTPRoute
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
   name: invalid-tls
 spec:
   gatewayClassName: istio
