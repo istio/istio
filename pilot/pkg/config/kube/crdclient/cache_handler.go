@@ -101,6 +101,7 @@ func (h *cacheHandler) processWorkerItem() {
 		scope.Infof("kind :%+v queue len: %d shutdown", h.schema.Resource().Kind(), h.queue.Len())
 		return
 	}
+	defer h.queue.Done(obj)
 	namespacedObj, ok := obj.(types.NamespacedName)
 	if !ok {
 		h.queue.Done(obj)
@@ -111,7 +112,7 @@ func (h *cacheHandler) processWorkerItem() {
 		h.queue.AddRateLimited(namespacedObj)
 		return
 	}
-	h.queue.Done(obj)
+	h.queue.Forget(obj)
 }
 
 func (h *cacheHandler) onEventNew(obj types.NamespacedName) error {
