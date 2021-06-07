@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -28,7 +29,9 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
@@ -52,7 +55,50 @@ func TestConvertResources(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt), validator)
+			// Setup a few preconfigured services
+			// TODO example.com
+			ports := []*model.Port{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: "HTTP",
+				},
+				{
+					Name:     "tcp",
+					Port:     34000,
+					Protocol: "TCP",
+				},
+			}
+			ingressSvc := &model.Service{
+				Attributes: model.ServiceAttributes{
+					Name:      "istio-ingressgateway",
+					Namespace: "istio-system",
+					ClusterExternalAddresses: map[string][]string{
+						"Kubernetes": {"1.2.3.4"},
+					},
+				},
+				Ports:    ports,
+				Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
+			}
+			altIngressSvc := &model.Service{
+				Attributes: model.ServiceAttributes{
+					Namespace: "istio-system",
+				},
+				Ports:    ports,
+				Hostname: "example.com",
+			}
+			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+				Services: []*model.Service{ingressSvc, altIngressSvc},
+				Instances: []*model.ServiceInstance{
+					{Service: ingressSvc, ServicePort: ingressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
+					{Service: ingressSvc, ServicePort: ingressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
+					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+				},
+			},
+			)
 			kr := splitInput(input)
+			kr.Context = model.NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
@@ -427,6 +473,24 @@ func TestIsRouteMatch(t *testing.T) {
 			got := isRouteMatch(tt.cfg, tt.gateway, tt.routes, namespaces)
 			if got != tt.expected {
 				t.Fatalf("expected match=%v, got match=%v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestHumanReadableJoin(t *testing.T) {
+	tests := []struct {
+		input []string
+		want  string
+	}{
+		{[]string{"a"}, "a"},
+		{[]string{"a", "b"}, "a and b"},
+		{[]string{"a", "b", "c"}, "a, b, and c"},
+	}
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.input, "_"), func(t *testing.T) {
+			if got := humanReadableJoin(tt.input); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
 			}
 		})
 	}

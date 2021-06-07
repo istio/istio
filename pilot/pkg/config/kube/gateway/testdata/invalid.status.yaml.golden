@@ -23,9 +23,10 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Listeners valid, assigned to service(s) istio-ingressgateway.default.svc.domain.suffix
-    reason: ListenersValid
-    status: "True"
+    message: 'failed to assign to any requested addresses: hostname "istio-ingressgateway.default.svc.domain.suffix"
+      not found'
+    reason: AddressNotAssigned
+    status: "False"
     type: Ready
   - lastTransitionTime: fake
     message: Resources available
@@ -68,7 +69,8 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Only NamedAddress is supported, ignoring [1.2.3.4]
+    message: 'failed to assign to any requested addresses: Only NamedAddress is supported,
+      ignoring [1.2.3.4]'
     reason: AddressNotAssigned
     status: "False"
     type: Ready
@@ -108,7 +110,7 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: invalid-tls
-  namespace: default
+  namespace: istio-system
 spec: null
 status:
   conditions:

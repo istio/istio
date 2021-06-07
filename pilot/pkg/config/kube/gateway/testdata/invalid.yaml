@@ -42,6 +42,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: invalid-tls
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:

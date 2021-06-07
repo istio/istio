@@ -138,7 +138,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	}
 }
 
-func (c *controller) Recompute() error {
+func (c *controller) Recompute(context model.GatewayContext) error {
 	t0 := time.Now()
 	defer func() {
 		log.Debugf("recompute complete in %v", time.Since(t0))
@@ -176,6 +176,7 @@ func (c *controller) Recompute() error {
 		TLSRoute:      deepCopyStatus(tlsRoute),
 		BackendPolicy: deepCopyStatus(backendPolicy),
 		Domain:        c.domain,
+		Context:       context,
 	}
 
 	if !anyApisUsed(input) {

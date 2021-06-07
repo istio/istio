@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -1743,10 +1744,12 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
 			for _, si := range proxy.ServiceInstances {
-				if _, f := known[si.Service.Hostname]; f {
+				if _, f := known[si.Service.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}
+			// internal, external, warnings := ps.ResolveGatewayInstances(cfg.Namespace, gwsvcs, gw.Servers)
+			// log.Errorf("howardjohn: %v %v %v", internal, external, warnings)
 			// Only if we have a matching instance should we apply the configuration
 			if len(matchingInstances) > 0 {
 				out = append(out, gatewayWithInstances{cfg, false, matchingInstances})
@@ -1772,6 +1775,58 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	}
 
 	return MergeGateways(out)
+}
+
+type GatewayContext struct {
+	ps *PushContext
+}
+
+func NewGatewayContext(ps *PushContext) GatewayContext {
+	return GatewayContext{ps}
+}
+
+func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []string, servers []*networking.Server) (internal, external, warns []string) {
+	ports := map[int]struct{}{}
+	for _, s := range servers {
+		ports[int(s.Port.Number)] = struct{}{}
+	}
+	foundInternal := []string{}
+	foundExternal := []string{}
+	warnings := []string{}
+	known := map[host.Name]struct{}{}
+	for _, g := range gwsvcs {
+		known[host.Name(g)] = struct{}{}
+		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
+		if !f {
+			otherNamespaces := []string{}
+			for ns := range gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)] {
+				otherNamespaces = append(otherNamespaces, `"`+ns+`"`) // Wrap in quotes for output
+			}
+			if len(otherNamespaces) > 0 {
+				sort.Strings(otherNamespaces)
+				warnings = append(warnings, fmt.Sprintf("hostname %q not found in namespace %q, but it was found in namespace(s) %v",
+					g, namespace, strings.Join(otherNamespaces, ", ")))
+			} else {
+				warnings = append(warnings, fmt.Sprintf("hostname %q not found", g))
+			}
+			continue
+		}
+		for port := range ports {
+			instances := gc.ps.ServiceIndex.instancesByPort[svc][port]
+			if len(instances) > 0 {
+				foundInternal = append(foundInternal, fmt.Sprintf("%s:%d", g, port))
+				// Fetch external IPs from all clusters
+				for _, externalIPs := range svc.Attributes.ClusterExternalAddresses {
+					for _, ip := range externalIPs {
+						foundExternal = append(foundExternal, ip)
+					}
+				}
+			} else {
+				warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
+			}
+		}
+	}
+	return foundInternal, foundExternal, warnings
 }
 
 // pre computes gateways for each network
@@ -1872,7 +1927,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 // initKubernetesGateways initializes Kubernetes gateway-api objects
 func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 	if env.GatewayAPIController != nil {
-		return env.GatewayAPIController.Recompute()
+		return env.GatewayAPIController.Recompute(GatewayContext{ps})
 	}
 	return nil
 }

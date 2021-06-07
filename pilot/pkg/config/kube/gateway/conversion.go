@@ -46,7 +46,8 @@ type KubernetesResources struct {
 	Namespaces    map[string]*corev1.Namespace
 
 	// Domain for the cluster. Typically cluster.local
-	Domain string
+	Domain  string
+	Context model.GatewayContext
 }
 
 // gatewayLabelSelectorAsSelector is like metav1.LabelSelectorAsSelector but for gateway selector, which
@@ -921,15 +922,36 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[RouteKey][]st
 			}
 		}
 
+		internal, external, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
 		if len(skippedAddresses) > 0 {
+			warnings = append(warnings, fmt.Sprintf("Only NamedAddress is supported, ignoring %v", skippedAddresses))
+		}
+		if len(warnings) > 0 {
+			var msg string
+			if len(internal) > 0 {
+				msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
+					humanReadableJoin(internal), strings.Join(warnings, "; "))
+			} else {
+				msg = fmt.Sprintf("failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
+			}
 			gatewayConditions[string(k8s.GatewayConditionReady)].error = &ConfigError{
 				Reason:  string(k8s.GatewayReasonAddressNotAssigned),
-				Message: fmt.Sprintf("Only NamedAddress is supported, ignoring %v", skippedAddresses),
+				Message: msg,
 			}
 		} else {
-			gatewayConditions[string(k8s.GatewayConditionReady)].message = fmt.Sprintf("Listeners valid, assigned to service(s) %s", strings.Join(gatewayServices, ", "))
+			gatewayConditions[string(k8s.GatewayConditionReady)].message = fmt.Sprintf("Gateway valid, assigned to service(s) %s", humanReadableJoin(internal))
 		}
-
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			gs := s.(*k8s.GatewayStatus)
+			for _, addr := range external {
+				ip := k8s.IPAddressType
+				gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
+					Type:  &ip,
+					Value: addr,
+				})
+			}
+			return gs
+		})
 		reportGatewayCondition(obj, gatewayConditions)
 
 		if len(servers) == 0 {
@@ -1088,4 +1110,17 @@ func emptyOrEqual(have, expected string) bool {
 
 func StrPointer(s string) *string {
 	return &s
+}
+
+func humanReadableJoin(ss []string) string {
+	switch len(ss) {
+	case 0:
+		return ""
+	case 1:
+		return ss[0]
+	case 2:
+		return ss[0] + " and " + ss[1]
+	default:
+		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
+	}
 }
