@@ -23,9 +23,10 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-      and example.com:80, but failed to assign to all requested addresses: hostname
-      "istio-ingressgateway.not-default.svc.domain.suffix" not found'
+    message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.istio-system.svc.domain.suffix:34000,
+      and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
+      to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
+      not found'
     reason: AddressNotAssigned
     status: "False"
     type: Ready
@@ -59,4 +60,27 @@ status:
     hostname: '*.domain.example'
     port: 80
     protocol: HTTP
+  - conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    port: 34000
+    protocol: TCP
 ---

@@ -14,4 +14,10 @@ spec:
       name: http-80-gateway-gateway-istio-system
       number: 80
       protocol: HTTP
+  - hosts:
+    - '*'
+    port:
+      name: tcp-34000-gateway-gateway-istio-system
+      number: 34000
+      protocol: TCP
 ---

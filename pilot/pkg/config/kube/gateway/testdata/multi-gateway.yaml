@@ -25,3 +25,9 @@ spec:
     protocol: HTTP
     routes:
       kind: HTTPRoute
+  - port: 34000
+    protocol: TCP
+    routes:
+      namespaces:
+        from: All
+      kind: TCPRoute

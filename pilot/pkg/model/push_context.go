@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1748,8 +1749,6 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}
-			// internal, external, warnings := ps.ResolveGatewayInstances(cfg.Namespace, gwsvcs, gw.Servers)
-			// log.Errorf("howardjohn: %v %v %v", internal, external, warnings)
 			// Only if we have a matching instance should we apply the configuration
 			if len(matchingInstances) > 0 {
 				out = append(out, gatewayWithInstances{cfg, false, matchingInstances})
@@ -1777,6 +1776,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	return MergeGateways(out)
 }
 
+// GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers
 type GatewayContext struct {
 	ps *PushContext
 }
@@ -1785,13 +1785,21 @@ func NewGatewayContext(ps *PushContext) GatewayContext {
 	return GatewayContext{ps}
 }
 
+// ResolveGatewayInstances attempts to resolve all instances that a gateway will be exposed on.
+// Note: this function considers *all* instances of the service; its possible those instances will not actually be properly functioning
+// gateways, so this is not 100% accurate, but sufficient to expose intent to users.
+// The actual configuration generation is done on a per-workload basis and will get the exact set of matched instances for that workload.
+// Three sets are exposed:
+// * Internal addresses (ie istio-ingressgateway.istio-system.svc.cluster.local:80).
+// * External addresses (ie 1.2.3.4), this comes from LoadBalancer services. There may be multiple in some cases (especially multi cluster).
+// * Warnings for references that could not be resolved. These are intended to be user facing.
 func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []string, servers []*networking.Server) (internal, external, warns []string) {
 	ports := map[int]struct{}{}
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
 	}
-	foundInternal := []string{}
-	foundExternal := []string{}
+	foundInternal := sets.NewSet()
+	foundExternal := sets.NewSet()
 	warnings := []string{}
 	known := map[host.Name]struct{}{}
 	for _, g := range gwsvcs {
@@ -1814,19 +1822,32 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 		for port := range ports {
 			instances := gc.ps.ServiceIndex.instancesByPort[svc][port]
 			if len(instances) > 0 {
-				foundInternal = append(foundInternal, fmt.Sprintf("%s:%d", g, port))
+				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				// Fetch external IPs from all clusters
 				for _, externalIPs := range svc.Attributes.ClusterExternalAddresses {
-					for _, ip := range externalIPs {
-						foundExternal = append(foundExternal, ip)
-					}
+					foundExternal.Insert(externalIPs...)
 				}
 			} else {
-				warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
+				hintPort := sets.NewSet()
+				for _, instances := range gc.ps.ServiceIndex.instancesByPort[svc] {
+					for _, i := range instances {
+						if i.Endpoint.EndpointPort == uint32(port) {
+							hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
+						}
+					}
+				}
+				if len(hintPort) > 0 {
+					warnings = append(warnings, fmt.Sprintf(
+						"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
+						port, g, hintPort.SortedList()))
+				} else {
+					warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
+				}
 			}
 		}
 	}
-	return foundInternal, foundExternal, warnings
+	sort.Strings(warnings)
+	return foundInternal.SortedList(), foundExternal.SortedList(), warnings
 }
 
 // pre computes gateways for each network

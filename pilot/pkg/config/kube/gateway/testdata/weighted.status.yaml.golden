@@ -23,8 +23,8 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-      and istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+      and istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: ListenersValid
     status: "True"
     type: Ready

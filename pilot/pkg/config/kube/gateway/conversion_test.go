@@ -56,7 +56,6 @@ func TestConvertResources(t *testing.T) {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt), validator)
 			// Setup a few preconfigured services
-			// TODO example.com
 			ports := []*model.Port{
 				{
 					Name:     "http",
@@ -90,7 +89,7 @@ func TestConvertResources(t *testing.T) {
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services: []*model.Service{ingressSvc, altIngressSvc},
 				Instances: []*model.ServiceInstance{
-					{Service: ingressSvc, ServicePort: ingressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
+					{Service: ingressSvc, ServicePort: ingressSvc.Ports[0], Endpoint: &model.IstioEndpoint{EndpointPort: 8080}},
 					{Service: ingressSvc, ServicePort: ingressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
 					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
 					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
