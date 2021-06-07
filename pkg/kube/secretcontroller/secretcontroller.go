@@ -182,7 +182,6 @@ func NewController(
 		removeCallback: removeCallback,
 	}
 
-	log.Info("Setting up event handlers for secret controller")
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
@@ -228,7 +227,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 		log.Error("Failed to sync secret controller cache")
 		return
 	}
-	log.Info("Secret controller synced ", time.Since(t0))
+	log.Infof("Secret controller cache synced in %v", time.Since(t0))
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
 	if features.RemoteClusterTimeout != 0 {
@@ -237,7 +236,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 		})
 	}
 	go wait.Until(c.runWorker, 5*time.Second, stopCh)
-
 	<-stopCh
 	c.close()
 }
@@ -257,9 +255,8 @@ func (c *Controller) hasSynced() bool {
 		return false
 	}
 	c.cs.RLock()
-	rc := c.cs.remoteClusters
-	c.cs.RUnlock()
-	for _, cluster := range rc {
+	defer c.cs.RUnlock()
+	for _, cluster := range c.cs.remoteClusters {
 		if !cluster.HasSynced() {
 			log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.secretName)
 			return false

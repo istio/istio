@@ -801,7 +801,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	log.Infof("All controller caches have been synced up in %v", time.Since(start))
 
 	// At this point, we know that all update events of the initial state-of-the-world have been
-	// received.We wait to ensure we have committed at least this many updates. This avoids a race
+	// received. We wait to ensure we have committed at least this many updates. This avoids a race
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
 	expected := s.XDSServer.InboundUpdates.Load()
@@ -817,7 +817,7 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 func (s *Server) pushContextReady(expected int64) bool {
 	committed := s.XDSServer.CommittedUpdates.Load()
 	if committed < expected {
-		log.Infof("Waiting for pushcontext to process inbound updates, inbound: %v, committed : %v", expected, committed)
+		log.Debugf("Waiting for pushcontext to process inbound updates, inbound: %v, committed : %v", expected, committed)
 		return false
 	}
 	return true
