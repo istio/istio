@@ -10,7 +10,7 @@ before each new Istio release and make sure all fuzz tests pass.
 
 ![](overview.jpg)
 
-The fuzz test uses specialized web vulnerability fuzzers (e.g. dotdotpwn) to generate large amount of requests. The
+The fuzz test uses specialized web vulnerability fuzzers (e.g. [dotdotpwn](https://github.com/wireghoul/dotdotpwn)) to generate a large number of  fuzzed requests. The
 mutation is based on a predefined path (`/private/secret.html`) that should be rejected by the authorization policy.
 
 The test backend uses real Web servers configured to serve at the above predefined path. If a fuzzer generated request
