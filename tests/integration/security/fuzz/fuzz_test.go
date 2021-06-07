@@ -82,7 +82,7 @@ func runDotdotPwnTest(t framework.TestContext, ns, server string) {
 	if strings.Contains(stdout, "<- VULNERABLE") {
 		t.Errorf("found potential policy bypass requests, please read the log for more details")
 	} else {
-		t.Logf("not found potential policy bypass requests")
+		t.Logf("no potential policy bypass requests found")
 	}
 }
 
