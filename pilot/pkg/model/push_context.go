@@ -1051,6 +1051,7 @@ func (ps *PushContext) updateContext(
 			authnChanged = true
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
 			gatewayAPIChanged = true
+			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
 		case gvk.Telemetry:
@@ -1069,7 +1070,8 @@ func (ps *PushContext) updateContext(
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
 	}
 
-	if gatewayAPIChanged {
+	if servicesChanged || gatewayAPIChanged {
+		// Gateway status depends on services, so recompute if they change as well
 		if err := ps.initKubernetesGateways(env); err != nil {
 			return err
 		}
