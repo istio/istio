@@ -1674,6 +1674,8 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 				}
 				for _, cp := range cps {
 					if proxyMatch(proxy, cp) {
+						cp.Name = efw.Name
+						cp.Namespace = efw.Namespace
 						out.Patches[applyTo] = append(out.Patches[applyTo], cp)
 					}
 				}
