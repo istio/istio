@@ -20,8 +20,6 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/pkg/log"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v3"
@@ -126,7 +124,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 		if !ok {
 			continue
 		}
-		if !b.validateTemplates(perClusterConfig) {
+		if !b.validateTemplates(perClusterConfig, c) {
 			if c.Kind() == cluster.Kubernetes {
 				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", perClusterConfig.FQDN())
 			}
@@ -340,20 +338,17 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 	return out
 }
 
-// validateTemplates given a Config with the Cluster populated, returns true if the cluster contains all templates
-// specified by inject.istio.io/templates
-func (b builder) validateTemplates(perClusterConfig echo.Config) bool {
+// validateTemplates returns true if the templates specified by inject.istio.io/templates on the config exist on c
+func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
 	expected := sets.NewSet()
-	for _, subset := range perClusterConfig.Subsets {
+	for _, subset := range config.Subsets {
 		expected.Insert(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}
-	log.Info("expect %v", expected.SortedList())
-	if b.templates == nil || b.templates[perClusterConfig.Cluster.Name()] == nil {
+	if b.templates == nil || b.templates[c.Name()] == nil {
 		return len(expected) == 0
 	}
-	log.Info("got %v", b.templates[perClusterConfig.Cluster.Name()].SortedList())
 
-	return b.templates[perClusterConfig.Cluster.Name()].SupersetOf(expected)
+	return b.templates[c.Name()].SupersetOf(expected)
 }
 
 func parseList(s string) []string {
