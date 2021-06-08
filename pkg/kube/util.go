@@ -101,10 +101,7 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 		fn(c)
 	}
 
-	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
-	})
-
+	DebugWrap(c)
 	return kubernetes.NewForConfig(c)
 }
 
@@ -137,7 +134,7 @@ func adjustCommand(p string) string {
 // example: pilot-discovery/1.9.5 or istioctl/1.10.0
 // This is a specialized version of rest.DefaultKubernetesUserAgent()
 func IstioUserAgent() string {
-	return adjustCommand(os.Args[0]) + "/" + istioversion.Info.String()
+	return adjustCommand(os.Args[0]) + "/" + istioversion.Info.Version
 }
 
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.
@@ -165,9 +162,6 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		config.UserAgent = IstioUserAgent()
 	}
 
-	config.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
-	})
 	return config
 }
 

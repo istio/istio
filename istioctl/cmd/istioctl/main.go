@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	flag "github.com/spf13/pflag"
+	pflag "github.com/spf13/pflag"
 
 	// import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -37,13 +37,20 @@ func main() {
 
 	rootCmd := cmd.GetRootCmd(os.Args[1:])
 
-	klog.InitFlags(nil)
-	goflag.Parse()
-	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
-	klog.SetLogger(nil)
+	EnableKlogWithCobra()
 
 	if err := rootCmd.Execute(); err != nil {
 		exitCode := cmd.GetExitCode(err)
 		os.Exit(exitCode)
 	}
+}
+
+// EnableKlogWithCobra enables klog to work with cobra / pflags.
+// k8s libraries like client-go use klog.
+func EnableKlogWithCobra() {
+	klog.InitFlags(nil)
+	goflag.Parse()
+	// just add --v= flag to pflags.
+	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	klog.SetLogger(nil)
 }

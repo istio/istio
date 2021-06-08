@@ -64,6 +64,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport"
+	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
@@ -392,10 +393,17 @@ func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (Ex
 	if err != nil {
 		return nil, err
 	}
-	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
-	})
+	DebugWrap(c)
 	return newClientInternal(newClientFactory(clientConfig), revision)
+}
+
+// DebugWrap adds a debug roundtripper.
+func DebugWrap(c *rest.Config) {
+	if !klog.V(5).Enabled() {
+		return
+	}
+
+	c.Wrap(transport.DebugWrappers)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
