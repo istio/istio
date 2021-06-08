@@ -16,6 +16,7 @@ package resource
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -35,7 +36,12 @@ func (rv *RevVerMap) SetConfig(mi interface{}) error {
 	out := make(RevVerMap)
 	for k := range m {
 		version := m.String(k)
-		out[k] = IstioVersion(version)
+		v, err := NewIstioVersion(version)
+		if err != nil {
+			return fmt.Errorf("could not parse %s as version: %w",
+				version, err)
+		}
+		out[k] = v
 	}
 	*rv = out
 	return nil
@@ -53,7 +59,12 @@ func (rv *RevVerMap) Set(value string) error {
 			m[rev] = ""
 		} else if len(s) == 2 {
 			ver := s[1]
-			m[rev] = IstioVersion(ver)
+			v, err := NewIstioVersion(ver)
+			if err != nil {
+				return fmt.Errorf("could not parse %s as version: %w",
+					ver, err)
+			}
+			m[rev] = v
 		} else {
 			return fmt.Errorf("invalid revision<->version pairing specified: %q", rv)
 		}
@@ -122,6 +133,24 @@ type IstioVersion string
 
 // IstioVersions represents a collection of Istio versions running in a cluster.
 type IstioVersions []IstioVersion
+
+// NewIstioVersion creates an IstioVersion with validation.
+func NewIstioVersion(s string) (IstioVersion, error) {
+	// empty version string sentinel value for latest
+	if s == "" {
+		return "", nil
+	}
+	parts := strings.Split(s, ".")
+	if len(parts) < 2 || len(parts) > 3 {
+		return "", fmt.Errorf("cannot parse version from %s", s)
+	}
+	for _, part := range parts {
+		if _, err := strconv.Atoi(part); err != nil {
+			return "", fmt.Errorf("cannot use %s as version part", part)
+		}
+	}
+	return IstioVersion(s), nil
+}
 
 // Compare compares two Istio versions. Returns -1 if version "v" is less than "other", 0 if the same,
 // and 1 if "v" is greater than "other".
