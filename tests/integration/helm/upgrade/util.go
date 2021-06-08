@@ -59,14 +59,14 @@ global:
   tag: %s
 
 revision: %s
-revisionTags: %s
+revisionTags: [%s]
 `
 	tarGzSuffix = ".tar.gz"
 
-	prodLabel = "prod"
+	prodTag             = "prod"
 	revisionLabel       = "canary"
 	revisionChartSuffix = "-canary"
-	revisionStableLabel = "latest"
+	latestRevision      = "latest"
 )
 
 // previousChartPath is path of Helm charts for previous Istio deployments.
@@ -271,12 +271,15 @@ func performStableLabelRevisionUpgradeFunc(previousVersion string) func(framewor
 		//	}
 		//})
 
-		revisionTag := strings.ReplaceAll(previousVersion, ".", "-")
-		overrideValuesFile := getValuesOverridesStableLabels(t, defaultValues, gcrHub, previousVersion, prodLabel, revisionTag)
+		// set revisionTag to 'prod' and revision to the previous version (e.g. 1-9-0)
+		prodRevisionTag := strings.ReplaceAll(previousVersion, ".", "-")
+		overrideValuesFile := getValuesOverridesStableLabels(t, stableLabelValues, gcrHub, previousVersion, prodRevisionTag, prodTag)
+		t.Log(overrideValuesFile)
 		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
-		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
+		// setup istio.io/rev tag to point to previous version (e.g. istio.io/rev=1-9-0)
+		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, prodRevisionTag)
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		// now upgrade istio to the latest version found in this branch
@@ -287,14 +290,37 @@ func performStableLabelRevisionUpgradeFunc(previousVersion string) func(framewor
 			t.Fatal(err)
 		}
 
-		overrideValuesFile = getValuesOverridesStableLabels(t, revisionValues, s.Hub, s.Tag, revisionLabel, revisionStableLabel)
+		// set revisionTag to 'canary'
+		overrideValuesFile = getValuesOverridesStableLabels(t, stableLabelValues, s.Hub, s.Tag, latestRevision, revisionLabel)
+		t.Log(overrideValuesFile)
 		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, revisionChartSuffix, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
-		newClient, newServer := sanitycheck.SetupTrafficTest(t, t, revisionLabel)
+		// setup istio.io/rev=latest
+		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, latestRevision)
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+
+		err = oldNs.RemoveLabel("istio.io/tag")
+		if err != nil {
+			t.Fatal("could not remove istio.io/tag label from namespace")
+		}
+		err = oldNs.SetLabel("istio.io/tag", latestRevision)
+		if err != nil {
+			t.Fatal("could not set istio.io/tag label on namespace")
+		}
+		err = oldClient.Restart()
+		if err != nil {
+			t.Fatal("could not restart old client")
+		}
+		err = oldServer.Restart()
+		if err != nil {
+			t.Fatal("could not restart old server")
+		}
+
+		// now check traffic still works
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
 	}
 }
