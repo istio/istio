@@ -32,17 +32,18 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var vwcName = "istiod"
+var vwcName = "istio"
 
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			// clear the updated fields and verify istiod updates them
-
 			if t.Settings().Revisions.Default() != "" {
 				vwcName = fmt.Sprintf("%s-%s", vwcName, t.Settings().Revisions.Default())
 			}
+			vwcName += "-istio-system"
+
+			// clear the updated fields and verify istiod updates them
 			cluster := t.Clusters().Default()
 			retry.UntilSuccessOrFail(t, func() error {
 				got, err := getValidatingWebhookConfiguration(cluster, vwcName)
