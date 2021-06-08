@@ -68,10 +68,6 @@ pilot:
 
 
 sidecarInjectorWebhook:
-  # If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
-  # requests in Istiod, rather than at the webhook selection level.
-  # This is option is intended for migration purposes only and will be removed in Istio 1.10.
-  useLegacySelectors: false
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
   # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
@@ -160,15 +156,13 @@ telemetry:
       enabled: false
       logging: false
       monitoring: false
-      topology: false
+      topology: false # deprecated. setting this to true will have no effect, as this option is no longer supported.
       disableOutbound: false
       #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
       configOverride: {}
       #  e.g.
-      #  enable_mesh_edges_reporting: true
       #  disable_server_access_logging: false
-      #  meshEdgesReportingDuration: 500s
       #  disable_host_header_fallback: true
     # Access Log Policy Filter Settings. This enables filtering of access logs from stackdriver.
     accessLogPolicy:
@@ -391,7 +385,9 @@ global:
   # If not set explicitly, default to the Istio discovery address.
   caAddress: ""
 
-  # External istiod controls all remote clusters: disabled by default
+  # Configure a remote cluster data plane controlled by an external istiod.
+  # When set to true, istiod is not deployed locally and only a subset of the other
+  # discovery charts are enabled.
   externalIstiod: false
 
   # Configure the policy for validating JWT.

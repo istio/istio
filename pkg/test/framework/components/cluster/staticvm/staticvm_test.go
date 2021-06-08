@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 func TestBuild(t *testing.T) {
@@ -46,7 +47,7 @@ meta:
 	}
 	if diff := cmp.Diff(got.(*vmcluster).vms, []echo.Config{{
 		Service:         "vm",
-		Namespace:       fakeNamespace("echo"),
+		Namespace:       namespace.Static("echo"),
 		StaticAddresses: []string{"172.17.0.4:10.0.0.1"},
 	}}); diff != "" {
 		t.Fatal(diff)
@@ -55,8 +56,8 @@ meta:
 
 func TestVmcluster_CanDeploy(t *testing.T) {
 	aSvc := "a"
-	echoNS := fakeNamespace("echo")
-	echoGenNS := fakeNamespace("echo-1234")
+	echoNS := namespace.Static("echo")
+	echoGenNS := namespace.Static("echo-1234")
 	ips := []string{"1.2.3.4"}
 	vms := vmcluster{vms: []echo.Config{{
 		Service: aSvc, Namespace: echoNS,
@@ -77,7 +78,7 @@ func TestVmcluster_CanDeploy(t *testing.T) {
 			given: echo.Config{Service: aSvc, Namespace: echoGenNS, Ports: []echo.Port{{Name: "grpc"}}},
 		},
 		"namespace mismatch": {
-			given: echo.Config{DeployAsVM: true, Service: aSvc, Namespace: fakeNamespace("other"), Ports: []echo.Port{{Name: "grpc"}}},
+			given: echo.Config{DeployAsVM: true, Service: aSvc, Namespace: namespace.Static("other"), Ports: []echo.Port{{Name: "grpc"}}},
 		},
 		"service mismatch": {
 			given: echo.Config{DeployAsVM: true, Service: "b", Namespace: echoNS, Ports: []echo.Port{{Name: "grpc"}}},

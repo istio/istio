@@ -53,7 +53,7 @@ var (
 	runningTasksTicker = time.NewTicker(reportInterval)
 )
 
-func init() {
+func ReportRunningTasks() {
 	go func() {
 		time.Sleep(reportInterval)
 		for range runningTasksTicker.C {

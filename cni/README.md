@@ -13,7 +13,7 @@ removes the need for a privileged, `NET_ADMIN` container in the Istio users' app
 
 ## Usage
 
-A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation site under [Install Istio with the Istio CNI plugin](https://preliminary.istio.io/latest/docs/setup/additional-setup/cni/).
+A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation site under [Install Istio with the Istio CNI plugin](https://istio.io/latest/docs/setup/additional-setup/cni/).
 
 ## Troubleshooting
 
@@ -101,7 +101,7 @@ $ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=
 ## Reference
 
 The framework for this implementation of the CNI plugin is based on the
-[containernetworking sample plugin](https://github.com/containernetworking/plugins/blob/master/plugins/sample)
+[containernetworking sample plugin](https://github.com/containernetworking/plugins/tree/master/plugins/sample)
 
 The details for the deployment & installation of this plugin were pretty much lifted directly from the
 [Calico CNI plugin](https://github.com/projectcalico/cni-plugin).

@@ -55,14 +55,14 @@ func (c *configManager) applyYAML(cleanup bool, ns string, yamlText ...string) e
 
 	for _, cl := range c.clusters {
 		cl := cl
+		scopes.Framework.Debugf("Applying to %s to namespace %v: %s", cl.StableName(), ns, strings.Join(yamlFiles, ", "))
 		if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
-			scopes.Framework.Infof("Applying to %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
 			return fmt.Errorf("failed applying YAML to cluster %s: %v", cl.Name(), err)
 		}
 		if cleanup {
 			c.ctx.Cleanup(func() {
+				scopes.Framework.Debugf("Deleting from %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
 				if err := cl.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
-					scopes.Framework.Infof("Deleting from %s: %s", cl.StableName(), strings.Join(yamlFiles, ", "))
 					scopes.Framework.Errorf("failed deleting YAML from cluster %s: %v", cl.Name(), err)
 				}
 			})

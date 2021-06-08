@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -31,8 +32,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/batch/v2alpha1"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -86,14 +88,15 @@ const (
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta       *metav1.TypeMeta
-	DeploymentMeta *metav1.ObjectMeta
-	ObjectMeta     metav1.ObjectMeta
-	Spec           corev1.PodSpec
-	ProxyConfig    *meshconfig.ProxyConfig
-	MeshConfig     *meshconfig.MeshConfig
-	Values         map[string]interface{}
-	Revision       string
+	TypeMeta             metav1.TypeMeta
+	DeploymentMeta       metav1.ObjectMeta
+	ObjectMeta           metav1.ObjectMeta
+	Spec                 corev1.PodSpec
+	ProxyConfig          *meshconfig.ProxyConfig
+	MeshConfig           *meshconfig.MeshConfig
+	Values               map[string]interface{}
+	Revision             string
+	EstimatedConcurrency int
 }
 
 type (
@@ -333,14 +336,15 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	}
 
 	data := SidecarTemplateData{
-		TypeMeta:       params.typeMeta,
-		DeploymentMeta: params.deployMeta,
-		ObjectMeta:     strippedPod.ObjectMeta,
-		Spec:           strippedPod.Spec,
-		ProxyConfig:    meshConfig.GetDefaultConfig(),
-		MeshConfig:     meshConfig,
-		Values:         values,
-		Revision:       params.revision,
+		TypeMeta:             params.typeMeta,
+		DeploymentMeta:       params.deployMeta,
+		ObjectMeta:           strippedPod.ObjectMeta,
+		Spec:                 strippedPod.Spec,
+		ProxyConfig:          meshConfig.GetDefaultConfig(),
+		MeshConfig:           meshConfig,
+		Values:               values,
+		Revision:             params.revision,
+		EstimatedConcurrency: estimateConcurrency(meshConfig.GetDefaultConfig(), metadata.Annotations, valuesStruct),
 	}
 	funcMap := CreateInjectionFuncmap()
 
@@ -551,10 +555,10 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 
-	var deploymentMetadata *metav1.ObjectMeta
+	var deploymentMetadata metav1.ObjectMeta
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
-	var typeMeta *metav1.TypeMeta
+	var typeMeta metav1.TypeMeta
 
 	// Handle Lists
 	if list, ok := out.(*corev1.List); ok {
@@ -584,31 +588,31 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
 	switch v := out.(type) {
-	case *v2alpha1.CronJob:
+	case *batch.CronJob:
 		job := v
-		typeMeta = &job.TypeMeta
+		typeMeta = job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
-		deploymentMetadata = &job.ObjectMeta
+		deploymentMetadata = job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
-		typeMeta = &pod.TypeMeta
+		typeMeta = pod.TypeMeta
 		metadata = &pod.ObjectMeta
-		deploymentMetadata = &pod.ObjectMeta
+		deploymentMetadata = pod.ObjectMeta
 		podSpec = &pod.Spec
 	case *appsv1.Deployment: // Added to be explicit about the most expected case
 		deploy := v
-		typeMeta = &deploy.TypeMeta
-		deploymentMetadata = &deploy.ObjectMeta
+		typeMeta = deploy.TypeMeta
+		deploymentMetadata = deploy.ObjectMeta
 		metadata = &deploy.Spec.Template.ObjectMeta
 		podSpec = &deploy.Spec.Template.Spec
 	default:
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
 
-		typeMeta = outValue.FieldByName("TypeMeta").Addr().Interface().(*metav1.TypeMeta)
+		typeMeta = outValue.FieldByName("TypeMeta").Interface().(metav1.TypeMeta)
 
-		deploymentMetadata = outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
+		deploymentMetadata = outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
 
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
 		// `Template` is defined as a pointer in some older API
@@ -772,4 +776,55 @@ func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 		envVars = append(envVars, corev1.EnvVar{Name: key, Value: val, ValueFrom: nil})
 	}
 	container.Env = envVars
+}
+
+// Uses the default concurrency 2, unless either overridden by proxy config to a positive number,
+// or special value 0, in which case the value is computed from CPU limits/requests.
+func estimateConcurrency(cfg *meshconfig.ProxyConfig, annotations map[string]string, valuesStruct *opconfig.Values) int {
+	if cfg != nil && cfg.Concurrency != nil {
+		concurrency := int(cfg.Concurrency.Value)
+		if concurrency > 0 {
+			return concurrency
+		}
+		if limit, ok := annotations[annotation.SidecarProxyCPULimit.Name]; ok {
+			out, err := quantityToConcurrency(limit)
+			if err == nil {
+				return out
+			}
+		} else if request, ok := annotations[annotation.SidecarProxyCPU.Name]; ok {
+			out, err := quantityToConcurrency(request)
+			if err == nil {
+				return out
+			}
+		} else if resources := valuesStruct.GetGlobal().GetProxy().GetResources(); resources != nil { // nolint: staticcheck
+			if resources.Limits != nil {
+				if limit, ok := resources.Limits["cpu"]; ok {
+					out, err := quantityToConcurrency(limit)
+					if err == nil {
+						return out
+					}
+				}
+			}
+			if resources.Requests != nil {
+				if request, ok := resources.Requests["cpu"]; ok {
+					out, err := quantityToConcurrency(request)
+					if err == nil {
+						return out
+					}
+				}
+			}
+		}
+	}
+	return 2
+}
+
+// Convert k8s quantity to its milli value (e.g. ceil(quantity * 1000)) and then to concurrency.
+// With the resource setting, we round up to single integer number; for example, if we have a 500m limit
+// the pod will get concurrency=1. With 6500m, it will get concurrency=7.
+func quantityToConcurrency(quantity string) (int, error) {
+	q, err := resource.ParseQuantity(quantity)
+	if err != nil {
+		return 0, err
+	}
+	return int(math.Ceil(float64(q.MilliValue()) / 1000)), nil
 }

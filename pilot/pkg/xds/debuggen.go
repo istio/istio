@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"strconv"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -84,14 +85,14 @@ func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
 
 // Generate XDS debug responses according to the incoming debug request
 func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, error) {
-	res := []*any.Any{}
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	res := model.Resources{}
 	var buffer bytes.Buffer
 	if w.ResourceNames == nil {
-		return res, fmt.Errorf("debug type is required")
+		return res, model.DefaultXdsLogDetails, fmt.Errorf("debug type is required")
 	}
 	if len(w.ResourceNames) != 1 {
-		return res, fmt.Errorf("only one debug request is allowed")
+		return res, model.DefaultXdsLogDetails, fmt.Errorf("only one debug request is allowed")
 	}
 	resourceName := w.ResourceNames[0]
 	u, _ := url.Parse(resourceName)
@@ -103,7 +104,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			shouldAllow = true
 		}
 		if !shouldAllow {
-			return res, fmt.Errorf("the debug info is not available for current identity: %q", identity)
+			return res, model.DefaultXdsLogDetails, fmt.Errorf("the debug info is not available for current identity: %q", identity)
 		}
 	}
 	debugURL := "/debug/" + resourceName
@@ -116,9 +117,12 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		buffer.Write(header)
 	}
 	buffer.Write(response.body.Bytes())
-	res = append(res, &any.Any{
-		TypeUrl: TypeDebug,
-		Value:   buffer.Bytes(),
+	res = append(res, &discovery.Resource{
+		Name: resourceName,
+		Resource: &any.Any{
+			TypeUrl: TypeDebug,
+			Value:   buffer.Bytes(),
+		},
 	})
-	return res, nil
+	return res, model.DefaultXdsLogDetails, nil
 }

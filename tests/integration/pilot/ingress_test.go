@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 	"testing"
 	"time"
@@ -51,7 +52,7 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
+			t.Config().ApplyYAMLOrFail(t, "", `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -63,6 +64,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -70,32 +72,41 @@ spec:
     port: 80
     protocol: HTTP
     routes:
+      namespaces:
+        from: All
       kind: HTTPRoute
   - port: 31400
     protocol: TCP
     routes:
+      namespaces:
+        from: All
       kind: TCPRoute
----
+---`)
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http
 spec:
- hostnames: ["my.domain.example"]
- rules:
- - matches:
-   - path:
-       type: Prefix
-       value: /get
-   forwardTo:
-     - serviceName: b
-       port: 80
+  hostnames: ["my.domain.example"]
+  gateways:
+    allow: All
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+    forwardTo:
+    - serviceName: b
+      port: 80
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: TCPRoute
 metadata:
   name: tcp
 spec:
+  gateways:
+    allow: All
   rules:
   - forwardTo:
      - serviceName: b
@@ -128,7 +139,7 @@ spec:
 `)
 
 			t.NewSubTest("http").Run(func(t framework.TestContext) {
-				_ = apps.Ingress.CallEchoWithRetryOrFail(t, echo.CallOptions{
+				_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
 					Port: &echo.Port{
 						Protocol: protocol.HTTP,
 					},
@@ -140,13 +151,13 @@ spec:
 				})
 			})
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				address := apps.Ingress.TCPAddress()
-				_ = apps.Ingress.CallEchoWithRetryOrFail(t, echo.CallOptions{
+				host, port := apps.Ingress.TCPAddress()
+				_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
 					Port: &echo.Port{
 						Protocol:    protocol.HTTP,
-						ServicePort: address.Port,
+						ServicePort: port,
 					},
-					Address: address.IP.String(),
+					Address: host,
 					Path:    "/",
 					Headers: map[string][]string{
 						"Host": {"my.domain.example"},
@@ -310,7 +321,7 @@ spec:
 			for _, c := range cases {
 				c := c
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallEchoWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
+					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
 				})
 			}
 
@@ -319,14 +330,22 @@ spec:
 					t.Skip("ingress status not supported without load balancer")
 				}
 
-				ip := apps.Ingress.HTTPAddress().IP.String()
+				host, _ := apps.Ingress.HTTPAddress()
+				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
 					ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
-					if len(ing.Status.LoadBalancer.Ingress) != 1 || ing.Status.LoadBalancer.Ingress[0].IP != ip {
-						return fmt.Errorf("unexpected ingress status, got %+v want %v", ing.Status.LoadBalancer, ip)
+					if len(ing.Status.LoadBalancer.Ingress) < 1 {
+						return fmt.Errorf("unexpected ingress status, ingress is empty")
+					}
+					got := ing.Status.LoadBalancer.Ingress[0].Hostname
+					if hostIsIP {
+						got = ing.Status.LoadBalancer.Ingress[0].IP
+					}
+					if got != host {
+						return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
 					}
 					return nil
 				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
@@ -398,7 +417,7 @@ spec:
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path)
 				t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallEchoWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
+					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
 				})
 			}
 		})

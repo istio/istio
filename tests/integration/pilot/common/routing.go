@@ -24,19 +24,61 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	epb "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
-func httpGateway(host string) string {
-	return fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+const httpVirtualServiceTmpl = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: {{.VirtualServiceHost}}
+spec:
+  gateways:
+  - {{.Gateway}}
+  hosts:
+  - {{.VirtualServiceHost}}
+  http:
+  - route:
+    - destination:
+        host: {{.VirtualServiceHost}}
+        port:
+          number: {{.Port}}
+{{- if .MatchScheme }}
+    match:
+    - scheme:
+        exact: {{.MatchScheme}}
+    headers:
+      request:
+        add:
+          istio-custom-header: user-defined-value
+{{- end }}
+---
+`
+
+func httpVirtualService(gateway, host string, port int) string {
+	return tmpl.MustEvaluate(httpVirtualServiceTmpl, struct {
+		Gateway            string
+		VirtualServiceHost string
+		Port               int
+		MatchScheme        string
+	}{gateway, host, port, ""})
+}
+
+const gatewayTmpl = `
+apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: gateway
@@ -45,43 +87,36 @@ spec:
     istio: ingressgateway
   servers:
   - port:
-      number: 80
-      name: http
-      protocol: HTTP
+      number: {{.GatewayPort}}
+      name: {{.GatewayPortName}}
+      protocol: {{.GatewayProtocol}}
+{{- if .Credential }}
+    tls:
+      mode: SIMPLE
+      credentialName: {{.Credential}}
+{{- end }}
     hosts:
-    - "%s"
+    - "{{.GatewayHost}}"
 ---
-`, host)
-}
+`
 
-func httpVirtualService(gateway, host string, port int) string {
-	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: {{.Host}}
-spec:
-  gateways:
-  - {{.Gateway}}
-  hosts:
-  - {{.Host}}
-  http:
-  - route:
-    - destination:
-        host: {{.Host}}
-        port:
-          number: {{.Port}}
----
-`, struct {
-		Gateway string
-		Host    string
-		Port    int
-	}{gateway, host, port})
+func httpGateway(host string) string {
+	return tmpl.MustEvaluate(gatewayTmpl, struct {
+		GatewayHost     string
+		GatewayPort     int
+		GatewayPortName string
+		GatewayProtocol string
+		Credential      string
+	}{
+		host, 80, "http", "HTTP", "",
+	})
 }
 
 func virtualServiceCases(skipVM bool) []TrafficTestCase {
+	noTProxy := echotest.FilterMatch(func(instance echo.Instance) bool {
+		return !instance.Config().IsTProxy()
+	})
 	var cases []TrafficTestCase
-	// Send the same call from all different clusters
-
 	cases = append(cases,
 		TrafficTestCase{
 			name: "added header",
@@ -103,6 +138,7 @@ spec:
           istio-custom-header: user-defined-value`,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -134,6 +170,7 @@ spec:
           x-custom: some-value`,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -165,6 +202,7 @@ spec:
           :authority: my-custom-authority`,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -175,6 +213,40 @@ spec:
 						})),
 			},
 			workloadAgnostic: true,
+			minIstioVersion:  "1.10.0",
+		},
+		TrafficTestCase{
+			name: "set host header in destination",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            Host: my-custom-authority`,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Count:    1,
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								return ExpectString(response.RawResponse["Host"], "my-custom-authority", "added authority header")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+			minIstioVersion:  "1.10.0",
 		},
 		TrafficTestCase{
 			name: "redirect",
@@ -202,6 +274,7 @@ spec:
 				PortName:        "http",
 				Path:            "/foo?key=value",
 				FollowRedirects: true,
+				Count:           1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -235,12 +308,13 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo?key=value#hash",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
-								return ExpectString(response.URL, "/new/path?key=value", "URL")
+								return ExpectString(response.URL, "/new/path?key=value#hash", "URL")
 							})
 						})),
 			},
@@ -268,6 +342,7 @@ spec:
 			opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo",
+				Count:    1,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(
@@ -282,7 +357,7 @@ spec:
 		TrafficTestCase{
 			name: "cors",
 			// TODO https://github.com/istio/istio/issues/31532
-			targetFilters: []echotest.Filter{echotest.Not(echotest.VirtualMachines)},
+			targetFilters: []echotest.Filter{noTProxy, echotest.Not(echotest.VirtualMachines)},
 			config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -318,6 +393,7 @@ spec:
 							PortName: "http",
 							Method:   "OPTIONS",
 							Headers:  header,
+							Count:    1,
 							Validator: echo.And(
 								echo.ExpectOK(),
 								echo.ValidatorFunc(
@@ -353,6 +429,7 @@ spec:
 						return echo.CallOptions{
 							PortName: "http",
 							Headers:  header,
+							Count:    1,
 							Validator: echo.And(
 								echo.ExpectOK(),
 								echo.ValidatorFunc(
@@ -368,6 +445,7 @@ spec:
 					name: "get no origin match",
 					opts: echo.CallOptions{
 						PortName: "http",
+						Count:    1,
 						Validator: echo.And(
 							echo.ExpectOK(),
 							echo.ValidatorFunc(
@@ -409,8 +487,10 @@ spec:
 			toN:           len(split),
 			sourceFilters: []echotest.Filter{noHeadless, noNaked},
 			targetFilters: []echotest.Filter{noHeadless, noExternal},
-			templateVars: map[string]interface{}{
-				"split": split,
+			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
+				return map[string]interface{}{
+					"split": split,
+				}
 			},
 			config: `
 {{ $split := .split }} 
@@ -429,7 +509,7 @@ spec:
       weight: {{ ( index $split $idx ) }}
 {{- end }}
 `,
-			validate: func(src echo.Instance, dests echo.Services) echo.Validator {
+			validateForN: func(src echo.Caller, dests echo.Services) echo.Validator {
 				return echo.And(
 					echo.ExpectOK(),
 					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, err error) error {
@@ -450,9 +530,17 @@ spec:
 								return fmt.Errorf("expected %v calls to %q, got %v", exp, host, len(hostResponses))
 							}
 							// echotest should have filtered the deployment to only contain reachable clusters
-							targetClusters := dests.Instances().Match(echo.Service(host)).Clusters()
-							if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
-								return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+							hostDests := dests.Instances().Match(echo.Service(host))
+							targetClusters := hostDests.Clusters()
+							// don't check headless since lb is unpredictable
+							headlessTarget := hostDests.ContainsMatch(echo.IsHeadless())
+							if !headlessTarget && len(targetClusters.ByNetwork()[src.(echo.Instance).Config().Cluster.NetworkName()]) > 1 {
+								// Conditionally check reached clusters to work around connection load balancing issues
+								// See https://github.com/istio/istio/issues/32208 for details
+								// We want to skip this for requests from the cross-network pod
+								if err := hostResponses.CheckReachedClusters(targetClusters); err != nil {
+									return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+								}
 							}
 						}
 						return nil
@@ -508,6 +596,7 @@ spec:
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
 					Port:      &echo.Port{ServicePort: e.port, Protocol: protocol.HTTP},
+					Count:     1,
 					Address:   apps.External[0].Address(),
 					Headers:   HostHeader(apps.External[0].Config().DefaultHostHeader),
 					Scheme:    scheme.HTTP,
@@ -533,12 +622,14 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			opts: echo.CallOptions{
 				Target:   destination,
 				PortName: "http",
+				Count:    1,
 				HTTP2:    true,
 				Validator: echo.And(
 					echo.ExpectOK(),
 					echo.ExpectKey("Proto", "HTTP/2.0"),
 				),
 			},
+			minIstioVersion: "1.10.0",
 		},
 		TrafficTestCase{
 			name:   "use client protocol with h1",
@@ -546,6 +637,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			call:   client[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				PortName: "http",
+				Count:    1,
 				Target:   destination,
 				HTTP2:    false,
 				Validator: echo.And(
@@ -588,46 +680,124 @@ func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 	return cases
 }
 
-func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
+// autoPassthroughCases tests that we cannot hit unexpected destinations when using AUTO_PASSTHROUGH
+func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
+	// We test the cross product of all Istio ALPNs (or no ALPN), all mTLS modes, and various backends
+	alpns := []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2", ""}
+	modes := []string{"STRICT", "PERMISSIVE", "DISABLE"}
 
-	destinationSets := []echo.Instances{
-		apps.PodA,
-		apps.VM,
-		apps.Naked,
-		apps.Headless,
-		apps.External,
+	mtlsHost := host.Name(apps.PodA[0].Config().FQDN())
+	nakedHost := host.Name(apps.Naked[0].Config().FQDN())
+	httpsPort := FindPortByName("https").ServicePort
+	httpsAutoPort := FindPortByName("auto-https").ServicePort
+	snis := []string{
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsPort),
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsPort),
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsAutoPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", mtlsHost, httpsAutoPort),
+		model.BuildSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsAutoPort),
+		model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", nakedHost, httpsAutoPort),
 	}
-
-	for _, d := range destinationSets {
-		d := d
-		if len(d) == 0 {
-			continue
+	for _, mode := range modes {
+		childs := []TrafficCall{}
+		for _, sni := range snis {
+			for _, alpn := range alpns {
+				alpn, sni, mode := alpn, sni, mode
+				al := &epb.Alpn{Value: []string{alpn}}
+				if alpn == "" {
+					al = nil
+				}
+				childs = append(childs, TrafficCall{
+					name: fmt.Sprintf("mode:%v,sni:%v,alpn:%v", mode, sni, alpn),
+					call: apps.Ingress.CallWithRetryOrFail,
+					opts: echo.CallOptions{
+						Port: &echo.Port{
+							ServicePort: 443,
+							Protocol:    protocol.HTTPS,
+						},
+						ServerName: sni,
+						Alpn:       al,
+						Validator:  echo.ExpectError(),
+					},
+				},
+				)
+			}
 		}
-		fqdn := d[0].Config().FQDN()
 		cases = append(cases, TrafficTestCase{
-			name:   d[0].Config().Service,
-			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
-			// TODO call ingress in each cluster & fix flakes calling "external" (https://github.com/istio/istio/issues/28834)
-			skip: apps.External.Contains(d[0]) && d.Clusters().IsMulticluster(),
-			call: apps.Ingress.CallEchoWithRetryOrFail,
-			opts: echo.CallOptions{
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
-				Headers: map[string][]string{
-					"Host": {fqdn},
-				},
-				Validator: echo.ExpectOK(),
-			},
+			config: globalPeerAuthentication(mode) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cross-network-gateway-test
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 443
+        name: tls
+        protocol: TLS
+      tls:
+        mode: AUTO_PASSTHROUGH
+      hosts:
+        - "*.local"
+`,
+			children: childs,
 		})
 	}
-	cases = append(cases,
-		TrafficTestCase{
-			name:   "404",
-			config: httpGateway("*"),
-			call:   apps.Ingress.CallEchoWithRetryOrFail,
+
+	return cases
+}
+
+func gatewayCases() []TrafficTestCase {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances) map[string]interface{} {
+		host, dest, portN, cred := "*", dests[0], 80, ""
+		if protocol.IsTLS() {
+			host, portN, cred = dest.Config().FQDN(), 443, "cred"
+		}
+		return map[string]interface{}{
+			"IngressNamespace":   src[0].(ingress.Instance).Namespace(),
+			"GatewayHost":        host,
+			"GatewayPort":        portN,
+			"GatewayPortName":    strings.ToLower(string(protocol)),
+			"GatewayProtocol":    string(protocol),
+			"Gateway":            "gateway",
+			"VirtualServiceHost": dest.Config().FQDN(),
+			"Port":               dest.Config().PortByName("http").ServicePort,
+			"Credential":         cred,
+		}
+	}
+
+	// clears the Target to avoid echo internals trying to match the protocol with the port on echo.Config
+	noTarget := func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+		opts.Target = nil
+	}
+	// allows setting the target indirectly via the host header
+	fqdnHostHeader := func(src echo.Caller, dsts echo.Instances, opts *echo.CallOptions) {
+		if opts.Headers == nil {
+			opts.Headers = map[string][]string{}
+		}
+		opts.Headers["Host"] = []string{dsts[0].Config().FQDN()}
+		noTarget(src, dsts, opts)
+	}
+
+	// SingleRegualrPod is already applied leaving one regular pod, to only regular pods should leave a single workload.
+	singleTarget := []echotest.Filter{echotest.FilterMatch(echotest.RegularPod)}
+	// the following cases don't actually target workloads, we use the singleTarget filter to avoid duplicate cases
+	cases := []TrafficTestCase{
+		{
+			name:             "404",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config:           httpGateway("*"),
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
@@ -636,9 +806,13 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 				},
 				Validator: echo.ExpectCode("404"),
 			},
+			setupOpts: noTarget,
 		},
-		TrafficTestCase{
-			name: "https redirect",
+		{
+			name:             "https redirect",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -657,17 +831,21 @@ spec:
       httpsRedirect: true
 ---
 `,
-			call: apps.Ingress.CallEchoWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
 				Validator: echo.ExpectCode("301"),
 			},
+			setupOpts: fqdnHostHeader,
 		},
-		TrafficTestCase{
+		{
 			// See https://github.com/istio/istio/issues/27315
-			name: "https with x-forwarded-proto",
+			name:             "https with x-forwarded-proto",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
 			config: `apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -710,20 +888,85 @@ spec:
     labels:
       istio: ingressgateway
 ---
-` + httpVirtualService("gateway", apps.PodA[0].Config().FQDN(), apps.PodA[0].Config().PortByName("http").ServicePort),
-			call: apps.Ingress.CallEchoWithRetryOrFail,
+` + httpVirtualServiceTmpl,
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
 				Headers: map[string][]string{
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
-					"Host":              {apps.PodA[0].Config().FQDN()},
 				},
 				Validator: echo.ExpectOK(),
 			},
-		})
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().FQDN(),
+					"Port":               dest.Config().PortByName("http").ServicePort,
+				}
+			},
+		},
+	}
+
+	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
+		proto, secret := proto, ""
+		if proto.IsTLS() {
+			secret = ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA)
+		}
+		cases = append(
+			cases,
+			TrafficTestCase{
+				name:   string(proto),
+				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
+				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
+					return templateParams(proto, src, dests)
+				},
+				setupOpts: fqdnHostHeader,
+				opts: echo.CallOptions{
+					Count: 1,
+					Port: &echo.Port{
+						Protocol: proto,
+					},
+				},
+				viaIngress:       true,
+				workloadAgnostic: true,
+			},
+			TrafficTestCase{
+				name:   fmt.Sprintf("%s scheme match", proto),
+				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
+				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
+					params := templateParams(proto, src, dests)
+					params["MatchScheme"] = strings.ToLower(string(proto))
+					return params
+				},
+				setupOpts: fqdnHostHeader,
+				opts: echo.CallOptions{
+					Count: 1,
+					Port: &echo.Port{
+						Protocol: proto,
+					},
+					Validator: echo.And(
+						echo.ExpectOK(),
+						echo.ValidatorFunc(
+							func(response echoclient.ParsedResponses, _ error) error {
+								return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+									// We check a header is added to ensure our VS actually applied
+									return ExpectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+								})
+							})),
+				},
+				// to keep tests fast, we only run the basic protocol test per-workload and scheme match once (per cluster)
+				targetFilters:    singleTarget,
+				viaIngress:       true,
+				workloadAgnostic: true,
+			},
+		)
+	}
+
 	return cases
 }
 
@@ -744,8 +987,9 @@ func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
 			skip:   false,
-			call:   apps.Ingress.CallEchoWithRetryOrFail,
+			call:   apps.Ingress.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
 				},
@@ -814,10 +1058,11 @@ spec:
   selector:
     app: b`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 1 both match",
+			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-1",
 				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
 				Timeout:   time.Millisecond * 100,
@@ -840,12 +1085,13 @@ spec:
     port: %d
     targetPort: %d
   selector:
-    app: b`, FindPortByName("http").ServicePort, WorkloadPorts[0].Port)
+    app: b`, FindPortByName("http").ServicePort, common.WorkloadPorts[0].Port)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 2 service port match",
+			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-2",
 				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.TCP},
 				Scheme:    scheme.TCP,
@@ -870,10 +1116,11 @@ spec:
   selector:
     app: b`, FindPortByName("http").InstancePort)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 3 target port match",
+			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-3",
 				Port:      &echo.Port{ServicePort: 12345, Protocol: protocol.HTTP},
 				Timeout:   time.Millisecond * 100,
@@ -895,12 +1142,13 @@ spec:
     port: 12346
     targetPort: %d
   selector:
-    app: b`, WorkloadPorts[1].Port)
+    app: b`, common.WorkloadPorts[1].Port)
 		cases = append(cases, TrafficTestCase{
-			name:   "case 4 no match",
+			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
+				Count:     1,
 				Address:   "b-alt-4",
 				Port:      &echo.Port{ServicePort: 12346, Protocol: protocol.HTTP},
 				Timeout:   time.Millisecond * 100,
@@ -921,34 +1169,68 @@ func flatten(clients ...[]echo.Instance) []echo.Instance {
 }
 
 // selfCallsCases checks that pods can call themselves
-func selfCallsCases(apps *EchoDeployments) []TrafficTestCase {
-	cases := []TrafficTestCase{}
-	for _, cl := range flatten(apps.PodA, apps.VM, apps.PodTproxy) {
-		cl := cl
-		cases = append(cases,
-			// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
-			TrafficTestCase{
-				name: fmt.Sprintf("to service %v", cl.Config().Service),
-				call: cl.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Target:    cl,
-					PortName:  "http",
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
-				},
-			},
-			// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
-			TrafficTestCase{
-				name: fmt.Sprintf("to localhost %v", cl.Config().Service),
-				call: cl.CallWithRetryOrFail,
-				opts: echo.CallOptions{
-					Address:   "localhost",
-					Scheme:    scheme.HTTP,
-					Port:      &echo.Port{ServicePort: 8080},
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
-				},
-			})
+func selfCallsCases() []TrafficTestCase {
+	sourceFilters := []echotest.Filter{
+		echotest.Not(echotest.ExternalServices),
+		echotest.Not(echotest.FilterMatch(echo.IsNaked())),
+		echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
 	}
-	return cases
+	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+		return to.Match(echo.FQDN(from.Config().FQDN()))
+	}}
+
+	return []TrafficTestCase{
+		// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
+		{
+			name:             "to service",
+			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
+			comboFilters:     comboFilters,
+			opts: echo.CallOptions{
+				Count:     1,
+				PortName:  "http",
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
+			},
+		},
+		// Localhost calls will go directly to localhost, bypassing Envoy. No envoy headers added.
+		{
+			name:             "to localhost",
+			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
+			comboFilters:     comboFilters,
+			setupOpts: func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+				// the framework will try to set this when enumerating test cases
+				opts.Target = nil
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Address:   "localhost",
+				Port:      &echo.Port{ServicePort: 8080},
+				Scheme:    scheme.HTTP,
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+			},
+		},
+		// PodIP calls will go directly to podIP, bypassing Envoy. No envoy headers added.
+		{
+			name:             "to podIP",
+			workloadAgnostic: true,
+			sourceFilters:    sourceFilters,
+			comboFilters:     comboFilters,
+			setupOpts: func(srcCaller echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
+				src := srcCaller.(echo.Instance)
+				workloads, _ := src.Workloads()
+				opts.Address = workloads[0].Address()
+				// the framework will try to set this when enumerating test cases
+				opts.Target = nil
+			},
+			opts: echo.CallOptions{
+				Count:     1,
+				Scheme:    scheme.HTTP,
+				Port:      &echo.Port{ServicePort: 8080},
+				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "")),
+			},
+		},
+	}
 }
 
 // Todo merge with security TestReachability code
@@ -978,18 +1260,19 @@ func protocolSniffingCases() []TrafficTestCase {
 			skip: call.scheme == scheme.TCP,
 			name: call.port,
 			opts: echo.CallOptions{
+				Count:    1,
 				PortName: call.port,
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
 			},
-			validate: func(src echo.Instance, dst echo.Services) echo.Validator {
+			validate: func(src echo.Caller, dst echo.Instances) echo.Validator {
 				if call.scheme == scheme.TCP {
 					// no host header for TCP
 					return echo.ExpectOK()
 				}
 				return echo.And(
 					echo.ExpectOK(),
-					echo.ExpectHost(dst[0][0].Config().HostHeader()))
+					echo.ExpectHost(dst[0].Config().HostHeader()))
 			},
 			workloadAgnostic: true,
 		})
@@ -1090,8 +1373,6 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			ipCase := ipCase
 			client := client
 			destination := apps.PodB[0]
-			// so we can validate all clusters are hit
-			callCount := callsPerCluster * len(apps.PodB)
 			var config string
 			if !ipCase.disableSidecar {
 				config = fmt.Sprintf(`
@@ -1119,10 +1400,10 @@ spec:
 					call:   client.CallWithRetryOrFail,
 					config: config,
 					opts: echo.CallOptions{
+						Count:     1,
 						Target:    destination,
 						PortName:  ipCase.port,
 						Scheme:    scheme.HTTP,
-						Count:     callCount,
 						Timeout:   time.Second * 5,
 						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
 					},
@@ -1139,7 +1420,7 @@ type vmCase struct {
 	host string
 }
 
-func DNSTestCases(apps *EchoDeployments) []TrafficTestCase {
+func DNSTestCases(apps *EchoDeployments, cniEnabled bool) []TrafficTestCase {
 	makeSE := func(ips ...string) string {
 		return tmpl.MustEvaluate(`
 apiVersion: networking.istio.io/v1alpha3
@@ -1171,6 +1452,7 @@ spec:
 		ips      string
 		protocol string
 		server   string
+		skipCNI  bool
 		expected []string
 	}{
 		{
@@ -1206,6 +1488,7 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "tcp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 		{
@@ -1213,11 +1496,15 @@ spec:
 			ips:      ipv4,
 			expected: []string{},
 			protocol: "udp",
+			skipCNI:  true,
 			server:   dummyLocalhostServer,
 		},
 	}
 	for _, client := range flatten(apps.VM, apps.PodA, apps.PodTproxy) {
 		for _, tt := range cases {
+			if tt.skipCNI && cniEnabled {
+				continue
+			}
 			tt, client := tt, client
 			address := "fake.service.local?"
 			if tt.protocol != "" {
@@ -1232,6 +1519,7 @@ spec:
 				call:   client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
 					Scheme:  scheme.DNS,
+					Count:   1,
 					Address: address,
 					Validator: echo.ValidatorFunc(
 						func(response echoclient.ParsedResponses, _ error) error {
@@ -1285,6 +1573,7 @@ spec:
 				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
 				call: client.CallWithRetryOrFail,
 				opts: echo.CallOptions{
+					Count:   1,
 					Scheme:  scheme.DNS,
 					Address: address,
 					Validator: echo.ValidatorFunc(
@@ -1338,6 +1627,37 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
+			vmCase{
+				name: "dns: VM to k8s statefulset service",
+				from: vm,
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				host: apps.StatefulSet[0].Config().FQDN(),
+			},
+			// TODO(https://github.com/istio/istio/issues/32552) re-enable
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance.service",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, StatefulSetSvc),
+			//},
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance.service.namespace",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s.%s", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
+			//},
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance.service.namespace.svc",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s.%s.svc", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
+			//},
+			//vmCase{
+			//	name: "dns: VM to k8s statefulset instance FQDN",
+			//	from: vm,
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().FQDN()),
+			//},
 		)
 	}
 	for _, podA := range apps.PodA {
@@ -1350,18 +1670,21 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	cases := make([]TrafficTestCase, 0)
 	for _, c := range testCases {
 		c := c
+		validators := []echo.Validator{echo.ExpectOK()}
+		if !c.to.ContainsMatch(echo.IsHeadless()) {
+			// headless load-balancing can be inconsistent
+			validators = append(validators, echo.ExpectReachedClusters(c.to.Clusters()))
+		}
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
 			call: c.from.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
-				Target:   c.to[0],
-				PortName: "http",
-				Address:  c.host,
-				Count:    callsPerCluster * len(c.to),
-				Validator: echo.And(
-					echo.ExpectOK(),
-					echo.ExpectReachedClusters(c.to.Clusters())),
+				Target:    c.to[0],
+				PortName:  "http",
+				Address:   c.host,
+				Count:     callsPerCluster * len(c.to),
+				Validator: echo.And(validators...),
 			},
 		})
 	}
@@ -1412,6 +1735,18 @@ spec:
     mode: %s
 ---
 `, app, app, mode)
+}
+
+func globalPeerAuthentication(mode string) string {
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+spec:
+  mtls:
+    mode: %s
+---
+`, mode)
 }
 
 func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
@@ -1466,6 +1801,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 					Scheme:   scheme.TCP,
 					// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
 					Timeout:   time.Millisecond * 100,
+					Count:     1,
 					Validator: c.validator,
 				},
 			})

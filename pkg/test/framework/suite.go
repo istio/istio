@@ -16,7 +16,6 @@ package framework
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -34,10 +33,12 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/config"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/pkg/log"
 )
 
@@ -412,7 +413,11 @@ func clusters(ctx resource.Context) []cluster.Cluster {
 
 func (s *suiteImpl) writeOutput() {
 	// the ARTIFACTS env var is set by prow, and uploaded to GCS as part of the job artifact
-	artifactsPath := os.Getenv("ARTIFACTS")
+	artifactsPath, err := file.NormalizePath(os.Getenv("ARTIFACTS"))
+	if err != nil {
+		artifactsPath = os.Getenv("ARTIFACTS")
+		log.Warnf("failed normalizing %s: %v", artifactsPath, err)
+	}
 	if artifactsPath != "" {
 		ctx := rt.suiteContext()
 		ctx.outcomeMu.RLock()
@@ -508,8 +513,8 @@ func newEnvironment(ctx resource.Context) (resource.Environment, error) {
 
 func getSettings(testID string) (*resource.Settings, error) {
 	// Parse flags and init logging.
-	if !flag.Parsed() {
-		flag.Parse()
+	if !config.Parsed() {
+		config.Parse()
 	}
 
 	return resource.SettingsFromCommandLine(testID)

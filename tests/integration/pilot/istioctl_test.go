@@ -85,7 +85,7 @@ spec:
     - destination: 
         host: reviews
 `)
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
 		})
 }
@@ -120,10 +120,11 @@ func TestXdsVersion(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.version").
 		RequiresSingleCluster().
+		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			cfg := i.Settings()
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			args := []string{"x", "version", "--remote=true", fmt.Sprintf("--istioNamespace=%s", cfg.SystemNamespace)}
 
 			output, _ := istioCtl.InvokeOrFail(t, args)
@@ -164,7 +165,7 @@ func TestDescribe(t *testing.T) {
 					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
 				}
 				return nil
-			}, retry.Timeout(time.Second*5))
+			}, retry.Timeout(time.Second*20))
 
 			retry.UntilSuccessOrFail(t, func() error {
 				podID, err := getPodID(apps.PodA[0])
@@ -183,7 +184,7 @@ func TestDescribe(t *testing.T) {
 					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describePodAOutput)
 				}
 				return nil
-			}, retry.Timeout(time.Second*5))
+			}, retry.Timeout(time.Second*20))
 		})
 }
 
@@ -216,7 +217,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(t)
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 
 			var output string
 			var args []string
@@ -245,7 +246,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 					}
 				}
 				return nil
-			}, retry.Delay(time.Second))
+			}, retry.Delay(time.Second), retry.Timeout(time.Minute))
 
 			args = []string{
 				fmt.Sprintf("--namespace=%s", ns.Name()),
@@ -500,7 +501,7 @@ func TestAuthZCheck(t *testing.T) {
 				},
 			}
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Environment().Clusters()[0]})
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
 			for _, c := range cases {
 				args := []string{"experimental", "authz", "check", c.pod}
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {

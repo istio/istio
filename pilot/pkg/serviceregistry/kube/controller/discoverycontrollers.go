@@ -48,7 +48,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter,
 ) {
 	otype := "Namespaces"
-	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			incrementEvent(otype, "add")
 			ns := obj.(*v1.Namespace)

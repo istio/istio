@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -123,7 +124,8 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 
 	// Start serving HTTP traffic.
 	go func() {
-		_ = s.server.Serve(listener)
+		err := s.server.Serve(listener)
+		epLog.Warnf("Port %d listener terminated with error: %v", port, err)
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
@@ -199,8 +201,8 @@ type codeAndSlices struct {
 }
 
 func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	epLog.Infof("HTTP Request:\n  Method: %s\n  URL: %v,\n  Host: %s\n  Headers: %v",
-		r.Method, r.URL, r.Host, r.Header)
+	id := uuid.New()
+	epLog.WithLabels("method", r.Method, "url", r.URL, "host", r.Host, "headers", r.Header, "id", id).Infof("HTTP Request")
 	if h.Port == nil {
 		defer common.Metrics.HTTPRequests.With(common.PortLabel.Value("uds")).Increment()
 	} else {
@@ -216,7 +218,7 @@ func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if common.IsWebSocketRequest(r) {
 		h.webSocketEcho(w, r)
 	} else {
-		h.echo(w, r)
+		h.echo(w, r, id)
 	}
 }
 
@@ -226,7 +228,7 @@ func writeError(out *bytes.Buffer, msg string) {
 	_, _ = out.WriteString(msg + "\n")
 }
 
-func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
+func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	body := bytes.Buffer{}
 
 	if err := r.ParseForm(); err != nil {
@@ -247,7 +249,8 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
 	// If the request has form ?codes=code[:chance][,code[:chance]]* return those codes, rather than 200
 	// For example, ?codes=500:1,200:1 returns 500 1/2 times and 200 1/2 times
 	// For example, ?codes=500:90,200:10 returns 500 90% of times and 200 10% of times
-	if err := setResponseFromCodes(r, w); err != nil {
+	code, err := setResponseFromCodes(r, w)
+	if err != nil {
 		writeError(&body, "codes error: "+err.Error())
 	}
 
@@ -257,7 +260,7 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request) {
 	if _, err := w.Write(body.Bytes()); err != nil {
 		epLog.Warn(err)
 	}
-	epLog.Infof("Response Headers: %+v", w.Header())
+	epLog.WithLabels("code", code, "headers", w.Header(), "id", id).Infof("HTTP Response")
 }
 
 func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
@@ -302,7 +305,8 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, response.ServiceVersionField, h.Version)
 	writeField(body, response.ServicePortField, port)
 	writeField(body, response.HostField, r.Host)
-	writeField(body, response.URLField, r.URL.String())
+	// Use raw path, we don't want golang normalizing anything since we use this for testing purposes
+	writeField(body, response.URLField, r.RequestURI)
 	writeField(body, response.ClusterField, h.Cluster)
 	writeField(body, response.IstioVersionField, h.IstioVersion)
 
@@ -369,12 +373,12 @@ func setHeaderResponseFromHeaders(request *http.Request, response http.ResponseW
 	return nil
 }
 
-func setResponseFromCodes(request *http.Request, response http.ResponseWriter) error {
+func setResponseFromCodes(request *http.Request, response http.ResponseWriter) (int, error) {
 	responseCodes := request.FormValue("codes")
 
 	codes, err := validateCodes(responseCodes)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Choose a random "slice" from a pie
@@ -395,9 +399,8 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) e
 		position += flavor.slices
 	}
 
-	epLog.Infof("Response status code: %d", responseCode)
 	response.WriteHeader(responseCode)
-	return nil
+	return responseCode, nil
 }
 
 // codes must be comma-separated HTTP response code, colon, positive integer

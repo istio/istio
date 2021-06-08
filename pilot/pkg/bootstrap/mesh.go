@@ -57,12 +57,20 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 		}
 	}()
 
+	// Watcher will be merging more than one mesh config source?
+	multiWatch := features.SharedMeshConfig != ""
+
 	var err error
 	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
-		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile)
+		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile, multiWatch)
 		if err == nil {
-			// Normal install no longer uses this mode - testing and special installs still use this.
-			log.Warnf("Using local mesh config file, in cluster configs ignored %s", args.MeshConfigFile)
+			if multiWatch {
+				kubemesh.AddUserMeshConfig(
+					s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig)
+			} else {
+				// Normal install no longer uses this mode - testing and special installs still use this.
+				log.Warnf("Using local mesh config file %s, in cluster configs ignored", args.MeshConfigFile)
+			}
 			return
 		}
 	}
@@ -80,12 +88,24 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
 	s.environment.Watcher = kubemesh.NewConfigMapWatcher(
-		s.kubeClient, args.Namespace, configMapName, configMapKey, features.SharedMeshConfig)
+		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch)
+
+	if multiWatch {
+		kubemesh.AddUserMeshConfig(
+			s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig)
+	}
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
+	if mw, ok := s.environment.Watcher.(mesh.NetworksWatcher); ok {
+		// The mesh config watcher is also a NetworksWatcher, this is common for reading ConfigMap
+		// directly from Kubernetes
+		log.Infof("initializing mesh networks from mesh config watcher")
+		s.environment.NetworksWatcher = mw
+		return
+	}
 	log.Info("initializing mesh networks")
 	if args.NetworksConfigFile != "" {
 		var err error

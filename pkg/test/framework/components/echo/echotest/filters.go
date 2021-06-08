@@ -92,8 +92,8 @@ func SingleSimplePodServiceAndAllSpecial(exclude ...echo.Instance) Filter {
 }
 
 func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instances {
-	regularPods := instances.Match(isRegularPod)
-	others := instances.Match(echo.Not(isRegularPod))
+	regularPods := instances.Match(RegularPod)
+	others := instances.Match(echo.Not(RegularPod))
 	for _, exclude := range exclude {
 		regularPods = regularPods.Match(echo.Not(echo.SameDeployment(exclude)))
 	}
@@ -105,10 +105,15 @@ func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instan
 	return append(regularPods, others...)
 }
 
-// TODO put this on echo.Config?
-func isRegularPod(instance echo.Instance) bool {
+// RegularPod matches echos that don't meet any of the following criteria:
+// - VM
+// - Naked
+// - Headless
+// - TProxy
+// - Multi-Subset
+func RegularPod(instance echo.Instance) bool {
 	c := instance.Config()
-	return !c.IsVM() && len(c.Subsets) == 1 && !c.IsNaked() && !c.IsHeadless()
+	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet()
 }
 
 // Not includes all workloads that don't match the given filter
@@ -153,7 +158,7 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 // reachableHeadlessDestinations filters out headless services that aren't in the same cluster
 // TODO https://github.com/istio/istio/issues/27342
 func reachableHeadlessDestinations(from echo.Instance) echo.Matcher {
-	excluded := echo.IsHeadless().And(echo.Not(echo.InCluster(from.Config().Cluster)))
+	excluded := echo.IsHeadless().And(echo.Not(echo.InNetwork(from.Config().Cluster.NetworkName())))
 	return echo.Not(excluded)
 }
 

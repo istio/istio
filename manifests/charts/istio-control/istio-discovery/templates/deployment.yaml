@@ -1,3 +1,4 @@
+{{- if not .Values.global.externalIstiod }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -54,6 +55,7 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+      serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.pilot.nodeSelector }}
       nodeSelector:
 {{ toYaml .Values.pilot.nodeSelector | trim | indent 8 }}
@@ -152,8 +154,6 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          - name: EXTERNAL_ISTIOD
-            value: "{{ $.Values.global.externalIstiod | default "false" }}"
 {{- if not .Values.telemetry.v2.enabled }}
           - name: PILOT_ENDPOINT_TELEMETRY_LABEL
             value: "false"
@@ -219,3 +219,4 @@ spec:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
 ---
+{{- end }}

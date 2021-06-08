@@ -104,7 +104,7 @@ func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming").
 		Run(func(t framework.TestContext) {
-			// TODO: remove the skip when https://github.com/istio/istio/issues/28798 is fixed
+			// TODO https://github.com/istio/istio/issues/32292
 			if t.Clusters().IsMulticluster() {
 				t.Skip()
 			}

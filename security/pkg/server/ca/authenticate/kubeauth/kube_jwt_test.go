@@ -27,20 +27,31 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
+type mockMeshConfigHolder struct {
+	trustDomain string
+}
+
+func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{
+		TrustDomain: mh.trustDomain,
+	}
+}
+
 func TestNewKubeJWTAuthenticator(t *testing.T) {
-	trustDomain := "testdomain.com"
+	meshHolder := mockMeshConfigHolder{"testdomain.com"}
 	jwtPolicy := jwt.PolicyThirdParty
 
-	authenticator := NewKubeJWTAuthenticator(nil, "kubernetes", nil, trustDomain, jwtPolicy)
+	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, "kubernetes", nil, jwtPolicy)
 	expectedAuthenticator := &KubeJWTAuthenticator{
-		trustDomain: trustDomain,
-		jwtPolicy:   jwtPolicy,
-		clusterID:   "kubernetes",
+		meshHolder: meshHolder,
+		jwtPolicy:  jwtPolicy,
+		clusterID:  "kubernetes",
 	}
 	if !reflect.DeepEqual(authenticator, expectedAuthenticator) {
 		t.Errorf("Unexpected authentication result: want %v but got %v",
@@ -52,6 +63,7 @@ func TestAuthenticate(t *testing.T) {
 	primaryCluster := "Kubernetes"
 	remoteCluster := "remote"
 	invlidToken := "invalid-token"
+	meshHolder := mockMeshConfigHolder{"example.com"}
 
 	testCases := map[string]struct {
 		remoteCluster  bool
@@ -155,7 +167,7 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(client, "Kubernetes", remoteKubeClientGetter, "example.com", tc.jwtPolicy)
+			authenticator := NewKubeJWTAuthenticator(meshHolder, client, "Kubernetes", remoteKubeClientGetter, tc.jwtPolicy)
 			actualCaller, err := authenticator.Authenticate(ctx)
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {

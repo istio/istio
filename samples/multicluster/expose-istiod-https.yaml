@@ -2,7 +2,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: istiod-gateway
-  namespace: istio-system
 spec:
   selector:
     istio: eastwestgateway
@@ -34,7 +33,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: istiod-vs
-  namespace: istio-system
 spec:
   hosts:
   # use a valid gateway host and domain for istiod
@@ -61,7 +59,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: istiod-dr
-  namespace: istio-system
 spec:
   host: istiod.istio-system.svc.cluster.local
   trafficPolicy:

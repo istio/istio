@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/config"
 )
 
 func TestBuild(t *testing.T) {
@@ -136,9 +137,9 @@ func TestValidation(t *testing.T) {
 			{Kind: cluster.Fake, Name: "no-primary", ConfigClusterName: "does-not-exist"},
 		},
 		"vm without kube primary": {
-			{Kind: cluster.StaticVM, Name: "vm", Meta: cluster.ConfigMeta{"deployments": []interface{}{
-				cluster.ConfigMeta{
-					"service": "vm", "namespace": "echo", "instances": []cluster.ConfigMeta{{"ip": "1.2.3.4"}},
+			{Kind: cluster.StaticVM, Name: "vm", Meta: config.Map{"deployments": []interface{}{
+				config.Map{
+					"service": "vm", "namespace": "echo", "instances": []config.Map{{"ip": "1.2.3.4"}},
 				},
 			}}},
 		},

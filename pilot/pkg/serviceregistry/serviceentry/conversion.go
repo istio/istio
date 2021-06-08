@@ -142,8 +142,6 @@ func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
 
-	out := make([]*model.Service, 0)
-
 	var resolution model.Resolution
 	switch serviceEntry.Resolution {
 	case networking.ServiceEntry_NONE:
@@ -193,14 +191,13 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
-	out = append(out, buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime)...)
-	return out
+	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
 func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
-	ctime time.Time) []*model.Service {
+	ctime time.Time, labels map[string]string) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
@@ -214,6 +211,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 				ServiceRegistry: string(serviceregistry.External),
 				Name:            ha.host,
 				Namespace:       namespace,
+				Labels:          labels,
 				ExportTo:        exportTo,
 				LabelSelectors:  selectors,
 			},
@@ -363,8 +361,8 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 	return out
 }
 
-// Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
-// port names) and the namespace - k8s will consume this service instance when selecting workload entries
+// Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
+// port names) and the namespace - k8s will consume this workload instance when selecting workload entries
 func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
 	// we will merge labels from metadata with spec, with precedence to the metadata

@@ -126,8 +126,6 @@ spec:
         {{- if .Values.global.logAsJson }}
           - --log_as_json
         {{- end }}
-          - --serviceCluster
-          - {{ $gateway.name }}
         {{- if .Values.global.sts.servicePort }}
           - --stsPort={{ .Values.global.sts.servicePort }}
         {{- end }}
@@ -196,14 +194,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
-          - name: CANONICAL_SERVICE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-name']
-          - name: CANONICAL_REVISION
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: {{ $gateway.name }}
           - name: ISTIO_META_OWNER
@@ -236,11 +226,6 @@ spec:
           - name: ISTIO_META_NETWORK
             value: "{{ .Values.global.network }}"
           {{- end }}
-{{- if $gateway.podAnnotations }}
-          - name: "ISTIO_METAJSON_ANNOTATIONS"
-            value: |
-{{ toJson $gateway.podAnnotations | indent 16}}
-{{ end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
           volumeMounts:
@@ -297,16 +282,6 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
-            - path: "cpu-limit"
-              resourceFieldRef:
-                containerName: istio-proxy
-                resource: limits.cpu
-                divisor: 1m
-            - path: "cpu-request"
-              resourceFieldRef:
-                containerName: istio-proxy
-                resource: requests.cpu
-                divisor: 1m
       - name: istio-envoy
         emptyDir: {}
       - name: istio-data

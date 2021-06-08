@@ -60,12 +60,25 @@ func (c Topology) Name() string {
 	return c.ClusterName
 }
 
+// knownClusterNames maintains a well-known set of cluster names. These will always be used with
+// StableNames if encountered.
+var knownClusterNames = map[string]struct{}{
+	"primary":               {},
+	"remote":                {},
+	"cross-network-primary": {},
+}
+
 // StableName provides a name used for testcase names. Deterministic, so testgrid
 // can be consistent when the underlying cluster names are dynamic.
 func (c Topology) StableName() string {
 	var prefix string
 	switch c.Kind() {
 	case Kubernetes:
+		// If its a known cluster name, use that directly.
+		// This will not be dynamic, and allows 1:1 correlation of cluster name and test name for simplicity.
+		if _, f := knownClusterNames[c.Name()]; f {
+			return c.Name()
+		}
 		if c.IsPrimary() {
 			if c.IsConfig() {
 				prefix = "primary"

@@ -137,7 +137,6 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	}
 
 	fullPush := false
-
 	// Find endpoint shard for this service, if it is available - otherwise create a new one.
 	ep, created := s.getOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
@@ -146,24 +145,10 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 		fullPush = true
 	}
 
-	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
-	serviceAccounts := sets.Set{}
-	for _, e := range istioEndpoints {
-		if e.ServiceAccount != "" {
-			serviceAccounts.Insert(e.ServiceAccount)
-		}
-	}
-
 	ep.mutex.Lock()
-	// For existing endpoints, we need to do full push if service accounts change.
-	if !fullPush && !serviceAccounts.Equals(ep.ServiceAccounts) {
-		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
-			hostname, ep.ServiceAccounts, serviceAccounts)
-		log.Infof("Full push, service accounts changed, %v", hostname)
-		fullPush = true
-	}
 	ep.Shards[clusterID] = istioEndpoints
-	ep.ServiceAccounts = serviceAccounts
+	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
+	saUpdated := s.UpdateServiceAccount(ep, hostname)
 	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
 	// condition is introduced where an XDS response may be generated before the update, but not
 	// completed until after a response after the update. Essentially, we transition from v0 -> v1 ->
@@ -178,6 +163,11 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	}: {}})
 	ep.mutex.Unlock()
 
+	// For existing endpoints, we need to do full push if service accounts change.
+	if saUpdated {
+		log.Infof("Full push, service accounts changed, %v", hostname)
+		fullPush = true
+	}
 	return fullPush
 }
 
@@ -208,15 +198,16 @@ func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace s
 	defer s.mutex.Unlock()
 	if s.EndpointShardsByService[serviceName] != nil &&
 		s.EndpointShardsByService[serviceName][namespace] != nil {
-		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
+		epShards := s.EndpointShardsByService[serviceName][namespace]
+		epShards.mutex.Lock()
+		delete(epShards.Shards, cluster)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 		s.Cache.Clear(map[model.ConfigKey]struct{}{{
 			Kind:      gvk.ServiceEntry,
 			Name:      serviceName,
 			Namespace: namespace,
 		}: {}})
-		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
+		epShards.mutex.Unlock()
 	}
 }
 
@@ -228,25 +219,48 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 
 	if s.EndpointShardsByService[serviceName] != nil &&
 		s.EndpointShardsByService[serviceName][namespace] != nil {
-
-		s.EndpointShardsByService[serviceName][namespace].mutex.Lock()
-		delete(s.EndpointShardsByService[serviceName][namespace].Shards, cluster)
-		shards := len(s.EndpointShardsByService[serviceName][namespace].Shards)
+		epShards := s.EndpointShardsByService[serviceName][namespace]
+		epShards.mutex.Lock()
+		delete(epShards.Shards, cluster)
+		shardsLen := len(epShards.Shards)
+		s.UpdateServiceAccount(epShards, serviceName)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 		s.Cache.Clear(map[model.ConfigKey]struct{}{{
 			Kind:      gvk.ServiceEntry,
 			Name:      serviceName,
 			Namespace: namespace,
 		}: {}})
-		s.EndpointShardsByService[serviceName][namespace].mutex.Unlock()
-
-		if shards == 0 {
+		epShards.mutex.Unlock()
+		if shardsLen == 0 {
 			delete(s.EndpointShardsByService[serviceName], namespace)
 		}
 		if len(s.EndpointShardsByService[serviceName]) == 0 {
 			delete(s.EndpointShardsByService, serviceName)
 		}
 	}
+}
+
+// UpdateServiceAccount updates the service endpoints' sa when service/endpoint event happens.
+// Note: it is not concurrent safe.
+func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, serviceName string) bool {
+	oldServiceAccount := shards.ServiceAccounts
+	serviceAccounts := sets.Set{}
+	for _, epShards := range shards.Shards {
+		for _, ep := range epShards {
+			if ep.ServiceAccount != "" {
+				serviceAccounts.Insert(ep.ServiceAccount)
+			}
+		}
+	}
+
+	if !oldServiceAccount.Equals(serviceAccounts) {
+		shards.ServiceAccounts = serviceAccounts
+		log.Debugf("Updating service accounts now, svc %v, before service account %v, after %v",
+			serviceName, oldServiceAccount, serviceAccounts)
+		return true
+	}
+
+	return false
 }
 
 // llbEndpointAndOptionsForCluster return the endpoints for a cluster
@@ -301,7 +315,13 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if b.MultiNetworkConfigured() {
 		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
-
+	if model.IsDNSSrvSubsetKey(b.clusterName) {
+		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
+		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
+		// request is a valid mTLS request or not, since its passthrough TLS.
+		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
+		llbOpts = b.EndpointsWithMTLSFilter(llbOpts)
+	}
 	llbOpts = b.ApplyTunnelSetting(llbOpts, b.tunnelType)
 
 	l := b.createClusterLoadAssignment(llbOpts)
@@ -350,15 +370,16 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
-		return nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var edsUpdatedServices map[string]struct{}
 	if !req.Full {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
-	resources := make([]*any.Any, 0)
+	resources := make(model.Resources, 0)
 	empty := 0
 
 	cached := 0
@@ -387,19 +408,18 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			if len(l.Endpoints) == 0 {
 				empty++
 			}
-			resource := util.MessageToAny(l)
+			resource := &discovery.Resource{
+				Name:     l.ClusterName,
+				Resource: util.MessageToAny(l),
+			}
 			resources = append(resources, resource)
 			eds.Server.Cache.Add(builder, token, resource)
 		}
 	}
-	if len(edsUpdatedServices) == 0 {
-		log.Infof("EDS: PUSH%s for node:%s resources:%d size:%s empty:%v cached:%v/%v",
-			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
-	} else if log.DebugEnabled() {
-		log.Debugf("EDS: PUSH INC%s for node:%s clusters:%d size:%s empty:%v cached:%v/%v",
-			req.PushReason(), proxy.ID, len(resources), util.ByteCount(ResourceSize(resources)), empty, cached, cached+regenerated)
-	}
-	return resources, nil
+	return resources, model.XdsLogDetails{
+		Incremental:    len(edsUpdatedServices) != 0,
+		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
+	}, nil
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

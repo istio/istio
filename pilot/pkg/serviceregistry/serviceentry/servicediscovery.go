@@ -158,10 +158,10 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		si := convertWorkloadEntryToWorkloadInstance(curr)
-		if si != nil {
+		wi := convertWorkloadEntryToWorkloadInstance(curr)
+		if wi != nil {
 			for _, h := range s.workloadHandlers {
-				h(si, event)
+				h(wi, event)
 			}
 		}
 	}
@@ -502,11 +502,12 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by host name if it exists.
-// NOTE: This does not auto allocate IPs. The service entry implementation is used only for tests.
+// NOTE: The service entry implementation is used only for tests.
 func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
+	// TODO(@hzxuzhonghu): only get the specific service instead of converting all the serviceEntries
 	services, _ := s.Services()
 	for _, service := range services {
 		if service.Hostname == hostname {
@@ -790,7 +791,15 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model
 	for _, ip := range node.IPAddresses {
 		instances, found := s.ip2instance[ip]
 		if found {
-			out = append(out, instances...)
+			for _, i := range instances {
+				// Insert all instances for this IP for services within the same namespace This ensures we
+				// match Kubernetes logic where Services do not cross namespace boundaries and avoids
+				// possibility of other namespaces inserting service instances into namespaces they do not
+				// control.
+				if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
+					out = append(out, i)
+				}
+			}
 		}
 	}
 	return out
@@ -901,7 +910,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
 	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
 	// So we bump X to 511, so that the resulting IP is 240.240.2.1
-	maxIPs := 255 * 255 // are we going to exceeed this limit by processing 64K services?
+	maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
 	x := 0
 	for _, svc := range services {
 		// we can allocate IPs only if

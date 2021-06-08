@@ -1098,6 +1098,10 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 		t.Fatalf("failed to get HCM, config %v", hcm)
 	}
 
+	if hcm.DelayedCloseTimeout.AsDuration() != features.DelayedCloseTimeout.AsDuration() {
+		t.Fatalf("unexpected delayed close timeout expected :%v, got :%v", features.DelayedCloseTimeout, hcm.DelayedCloseTimeout)
+	}
+
 	hasAlpn := hasAlpnFilter(hcm.HttpFilters)
 
 	if direction == model.TrafficDirectionInbound && hasAlpn {
@@ -1528,7 +1532,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	listeners := buildAllListeners(p, env, nil)
 	found := false
 	for _, l := range listeners {
-		if l.Name == VirtualOutboundListenerName {
+		if l.Name == model.VirtualOutboundListenerName {
 			fc := &tcp.TcpProxy{}
 			if err := getFilterConfig(l.FilterChains[1].Filters[0], fc); err != nil {
 				t.Fatalf("failed to get TCP Proxy config: %s", err)
@@ -1553,7 +1557,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	// Validate that access log filter uses the new format.
 	listeners = buildAllListeners(p, env, nil)
 	for _, l := range listeners {
-		if l.Name == VirtualOutboundListenerName {
+		if l.Name == model.VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
 		}
 	}
@@ -1666,7 +1670,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1714,7 +1718,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1738,7 +1742,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1762,7 +1766,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1786,7 +1790,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1811,7 +1815,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1836,7 +1840,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 				OverallSampling: &xdstype.Percent{
 					Value: 100.0,
 				},
-				CustomTags: defaultTags(),
+				CustomTags: customTracingTags(),
 			},
 		},
 		{
@@ -1908,7 +1912,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 							},
 						},
 					},
-				}, defaultTags()...),
+				}, customTracingTags()...),
 			},
 		},
 		{
@@ -2023,7 +2027,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 							},
 						},
 					},
-				}, defaultTags()...),
+				}, customTracingTags()...),
 			},
 		},
 	}
@@ -2032,9 +2036,9 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 
 	for _, tc := range customTagsTest {
 		featuresSet := false
-		capturedSamplingValue := pilotTraceSamplingEnv
+		capturedSamplingValue := features.TraceSampling
 		if tc.envPilotSampling != 0.0 {
-			pilotTraceSamplingEnv = tc.envPilotSampling
+			features.TraceSampling = tc.envPilotSampling
 			featuresSet = true
 		}
 
@@ -2063,9 +2067,45 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
 
 		if featuresSet {
-			pilotTraceSamplingEnv = capturedSamplingValue
+			features.TraceSampling = capturedSamplingValue
 		}
 	}
+}
+
+func customTracingTags() []*tracing.CustomTag {
+	return append(buildOptionalPolicyTags(),
+		&tracing.CustomTag{
+			Tag: "istio.canonical_revision",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "latest",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.canonical_service",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.mesh_id",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.namespace",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "not-default",
+				},
+			},
+		})
 }
 
 func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *hcm.HttpConnectionManager_Tracing, name string) {

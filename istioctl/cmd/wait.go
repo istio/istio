@@ -91,7 +91,9 @@ func waitCmd() *cobra.Command {
 				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
 			generations := []string{firstVersion}
-			targetResource := config.Key(targetSchema.Resource().Kind(), nameflag, namespace)
+			targetResource := config.Key(
+				targetSchema.Resource().Group(), targetSchema.Resource().Version(), targetSchema.Resource().Kind(),
+				nameflag, namespace)
 			for {
 				// run the check here as soon as we start
 				// because tickers won't run immediately
@@ -253,7 +255,10 @@ func getAndWatchResource(ictx context.Context) *watcher {
 			return err
 		}
 		for w := range watch.ResultChan() {
-			o := w.Object.(metav1.Object)
+			o, ok := w.Object.(metav1.Object)
+			if !ok {
+				continue
+			}
 			if o.GetName() == nf {
 				result <- strconv.FormatInt(o.GetGeneration(), 10)
 			}

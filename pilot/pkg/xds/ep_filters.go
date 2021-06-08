@@ -65,7 +65,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			epNetwork := istioMetadata(lbEp, "network")
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
-			if epNetwork == b.network || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
+			if model.SameOrEmpty(b.network, epNetwork) || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
 				// Copy on write.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
@@ -128,6 +128,38 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 
 		// Endpoint members could be stripped or aggregated by network. Adjust weight value here.
 		lbEndpoints.refreshWeight()
+		filtered = append(filtered, lbEndpoints)
+	}
+
+	return filtered
+}
+
+// EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at
+// auto-mTLS, DestinationRule, and PeerAuthentication to determine if we would send mTLS to these endpoints.
+// Note there is no guarantee these destinations *actually* handle mTLS; just that we are configured to send mTLS to them.
+func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAndOptions) []*LocLbEndpointsAndOptions {
+	// A new array of endpoints to be returned that will have both local and
+	// remote gateways (if any)
+	filtered := make([]*LocLbEndpointsAndOptions, 0)
+
+	// Go through all cluster endpoints and add those with mTLS enabled
+	for _, ep := range endpoints {
+		lbEndpoints := &LocLbEndpointsAndOptions{
+			llbEndpoints: endpoint.LocalityLbEndpoints{
+				Locality: ep.llbEndpoints.Locality,
+				Priority: ep.llbEndpoints.Priority,
+				// Endpoints and will be reset below.
+			},
+		}
+
+		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
+			if b.mtlsChecker.isMtlsDisabled(lbEp) {
+				// no mTLS, skip it
+				continue
+			}
+			lbEndpoints.emplace(lbEp, ep.tunnelMetadata[i])
+		}
+
 		filtered = append(filtered, lbEndpoints)
 	}
 

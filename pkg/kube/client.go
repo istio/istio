@@ -218,8 +218,12 @@ func NewFakeClient(objects ...runtime.Object) ExtendedClient {
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
-
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	// Support some galley tests using basicmetadata
+	// If you are adding something to this list, consider other options like adding to the scheme.
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "testdata.istio.io", Version: "v1alpha1", Resource: "Kind1s"}: "Kind1List",
+	}
+	c.dynamic = dynamicfake.NewSimpleDynamicClientWithCustomListKinds(s, gvrToListKind)
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
 
 	istioFake := istiofake.NewSimpleClientset()

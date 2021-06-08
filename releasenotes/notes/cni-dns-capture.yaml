@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 29511
+releaseNotes:
+  - |
+    **Fixed** smart DNS support in Istio CNI.

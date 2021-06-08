@@ -15,16 +15,23 @@
 package common
 
 import (
+	"flag"
 	"net/http"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/proto"
 )
 
+func init() {
+	flag.DurationVar(&DefaultRequestTimeout, "istio.test.echo.requestTimeout", DefaultRequestTimeout,
+		"Specifies the timeout for individual ForwardEcho calls.")
+}
+
+var DefaultRequestTimeout = 5 * time.Second
+
 const (
-	ConnectionTimeout     = 2 * time.Second
-	DefaultRequestTimeout = 5 * time.Second
-	DefaultCount          = 1
+	ConnectionTimeout = 2 * time.Second
+	DefaultCount      = 1
 )
 
 // FillInDefaults fills in the timeout and count if not specified in the given message.

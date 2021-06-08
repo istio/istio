@@ -36,7 +36,6 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -45,7 +44,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
@@ -68,9 +66,6 @@ const (
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
 	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
 	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
-	// 6 is the magical number for inbound: 15006, 127.0.0.6, ::6
-	InboundPassthroughBindIpv4 = "127.0.0.6"
-	InboundPassthroughBindIpv6 = "::6"
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
@@ -126,23 +121,6 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 
 // ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
-
-// FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
-// filter chain
-var FallThroughFilterChainBlackHoleService = &model.Service{
-	Hostname: host.Name(BlackHoleCluster),
-	Attributes: model.ServiceAttributes{
-		Name: BlackHoleCluster,
-	},
-}
-
-// FallThroughFilterChainPassthroughService is the passthrough service used for fall though
-var FallThroughFilterChainPassthroughService = &model.Service{
-	Hostname: host.Name(PassthroughCluster),
-	Attributes: model.ServiceAttributes{
-		Name: PassthroughCluster,
-	},
-}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -677,25 +655,6 @@ func toIPNet(c *core.CidrRange) (*net.IPNet, error) {
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
 func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
 	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
-}
-
-// MultiErrorFormat provides a format for multierrors. This matches the default format, but if there
-// is only one error we will not expand to multiple lines.
-func MultiErrorFormat() multierror.ErrorFormatFunc {
-	return func(es []error) string {
-		if len(es) == 1 {
-			return es[0].Error()
-		}
-
-		points := make([]string, len(es))
-		for i, err := range es {
-			points[i] = fmt.Sprintf("* %s", err)
-		}
-
-		return fmt.Sprintf(
-			"%d errors occurred:\n\t%s\n\n",
-			len(es), strings.Join(points, "\n\t"))
-	}
 }
 
 // ByteCount returns a human readable byte format

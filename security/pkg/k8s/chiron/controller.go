@@ -40,8 +40,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-type WebhookType int
-
 /* #nosec: disable gas linter */
 const (
 	// The Istio DNS secret annotation type
@@ -181,7 +179,9 @@ func (wc *WebhookController) Run(stopCh <-chan struct{}) {
 		// upsertSecret to update and insert secret
 		// it throws error if the secret cache is not synchronized, but the secret exists in the system.
 		// Hence waiting for the cache is synced.
-		cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced)
+		if !cache.WaitForCacheSync(stopCh, wc.scrtController.HasSynced) {
+			log.Error("failed to wait for cache sync")
+		}
 	}
 }
 
@@ -212,9 +212,9 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 		return err
 	}
 	secret.Data = map[string][]byte{
-		ca.CertChainID:  chain,
-		ca.PrivateKeyID: key,
-		ca.RootCertID:   caCert,
+		ca.CertChainFile:  chain,
+		ca.PrivateKeyFile: key,
+		ca.RootCertFile:   caCert,
 	}
 
 	// We retry several times when create secret to mitigate transient network failures.
@@ -281,7 +281,7 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 		return
 	}
 
-	certBytes := scrt.Data[ca.CertChainID]
+	certBytes := scrt.Data[ca.CertChainFile]
 	_, err := util.ParsePemEncodedCertificate(certBytes)
 	if err != nil {
 		log.Warnf("failed to parse certificates in secret %s/%s (error: %v), refreshing the secret.",
@@ -306,7 +306,7 @@ func (wc *WebhookController) scrtUpdated(oldObj, newObj interface{}) {
 		log.Errorf("failed to get CA certificate: %v", err)
 		return
 	}
-	if waitErr != nil || !bytes.Equal(caCert, scrt.Data[ca.RootCertID]) {
+	if waitErr != nil || !bytes.Equal(caCert, scrt.Data[ca.RootCertFile]) {
 		log.Infof("refreshing secret %s/%s, either the leaf certificate is about to expire "+
 			"or the root certificate is outdated", namespace, name)
 
@@ -331,9 +331,9 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 		return err
 	}
 
-	scrt.Data[ca.CertChainID] = chain
-	scrt.Data[ca.PrivateKeyID] = key
-	scrt.Data[ca.RootCertID] = caCert
+	scrt.Data[ca.CertChainFile] = chain
+	scrt.Data[ca.PrivateKeyFile] = key
+	scrt.Data[ca.RootCertFile] = caCert
 
 	_, err = wc.core.Secrets(namespace).Update(context.TODO(), scrt, metav1.UpdateOptions{})
 	return err

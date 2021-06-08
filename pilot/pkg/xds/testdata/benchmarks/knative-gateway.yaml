@@ -1,0 +1,220 @@
+# Simulate the same configuration knative would generate from some basic KServices
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external
+  namespace: istio-system
+spec:
+  hosts:
+  - istio-ingressgateway.istio-system.svc.cluster.local
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio.io/benchmark: "true"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: internal
+  namespace: istio-system
+spec:
+  hosts:
+  - knative-local-gateway.istio-system.svc.cluster.local
+  ports:
+  - number: 80
+    targetPort: 8081
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      istio.io/benchmark: "true"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: knative-ingress-gateway
+  namespace: knative-serving
+spec:
+  selector:
+    istio.io/benchmark: "true"
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: knative-local-gateway
+  namespace: knative-serving
+spec:
+  selector:
+    istio.io/benchmark: "true"
+  servers:
+  - hosts:
+    - '*'
+    port:
+      name: http
+      number: 8081
+      protocol: HTTP
+---
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: hello-ingress-{{$i}}
+  namespace: default
+spec:
+  gateways:
+  - knative-serving/knative-ingress-gateway
+  - knative-serving/knative-local-gateway
+  hosts:
+  - hello.default
+  - hello.default.external.domain
+  - hello.default.svc
+  - hello.default.svc.cluster.local
+  http:
+  - headers:
+      request:
+        set:
+          K-Network-Hash: 0647dfaebda7111f09cd1ee30dfb4cbdf540bcd47575c5f948106757b7110384
+    match:
+    - authority:
+        prefix: hello.default
+      gateways:
+      - knative-serving/knative-local-gateway
+      headers:
+        K-Network-Hash:
+          exact: override
+    route:
+    - destination:
+        host: hello-{{$i}}.default.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Knative-Serving-Namespace: default
+            Knative-Serving-Revision: hello-{{$i}}
+      weight: 100
+  - match:
+    - authority:
+        prefix: hello.default
+      gateways:
+      - knative-serving/knative-local-gateway
+    route:
+    - destination:
+        host: hello-{{$i}}.default.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Knative-Serving-Namespace: default
+            Knative-Serving-Revision: hello-{{$i}}
+      weight: 100
+  - headers:
+      request:
+        set:
+          K-Network-Hash: 0647dfaebda7111f09cd1ee30dfb4cbdf540bcd47575c5f948106757b7110384
+    match:
+    - authority:
+        prefix: hello.default.external.domain
+      gateways:
+      - knative-serving/knative-ingress-gateway
+      headers:
+        K-Network-Hash:
+          exact: override
+    route:
+    - destination:
+        host: hello-{{$i}}.default.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Knative-Serving-Namespace: default
+            Knative-Serving-Revision: hello-{{$i}}
+      weight: 100
+  - match:
+    - authority:
+        prefix: hello.default.external.domain
+      gateways:
+      - knative-serving/knative-ingress-gateway
+    route:
+    - destination:
+        host: hello-{{$i}}.default.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Knative-Serving-Namespace: default
+            Knative-Serving-Revision: hello-{{$i}}
+      weight: 100
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: hello-private-ingress-{{$i}}
+  namespace: default
+spec:
+  gateways:
+  - knative-serving/knative-local-gateway
+  hosts:
+  - hello-private.default
+  - hello-private.default.svc
+  - hello-private.default.svc.cluster.local
+  http:
+  - headers:
+      request:
+        set:
+          K-Network-Hash: 1235d057c5abf876f0b1fa3cb9e5d04730d98fb236badc4705aecc1159309b2b
+    match:
+    - authority:
+        prefix: hello-private.default
+      gateways:
+      - knative-serving/knative-local-gateway
+      headers:
+        K-Network-Hash:
+          exact: override
+    route:
+    - destination:
+        host: hello-private-{{$i}}.default.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Knative-Serving-Namespace: default
+            Knative-Serving-Revision: hello-private-{{$i}}
+      weight: 100
+  - match:
+    - authority:
+        prefix: hello-private.default
+      gateways:
+      - knative-serving/knative-local-gateway
+    route:
+    - destination:
+        host: hello-private-{{$i}}.default.svc.cluster.local
+        port:
+          number: 80
+      headers:
+        request:
+          set:
+            Knative-Serving-Namespace: default
+            Knative-Serving-Revision: hello-private-{{$i}}
+      weight: 100
+{{- end }}

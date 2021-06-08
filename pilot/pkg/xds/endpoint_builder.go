@@ -82,7 +82,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
-		networkView:     model.GetNetworkView(proxy),
+		networkView:     proxy.GetNetworkView(),
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
@@ -94,7 +94,9 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		hostname:   hostname,
 		port:       port,
 	}
-	if b.MultiNetworkConfigured() {
+	if b.MultiNetworkConfigured() || model.IsDNSSrvSubsetKey(clusterName) {
+		// We only need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH
+		// As an optimization, we skip this logic entirely for everything else.
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b

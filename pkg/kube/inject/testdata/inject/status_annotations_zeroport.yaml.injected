@@ -43,8 +43,6 @@ spec:
         - sidecar
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
-        - --serviceCluster
-        - status.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --log_output_level=default:info
@@ -77,14 +75,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
-        - name: CANONICAL_SERVICE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-name']
-        - name: CANONICAL_REVISION
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
             {}
@@ -99,9 +89,6 @@ spec:
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"readiness.status.sidecar.istio.io/applicationPorts":"1,2,3","readiness.status.sidecar.istio.io/failureThreshold":"300","readiness.status.sidecar.istio.io/initialDelaySeconds":"100","readiness.status.sidecar.istio.io/periodSeconds":"200","status.sidecar.istio.io/port":"0"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: statusPort
         - name: ISTIO_META_OWNER
@@ -201,16 +188,6 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-          - path: cpu-limit
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: limits.cpu
-          - path: cpu-request
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:

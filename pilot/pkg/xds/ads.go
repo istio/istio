@@ -16,7 +16,6 @@ package xds
 
 import (
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -31,9 +30,11 @@ import (
 
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
 	"istio.io/istio/pilot/pkg/features"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
@@ -42,15 +43,11 @@ import (
 var (
 	log = istiolog.RegisterScope("ads", "ads debugging", 0)
 
-	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
-	// clients in a bad state (not reading). In future it may include checking for ACK
-	sendTimeout = features.XdsPushSendTimeout
-
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
 )
 
-// Used only when running in KNative, to handle the load banlancing behavior.
+// Used only when running in KNative, to handle the load balancing behavior.
 var firstRequest = uatomic.NewBool(true)
 
 var knativeEnv = env.RegisterStringVar("K_REVISION", "",
@@ -105,6 +102,13 @@ type Connection struct {
 	// stop can be used to end the connection manually via debug endpoints. Only to be used for testing.
 	stop chan struct{}
 
+	// reqChan is used to receive discovery requests for this connection.
+	reqChan      chan *discovery.DiscoveryRequest
+	deltaReqChan chan *discovery.DeltaDiscoveryRequest
+
+	// errorChan is used to process error during discovery request processing.
+	errorChan chan error
+
 	// blockedPushes is a map of TypeUrl to push request. This is set when we attempt to push to a busy Envoy
 	// (last push not ACKed). When we get an ACK from Envoy, if the type is populated here, we will trigger
 	// the push.
@@ -125,6 +129,8 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		pushChannel:   make(chan *Event),
 		initialized:   make(chan struct{}),
 		stop:          make(chan struct{}),
+		reqChan:       make(chan *discovery.DiscoveryRequest, 1),
+		errorChan:     make(chan error, 1),
 		PeerAddr:      peerAddr,
 		Connect:       time.Now(),
 		stream:        stream,
@@ -132,27 +138,11 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	}
 }
 
-// isExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
-// things are operating normally. This is basically capturing when the client disconnects.
-func isExpectedGRPCError(err error) bool {
-	if err == io.EOF {
-		return true
-	}
-
-	s := status.Convert(err)
-	if s.Code() == codes.Canceled || s.Code() == codes.DeadlineExceeded {
-		return true
-	}
-	if s.Code() == codes.Unavailable && s.Message() == "client disconnected" {
-		return true
-	}
-	return false
-}
-
-func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
+func (s *DiscoveryServer) receive(con *Connection) {
 	defer func() {
-		close(reqChannel)
-		// Close the initialized channel, if its not already closed, to prevent blocking the stream
+		close(con.errorChan)
+		close(con.reqChan)
+		// Close the initialized channel, if its not already closed, to prevent blocking the stream.
 		select {
 		case <-con.initialized:
 		default:
@@ -160,29 +150,29 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 		}
 	}()
 
-	firstReq := true
+	firstRequest := true
 	for {
 		req, err := con.stream.Recv()
 		if err != nil {
-			if isExpectedGRPCError(err) {
+			if istiogrpc.IsExpectedGRPCError(err) {
 				log.Infof("ADS: %q %s terminated %v", con.PeerAddr, con.ConID, err)
 				return
 			}
-			*errP = err
+			con.errorChan <- err
 			log.Errorf("ADS: %q %s terminated with error: %v", con.PeerAddr, con.ConID, err)
 			totalXDSInternalErrors.Increment()
 			return
 		}
 		// This should be only set for the first request. The node id may not be set - for example malicious clients.
-		if firstReq {
-			firstReq = false
+		if firstRequest {
+			firstRequest = false
 			if req.Node == nil || req.Node.Id == "" {
-				*errP = status.New(codes.InvalidArgument, "missing node ID").Err()
+				con.errorChan <- status.New(codes.InvalidArgument, "missing node information").Err()
 				return
 			}
 			// TODO: We should validate that the namespace in the cert matches the claimed namespace in metadata.
 			if err := s.initConnection(req.Node, con); err != nil {
-				*errP = err
+				con.errorChan <- err
 				return
 			}
 			defer s.closeConnection(con)
@@ -190,7 +180,7 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 		}
 
 		select {
-		case reqChannel <- req:
+		case con.reqChan <- req:
 		case <-con.stream.Context().Done():
 			log.Infof("ADS: %q %s terminated with stream closed", con.PeerAddr, con.ConID)
 			return
@@ -202,45 +192,45 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
-	if !s.preProcessRequest(con.proxy, req) {
+	if !s.shouldProcessRequest(con.proxy, req) {
 		return nil
 	}
 
-	// For now, don't let xDS piggyback debug requests start watchers
-	if strings.HasPrefix(req.TypeUrl, "istio.io/debug") {
+	// For now, don't let xDS piggyback debug requests start watchers.
+	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
 		}, &model.PushRequest{Full: true})
 	}
-
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespond(con, req)
 
-	// Check if we have a blocked push. If this was an ACK, we will send it. Either way we remove the blocked push
-	// as we will send a push.
-	con.proxy.Lock()
-	request, haveBlockedPush := con.blockedPushes[req.TypeUrl]
-	delete(con.blockedPushes, req.TypeUrl)
-	con.proxy.Unlock()
-
+	var request *model.PushRequest
 	if shouldRespond {
-		// This is a request, trigger a full push for this type
-		// Override the blocked push (if it exists), as this full push is guaranteed to be a superset
-		// of what we would have pushed from the blocked push.
+		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
+		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
 		request = &model.PushRequest{Full: true}
-	} else if !haveBlockedPush {
-		// This is an ACK, no delayed push
-		// Return immediately, no action needed
-		return nil
 	} else {
-		// we have a blocked push which we will use
-		log.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
+		// Check if we have a blocked push. If this was an ACK, we will send it.
+		// Either way we remove the blocked push as we will send a push.
+		haveBlockedPush := false
+		con.proxy.Lock()
+		request, haveBlockedPush = con.blockedPushes[req.TypeUrl]
+		delete(con.blockedPushes, req.TypeUrl)
+		con.proxy.Unlock()
+		if haveBlockedPush {
+			// we have a blocked push which we will use
+			log.Debugf("%s: DEQUEUE for node:%s", v3.GetShortType(req.TypeUrl), con.proxy.ID)
+		} else {
+			// This is an ACK, no delayed push
+			// Return immediately, no action needed
+			return nil
+		}
 	}
 
 	push := s.globalPushContext()
-
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
 }
@@ -284,7 +274,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	if ids != nil {
 		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		log.Debug("Unauthenticated XDS: ", peerAddr)
+		log.Debugf("Unauthenticated XDS: %s", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
@@ -302,13 +292,9 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// with push. According to the spec: "It's only necessary to close a channel when it is important
 	// to tell the receiving goroutines that all data have been sent."
 
-	// Reading from a stream is a blocking operation. Each connection needs to read
-	// discovery requests and wait for push commands on config change, so we add a
-	// go routine. If go grpc adds gochannel support for streams this will not be needed.
-	// This also detects close.
-	var receiveError error
-	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
-	go s.receive(con, reqChannel, &receiveError)
+	// Block until either a request is received or a push is triggered.
+	// We need 2 go routines because 'read' blocks in Recv().
+	go s.receive(con)
 
 	// Wait for the proxy to be fully initialized before we start serving traffic. Because
 	// initialization doesn't have dependencies that will block, there is no need to add any timeout
@@ -318,26 +304,16 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	<-con.initialized
 
 	for {
-		// Block until either a request is received or a push is triggered.
-		// We need 2 go routines because 'read' blocks in Recv().
-		//
-		// To avoid 2 routines, we tried to have Recv() in StreamAggregateResource - and the push
-		// on different short-lived go routines started when the push is happening. This would cut in 1/2
-		// the number of long-running go routines, since push is throttled. The main problem is with
-		// closing - the current gRPC library didn't allow closing the stream.
 		select {
-		case req, ok := <-reqChannel:
-			if !ok {
+		case req, ok := <-con.reqChan:
+			if ok {
+				if err := s.processRequest(req, con); err != nil {
+					return err
+				}
+			} else {
 				// Remote side closed connection or error processing the request.
-				return receiveError
+				return <-con.errorChan
 			}
-			// processRequest is calling pushXXX, accessing common structs with pushConnection.
-			// Adding sync is the second issue to be resolved if we want to save 1/2 of the threads.
-			err := s.processRequest(req, con)
-			if err != nil {
-				return err
-			}
-
 		case pushEv := <-con.pushChannel:
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
@@ -366,7 +342,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 			s.StatusGen.OnNack(con.proxy, request)
 		}
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = request.ResponseNonce
+		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
+			w.NonceNacked = request.ResponseNonce
+		}
 		con.proxy.Unlock()
 		return false
 	}
@@ -404,7 +382,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		return true
 	}
 
-	// If there is mismatch in the npilot/pkg/bootstrap/server.goonce, that is a case of expired/stale nonce.
+	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
 	if request.ResponseNonce != previousInfo.NonceSent {
 		log.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
@@ -458,7 +436,7 @@ func shouldUnsubscribe(request *discovery.DiscoveryRequest) bool {
 // resource names.
 func isWildcardTypeURL(typeURL string) bool {
 	switch typeURL {
-	case v3.SecretType, v3.EndpointType, v3.RouteType:
+	case v3.SecretType, v3.EndpointType, v3.RouteType, v3.ExtensionConfigurationType:
 		// By XDS spec, these are not wildcard
 		return false
 	case v3.ClusterType, v3.ListenerType:
@@ -488,18 +466,17 @@ func listEqualUnordered(a []string, b []string) bool {
 	return true
 }
 
-// update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
+// update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
-	// First request so initialize connection id and start tracking it.
-	con.ConID = connectionID(node.Id)
-	con.node = node
-
 	// Setup the initial proxy metadata
 	proxy, err := s.initProxyMetadata(node)
 	if err != nil {
 		return err
 	}
+	// First request so initialize connection id and start tracking it.
+	con.ConID = connectionID(proxy.ID)
+	con.node = node
 	con.proxy = proxy
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
@@ -583,6 +560,7 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	}
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
+	proxy.XdsNode = node
 	return proxy, nil
 }
 
@@ -595,7 +573,9 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return err
 	}
-	s.setProxyState(proxy, s.globalPushContext())
+
+	proxy.SetWorkloadLabels(s.Env)
+	s.computeProxyState(proxy, nil)
 
 	// Get the locality from the proxy's service instances.
 	// We expect all instances to have the same IP and therefore the same locality.
@@ -628,45 +608,69 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	return nil
 }
 
-func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, push *model.PushContext) {
-	s.setProxyState(proxy, push)
+func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushRequest) {
+	s.computeProxyState(proxy, request)
 	if util.IsLocalityEmpty(proxy.Locality) {
 		// Get the locality from the proxy's service instances.
-		// We expect all instances to have the same locality. So its enough to look at the first instance
+		// We expect all instances to have the same locality.
+		// So its enough to look at the first instance.
 		if len(proxy.ServiceInstances) > 0 {
 			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 		}
 	}
 }
 
-func (s *DiscoveryServer) setProxyState(proxy *model.Proxy, push *model.PushContext) {
-	proxy.SetWorkloadLabels(s.Env)
-	proxy.SetServiceInstances(push.ServiceDiscovery)
-
+func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
+	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	proxy.SetSidecarScope(push)
-	proxy.SetGatewaysForProxy(push)
+	var sidecar, gateway bool
+	push := s.globalPushContext()
+	if request == nil {
+		sidecar = true
+		gateway = true
+	} else {
+		push = request.Push
+		if len(request.ConfigsUpdated) == 0 {
+			sidecar = true
+			gateway = true
+		}
+		for conf := range request.ConfigsUpdated {
+			switch conf.Kind {
+			case gvk.ServiceEntry, gvk.DestinationRule, gvk.VirtualService, gvk.Sidecar:
+				sidecar = true
+			case gvk.Gateway:
+				gateway = true
+			}
+		}
+	}
+	switch {
+	case sidecar && proxy.Type == model.SidecarProxy:
+		proxy.SetSidecarScope(push)
+	case gateway && proxy.Type == model.Router:
+		proxy.SetGatewaysForProxy(push)
+	default:
+		proxy.SetSidecarScope(push)
+		proxy.SetGatewaysForProxy(push)
+	}
 }
 
-// pre-process request. returns whether or not to continue.
-func (s *DiscoveryServer) preProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
-	if req.TypeUrl == v3.HealthInfoType {
-		if features.WorkloadEntryHealthChecks {
-			event := workloadentry.HealthEvent{}
-			if req.ErrorDetail == nil {
-				event.Healthy = true
-			} else {
-				event.Healthy = false
-				event.Message = req.ErrorDetail.Message
-			}
-			s.WorkloadEntryController.QueueWorkloadEntryHealth(proxy, event)
-		}
-		return false
+// shouldProcessRequest returns whether or not to continue with the request.
+func (s *DiscoveryServer) shouldProcessRequest(proxy *model.Proxy, req *discovery.DiscoveryRequest) bool {
+	if req.TypeUrl != v3.HealthInfoType {
+		return true
 	}
-	return true
+	if features.WorkloadEntryHealthChecks {
+		event := workloadentry.HealthEvent{}
+		event.Healthy = req.ErrorDetail == nil
+		if !event.Healthy {
+			event.Message = req.ErrorDetail.Message
+		}
+		s.WorkloadEntryController.QueueWorkloadEntryHealth(proxy, event)
+	}
+	return false
 }
 
 // DeltaAggregatedResources is not implemented.
@@ -683,20 +687,19 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 	return status.Errorf(codes.Unimplemented, "not implemented")
 }
 
-// Compute and send the new configuration for a connection. This is blocking and may be slow
-// for large configs. The method will hold a lock on con.pushMutex.
+// Compute and send the new configuration for a connection.
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
 	if pushRequest.Full {
 		// Update Proxy with current information.
-		s.updateProxy(con.proxy, pushRequest.Push)
+		s.updateProxy(con.proxy, pushRequest)
 	}
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		log.Debugf("Skipping push to %v, no updates required", con.ConID)
 		if pushRequest.Full {
-			// Only report for full versions, incremental pushes do not have a new version
+			// Only report for full versions, incremental pushes do not have a new version.
 			reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.LedgerVersion, nil)
 		}
 		return nil
@@ -706,7 +709,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	for _, w := range getWatchedResources(con.proxy.WatchedResources) {
+	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
 			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
@@ -753,7 +756,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 // order after the types listed here
 var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 
-var KnownPushOrder = map[string]struct{}{
+// KnownOrderedTypeUrls has typeUrls for which we know the order of push.
+var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.ClusterType:  {},
 	v3.EndpointType: {},
 	v3.ListenerType: {},
@@ -761,7 +765,8 @@ var KnownPushOrder = map[string]struct{}{
 	v3.SecretType:   {},
 }
 
-func getWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+// orderWatchedResources orders the resources in accordance with known push order.
+func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
 	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
@@ -771,7 +776,7 @@ func getWatchedResources(resources map[string]*model.WatchedResource) []*model.W
 	}
 	// Then add any undeclared types
 	for tp, w := range resources {
-		if _, f := KnownPushOrder[tp]; !f {
+		if _, f := KnownOrderedTypeUrls[tp]; !f {
 			wr = append(wr, w)
 		}
 	}
@@ -901,49 +906,35 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 }
 
-// Send with timeout
+// Send with timeout if configured.
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
-	errChan := make(chan error, 1)
-
-	// sendTimeout may be modified via environment
-	t := time.NewTimer(sendTimeout)
-	go func() {
+	sendHandler := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
-		errChan <- conn.stream.Send(res)
-		close(errChan)
-	}()
-
-	select {
-	case <-t.C:
-		log.Infof("Timeout writing %s", conn.ConID)
-		xdsResponseWriteTimeouts.Increment()
-		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
-	case err := <-errChan:
-		if err == nil {
-			sz := 0
-			for _, rc := range res.Resources {
-				sz += len(rc.Value)
-			}
+		return conn.stream.Send(res)
+	}
+	err := istiogrpc.Send(conn.stream.Context(), sendHandler)
+	if err == nil {
+		sz := 0
+		for _, rc := range res.Resources {
+			sz += len(rc.Value)
+		}
+		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
-			if res.Nonce != "" {
-				if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-					conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-				}
-				conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-				conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
-				conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
-				conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
+				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
+			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.VersionInfo
+			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			conn.proxy.Unlock()
 		}
-		// To ensure the channel is empty after a call to Stop, check the
-		// return value and drain the channel (from Stop docs).
-		if !t.Stop() {
-			<-t.C
-		}
-		return err
+	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
+		log.Infof("Timeout writing %s", conn.ConID)
+		xdsResponseWriteTimeouts.Increment()
 	}
+	return err
 }
 
 // nolint

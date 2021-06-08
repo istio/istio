@@ -24,7 +24,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/golang/protobuf/ptypes/any"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -52,24 +52,24 @@ import (
 type GrpcConfigGenerator struct{}
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
-	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	switch w.TypeUrl {
 	case v3.ListenerType:
-		return g.BuildListeners(proxy, push, w.ResourceNames), nil
+		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), nil
+		return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.RouteType:
-		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), nil
+		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	}
 
-	return nil, nil
+	return nil, model.DefaultXdsLogDetails, nil
 }
 
 // handleLDSApiType handles a LDS request, returning listeners of ApiListener type.
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
 // specific services.
-func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) []*any.Any {
-	resp := []*any.Any{}
+func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
+	resp := model.Resources{}
 
 	filter := map[string]bool{}
 	for _, name := range names {
@@ -124,7 +124,10 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 				ll.ApiListener = &listener.ApiListener{
 					ApiListener: hcmAny,
 				}
-				resp = append(resp, util.MessageToAny(ll))
+				resp = append(resp, &discovery.Resource{
+					Name:     hp,
+					Resource: util.MessageToAny(ll),
+				})
 			}
 		}
 	}
@@ -134,8 +137,8 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 
 // Handle a gRPC CDS request, used with the 'ApiListener' style of requests.
 // The main difference is that the request includes Resources.
-func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushContext, names []string) []*any.Any {
-	resp := []*any.Any{}
+func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
+	resp := model.Resources{}
 	// gRPC doesn't currently support any of the APIs - returning just the expected EDS result.
 	// Since the code is relatively strict - we'll add info as needed.
 	for _, n := range names {
@@ -156,7 +159,10 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 				},
 			},
 		}
-		resp = append(resp, util.MessageToAny(rc))
+		resp = append(resp, &discovery.Resource{
+			Name:     n,
+			Resource: util.MessageToAny(rc),
+		})
 	}
 	return resp
 }
@@ -164,8 +170,8 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 // handleSplitRDS supports per-VIP routes, as used by GRPC.
 // This mode is indicated by using names containing full host:port instead of just port.
 // Returns true of the request is of this type.
-func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*any.Any {
-	resp := []*any.Any{}
+func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) model.Resources {
+	resp := model.Resources{}
 
 	// Currently this mode is only used by GRPC, to extract Cluster for the default
 	// route.
@@ -212,7 +218,10 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 						},
 					},
 				}
-				resp = append(resp, util.MessageToAny(rc))
+				resp = append(resp, &discovery.Resource{
+					Name:     n,
+					Resource: util.MessageToAny(rc),
+				})
 			}
 		}
 	}

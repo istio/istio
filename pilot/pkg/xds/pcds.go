@@ -15,6 +15,8 @@
 package xds
 
 import (
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -52,16 +54,17 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 }
 
 // Generate returns ProxyConfig protobuf containing TrustBundle for given proxy
-func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) (model.Resources, error) {
+func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if !pcdsNeedsPush(req) {
-		return nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 	if e.TrustBundle == nil {
-		return nil, nil
+		return nil, model.DefaultXdsLogDetails, nil
 	}
 	// TODO: For now, only TrustBundle updates are pushed. Eventually, this should push entire Proxy Configuration
 	pc := &mesh.ProxyConfig{
 		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}
-	return model.Resources{gogo.MessageToAny(pc)}, nil
+	return model.Resources{&discovery.Resource{Resource: gogo.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
 }

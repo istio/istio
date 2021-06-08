@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -141,9 +142,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	opts.mutable = subsetCluster
 	opts.istioMtlsSni = defaultSni
 
-	destinationRule := destRule.Spec.(*networking.DestinationRule)
 	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-	opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
+	opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
 	// Apply traffic policy for the subset cluster.
 	cb.applyTrafficPolicy(opts)
 
@@ -163,10 +163,12 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
+	// merge applicable port level traffic policy settings
+	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
 	opts := buildClusterOpts{
 		mesh:        cb.push.Mesh,
 		mutable:     mc,
-		policy:      destinationRule.TrafficPolicy,
+		policy:      trafficPolicy,
 		port:        port,
 		clusterMode: clusterMode,
 		direction:   model.TrafficDirectionOutbound,
@@ -178,11 +180,9 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
+		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
 	}
-
-	// merge with applicable port level traffic policy settings
-	opts.policy = MergeTrafficPolicy(nil, opts.policy, opts.port)
 	// Apply traffic policy for the main default cluster.
 	cb.applyTrafficPolicy(opts)
 
@@ -190,10 +190,8 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	// discovery type.
 	maybeApplyEdsConfig(mc.cluster)
 
-	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
-		mc.cluster.Metadata = clusterMetadata
+		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.Subsets {
@@ -239,10 +237,10 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 	}
 
 	// Check if port level overrides exist, if yes override with them.
-	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
+	if port != nil {
 		for _, p := range subsetPolicy.PortLevelSettings {
 			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				// per the docs, port level policies do not inherit and intead to defaults if not provided
+				// per the docs, port level policies do not inherit and instead to defaults if not provided
 				mergedPolicy.ConnectionPool = p.ConnectionPool
 				mergedPolicy.OutlierDetection = p.OutlierDetection
 				mergedPolicy.LoadBalancer = p.LoadBalancer
@@ -290,7 +288,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	opts := buildClusterOpts{
 		mesh:            cb.push.Mesh,
 		mutable:         ec,
-		policy:          cb.defaultTrafficPolicy(discoveryType),
+		policy:          nil,
 		port:            port,
 		serviceAccounts: nil,
 		istioMtlsSni:    "",
@@ -306,7 +304,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		// otherwise, read this information from service object.
 		opts.meshExternal = service.MeshExternal
 	}
-	cb.applyTrafficPolicy(opts)
+
 	cb.setUpstreamProtocol(opts.proxy, ec, port, direction)
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
@@ -342,6 +340,17 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
 
+	opts := buildClusterOpts{
+		mesh:            cb.push.Mesh,
+		mutable:         localCluster,
+		policy:          nil,
+		port:            instance.ServicePort,
+		serviceAccounts: nil,
+		istioMtlsSni:    "",
+		clusterMode:     DefaultClusterMode,
+		direction:       model.TrafficDirectionInbound,
+		proxy:           cb.proxy,
+	}
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
 	// (not the defaults) to handle the increased traffic volume
@@ -351,13 +360,12 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
-			// only connection pool settings make sense on the inbound path.
-			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			cb.applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
+			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
+	cb.applyTrafficPolicy(opts)
+
 	if bind != LocalhostAddress && bind != LocalhostIPv6Address {
 		// iptables will redirect our own traffic to localhost back to us if we do not use the "magic" upstream bind
 		// config which will be skipped.
@@ -446,7 +454,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
 		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
-				Address: util.InboundPassthroughBindIpv4,
+				Address: InboundPassthroughBindIpv4,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
@@ -459,7 +467,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
 		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
-				Address: util.InboundPassthroughBindIpv6,
+				Address: InboundPassthroughBindIpv6,
 				PortSpecifier: &core.SocketAddress_PortValue{
 					PortValue: uint32(0),
 				},
@@ -497,29 +505,6 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	cb.applyConnectionPool(cb.push.Mesh, NewMutableCluster(cluster), passthroughSettings)
 	return cluster
-}
-
-// defaultTrafficPolicy builds a default traffic policy applying default connection timeouts.
-func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_DiscoveryType) *networking.TrafficPolicy {
-	lbPolicy := DefaultLbType
-	if discoveryType == cluster.Cluster_ORIGINAL_DST {
-		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
-	}
-	return &networking.TrafficPolicy{
-		LoadBalancer: &networking.LoadBalancerSettings{
-			LbPolicy: &networking.LoadBalancerSettings_Simple{
-				Simple: lbPolicy,
-			},
-		},
-		ConnectionPool: &networking.ConnectionPoolSettings{
-			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-				ConnectTimeout: &types.Duration{
-					Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
-					Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
-				},
-			},
-		},
-	}
 }
 
 // applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
@@ -591,23 +576,33 @@ func (cb *ClusterBuilder) setH2Options(mc *MutableCluster) {
 func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	// Connection pool settings are applicable for both inbound and outbound clusters.
+	if connectionPool == nil {
+		connectionPool = &networking.ConnectionPoolSettings{}
+	}
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
+		if opts.clusterMode != SniDnatClusterMode {
+			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
+			tls, mtlsCtxType := buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+		}
 	}
+
 	if opts.mutable.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 		opts.mutable.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
+}
 
-	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
-		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
-		cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
+	defaultConnectTimeout := &types.Duration{
+		Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
+		Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
 	}
+	cluster.ConnectTimeout = gogo.DurationToProtoDuration(defaultConnectTimeout)
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -641,6 +636,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		idleTimeout = settings.Http.IdleTimeout
 	}
 
+	cb.applyDefaultConnectionPool(mc.cluster)
 	if settings.Tcp != nil {
 		if settings.Tcp.ConnectTimeout != nil {
 			mc.cluster.ConnectTimeout = gogo.DurationToProtoDuration(settings.Tcp.ConnectTimeout)
@@ -766,7 +762,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-
+		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
+		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+			tls.SubjectAltNames = opts.serviceAccounts
+		}
 		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
@@ -780,7 +779,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			res := model.SdsCertificateConfig{
 				CaCertificatePath: tls.CaCertificates,
 			}
-
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
 			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
@@ -804,6 +802,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
+		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
+		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+			tls.SubjectAltNames = opts.serviceAccounts
+		}
 		if tls.CredentialName != "" {
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
@@ -815,7 +817,6 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 					c.cluster.Name)
 				return nil, err
 			}
-
 			// These are certs being mounted from within the pod and specified in Destination Rules.
 			// Rather than reading directly in Envoy, which does not support rotation, we will
 			// serve them over SDS by reading the files.
@@ -921,6 +922,15 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 	}
 	// Marshall Http Protocol options if they exist.
 	if mc.httpProtocolOptions != nil {
+		// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier
+		// we need to set it to default http protocol options.
+		if mc.httpProtocolOptions.UpstreamProtocolOptions == nil {
+			mc.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+				},
+			}
+		}
 		mc.cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
 			v3.HttpProtocolOptionsType: util.MessageToAny(mc.httpProtocolOptions),
 		}

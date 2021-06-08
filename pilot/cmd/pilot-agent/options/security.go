@@ -16,9 +16,11 @@ package options
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
@@ -33,10 +35,10 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	o := &security.Options{
 		CAEndpoint:                     caEndpointEnv,
 		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              pilotCertProvider,
+		PilotCertProvider:              features.PilotCertProvider.Get(),
 		OutputKeyCertToDir:             outputKeyCertToDir,
 		ProvCert:                       provCert,
-		WorkloadUDSPath:                security.DefaultLocalSDSPath,
+		WorkloadUDSPath:                filepath.Join(proxyConfig.ConfigPath, "SDS"),
 		ClusterID:                      clusterIDVar.Get(),
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              PodNamespaceVar.Get(),
@@ -47,6 +49,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		ECCSigAlg:                      eccSigAlgEnv,
 		SecretTTL:                      secretTTLEnv,
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
+		STSPort:                        stsPort,
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
@@ -98,8 +101,12 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		log.Infof("using credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, o.TrustDomain)
 		o.CredFetcher = credFetcher
 	}
+	// Default the CA provider where possible
+	if strings.Contains(o.CAEndpoint, "googleapis.com") {
+		o.CAProviderName = security.GoogleCAProvider
+	}
 	// TODO extract this logic out to a plugin
-	if o.CAProviderName == "GoogleCA" || strings.Contains(o.CAEndpoint, "googleapis.com") {
+	if o.CAProviderName == security.GoogleCAProvider {
 		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
 	}
 

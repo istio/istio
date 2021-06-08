@@ -30,7 +30,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	echocommon "istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -38,11 +40,14 @@ import (
 )
 
 func GetAdditionVMImages() []string {
-	// Note - bionic is not here as its the default
-	return []string{
-		"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal",
-		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_7", "app_sidecar_centos_8",
+	out := []echo.VMDistro{}
+	for distro, image := range kube.VMImages {
+		if distro == echo.DefaultVMDistro {
+			continue
+		}
+		out = append(out, image)
 	}
+	return out
 }
 
 func TestVmOSPost(t *testing.T) {
@@ -60,9 +65,9 @@ func TestVmOSPost(t *testing.T) {
 				b = b.WithConfig(echo.Config{
 					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
 					Namespace:  apps.Namespace,
-					Ports:      common.EchoPorts,
+					Ports:      echocommon.EchoPorts,
 					DeployAsVM: true,
-					VMImage:    image,
+					VMDistro:   image,
 					Subsets:    []echo.SubsetConfig{{}},
 				})
 			}
@@ -80,6 +85,7 @@ func TestVmOSPost(t *testing.T) {
 }
 
 func TestVMRegistrationLifecycle(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/33154")
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -96,7 +102,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				With(&autoVM, echo.Config{
 					Namespace:      apps.Namespace,
 					Service:        "auto-vm",
-					Ports:          common.EchoPorts,
+					Ports:          echocommon.EchoPorts,
 					DeployAsVM:     true,
 					AutoRegisterVM: true,
 				}).BuildOrFail(t)

@@ -30,3 +30,4 @@ typedConfig:
         - andIds:
             ids:
             - any: true
+  shadowRulesStatPrefix: istio_ext_authz_

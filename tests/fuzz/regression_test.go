@@ -33,9 +33,7 @@ var baseCases = [][]byte{
 
 // brokenCases contains test cases that are currently failing. These should only be added if the
 // failure is publicly disclosed!
-var brokenCases = map[string]string{
-	"4863517148708864": "https://github.com/kubernetes/kubernetes/issues/97651",
-}
+var brokenCases = map[string]string{}
 
 func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	dir := filepath.Join("testdata", name)

@@ -405,11 +405,19 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
-	certChain, err := sc.readFileWithTimeout(certChainPath)
+	// There is a remote possibility that key is written and cert is not written yet.
+	// To handle that case, we wait for some time here.
+	timer := time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+	<-timer
+	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
+}
+
+func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*security.SecretItem, error) {
+	certChain, err := sc.readFileWithTimeout(cert)
 	if err != nil {
 		return nil, err
 	}
-	keyPEM, err := sc.readFileWithTimeout(keyPath)
+	keyPEM, err := sc.readFileWithTimeout(key)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +432,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
-		ResourceName:     resourceName,
+		ResourceName:     resource,
 		CreatedTime:      now,
 		ExpireTime:       certExpireTime,
 	}, nil
@@ -610,27 +618,8 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 }
 
 func (sc *SecretManagerClient) handleFileWatch() {
-	var timerC <-chan time.Time
-	events := make(map[string]fsnotify.Event)
-
 	for {
 		select {
-		case <-timerC:
-			timerC = nil
-			for resource, event := range events {
-				cacheLog.Infof("file certificate %s changed with event %s, pushing to proxy", resource, event.Op.String())
-				sc.certMutex.RLock()
-				resources := sc.fileCerts
-				sc.certMutex.RUnlock()
-				// Trigger callbacks for all resources referencing this file. This is practically always
-				// a single resource.
-				for k := range resources {
-					if k.Filename == resource {
-						sc.CallUpdateCallback(k.ResourceName)
-					}
-				}
-			}
-			events = make(map[string]fsnotify.Event)
 		case event, ok := <-sc.certWatcher.Events:
 			// Channel is closed.
 			if !ok {
@@ -640,14 +629,16 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
 				continue
 			}
-			// Typically inotify notifies about file change after the event i.e. write is complete. It only
-			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
-			// are triggered in quick succession - to handle that case we debounce here.
-			// Use a timer to debounce watch updates
-			cacheLog.Infof("event for file certificate %s : %s, debouncing ", event.Name, event.Op.String())
-			if timerC == nil {
-				timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
-				events[event.Name] = event
+			sc.certMutex.RLock()
+			resources := sc.fileCerts
+			sc.certMutex.RUnlock()
+			// Trigger callbacks for all resources referencing this file. This is practically always
+			// a single resource.
+			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
+			for k := range resources {
+				if k.Filename == event.Name {
+					sc.CallUpdateCallback(k.ResourceName)
+				}
 			}
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.

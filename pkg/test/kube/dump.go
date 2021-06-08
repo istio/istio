@@ -16,6 +16,7 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,11 +25,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -37,17 +40,44 @@ import (
 // If no pods are provided, client will be used to fetch all the pods in a namespace.
 type PodDumper func(ctx resource.Context, cluster cluster.Cluster, workDir string, namespace string, pods ...corev1.Pod)
 
-func outputPath(workDir string, cluster cluster.Cluster, pod corev1.Pod, name string) string {
+func podOutputPath(workDir string, cluster cluster.Cluster, pod corev1.Pod, dumpName string) string {
+	return outputPath(workDir, cluster, pod.Name, dumpName)
+}
+
+// outputPath gives a path in the form of workDir/cluster/<prefix>_<suffix>
+func outputPath(workDir string, cluster cluster.Cluster, prefix, suffix string) string {
 	dir := path.Join(workDir, cluster.Name())
 	if err := os.MkdirAll(dir, os.ModeDir|0o700); err != nil {
 		scopes.Framework.Warnf("failed creating directory: %s", dir)
 	}
-	return path.Join(dir, fmt.Sprintf("%s_%s", pod.Name, name))
+	return path.Join(dir, fmt.Sprintf("%s_%s", prefix, suffix))
 }
 
-// DumpPods runs each dumper with all the pods in the given namespace.
+func DumpDeployments(ctx resource.Context, workDir, namespace string) {
+	errG := multierror.Group{}
+	for _, cluster := range ctx.Clusters().Kube() {
+		deps, err := cluster.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			scopes.Framework.Warnf("Error getting deployments: %v", err)
+			return
+		}
+		for _, deployment := range deps.Items {
+			deployment := deployment
+			errG.Go(func() error {
+				out, err := yaml.Marshal(deployment)
+				if err != nil {
+					return err
+				}
+				return ioutil.WriteFile(outputPath(workDir, cluster, deployment.Name, "deployment.yaml"), out, os.ModePerm)
+			})
+		}
+	}
+}
+
+// DumpPods runs each dumper with the selected pods in the given namespace.
+// If selectors is empty, all pods in the namespace will be dumpped.
 // If no dumpers are provided, their resource state, events, container logs and Envoy information will be dumped.
-func DumpPods(ctx resource.Context, workDir, namespace string, dumpers ...PodDumper) {
+func DumpPods(ctx resource.Context, workDir, namespace string, selectors []string, dumpers ...PodDumper) {
 	if len(dumpers) == 0 {
 		dumpers = []PodDumper{
 			DumpPodState,
@@ -61,10 +91,13 @@ func DumpPods(ctx resource.Context, workDir, namespace string, dumpers ...PodDum
 
 	wg := sync.WaitGroup{}
 	for _, cluster := range ctx.Clusters().Kube() {
-		pods, err := cluster.PodsForSelector(context.TODO(), namespace)
+		pods, err := cluster.PodsForSelector(context.TODO(), namespace, selectors...)
 		if err != nil {
 			scopes.Framework.Warnf("Error getting pods list via kubectl: %v", err)
 			return
+		}
+		if len(pods.Items) == 0 {
+			continue
 		}
 		for _, dump := range dumpers {
 			cluster, dump := cluster, dump
@@ -103,7 +136,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 					scopes.Framework.Warnf("Unable to get core dumps %v for pod: %s/%s", cd, pod.Namespace, pod.Name)
 					continue
 				}
-				fname := outputPath(workDir, c, pod, filepath.Base(cd))
+				fname := podOutputPath(workDir, c, pod, filepath.Base(cd))
 				if err = ioutil.WriteFile(fname, []byte(stdout), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write envoy core dump log for pod: %s/%s: %v", pod.Namespace, pod.Name, err)
 				}
@@ -128,19 +161,15 @@ func podsOrFetch(a cluster.Cluster, pods []corev1.Pod, namespace string) []corev
 func DumpPodState(_ resource.Context, c cluster.Cluster, workDir string, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
-	marshaler := jsonpb.Marshaler{
-		Indent: "  ",
-	}
-
 	for _, pod := range pods {
-		str, err := marshaler.MarshalToString(&pod)
+		out, err := yaml.Marshal(&pod)
 		if err != nil {
 			scopes.Framework.Warnf("Error marshaling pod state for output: %v", err)
 			continue
 		}
 
-		outPath := outputPath(workDir, c, pod, "pod-state.yaml")
-		if err := ioutil.WriteFile(outPath, []byte(str), os.ModePerm); err != nil {
+		outPath := podOutputPath(workDir, c, pod, "pod-state.yaml")
+		if err := ioutil.WriteFile(outPath, out, os.ModePerm); err != nil {
 			scopes.Framework.Infof("Error writing out pod state to file: %v", err)
 		}
 	}
@@ -149,10 +178,6 @@ func DumpPodState(_ resource.Context, c cluster.Cluster, workDir string, namespa
 // DumpPodEvents dumps the pod events for either the provided pods or all pods in the namespace if none are provided.
 func DumpPodEvents(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
-
-	marshaler := jsonpb.Marshaler{
-		Indent: "  ",
-	}
 
 	for _, pod := range pods {
 		list, err := c.CoreV1().Events(namespace).List(context.TODO(),
@@ -164,20 +189,14 @@ func DumpPodEvents(_ resource.Context, c cluster.Cluster, workDir, namespace str
 			return
 		}
 
-		eventsStr := ""
-		for _, event := range list.Items {
-			eventStr, err := marshaler.MarshalToString(&event)
-			if err != nil {
-				scopes.Framework.Warnf("Error marshaling pod event for output: %v", err)
-				continue
-			}
-
-			eventsStr += eventStr
-			eventsStr += "\n"
+		out, err := yaml.Marshal(list.Items)
+		if err != nil {
+			scopes.Framework.Warnf("Error marshaling pod event for output: %v", err)
+			continue
 		}
 
-		outPath := outputPath(workDir, c, pod, "pod-events.yaml")
-		if err := ioutil.WriteFile(outPath, []byte(eventsStr), os.ModePerm); err != nil {
+		outPath := podOutputPath(workDir, c, pod, "pod-events.yaml")
+		if err := ioutil.WriteFile(outPath, out, os.ModePerm); err != nil {
 			scopes.Framework.Infof("Error writing out pod events to file: %v", err)
 		}
 	}
@@ -194,6 +213,15 @@ func containerRestarts(pod corev1.Pod, container string) int {
 	return 0
 }
 
+func containerCrashed(pod corev1.Pod, container string) bool {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name == container {
+			return cs.State.Terminated != nil
+		}
+	}
+	return false
+}
+
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
 func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
@@ -208,7 +236,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 				scopes.Framework.Warnf("Unable to get logs for pod/container: %s/%s/%s for: %v", pod.Namespace, pod.Name, container.Name, err)
 			}
 
-			fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.log", container.Name))
+			fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.log", container.Name))
 			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 				scopes.Framework.Warnf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 			}
@@ -218,31 +246,38 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 				// a log which will get highlighted in the test logs
 				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-				scopes.Framework.Errorf("FAIL: pod %v/%v restarted %d times", pod.Name, pod.Namespace, restarts)
+				scopes.Framework.Errorf("FAIL: pod %v/%v container %v restarted %d times", pod.Name, pod.Namespace, container.Name, restarts)
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
 					scopes.Framework.Warnf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				}
 
-				fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
+				fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
 				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				}
 			}
 
+			if containerCrashed(pod, container.Name) {
+				scopes.Framework.Errorf("FAIL: pod %v/%v crashed with status: terminated", pod.Name, container.Name)
+			}
+
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
 			if isVM && container.Name == "istio-proxy" {
 				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
-					fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.err.log", container.Name))
+					fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.err.log", container.Name))
 					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Warnf("Unable to write envoy err log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					}
+					if strings.Contains(stdout, "envoy backtrace") {
+						scopes.Framework.Errorf("FAIL: VM %v/%v crashed", pod.Name, container.Name)
 					}
 				} else {
 					scopes.Framework.Warnf("Unable to get envoy err log for pod: %s/%s", pod.Namespace, pod.Name)
 				}
 
 				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.log"); err == nil {
-					fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.log", container.Name))
+					fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.log", container.Name))
 					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Warnf("Unable to write envoy log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
@@ -259,29 +294,27 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
 
+	dumpProxyCommand(c, pods, workDir, "proxy-config.json", "pilot-agent request GET config_dump?include_eds=true")
+	dumpProxyCommand(c, pods, workDir, "proxy-clusters.txt", "pilot-agent request GET clusters")
+}
+
+func dumpProxyCommand(c cluster.Cluster, pods []corev1.Pod, workDir, filename, command string) {
 	for _, pod := range pods {
+		isVM := checkIfVM(pod)
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
-			if container.Name != "istio-proxy" {
+			if container.Name != "istio-proxy" && !isVM {
+				// if we don't have istio-proxy container, and we're not running as a VM, agent isn't running
 				continue
 			}
 
-			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "pilot-agent request GET config_dump?include_eds=true"); err == nil {
-				fname := outputPath(workDir, c, pod, "proxy-config.json")
+			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
+				fname := podOutputPath(workDir, c, pod, filename)
 				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-					scopes.Framework.Errorf("Unable to write config dump for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
+					scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
 				}
 			} else {
-				scopes.Framework.Errorf("Unable to get istio-proxy config dump for pod: %s/%s for: %v", pod.Namespace, pod.Name, err)
-			}
-
-			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "pilot-agent request GET clusters"); err == nil {
-				fname := outputPath(workDir, c, pod, "proxy-clusters.txt")
-				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-					scopes.Framework.Errorf("Unable to write clusters for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
-				}
-			} else {
-				scopes.Framework.Errorf("Unable to get istio-proxy clusters for pod: %s/%s", pod.Namespace, pod.Name)
+				scopes.Framework.Errorf("Unable to get execute command %q on pod: %s/%s for: %v", command, pod.Namespace, pod.Name, err)
 			}
 		}
 	}
@@ -296,66 +329,36 @@ func checkIfVM(pod corev1.Pod) bool {
 	return false
 }
 
-func DumpDebug(c cluster.Cluster, workDir string, endpoint string) {
-	cp, istiod, err := getControlPlane(c)
+func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint string) {
+	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
 	if err != nil {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
 	}
-	outPath := outputPath(workDir, c, istiod, endpoint)
-	out, err := dumpDebug(cp, istiod, fmt.Sprintf("/debug/%s", endpoint))
+	args := []string{"x", "internal-debug", "--all", endpoint}
+	if ctx.Settings().Revision != "" {
+		args = append(args, "--revision", ctx.Settings().Revision)
+	}
+	scopes.Framework.Debugf("dump %v: %v", endpoint, args)
+	stdout, _, err := ik.Invoke(args)
 	if err != nil {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
 	}
-	if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
+	outputs := map[string]string{}
+	if err := json.Unmarshal([]byte(stdout), &outputs); err != nil {
 		scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 		return
+	}
+	for istiod, out := range outputs {
+		outPath := outputPath(workDir, c, istiod, endpoint)
+		if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
+			scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
+			return
+		}
 	}
 }
 
 func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
-	cp, istiod, err := getControlPlane(c)
-	if err != nil {
-		scopes.Framework.Warnf("failed dumping ndsz: %v", err)
-		return
-	}
-	for _, p := range pods {
-		endpoint := fmt.Sprintf("/debug/ndsz?proxyID=%s.%s", p.Name, p.Namespace)
-		out, err := dumpDebug(cp, istiod, endpoint)
-		if err != nil {
-			scopes.Framework.Warnf("failed dumping ndsz: %v", err)
-			continue
-		}
-		// dump to the cluster directory for the proxy
-		outPath := outputPath(workDir, c, p, "ndsz.json")
-		if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
-			scopes.Framework.Warnf("failed dumping ndsz: %v", err)
-		}
-	}
-}
-
-func dumpDebug(cp cluster.Cluster, istiodPod corev1.Pod, endpoint string) (string, error) {
-	// exec to the control plane to run nds gen
-	cmd := []string{"pilot-discovery", "request", "GET", endpoint}
-
-	out, _, err := cp.PodExec(istiodPod.Name, istiodPod.Namespace, "discovery", strings.Join(cmd, " "))
-	if err != nil {
-		return "", err
-	}
-	return out, nil
-}
-
-func getControlPlane(cluster cluster.Cluster) (cluster.Cluster, corev1.Pod, error) {
-	// fetch istiod from the control-plane cluster
-	cp := cluster.Primary()
-	// TODO use namespace from framework
-	istiodPods, err := cp.PodsForSelector(context.TODO(), "istio-system", "istio=pilot")
-	if err != nil {
-		return nil, corev1.Pod{}, err
-	}
-	if len(istiodPods.Items) == 0 {
-		return nil, corev1.Pod{}, fmt.Errorf("0 pods found for istio=pilot in %s", cp.Name())
-	}
-	return cp, istiodPods.Items[0], nil
+	dumpProxyCommand(c, pods, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 GET /debug/ndsz")
 }
