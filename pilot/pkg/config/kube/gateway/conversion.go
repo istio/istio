@@ -943,6 +943,7 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[RouteKey][]st
 		}
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
+			gs.Addresses = make([]k8s.GatewayAddress, 0, len(external))
 			for _, addr := range external {
 				ip := k8s.IPAddressType
 				gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
