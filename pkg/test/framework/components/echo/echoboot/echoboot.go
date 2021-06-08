@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 
+	"istio.io/pkg/log"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v3"
@@ -345,9 +347,12 @@ func (b builder) validateTemplates(perClusterConfig echo.Config) bool {
 	for _, subset := range perClusterConfig.Subsets {
 		expected.Insert(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}
+	log.Info("expect %v", expected.SortedList())
 	if b.templates == nil || b.templates[perClusterConfig.Cluster.Name()] == nil {
 		return len(expected) == 0
 	}
+	log.Info("got %v", b.templates[perClusterConfig.Cluster.Name()].SortedList())
+
 	return b.templates[perClusterConfig.Cluster.Name()].SupersetOf(expected)
 }
 
