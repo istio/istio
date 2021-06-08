@@ -14,7 +14,10 @@
 
 package sets
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestNewSet(t *testing.T) {
 	elements := []string{"a", "b", "c"}
@@ -78,7 +81,9 @@ func TestSupersetOf(t *testing.T) {
 		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())
 	}
 
-	if !NewSet().SupersetOf(NewSet()) {
+	s3 := NewSet()
+	if !NewSet().SupersetOf(s3) {
+		fmt.Printf("%q\n", s3.SortedList()[0])
 		t.Errorf("%v should be superset of empty set", s1.SortedList())
 	}
 }
