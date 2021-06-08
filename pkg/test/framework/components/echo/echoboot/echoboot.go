@@ -58,7 +58,7 @@ func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder 
 	templates, err := b.injectionTemplates()
 	if err != nil {
 		// deal with this when we call Build() to avoid making the NewBuilder signature unwieldy
-		b.errs = multierror.Append(b.errs, err)
+		b.errs = multierror.Append(b.errs, fmt.Errorf("failed finding injection templates on clusters %v", err))
 	}
 	b.templates = templates
 
@@ -168,11 +168,12 @@ func (b builder) Build() (out echo.Instances, err error) {
 
 // injectionTemplates lists the set of templates for each Kube cluster
 func (b builder) injectionTemplates() (map[string]sets.Set, error) {
+	ns := "istio-system"
 	i, err := istio.Get(b.ctx)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		scopes.Framework.Infof("%v; defaulting to istio-system namespace for injection template discovery")
+		ns = i.Settings().SystemNamespace
 	}
-	ns := i.Settings().SystemNamespace
 
 	out := map[string]sets.Set{}
 	for _, c := range b.ctx.Clusters().Kube() {
