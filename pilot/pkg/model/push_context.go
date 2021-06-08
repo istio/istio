@@ -1801,9 +1801,7 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 	foundInternal := sets.NewSet()
 	foundExternal := sets.NewSet()
 	warnings := []string{}
-	known := map[host.Name]struct{}{}
 	for _, g := range gwsvcs {
-		known[host.Name(g)] = struct{}{}
 		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
 		if !f {
 			otherNamespaces := []string{}
