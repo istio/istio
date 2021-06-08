@@ -85,6 +85,8 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			continue
 		}
 		cpw := &EnvoyFilterConfigPatchWrapper{
+			Name:      local.Name,
+			Namespace: local.Namespace,
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
