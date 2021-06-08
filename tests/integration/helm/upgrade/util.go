@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -52,10 +53,20 @@ global:
 
 revision: canary
 `
+	stableLabelValues = `
+global:
+  hub: %s
+  tag: %s
+
+revision: %s
+revisionTags: %s
+`
 	tarGzSuffix = ".tar.gz"
 
+	prodLabel = "prod"
 	revisionLabel       = "canary"
 	revisionChartSuffix = "-canary"
+	revisionStableLabel = "latest"
 )
 
 // previousChartPath is path of Helm charts for previous Istio deployments.
@@ -141,6 +152,19 @@ func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) s
 	return overrideValuesFile
 }
 
+// getValuesOverrides returns the the values file created to pass into Helm override default values
+// for the hub and tag
+func getValuesOverridesStableLabels(ctx framework.TestContext, valuesStr, hub, tag, revision, revisionTag string) string {
+	workDir := ctx.CreateTmpDirectoryOrFail("helm")
+	overrideValues := fmt.Sprintf(valuesStr, hub, tag, revision, revisionTag)
+	overrideValuesFile := filepath.Join(workDir, "values.yaml")
+	if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+		ctx.Fatalf("failed to write iop cr file: %v", err)
+	}
+
+	return overrideValuesFile
+}
+
 // performInPlaceUpgradeFunc returns the provided function necessary to run inside of a integration test
 // for upgrade capability
 func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContext) {
@@ -218,6 +242,52 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		}
 
 		overrideValuesFile = getValuesOverrides(t, revisionValues, s.Hub, s.Tag)
+		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, revisionChartSuffix, overrideValuesFile)
+		helmtest.VerifyInstallation(t, cs)
+
+		newClient, newServer := sanitycheck.SetupTrafficTest(t, t, revisionLabel)
+		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
+
+		// now check that we are compatible with N-1 proxy with N proxy
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+	}
+}
+
+// performStableLabelRevisionUpgradeFunc returns the provided function necessary to run inside of a integration test
+// for upgrade capability with stable label revision upgrades
+func performStableLabelRevisionUpgradeFunc(previousVersion string) func(framework.TestContext) {
+	return func(t framework.TestContext) {
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousVersion))
+
+		//t.ConditionalCleanup(func() {
+		//	err := deleteIstioRevision(h, revisionChartSuffix)
+		//	if err != nil {
+		//		t.Fatalf("could not delete istio: %v", err)
+		//	}
+		//	err = deleteIstio(cs, h)
+		//	if err != nil {
+		//		t.Fatalf("could not delete istio: %v", err)
+		//	}
+		//})
+
+		revisionTag := strings.ReplaceAll(previousVersion, ".", "-")
+		overrideValuesFile := getValuesOverridesStableLabels(t, defaultValues, gcrHub, previousVersion, prodLabel, revisionTag)
+		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
+		helmtest.VerifyInstallation(t, cs)
+
+		oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
+
+		// now upgrade istio to the latest version found in this branch
+		// use the command line or environmental vars from the user to set
+		// the hub/tag
+		s, err := image.SettingsFromCommandLine()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		overrideValuesFile = getValuesOverridesStableLabels(t, revisionValues, s.Hub, s.Tag, revisionLabel, revisionStableLabel)
 		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, revisionChartSuffix, overrideValuesFile)
 		helmtest.VerifyInstallation(t, cs)
 
