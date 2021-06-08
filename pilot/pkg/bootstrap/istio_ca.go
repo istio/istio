@@ -303,8 +303,8 @@ func handleEvent(s *Server) {
 		return
 	}
 
-	err = s.CA.GetCAKeyCertBundle().UpdateNewPluggedInCACerts(
-		path.Join(LocalCertDir.Get(), "/ca-cert.pem"),
+	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
+		path.Join(LocalCertDir.Get(), "ca-cert.pem"),
 		path.Join(LocalCertDir.Get(), "ca-key.pem"),
 		path.Join(LocalCertDir.Get(), "cert-chain.pem"),
 		path.Join(LocalCertDir.Get(), "root-cert.pem"))
@@ -446,7 +446,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 	}
 
-	if features.EnableAvoidRestartIstiod {
+	if features.AutoReloadPluginCerts {
 		s.initCACertsWatcher()
 	}
 

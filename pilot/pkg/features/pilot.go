@@ -478,8 +478,8 @@ var (
 	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
 		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
 
-	EnableAvoidRestartIstiod = env.RegisterBoolVar(
-		"PILOT_ENABLE_AVOID_RESTART_ISTIOD",
+	AutoReloadPluginCerts = env.RegisterBoolVar(
+		"PILOT_AUTO_RELOAD_PLUGIN_CERTS",
 		false,
 		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it").Get()
