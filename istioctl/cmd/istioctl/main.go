@@ -51,6 +51,14 @@ func EnableKlogWithCobra() {
 	klog.InitFlags(nil)
 	goflag.Parse()
 	// just add --v= flag to pflags.
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	gf := goflag.CommandLine.Lookup("v")
+	pflag.CommandLine.AddFlag(pflag.PFlagFromGoFlag(
+		&goflag.Flag{
+			Name:     "vklog",
+			Value:    gf.Value,
+			DefValue: gf.DefValue,
+			Usage:    gf.Usage + ". Like -v flag. ex: --vklog=9",
+		}))
+
 	klog.SetLogger(nil)
 }
