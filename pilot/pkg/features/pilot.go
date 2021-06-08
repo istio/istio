@@ -507,8 +507,9 @@ var (
 		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
 
 	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
-	EnableAvoidRestartIstiod = env.RegisterBoolVar(
-		"PILOT_ENABLE_AVOID_RESTART_ISTIOD",
+
+	AutoReloadPluginCerts = env.RegisterBoolVar(
+		"PILOT_AUTO_RELOAD_PLUGIN_CERTS",
 		false,
 		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it").Get()

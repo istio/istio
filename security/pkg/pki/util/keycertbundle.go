@@ -204,8 +204,8 @@ func (b *KeyCertBundle) CertOptions() (*CertOptions, error) {
 	return opts, nil
 }
 
-// UpdateNewPluggedInCACerts Verifies and updates KeyCertBundle with new certs
-func (b *KeyCertBundle) UpdateNewPluggedInCACerts(certFile, privKeyFile, certChainFile, rootCertFile string) error {
+// UpdateVerifiedKeyCertBundleFromFile Verifies and updates KeyCertBundle with new certs
+func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) error {
 	certBytes, err := ioutil.ReadFile(certFile)
 	if err != nil {
 		return err
