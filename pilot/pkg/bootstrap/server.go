@@ -792,23 +792,34 @@ func (s *Server) addTerminatingStartFunc(fn server.Component) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
+	start := time.Now()
+	log.Info("Waiting for caches to be synced")
 	if !cache.WaitForCacheSync(stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
+	log.Infof("All controller caches have been synced up in %v", time.Since(start))
+
 	// At this point, we know that all update events of the initial state-of-the-world have been
-	// received. Capture how many updates there are
-	expected := s.XDSServer.InboundUpdates.Load()
-	// Now, we wait to ensure we have committed at least this many updates. This avoids a race
+	// received. We wait to ensure we have committed at least this many updates. This avoids a race
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
-	if !cache.WaitForCacheSync(stop, func() bool {
-		return s.XDSServer.CommittedUpdates.Load() >= expected
-	}) {
+	expected := s.XDSServer.InboundUpdates.Load()
+	if !cache.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
 		log.Errorf("Failed waiting for push context initialization")
 		return false
 	}
 
+	return true
+}
+
+// pushContextReady indicates whether pushcontext has processed all inbound config updates.
+func (s *Server) pushContextReady(expected int64) bool {
+	committed := s.XDSServer.CommittedUpdates.Load()
+	if committed < expected {
+		log.Debugf("Waiting for pushcontext to process inbound updates, inbound: %v, committed : %v", expected, committed)
+		return false
+	}
 	return true
 }
 

@@ -142,8 +142,6 @@ func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
 
-	out := make([]*model.Service, 0)
-
 	var resolution model.Resolution
 	switch serviceEntry.Resolution {
 	case networking.ServiceEntry_NONE:
@@ -193,9 +191,8 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
-	out = append(out, buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)...)
-	return out
+	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
 func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,

@@ -35,10 +35,25 @@ status:
   listeners:
   - conditions:
     - lastTransitionTime: fake
-      message: No error found
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
       reason: ListenerReady
       status: "True"
       type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
     hostname: '*.example.com'
     port: 80
     protocol: HTTP
