@@ -488,6 +488,7 @@ messages:
     level: Warning
     description: "Application pods should not run as user ID (UID) 1337"
     template: "User ID (UID) 1337 is reserved for the sidecar proxy."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0144/"
 
   - name: "ConflictingGateways"
     code: IST0145
