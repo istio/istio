@@ -241,7 +241,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
 	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
 	configureCmd.PersistentFlags().StringVar(&workloadIP, "workloadIP", "", "IP address of the workload used in the WorkloadEntry")
-	configureCmd.PersistentFlags().StringVar(&outputCerts, "outputCerts", "/etc/certs", "The output directory for the key and certificate." +
+	configureCmd.PersistentFlags().StringVar(&outputCerts, "outputCerts", "/etc/certs", "The output directory for the key and certificate."+
 		" Must be set for VMs using provisioning certificates")
 
 	opts.AttachControlPlaneFlags(configureCmd)
