@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	uuid "github.com/google/uuid"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -46,7 +46,7 @@ func TestClientTracing(t *testing.T) {
 				ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
 					retry.UntilSuccessOrFail(ctx, func() error {
 						// Send test traffic with a trace header.
-						id := uuid.NewV4().String()
+						id := uuid.NewString()
 						extraHeader := map[string][]string{
 							tracing.TraceHeader: {id},
 						}
