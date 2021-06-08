@@ -303,6 +303,7 @@ func (l *lruCache) ClearAll() {
 	defer l.mu.Unlock()
 	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
+	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
 	size(l.store.Len())
 }
 
