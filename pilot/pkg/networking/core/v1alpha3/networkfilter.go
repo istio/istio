@@ -56,7 +56,7 @@ func buildInboundNetworkFilters(push *model.PushContext, instance *model.Service
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
 func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy, node *model.Proxy) *listener.Filter {
-	accessLogBuilder.setTCPAccessLog(push.Mesh, config, node)
+	accessLogBuilder.setTCPAccessLog(push.Mesh, config)
 
 	tcpFilter := &listener.Filter{
 		Name:       wellknown.TCPProxy,

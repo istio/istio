@@ -1307,7 +1307,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
-	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager, listenerOpts.proxy)
+	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager)
 
 	configureTracing(listenerOpts, connectionManager)
 
@@ -1423,7 +1423,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		DeprecatedV1:     deprecatedV1,
 	}
 
-	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener, opts.proxy)
+	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener)
 
 	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)

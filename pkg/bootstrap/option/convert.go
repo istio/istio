@@ -101,7 +101,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), &model.Proxy{}),
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -114,25 +114,25 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		}
 		if len(res.GetResourceName()) > 0 {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), &model.Proxy{}))
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
 		}
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), &model.Proxy{}),
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 		tlsContext.Sni = tls.Sni
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, &model.Proxy{}))
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, &model.Proxy{}),
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
