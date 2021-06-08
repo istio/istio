@@ -77,6 +77,10 @@ func TestSupersetOf(t *testing.T) {
 	if !s1.SupersetOf(s2) {
 		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())
 	}
+
+	if !NewSet().SupersetOf(NewSet()) {
+		t.Errorf("%v should be superset of empty set", s1.SortedList())
+	}
 }
 
 func TestEquals(t *testing.T) {

@@ -126,7 +126,7 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 		}
 		if !b.validateTemplates(perClusterConfig, c) {
 			if c.Kind() == cluster.Kubernetes {
-				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", perClusterConfig.FQDN())
+				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", c.Name(), perClusterConfig.FQDN())
 			}
 			continue
 		}
@@ -344,9 +344,11 @@ func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
 	for _, subset := range config.Subsets {
 		expected.Insert(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
 	}
+	scopes.Framework.Infof("expect %v", expected.SortedList())
 	if b.templates == nil || b.templates[c.Name()] == nil {
 		return len(expected) == 0
 	}
+	scopes.Framework.Infof("got %v", b.templates[c.Name()].SortedList())
 
 	return b.templates[c.Name()].SupersetOf(expected)
 }
