@@ -416,9 +416,20 @@ func buildAutoMtlsSettings(
 		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
 			return tls, userSupplied
 		}
-		// Update TLS settings for ISTIO_MUTUAL.
-		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI.
-		// user specified SNIs in the istio mtls settings are useful when routing via gateways.
+		// For backward compatibility, use metadata certs if provided.
+		if hasMetadataCerts(proxy.Metadata) {
+			// When building Mutual TLS settings, we should always user supplied SubjectAltNames and SNI
+			// in destination rule. The Service Accounts and auto computed SNI should only be used for
+			// ISTIO_MUTUAL.
+			return buildMutualTLS(tls.SubjectAltNames, tls.Sni, proxy), userSupplied
+		}
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return tls, userSupplied
+		}
+		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
+		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
+		// are useful when routing via gateways. Use Service Acccounts if Subject Alt names
+		// are not specified in TLS settings.
 		sniToUse := tls.Sni
 		if len(sniToUse) == 0 {
 			sniToUse = sni
@@ -426,13 +437,6 @@ func buildAutoMtlsSettings(
 		subjectAltNamesToUse := tls.SubjectAltNames
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
-		}
-		// For backward compatibility, use metadata certs if provided.
-		if hasMetadataCerts(proxy.Metadata) {
-			return buildMutualTLS(tls.SubjectAltNames, tls.Sni, proxy), userSupplied
-		}
-		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return tls, userSupplied
 		}
 		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
 	}
