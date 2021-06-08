@@ -179,8 +179,6 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 func reportGatewayCondition(obj config.Config, conditions map[string]*condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
-		// TODO implement addresses
-		gs.Addresses = []k8s.GatewayAddress{}
 		gs.Conditions = setConditions(obj.Generation, gs.Conditions, conditions)
 		return gs
 	})

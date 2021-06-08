@@ -9,7 +9,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: default
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -33,6 +33,8 @@ metadata:
   name: http
   namespace: default
 spec:
+  gateways:
+    allow: All
   hostnames: ["first.domain.example"]
   rules:
   - matches:
@@ -68,6 +70,8 @@ metadata:
   labels:
     selected: "yes"
 spec:
+  gateways:
+    allow: All
   rules:
   - forwardTo:
     - serviceName: httpbin

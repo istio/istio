@@ -9,7 +9,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: default
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -19,6 +19,37 @@ spec:
     routes:
       namespaces:
         from: All
+      kind: HTTPRoute
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: invalid-service
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+  - hostname: "*.example"
+    port: 80
+    protocol: HTTP
+    routes:
+      kind: HTTPRoute
+  addresses:
+  - value: fake-service.com
+    type: NamedAddress
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: target-port-reference
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+  - hostname: "*.example"
+    port: 8080 # Test service has port 80 with targetPort 8080
+    protocol: HTTP
+    routes:
       kind: HTTPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
@@ -42,6 +73,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: invalid-tls
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -64,6 +96,8 @@ metadata:
   namespace: default
 spec:
   hostnames: ["first.domain.example"]
+  gateways:
+    allow: All
   rules:
   - filters:
     - type: ExtensionRef
@@ -77,6 +111,8 @@ metadata:
   name: invalid-backendRef
   namespace: default
 spec:
+  gateways:
+    allow: All
   hostnames: ["first.domain.example"]
   rules:
   - forwardTo:
