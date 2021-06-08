@@ -31,6 +31,7 @@ import (
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -115,7 +116,6 @@ func NewValidatingWebhookController(client kube.Client,
 type eventType string
 
 const (
-	quitEvent   eventType = "quitEvent"
 	retryEvent  eventType = "retryEvent"
 	updateEvent eventType = "updateEvent"
 )
@@ -225,11 +225,11 @@ func newController(
 	webhookInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				opts.FieldSelector = fields.OneTermEqualSelector("metadata.name", c.webhookName).String()
 				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
+				opts.FieldSelector = fields.OneTermEqualSelector("metadata.name", c.webhookName).String()
 				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
@@ -243,19 +243,13 @@ func newController(
 
 func (c *Controller) Run(stop <-chan struct{}) {
 	defer c.queue.ShutDown()
-	c.client.RunAndWait(stop)
 	go c.webhookInformer.Run(stop)
 	if !cache.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
 		return
 	}
 	go c.startCaBundleWatcher(stop)
 	go c.runWorker()
-
 	<-stop
-	c.queue.Add(&reconcileRequest{
-		event:       quitEvent,
-		description: "quitting validation controller",
-	})
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
@@ -294,21 +288,11 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		return true
 	}
 
-	// return false when leader lost in case go routine leak.
-	if req.event == quitEvent {
-		c.queue.Forget(req)
-		return false
-	}
-
-	if retry, err := c.reconcileRequest(req); retry || err != nil {
-		if retry {
-			c.queue.AddRateLimited(&reconcileRequest{
-				event:       retryEvent,
-				description: "retry reconcile request",
-			})
-			return true
-		}
-		c.queue.AddRateLimited(obj)
+	if err := c.reconcileRequest(req); err != nil {
+		c.queue.AddRateLimited(&reconcileRequest{
+			event:       retryEvent,
+			description: "retry reconcile request",
+		})
 		utilruntime.HandleError(err)
 	} else {
 		c.queue.Forget(obj)
@@ -319,31 +303,34 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 // reconcile the desired state with the kube-apiserver.
 // the returned results indicate if the reconciliation should be retried and/or
 // if there was an error.
-func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
+func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
 	_, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
-	if err != nil && kubeErrors.IsNotFound(err) {
-		scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
-		return false, nil
+	if err != nil {
+		if kubeErrors.IsNotFound(err) {
+			scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
+			return nil
+		}
+		return err
 	}
 
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
-	failurePolicy := kubeApiAdmission.Ignore
-	ready := c.readyForFailClose()
-	if ready {
-		failurePolicy = kubeApiAdmission.Fail
-	}
 	caBundle, err := c.loadCABundle()
 	if err != nil {
 		scope.Errorf("Failed to load CA bundle: %v", err)
 		reportValidationConfigLoadError(err.(*configError).Reason())
 		// no point in retrying unless cert file changes.
-		return !ready, nil
+		return nil
 	}
-	return !ready, c.updateValidatingWebhookConfiguration(c.webhookName, caBundle, failurePolicy)
+	failurePolicy := kubeApiAdmission.Ignore
+	ready := c.readyForFailClose()
+	if ready {
+		failurePolicy = kubeApiAdmission.Fail
+	}
+	return c.updateValidatingWebhookConfiguration(c.webhookName, caBundle, failurePolicy)
 }
 
 func (c *Controller) readyForFailClose() bool {
