@@ -97,4 +97,7 @@ var (
 		"Envoy health status port value").Get()
 	envoyPrometheusPortEnv = env.RegisterIntVar("ENVOY_PROMETHEUS_PORT", 15090,
 		"Envoy prometheus redirection port value").Get()
+
+	grpcBootstrapEnv = env.RegisterStringVar("GRPC_XDS_BOOTSTRAP", "",
+		"Path where gRPC expects to read a bootstrap file. Agent will generate one if set.").Get()
 )

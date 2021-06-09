@@ -17,6 +17,7 @@ package istioagent
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,8 +29,16 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/file"
+
+	"google.golang.org/grpc/credentials/tls/certprovider/pemfile"
+
+	"google.golang.org/protobuf/types/known/structpb"
+
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 
@@ -177,6 +186,9 @@ type AgentOptions struct {
 
 	// Cloud platform
 	Platform platform.Environment
+
+	// GRPCBootstrapPath if set will generate a file compatible with GRPC_XDS_BOOTSTRAP
+	GRPCBootstrapPath string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -192,10 +204,10 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
+func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	provCert, err := a.FindRootCAForXDS()
 	if err != nil {
-		return fmt.Errorf("failed to find root CA cert for XDS: %v", err)
+		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
 	}
 
 	if provCert == "" {
@@ -211,7 +223,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	}
 	log.Infof("Pilot SAN: %v", pilotSAN)
 
-	node, err := bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
+	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
 		ID:                  a.cfg.ServiceNode,
 		Envs:                os.Environ(),
 		Platform:            a.cfg.Platform,
@@ -225,6 +237,10 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 		EnvoyPrometheusPort: a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:     a.cfg.EnvoyStatusPort,
 	})
+}
+
+func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
+	node, err := a.generateNodeMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
 	}
@@ -296,6 +312,62 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	} else {
 		close(a.envoyWaitCh)
 	}
+	return nil
+}
+
+func (a *Agent) generateGRPCBootstrap() error {
+	// generate metadata
+	node, err := a.generateNodeMetadata()
+	if err != nil {
+		return fmt.Errorf("failed generating node metadata: %v", err)
+	}
+	xdsMeta, err := structpb.NewStruct(node.RawMetadata)
+	if err != nil {
+		return fmt.Errorf("failed converting to xds metadata: %v", err)
+	}
+
+	// TODO secure control plane channel (most likely JWT + TLS, but possibly allow mTLS)
+	serverURI := a.proxyConfig.DiscoveryAddress
+	if a.cfg.ProxyXDSViaAgent {
+		serverURI = "localhost:15010"
+	}
+
+	// TODO use struct from gRPC lib if they ever exist
+	data := map[string]interface{}{
+		// TODO grab this port from somewhere else
+		"xds_servers": map[string]interface{}{
+			"server_uri": serverURI,
+			// TODO channel_creds
+		},
+		"node": corev3.Node{
+			Id:       node.ID,
+			Locality: node.Locality,
+			Metadata: xdsMeta,
+		},
+	}
+
+	if a.secOpts.OutputKeyCertToDir != "" {
+		data["certificate_providers"] = map[string]interface{}{
+			"default": map[string]interface{}{
+				"plugin_name": "file_watcher",
+				"config": pemfile.Options{
+					KeyFile:  path.Join(a.secOpts.OutputKeyCertToDir, "key.pem"),
+					CertFile: path.Join(a.secOpts.OutputKeyCertToDir, "cert-chain.pem"),
+					RootFile: path.Join(a.secOpts.OutputKeyCertToDir, "root-cert.pem"),
+					// TODO use a more appropriate interval
+					RefreshDuration: 15 * time.Minute,
+				},
+			},
+		}
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	if err := file.AtomicWrite(a.cfg.GRPCBootstrapPath, jsonData, 0o644); err != nil {
+		return fmt.Errorf("failed writing to %s: %v", a.cfg.GRPCBootstrapPath, err)
+	}
+
 	return nil
 }
 
@@ -385,7 +457,13 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}
 	}
 
-	if !a.envoyOpts.TestOnly {
+	if a.cfg.GRPCBootstrapPath != "" {
+		if err := a.generateGRPCBootstrap(); err != nil {
+			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
+		}
+	}
+
+	if !a.envoyOpts.NoEnvoy {
 		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)

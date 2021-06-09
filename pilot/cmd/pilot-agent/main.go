@@ -66,6 +66,7 @@ var (
 	templateFile           string
 	loggingOptions         = log.DefaultOptions()
 	outlierLogPath         string
+	noEnvoy                bool
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -80,7 +81,7 @@ var (
 
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
-		Short: "Envoy proxy agent",
+		Short: "XDS proxy agent",
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			// Allow unknown flags for backward-compatibility.
 			UnknownFlags: true,
@@ -133,6 +134,7 @@ var (
 				NodeIPs:           proxy.IPAddresses,
 				Sidecar:           proxy.Type == model.SidecarProxy,
 				OutlierLogPath:    outlierLogPath,
+				NoEnvoy:           noEnvoy,
 			}
 			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
@@ -185,6 +187,7 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+	proxyCmd.PersistentFlags().BoolVar(&noEnvoy, "no-proxy", false, "disables envoy proxy")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

@@ -162,7 +162,7 @@ values:
 `,
 		},
 		{
-			desc: "Some components Disabled",
+			desc: "Some components NoEnvoy",
 			valueYAML: `
 pilot:
   enabled: true

@@ -53,7 +53,7 @@ type ProxyConfig struct {
 	Concurrency            int32
 
 	// Disables all envoy agent features (for unit testing)
-	TestOnly bool
+	NoEnvoy bool
 }
 
 // NewProxy creates an instance of the proxy control commands

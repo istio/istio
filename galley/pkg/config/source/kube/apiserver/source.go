@@ -205,7 +205,7 @@ func (s *Source) startWatchers() {
 		scope.Source.Infof("  Source:       %s", r.Resource().GroupVersionKind())
 		scope.Source.Infof("  Name:  		 %s", r.Name())
 		scope.Source.Infof("  Built-in:     %v", a.IsBuiltIn())
-		scope.Source.Infof("  Disabled:     %v", r.IsDisabled())
+		scope.Source.Infof("  NoEnvoy:     %v", r.IsDisabled())
 		if !a.IsBuiltIn() {
 			scope.Source.Infof("  Found:  %v", found)
 		}

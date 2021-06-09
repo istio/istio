@@ -218,7 +218,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	dir := t.TempDir()
 	ia := NewAgent(&proxyConfig, &AgentOptions{
 		XdsUdsPath: filepath.Join(dir, "XDS"),
-	}, secOpts, envoy.ProxyConfig{TestOnly: true})
+	}, secOpts, envoy.ProxyConfig{NoEnvoy: true})
 	t.Cleanup(func() {
 		ia.Close()
 	})

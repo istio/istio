@@ -43,6 +43,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		EnvoyStatusPort:          envoyStatusPortEnv,
 		EnvoyPrometheusPort:      envoyPrometheusPortEnv,
 		Platform:                 platform.Discover(),
+		GRPCBootstrapPath:        grpcBootstrapEnv,
 	}
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {
