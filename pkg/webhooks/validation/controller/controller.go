@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -306,7 +307,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	_, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
+	configuration, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
 			scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
@@ -330,7 +331,7 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	if ready {
 		failurePolicy = kubeApiAdmission.Fail
 	}
-	return c.updateValidatingWebhookConfiguration(c.webhookName, caBundle, failurePolicy)
+	return c.updateValidatingWebhookConfiguration(configuration, caBundle, failurePolicy)
 }
 
 func (c *Controller) readyForFailClose() bool {
@@ -387,22 +388,8 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
-func (c *Controller) updateValidatingWebhookConfiguration(webhookName string, caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
-	current, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), webhookName, metav1.GetOptions{})
-	if err != nil {
-		if kubeErrors.IsNotFound(err) {
-			scope.Warn(err.Error())
-			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
-			return nil
-		}
-
-		scope.Warnf("Failed to get validatingwebhookconfiguration %q: %v",
-			webhookName, err)
-		reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
-	}
-
-	updated := current.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
-
+func (c *Controller) updateValidatingWebhookConfiguration(current *admissionv1.ValidatingWebhookConfiguration, caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
+	updated := current.DeepCopy()
 	for i := range updated.Webhooks {
 		updated.Webhooks[i].ClientConfig.CABundle = caBundle
 		updated.Webhooks[i].FailurePolicy = &failurePolicy
@@ -413,19 +400,19 @@ func (c *Controller) updateValidatingWebhookConfiguration(webhookName string, ca
 			ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
-				webhookName, failurePolicy, updated.ResourceVersion, err)
+				updated.Name, failurePolicy, updated.ResourceVersion, err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
 
 		scope.Infof("Successfully updated validatingwebhookconfiguration %v (failurePolicy=%v,resourceVersion=%v)",
-			webhookName, failurePolicy, latest.ResourceVersion)
+			updated.Name, failurePolicy, latest.ResourceVersion)
 		reportValidationConfigUpdate()
 		return nil
 	}
 
 	scope.Infof("validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v) is up-to-date. No change required.",
-		webhookName, failurePolicy, current.ResourceVersion)
+		current.Name, failurePolicy, current.ResourceVersion)
 
 	return nil
 }
