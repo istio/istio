@@ -1773,7 +1773,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
-	return MergeGateways(gatewayInstances)
+	return MergeGateways(gatewayInstances, proxy)
 }
 
 // GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers

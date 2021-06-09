@@ -77,6 +77,13 @@ type MergedGateway struct {
 
 	// PortMap defines a mapping of targetPorts to the set of Service ports that reference them
 	PortMap GatewayPortMap
+
+	// VerifiedCertificateReferences contains a set of all credentialNames referenced by gateways *in the same namespace as the proxy*.
+	// These are considered "verified", since there is mutually agreement from the pod, Secret, and Gateway, as all
+	// reside in the same namespace and trust boundary.
+	// Note: Secrets that are not referenced by any Gateway, but are in the same namespace as the pod, are explicitly *not*
+	// included. This ensures we don't give permission to unexpected secrets, such as the citadel root key/cert.
+	VerifiedCertificateReferences sets.Set
 }
 
 var (
@@ -112,7 +119,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
-func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
+func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
 	mergedServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
@@ -120,6 +127,7 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
+	verifiedCertificateReferences := sets.NewSet()
 	tlsHostsByPort := map[uint32]sets.Set{} // port -> host set
 	autoPassthrough := false
 
@@ -149,6 +157,9 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
+			if cn := s.GetTls().GetCredentialName(); proxy.VerifiedIdentity != nil && gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && cn != "" {
+				verifiedCertificateReferences.Insert(cn)
+			}
 			for _, resolvedPort := range resolvePorts(s.Port.Number, gwAndInstance.instances, gwAndInstance.legacyGatewaySelector) {
 				routeName := gatewayRDSRouteName(s, resolvedPort, gatewayConfig)
 				if s.Tls != nil {
@@ -268,6 +279,7 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 		ServersByRouteName:              serversByRouteName,
 		ContainsAutoPassthroughGateways: autoPassthrough,
 		PortMap:                         getTargetPortMap(serversByRouteName),
+		VerifiedCertificateReferences:   verifiedCertificateReferences,
 	}
 }
 
