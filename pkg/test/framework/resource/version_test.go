@@ -21,49 +21,63 @@ import (
 
 func TestCompareIstioVersion(t *testing.T) {
 	tcs := []struct {
-		a, b   IstioVersion
+		a, b   string
 		result int
 	}{
 		{
-			IstioVersion("1.4"),
-			IstioVersion("1.5"),
+			"1.4",
+			"1.5",
 			-1,
 		},
 		{
-			IstioVersion("1.9.0"),
-			IstioVersion("1.10"),
+			"1.9.0",
+			"1.10",
 			-1,
 		},
 		{
-			IstioVersion("1.8.0"),
-			IstioVersion("1.8.1"),
+			"1.8.0",
+			"1.8.1",
 			-1,
 		},
 		{
-			IstioVersion("1.9.1"),
-			IstioVersion("1.9.1"),
+			"1.9.1",
+			"1.9.1",
 			0,
 		},
 		{
-			IstioVersion("1.12"),
-			IstioVersion("1.3"),
+			"1.12",
+			"1.3",
 			1,
 		},
 		{
-			IstioVersion(""),
-			IstioVersion(""),
+			"",
+			"",
 			0,
 		},
 		{
-			IstioVersion(""),
-			IstioVersion("1.9"),
+			"",
+			"1.9",
+			1,
+		},
+		{
+			// Raw "1.9" refers to latest patch version and should be considered greater than "1.9.0"
+			"1.9",
+			"1.9.0",
 			1,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(fmt.Sprintf("compare version %s->%s", tc.a, tc.b), func(t *testing.T) {
-			r := tc.a.Compare(tc.b)
+			a, err := NewIstioVersion(tc.a)
+			if err != nil {
+				t.Errorf("failed to parse %s as version: %v", tc.a, err)
+			}
+			b, err := NewIstioVersion(tc.b)
+			if err != nil {
+				t.Errorf("failed to parse %s as version: %v", tc.b, err)
+			}
+			r := a.Compare(b)
 			if r != tc.result {
 				t.Errorf("expected %d, got %d", tc.result, r)
 			}

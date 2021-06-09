@@ -18,15 +18,20 @@ kind: Gateway
 metadata:
   creationTimestamp: null
   name: gateway
-  namespace: default
+  namespace: istio-system
 spec: null
 status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Listeners valid, assigned to service(s) istio-ingressgateway.default.svc.domain.suffix,
-      istio-ingressgateway.not-default.svc.domain.suffix, example.com
-    reason: ListenersValid
-    status: "True"
+    message: 'Assigned to service(s) example.com:34000, example.com:80, istio-ingressgateway.istio-system.svc.domain.suffix:34000,
+      and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
+      to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
+      not found'
+    reason: AddressNotAssigned
+    status: "False"
     type: Ready
   - lastTransitionTime: fake
     message: Resources available
@@ -58,4 +63,27 @@ status:
     hostname: '*.domain.example'
     port: 80
     protocol: HTTP
+  - conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    port: 34000
+    protocol: TCP
 ---
