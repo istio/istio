@@ -860,7 +860,10 @@ func bootstrapConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			switch outputFormat {
+			case summaryOutput:
+				return configWriter.PrintVersionSummary()
 			case yamlOutput:
 				return configWriter.PrintBootstrapDump(outputFormat)
 			default:
@@ -872,7 +875,7 @@ func bootstrapConfigCmd() *cobra.Command {
 		},
 	}
 
-	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml")
+	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
 	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
