@@ -24,9 +24,15 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
+const (
+	defaultTimeoutDurationStr = "10m"
+)
+
 // New creates a rest.Config qne Clientset from the given kubeconfig path and Context.
 func New(kubeconfig, kubeContext string) (clientcmd.ClientConfig, *kubernetes.Clientset, error) {
-	clientConfig := kube.BuildClientCmd(kubeconfig, kubeContext)
+	clientConfig := kube.BuildClientCmd(kubeconfig, kubeContext, func(co *clientcmd.ConfigOverrides) {
+		co.Timeout = defaultTimeoutDurationStr
+	})
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, nil, err

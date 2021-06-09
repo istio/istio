@@ -53,7 +53,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
-func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
+func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.ConfigOverrides)) clientcmd.ClientConfig {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -74,6 +74,10 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 	configOverrides := &clientcmd.ConfigOverrides{
 		ClusterDefaults: clientcmd.ClusterDefaults,
 		CurrentContext:  context,
+	}
+
+	for _, fn := range overrides {
+		fn(configOverrides)
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
