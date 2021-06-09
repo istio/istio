@@ -41,6 +41,22 @@ func (s Set) Delete(items ...string) Set {
 	return s
 }
 
+// Union returns a set of objects that are in both s and s2
+// For example:
+// s = {a1, a2, a3}
+// s2 = {a1, a2, a4, a5}
+// s.Union(s2) = {a1, a2}
+// s2.Union(s) = {a1, a2}
+func (s Set) Union(s2 Set) Set {
+	result := NewSet()
+	for key := range s {
+		if _, exist := s2[key]; exist {
+			result.Insert(key)
+		}
+	}
+	return result
+}
+
 // Difference returns a set of objects that are not in s2
 // For example:
 // s = {a1, a2, a3}
@@ -55,6 +71,16 @@ func (s Set) Difference(s2 Set) Set {
 		}
 	}
 	return result
+}
+
+// SupersetOf returns true if s contains all elements of s2
+// For example:
+// s = {a1, a2, a3}
+// s2 = {a1, a2, a3, a4, a5}
+// s.SupersetOf(s2) = false
+// s2.SupersetOf(s) = true
+func (s Set) SupersetOf(s2 Set) bool {
+	return len(s2.Difference(s)) == 0
 }
 
 // UnsortedList returns the slice with contents in random order.

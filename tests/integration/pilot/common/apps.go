@@ -50,6 +50,8 @@ type EchoDeployments struct {
 	Headless echo.Instances
 	// StatefulSet echo app to be used by tests
 	StatefulSet echo.Instances
+	// ProxylessGRPC echo app to be used by tests
+	ProxylessGRPC echo.Instances
 	// Echo app to be used by tests, with no sidecar injected
 	Naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
@@ -62,15 +64,16 @@ type EchoDeployments struct {
 }
 
 const (
-	PodASvc        = "a"
-	PodBSvc        = "b"
-	PodCSvc        = "c"
-	PodTproxySvc   = "tproxy"
-	VMSvc          = "vm"
-	HeadlessSvc    = "headless"
-	StatefulSetSvc = "statefulset"
-	NakedSvc       = "naked"
-	ExternalSvc    = "external"
+	PodASvc          = "a"
+	PodBSvc          = "b"
+	PodCSvc          = "c"
+	PodTproxySvc     = "tproxy"
+	VMSvc            = "vm"
+	HeadlessSvc      = "headless"
+	StatefulSetSvc   = "statefulset"
+	ProxylessGRPCSvc = "proxyless-grpc"
+	NakedSvc         = "naked"
+	ExternalSvc      = "external"
 
 	externalHostname = "fake.external.com"
 )
@@ -213,6 +216,26 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
 
+	if !t.Clusters().IsMulticluster() {
+		builder = builder.
+			// TODO when agent handles secure control-plane connection for grpc-less, deploy to "remote" clusters
+			WithConfig(echo.Config{
+				Service:   ProxylessGRPCSvc,
+				Namespace: apps.Namespace,
+				Ports:     common.EchoPorts,
+				Subsets: []echo.SubsetConfig{
+					{
+						Annotations: map[echo.Annotation]*echo.AnnotationValue{
+							echo.SidecarInjectTemplates: {
+								Value: "grpc",
+							},
+						},
+					},
+				},
+				WorkloadOnlyPorts: common.WorkloadPorts,
+			})
+	}
+
 	echos, err := builder.Build()
 	if err != nil {
 		return err
@@ -226,6 +249,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.StatefulSet = echos.Match(echo.Service(StatefulSetSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
+	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
 	if !t.Settings().SkipVM {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
