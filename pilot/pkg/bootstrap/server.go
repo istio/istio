@@ -713,6 +713,9 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
+	if features.GRPCDebug {
+		admin.Register(s.grpcServer)
+	}
 }
 
 // initialize secureGRPCServer.
@@ -761,8 +764,9 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
-
-	admin.Register(s.secureGrpcServer)
+	if features.GRPCDebug {
+		admin.Register(s.secureGrpcServer)
+	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {

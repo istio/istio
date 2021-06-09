@@ -469,6 +469,9 @@ var (
 	// New behavior (true): we create listener 0.0.0.0_8080 and route http.8080. This has no conflicts; routes are 1:1 with listener.
 	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
 		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
+
+	// For development/debugging - provides access to channelz internals for Istiod.
+	GRPCDebug = env.RegisterBoolVar("GRPC_DEBUG", false, "Enable gRPC debug interface").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

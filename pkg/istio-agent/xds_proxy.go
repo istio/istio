@@ -41,6 +41,7 @@ import (
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/admin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -577,6 +578,7 @@ func (p *XdsProxy) initDownstreamServer() error {
 	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
+	admin.Register(grpcs)
 	p.downstreamGrpcServer = grpcs
 	p.downstreamListener = l
 	return nil
