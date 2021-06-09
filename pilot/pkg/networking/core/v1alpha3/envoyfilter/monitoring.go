@@ -71,11 +71,11 @@ func IncrementEnvoyFilterMetric(name string, pt PatchType, applied bool) {
 }
 
 // IncrementEnvoyFilterErrorMetric increments filter metric for errors.
-func IncrementEnvoyFilterErrorMetric(name string, pt PatchType) {
+func IncrementEnvoyFilterErrorMetric(pt PatchType) {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).With(resultType.Value(string(Error))).Record(1)
+	totalEnvoyFilters.With(patchType.Value(string(pt))).With(resultType.Value(string(Error))).Record(1)
 }
 
 // RecordEnvoyFilterMetric increments the filter metric with the given value.
