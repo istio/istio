@@ -63,7 +63,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
@@ -403,7 +402,7 @@ func DebugWrap(c *rest.Config) {
 		return
 	}
 
-	c.Wrap(transport.DebugWrappers)
+	//c.Wrap(transport.DebugWrappers)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
