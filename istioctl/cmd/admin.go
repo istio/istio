@@ -20,6 +20,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func adminDashboard() *cobra.Command {
+	return &cobra.Command{
+		Use:     "dashboard",
+		Aliases: []string{"dash", "d"},
+		Short:   "Access to Istio web UIs",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("unknown dashboard %q", args[0])
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
+			return nil
+		},
+	}
+}
+
 func adminCmd() *cobra.Command {
 	adminCmd := &cobra.Command{
 		Use:   "admin",
@@ -42,7 +60,15 @@ func adminCmd() *cobra.Command {
 
 	istiodLog := istiodLogCmd()
 	adminCmd.AddCommand(istiodLog)
+	adminCmd.AddCommand(adminDashboard())
 	adminCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
+
+	adminExperimentalCmd := &cobra.Command{
+		Use:     "experimental",
+		Aliases: []string{"x", "exp"},
+		Short:   "Experimental commands that may be modified or deprecated",
+	}
+	adminCmd.AddCommand(adminExperimentalCmd)
 
 	return adminCmd
 }

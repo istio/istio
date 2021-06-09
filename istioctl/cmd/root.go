@@ -296,6 +296,17 @@ debug and diagnose their Istio mesh.
 		})
 	}
 
+	willMoveCommand(rootCmd, "dashboard controlz", "admin dashboard")
+	willMoveCommand(rootCmd, "x internal-debug", "admin experimental")
+	willMoveCommand(rootCmd, "x precheck", "admin experimental")
+	willMoveCommand(rootCmd, "x precheck", "admin experimental")
+	willMoveCommand(rootCmd, "x uninstall", "admin")
+	willMoveCommand(rootCmd, "install", "admin")
+	willMoveCommand(rootCmd, "manifest", "admin")
+	willMoveCommand(rootCmd, "operator", "admin")
+	willMoveCommand(rootCmd, "profile", "admin")
+	willMoveCommand(rootCmd, "upgrade", "admin")
+
 	return rootCmd
 }
 
@@ -385,4 +396,20 @@ func seeExperimentalCmd(name string) *cobra.Command {
 			return errors.New(msg)
 		},
 	}
+}
+
+func willMoveCommand(cmd *cobra.Command, oldLoc string, newLoc string) {
+	oldPath := strings.Split(oldLoc, " ")
+	oldCmd, args, err := cmd.Traverse(oldPath)
+	if err != nil || oldCmd.Name() != oldPath[len(oldPath)-1] {
+		panic(fmt.Sprintf("Could not locate %q, found %q, left over: %q", oldLoc, oldCmd.Name(), strings.Join(args, " ")))
+	}
+	newPath := strings.Split(newLoc, " ")
+	newCmdLoc, args, err := cmd.Traverse(newPath)
+	if err != nil || newCmdLoc.Name() != newPath[len(newPath)-1] {
+		panic(fmt.Sprintf("Could not locate %q, found %q, left over: %q", newLoc, newCmdLoc.Name(), strings.Join(args, " ")))
+	}
+	cmdCopy := *oldCmd
+	newCmdLoc.AddCommand(&cmdCopy)
+	oldCmd.Short = fmt.Sprintf("%s [MOVING to \"istioctl %s %s\"]", oldLoc, newLoc, cmd.Name())
 }
