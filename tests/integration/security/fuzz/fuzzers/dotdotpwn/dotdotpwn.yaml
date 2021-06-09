@@ -29,5 +29,4 @@ spec:
     spec:
       containers:
         - name: dotdotpwn
-          # TODO: Upload the image to istio-ecosystem.
-          image: gcr.io/ymzhu-istio/dotdotpwn:latest
+          image: gcr.io/istio-testing/dotdotpwn:0.1
