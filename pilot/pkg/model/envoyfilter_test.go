@@ -114,3 +114,22 @@ func TestEnvoyFilterMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertEnvoyFilter(t *testing.T) {
+	cfilter := convertToEnvoyFilterWrapper(&config.Config{
+		Meta: config.Meta{Name: "test", Namespace: "testns"},
+		Spec: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					Patch: &networking.EnvoyFilter_Patch{},
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+					},
+				},
+			},
+		},
+	})
+	if cfilter.Name != "test" && cfilter.Namespace != "testns" {
+		t.Errorf("expected name %s got %s and namespace %s got %s", "test", cfilter.Name, "testns", cfilter.Namespace)
+	}
+}
