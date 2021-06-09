@@ -37,6 +37,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -62,6 +63,8 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
+
+	"go.opencensus.io/zpages"
 )
 
 const (
@@ -376,6 +379,8 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 
 	con.upstream = upstream
 
+	// TODO: option to debug/dump the messages
+
 	// Handle upstream xds recv
 	go func() {
 		for {
@@ -615,6 +620,7 @@ func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, er
 	// Make sure the dial is blocking as we dont want any other operation to resume until the
 	// connection to upstream has been made.
 	dialOptions := []grpc.DialOption{
+		grpc.WithStatsHandler(new(ocgrpc.ClientHandler)),
 		tlsOpts,
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
 	}
@@ -804,6 +810,8 @@ func (p *XdsProxy) initDebugInterface() error {
 	handler := p.makeTapHandler()
 	httpMux.HandleFunc("/debug/", handler)
 	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
+
+	zpages.Handle(httpMux, "/debug")
 
 	p.httpTapServer = &http.Server{
 		Addr:    "localhost:15004",

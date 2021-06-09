@@ -17,9 +17,12 @@ package grpc
 import (
 	"context"
 	"io"
+	"log"
 	"strings"
 
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
@@ -54,12 +57,20 @@ func Send(ctx context.Context, send SendHandler) error {
 	err := send()
 	return err
 }
-
+func init() {
+	if err := view.Register(ocgrpc.DefaultServerViews...); err != nil {
+		log.Println("Failed to register ocgrpc server views: %v", err)
+	}
+	if err := view.Register(ocgrpc.DefaultClientViews...); err != nil {
+		log.Println("Failed to register ocgrpc server views: %v", err)
+	}
+}
 func ServerOptions(options *istiokeepalive.Options, interceptors ...grpc.UnaryServerInterceptor) []grpc.ServerOption {
 	maxStreams := features.MaxConcurrentStreams
 	maxRecvMsgSize := features.MaxRecvMsgSize
 
 	grpcOptions := []grpc.ServerOption{
+		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
 		grpc.UnaryInterceptor(middleware.ChainUnaryServer(interceptors...)),
 		grpc.MaxConcurrentStreams(uint32(maxStreams)),
 		grpc.MaxRecvMsgSize(maxRecvMsgSize),
