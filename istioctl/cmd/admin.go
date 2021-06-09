@@ -61,6 +61,7 @@ func adminCmd() *cobra.Command {
 	istiodLog := istiodLogCmd()
 	adminCmd.AddCommand(istiodLog)
 	adminCmd.AddCommand(adminDashboard())
+	adminCmd.AddCommand(statusCommand())
 	adminCmd.PersistentFlags().StringVarP(&istiodLabelSelector, "selector", "l", "app=istiod", "label selector")
 
 	adminExperimentalCmd := &cobra.Command{
