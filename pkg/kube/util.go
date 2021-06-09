@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -32,7 +31,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/transport"
 
 	istioversion "istio.io/pkg/version"
 )
@@ -51,11 +49,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.Wrap(func(rt http.RoundTripper) http.RoundTripper {
-		return transport.NewDebuggingRoundTripper(rt, transport.DebugCurlCommand, transport.DebugURLTiming, transport.DebugResponseHeaders)
-	})
-
-	return c, nil
+	return SetRestDefaults(c), nil
 }
 
 // BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
@@ -101,7 +95,6 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 		fn(c)
 	}
 
-	DebugWrap(c)
 	return kubernetes.NewForConfig(c)
 }
 
@@ -138,6 +131,7 @@ func IstioUserAgent() string {
 }
 
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.
+// This function is idempotent.
 func SetRestDefaults(config *rest.Config) *rest.Config {
 	if config.GroupVersion == nil || config.GroupVersion.Empty() {
 		config.GroupVersion = &kubeApiCore.SchemeGroupVersion
