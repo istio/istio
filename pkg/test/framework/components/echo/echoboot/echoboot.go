@@ -15,13 +15,18 @@
 package echoboot
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
+	"gopkg.in/yaml.v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -30,6 +35,7 @@ import (
 
 	// force registraton of factory func
 	_ "istio.io/istio/pkg/test/framework/components/echo/staticvm"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -43,12 +49,20 @@ func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder 
 	if len(clusters) == 0 {
 		clusters = cluster.Clusters{ctx.Clusters().Default()}
 	}
-	return builder{
+	b := builder{
 		ctx:        ctx,
 		configs:    map[cluster.Kind][]echo.Config{},
 		refs:       map[cluster.Kind][]*echo.Instance{},
 		namespaces: map[string]namespace.Instance{},
-	}.WithClusters(clusters...)
+	}
+	templates, err := b.injectionTemplates()
+	if err != nil {
+		// deal with this when we call Build() to avoid making the NewBuilder signature unwieldy
+		b.errs = multierror.Append(b.errs, fmt.Errorf("failed finding injection templates on clusters %v", err))
+	}
+	b.templates = templates
+
+	return b.WithClusters(clusters...)
 }
 
 type builder struct {
@@ -67,6 +81,8 @@ type builder struct {
 	// namespaces caches namespaces by their prefix; used for converting Static namespace from configs into actual
 	// namesapces
 	namespaces map[string]namespace.Instance
+	// the set of injection templates for each cluster
+	templates map[string]sets.Set
 	// errs contains a multierror for failed validation during With calls
 	errs error
 }
@@ -104,21 +120,30 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 			b.errs = multierror.Append(b.errs, fmt.Errorf("attembed to deploy to %s but it does not implement echo.Cluster", c.Name()))
 			continue
 		}
-		if perClusterConfig, ok := ec.CanDeploy(cfg); ok {
-			var ref *echo.Instance
-			if idx == 0 {
-				// ref only applies to the first cluster deployed to
-				// refs shouldn't be used when deploying to multiple targetClusters
-				// TODO: should we just panic if a ref is passed in a multi-cluster context?
-				ref = i
-			}
-			perClusterConfig = perClusterConfig.DeepCopy()
-			k := ec.Kind()
-			perClusterConfig.Cluster = ec
-			b.configs[k] = append(b.configs[k], perClusterConfig)
-			b.refs[k] = append(b.refs[k], ref)
-			deployedTo++
+		perClusterConfig, ok := ec.CanDeploy(cfg)
+		if !ok {
+			continue
 		}
+		if !b.validateTemplates(perClusterConfig, c) {
+			if c.Kind() == cluster.Kubernetes {
+				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", c.Name(), perClusterConfig.FQDN())
+			}
+			continue
+		}
+
+		var ref *echo.Instance
+		if idx == 0 {
+			// ref only applies to the first cluster deployed to
+			// refs shouldn't be used when deploying to multiple targetClusters
+			// TODO: should we just panic if a ref is passed in a multi-cluster context?
+			ref = i
+		}
+		perClusterConfig = perClusterConfig.DeepCopy()
+		k := ec.Kind()
+		perClusterConfig.Cluster = ec
+		b.configs[k] = append(b.configs[k], perClusterConfig)
+		b.refs[k] = append(b.refs[k], ref)
+		deployedTo++
 	}
 
 	// If we didn't deploy VMs, but we don't care about VMs, we can ignore this.
@@ -139,6 +164,44 @@ func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
 
 func (b builder) Build() (out echo.Instances, err error) {
 	return build(b)
+}
+
+// injectionTemplates lists the set of templates for each Kube cluster
+func (b builder) injectionTemplates() (map[string]sets.Set, error) {
+	ns := "istio-system"
+	i, err := istio.Get(b.ctx)
+	if err == nil {
+		scopes.Framework.Infof("%v; defaulting to istio-system namespace for injection template discovery")
+		ns = i.Settings().SystemNamespace
+	}
+
+	out := map[string]sets.Set{}
+	for _, c := range b.ctx.Clusters().Kube() {
+		out[c.Name()] = sets.NewSet()
+		// TODO find a place to read revision(s) and avoid listing
+		cms, err := c.CoreV1().ConfigMaps(ns).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		// collect all the templates from this cluster
+		for _, item := range cms.Items {
+			if !strings.HasPrefix(item.Name, "istio-sidecar-injector") {
+				continue
+			}
+			data := &inject.Config{}
+			if err := yaml.Unmarshal([]byte(item.Data["config"]), data); err != nil {
+				return nil, fmt.Errorf("failed parsing injection cm in %s: %v", c.Name(), err)
+			}
+			if data.Templates != nil {
+				for name := range data.Templates {
+					out[c.Name()].Insert(name)
+				}
+			}
+		}
+	}
+
+	return out, nil
 }
 
 // build inner allows assigning to b (assignment to receiver would be ineffective)
@@ -274,4 +337,28 @@ func (b builder) BuildOrFail(t test.Failer) echo.Instances {
 		t.Fatal(err)
 	}
 	return out
+}
+
+// validateTemplates returns true if the templates specified by inject.istio.io/templates on the config exist on c
+func (b builder) validateTemplates(config echo.Config, c cluster.Cluster) bool {
+	expected := sets.NewSet()
+	for _, subset := range config.Subsets {
+		expected.Insert(parseList(subset.Annotations.Get(echo.SidecarInjectTemplates))...)
+	}
+	if b.templates == nil || b.templates[c.Name()] == nil {
+		return len(expected) == 0
+	}
+
+	return b.templates[c.Name()].SupersetOf(expected)
+}
+
+func parseList(s string) []string {
+	if len(strings.TrimSpace(s)) == 0 {
+		return nil
+	}
+	items := strings.Split(s, ",")
+	for i := range items {
+		items[i] = strings.TrimSpace(items[i])
+	}
+	return items
 }

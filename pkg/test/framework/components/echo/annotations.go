@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 type AnnotationType string
@@ -45,6 +46,7 @@ var (
 	SidecarIncludeInboundPorts     = workloadAnnotation(annotation.SidecarTrafficIncludeInboundPorts.Name, "")
 	SidecarIncludeOutboundIPRanges = workloadAnnotation(annotation.SidecarTrafficIncludeOutboundIPRanges.Name, "")
 	SidecarProxyConfig             = workloadAnnotation(annotation.ProxyConfig.Name, "")
+	SidecarInjectTemplates         = workloadAnnotation(inject.TemplatesAnnotation, "")
 )
 
 type AnnotationValue struct {
