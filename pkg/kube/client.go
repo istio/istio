@@ -401,8 +401,6 @@ func DebugWrap(c *rest.Config) {
 	if !klog.V(5).Enabled() {
 		return
 	}
-
-	//c.Wrap(transport.DebugWrappers)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
