@@ -87,6 +87,8 @@ type Client struct {
 	// The gateway-api client we will use to access objects
 	gatewayAPIClient gatewayapiclient.Interface
 
+	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
+	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial processing of all objects.
 	initialSync *atomic.Bool
 }
@@ -110,6 +112,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
+		beginSync:        atomic.NewBool(false),
 		initialSync:      atomic.NewBool(false),
 	}
 
@@ -204,6 +207,7 @@ func (cl *Client) HasSynced() bool {
 
 // SyncAll syncs all the objects during bootstrap to make the configs updated to caches
 func (cl *Client) SyncAll() {
+	cl.beginSync.Store(true)
 	wg := sync.WaitGroup{}
 	for _, h := range cl.kinds {
 		if len(h.handlers) == 0 {
