@@ -19,11 +19,7 @@ roleRef:
 {{- end }}
 subjects:
   - kind: ServiceAccount
-{{- if not .Values.global.externalIstiod }}
-    name: istio-reader-aggregate
-{{- else }}
     name: istio-reader-service-account
-{{- end }}
     namespace: {{ .Values.global.istioNamespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
