@@ -77,8 +77,8 @@ func (s Set) Difference(s2 Set) Set {
 // For example:
 // s = {a1, a2, a3}
 // s2 = {a1, a2, a3, a4, a5}
-// s.Difference(s2) = {a3}
-// s2.Difference(s) = {a4, a5}
+// s.SupersetOf(s2) = false
+// s2.SupersetOf(s) = true
 func (s Set) SupersetOf(s2 Set) bool {
 	return len(s2.Difference(s)) == 0
 }
