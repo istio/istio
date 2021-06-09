@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/bootstrap"
 )
 
-// Bootstrap generator produces an Envoy bootstrap from node descriptors.
+// BootstrapPath generator produces an Envoy bootstrap from node descriptors.
 type BootstrapGenerator struct {
 	Server *DiscoveryServer
 }
