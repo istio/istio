@@ -32,7 +32,7 @@ import (
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
-	"gomodules.xyz/jsonpatch/v2"
+	"gomodules.xyz/jsonpatch/v3"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +58,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
 )
 
@@ -79,7 +78,6 @@ type Client struct {
 
 	// kinds keeps track of all cache handlers for known types
 	kinds map[config.GroupVersionKind]*cacheHandler
-	queue queue.Instance
 
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
@@ -106,7 +104,6 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		domainSuffix:     domainSuffix,
 		schemas:          schemas,
 		revision:         revision,
-		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
@@ -184,7 +181,9 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.SyncAll()
 	cl.initialSync.Store(true)
 	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
-	cl.queue.Run(stop)
+	for _, handler := range cl.kinds {
+		handler.StartWorker(stop)
+	}
 	scope.Info("controller terminated")
 }
 

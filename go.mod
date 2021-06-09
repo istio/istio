@@ -80,7 +80,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
-	gomodules.xyz/jsonpatch/v2 v2.2.0
+	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.47.0
 	google.golang.org/genproto v0.0.0-20210517163617-5e0236093d7a
