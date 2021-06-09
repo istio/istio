@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	admissionv1 "k8s.io/api/admissionregistration/v1"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -388,7 +387,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
-func (c *Controller) updateValidatingWebhookConfiguration(current *admissionv1.ValidatingWebhookConfiguration, caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
+func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmission.ValidatingWebhookConfiguration, caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
 	updated := current.DeepCopy()
 	for i := range updated.Webhooks {
 		updated.Webhooks[i].ClientConfig.CABundle = caBundle
