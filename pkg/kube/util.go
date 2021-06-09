@@ -35,10 +35,6 @@ import (
 	istioversion "istio.io/pkg/version"
 )
 
-const (
-	defaultTimeoutDurationStr = "10m"
-)
-
 // BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
 // It overrides the current context with the one provided (empty to use default).
 //
@@ -78,7 +74,6 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 	configOverrides := &clientcmd.ConfigOverrides{
 		ClusterDefaults: clientcmd.ClusterDefaults,
 		CurrentContext:  context,
-		Timeout:         defaultTimeoutDurationStr,
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
@@ -94,7 +89,6 @@ func CreateClientset(kubeconfig, context string, fns ...func(*rest.Config)) (*ku
 	for _, fn := range fns {
 		fn(c)
 	}
-
 	return kubernetes.NewForConfig(c)
 }
 
