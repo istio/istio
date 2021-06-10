@@ -23,10 +23,10 @@
               value: "{{ $v }}"
             {{- end }}
             volumeMounts:
-            - mountPath: /var/lib/grpc/data/
-              name: grpc-io-proxyless-bootstrap
+            - mountPath: /var/lib/istio/data
+              name: istio-data
             volumes:
-            - name: grpc-io-proxyless-bootstrap
+            - name: istio-data
               emptyDir: {}
            {{- end }}
           - name: istio-proxy
@@ -236,13 +236,13 @@
                     fieldRef:
                       fieldPath: metadata.annotations
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-          - name: istio-token
-            projected:
-              sources:
-              - serviceAccountToken:
-                  path: istio-token
-                  expirationSeconds: 43200
-                  audience: {{ .Values.global.sds.token.aud }}
+            - name: istio-token
+              projected:
+                sources:
+                - serviceAccountToken:
+                    path: istio-token
+                    expirationSeconds: 43200
+                    audience: {{ .Values.global.sds.token.aud }}
           {{- end }}
           {{- if eq .Values.global.pilotCertProvider "istiod" }}
           - name: istiod-ca-cert
