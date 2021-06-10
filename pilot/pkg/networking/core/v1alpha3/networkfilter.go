@@ -72,13 +72,9 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-		// TODO: Need to set other fields such as Idle timeouts
 	}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
-	}
+	tcpProxy.IdleTimeout = node.Metadata.IdleTimeoutOrDefault()
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy, node)
 	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
@@ -93,16 +89,12 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 		WeightedClusters: &tcp.TcpProxy_WeightedCluster{},
 	}
 
-	proxyConfig := &tcp.TcpProxy{
+	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: clusterSpecifier,
-		// TODO: Need to set other fields such as Idle timeouts
 	}
 
-	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if err == nil {
-		proxyConfig.IdleTimeout = durationpb.New(idleTimeout)
-	}
+	tcpProxy.IdleTimeout = node.Metadata.IdleTimeoutOrDefault()
 
 	for _, route := range routes {
 		service := push.ServiceForHostname(node, host.Name(route.Destination.Host))
@@ -117,7 +109,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxyConfig, node)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy, node)
 	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
 }
 

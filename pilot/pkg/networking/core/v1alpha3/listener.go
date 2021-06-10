@@ -1279,11 +1279,8 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
-	idleTimeout, err := time.ParseDuration(listenerOpts.proxy.Metadata.IdleTimeout)
-	if err == nil {
-		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-			IdleTimeout: durationpb.New(idleTimeout),
-		}
+	connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
+		IdleTimeout: listenerOpts.proxy.Metadata.IdleTimeoutOrDefault(),
 	}
 
 	notimeout := durationpb.New(0 * time.Second)

@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/trustbundle"
@@ -614,6 +615,32 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
 	}
 	return def
+}
+
+// IdleTimeoutOrDefault returns the idle timeout of the proxy in a durationpb.Duration format if applicable.
+// A nil return implies the using of default idle timeout.
+func (m NodeMetadata) IdleTimeoutOrDefault() *durationpb.Duration {
+	if m.IdleTimeout == "" {
+		// do nothing and use default if no idle timeout duration is specified
+		return nil
+	}
+
+	idleTimeout, err := time.ParseDuration(m.IdleTimeout)
+	if err != nil {
+		log.Warnf("Failed to parse the specified idle timeout for the proxy: %v, use default value", err)
+		return nil
+	}
+
+	if idleTimeout < 0 {
+		log.Warnf("Configured with an invalid negative idle timeout %v for the proxy, use default value", idleTimeout)
+		return nil
+	}
+
+	if idleTimeout == 0 {
+		log.Warn("Disabling the proxy idle timeout, which has a highly likelihood of yielding connection leaks " +
+			"due to lost TCP FIN packets, etc.")
+	}
+	return durationpb.New(idleTimeout)
 }
 
 // UnnamedNetwork is the default network that proxies in the mesh
