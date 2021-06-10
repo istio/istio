@@ -95,7 +95,7 @@ var (
 	Bar = collection.Builder {
 		Name: "bar",
 		VariableName: "Bar",
-		NoEnvoy: false,
+		Disabled: false,
 		Resource: resource.Builder {
 			Group: "bar.group",
 			Kind: "barkind",
@@ -113,7 +113,7 @@ var (
 	Foo = collection.Builder {
 		Name: "foo",
 		VariableName: "Foo",
-		NoEnvoy: true,
+		Disabled: true,
 		Resource: resource.Builder {
 			Group: "foo.group",
 			Kind: "fookind",

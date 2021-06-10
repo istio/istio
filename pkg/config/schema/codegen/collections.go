@@ -62,7 +62,7 @@ var (
 	{{ .Collection.VariableName }} = collection.Builder {
 		Name: "{{ .Collection.Name }}",
 		VariableName: "{{ .Collection.VariableName }}",
-		NoEnvoy: {{ .Collection.NoEnvoy }},
+		Disabled: {{ .Collection.Disabled }},
 		Resource: resource.Builder {
 			Group: "{{ .Resource.Group }}",
 			Kind: "{{ .Resource.Kind }}",
