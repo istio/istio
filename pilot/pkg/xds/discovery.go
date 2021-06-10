@@ -164,6 +164,7 @@ type EndpointShards struct {
 	// Due to the larger time, it is still possible that connection errors will occur while
 	// CDS is updated.
 	ServiceAccounts sets.Set
+	Version         *atomic.Uint64
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures

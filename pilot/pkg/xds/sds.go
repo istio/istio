@@ -162,7 +162,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			if secret != nil {
 				res := toEnvoyCaSecret(sr.ResourceName, secret)
 				results = append(results, res)
-				s.cache.Add(sr, token, res)
+				s.cache.Add(sr, token, res, "")
 			} else {
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
@@ -172,7 +172,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			if key != nil && cert != nil {
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
-				s.cache.Add(sr, token, res)
+				s.cache.Add(sr, token, res, "")
 			} else {
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)

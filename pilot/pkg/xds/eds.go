@@ -20,6 +20,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
+	"go.uber.org/atomic"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -93,6 +94,7 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
+	log.Errorf("howardjohn: start EDS update for %v", serviceName)
 	// Update the endpoint shards
 	fp := s.edsCacheUpdate(clusterID, serviceName, namespace, istioEndpoints)
 	// Trigger a push
@@ -105,6 +107,7 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 		}: {}},
 		Reason: []model.TriggerReason{model.EndpointUpdate},
 	})
+	log.Errorf("howardjohn: done EDS update for %v, full=%v", serviceName, fp)
 }
 
 // EDSCacheUpdate computes destination address membership across all clusters and networks.
@@ -117,8 +120,10 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 func (s *DiscoveryServer) EDSCacheUpdate(shard, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
+	log.Errorf("howardjohn: start EDS cache update for %v", serviceName)
 	// Update the endpoint shards
 	s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
+	log.Errorf("howardjohn: done EDS cache update for %v", serviceName)
 }
 
 // edsCacheUpdate updates EndpointShards data by clusterID, hostname, IstioEndpoints.
@@ -146,6 +151,8 @@ func (s *DiscoveryServer) edsCacheUpdate(shard string, hostname string, namespac
 	}
 
 	ep.mutex.Lock()
+	x := ep.Version.Inc()
+	log.Errorf("howardjohn: eds update %v/%v to %v", hostname, namespace, x)
 	ep.Shards[shard] = istioEndpoints
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
@@ -185,14 +192,17 @@ func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string
 	ep := &EndpointShards{
 		Shards:          map[string][]*model.IstioEndpoint{},
 		ServiceAccounts: sets.Set{},
+		Version:         atomic.NewUint64(0),
 	}
 	s.EndpointShardsByService[serviceName][namespace] = ep
+	log.Errorf("howardjohn: create endpoint shards for %v/%v", serviceName, namespace)
 	// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 	s.Cache.Clear(map[model.ConfigKey]struct{}{{
 		Kind:      gvk.ServiceEntry,
 		Name:      serviceName,
 		Namespace: namespace,
 	}: {}})
+
 	return ep, true
 }
 
@@ -299,6 +309,9 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 
 	s.mutex.RLock()
 	epShards, f := s.EndpointShardsByService[string(b.hostname)][b.service.Attributes.Namespace]
+	if epShards != nil {
+		log.Errorf("howardjohn: generate shards %v for %v", epShards.Version.Load(), b.service.Hostname)
+	}
 	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here
@@ -418,7 +431,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 				Resource: util.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, token, resource)
+			eds.Server.Cache.Add(builder, token, resource, proxy.ID)
 		}
 	}
 	return resources, model.XdsLogDetails{

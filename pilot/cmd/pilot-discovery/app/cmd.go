@@ -85,6 +85,7 @@ func newDiscoveryCommand() *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 
+			log.FindScope("ads").SetOutputLevel(log.DebugLevel)
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 

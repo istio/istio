@@ -51,7 +51,7 @@ func TestXdsCacheToken(t *testing.T) {
 		}
 		v := mkv(n.Load())
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
-		c.Add(k, tok, v)
+		c.Add(k, tok, v, "")
 	}
 	for vals := 0; vals < 5; vals++ {
 		for i := 0; i < 5; i++ {
@@ -87,7 +87,7 @@ func TestXdsCache(t *testing.T) {
 	}
 	addWithToken := func(c model.XdsCache, entry model.XdsCacheEntry, value *discovery.Resource) {
 		_, tok, _ := c.Get(entry)
-		c.Add(entry, tok, value)
+		c.Add(entry, tok, value, "")
 	}
 	t.Run("simple", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
@@ -197,7 +197,7 @@ func TestXdsCache(t *testing.T) {
 
 	t.Run("write without token", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-		c.Add(ep1, 0, any1)
+		c.Add(ep1, 0, any1, "")
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}
@@ -211,7 +211,7 @@ func TestXdsCache(t *testing.T) {
 		}
 		_, tok, _ := c.Get(ep1)
 		c.ClearAll()
-		c.Add(ep1, tok, any1)
+		c.Add(ep1, tok, any1, "")
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}

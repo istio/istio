@@ -127,7 +127,7 @@ type XdsCache interface {
 	// invalided between when a token is fetched from Get and when Add is called, the write will be
 	// dropped. This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
-	Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource)
+	Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource, metadata string)
 	// Get retrieves the cached value if it exists. The boolean indicates
 	// whether the entry exists in the cache.
 	//
@@ -202,7 +202,7 @@ func newLru() simplelru.LRUCache {
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, replacement *discovery.Resource) {
+func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, replacement *discovery.Resource, metadata string) {
 	if l.enableAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
@@ -214,15 +214,15 @@ func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 		// This operation is really slow, which makes tests fail for unrelated reasons, so we process it async.
 		go func() {
 			if !cmp.Equal(existing, replacement, protocmp.Transform()) {
-				warning := fmt.Errorf("assertion failed at %v, cache entry changed but not cleared for key %v: %v\n%v\n%v",
-					t0, key, cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
+				warning := fmt.Errorf("assertion failed at %v for %v, cache entry changed but not cleared for key %v: %v\n%v\n%v",
+					t0, metadata, key, cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
 				panic(warning)
 			}
 		}()
 	}
 }
 
-func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource) {
+func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource, metadata string) {
 	if !entry.Cacheable() {
 		return
 	}
@@ -249,7 +249,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.R
 		if toWrite.token == 0 {
 			panic("token cannot be empty. was Get() called before Add()?")
 		}
-		l.assertUnchanged(k, cur.(cacheValue).value, value)
+		l.assertUnchanged(k, cur.(cacheValue).value, value, metadata)
 	}
 	l.store.Add(k, toWrite)
 	indexConfig(l.configIndex, entry.Key(), entry)
@@ -293,6 +293,7 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for ckey := range configs {
+		log.Errorf("howardjohn: delete cache key %v", ckey)
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
 		for key := range referenced {
@@ -348,7 +349,8 @@ type DisabledCache struct{}
 
 var _ XdsCache = &DisabledCache{}
 
-func (d DisabledCache) Add(key XdsCacheEntry, token CacheToken, value *discovery.Resource) {}
+func (d DisabledCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource, metadata string) {
+}
 
 func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, CacheToken, bool) {
 	return nil, 0, false
