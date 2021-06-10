@@ -15,6 +15,7 @@
 package crdclient
 
 import (
+	"fmt"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -105,6 +106,7 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 					return h.onEvent(old, cur, model.EventUpdate)
 				})
 			} else {
+				panic(fmt.Sprintf("updatesame triggered %+v %+v", old, cur))
 				incrementEvent(kind, "updatesame")
 			}
 		},

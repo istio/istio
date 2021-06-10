@@ -578,6 +578,7 @@ func (c *Controller) registerHandlers(
 						return wrappedHandler(cur, model.EventUpdate)
 					})
 				} else {
+					log.Error(fmt.Sprintf("updatesame triggered %+v %+v", old, cur))
 					incrementEvent(otype, "updatesame")
 				}
 			},
