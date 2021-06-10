@@ -16,10 +16,17 @@
 package pilot
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/image"
+	kubetest "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -28,12 +35,64 @@ func TestXFFGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.topology").
 		Run(func(t framework.TestContext) {
-			istio.PatchMeshConfig(t, i.Settings().SystemNamespace, t.Clusters(), `
-meshConfig:
-  defaultConfig:
-    gatewayTopology:
-      numTrustedProxies: 2`)
-			for _, tt := range common.XFFGatewayCase(apps) {
+			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway"})
+			injectLabel := `sidecar.istio.io/inject: "true"`
+			if len(t.Settings().Revision) > 0 {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revision)
+			}
+
+			templateParams := map[string]string{
+				"imagePullSecret": image.PullSecretNameOrFail(t),
+				"injectLabel":     injectLabel,
+			}
+
+			t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+kind: Service
+metadata:
+  name: custom-gateway
+  labels:
+    istio: ingressgateway
+spec:
+  ports:
+  - port: 80
+    name: http
+  selector:
+    istio: ingressgateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-gateway
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+        proxy.istio.io/config: |
+          gatewayTopology:
+            numTrustedProxies: 2
+      labels:
+        istio: ingressgateway
+        {{ .injectLabel }}
+    spec:
+      {{- if ne .imagePullSecret "" }}
+      imagePullSecrets:
+      - name: {{ .imagePullSecret }}
+      {{- end }}
+      containers:
+      - name: istio-proxy
+        image: auto
+---
+`, templateParams))
+			cs := t.Clusters().Default().(*kubecluster.Cluster)
+			retry.UntilSuccessOrFail(t, func() error {
+				_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=ingressgateway"))
+				return err
+			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second))
+			for _, tt := range common.XFFGatewayCase(apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {
 				tt.Run(t, apps.Namespace.Name())
 			}
 		})
