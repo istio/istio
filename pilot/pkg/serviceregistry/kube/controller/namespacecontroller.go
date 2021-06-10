@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/kube/inject"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -144,6 +145,13 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 // On namespace change, update the config map.
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) error {
+	// skip special kubernetes system namespaces
+	for _, namespace := range inject.IgnoredNamespaces {
+		if ns.Name == namespace {
+			return nil
+		}
+	}
+
 	if ns.Status.Phase != v1.NamespaceTerminating {
 		return nc.insertDataForNamespace(ns.Name)
 	}
