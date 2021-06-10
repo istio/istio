@@ -11,4 +11,4 @@ docs:
 
 releaseNotes:
 - |
-  **Fixed** an issue where an ipv6 rule was missing when outbound ports were included using the resource annotation 
+  **Fixed** an issue where IPv6 iptables rules were incorrect when `includeOutboundPorts` annotations were used.
