@@ -181,6 +181,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
 	s.addDebugHandler(mux, internalMux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, internalMux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
+	s.addDebugHandler(mux, internalMux, "/debug/cachez?sizes=true", "Info about the size of the internal XDS caches", s.cachez)
 	s.addDebugHandler(mux, internalMux, "/debug/configz", "Debug support for config", s.configz)
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
@@ -297,6 +298,27 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 }
 
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
+	if err := req.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Failed to parse request\n"))
+		return
+	}
+	if req.Form.Get("sizes") != "" {
+		snapshot := s.Cache.Snapshot()
+		res := make(map[string]string, len(snapshot))
+		totalSize := 0
+		for k, v := range snapshot {
+			if v == nil {
+				continue
+			}
+			sz := len(v.Resource.GetValue())
+			res[k] = util.ByteCount(sz)
+			totalSize += sz
+		}
+		res["total"] = util.ByteCount(totalSize)
+		writeJSON(w, res)
+		return
+	}
 	keys := s.Cache.Keys()
 	sort.Strings(keys)
 	writeJSON(w, keys)
