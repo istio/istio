@@ -208,6 +208,8 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 		return proto, nil
 	case scheme.GRPC, scheme.XDS:
+		// NOTE: XDS load-balancing happens per-ForwardEchoRequest since we create a new client each time
+
 		// grpc-go sets incorrect authority header
 		authority := headers.Get(hostHeader)
 
