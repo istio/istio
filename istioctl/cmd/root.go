@@ -161,7 +161,7 @@ func GetRootCmd(args []string) *cobra.Command {
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
-		PersistentPreRunE: configureLogging,
+		PersistentPreRunE:      configureLogging,
 		BashCompletionFunction: bashCompletionFunc,
 	}
 
