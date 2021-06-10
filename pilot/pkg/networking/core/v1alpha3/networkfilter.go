@@ -39,7 +39,7 @@ import (
 var redisOpTimeout = 5 * time.Second
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilters(push *model.PushContext, instance *model.ServiceInstance, node *model.Proxy, clusterName string) []*listener.Filter {
+func buildInboundNetworkFilters(push *model.PushContext, instance *model.ServiceInstance, clusterName string) []*listener.Filter {
 	statPrefix := clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(push.Mesh.InboundClusterStatName) != 0 {
@@ -49,13 +49,13 @@ func buildInboundNetworkFilters(push *model.PushContext, instance *model.Service
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 	}
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy, node)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 	return buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
-func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy, node *model.Proxy) *listener.Filter {
+func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy) *listener.Filter {
 	accessLogBuilder.setTCPAccessLog(push.Mesh, config)
 
 	tcpFilter := &listener.Filter{
@@ -80,7 +80,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
 
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy, node)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
 }
 
@@ -117,7 +117,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxyConfig, node)
+	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxyConfig)
 	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
 }
 

@@ -645,10 +645,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		case istionetworking.ListenerProtocolHTTP:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
 		case istionetworking.ListenerProtocolTCP:
-			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, in.Node, clusterName)
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, clusterName)
 		case istionetworking.ListenerProtocolAuto:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
-			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, in.Node, clusterName)
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, clusterName)
 		}
 		fcOpt.filterChainName = model.VirtualInboundListenerName
 		if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
