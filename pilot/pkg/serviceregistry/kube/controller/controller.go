@@ -280,6 +280,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
 		domainSuffix:                options.DomainSuffix,
 		client:                      kubeClient.Kube(),
+		queue:                       queue.NewQueue(1 * time.Second),
 		clusterID:                   options.ClusterID,
 		xdsUpdater:                  options.XDSUpdater,
 		servicesMap:                 make(map[host.Name]*model.Service),
@@ -300,11 +301,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
 		systemNamespace:             options.SystemNamespace,
 	}
-	// The queue requires a time duration for a retry delay after a handler error
-	c.queue = queue.NewQueue(1 * time.Second)
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
-	if options.SystemNamespace != "" {
+	if c.systemNamespace != "" {
 		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj interface{}) bool {
 			ns, ok := obj.(*v1.Namespace)
 			if !ok {
@@ -537,18 +536,6 @@ func (c *Controller) registerHandlers(
 	informer filter.FilteredSharedIndexInformer, otype string,
 	handler func(interface{}, model.Event) error, filter FilterOutFunc,
 ) {
-	if filter == nil {
-		filter = func(old, cur interface{}) bool {
-			oldObj := old.(metav1.Object)
-			newObj := cur.(metav1.Object)
-			// TODO: this is only for test, add resource version for test
-			if oldObj.GetResourceVersion() == "" || newObj.GetResourceVersion() == "" {
-				return false
-			}
-			return oldObj.GetResourceVersion() == newObj.GetResourceVersion()
-		}
-	}
-
 	wrappedHandler := func(obj interface{}, event model.Event) error {
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
@@ -558,7 +545,6 @@ func (c *Controller) registerHandlers(
 	}
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
 				if !shouldEnqueue(otype, c.beginSync) {
@@ -569,17 +555,20 @@ func (c *Controller) registerHandlers(
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if !filter(old, cur) {
-					incrementEvent(otype, "update")
-					if !shouldEnqueue(otype, c.beginSync) {
+				if filter != nil {
+					if filter(old, cur) {
+						incrementEvent(otype, "updatesame")
 						return
 					}
-					c.queue.Push(func() error {
-						return wrappedHandler(cur, model.EventUpdate)
-					})
-				} else {
-					incrementEvent(otype, "updatesame")
 				}
+
+				incrementEvent(otype, "update")
+				if !shouldEnqueue(otype, c.beginSync) {
+					return
+				}
+				c.queue.Push(func() error {
+					return wrappedHandler(cur, model.EventUpdate)
+				})
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
