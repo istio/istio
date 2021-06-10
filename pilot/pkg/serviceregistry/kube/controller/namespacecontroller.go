@@ -16,7 +16,6 @@ package controller
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/kube/inject"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -26,6 +25,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/security/pkg/k8s"
 )

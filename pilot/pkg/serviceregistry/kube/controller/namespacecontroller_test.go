@@ -17,7 +17,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/kube/inject"
 	"reflect"
 	"testing"
 	"time"
@@ -28,6 +27,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/k8s"
 )
