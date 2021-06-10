@@ -25,9 +25,6 @@
             volumeMounts:
             - mountPath: /var/lib/istio/data
               name: istio-data
-            volumes:
-            - name: istio-data
-              emptyDir: {}
            {{- end }}
           - name: istio-proxy
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
@@ -219,31 +216,31 @@
               {{ toYaml $value | indent 6 }}
               {{ end }}
               {{- end }}
-            volumes:
-            # SDS channel between istioagent and Envoy
-            - emptyDir:
-                medium: Memory
-              name: istio-envoy
-            - name: istio-data
-              emptyDir: {}
-            - name: istio-podinfo
-              downwardAPI:
-                items:
-                  - path: "labels"
-                    fieldRef:
-                      fieldPath: metadata.labels
-                  - path: "annotations"
-                    fieldRef:
-                      fieldPath: metadata.annotations
-          {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
-            - name: istio-token
-              projected:
-                sources:
-                - serviceAccountToken:
-                    path: istio-token
-                    expirationSeconds: 43200
-                    audience: {{ .Values.global.sds.token.aud }}
-          {{- end }}
+          volumes:
+          # SDS channel between istioagent and Envoy
+          - emptyDir:
+              medium: Memory
+            name: istio-envoy
+          - name: istio-data
+            emptyDir: {}
+          - name: istio-podinfo
+            downwardAPI:
+              items:
+                - path: "labels"
+                  fieldRef:
+                    fieldPath: metadata.labels
+                - path: "annotations"
+                  fieldRef:
+                    fieldPath: metadata.annotations
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+          - name: istio-token
+            projected:
+              sources:
+              - serviceAccountToken:
+                  path: istio-token
+                  expirationSeconds: 43200
+                  audience: {{ .Values.global.sds.token.aud }}
+        {{- end }}
           {{- if eq .Values.global.pilotCertProvider "istiod" }}
           - name: istiod-ca-cert
             configMap:
@@ -263,6 +260,6 @@
             {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/userVolume` }}
             {{range $index, $value := fromJSON (index .ObjectMeta.Annotations `sidecar.istio.io/userVolume`) }}
           - name: "{{ $index }}"
-            {{ toYaml $value | indent 4 }}
-            {{ end }}
-            {{ end }}
+          {{ toYaml $value | indent 4 }}
+          {{ end }}
+          {{ end }}
