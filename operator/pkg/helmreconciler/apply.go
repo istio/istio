@@ -21,6 +21,7 @@ import (
 	"time"
 
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -243,7 +244,7 @@ func (h *HelmReconciler) GetObject(iop *v1alpha12.IstioOperator) (*unstructured.
 	err := h.client.Get(context.TODO(), objectKey, receiver)
 
 	switch {
-	case errors2.IsNotFound(err):
+	case errors2.IsNotFound(err) || meta.IsNoMatchError(err):
 		return nil, nil
 	case err == nil:
 		return receiver, nil

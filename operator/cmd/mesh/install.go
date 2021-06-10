@@ -260,37 +260,37 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, res
 }
 
 func showDifferences(existing, target *unstructured.Unstructured) (string, error) {
-	// We are only interested in seeing the differences between the specs
-	obj := make(map[string]interface{})
-	obj["spec"] = existing.Object["spec"]
-	existing.Object = obj
-	existingK8sObj := object.NewK8sObject(existing, nil, nil)
-	existingObj, err := existingK8sObj.YAML()
+	existingYAML := []byte("")
+	if existing != nil {
+		var err error
+		existingYAML, err = object.NewK8sObject(existing, nil, nil).YAML()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	targetYAML := []byte("")
+	if target != nil {
+		var err error
+		targetYAML, err = object.NewK8sObject(target, nil, nil).YAML()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	result := "\n\nConfiguration differences:\n"
+	result += util.YAMLReducedDiff(string(existingYAML), string(targetYAML), 3)
+
+	existingManifest, err := ManifestFromString(string(existingYAML))
 	if err != nil {
 		return "", err
 	}
-	obj = make(map[string]interface{})
-	obj["spec"] = target.Object["spec"]
-	target.Object = obj
-	targetK8sObj := object.NewK8sObject(target, nil, nil)
-	targetObj, err := targetK8sObj.YAML()
+	targetManifest, err := ManifestFromString(string(targetYAML))
 	if err != nil {
 		return "", err
 	}
 
-	result := "\n\nConfiguration differences:"
-	result += util.YAMLReducedDiff(string(existingObj), string(targetObj), 3)
-
-	existingManifest, err := ManifestFromString(string(existingObj))
-	if err != nil {
-		return "", err
-	}
-	targetManifest, err := ManifestFromString(string(targetObj))
-	if err != nil {
-		return "", err
-	}
-
-	result += "\nManifest differences..."
+	result += "\nManifest differences...\n"
 	maniDiff, err := compare.ManifestDiff(existingManifest, targetManifest, false)
 	if err != nil {
 		return "", err
@@ -301,6 +301,9 @@ func showDifferences(existing, target *unstructured.Unstructured) (string, error
 
 // ManifestString returns manifest based on given a yaml string,
 func ManifestFromString(iopsYAML string) (string, error) {
+	if iopsYAML == "" {
+		return "", nil
+	}
 	liop := &v1alpha12.IstioOperator{}
 	if err := util.UnmarshalWithJSONPB(iopsYAML, liop, true); err != nil {
 		return "", fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
