@@ -52,6 +52,7 @@ func TestNamespaceController(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectConfigMap(t, nc.configmapLister, "foo", newData)
+
 	deleteConfigMap(t, client, "foo")
 	expectConfigMap(t, nc.configmapLister, "foo", testdata)
 
