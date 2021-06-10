@@ -66,6 +66,9 @@ const (
 	// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 	// ServiceEntry.Endpoint.Address message.
 	UnixAddressPrefix = "unix://"
+
+	matchExact  = "exact:"
+	matchPrefix = "prefix:"
 )
 
 var (
@@ -128,6 +131,18 @@ type AnalysisAwareError struct {
 	Type       string
 	Msg        string
 	Parameters []interface{}
+}
+
+type OverlappingForHTTPRoute struct {
+	RouteStr         string
+	MatchStr         string
+	Prefix           string
+	MatchPort        uint32
+	MatchMethod      string
+	MatchAuthority   string
+	MatchHeaders     map[string]string
+	MatchQueryParams map[string]string
+	MatchNonHeaders  map[string]string
 }
 
 var _ error = Validation{}
@@ -1948,7 +1963,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		warnIneffective := func(ruleno, matchno, dupno string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
 				Type:       "VirtualServiceIneffectiveMatch",
-				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicates a match in rule %v)", ruleno, matchno, dupno),
+				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)", ruleno, matchno, dupno),
 				Parameters: []interface{}{ruleno, matchno, dupno},
 			}))
 		}
@@ -1960,10 +1975,171 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		return errs.Unwrap()
 	})
 
+func assignExactOrPrefix(exact, prefix string) string {
+	if exact == "" {
+		if prefix != "" {
+			return matchPrefix + prefix
+		}
+	} else {
+		return matchExact + exact
+	}
+	return ""
+}
+
+func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatchRequest,
+	rulen, matchn int) (matchHTTPRoutes *OverlappingForHTTPRoute) {
+	// skip current match if no match field for current route
+	if match == nil {
+		return nil
+	}
+	// skip current match if no URI field
+	if match.Uri == nil {
+		return nil
+	}
+	// store all httproute with prefix match uri
+	tmpPrefix := match.Uri.GetPrefix()
+	if tmpPrefix != "" {
+		// set Method
+		methodExact := match.Method.GetExact()
+		methodPrefix := match.Method.GetPrefix()
+		methodMatch := assignExactOrPrefix(methodExact, methodPrefix)
+		// if no method information, it should be GET by default
+		if methodMatch == "" {
+			methodMatch = matchExact + "GET"
+		}
+
+		// set Authority
+		authorityExact := match.Authority.GetExact()
+		authorityPrefix := match.Authority.GetPrefix()
+		authorityMatch := assignExactOrPrefix(authorityExact, authorityPrefix)
+
+		// set Headers
+		headerMap := make(map[string]string)
+		for hkey, hvalue := range match.Headers {
+			hvalueExact := hvalue.GetExact()
+			hvaluePrefix := hvalue.GetPrefix()
+			hvalueMatch := assignExactOrPrefix(hvalueExact, hvaluePrefix)
+			headerMap[hkey] = hvalueMatch
+		}
+
+		// set QueryParams
+		QPMap := make(map[string]string)
+		for qpkey, qpvalue := range match.QueryParams {
+			qpvalueExact := qpvalue.GetExact()
+			qpvaluePrefix := qpvalue.GetPrefix()
+			qpvalueMatch := assignExactOrPrefix(qpvalueExact, qpvaluePrefix)
+			QPMap[qpkey] = qpvalueMatch
+		}
+
+		// set WithoutHeaders
+		noHeaderMap := make(map[string]string)
+		for nhkey, nhvalue := range match.WithoutHeaders {
+			nhvalueExact := nhvalue.GetExact()
+			nhvaluePrefix := nhvalue.GetPrefix()
+			nhvalueMatch := assignExactOrPrefix(nhvalueExact, nhvaluePrefix)
+			noHeaderMap[nhkey] = nhvalueMatch
+		}
+
+		matchHTTPRoutes = &OverlappingForHTTPRoute{
+			routeName(route, rulen),
+			requestName(match, matchn),
+			tmpPrefix,
+			match.Port,
+			methodMatch,
+			authorityMatch,
+			headerMap,
+			QPMap,
+			noHeaderMap,
+		}
+		return
+	}
+	return nil
+}
+
+func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
+	// check the URI overlapping match, such as vB.Prefix is '/debugs' and vA.Prefix is '/debug'
+	if strings.HasPrefix(vB.Prefix, vA.Prefix) {
+		// checke the port field
+		if vB.MatchPort != vA.MatchPort {
+			return false
+		}
+
+		// checke the match method
+		if strings.Compare(vA.MatchMethod, vB.MatchMethod) != 0 {
+			if !strings.HasPrefix(vA.MatchMethod, vB.MatchMethod) {
+				return false
+			}
+		}
+
+		// checke the match authority
+		if strings.Compare(vA.MatchAuthority, vB.MatchAuthority) != 0 {
+			if !strings.HasPrefix(vA.MatchAuthority, vB.MatchAuthority) {
+				return false
+			}
+		}
+
+		// checke the match Headers
+		vAHeaderLen := len(vA.MatchHeaders)
+		vBHeaderLen := len(vB.MatchHeaders)
+		if vAHeaderLen != vBHeaderLen {
+			return false
+		}
+		for hdKey, hdValue := range vA.MatchHeaders {
+			vBhdValue, ok := vB.MatchHeaders[hdKey]
+			if !ok {
+				return false
+			} else if strings.Compare(hdValue, vBhdValue) != 0 {
+				if !strings.HasPrefix(hdValue, vBhdValue) {
+					return false
+				}
+			}
+		}
+
+		// checke the match QueryParams
+		vAQPLen := len(vA.MatchQueryParams)
+		vBQPLen := len(vB.MatchQueryParams)
+		if vAQPLen != vBQPLen {
+			return false
+		}
+		for qpKey, qpValue := range vA.MatchQueryParams {
+			vBqpValue, ok := vB.MatchQueryParams[qpKey]
+			if !ok {
+				return false
+			} else if strings.Compare(qpValue, vBqpValue) != 0 {
+				if !strings.HasPrefix(qpValue, vBqpValue) {
+					return false
+				}
+			}
+		}
+
+		// checke the match NonHeaders
+		vANonHDLen := len(vA.MatchNonHeaders)
+		vBNonHDLen := len(vB.MatchNonHeaders)
+		if vANonHDLen != vBNonHDLen {
+			return false
+		}
+		for nhKey, nhValue := range vA.MatchNonHeaders {
+			vBnhValue, ok := vB.MatchNonHeaders[nhKey]
+			if !ok {
+				return false
+			} else if strings.Compare(nhValue, vBnhValue) != 0 {
+				if !strings.HasPrefix(nhValue, vBnhValue) {
+					return false
+				}
+			}
+		}
+	} else {
+		// no URI overlapping match
+		return false
+	}
+	return true
+}
+
 func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
+	var matchHTTPRoutes []*OverlappingForHTTPRoute
 	for rulen, route := range routes {
 		if route == nil {
 			continue
@@ -1982,12 +2158,45 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 			if ok {
 				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
 				duplicateMatches++
+				continue
 			} else {
 				matchesEncountered[asJSON(match)] = rulen
+			}
+			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
+			if matchHTTPRoute != nil {
+				matchHTTPRoutes = append(matchHTTPRoutes, matchHTTPRoute)
 			}
 		}
 		if duplicateMatches == len(route.Match) {
 			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+		}
+	}
+
+	// at least 2 prefix matched routes for overlapping match validation
+	if len(matchHTTPRoutes) > 1 {
+		// check the overlapping match from the first prefix information
+		for routeIndex, routePrefix := range matchHTTPRoutes {
+			for rIndex := routeIndex + 1; rIndex < len(matchHTTPRoutes); rIndex++ {
+				// exclude the duplicate-match cases which have been validated above
+				if strings.Compare(matchHTTPRoutes[rIndex].Prefix, routePrefix.Prefix) == 0 {
+					continue
+				}
+				// Valid from A to B for matchHTTPRoutes
+				isAtoBCover := coveredValidation(routePrefix, matchHTTPRoutes[rIndex])
+				if isAtoBCover {
+					prefixMatchA := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix
+					prefixMatchB := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix + " on " + routePrefix.RouteStr
+					reportIneffective(matchHTTPRoutes[rIndex].RouteStr, prefixMatchA, prefixMatchB)
+				}
+
+				// Valid from B to A for matchHTTPRoutes
+				isBtoACover := coveredValidation(matchHTTPRoutes[rIndex], routePrefix)
+				if isBtoACover {
+					prefixMatchA := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix
+					prefixMatchB := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix + " on " + matchHTTPRoutes[rIndex].RouteStr
+					reportIneffective(routePrefix.RouteStr, prefixMatchA, prefixMatchB)
+				}
+			}
 		}
 	}
 }
