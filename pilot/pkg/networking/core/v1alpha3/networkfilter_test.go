@@ -99,7 +99,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				},
 			}
 
-			listeners := buildInboundNetworkFilters(env.PushContext, instance, &model.Proxy{}, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			listeners := buildInboundNetworkFilters(env.PushContext, instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
