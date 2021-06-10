@@ -17,7 +17,6 @@ package istioagent
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,14 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/file"
-
-	"google.golang.org/grpc/credentials/tls/certprovider/pemfile"
-
-	"google.golang.org/protobuf/types/known/structpb"
-
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"github.com/gogo/protobuf/types"
@@ -312,62 +304,6 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	} else {
 		close(a.envoyWaitCh)
 	}
-	return nil
-}
-
-func (a *Agent) generateGRPCBootstrap() error {
-	// generate metadata
-	node, err := a.generateNodeMetadata()
-	if err != nil {
-		return fmt.Errorf("failed generating node metadata: %v", err)
-	}
-	xdsMeta, err := structpb.NewStruct(node.RawMetadata)
-	if err != nil {
-		return fmt.Errorf("failed converting to xds metadata: %v", err)
-	}
-
-	// TODO secure control plane channel (most likely JWT + TLS, but possibly allow mTLS)
-	serverURI := a.proxyConfig.DiscoveryAddress
-	if a.cfg.ProxyXDSViaAgent {
-		serverURI = "localhost:15010"
-	}
-
-	// TODO use struct from gRPC lib if they ever exist
-	data := map[string]interface{}{
-		// TODO grab this port from somewhere else
-		"xds_servers": map[string]interface{}{
-			"server_uri": serverURI,
-			// TODO channel_creds
-		},
-		"node": corev3.Node{
-			Id:       node.ID,
-			Locality: node.Locality,
-			Metadata: xdsMeta,
-		},
-	}
-
-	if a.secOpts.OutputKeyCertToDir != "" {
-		data["certificate_providers"] = map[string]interface{}{
-			"default": map[string]interface{}{
-				"plugin_name": "file_watcher",
-				"config": pemfile.Options{
-					KeyFile:  path.Join(a.secOpts.OutputKeyCertToDir, "key.pem"),
-					CertFile: path.Join(a.secOpts.OutputKeyCertToDir, "cert-chain.pem"),
-					RootFile: path.Join(a.secOpts.OutputKeyCertToDir, "root-cert.pem"),
-					// TODO use a more appropriate interval
-					RefreshDuration: 15 * time.Minute,
-				},
-			},
-		}
-	}
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	if err := file.AtomicWrite(a.cfg.GRPCBootstrapPath, jsonData, 0o644); err != nil {
-		return fmt.Errorf("failed writing to %s: %v", a.cfg.GRPCBootstrapPath, err)
-	}
-
 	return nil
 }
 
