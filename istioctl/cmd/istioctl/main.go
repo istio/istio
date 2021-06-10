@@ -23,7 +23,6 @@ import (
 
 	// import all known client auth plugins
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/klog/v2"
 
 	"istio.io/istio/istioctl/cmd"
 )
@@ -47,11 +46,9 @@ func main() {
 
 // EnableKlogWithCobra enables klog to work with cobra / pflags.
 // k8s libraries like client-go use klog.
+// TODO(mjog) move this to istio.io/pkg/log package.
 func EnableKlogWithCobra() {
-	klog.InitFlags(nil)
-	goflag.Parse()
-	// just add --v= flag to pflags.
-	gf := goflag.CommandLine.Lookup("v")
+	gf := cmd.KlogVerboseFlag()
 	pflag.CommandLine.AddFlag(pflag.PFlagFromGoFlag(
 		&goflag.Flag{
 			Name:     "vklog",
@@ -59,6 +56,4 @@ func EnableKlogWithCobra() {
 			DefValue: gf.DefValue,
 			Usage:    gf.Usage + ". Like -v flag. ex: --vklog=9",
 		}))
-
-	klog.SetLogger(nil)
 }
