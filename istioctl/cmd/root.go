@@ -38,6 +38,29 @@ import (
 	"istio.io/pkg/log"
 )
 
+const (
+	bashCompletionFunc = `__istioctl_get_resource_pod()
+{
+    local template
+    template="${2:-"{{ range .items  }}{{ .metadata.name }} {{ end }}"}"
+    local kubectl_out
+    if kubectl_out=$(__kubectl_debug_out "kubectl get $(__kubectl_override_flags) -o template --template=\"${template}\" \"pods\""); then
+        COMPREPLY+=( $( compgen -W "${kubectl_out[*]}" -- "$cur" ) )
+    fi
+}
+
+__istioctl_custom_func() {
+    case ${last_command} in
+        istioctl_proxy-config_*)
+            __istioctl_get_resource_pod
+            return
+            ;;
+        *)
+            ;;
+    esac
+}`
+)
+
 // CommandParseError distinguishes an error parsing istioctl CLI arguments from an error processing
 type CommandParseError struct {
 	e error
@@ -139,6 +162,7 @@ func GetRootCmd(args []string) *cobra.Command {
 debug and diagnose their Istio mesh.
 `,
 		PersistentPreRunE: configureLogging,
+		BashCompletionFunction: bashCompletionFunc,
 	}
 
 	rootCmd.SetArgs(args)
