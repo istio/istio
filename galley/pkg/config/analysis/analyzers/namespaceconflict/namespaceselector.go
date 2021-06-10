@@ -54,10 +54,12 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	// Analyze collections.IstioSecurityV1Beta1Peerauthentications
 	c.ForEach(peerauthcollection, func(r *resource.Instance) bool {
 		x := r.Message.(*v1beta1.PeerAuthentication)
-
-		// If the resource has workloads associated with it, analyze for conflicts with selector
 		if x.GetSelector() != nil {
+			// If the resource has workloads associated with it, analyze for conflicts with selector
 			a.analyzeWorkloadSelectorConflicts(r, c)
+		} else {
+			// If the resource has workloads associated with it, analyze for conflicts with namespace
+			a.analyzeNamespaceWideConflicts(r, c)
 		}
 		return true
 	})
@@ -65,13 +67,87 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	// Analyze collections.IstioSecurityV1Beta1Requestauthentications
 	c.ForEach(requestauthcollection, func(r *resource.Instance) bool {
 		x := r.Message.(*v1beta1.RequestAuthentication)
-
-		// If the resource has workloads associated with it, analyze for conflicts with selector
 		if x.GetSelector() != nil {
+			// If the resource has workloads associated with it, analyze for conflicts with selector
 			a.analyzeWorkloadSelectorConflicts(r, c)
+		} else {
+			// If the resource has workloads associated with it, analyze for conflicts with namespace
+			a.analyzeNamespaceWideConflicts(r, c)
 		}
 		return true
 	})
+}
+
+func (a *Analyzer) analyzeNamespaceWideConflicts(r *resource.Instance, c analysis.Context) {
+	matches := a.findMatchingNamespace(r, c)
+	// There should be only one resource associated with a selector
+	if len(matches) != 0 {
+
+		// The namespace in which we will throw the conflict
+		xNS := r.Metadata.FullName.Namespace
+
+		// Cast the message to it's respective type to report the issue correctly
+		switch v := r.Message.(type) {
+		case *v1beta1.PeerAuthentication:
+			// Throw a Peer Authentication conflict
+			// x := r.Message.(*v1beta1.PeerAuthentication)
+			m := msg.NewNamespaceResourceConflict(r, peerauthcollection.String(),
+				string(xNS), fmt.Sprintf("(ALL) Namespace: %v", xNS),
+				matches.SortedList())
+			c.Report(collections.IstioSecurityV1Beta1Peerauthentications.Name(), m)
+			return
+		case *v1beta1.RequestAuthentication:
+			// Throw an Authorization Policy conflict
+			// x := r.Message.(*v1beta1.RequestAuthentication)
+			m := msg.NewNamespaceResourceConflict(r, requestauthcollection.String(),
+				string(xNS), fmt.Sprintf("(ALL) Namespace: %v", xNS),
+				matches.SortedList())
+			c.Report(collections.IstioSecurityV1Beta1Requestauthentications.Name(), m)
+			return
+		default:
+			fmt.Printf("I don't know about type %T!\n", v)
+		}
+	}
+}
+
+func (a *Analyzer) findMatchingNamespace(r *resource.Instance, c analysis.Context) sets.Set {
+	matches := sets.NewSet()
+
+	switch v := r.Message.(type) {
+
+	case *v1beta1.PeerAuthentication:
+		xName := r.Metadata.FullName.String()
+		xNS := r.Metadata.FullName.Namespace
+		c.ForEach(peerauthcollection, func(r1 *resource.Instance) bool {
+			y := r1.Message.(*v1beta1.PeerAuthentication)
+			yName := r1.Metadata.FullName.String()
+			yNS := r1.Metadata.FullName.Namespace
+			if y.GetSelector() == nil && xName != yName && xNS == yNS {
+				matches.Insert(xName)
+				matches.Insert(yName)
+			}
+			return true
+		})
+
+	case *v1beta1.RequestAuthentication:
+		xName := r.Metadata.FullName.String()
+		xNS := r.Metadata.FullName.Namespace
+		c.ForEach(requestauthcollection, func(r1 *resource.Instance) bool {
+			y := r1.Message.(*v1beta1.RequestAuthentication)
+			yName := r1.Metadata.FullName.String()
+			yNS := r1.Metadata.FullName.Namespace
+			if y.GetSelector() == nil && xName != yName && xNS == yNS {
+				matches.Insert(xName)
+				matches.Insert(yName)
+			}
+			return true
+		})
+
+	default:
+		fmt.Printf("I don't know about type %T!\n", v)
+	}
+
+	return matches
 }
 
 func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c analysis.Context) {
@@ -155,7 +231,6 @@ func (a *Analyzer) findMatchingSelectors(r *resource.Instance, c analysis.Contex
 
 	default:
 		fmt.Printf("I don't know about type %T!\n", v)
-
 	}
 
 	return matches

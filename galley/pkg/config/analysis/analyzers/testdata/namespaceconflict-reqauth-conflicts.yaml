@@ -52,10 +52,11 @@ apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: seldummybar2
-  namespace: bar          # Will generate a conflict since there's a selector in bar for app:dummy
+  namespace: bar          # Will generate a conflict since there's a selector in bar for app:dummy
 spec:
   selector:
     matchLabels:
       app: dummy
   jwtRules:
   - issuer: "issuer-bar"
+---

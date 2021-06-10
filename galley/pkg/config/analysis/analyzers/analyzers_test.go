@@ -190,6 +190,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/namespaceconflict-peerauth-conflicts.yaml"},
 		analyzer:   &namespaceconflict.Analyzer{},
 		expected: []message{
+			{msg.NamespaceResourceConflict, "PeerAuthentication defaultconfig.default"},
+			{msg.NamespaceResourceConflict, "PeerAuthentication defaultconfig2.default"},
 			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo.foo"},
 			{msg.NamespaceResourceConflict, "PeerAuthentication selfinancefoo2.foo"},
 		},
@@ -199,6 +201,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/namespaceconflict-reqauth-conflicts.yaml"},
 		analyzer:   &namespaceconflict.Analyzer{},
 		expected: []message{
+			{msg.NamespaceResourceConflict, "RequestAuthentication defaultconfig.default"},
+			{msg.NamespaceResourceConflict, "RequestAuthentication defaultconfig2.default"},
 			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar.bar"},
 			{msg.NamespaceResourceConflict, "RequestAuthentication seldummybar2.bar"},
 		},

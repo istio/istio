@@ -22,7 +22,7 @@ apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
   name: defaultconfig2
-  namespace: default # This will generate a conflict since there are two namespace wide configurations
+  namespace: default    # This will generate a conflict since there are two namespace wide configurations
 spec:
   mtls:
     mode: DISABLE
@@ -68,15 +68,3 @@ spec:
       app: finance     # Will generate a conflict because there's more than one PA for selector app:finance
   mtls:
     mode: DISABLE
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: seldummydefault
-  namespace: default
-spec:
-  mtls:
-    mode: STRICT
-  selector:
-    matchLabels:
-      app: dummy      # Will generate a conflict since there's already a namespace wide configuration
