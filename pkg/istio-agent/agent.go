@@ -278,7 +278,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 				}
 				_ = a.xdsProxy.handleStream(request)
 				select {
-				case _, _ = <-a.envoyWaitCh:
+				case <-a.envoyWaitCh:
 					break retries
 				default:
 				}
