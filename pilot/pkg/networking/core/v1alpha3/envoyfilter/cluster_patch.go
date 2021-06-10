@@ -82,9 +82,16 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 				break
 			}
 		}
+		if tsmPatch == nil && len(c.GetTransportSocketMatches()) > 0 {
+			c.GetTransportSocketMatches()[0].TransportSocket = cpValueCast.TransportSocket
+			return true, nil
+		}
 	} else if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocket() != nil {
 		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
 			tsmPatch = c.GetTransportSocket()
+		} else {
+			c.TransportSocket = cpValueCast.TransportSocket
+			return true, nil
 		}
 	}
 

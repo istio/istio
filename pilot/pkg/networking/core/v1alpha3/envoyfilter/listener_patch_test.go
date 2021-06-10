@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
@@ -31,6 +32,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -78,6 +80,12 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 
 func buildPatchStruct(config string) *types.Struct {
 	val := &types.Struct{}
+	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
+	return val
+}
+
+func buildGolangPatchStruct(config string) *structpb.Struct {
+	val := &structpb.Struct{}
 	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
 	return val
 }
@@ -632,11 +640,8 @@ func TestApplyListenerPatches(t *testing.T) {
 				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
-						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: "envoy.transport_sockets.tls",
-							},
-						},
+						PortNumber:  12345,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportProtocol: "tls"},
 					},
 				},
 			},
@@ -651,6 +656,50 @@ func TestApplyListenerPatches(t *testing.T) {
 								"tls_params":{
 									"tls_maximum_protocol_version":"TLSv1_3",
 									"tls_minimum_protocol_version":"TLSv1_2"}}}}}`),
+			},
+		},
+		// Patch custom TLS type
+		{
+			ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 7777,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+					{"transport_socket":{
+						"name":"transport_sockets.alts",
+						"typed_config":{
+							"@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
+              "type_url": "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+							"value":{"handshaker_service":"1.2.3.4"}}}}`),
+			},
+		},
+		// Patch custom TLS type to a FC without TLS already set
+		{
+			ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber: 7778,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+					{"transport_socket":{
+						"name":"transport_sockets.alts",
+						"typed_config":{
+							"@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
+              "type_url": "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+							"value":{"handshaker_service":"1.2.3.4"}}}}`),
 			},
 		},
 		{
@@ -829,6 +878,50 @@ func TestApplyListenerPatches(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "custom-tls-replacement",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 7777,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{},
+								},
+							}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "filter"}},
+				},
+			},
+		},
+		{
+			Name: "custom-tls-addition",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 7778,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{{Name: "filter"}},
+				},
+			},
+		},
 	}
 
 	sidecarOutboundOut := []*listener.Listener{
@@ -995,6 +1088,58 @@ func TestApplyListenerPatches(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			Name: "custom-tls-replacement",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 7777,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					TransportSocket: &core.TransportSocket{
+						Name: "transport_sockets.alts",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&udpa.TypedStruct{
+								TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+								Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
+							}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "filter"}},
+				},
+			},
+		},
+		{
+			Name: "custom-tls-addition",
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 7778,
+						},
+					},
+				},
+			},
+			FilterChains: []*listener.FilterChain{
+				{
+					TransportSocket: &core.TransportSocket{
+						Name: "transport_sockets.alts",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&udpa.TypedStruct{
+								TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+								Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
+							}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "filter"}},
 				},
 			},
 		},
