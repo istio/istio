@@ -268,6 +268,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 			// wait indefinitely and keep retrying with jittered exponential backoff
 			backoff := 500
 			max := 30000
+		retries:
 			for {
 				// handleStream hands on to request after exit, so create a fresh one instead.
 				request := &bootstrapDiscoveryRequest{
@@ -276,8 +277,10 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 					envoyUpdate: envoyProxy.UpdateConfig,
 				}
 				_ = a.xdsProxy.handleStream(request)
-				if request.received {
-					break
+				select {
+				case _, _ = <-a.envoyWaitCh:
+					break retries
+				default:
 				}
 				delay := time.Duration(rand.Int()%backoff) * time.Millisecond
 				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
