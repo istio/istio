@@ -170,8 +170,9 @@ func (b builder) Build() (out echo.Instances, err error) {
 func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 	ns := "istio-system"
 	i, err := istio.Get(b.ctx)
-	if err == nil {
-		scopes.Framework.Infof("%v; defaulting to istio-system namespace for injection template discovery")
+	if err != nil {
+		scopes.Framework.Infof("defaulting to istio-system namespace for injection template discovery: %v", err)
+	} else {
 		ns = i.Settings().SystemNamespace
 	}
 
