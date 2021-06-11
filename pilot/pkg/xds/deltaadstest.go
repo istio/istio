@@ -200,6 +200,7 @@ func (a *DeltaAdsTest) RequestResponseAck(req *discovery.DeltaDiscoveryRequest) 
 	req = a.fillInRequestDefaults(req)
 	a.Request(req)
 	resp := a.ExpectResponse()
+	req.ResponseNonce = resp.Nonce
 	a.Request(&discovery.DeltaDiscoveryRequest{
 		Node:          req.Node,
 		TypeUrl:       req.TypeUrl,
