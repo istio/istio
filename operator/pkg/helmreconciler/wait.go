@@ -279,18 +279,13 @@ func daemonsetsReady(daemonsets []*appsv1.DaemonSet) (bool, []string) {
 			notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 		}
 		if ds.Spec.UpdateStrategy.Type == appsv1.RollingUpdateDaemonSetStrategyType {
-			maxUnavailable, err := intstr.GetValueFromIntOrPercent(
-				ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable,
-				int(ds.Status.DesiredNumberScheduled),
-				true)
-			if err != nil {
-				// set max unavailable to the number of desired replicas if the value is invalid
-				maxUnavailable = int(ds.Status.DesiredNumberScheduled)
-			}
-			expectedReady := int(ds.Status.DesiredNumberScheduled) - maxUnavailable
-			if !(int(ds.Status.NumberReady) >= expectedReady) {
+			if ds.Status.NumberReady != ds.Status.DesiredNumberScheduled {
 				scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods are ready",
-					ds.Namespace, ds.Name, ds.Status.NumberReady, expectedReady)
+					ds.Namespace, ds.Name, ds.Status.NumberReady, ds.Status.UpdatedNumberScheduled)
+				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
+			} else if ds.Status.DesiredNumberScheduled == 0 {
+				scope.Infof("DaemonSet is not ready: %s/%s. Initializing, no pods is running",
+					ds.Namespace, ds.Name)
 				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 			}
 		}
