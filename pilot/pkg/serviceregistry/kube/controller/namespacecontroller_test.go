@@ -109,10 +109,7 @@ func expectConfigMapNotExist(t *testing.T, client listerv1.ConfigMapLister, ns s
 	t.Helper()
 	err := retry.Until(func() bool {
 		_, err := client.ConfigMaps(ns).Get(CACertNamespaceConfigMap)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	}, retry.Timeout(time.Second*2))
 
 	if err == nil {
