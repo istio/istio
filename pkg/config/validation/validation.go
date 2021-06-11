@@ -2059,26 +2059,26 @@ func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatch
 func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 	// check the URI overlapping match, such as vB.Prefix is '/debugs' and vA.Prefix is '/debug'
 	if strings.HasPrefix(vB.Prefix, vA.Prefix) {
-		// checke the port field
+		// check the port field
 		if vB.MatchPort != vA.MatchPort {
 			return false
 		}
 
-		// checke the match method
+		// check the match method
 		if strings.Compare(vA.MatchMethod, vB.MatchMethod) != 0 {
 			if !strings.HasPrefix(vA.MatchMethod, vB.MatchMethod) {
 				return false
 			}
 		}
 
-		// checke the match authority
+		// check the match authority
 		if strings.Compare(vA.MatchAuthority, vB.MatchAuthority) != 0 {
 			if !strings.HasPrefix(vA.MatchAuthority, vB.MatchAuthority) {
 				return false
 			}
 		}
 
-		// checke the match Headers
+		// check the match Headers
 		vAHeaderLen := len(vA.MatchHeaders)
 		vBHeaderLen := len(vB.MatchHeaders)
 		if vAHeaderLen != vBHeaderLen {
@@ -2095,7 +2095,7 @@ func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 			}
 		}
 
-		// checke the match QueryParams
+		// check the match QueryParams
 		vAQPLen := len(vA.MatchQueryParams)
 		vBQPLen := len(vB.MatchQueryParams)
 		if vAQPLen != vBQPLen {
@@ -2112,7 +2112,7 @@ func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 			}
 		}
 
-		// checke the match NonHeaders
+		// check the match NonHeaders
 		vANonHDLen := len(vA.MatchNonHeaders)
 		vBNonHDLen := len(vB.MatchNonHeaders)
 		if vANonHDLen != vBNonHDLen {
