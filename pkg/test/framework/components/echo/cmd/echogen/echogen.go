@@ -82,7 +82,7 @@ func generate(input, output string, outputDir bool, outstream io.StringWriter) {
 
 type generator struct {
 	// settings
-	versions    resource.RevVerMap
+	settings    *resource.Settings
 	imgSettings *image.Settings
 
 	// internal
@@ -102,8 +102,8 @@ func newGenerator() generator {
 	}
 
 	return generator{
+		settings:    settings,
 		imgSettings: imgSettings,
-		versions:    settings.Revisions,
 	}
 }
 
@@ -146,7 +146,7 @@ func (g *generator) generate() error {
 			errs = multierror.Append(errs, fmt.Errorf("failed generating service for %s: %v", id, err))
 			continue
 		}
-		deployment, err := kube.GenerateDeployment(cfg, g.imgSettings, g.versions)
+		deployment, err := kube.GenerateDeployment(cfg, g.imgSettings, g.settings)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed generating deployment for %s: %v", id, err))
 			continue

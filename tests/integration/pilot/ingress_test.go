@@ -431,8 +431,8 @@ func TestCustomGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway"})
 			injectLabel := `sidecar.istio.io/inject: "true"`
-			if len(t.Settings().Revision) > 0 {
-				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revision)
+			if t.Settings().Revisions.Default() != "" {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
 			}
 
 			templateParams := map[string]string{
@@ -527,8 +527,8 @@ spec:
 			t.NewSubTest("helm").Run(func(t framework.TestContext) {
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
-				if len(t.Settings().Revision) > 0 {
-					rev = t.Settings().Revision
+				if t.Settings().Revisions.Default() != "" {
+					rev = t.Settings().Revisions.Default()
 				}
 				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
 revision: %v
