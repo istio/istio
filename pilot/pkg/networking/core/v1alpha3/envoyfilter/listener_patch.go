@@ -178,12 +178,12 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 			// nothing more to do in other patches as we removed this filter chain
 			return
 		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			alreadyMerged, err := mergeTransportSocketListener(fc, lp)
+			merged, err := mergeTransportSocketListener(fc, lp)
 			if err != nil {
 				log.Debugf("merge of transport socket failed for listener: %v", err)
 				continue
 			}
-			if !alreadyMerged {
+			if !merged {
 				proto.Merge(fc, lp.Value)
 			}
 		}
@@ -192,7 +192,9 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 // Test if the patch contains a config for TransportSocket
-func mergeTransportSocketListener(fc *xdslistener.FilterChain, lp *model.EnvoyFilterConfigPatchWrapper) (alreadyMerged bool, err error) {
+// Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
+// outside of this function.
+func mergeTransportSocketListener(fc *xdslistener.FilterChain, lp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
 	lpValueCast, ok := (lp.Value).(*xdslistener.FilterChain)
 	if !ok {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", ok)
