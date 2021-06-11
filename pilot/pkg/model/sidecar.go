@@ -323,7 +323,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		}
 	}
 
-	vsservices := make(map[*Service]struct{})
 	for _, listener := range out.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range listener.services {
@@ -335,6 +334,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			out.AddConfigDependencies(delegate)
 		}
 
+		matchPort := needsPortMatch(listener)
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in listener.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
@@ -351,7 +351,15 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				// Default to this hostname in our config namespace
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					vsservices[s] = struct{}{}
+					var vss *Service
+					if matchPort {
+						vss = serviceMatchingListenerPort(s, listener)
+					} else {
+						vss = s
+					}
+					if vss != nil {
+						addService(vss)
+					}
 				} else {
 
 					// We couldn't find the hostname in our config namespace
@@ -374,14 +382,17 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						sort.Strings(ns)
 						// Pick first namespace alphabetically
 						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-						vsservices[byNamespace[ns[0]]] = struct{}{}
+						var vss *Service
+						if matchPort {
+							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
+						} else {
+							vss = byNamespace[ns[0]]
+						}
+						if vss != nil {
+							addService(vss)
+						}
 					}
 				}
-			}
-		}
-		for vss := range vsservices {
-			if s := serviceMatchesListenerPort(vss, listener); s != nil {
-				addService(s)
 			}
 		}
 	}
@@ -681,39 +692,21 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 // Return the original service or a trimmed service which has a subset of the ports in original service.
 func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) *Service {
-	// If a listener is defined with a port, we should match services with port except in the following case.
-	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
-	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
-		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
-
+	matchPort := needsPortMatch(ilw)
 	for _, importedHost := range importedHosts {
 		// Check if the hostnames match per usual hostname matching rules
 		if importedHost.Matches(service.Hostname) {
-			if needsPortMatch {
-				for _, port := range service.Ports {
-					if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
-						sc := service.DeepCopy()
-						sc.Ports = []*Port{port}
-						return sc
-					}
-				}
-			} else {
-				return service
+			if matchPort {
+				return serviceMatchingListenerPort(service, ilw)
 			}
+			return service
 		}
 	}
 	return nil
 }
 
-// serviceMatchesListenerPort checks if the service has matching port for the listener and returns service if it has.
-func serviceMatchesListenerPort(service *Service, ilw *IstioEgressListenerWrapper) *Service {
-	// If a listener is defined with a port, we should match services with port except in the following case.
-	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
-	needsPortMatch := ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
-		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
-	if !needsPortMatch {
-		return service
-	}
+// serviceMatchingListenerPort constructs service with listener port.
+func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapper) *Service {
 	for _, port := range service.Ports {
 		if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
 			sc := service.DeepCopy()
@@ -722,4 +715,11 @@ func serviceMatchesListenerPort(service *Service, ilw *IstioEgressListenerWrappe
 		}
 	}
 	return nil
+}
+
+func needsPortMatch(ilw *IstioEgressListenerWrapper) bool {
+	// If a listener is defined with a port, we should match services with port except in the following case.
+	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
+	return ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
+		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
 }
