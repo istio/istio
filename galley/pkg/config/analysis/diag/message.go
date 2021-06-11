@@ -49,6 +49,8 @@ func (m *MessageType) Template() string { return m.template }
 // Message is a specific diagnostic message
 // TODO: Implement using Analysis message API
 type Message struct {
+	MessageSchema *v1alpha1.AnalysisMessageWeakSchema
+
 	Type *MessageType
 
 	// The Parameters to the message
@@ -157,14 +159,40 @@ func NewMessageType(level Level, code, template string) *MessageType {
 	}
 }
 
-// NewMessage returns a new Message instance from an existing type.
-func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message {
-	return Message{
-		Type:       mt,
-		Resource:   r,
-		Parameters: p,
+// NewMessageBase returns a new NewMessageBase instance.
+func NewMessageBase(level v1alpha1.AnalysisMessageBase_Level, name, code, docUrl string) *v1alpha1.AnalysisMessageBase {
+	return &v1alpha1.AnalysisMessageBase{
+		Type: &v1alpha1.AnalysisMessageBase_Type{
+			Name:                 name,
+			Code:                 code,
+		},
+		Level: level,
+		DocumentationUrl: docUrl,
 	}
 }
+
+// NewMessage returns a new NewMessage instance.
+func NewMessage(mb *v1alpha1.AnalysisMessageBase, r *resource.Instance, description, template string,
+	args []*v1alpha1.AnalysisMessageWeakSchema_ArgType, p ...interface{}) Message {
+	return Message{
+		MessageSchema: &v1alpha1.AnalysisMessageWeakSchema{
+			MessageBase:          mb,
+			Description:          description,
+			Template:             template,
+			Args:                 args,
+		},
+		Parameters:    p,
+		Resource:      r,
+	}
+}
+
+//// NewMessage returns a new Message instance from an existing type.
+//func NewMessage(ms *v1alpha1.AnalysisMessageWeakSchema, r *resource.Instance) Message {
+//	return Message{
+//		Resource:   r,
+//		Parameters: ,
+//	}
+//}
 
 // ReplaceLine replaces the line number from the input String method of Reference to the line number from Message
 func (m Message) ReplaceLine(l string) string {

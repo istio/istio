@@ -15,6 +15,7 @@
 package diag
 
 import (
+	"istio.io/api/analysis/v1alpha1"
 	"strings"
 )
 
@@ -33,14 +34,17 @@ func (l Level) IsWorseThanOrEqualTo(target Level) bool {
 }
 
 var (
+	// Unknown level is for unknown messages
+	Unknown = v1alpha1.AnalysisMessageBase_UNKNOWN
+
 	// Info level is for informational messages
-	Info = Level{2, "Info"}
+	Info = v1alpha1.AnalysisMessageBase_INFO
 
 	// Warning level is for warning messages
-	Warning = Level{1, "Warning"}
+	Warning = v1alpha1.AnalysisMessageBase_WARNING
 
 	// Error level is for error messages
-	Error = Level{0, "Error"}
+	Error = v1alpha1.AnalysisMessageBase_ERROR
 )
 
 // GetAllLevels returns an arbitrarily ordered slice of all Levels defined.
