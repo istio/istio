@@ -131,7 +131,7 @@ func addFlags(c *cobra.Command) {
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used.")
 	c.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
 		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")
-	c.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespaceVar.Get(),
+	c.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", bootstrap.PodNamespace,
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	c.PersistentFlags().StringSliceVar(&serverArgs.Plugins, "plugins", bootstrap.DefaultPlugins,
 		"comma separated list of networking plugins to enable")

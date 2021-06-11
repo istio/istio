@@ -251,12 +251,12 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	}
 
 	log.Infof("cacerts Secret found in remote cluster, saving contents to %s", dir)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	for key, data := range secret.Data {
 		filename := path.Join(dir, key)
-		if err := ioutil.WriteFile(filename, data, 0600); err != nil {
+		if err := ioutil.WriteFile(filename, data, 0o600); err != nil {
 			return err
 		}
 	}
@@ -359,14 +359,14 @@ func (s *Server) createIstioRA(client kubelib.Client,
 
 // getJwtPath returns jwt path.
 func getJwtPath() string {
-	log.Info("JWT policy is ", features.JwtPolicy.Get())
-	switch features.JwtPolicy.Get() {
+	log.Info("JWT policy is ", features.JwtPolicy)
+	switch features.JwtPolicy {
 	case jwt.PolicyThirdParty:
 		return securityModel.K8sSATrustworthyJwtFileName
 	case jwt.PolicyFirstParty:
 		return securityModel.K8sSAJwtFileName
 	default:
-		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy.Get())
+		log.Infof("unknown JWT policy %v, default to certificates ", features.JwtPolicy)
 		return ""
 	}
 }

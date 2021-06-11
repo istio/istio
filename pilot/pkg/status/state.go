@@ -107,7 +107,7 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 
 	c.workers = NewProgressWorkerPool(func(resource Resource, progress Progress) {
 		c.writeStatus(resource, progress)
-	}, uint(features.StatusMaxWorkers.Get()))
+	}, uint(features.StatusMaxWorkers))
 	c.workers.Run(ctx)
 
 	//  create Status Writer
