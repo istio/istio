@@ -254,7 +254,8 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, res
 		if err != nil {
 			return iop, err
 		}
-		fmt.Println(result)
+		// Display the results to the user
+		l.Print(result)
 	}
 	return iop, saveIOPToCluster(reconciler, iopStr)
 }
