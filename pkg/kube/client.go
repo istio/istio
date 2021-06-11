@@ -83,8 +83,6 @@ import (
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
-	discoveryContainer  = "discovery"
-	pilotDiscoveryPath  = "/usr/local/bin/pilot-discovery"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -150,7 +148,7 @@ type ExtendedClient interface {
 	Revision() string
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
-	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, body []byte) ([]byte, error)
+	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
 	// AllDiscoveryDo makes an http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
@@ -631,21 +629,9 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.CoreV1().Pods(istiod.Namespace).ProxyGet("", istiod.Name, "15014", path, nil).DoRaw(ctx)
+		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
 		if err != nil {
-			execRes, execErr := c.extractExecResult(istiod.Name, istiod.Namespace, discoveryContainer,
-				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
-			if execErr != nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s.%s: %v", istiod.Name, istiod.Namespace, err),
-					execErr,
-				)
-				continue
-			}
-			if len(execRes) > 0 {
-				result[istiod.Name] = []byte(execRes)
-			}
-			continue
+			return nil, err
 		}
 		if len(res) > 0 {
 			result[istiod.Name] = res
@@ -658,12 +644,16 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	return nil, errs
 }
 
-func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
+func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
+	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
+}
+
+func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	formatError := func(err error) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, 15000)
+	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, port)
 	if err != nil {
 		return nil, err
 	}

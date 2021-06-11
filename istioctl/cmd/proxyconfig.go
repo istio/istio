@@ -157,7 +157,7 @@ func extractConfigDump(podName, podNamespace string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "config_dump"
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path, nil)
+	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}
@@ -215,7 +215,7 @@ func setupEnvoyLogConfig(param, podName, podNamespace string) (string, error) {
 	if param != "" {
 		path = path + "?" + param
 	}
-	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path, nil)
+	result, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "POST", path)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
@@ -248,7 +248,7 @@ func setupPodClustersWriter(podName, podNamespace string, out io.Writer) (*clust
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
 	path := "clusters?format=json"
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path, nil)
+	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on Envoy: %v", err)
 	}
