@@ -121,22 +121,21 @@ var tmpl = `
 package msg
 
 import (
-	"istio.io/api/analysis/v1alpha1"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 )
 
 var (
 	{{- range .Messages}}
-	// {{.Name}} defines a v1alpha1.AnalysisMessageBase for message "{{.Name}}".
+	// {{.Name}} defines a diag.MessageType for message "{{.Name}}".
 	// Description: {{.Description}}
-	{{.Name}} = diag.NewMessageBase(diag."{{.Level}}",  "{{.Code}}", "{{.Name}}", "{{.Url}}")
+	{{.Name}} = diag.NewMessageType(diag.{{.Level}}, "{{.Code}}", "{{.Template}}")
 	{{end}}
 )
 
-// All returns a list of all known message bases.
-func All() []*v1alpha1.AnalysisMessageBase {
-	return []*v1alpha1.AnalysisMessageBase{
+// All returns a list of all known message types.
+func All() []*diag.MessageType {
+	return []*diag.MessageType{
 		{{- range .Messages}}
 			{{.Name}},
 		{{- end}}
@@ -145,10 +144,7 @@ func All() []*v1alpha1.AnalysisMessageBase {
 
 {{range .Messages}}
 // New{{.Name}} returns a new diag.Message based on {{.Name}}.
-func New{{.Name}}(mb *v1alpha1.AnalysisMessageBase, r *resource.Instance, description, template string,
-	args []*v1alpha1.AnalysisMessageWeakSchema_ArgType, {{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
-
-
+func New{{.Name}}(r *resource.Instance{{range .Args}}, {{.Name}} {{.Type}}{{end}}) diag.Message {
 	return diag.NewMessage(
 		{{.Name}},
 		r,

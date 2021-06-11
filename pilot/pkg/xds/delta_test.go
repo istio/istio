@@ -37,12 +37,15 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.EndpointType)
 
+	nonce := ""
 	sendEDSReqAndVerify := func(add, remove, expect []string) {
 		t.Helper()
 		res := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   add,
 			ResourceNamesUnsubscribe: remove,
+			ResponseNonce:            nonce,
 		})
+		nonce = res.Nonce
 		got := xdstest.MapKeys(xdstest.ExtractLoadAssignments(xdstest.UnmarshalClusterLoadAssignment(t, model.ResourcesToAny(res.Resources))))
 		if !reflect.DeepEqual(expect, got) {
 			t.Fatalf("expected clusters %v got %v", expect, got)

@@ -4,7 +4,6 @@
 package msg
 
 import (
-	"istio.io/api/analysis/v1alpha1"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
 )
@@ -13,8 +12,6 @@ var (
 	// InternalError defines a diag.MessageType for message "InternalError".
 	// Description: There was an internal error in the toolchain. This is almost always a bug in the implementation.
 	InternalError = diag.NewMessageType(diag.Error, "IST0001", "Internal error: %v")
-
-	cc := diag.NewMessageBase()
 
 	// Deprecated defines a diag.MessageType for message "Deprecated".
 	// Description: A feature that the configuration is depending on is now deprecated.
