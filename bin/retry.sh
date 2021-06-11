@@ -45,7 +45,11 @@ function retry {
   while true; do
     unset SHELL # Don't let environment control which shell to use
     if isatty; then
-      script --flush --quiet --return "${tmpFile}" --command "${*}"
+      if [ "$(uname)" == "Darwin" ]; then
+        script -q -r "${tmpFile}" "${*}"
+      else
+        script --flush --quiet --return "${tmpFile}" --command "${*}"
+      fi
     else
       # if we aren't a TTY, run directly as script will always run with a tty, which may output content that
       # we cannot display
