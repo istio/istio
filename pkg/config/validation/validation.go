@@ -739,7 +739,8 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 						if listenerMatch.FilterChain.Filter != nil {
 							if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
 								// This would be an error but is a warning for backwards compatibility
-								errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: golint,stylecheck
+								errs = appendValidation(errs, WrapWarning(
+									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: golint,stylecheck
 							}
 							// filter names are required if network filter matches are being made
 							if listenerMatch.FilterChain.Filter.Name == "" {
