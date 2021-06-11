@@ -84,6 +84,7 @@ func buildPatchStruct(config string) *types.Struct {
 	return val
 }
 
+// nolint: unparam
 func buildGolangPatchStruct(config string) *structpb.Struct {
 	val := &structpb.Struct{}
 	_ = jsonpb.Unmarshal(strings.NewReader(config), val)
