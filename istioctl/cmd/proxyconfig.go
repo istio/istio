@@ -827,6 +827,9 @@ func endpointConfigCmd() *cobra.Command {
 func bootstrapConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
+	// Shadow outputVariable since this command uses a different default value
+	var outputFormat string
+
 	bootstrapConfigCmd := &cobra.Command{
 		Use:   "bootstrap [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
