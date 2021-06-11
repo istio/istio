@@ -28,25 +28,16 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
 )
 
 const (
-	// EnvoyTextLogFormat format for envoy text based access logs for Istio 1.3 onwards
-	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
-		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
-		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
-		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
-		"%UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
-		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n"
-	// EnvoyTextLogFormatIstio19 format for envoy text based access logs for Istio 1.9 onwards.
+	// EnvoyTextLogFormat format for envoy text based access logs for Istio 1.9 onwards.
 	// This includes the additional new operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that tells
 	// the reason why Envoy rejects a request.
-	EnvoyTextLogFormatIstio19 = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
+	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
 		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
 		"%RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS% " +
 		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
@@ -70,39 +61,10 @@ const (
 )
 
 var (
-
-	// EnvoyJSONLogFormat map of values for envoy json based access logs for Istio 1.3 onwards
-	EnvoyJSONLogFormat = &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
-			"route_name":                        {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
-			"method":                            {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
-			"path":                              {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
-			"protocol":                          {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
-			"response_code":                     {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
-			"response_flags":                    {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
-			"bytes_received":                    {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
-			"bytes_sent":                        {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
-			"duration":                          {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
-			"upstream_service_time":             {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
-			"x_forwarded_for":                   {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
-			"user_agent":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
-			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
-			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
-			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
-			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
-			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
-			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
-		},
-	}
-
-	// EnvoyJSONLogFormatIstio19 map of values for envoy json based access logs for Istio 1.9 onwards.
+	// EnvoyJSONLogFormatIstio map of values for envoy json based access logs for Istio 1.9 onwards.
 	// This includes the additional log operator RESPONSE_CODE_DETAILS and CONNECTION_TERMINATION_DETAILS that tells
 	// the reason why Envoy rejects a request.
-	EnvoyJSONLogFormatIstio19 = &structpb.Struct{
+	EnvoyJSONLogFormatIstio = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
 			"route_name":                        {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
@@ -150,11 +112,9 @@ type AccessLogBuilder struct {
 	tcpGrpcListenerAccessLog *accesslog.AccessLog
 
 	// file accessLog which is cached and reset on MeshConfig change.
-	mutex                     sync.RWMutex
-	fileAccessLog             *accesslog.AccessLog
-	fileAccesslogGE19         *accesslog.AccessLog
-	listenerFileAccessLog     *accesslog.AccessLog
-	listenerFileAccessLogGE19 *accesslog.AccessLog
+	mutex                 sync.RWMutex
+	fileAccesslog         *accesslog.AccessLog
+	listenerFileAccessLog *accesslog.AccessLog
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
@@ -165,9 +125,9 @@ func newAccessLogBuilder() *AccessLogBuilder {
 	}
 }
 
-func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *tcp.TcpProxy, node *model.Proxy) {
+func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *tcp.TcpProxy) {
 	if mesh.AccessLogFile != "" {
-		config.AccessLog = append(config.AccessLog, b.buildFileAccessLog(mesh, node))
+		config.AccessLog = append(config.AccessLog, b.buildFileAccessLog(mesh))
 	}
 
 	if mesh.EnableEnvoyAccessLogService {
@@ -175,9 +135,9 @@ func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *
 	}
 }
 
-func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connectionManager *hcm.HttpConnectionManager, node *model.Proxy) {
+func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connectionManager *hcm.HttpConnectionManager) {
 	if mesh.AccessLogFile != "" {
-		connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh, node))
+		connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
 	}
 
 	if mesh.EnableEnvoyAccessLogService {
@@ -185,12 +145,12 @@ func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connect
 	}
 }
 
-func (b *AccessLogBuilder) setListenerAccessLog(mesh *meshconfig.MeshConfig, listener *listener.Listener, node *model.Proxy) {
+func (b *AccessLogBuilder) setListenerAccessLog(mesh *meshconfig.MeshConfig, listener *listener.Listener) {
 	if mesh.DisableEnvoyListenerLog {
 		return
 	}
 	if mesh.AccessLogFile != "" {
-		listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh, node))
+		listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
 	}
 
 	if mesh.EnableEnvoyAccessLogService {
@@ -199,7 +159,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(mesh *meshconfig.MeshConfig, lis
 	}
 }
 
-func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE19 bool) *accesslog.AccessLog {
+func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
 		Path: mesh.AccessLogFile,
@@ -208,9 +168,6 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE19 bool) *
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
 		formatString := EnvoyTextLogFormat
-		if isVersionGE19 {
-			formatString = EnvoyTextLogFormatIstio19
-		}
 		if mesh.AccessLogFormat != "" {
 			formatString = mesh.AccessLogFormat
 		}
@@ -222,10 +179,7 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE19 bool) *
 			},
 		}
 	case meshconfig.MeshConfig_JSON:
-		jsonLogStruct := EnvoyJSONLogFormat
-		if isVersionGE19 {
-			jsonLogStruct = EnvoyJSONLogFormatIstio19
-		}
+		jsonLogStruct := EnvoyJSONLogFormatIstio
 		if len(mesh.AccessLogFormat) > 0 {
 			parsedJSONLogStruct := structpb.Struct{}
 			if err := protomarshal.ApplyJSON(mesh.AccessLogFormat, &parsedJSONLogStruct); err != nil {
@@ -253,23 +207,17 @@ func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig, isVersionGE19 bool) *
 	return al
 }
 
-func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig, node *model.Proxy) *accesslog.AccessLog {
-	// Check if cached config is available, and return immediately.
-	isVersionGE19 := util.IsIstioVersionGE19(node)
-	if cal := b.cachedFileAccessLog(isVersionGE19); cal != nil {
+func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	if cal := b.cachedFileAccessLog(); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := buildFileAccessLogHelper(mesh, isVersionGE19)
+	al := buildFileAccessLogHelper(mesh)
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if isVersionGE19 {
-		b.fileAccesslogGE19 = al
-	} else {
-		b.fileAccessLog = al
-	}
+	b.fileAccesslog = al
 
 	return al
 }
@@ -282,45 +230,33 @@ func addAccessLogFilter() *accesslog.AccessLogFilter {
 	}
 }
 
-func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig, node *model.Proxy) *accesslog.AccessLog {
-	// Check if cached config is available, and return immediately.
-	isVersionGE19 := util.IsIstioVersionGE19(node)
-	if cal := b.cachedListenerFileAccessLog(isVersionGE19); cal != nil {
+func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	if cal := b.cachedListenerFileAccessLog(); cal != nil {
 		return cal
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := buildFileAccessLogHelper(mesh, isVersionGE19)
+	lal := buildFileAccessLogHelper(mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = addAccessLogFilter()
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	if isVersionGE19 {
-		b.listenerFileAccessLogGE19 = lal
-	} else {
-		b.listenerFileAccessLog = lal
-	}
+	b.listenerFileAccessLog = lal
 
 	return lal
 }
 
-func (b *AccessLogBuilder) cachedFileAccessLog(isVersionGE19 bool) *accesslog.AccessLog {
+func (b *AccessLogBuilder) cachedFileAccessLog() *accesslog.AccessLog {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
-	if isVersionGE19 {
-		return b.fileAccesslogGE19
-	}
-	return b.fileAccessLog
+	return b.fileAccesslog
 }
 
-func (b *AccessLogBuilder) cachedListenerFileAccessLog(isVersionGE19 bool) *accesslog.AccessLog {
+func (b *AccessLogBuilder) cachedListenerFileAccessLog() *accesslog.AccessLog {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
-	if isVersionGE19 {
-		return b.listenerFileAccessLogGE19
-	}
 	return b.listenerFileAccessLog
 }
 
@@ -379,9 +315,7 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 
 func (b *AccessLogBuilder) reset() {
 	b.mutex.Lock()
-	b.fileAccessLog = nil
-	b.fileAccesslogGE19 = nil
+	b.fileAccesslog = nil
 	b.listenerFileAccessLog = nil
-	b.listenerFileAccessLogGE19 = nil
 	b.mutex.Unlock()
 }

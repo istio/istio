@@ -275,8 +275,10 @@ func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySele
 	}
 	ports := map[uint32]struct{}{}
 	for _, w := range instances {
-		if _, directPortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; directPortTranslation {
+		if _, directPortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; directPortTranslation && legacyGatewaySelector {
 			// Skip this Service, they opted out of port translation
+			// This is only done for legacyGatewaySelector, as the new gateway selection mechanism *only* allows
+			// referencing the Service port, and references are un-ambiguous.
 			continue
 		}
 		if w.ServicePort.Port == int(number) && w.Endpoint != nil {

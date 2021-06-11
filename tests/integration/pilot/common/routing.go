@@ -464,9 +464,9 @@ spec:
 	noHeadless := echotest.FilterMatch(echo.Not(echo.IsHeadless()))
 	noExternal := echotest.FilterMatch(echo.Not(echo.IsExternal()))
 	for i, tc := range cases {
-
-		tc.sourceFilters = append(tc.sourceFilters, noNaked, noHeadless)
-		tc.targetFilters = append(tc.targetFilters, noNaked, noHeadless)
+		// TODO include proxyless as different features become supported
+		tc.sourceFilters = append(tc.sourceFilters, noNaked, noHeadless, noProxyless)
+		tc.targetFilters = append(tc.targetFilters, noNaked, noHeadless, noProxyless)
 		cases[i] = tc
 	}
 
@@ -485,8 +485,8 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
 			toN:           len(split),
-			sourceFilters: []echotest.Filter{noHeadless, noNaked},
-			targetFilters: []echotest.Filter{noHeadless, noExternal},
+			sourceFilters: []echotest.Filter{noHeadless, noNaked, noProxyless},
+			targetFilters: []echotest.Filter{noHeadless, noExternal, noProxyless},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
@@ -1170,22 +1170,11 @@ func flatten(clients ...[]echo.Instance) []echo.Instance {
 
 // selfCallsCases checks that pods can call themselves
 func selfCallsCases() []TrafficTestCase {
-	sourceFilters := []echotest.Filter{
-		echotest.Not(echotest.ExternalServices),
-		echotest.Not(echotest.FilterMatch(echo.IsNaked())),
-		echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
-	}
-	comboFilters := []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
-		return to.Match(echo.FQDN(from.Config().FQDN()))
-	}}
-
-	return []TrafficTestCase{
+	cases := []TrafficTestCase{
 		// Calls to the Service will go through envoy outbound and inbound, so we get envoy headers added
 		{
 			name:             "to service",
 			workloadAgnostic: true,
-			sourceFilters:    sourceFilters,
-			comboFilters:     comboFilters,
 			opts: echo.CallOptions{
 				Count:     1,
 				PortName:  "http",
@@ -1196,8 +1185,6 @@ func selfCallsCases() []TrafficTestCase {
 		{
 			name:             "to localhost",
 			workloadAgnostic: true,
-			sourceFilters:    sourceFilters,
-			comboFilters:     comboFilters,
 			setupOpts: func(_ echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
 				// the framework will try to set this when enumerating test cases
 				opts.Target = nil
@@ -1214,8 +1201,6 @@ func selfCallsCases() []TrafficTestCase {
 		{
 			name:             "to podIP",
 			workloadAgnostic: true,
-			sourceFilters:    sourceFilters,
-			comboFilters:     comboFilters,
 			setupOpts: func(srcCaller echo.Caller, _ echo.Instances, opts *echo.CallOptions) {
 				src := srcCaller.(echo.Instance)
 				workloads, _ := src.Workloads()
@@ -1231,6 +1216,21 @@ func selfCallsCases() []TrafficTestCase {
 			},
 		},
 	}
+	for i, tc := range cases {
+		// proxyless doesn't get valuable coverage here
+		tc.sourceFilters = []echotest.Filter{
+			echotest.Not(echotest.ExternalServices),
+			echotest.Not(echotest.FilterMatch(echo.IsNaked())),
+			echotest.Not(echotest.FilterMatch(echo.IsHeadless())),
+			noProxyless,
+		}
+		tc.comboFilters = []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+			return to.Match(echo.FQDN(from.Config().FQDN()))
+		}}
+		cases[i] = tc
+	}
+
+	return cases
 }
 
 // Todo merge with security TestReachability code
@@ -1274,6 +1274,17 @@ func protocolSniffingCases() []TrafficTestCase {
 					echo.ExpectOK(),
 					echo.ExpectHost(dst[0].Config().HostHeader()))
 			},
+			comboFilters: func() []echotest.CombinationFilter {
+				if call.scheme != scheme.GRPC {
+					return []echotest.CombinationFilter{func(from echo.Instance, to echo.Instances) echo.Instances {
+						if from.Config().IsProxylessGRPC() && to.ContainsMatch(echo.IsVirtualMachine()) {
+							return nil
+						}
+						return to
+					}}
+				}
+				return nil
+			}(),
 			workloadAgnostic: true,
 		})
 	}
@@ -1410,6 +1421,14 @@ spec:
 				})
 		}
 	}
+
+	for _, tc := range cases {
+		// proxyless doesn't get valuable coverage here
+		noProxyless := echotest.FilterMatch(echo.Not(echo.IsProxylessGRPC()))
+		tc.sourceFilters = append(tc.sourceFilters, noProxyless)
+		tc.targetFilters = append(tc.targetFilters, noProxyless)
+	}
+
 	return cases
 }
 

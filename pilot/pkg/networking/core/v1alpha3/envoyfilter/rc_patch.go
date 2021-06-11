@@ -34,7 +34,7 @@ func ApplyRouteConfigurationPatches(
 	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
 	efw := push.EnvoyFilters(proxy)
 	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
-		IncrementEnvoyFilterErrorMetric(efw.Key(), Route)
+		IncrementEnvoyFilterErrorMetric(Route)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
