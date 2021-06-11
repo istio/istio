@@ -348,6 +348,28 @@ func TestClusterPatching(t *testing.T) {
 			Name:            "outbound|7777||custom-tls-replacement",
 			DnsLookupFamily: cluster.Cluster_V4_ONLY,
 			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
+								EcdhCurves:                []string{"X25519"},
+								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_1,
+							},
+							TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+								InstanceName:    "instance",
+								CertificateName: "certificate",
+							},
+						},
+					}),
+				},
+			},
+		},
+		{
+			Name:            "outbound|7777||custom-tls-replacement-tsm",
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
 			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
 				{
 					Name: "tlsMode-istio",
@@ -463,15 +485,37 @@ func TestClusterPatching(t *testing.T) {
 			Name:            "outbound|7777||custom-tls-replacement",
 			DnsLookupFamily: cluster.Cluster_V6_ONLY,
 			LbPolicy:        cluster.Cluster_RING_HASH,
+			TransportSocket: &core.TransportSocket{
+				Name: "transport_sockets.alts",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&udpa.TypedStruct{
+						TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+						Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
+					}),
+				},
+			},
+		},
+		{
+			Name:            "outbound|7777||custom-tls-replacement-tsm",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy:        cluster.Cluster_RING_HASH,
 			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
 				{
 					Name: "tlsMode-istio",
 					TransportSocket: &core.TransportSocket{
-						Name: "transport_sockets.alts",
+						Name: "envoy.transport_sockets.tls",
 						ConfigType: &core.TransportSocket_TypedConfig{
-							TypedConfig: util.MessageToAny(&udpa.TypedStruct{
-								TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
-								Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_1,
+									},
+									TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+										InstanceName:    "instance",
+										CertificateName: "certificate",
+									},
+								},
 							}),
 						},
 					},

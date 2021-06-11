@@ -83,7 +83,8 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 			}
 		}
 		if tsmPatch == nil && len(c.GetTransportSocketMatches()) > 0 {
-			c.GetTransportSocketMatches()[0].TransportSocket = cpValueCast.TransportSocket
+			// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
+			// Drop the filter
 			return true, nil
 		}
 	} else if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocket() != nil {
