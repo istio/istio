@@ -1986,6 +1986,9 @@ func assignExactOrPrefix(exact, prefix string) string {
 	return ""
 }
 
+// genMatchHTTPRoutes build the match rules into struct OverlappingForHTTPRoute
+// based on particular HTTPMatchRequest, according to comments on https://github.com/istio/istio/pull/32701
+// only support Match's port, method, authority, headers, query params and nonheaders for now.
 func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatchRequest,
 	rulen, matchn int) (matchHTTPRoutes *OverlappingForHTTPRoute) {
 	// skip current match if no match field for current route
@@ -2056,6 +2059,7 @@ func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatch
 	return nil
 }
 
+// coveredValidation validate the overlapping match between two instance of OverlappingForHTTPRoute
 func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 	// check the URI overlapping match, such as vB.Prefix is '/debugs' and vA.Prefix is '/debug'
 	if strings.HasPrefix(vB.Prefix, vA.Prefix) {
@@ -2158,10 +2162,12 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 			if ok {
 				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
 				duplicateMatches++
+				// no need to handle for totally duplicated match rules
 				continue
 			} else {
 				matchesEncountered[asJSON(match)] = rulen
 			}
+			// build the match rules into struct OverlappingForHTTPRoute based on current match
 			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
 			if matchHTTPRoute != nil {
 				matchHTTPRoutes = append(matchHTTPRoutes, matchHTTPRoute)
