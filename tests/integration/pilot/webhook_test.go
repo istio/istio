@@ -77,8 +77,8 @@ func TestWebhook(t *testing.T) {
 			})
 
 			revision := "default"
-			if t.Settings().Revision != "" {
-				revision = t.Settings().Revision
+			if t.Settings().Revisions.Default() != "" {
+				revision = t.Settings().Revisions.Default()
 			}
 			verifyRejectsInvalidConfig(t, revision, true)
 			verifyRejectsInvalidConfig(t, "", true)

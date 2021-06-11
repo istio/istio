@@ -64,11 +64,10 @@ func validate(s *Settings) error {
 		if s.Revisions != nil {
 			return fmt.Errorf("cannot use --istio.test.revision and --istio.test.revisions at the same time," +
 				" --istio.test.revisions will take precedence and --istio.test.revision will be ignored")
-		} else {
-			// use Revision as the sole revision in RevVerMap
-			s.Revisions = RevVerMap{
-				s.Revision: "",
-			}
+		}
+		// use Revision as the sole revision in RevVerMap
+		s.Revisions = RevVerMap{
+			s.Revision: "",
 		}
 	}
 

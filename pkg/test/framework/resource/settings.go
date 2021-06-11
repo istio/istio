@@ -74,7 +74,7 @@ type Settings struct {
 	// on the known environment names.
 	EnvironmentFactory EnvironmentFactory
 
-	// Deprecated: under the hood, use the `Revisions` RevVerMap.
+	// Deprecated: prefer to use `--istio.test.revisions=<revision name>`.
 	// The revision label on a namespace for injection webhook.
 	// If set to XXX, all the namespaces created with istio-injection=enabled will be replaced with istio.io/rev=XXX.
 	Revision string
