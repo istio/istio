@@ -14,7 +14,10 @@
 
 package sets
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestNewSet(t *testing.T) {
 	elements := []string{"a", "b", "c"}
@@ -27,6 +30,21 @@ func TestNewSet(t *testing.T) {
 	for _, e := range elements {
 		if _, exist := set[e]; !exist {
 			t.Errorf("%s is not in set %v", e, set)
+		}
+	}
+}
+
+func TestUnion(t *testing.T) {
+	elements := []string{"a", "b", "c", "d"}
+	elements2 := []string{"a", "b", "e"}
+	want := NewSet("a", "b")
+	for _, sets := range [][]Set{
+		{NewSet(elements...), NewSet(elements2...)},
+		{NewSet(elements2...), NewSet(elements...)},
+	} {
+		s1, s2 := sets[0], sets[1]
+		if got := s1.Union(s2); !got.Equals(want) {
+			t.Errorf("expected %v; got %v", want, got)
 		}
 	}
 }
@@ -49,6 +67,24 @@ func TestDifference(t *testing.T) {
 	}
 	if _, exist := d["d"]; !exist {
 		t.Errorf("d is not in %v", d)
+	}
+}
+
+func TestSupersetOf(t *testing.T) {
+	elements := []string{"a", "b", "c", "d"}
+	s1 := NewSet(elements...)
+
+	elements2 := []string{"a", "b"}
+	s2 := NewSet(elements2...)
+
+	if !s1.SupersetOf(s2) {
+		t.Errorf("%v should be superset of %v", s1.SortedList(), s2.SortedList())
+	}
+
+	s3 := NewSet()
+	if !NewSet().SupersetOf(s3) {
+		fmt.Printf("%q\n", s3.SortedList()[0])
+		t.Errorf("%v should be superset of empty set", s1.SortedList())
 	}
 }
 

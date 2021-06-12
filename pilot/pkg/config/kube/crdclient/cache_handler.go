@@ -15,8 +15,6 @@
 package crdclient
 
 import (
-	"reflect"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 
@@ -88,22 +86,27 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 	i.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			incrementEvent(kind, "add")
+			if !cl.beginSync.Load() {
+				return
+			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
 		},
 		UpdateFunc: func(old, cur interface{}) {
-			if !reflect.DeepEqual(old, cur) {
-				incrementEvent(kind, "update")
-				cl.queue.Push(func() error {
-					return h.onEvent(old, cur, model.EventUpdate)
-				})
-			} else {
-				incrementEvent(kind, "updatesame")
+			incrementEvent(kind, "update")
+			if !cl.beginSync.Load() {
+				return
 			}
+			cl.queue.Push(func() error {
+				return h.onEvent(old, cur, model.EventUpdate)
+			})
 		},
 		DeleteFunc: func(obj interface{}) {
 			incrementEvent(kind, "delete")
+			if !cl.beginSync.Load() {
+				return
+			}
 			cl.queue.Push(func() error {
 				return h.onEvent(nil, obj, model.EventDelete)
 			})

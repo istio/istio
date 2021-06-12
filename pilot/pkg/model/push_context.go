@@ -16,8 +16,11 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -188,12 +191,6 @@ type PushContext struct {
 
 	// Mesh configuration for the mesh.
 	Mesh *meshconfig.MeshConfig `json:"-"`
-
-	// Discovery interface for listing services and instances.
-	ServiceDiscovery `json:"-"`
-
-	// Config interface for listing routing rules
-	IstioConfigStore `json:"-"`
 
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
@@ -529,7 +526,6 @@ func init() {
 
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
-	// TODO: detect push in progress, don't update status if set
 	return &PushContext{
 		ServiceIndex:            newServiceIndex(),
 		virtualServiceIndex:     newVirtualServiceIndex(),
@@ -955,8 +951,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env.ServiceDiscovery
-	ps.IstioConfigStore = env.IstioConfigStore
 	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first
@@ -976,7 +970,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initMeshNetworks(env.Networks())
+	ps.initMeshNetworks(env)
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
@@ -986,6 +980,10 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 func (ps *PushContext) createNewContext(env *Environment) error {
 	if err := ps.initServiceRegistry(env); err != nil {
+		return err
+	}
+
+	if err := ps.initKubernetesGateways(env); err != nil {
 		return err
 	}
 
@@ -1030,7 +1028,7 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
@@ -1052,6 +1050,8 @@ func (ps *PushContext) updateContext(
 			gvk.PeerAuthentication:
 			authnChanged = true
 		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
+			gatewayAPIChanged = true
+			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
 		case gvk.Telemetry:
@@ -1068,6 +1068,13 @@ func (ps *PushContext) updateContext(
 		// make sure we copy over things that would be generated in initServiceRegistry
 		ps.ServiceIndex = oldPushContext.ServiceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
+	}
+
+	if servicesChanged || gatewayAPIChanged {
+		// Gateway status depends on services, so recompute if they change as well
+		if err := ps.initKubernetesGateways(env); err != nil {
+			return err
+		}
 	}
 
 	if virtualServicesChanged {
@@ -1156,7 +1163,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, ps.InstancesByPort(s, port.Port, nil)...)
+			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
 			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
 		}
 
@@ -1428,10 +1435,10 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
 	if ps.Mesh.RootNamespace != "" {
-		for _, sidecarConfig := range sidecarConfigs {
+		for i, sidecarConfig := range sidecarConfigs {
 			if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
-				rootNSConfig = &sidecarConfig
+				rootNSConfig = &sidecarConfigs[i]
 				break
 			}
 		}
@@ -1605,18 +1612,14 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		return err
 	}
 
-	if features.SortEnvoyFilterByName {
-		sort.SliceStable(envoyFilterConfigs, func(i, j int) bool {
-			// If name is the same across namespaces, then behavior is nondeterministic. In this case,
-			// to ensure consistent ordering based on name, we also sort by creationTimestamp.
-			if envoyFilterConfigs[i].Name != envoyFilterConfigs[j].Name {
-				return envoyFilterConfigs[i].Name < envoyFilterConfigs[j].Name
-			}
-			return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
-		})
-	} else {
-		sortConfigByCreationTime(envoyFilterConfigs)
-	}
+	sort.SliceStable(envoyFilterConfigs, func(i, j int) bool {
+		// If name is the same across namespaces, then behavior is nondeterministic. In this case,
+		// to ensure consistent ordering based on name, we also sort by creationTimestamp.
+		if envoyFilterConfigs[i].Name != envoyFilterConfigs[j].Name {
+			return envoyFilterConfigs[i].Name < envoyFilterConfigs[j].Name
+		}
+		return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
+	})
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
 	for _, envoyFilterConfig := range envoyFilterConfigs {
@@ -1712,12 +1715,27 @@ func (ps *PushContext) initGateways(env *Environment) error {
 	return nil
 }
 
+// InternalGatewayServiceAnnotation represents the hostname of the service a gateway will use. This is
+// only used internally to transfer information from the Kubernetes Gateway API to the Istio Gateway API
+// which does not have a field to represent this.
+// The format is a comma separated list of hostnames. For example, "ingress.istio-system.svc.cluster.local,ingress.example.com"
+// The Gateway will apply to all ServiceInstances of these services, *in the same namespace as the Gateway*.
+const InternalGatewayServiceAnnotation = "internal.istio.io/gateway-service"
+
+type gatewayWithInstances struct {
+	gateway config.Config
+	// If true, ports that are not present in any instance will be used directly (without targetPort translation)
+	// This supports the legacy behavior of selecting gateways by pod label selector
+	legacyGatewaySelector bool
+	instances             []*ServiceInstance
+}
+
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	// this should never happen
 	if proxy == nil {
 		return nil
 	}
-	out := make([]config.Config, 0)
+	out := make([]gatewayWithInstances, 0)
 
 	var configs []config.Config
 	if features.ScopeGatewayToNamespace {
@@ -1728,9 +1746,25 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 	for _, cfg := range configs {
 		gw := cfg.Spec.(*networking.Gateway)
-		if gw.GetSelector() == nil {
+		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
+			gwsvcs := strings.Split(gwsvcstr, ",")
+			known := map[host.Name]struct{}{}
+			for _, g := range gwsvcs {
+				known[host.Name(g)] = struct{}{}
+			}
+			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
+			for _, si := range proxy.ServiceInstances {
+				if _, f := known[si.Service.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
+					matchingInstances = append(matchingInstances, si)
+				}
+			}
+			// Only if we have a matching instance should we apply the configuration
+			if len(matchingInstances) > 0 {
+				out = append(out, gatewayWithInstances{cfg, false, matchingInstances})
+			}
+		} else if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, cfg)
+			out = append(out, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1739,7 +1773,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, cfg)
+				out = append(out, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 			}
 		}
 	}
@@ -1747,16 +1781,90 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	if len(out) == 0 {
 		return nil
 	}
-	return MergeGateways(out...)
+
+	return MergeGateways(out)
+}
+
+// GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers
+type GatewayContext struct {
+	ps *PushContext
+}
+
+func NewGatewayContext(ps *PushContext) GatewayContext {
+	return GatewayContext{ps}
+}
+
+// ResolveGatewayInstances attempts to resolve all instances that a gateway will be exposed on.
+// Note: this function considers *all* instances of the service; its possible those instances will not actually be properly functioning
+// gateways, so this is not 100% accurate, but sufficient to expose intent to users.
+// The actual configuration generation is done on a per-workload basis and will get the exact set of matched instances for that workload.
+// Three sets are exposed:
+// * Internal addresses (ie istio-ingressgateway.istio-system.svc.cluster.local:80).
+// * External addresses (ie 1.2.3.4), this comes from LoadBalancer services. There may be multiple in some cases (especially multi cluster).
+// * Warnings for references that could not be resolved. These are intended to be user facing.
+func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []string, servers []*networking.Server) (internal, external, warns []string) {
+	ports := map[int]struct{}{}
+	for _, s := range servers {
+		ports[int(s.Port.Number)] = struct{}{}
+	}
+	foundInternal := sets.NewSet()
+	foundExternal := sets.NewSet()
+	warnings := []string{}
+	for _, g := range gwsvcs {
+		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
+		if !f {
+			otherNamespaces := []string{}
+			for ns := range gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)] {
+				otherNamespaces = append(otherNamespaces, `"`+ns+`"`) // Wrap in quotes for output
+			}
+			if len(otherNamespaces) > 0 {
+				sort.Strings(otherNamespaces)
+				warnings = append(warnings, fmt.Sprintf("hostname %q not found in namespace %q, but it was found in namespace(s) %v",
+					g, namespace, strings.Join(otherNamespaces, ", ")))
+			} else {
+				warnings = append(warnings, fmt.Sprintf("hostname %q not found", g))
+			}
+			continue
+		}
+		for port := range ports {
+			instances := gc.ps.ServiceIndex.instancesByPort[svc][port]
+			if len(instances) > 0 {
+				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
+				// Fetch external IPs from all clusters
+				for _, externalIPs := range svc.Attributes.ClusterExternalAddresses {
+					foundExternal.Insert(externalIPs...)
+				}
+			} else {
+				hintPort := sets.NewSet()
+				for _, instances := range gc.ps.ServiceIndex.instancesByPort[svc] {
+					for _, i := range instances {
+						if i.Endpoint.EndpointPort == uint32(port) {
+							hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
+						}
+					}
+				}
+				if len(hintPort) > 0 {
+					warnings = append(warnings, fmt.Sprintf(
+						"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
+						port, g, hintPort.SortedList()))
+				} else {
+					warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
+				}
+			}
+		}
+	}
+	sort.Strings(warnings)
+	return foundInternal.SortedList(), foundExternal.SortedList(), warnings
 }
 
 // pre computes gateways for each network
-func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
+func (ps *PushContext) initMeshNetworks(env *Environment) {
 	ps.networksMu.Lock()
 	defer ps.networksMu.Unlock()
 	ps.networkGateways = map[string][]*Gateway{}
 
 	// First, use addresses directly specified in meshNetworks
+	meshNetworks := env.Networks()
 	if meshNetworks != nil {
 		for network, networkConf := range meshNetworks.Networks {
 			gws := networkConf.Gateways
@@ -1770,7 +1878,7 @@ func (ps *PushContext) initMeshNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	}
 
 	// Second, load registry specific gateways.
-	for network, gateways := range ps.ServiceDiscovery.NetworkGateways() {
+	for network, gateways := range env.NetworkGateways() {
 		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
 		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
 		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
@@ -1841,7 +1949,13 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 			return instances
 		}
 	}
+	return nil
+}
 
-	// Fallback to discovery call.
-	return ps.InstancesByPort(svc, port, labels)
+// initKubernetesGateways initializes Kubernetes gateway-api objects
+func (ps *PushContext) initKubernetesGateways(env *Environment) error {
+	if env.GatewayAPIController != nil {
+		return env.GatewayAPIController.Recompute(GatewayContext{ps})
+	}
+	return nil
 }

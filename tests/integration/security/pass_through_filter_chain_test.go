@@ -548,18 +548,19 @@ spec:
 				return src
 			}}
 			for _, tc := range cases {
-				echotest.New(t, apps.All).
-					SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
-						cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-							tc.config,
-							map[string]string{
-								"dst": dst[0].Config().Service,
-							},
-						), ns.Name())
-						// Its not trivial to force mTLS to passthrough ports. To workaround this, we will
-						// set up a SE and DR that forces it.
-						fakesvc := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
-							`apiVersion: networking.istio.io/v1beta1
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					echotest.New(t, apps.All).
+						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+							cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+								tc.config,
+								map[string]string{
+									"dst": dst[0].Config().Service,
+								},
+							), ns.Name())
+							// Its not trivial to force mTLS to passthrough ports. To workaround this, we will
+							// set up a SE and DR that forces it.
+							fakesvc := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+								`apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
   name: dest-via-mtls
@@ -600,84 +601,85 @@ spec:
     tls:
       mode: ISTIO_MUTUAL
 ---`,
-							map[string]string{
-								"IP": getWorkload(dst[0], t).Address(),
-							},
-						), ns.Name())
-						return t.Config().ApplyYAML(ns.Name(), cfg, fakesvc)
-					}).
-					From(srcFilter...).
-					ConditionallyTo(echotest.ReachableDestinations).
-					To(
-						echotest.SingleSimplePodServiceAndAllSpecial(),
-						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-						echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-						func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
-					).
-					Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
-						clusterName := src.Config().Cluster.StableName()
-						if dest[0].Config().Cluster.StableName() != clusterName {
-							// The workaround for mTLS does not work on cross cluster traffic.
-							t.Skip()
-						}
-						if src.Config().Service == dest[0].Config().Service {
-							// The workaround for mTLS does not work on a workload calling itself.
-							// Skip vm->vm requests.
-							t.Skip()
-						}
-						nameSuffix := "mtls"
-						if src.Config().IsNaked() {
-							nameSuffix = "plaintext"
-						}
-						for _, expect := range tc.expected {
-							want := expect.mtlsSucceeds
-							if src.Config().IsNaked() {
-								want = expect.plaintextSucceeds
-							}
-							name := fmt.Sprintf("In %s/%v/%v/port %d[%t]", clusterName, tc.name, nameSuffix, expect.port.ServicePort, want)
-							host := fmt.Sprintf("%s:%d", getWorkload(dest[0], t).Address(), expect.port.ServicePort)
-							callOpt := echo.CallOptions{
-								Count: util.CallsPerCluster * len(dest),
-								Port:  expect.port,
-								Headers: map[string][]string{
-									"Host": {host},
+								map[string]string{
+									"IP": getWorkload(dst[0], t).Address(),
 								},
-								Message: "HelloWorld",
-								// Do not set Target to dest, otherwise fillInCallOptions() will
-								// complain with port does not match.
-								Address: getWorkload(dest[0], t).Address(),
-								Validator: echo.And(echo.ValidatorFunc(
-									func(responses client.ParsedResponses, err error) error {
-										if want {
-											if err != nil {
-												return fmt.Errorf("want allow but got error: %v", err)
-											}
-											if responses.Len() < 1 {
-												return fmt.Errorf("received no responses from request to %s", host)
-											}
-											if okErr := responses.CheckOK(); okErr != nil && expect.port.Protocol == protocol.HTTP {
-												return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, okErr.Error())
-											}
-										} else {
-											// Check HTTP forbidden response
-											if responses.Len() >= 1 && responses.CheckCode(response.StatusCodeForbidden) == nil {
-												return nil
-											}
-
-											if err == nil {
-												return fmt.Errorf("want error but got none: %v", responses.String())
-											}
-										}
-										return nil
-									})),
+							), ns.Name())
+							return t.Config().ApplyYAML(ns.Name(), cfg, fakesvc)
+						}).
+						From(srcFilter...).
+						ConditionallyTo(echotest.ReachableDestinations).
+						To(
+							echotest.SingleSimplePodServiceAndAllSpecial(),
+							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
+							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
+							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
+							echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
+							func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns.Name())) },
+						).
+						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
+							clusterName := src.Config().Cluster.StableName()
+							if dest[0].Config().Cluster.StableName() != clusterName {
+								// The workaround for mTLS does not work on cross cluster traffic.
+								t.Skip()
 							}
-							t.NewSubTest(name).Run(func(t framework.TestContext) {
-								src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
-							})
-						}
-					})
+							if src.Config().Service == dest[0].Config().Service {
+								// The workaround for mTLS does not work on a workload calling itself.
+								// Skip vm->vm requests.
+								t.Skip()
+							}
+							nameSuffix := "mtls"
+							if src.Config().IsNaked() {
+								nameSuffix = "plaintext"
+							}
+							for _, expect := range tc.expected {
+								want := expect.mtlsSucceeds
+								if src.Config().IsNaked() {
+									want = expect.plaintextSucceeds
+								}
+								name := fmt.Sprintf("%v/port %d[%t]", nameSuffix, expect.port.ServicePort, want)
+								host := fmt.Sprintf("%s:%d", getWorkload(dest[0], t).Address(), expect.port.ServicePort)
+								callOpt := echo.CallOptions{
+									Count: util.CallsPerCluster * len(dest),
+									Port:  expect.port,
+									Headers: map[string][]string{
+										"Host": {host},
+									},
+									Message: "HelloWorld",
+									// Do not set Target to dest, otherwise fillInCallOptions() will
+									// complain with port does not match.
+									Address: getWorkload(dest[0], t).Address(),
+									Validator: echo.And(echo.ValidatorFunc(
+										func(responses client.ParsedResponses, err error) error {
+											if want {
+												if err != nil {
+													return fmt.Errorf("want allow but got error: %v", err)
+												}
+												if responses.Len() < 1 {
+													return fmt.Errorf("received no responses from request to %s", host)
+												}
+												if okErr := responses.CheckOK(); okErr != nil && expect.port.Protocol == protocol.HTTP {
+													return fmt.Errorf("want status %s but got %s", response.StatusCodeOK, okErr.Error())
+												}
+											} else {
+												// Check HTTP forbidden response
+												if responses.Len() >= 1 && responses.CheckCode(response.StatusCodeForbidden) == nil {
+													return nil
+												}
+
+												if err == nil {
+													return fmt.Errorf("want error but got none: %v", responses.String())
+												}
+											}
+											return nil
+										})),
+								}
+								t.NewSubTest(name).Run(func(t framework.TestContext) {
+									src.CallWithRetryOrFail(t, callOpt, echo.DefaultCallRetryOptions()...)
+								})
+							}
+						})
+				})
 			}
 		})
 }

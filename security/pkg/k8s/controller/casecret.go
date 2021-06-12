@@ -25,18 +25,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-const (
-	// The Istio secret annotation type
-	IstioSecretType = "istio.io/key-and-cert"
-
-	// The ID/name for the certificate chain file.
-	CertChainID = "cert-chain.pem"
-	// The ID/name for the private key file.
-	PrivateKeyID = "key.pem"
-	// The ID/name for the CA root certificate file.
-	RootCertID = "root-cert.pem"
-)
-
 var k8sControllerLog = log.RegisterScope("secretcontroller", "Citadel kubernetes controller log", 0)
 
 // CaSecretController manages the self-signed signing CA secret.
@@ -61,7 +49,7 @@ func (csc *CaSecretController) LoadCASecretWithRetry(secretName, namespace strin
 	for {
 		caSecret, scrtErr = csc.client.Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 		if scrtErr == nil {
-			return caSecret, scrtErr
+			return caSecret, nil
 		}
 		k8sControllerLog.Errorf("Failed on loading CA secret %s:%s.",
 			namespace, secretName)

@@ -6,17 +6,14 @@ spec:
   components:
     base:
       enabled: false
-    pilot:
-      enabled: false
     ingressGateways:
     - name: istio-ingressgateway
       enabled: false
-    istiodRemote:
-      enabled: true
   values:
     telemetry:
       enabled: false
     pilot:
       configMap: false
     global:
+      externalIstiod: true
       omitSidecarInjectorConfigMap: true

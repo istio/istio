@@ -91,7 +91,7 @@ func TestBuildReport(t *testing.T) {
 	for _, res := range resources {
 		// Set Group Version and GroupVersionKind to real world values from VS
 		res.GroupVersionKind = col.GroupVersionKind()
-		myResources = append(myResources, *ResourceFromModelConfig(*res))
+		myResources = append(myResources, ResourceFromModelConfig(*res))
 		// Add each resource to our ledger for tracking history
 		// mark each of our resources as in flight so they are included in the report.
 		r.AddInProgressResource(*res)

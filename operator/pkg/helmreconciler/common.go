@@ -76,7 +76,6 @@ var (
 		},
 		name.IstioBaseComponentName: {
 			name.PilotComponentName,
-			name.IstiodRemoteComponentName,
 		},
 	}
 

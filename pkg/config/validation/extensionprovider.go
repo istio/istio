@@ -154,6 +154,19 @@ func validateExtensionProviderTracingOpenCensusAgent(config *meshconfig.MeshConf
 	return
 }
 
+func validateExtensionProviderTracingSkyWalking(config *meshconfig.MeshConfig_ExtensionProvider_SkyWalkingTracingProvider) (errs error) {
+	if config == nil {
+		return fmt.Errorf("nil TracingSkyWalkingProvider")
+	}
+	if err := validateExtensionProviderService(config.Service); err != nil {
+		errs = appendErrors(errs, err)
+	}
+	if err := ValidatePort(int(config.Port)); err != nil {
+		errs = appendErrors(errs, fmt.Errorf("invalid service port: %v", err))
+	}
+	return
+}
+
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 	definedProviders := map[string]struct{}{}
 	for _, c := range config.ExtensionProviders {
@@ -181,6 +194,8 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingDatadog(provider.Datadog))
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingOpenCensusAgent(provider.Opencensus))
+		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingSkyWalking(provider.Skywalking))
 		default:
 			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v", provider))
 		}

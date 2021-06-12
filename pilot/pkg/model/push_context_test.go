@@ -578,7 +578,6 @@ func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
 	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
 
@@ -668,7 +667,6 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	sd := &localServiceDiscovery{}
 	env.ServiceDiscovery = sd
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 
 	configStore := NewFakeStore()
 
@@ -1200,7 +1198,6 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 	configStore := NewFakeStore()
 	gatewayName := "default/gateway"
 
@@ -1351,7 +1348,6 @@ func TestInitVirtualService(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 	configStore := NewFakeStore()
 	gatewayName := "ns1/gateway"
 
@@ -1449,7 +1445,6 @@ func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceDiscovery = env
 
 	svc1 := &Service{
 		Hostname: "svc1",

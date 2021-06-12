@@ -354,34 +354,6 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 	verifyKeyLastRefreshedTime(t, r, ms, false /* wantChanged */)
 }
 
-func TestJwtRefreshIntervalExponentialBackoff(t *testing.T) {
-	defaultRefreshInterval := 50 * time.Millisecond
-	refreshIntervalOnFail := 2 * time.Millisecond
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
-
-	ms := startMockServer(t)
-	defer ms.Stop()
-
-	// Configures the mock server to return error after the first request.
-	ms.ReturnErrorAfterFirstNumHits = 1
-
-	mockCertURL := ms.URL + "/oauth2/v3/certs"
-	_, err := r.GetPublicKey("", mockCertURL)
-	if err != nil {
-		t.Fatalf("GetPublicKey(%q, %+v) fails: expected no error, got (%v)", "", mockCertURL, err)
-	}
-
-	time.Sleep(100 * time.Millisecond)
-	r.Close()
-
-	powerOfTwo := func(n int64) bool {
-		return n != 0 && (n&(n-1) == 0)
-	}
-	if r.refreshInterval == refreshIntervalOnFail || !powerOfTwo(r.refreshInterval.Milliseconds()/time.Millisecond.Milliseconds()) {
-		t.Errorf("refreshInterval not updated with exponential backoff, got %v", r.refreshInterval)
-	}
-}
-
 func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond

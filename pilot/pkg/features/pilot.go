@@ -221,13 +221,6 @@ var (
 		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
 	).Get()
 
-	EnableSDSServer = env.RegisterBoolVar(
-		"ISTIOD_ENABLE_SDS_SERVER",
-		true,
-		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
-			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well.",
-	).Get()
-
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
@@ -439,6 +432,12 @@ var (
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request")
 
+	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
+		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
+		false,
+		"If enabled, pilot will allow any upstream cluster to be used with AUTO_PASSTHROUGH. "+
+			"This option is intended for backwards compatibility only and is not secure with untrusted downstreams; it will be removed in the future.").Get()
+
 	SharedMeshConfig = env.RegisterStringVar("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -448,10 +447,8 @@ var (
 	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
 
-	SortEnvoyFilterByName = env.RegisterBoolVar("SORT_ENVOY_FILTERS_BY_NAME", false,
-		"If enabled, envoy filters will be sorted by name allowing patch ordering by name. This can be useful when you have "+
-			"one patch that “depends on another” for ordering. In that case it is possible to use rc.d style 001-patch1 and 002-patch2 "+
-			"to enforce patch application ordering.").Get()
+	EnableRouteCollapse = env.RegisterBoolVar("PILOT_ENABLE_ROUTE_COLLAPSE_OPTIMIZATION", true,
+		"If true, Pilot will merge virtual hosts with the same routes into a single virtual host, as an optimization.").Get()
 
 	delayedCloseTimeoutVar = env.RegisterDurationVar(
 		"PILOT_HTTP_DELAYED_CLOSE_TIMEOUT",
@@ -462,6 +459,16 @@ var (
 	DelayedCloseTimeout = func() *duration.Duration {
 		return durationpb.New(delayedCloseTimeoutVar)
 	}()
+
+	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", false,
+		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
+
+	// UseTargetPortForGatewayRoutes determines which port to use for the routes. This flag is for safety only, and can be removed in future versions.
+	// Example setup: we have a Service on port 80, targetPort 8080
+	// Old behavior (false): we create listener 0.0.0.0_8080 and route http.80. This has potential for conflicts if there are other port 80s
+	// New behavior (true): we create listener 0.0.0.0_8080 and route http.8080. This has no conflicts; routes are 1:1 with listener.
+	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
+		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

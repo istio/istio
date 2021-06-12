@@ -141,7 +141,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
 
-	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[CaCertID])
+	signingCertFromSecret, err := util.ParsePemEncodedCertificate(caSecret.Data[CACertFile])
 	if err != nil {
 		t.Errorf("Failed to parse cert (error: %s)", err)
 	}
@@ -461,7 +461,7 @@ func TestSignCSR(t *testing.T) {
 				t.Errorf("%s: Expected null cert be obtained a non-null cert.", id)
 			}
 			if signErr.(*caerror.Error).Error() != tc.expectedError {
-				t.Errorf("%s: Expected error: %s but got error: %s.", id, signErr.(*caerror.Error).Error(), tc.expectedError)
+				t.Errorf("%s: Expected error: %s but got error: %s.", id, tc.expectedError, signErr.(*caerror.Error).Error())
 			}
 			continue
 		}

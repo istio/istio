@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 32749
+releaseNotes:
+  - |
+    **Fixed** the upgrade and downgrade message of the control plane.

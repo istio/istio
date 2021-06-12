@@ -52,7 +52,7 @@ func TestResourceLock_Lock(t *testing.T) {
 	var runCount int32
 	x := make(chan struct{})
 	y := make(chan struct{})
-	workers := NewWorkerPool(func(resource *Resource, progress *Progress) {
+	workers := NewProgressWorkerPool(func(resource Resource, progress Progress) {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
 		y <- struct{}{}

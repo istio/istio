@@ -212,6 +212,14 @@ func EnvoyStatsMatcherInclusionRegexp(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("inclusionRegexps", value)
 }
 
+func EnvoyStatusPort(value int) Instance {
+	return newOption("envoy_status_port", value)
+}
+
+func EnvoyPrometheusPort(value int) Instance {
+	return newOption("envoy_prometheus_port", value)
+}
+
 func STSPort(value int) Instance {
 	return newOption("sts_port", value)
 }

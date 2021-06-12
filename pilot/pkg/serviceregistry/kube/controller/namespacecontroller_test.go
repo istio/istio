@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
@@ -42,17 +43,17 @@ func TestNamespaceController(t *testing.T) {
 	nc.Run(stop)
 
 	createNamespace(t, client, "foo", nil)
-	expectConfigMap(t, client, "foo", testdata)
+	expectConfigMap(t, nc.configmapLister, "foo", testdata)
 
 	newData := map[string]string{"key": "value", "foo": "bar"}
 	if err := k8s.InsertDataToConfigMap(client.CoreV1(), nc.configmapLister,
 		metav1.ObjectMeta{Name: CACertNamespaceConfigMap, Namespace: "foo"}, newData); err != nil {
 		t.Fatal(err)
 	}
-	expectConfigMap(t, client, "foo", newData)
+	expectConfigMap(t, nc.configmapLister, "foo", newData)
 
 	deleteConfigMap(t, client, "foo")
-	expectConfigMap(t, client, "foo", testdata)
+	expectConfigMap(t, nc.configmapLister, "foo", testdata)
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
@@ -84,10 +85,10 @@ func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, label
 	}
 }
 
-func expectConfigMap(t *testing.T, client kubernetes.Interface, ns string, data map[string]string) {
+func expectConfigMap(t *testing.T, client listerv1.ConfigMapLister, ns string, data map[string]string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		cm, err := client.CoreV1().ConfigMaps(ns).Get(context.TODO(), CACertNamespaceConfigMap, metav1.GetOptions{})
+		cm, err := client.ConfigMaps(ns).Get(CACertNamespaceConfigMap)
 		if err != nil {
 			return err
 		}

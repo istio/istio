@@ -2,7 +2,7 @@
 FROM gcr.io/distroless/static-debian10@sha256:60a7d0c45932b6152b2f7ba561db2f91f58ab14aa90b895c58f72062c768fd77 as distroless_source
 
 # prepare a base dev to modify file contents
-FROM ubuntu:bionic as ubuntu_source
+FROM ubuntu:focal as ubuntu_source
 
 # Modify contents of container
 COPY --from=distroless_source /etc/ /home/etc

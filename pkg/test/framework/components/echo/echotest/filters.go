@@ -113,7 +113,7 @@ func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instan
 // - Multi-Subset
 func RegularPod(instance echo.Instance) bool {
 	c := instance.Config()
-	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet()
+	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC()
 }
 
 // Not includes all workloads that don't match the given filter
@@ -158,7 +158,7 @@ var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.I
 // reachableHeadlessDestinations filters out headless services that aren't in the same cluster
 // TODO https://github.com/istio/istio/issues/27342
 func reachableHeadlessDestinations(from echo.Instance) echo.Matcher {
-	excluded := echo.IsHeadless().And(echo.Not(echo.InCluster(from.Config().Cluster)))
+	excluded := echo.IsHeadless().And(echo.Not(echo.InNetwork(from.Config().Cluster.NetworkName())))
 	return echo.Not(excluded)
 }
 

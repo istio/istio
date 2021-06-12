@@ -28,11 +28,25 @@ import (
 )
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
-func NewConfigMapWatcher(client kube.Client, namespace, name, key, extraConfig string) mesh.Watcher {
+func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiWatch bool) *mesh.MultiWatcher {
 	defaultMesh := mesh.DefaultMeshConfig()
-	w := &mesh.InternalWatcher{MeshConfig: &defaultMesh}
+	w := &mesh.MultiWatcher{
+		InternalWatcher: mesh.InternalWatcher{
+			MeshConfig: &defaultMesh,
+		},
+		InternalNetworkWatcher: mesh.InternalNetworkWatcher{},
+	}
 	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
-		if extraConfig != "" {
+		meshNetworks, err := ReadNetworksConfigMap(cm, "meshNetworks")
+		if err != nil {
+			// Keep the last known config in case there's a misconfiguration issue.
+			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
+			return
+		}
+		if meshNetworks != nil {
+			w.SetNetworks(meshNetworks)
+		}
+		if multiWatch {
 			meshConfig := meshConfigMapData(cm, key)
 			w.HandleMeshConfigData(meshConfig)
 			return
@@ -50,19 +64,24 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key, extraConfig s
 	stop := make(chan struct{})
 	go c.Run(stop)
 
-	if extraConfig != "" {
-		extrac := configmapwatcher.NewController(client, namespace, extraConfig, func(cm *v1.ConfigMap) {
-			meshConfig := meshConfigMapData(cm, key)
-			w.HandleUserMeshConfig(meshConfig)
-		})
-
-		go extrac.Run(stop)
-		cache.WaitForCacheSync(stop, extrac.HasSynced)
-	}
-
 	// Ensure the ConfigMap is initially loaded if present.
-	cache.WaitForCacheSync(stop, c.HasSynced)
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+		log.Error("failed to wait for cache sync")
+	}
 	return w
+}
+
+func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key, userMeshConfig string) {
+	c := configmapwatcher.NewController(client, namespace, userMeshConfig, func(cm *v1.ConfigMap) {
+		meshConfig := meshConfigMapData(cm, key)
+		watcher.HandleUserMeshConfig(meshConfig)
+	})
+
+	stop := make(chan struct{})
+	go c.Run(stop)
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+		log.Error("failed to wait for cache sync")
+	}
 }
 
 func meshConfigMapData(cm *v1.ConfigMap, key string) string {
@@ -97,4 +116,24 @@ func ReadConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error)
 
 	log.Info("Loaded MeshConfig config from Kubernetes API server.")
 	return meshConfig, nil
+}
+
+func ReadNetworksConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshNetworks, error) {
+	if cm == nil {
+		log.Info("no ConfigMap found, using existing MeshNetworks config")
+		return nil, nil
+	}
+
+	cfgYaml, exists := cm.Data[key]
+	if !exists {
+		return nil, nil
+	}
+
+	meshNetworks, err := mesh.ParseMeshNetworks(cfgYaml)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading MeshNetworks config: %v. YAML:\n%s", err, cfgYaml)
+	}
+
+	log.Info("Loaded MeshNetworks config from Kubernetes API server.")
+	return meshNetworks, nil
 }

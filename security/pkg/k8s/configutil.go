@@ -79,10 +79,11 @@ func UpdateDataInConfigMap(client corev1.ConfigMapsGetter, cm *v1.ConfigMap, dat
 	if cm == nil {
 		return fmt.Errorf("cannot update nil configmap")
 	}
-	if needsUpdate := insertData(cm, data); !needsUpdate {
+	newCm := cm.DeepCopy()
+	if needsUpdate := insertData(newCm, data); !needsUpdate {
 		return nil
 	}
-	if _, err := client.ConfigMaps(cm.Namespace).Update(context.TODO(), cm, metav1.UpdateOptions{}); err != nil {
+	if _, err := client.ConfigMaps(newCm.Namespace).Update(context.TODO(), newCm, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("error when updating configmap %v: %v", cm.Name, err)
 	}
 	return nil

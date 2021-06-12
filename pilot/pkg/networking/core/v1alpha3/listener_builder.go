@@ -84,15 +84,6 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 	listenerAddress := l.Address
 	if sockAddr := listenerAddress.GetSocketAddress(); sockAddr != nil {
 		chain.FilterChainMatch.DestinationPort = &wrappers.UInt32Value{Value: sockAddr.GetPortValue()}
-		if cidr := util.ConvertAddressToCidr(sockAddr.GetAddress()); cidr != nil {
-			if chain.FilterChainMatch.PrefixRanges != nil && len(chain.FilterChainMatch.PrefixRanges) != 1 {
-				log.Debugf("Intercepted inbound listener %s have neither 0 or 1 prefix ranges. Actual:  %d",
-					l.Name, len(chain.FilterChainMatch.PrefixRanges))
-			}
-			if sockAddr.Address != WildcardAddress && sockAddr.Address != WildcardIPv6Address {
-				chain.FilterChainMatch.PrefixRanges = []*core.CidrRange{util.ConvertAddressToCidr(sockAddr.GetAddress())}
-			}
-		}
 		chain.Name = l.Name
 	}
 
@@ -394,7 +385,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, ipTablesListener, lb.node)
+	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
 	return lb
 }
@@ -418,7 +409,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     filterChains,
 	}
-	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, lb.virtualInboundListener, lb.node)
+	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, lb.virtualInboundListener)
 	lb.aggregateVirtualInboundListener(passthroughInspector)
 
 	return lb
@@ -654,10 +645,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundFilterchains(in *plugin.InputP
 		case istionetworking.ListenerProtocolHTTP:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
 		case istionetworking.ListenerProtocolTCP:
-			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, in.Node, clusterName)
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, clusterName)
 		case istionetworking.ListenerProtocolAuto:
 			fcOpt.httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(in.Node, in, clusterName)
-			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, in.Node, clusterName)
+			fcOpt.networkFilters = buildInboundNetworkFilters(in.Push, in.ServiceInstance, clusterName)
 		}
 		fcOpt.filterChainName = model.VirtualInboundListenerName
 		if opt.fc.ListenerProtocol == istionetworking.ListenerProtocolHTTP {
@@ -692,7 +683,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 	}
-	accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy, node)
+	accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},

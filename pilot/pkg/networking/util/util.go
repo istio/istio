@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
@@ -122,23 +121,6 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 
 // ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
-
-// FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
-// filter chain
-var FallThroughFilterChainBlackHoleService = &model.Service{
-	Hostname: host.Name(BlackHoleCluster),
-	Attributes: model.ServiceAttributes{
-		Name: BlackHoleCluster,
-	},
-}
-
-// FallThroughFilterChainPassthroughService is the passthrough service used for fall though
-var FallThroughFilterChainPassthroughService = &model.Service{
-	Hostname: host.Name(PassthroughCluster),
-	Attributes: model.ServiceAttributes{
-		Name: PassthroughCluster,
-	},
-}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -265,12 +247,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE19 checks whether the given Istio version is greater than or equals 1.9.
-func IsIstioVersionGE19(node *model.Proxy) bool {
-	return node == nil || node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 9, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {

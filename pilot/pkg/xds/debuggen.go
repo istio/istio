@@ -41,7 +41,6 @@ var activeNamespaceDebuggers = map[string]struct{}{
 
 // DebugGen is a Generator for istio debug info
 type DebugGen struct {
-	model.BaseGenerator
 	Server          *DiscoveryServer
 	SystemNamespace string
 	DebugMux        *http.ServeMux
@@ -86,14 +85,14 @@ func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
 
 // Generate XDS debug responses according to the incoming debug request
 func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, error) {
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 	var buffer bytes.Buffer
 	if w.ResourceNames == nil {
-		return res, fmt.Errorf("debug type is required")
+		return res, model.DefaultXdsLogDetails, fmt.Errorf("debug type is required")
 	}
 	if len(w.ResourceNames) != 1 {
-		return res, fmt.Errorf("only one debug request is allowed")
+		return res, model.DefaultXdsLogDetails, fmt.Errorf("only one debug request is allowed")
 	}
 	resourceName := w.ResourceNames[0]
 	u, _ := url.Parse(resourceName)
@@ -105,7 +104,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			shouldAllow = true
 		}
 		if !shouldAllow {
-			return res, fmt.Errorf("the debug info is not available for current identity: %q", identity)
+			return res, model.DefaultXdsLogDetails, fmt.Errorf("the debug info is not available for current identity: %q", identity)
 		}
 	}
 	debugURL := "/debug/" + resourceName
@@ -125,5 +124,5 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			Value:   buffer.Bytes(),
 		},
 	})
-	return res, nil
+	return res, model.DefaultXdsLogDetails, nil
 }

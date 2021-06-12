@@ -142,7 +142,10 @@ spec:
       - name: {{ $.ImagePullSecret }}
 {{- end }}
       containers:
-{{- if ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false" }}
+{{- if and
+  (ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false")
+  (ne ($subset.Annotations.GetByName "inject.istio.io/templates") "grpc")
+}}
       - name: istio-proxy
         image: auto
         securityContext: # to allow core dumps

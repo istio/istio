@@ -21,6 +21,8 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/google/uuid"
+
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
@@ -105,6 +107,8 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
 	}
 
+	id := uuid.New()
+	epLog.WithLabels("remote", conn.RemoteAddr(), "id", id).Infof("TCP Request")
 	firstReply := true
 	buf := make([]byte, 4096)
 	for {
@@ -136,6 +140,8 @@ func (s *tcpInstance) echo(conn net.Conn) {
 			break
 		}
 	}
+
+	epLog.WithLabels("id", id).Infof("TCP Response")
 }
 
 func (s *tcpInstance) writeResponse(conn net.Conn) {

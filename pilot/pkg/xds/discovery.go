@@ -534,13 +534,14 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
-	s.Generators["api"] = &apigen.APIGenerator{}
+	s.Generators["api"] = apigen.NewGenerator(env.IstioConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
 	s.Generators[TypeDebug] = NewDebugGen(s, systemNameSpace)
+	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
 // shutdown shuts down DiscoveryServer components.

@@ -90,7 +90,6 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		s.istiodCertBundleWatcher,
 		args.Revision,
 		s.fetchCARoot,
-		s.environment,
 		s.environment.ClusterLocal(),
 		s.server)
 

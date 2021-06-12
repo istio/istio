@@ -30,7 +30,7 @@ const errOutOfMemory = "signal: killed"
 func NewAgent(proxy Proxy, terminationDrainDuration time.Duration) *Agent {
 	return &Agent{
 		proxy:                    proxy,
-		statusCh:                 make(chan exitStatus),
+		statusCh:                 make(chan exitStatus, 1), // context might stop drainage
 		abortCh:                  make(chan error, 1),
 		terminationDrainDuration: terminationDrainDuration,
 	}
@@ -47,6 +47,9 @@ type Proxy interface {
 
 	// Cleanup command for an epoch
 	Cleanup(int)
+
+	// UpdateConfig writes a new config file
+	UpdateConfig(config []byte) error
 }
 
 type Agent struct {
@@ -86,6 +89,12 @@ func (a *Agent) Run(ctx context.Context) {
 		log.Infof("No more active epochs, terminating")
 	case <-ctx.Done():
 		a.terminate()
+		status := <-a.statusCh
+		if status.err == errAbort {
+			log.Infof("Epoch %d aborted normally", status.epoch)
+		} else {
+			log.Warnf("Epoch %d aborted abnormally", status.epoch)
+		}
 		log.Info("Agent has successfully terminated")
 	}
 }

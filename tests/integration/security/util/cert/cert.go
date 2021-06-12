@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/shell"
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/tests/integration/security/util/dir"
 	"istio.io/istio/tests/util"
 	"istio.io/pkg/log"
@@ -97,10 +98,10 @@ func CreateCASecret(ctx resource.Context) error {
 				Namespace: systemNs.Name(),
 			},
 			Data: map[string][]byte{
-				"ca-cert.pem":    caCert,
-				"ca-key.pem":     caKey,
-				"cert-chain.pem": certChain,
-				"root-cert.pem":  rootCert,
+				ca.CACertFile:       caCert,
+				ca.CAPrivateKeyFile: caKey,
+				ca.CertChainFile:    certChain,
+				ca.RootCertFile:     rootCert,
 			},
 		}
 

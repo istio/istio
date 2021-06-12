@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -60,7 +60,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	injectedNamespaces := make(map[string]bool)
 
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.FullName.Namespace == controller.IstioNamespace {
+		if r.Metadata.FullName.Namespace == constants.IstioSystemNamespace {
 			return true
 		}
 

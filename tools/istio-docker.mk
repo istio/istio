@@ -97,8 +97,10 @@ docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm
 	$(DOCKER_RULE)
 
-docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery
+docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
+docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
@@ -240,7 +242,7 @@ dockerx:
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	@# Retry works around https://github.com/docker/buildx/issues/298
 	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
-		{ docker logs buildx_buildkit_container-builder0; exit 1; }
+		{ tools/dump-docker-logs.sh; exit 1; }
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:

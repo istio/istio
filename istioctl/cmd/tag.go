@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -26,6 +27,9 @@ import (
 	"github.com/spf13/cobra"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -35,11 +39,9 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/helm"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
@@ -52,9 +54,6 @@ const (
 	defaultRevisionName         = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
 	revisionTagTemplateName     = "revision-tags.yaml"
-	// Revision tags require that the target istiod patches ALL webhooks with matching istio.io/rev label,
-	// a behavior that just made it into 1.10 (https://github.com/istio/istio/pull/29583)
-	minRevisionTagIstioVersion = "1.10.0"
 
 	// help strings and long formatted user outputs
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
@@ -66,7 +65,6 @@ overwrite existing revision tags.`
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
 	webhookNameHelpStr = "Name to use for a revision tag's mutating webhook configuration."
-	versionCheckStr    = "Revision %q on version %q, must be at least version %q to patch revision tag webhooks. Continue anyways? (y/N)"
 )
 
 var (
@@ -82,6 +80,7 @@ type tagWebhookConfig struct {
 	tag                string
 	revision           string
 	remoteInjectionURL string
+	caBundle           string
 }
 
 func tagCommand() *cobra.Command {
@@ -278,19 +277,6 @@ revision tag before removing using the "istioctl x revision tag list" command.
 
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision string, generate bool, w, stderr io.Writer) error {
-	// ensure that the revision is recent enough to patch tag webhooks
-	if !skipConfirmation {
-		sufficient, version, err := versionCheck(revision)
-		if err != nil {
-			return err
-		}
-		if !sufficient {
-			if !confirm(fmt.Sprintf(versionCheckStr, revision, version, minRevisionTagIstioVersion), w) {
-				return nil
-			}
-		}
-	}
-
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := getWebhooksWithRevision(ctx, kubeClient, tag)
 	if err != nil {
@@ -327,10 +313,6 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tag, revision s
 	tagWhYAML, err := tagWebhookYAML(tagWhConfig, manifestsPath)
 	if err != nil {
 		return fmt.Errorf("failed to create tag webhook: %v", err)
-	}
-	// custom webhook name specified, change the generated tag webhook configuration
-	if webhookName != "" {
-		tagWhYAML = renameTagWebhookConfiguration(tagWhYAML, tag, webhookName)
 	}
 
 	// Check the newly generated webhook does not conflict with existing ones
@@ -562,10 +544,12 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	}
 
 	var injectionURL string
+	var caBundle string
 	found := false
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
 			found = true
+			caBundle = string(w.ClientConfig.CABundle)
 			if w.ClientConfig.URL != nil {
 				injectionURL = *w.ClientConfig.URL
 			} else {
@@ -582,6 +566,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 		tag:                tag,
 		revision:           rev,
 		remoteInjectionURL: injectionURL,
+		caBundle:           caBundle,
 	}, nil
 }
 
@@ -614,7 +599,36 @@ istiodRemote:
 		return "", fmt.Errorf("failed rendering istio-control manifest: %v", err)
 	}
 
-	return tagWebhookYaml, nil
+	// Need to deserialize webhook to change CA bundle
+	// and serialize it back into YAML
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer()
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+			Yaml:   true,
+			Pretty: true,
+			Strict: true,
+		})
+
+	whObject, _, err := deserializer.Decode([]byte(tagWebhookYaml), nil, &admit_v1.MutatingWebhookConfiguration{})
+	if err != nil {
+		return "", fmt.Errorf("could not decode generated webhook: %w", err)
+	}
+	decodedWh := whObject.(*admit_v1.MutatingWebhookConfiguration)
+	for i := range decodedWh.Webhooks {
+		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.caBundle)
+	}
+	if webhookName != "" {
+		decodedWh.Name = webhookName
+	}
+
+	whBuf := new(bytes.Buffer)
+	if err = serializer.Encode(decodedWh, whBuf); err != nil {
+		return "", err
+	}
+
+	return whBuf.String(), nil
 }
 
 // applyYAML taken from remote_secret.go
@@ -629,11 +643,6 @@ func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
 		return fmt.Errorf("failed applying manifest %s: %v", yamlFile, err)
 	}
 	return nil
-}
-
-func renameTagWebhookConfiguration(wh, tag, name string) string {
-	webhookNameStr := fmt.Sprintf("%s-%s", "istio-revision-tag", tag)
-	return strings.ReplaceAll(wh, webhookNameStr, name)
 }
 
 // writeToTempFile taken from remote_secret.go
@@ -661,36 +670,4 @@ func confirm(msg string, w io.Writer) bool {
 	}
 	response = strings.ToUpper(response)
 	return response == "Y" || response == "YES"
-}
-
-// versionCheck returns true if revision tag being created is pointed to a CP version
-// >=1.10 since that's the first version that patches all matching istio.io/rev webhooks
-func versionCheck(rev string) (bool, string, error) {
-	meshInfo, err := getRemoteInfo(clioptions.ControlPlaneOptions{
-		Revision: revision,
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "no running Istio pods") {
-			// No pods in cluster - assume it is external Istiod and is supported
-			return true, "", nil
-		}
-		return false, "", err
-	}
-	if meshInfo == nil {
-		return false, "", fmt.Errorf("could not retrieve control plane version for revision: %s", rev)
-	}
-	minVersion := model.ParseIstioVersion(minRevisionTagIstioVersion)
-	revVersion := model.ParseIstioVersion((*meshInfo)[0].Info.Version)
-	if minVersion.Compare(revVersion) > 0 {
-		return false, versionToString(revVersion), nil
-	}
-
-	return true, versionToString(revVersion), nil
-}
-
-func versionToString(v *model.IstioVersion) string {
-	if v.Patch != 65535 {
-		return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
-	}
-	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
 }

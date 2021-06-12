@@ -144,6 +144,8 @@ type XdsCache interface {
 	ClearAll()
 	// Keys returns all currently configured keys. This is for testing/debug only
 	Keys() []string
+	// Snapshot returns a snapshot of all keys and values. This is for testing/debug only
+	Snapshot() map[string]*discovery.Resource
 }
 
 // NewXdsCache returns an instance of a cache.
@@ -303,6 +305,7 @@ func (l *lruCache) ClearAll() {
 	defer l.mu.Unlock()
 	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
+	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
 	size(l.store.Len())
 }
 
@@ -315,6 +318,22 @@ func (l *lruCache) Keys() []string {
 		keys = append(keys, ik.(string))
 	}
 	return keys
+}
+
+func (l *lruCache) Snapshot() map[string]*discovery.Resource {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	iKeys := l.store.Keys()
+	res := make(map[string]*discovery.Resource, len(iKeys))
+	for _, ik := range iKeys {
+		v, ok := l.store.Get(ik)
+		if !ok {
+			continue
+		}
+
+		res[ik.(string)] = v.(cacheValue).value
+	}
+	return res
 }
 
 // DisabledCache is a cache that is always empty
@@ -333,3 +352,5 @@ func (d DisabledCache) Clear(configsUpdated map[ConfigKey]struct{}) {}
 func (d DisabledCache) ClearAll() {}
 
 func (d DisabledCache) Keys() []string { return nil }
+
+func (d DisabledCache) Snapshot() map[string]*discovery.Resource { return nil }

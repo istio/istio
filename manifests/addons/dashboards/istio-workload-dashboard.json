@@ -2312,7 +2312,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy=\"mutual_tls\", reporter=\"source\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_received_bytes_total{connection_security_policy=\"mutual_tls\", reporter=\"source\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} (🔐mTLS)",
@@ -2320,7 +2320,7 @@
               "step": 2
             },
             {
-              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{connection_security_policy!=\"mutual_tls\", reporter=\"source\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_received_bytes_total{connection_security_policy!=\"mutual_tls\", reporter=\"source\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }}",
@@ -2415,7 +2415,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(istio_tcp_received_bytes_total{reporter=\"source\", connection_security_policy=\"mutual_tls\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{reporter=\"source\", connection_security_policy=\"mutual_tls\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }} (🔐mTLS)",
@@ -2423,7 +2423,7 @@
               "step": 2
             },
             {
-              "expr": "round(sum(irate(istio_tcp_received_bytes_total{reporter=\"source\", connection_security_policy!=\"mutual_tls\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
+              "expr": "round(sum(irate(istio_tcp_sent_bytes_total{reporter=\"source\", connection_security_policy!=\"mutual_tls\", source_workload_namespace=~\"$namespace\", source_workload=~\"$workload\", destination_service=~\"$dstsvc\"}[1m])) by (destination_service), 0.001)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ destination_service }}",

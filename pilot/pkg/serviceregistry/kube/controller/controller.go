@@ -26,10 +26,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -53,15 +50,13 @@ import (
 
 const (
 	// NodeRegionLabel is the well-known label for kubernetes node region in beta
-	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
+	NodeRegionLabel = v1.LabelFailureDomainBetaRegion
 	// NodeZoneLabel is the well-known label for kubernetes node zone in beta
-	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+	NodeZoneLabel = v1.LabelFailureDomainBetaZone
 	// NodeRegionLabelGA is the well-known label for kubernetes node region in ga
-	NodeRegionLabelGA = "topology.kubernetes.io/region"
+	NodeRegionLabelGA = v1.LabelTopologyRegion
 	// NodeZoneLabelGA is the well-known label for kubernetes node zone in ga
-	NodeZoneLabelGA = "topology.kubernetes.io/zone"
-	// IstioNamespace used by default for Istio cluster-wide installation
-	IstioNamespace = "istio-system"
+	NodeZoneLabelGA = v1.LabelTopologyZone
 
 	// IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
 	// TODO move gatewayPort to api repo
@@ -110,10 +105,8 @@ func incrementEvent(kind, event string) {
 type Options struct {
 	SystemNamespace string
 
-	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
-	WatchedNamespaces string
-	ResyncPeriod      time.Duration
-	DomainSuffix      string
+	ResyncPeriod time.Duration
+	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
 	ClusterID string
@@ -205,9 +198,8 @@ type Controller struct {
 
 	queue queue.Instance
 
-	// TODO merge the namespace informers/listers
-	systemNsInformer cache.SharedIndexInformer
-	nsInformer       coreinformers.NamespaceInformer
+	nsInformer cache.SharedIndexInformer
+	nsLister   listerv1.NamespaceLister
 
 	serviceInformer filter.FilteredSharedIndexInformer
 	serviceLister   listerv1.ServiceLister
@@ -267,6 +259,8 @@ type Controller struct {
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
 	informerInit *atomic.Bool
+	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
+	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial in-order processing of all objects.
 	initialSync *atomic.Bool
 	// syncTimeout signals that the registry should mark itself synced even if informers haven't been processed yet.
@@ -277,12 +271,12 @@ type Controller struct {
 
 	// If meshConfig.DiscoverySelectors are specified, the DiscoveryNamespacesFilter tracks the namespaces this controller watches.
 	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	systemNamespace           string
 }
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
-	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
 		domainSuffix:                options.DomainSuffix,
 		client:                      kubeClient.Kube(),
@@ -301,23 +295,28 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                     options.Metrics,
 		syncInterval:                options.GetSyncInterval(),
 		informerInit:                atomic.NewBool(false),
+		beginSync:                   atomic.NewBool(false),
 		initialSync:                 atomic.NewBool(false),
 		syncTimeout:                 options.SyncTimeout,
 		discoveryNamespacesFilter:   options.DiscoveryNamespacesFilter,
+		systemNamespace:             options.SystemNamespace,
 	}
-
-	if options.SystemNamespace != "" {
-		c.systemNsInformer = informers.NewSharedInformerFactoryWithOptions(c.client, options.ResyncPeriod,
-			informers.WithTweakListOptions(func(listOpts *metav1.ListOptions) {
-				listOpts.FieldSelector = fields.OneTermEqualSelector("metadata.name", options.SystemNamespace).String()
-			})).Core().V1().Namespaces().Informer()
-		c.registerHandlers(c.systemNsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
+	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
+	if c.systemNamespace != "" {
+		nsInformer := filter.NewFilteredSharedIndexInformer(func(obj interface{}) bool {
+			ns, ok := obj.(*v1.Namespace)
+			if !ok {
+				log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+				return false
+			}
+			return ns.Name == c.systemNamespace
+		}, c.nsInformer)
+		c.registerHandlers(nsInformer, "Namespaces", c.onSystemNamespaceEvent, nil)
 	}
-
-	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces()
 
 	if c.discoveryNamespacesFilter == nil {
-		c.discoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsInformer.Lister(), options.MeshWatcher.Mesh().DiscoverySelectors)
+		c.discoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(c.nsLister, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
 
 	c.initDiscoveryHandlers(kubeClient, options.EndpointMode, options.MeshWatcher, c.discoveryNamespacesFilter)
@@ -358,9 +357,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			log.Debugf("Endpoint %v not found, skipping stale endpoint", key)
 			return
 		}
-		c.queue.Push(func() error {
-			return c.endpoints.onEvent(item, model.EventUpdate)
-		})
+		if shouldEnqueue("Pods", c.beginSync) {
+			c.queue.Push(func() error {
+				return c.endpoints.onEvent(item, model.EventUpdate)
+			})
+		}
 	})
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
 
@@ -391,7 +392,6 @@ func (c *Controller) defaultNetwork() string {
 }
 
 func (c *Controller) Cleanup() error {
-	// TODO(landow) do we need to cleanup other things besides endpoint shards?
 	svcs, err := c.serviceLister.List(klabels.NewSelector())
 	if err != nil {
 		return fmt.Errorf("error listing services for deletion: %v", err)
@@ -399,7 +399,6 @@ func (c *Controller) Cleanup() error {
 	for _, s := range svcs {
 		name := kube.ServiceHostname(s.Name, s.Namespace, c.domainSuffix)
 		c.xdsUpdater.SvcUpdate(c.clusterID, string(name), s.Namespace, model.EventDelete)
-		// TODO(landow) do we need to notify service handlers?
 	}
 	return nil
 }
@@ -537,18 +536,6 @@ func (c *Controller) registerHandlers(
 	informer filter.FilteredSharedIndexInformer, otype string,
 	handler func(interface{}, model.Event) error, filter FilterOutFunc,
 ) {
-	if filter == nil {
-		filter = func(old, cur interface{}) bool {
-			oldObj := old.(metav1.Object)
-			newObj := cur.(metav1.Object)
-			// TODO: this is only for test, add resource version for test
-			if oldObj.GetResourceVersion() == "" || newObj.GetResourceVersion() == "" {
-				return false
-			}
-			return oldObj.GetResourceVersion() == newObj.GetResourceVersion()
-		}
-	}
-
 	wrappedHandler := func(obj interface{}, event model.Event) error {
 		obj = tryGetLatestObject(informer, obj)
 		return handler(obj, event)
@@ -558,25 +545,36 @@ func (c *Controller) registerHandlers(
 	}
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
+				if !shouldEnqueue(otype, c.beginSync) {
+					return
+				}
 				c.queue.Push(func() error {
 					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if !filter(old, cur) {
-					incrementEvent(otype, "update")
-					c.queue.Push(func() error {
-						return wrappedHandler(cur, model.EventUpdate)
-					})
-				} else {
-					incrementEvent(otype, "updatesame")
+				if filter != nil {
+					if filter(old, cur) {
+						incrementEvent(otype, "updatesame")
+						return
+					}
 				}
+
+				incrementEvent(otype, "update")
+				if !shouldEnqueue(otype, c.beginSync) {
+					return
+				}
+				c.queue.Push(func() error {
+					return wrappedHandler(cur, model.EventUpdate)
+				})
 			},
 			DeleteFunc: func(obj interface{}) {
 				incrementEvent(otype, "delete")
+				if !shouldEnqueue(otype, c.beginSync) {
+					return
+				}
 				c.queue.Push(func() error {
 					return handler(obj, model.EventDelete)
 				})
@@ -612,7 +610,7 @@ func (c *Controller) informersSynced() bool {
 		// registration/Run of informers hasn't occurred yet
 		return false
 	}
-	if (c.systemNsInformer != nil && !c.systemNsInformer.HasSynced()) ||
+	if (c.nsInformer != nil && !c.nsInformer.HasSynced()) ||
 		!c.serviceInformer.HasSynced() ||
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
@@ -627,12 +625,13 @@ func (c *Controller) informersSynced() bool {
 // This can cause great performance cost in multi clusters scenario.
 // Maybe just sync the cache and trigger one push at last.
 func (c *Controller) SyncAll() error {
+	c.beginSync.Store(true)
 	var err *multierror.Error
 
-	if c.systemNsInformer != nil {
-		ns := c.systemNsInformer.GetStore().List()
-		for _, ns := range ns {
-			err = multierror.Append(err, c.onSystemNamespaceEvent(ns, model.EventAdd))
+	if c.nsLister != nil {
+		sysNs, _ := c.nsLister.Get(c.systemNamespace)
+		if sysNs != nil {
+			err = multierror.Append(err, c.onSystemNamespaceEvent(sysNs, model.EventAdd))
 		}
 	}
 
@@ -681,10 +680,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.reloadMeshNetworks()
 		c.reloadNetworkGateways()
 	}
-	if c.systemNsInformer != nil {
-		go c.systemNsInformer.Run(stop)
-	}
 	c.informerInit.Store(true)
+
 	kubelib.WaitForCacheSyncInterval(stop, c.syncInterval, c.informersSynced)
 	// after informer caches sync the first time, process resources in order
 	if err := c.SyncAll(); err != nil {
@@ -792,10 +789,11 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	var workloadInstancesExist bool
 	c.RLock()
 	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
+	_, inRegistry := c.servicesMap[svc.Hostname]
 	c.RUnlock()
 
 	// Only select internal Kubernetes services with selectors
-	if !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB || svc.Attributes.LabelSelectors == nil {
 		return nil
 	}
@@ -1037,21 +1035,24 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 }
 
 func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) error {
-	var nw string
-	if ev != model.EventDelete {
-		ns, ok := obj.(*v1.Namespace)
-		if !ok {
-			log.Warnf("Namespace watch getting wrong type in event: %T", obj)
-			return nil
-		}
-		nw = ns.Labels[label.TopologyNetwork.Name]
+	if ev == model.EventDelete {
+		return nil
 	}
+	ns, ok := obj.(*v1.Namespace)
+	if !ok {
+		log.Warnf("Namespace watch getting wrong type in event: %T", obj)
+		return nil
+	}
+	if ns == nil {
+		return nil
+	}
+	nw := ns.Labels[label.TopologyNetwork.Name]
 	c.Lock()
 	oldDefaultNetwork := c.network
 	c.network = nw
 	c.Unlock()
 	// network changed, not using mesh networks, and controller has been initialized
-	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() && c.systemNsInformer.HasSynced() {
+	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() {
 		// refresh pods/endpoints/services
 		c.onNetworkChanged()
 	}

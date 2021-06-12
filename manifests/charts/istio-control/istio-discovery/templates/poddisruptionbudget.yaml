@@ -1,4 +1,4 @@
-{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+{{- if and (not .Values.global.externalIstiod) .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:

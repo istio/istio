@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+issue:
+- https://github.com/istio/istio/pull/32588
+
+releaseNotes:
+- |
+  **Added** support for [Apache SkyWalking](https://skywalking.apache.org/) tracer. Now you can run the `istioctl dashboard skywalking` command to view skywalking dashboard UI.

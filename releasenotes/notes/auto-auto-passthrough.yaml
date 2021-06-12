@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 33127
+releaseNotes:
+- |
+  **Improved** usage of AUTO_PASSTHROUGH Gateways to no longer require configuring the `ROUTER_MODE` option on the gateway deployment; instead, it is automatically detected

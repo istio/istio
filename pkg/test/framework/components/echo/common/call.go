@@ -53,6 +53,8 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), opts.Address)
 	case scheme.TCP:
 		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
+	case scheme.XDS:
+		targetURL = fmt.Sprintf("%s:///%s", string(opts.Scheme), addressAndPort)
 	default:
 		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.Path)
 	}
@@ -80,6 +82,8 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		CaCertFile:         opts.CaCertFile,
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		FollowRedirects:    opts.FollowRedirects,
+		ServerName:         opts.ServerName,
+		Alpn:               opts.Alpn,
 	}
 
 	var responses client.ParsedResponses
@@ -192,10 +196,10 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		} else {
 			// Look up the port.
 			found := false
-			for _, port := range targetPorts {
+			for i, port := range targetPorts {
 				if opts.PortName == port.Name {
 					found = true
-					opts.Port = &port
+					opts.Port = &targetPorts[i]
 					break
 				}
 			}

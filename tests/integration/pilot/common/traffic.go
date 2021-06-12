@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -81,7 +82,12 @@ type TrafficTestCase struct {
 	comboFilters []echotest.CombinationFilter
 	// vars given to the config template
 	templateVars func(src echo.Callers, dest echo.Instances) map[string]interface{}
+
+	// minIstioVersion allows conditionally skipping based on required version
+	minIstioVersion string
 }
+
+var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
 	if c.opts.Target != nil {
@@ -123,12 +129,19 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
-			To(c.targetFilters...).
+			// TODO mainly testing proxyless features as a client for now
+			To(append(c.targetFilters, noProxyless)...).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
 			if c.skip {
 				t.SkipNow()
+			}
+			if c.minIstioVersion != "" {
+				skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+				if skipMV {
+					t.SkipNow()
+				}
 			}
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
@@ -184,6 +197,12 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 		if c.skip {
 			t.SkipNow()
 		}
+		if c.minIstioVersion != "" {
+			skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+			if skipMV {
+				t.SkipNow()
+			}
+		}
 		if len(c.config) > 0 {
 			cfg := yml.MustApplyNamespace(t, c.config, namespace)
 			t.Config().ApplyYAMLOrFail(t, "", cfg)
@@ -218,6 +237,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["selfcall"] = selfCallsCases()
 	cases["serverfirst"] = serverFirstTestCases(apps)
 	cases["gateway"] = gatewayCases()
+	cases["autopassthrough"] = autoPassthroughCases(apps)
 	cases["loop"] = trafficLoopCases(apps)
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)

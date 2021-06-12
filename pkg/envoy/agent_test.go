@@ -45,6 +45,10 @@ func (tp TestProxy) Cleanup(epoch int) {
 	}
 }
 
+func (tp TestProxy) UpdateConfig(_ []byte) error {
+	return nil
+}
+
 // TestStartExit starts a proxy and ensures the agent exits once the proxy exits
 func TestStartExit(t *testing.T) {
 	ctx := context.Background()

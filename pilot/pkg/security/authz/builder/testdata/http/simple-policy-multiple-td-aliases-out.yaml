@@ -13,82 +13,42 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: td1/ns/rule[0]/sa/from[0]-principal[0]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: cluster.local/ns/rule[0]/sa/from[0]-principal[0]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: some-td/ns/rule[0]/sa/from[0]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/rule[0]/sa/from[0]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[0]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://some-td/ns/rule[0]/sa/from[0]-principal[0]
         - andIds:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: td1/ns/rule[0]/sa/from[1]-principal[0]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: cluster.local/ns/rule[0]/sa/from[1]-principal[0]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: some-td/ns/rule[0]/sa/from[1]-principal[0]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: td1/ns/rule[0]/sa/from[1]-principal[1]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: cluster.local/ns/rule[0]/sa/from[1]-principal[1]
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: some-td/ns/rule[0]/sa/from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://some-td/ns/rule[0]/sa/from[1]-principal[0]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://some-td/ns/rule[0]/sa/from[1]-principal[1]
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          googleRe2: {}
-                          regex: .*/ns/rule[0]-from[1]-ns[0]/.*
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/rule[0]-from[1]-ns[0]/.*
   shadowRulesStatPrefix: istio_dry_run_allow_

@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
@@ -84,6 +85,9 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 
 	restConfig, clientset, client, err := K8sConfig(oiArgs.kubeConfigPath, oiArgs.context)
 	if err != nil {
+		l.LogAndFatal(err)
+	}
+	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
 		l.LogAndFatal(err)
 	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.

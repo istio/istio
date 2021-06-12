@@ -57,6 +57,9 @@ func AsStringOrFail(t test.Failer, filename string) string {
 
 // NormalizePath expands the homedir (~) and returns an error if the file doesn't exist.
 func NormalizePath(originalPath string) (string, error) {
+	if originalPath == "" {
+		return "", nil
+	}
 	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
 	var err error
 	out := strings.TrimSpace(originalPath)

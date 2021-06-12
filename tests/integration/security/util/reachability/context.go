@@ -115,15 +115,15 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 						destinationSets := []echo.Instances{
 							apps.A,
 							apps.B,
-							// only hit same cluster headless services
-							apps.Headless.Match(echo.InCluster(client.Config().Cluster)),
+							// only hit same network headless services
+							apps.Headless.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 							// only hit same cluster multiversion services
 							apps.Multiversion.Match(echo.InCluster(client.Config().Cluster)),
 							// only hit same cluster naked services
 							apps.Naked.Match(echo.InCluster(client.Config().Cluster)),
 							apps.VM,
-							// only hit same cluster headless services
-							apps.HeadlessNaked.Match(echo.InCluster(client.Config().Cluster)),
+							// only hit same network headless services
+							apps.Headless.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 						}
 
 						for _, destinations := range destinationSets {
@@ -141,8 +141,8 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 							if t.Clusters().IsMulticluster() && apps.Multiversion.Contains(destination) {
 								continue
 							}
-							if (apps.IsHeadless(client) || apps.IsHeadless(destination) || apps.IsNaked(client)) && len(destClusters) > 1 {
-								// TODO(landow) fix DNS issues with multicluster/VMs/headless
+							if (apps.IsNaked(client)) && len(destClusters) > 1 {
+								// TODO use echotest to generate the cases that would work for multi-network + naked
 								t.SkipNow()
 								continue
 							}

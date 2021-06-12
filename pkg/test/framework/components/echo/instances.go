@@ -154,6 +154,13 @@ func IsHeadless() Matcher {
 	}
 }
 
+// IsProxylessGRPC matches instances that are Pods with a SidecarInjectTemplate annotation equal to grpc.
+func IsProxylessGRPC() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsProxylessGRPC()
+	}
+}
+
 // Match filters instances that matcher the given Matcher
 func (i Instances) Match(matches Matcher) Instances {
 	out := make(Instances, 0)
@@ -192,6 +199,10 @@ func (i Instances) Contains(instances ...Instance) bool {
 		return false
 	})
 	return len(matches) > 0
+}
+
+func (i Instances) ContainsMatch(matches Matcher) bool {
+	return len(i.Match(matches)) > 0
 }
 
 // Services is a set of Instances that share the same FQDN. While an Instance contains

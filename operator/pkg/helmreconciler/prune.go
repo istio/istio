@@ -224,7 +224,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		} else {
 			// do not prune base components or unknown components
 			includeCN := []string{
-				string(name.PilotComponentName), string(name.IstiodRemoteComponentName),
+				string(name.PilotComponentName),
 				string(name.IngressComponentName), string(name.EgressComponentName),
 				string(name.CNIComponentName), string(name.IstioOperatorComponentName),
 			}

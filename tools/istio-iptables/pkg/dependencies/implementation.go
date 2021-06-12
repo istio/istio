@@ -101,8 +101,12 @@ func (r *RealDependencies) executeXTables(cmd string, redirectStdout bool, args 
 
 // transformToXTablesErrorMessage returns an updated error message with explicit xtables error hints, if applicable.
 func transformToXTablesErrorMessage(stderr string, err error) string {
-	exitcode := err.(*exec.ExitError).ExitCode()
-
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		// Not common, but can happen if file not found error, etc
+		return err.Error()
+	}
+	exitcode := ee.ExitCode()
 	if errtypeStr, ok := exittypeToString[XTablesExittype(exitcode)]; ok {
 		// The original stderr is something like:
 		// `prog_name + prog_vers: error hints`

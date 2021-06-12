@@ -50,7 +50,7 @@ const (
 	EgressReleaseName   = EgressGatewayChart
 	ControlChartsDir    = "istio-control"
 	GatewayChartsDir    = "gateways"
-	retryDelay          = 2 * time.Second
+	RetryDelay          = 2 * time.Second
 	RetryTimeOut        = 5 * time.Minute
 	Timeout             = 2 * time.Minute
 )
@@ -91,6 +91,30 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", EgressGatewayChart)
 	}
+}
+
+// InstallIstioWithRevision install Istio using Helm charts with the provided
+// override values file and fails the tests on any failures.
+func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
+	h *helm.Helm, fileSuffix, revision, overrideValuesFile string) {
+	CreateNamespace(t, cs, IstioNamespace)
+
+	// Upgrade base chart
+	err := h.UpgradeChart(BaseReleaseName, filepath.Join(ChartPath, BaseChart),
+		IstioNamespace, overrideValuesFile, Timeout)
+	if err != nil {
+		t.Fatalf("failed to upgrade istio %s chart", BaseChart)
+	}
+
+	// install discovery chart
+	err = h.InstallChart(IstiodReleaseName+revision, filepath.Join(ControlChartsDir, DiscoveryChart)+fileSuffix,
+		IstioNamespace, overrideValuesFile, Timeout)
+	if err != nil {
+		t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+	}
+
+	// TODO: ingress and egress charts for use with revisions is considered experimental
+	// and are not a part of this test for now
 }
 
 func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
@@ -145,6 +169,6 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster) {
 			return fmt.Errorf("istio egress gateway pod is not ready: %v", err)
 		}
 		return nil
-	}, retry.Timeout(RetryTimeOut), retry.Delay(retryDelay))
+	}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
 	scopes.Framework.Infof("=== succeeded ===")
 }

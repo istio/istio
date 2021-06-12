@@ -587,3 +587,128 @@ func TestK8sObject_Equal(t *testing.T) {
 		})
 	}
 }
+
+func TestK8sObject_ResolveK8sConflict(t *testing.T) {
+	getK8sObject := func(ystr string) *K8sObject {
+		o, err := ParseYAMLToK8sObject([]byte(ystr))
+		if err != nil {
+			panic(err)
+		}
+		// Ensure that json data is in sync.
+		// Since the object was created using yaml, json is empty.
+		// make sure the object json is set correctly.
+		o.json, _ = o.JSON()
+		return o
+	}
+
+	cases := []struct {
+		desc string
+		o1   *K8sObject
+		o2   *K8sObject
+	}{
+		{
+			desc: "not applicable kind",
+			o1: getK8sObject(`
+                  apiVersion: v1
+                  kind: Service
+                  metadata:
+                    labels:
+                      app: pilot
+                    name: istio-pilot
+                    namespace: istio-system
+                  spec:
+                    clusterIP: 10.102.230.31`),
+			o2: getK8sObject(`
+                  apiVersion: v1
+                  kind: Service
+                  metadata:
+                    labels:
+                      app: pilot
+                    name: istio-pilot
+                    namespace: istio-system
+                  spec:
+                    clusterIP: 10.102.230.31`),
+		},
+		{
+			desc: "only minAvailable is set",
+			o1: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: zk-pdb
+                  spec:
+                    minAvailable: 2`),
+			o2: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: zk-pdb
+                  spec:
+                    minAvailable: 2`),
+		},
+		{
+			desc: "only maxUnavailable is set",
+			o1: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: istio
+                  spec: 
+                    maxUnavailable: 3`),
+			o2: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: istio
+                  spec: 
+                    maxUnavailable: 3`),
+		},
+		{
+			desc: "minAvailable and maxUnavailable are set to none zero values",
+			o1: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: istio
+                  spec: 
+                    maxUnavailable: 50%
+                    minAvailable: 3`),
+			o2: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: istio
+                  spec: 
+                    maxUnavailable: 50%`),
+		},
+		{
+			desc: "both minAvailable and maxUnavailable are set default",
+			o1: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: istio
+                  spec: 
+                    minAvailable: 0
+                    maxUnavailable: 0`),
+			o2: getK8sObject(`
+                  apiVersion: policy/v1
+                  kind: PodDisruptionBudget
+                  metadata:
+                    name: istio
+                  spec:
+                    maxUnavailable: 0
+                    minAvailable: 0`),
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.desc, func(t *testing.T) {
+			newObj := tt.o1.ResolveK8sConflict()
+			if !newObj.Equal(tt.o2) {
+				newObjjson, _ := newObj.JSON()
+				wantedObjjson, _ := tt.o2.JSON()
+				t.Errorf("Got: %s, want: %s", string(newObjjson), string(wantedObjjson))
+			}
+		})
+	}
+}

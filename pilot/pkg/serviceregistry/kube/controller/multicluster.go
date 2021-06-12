@@ -17,7 +17,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,25 +32,18 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/webhooks"
+	"istio.io/istio/pkg/webhooks/validation/controller"
 )
 
 const (
 	// Name of the webhook config in the config - no need to change it.
 	webhookName = "sidecar-injector.istio.io"
-)
-
-var (
-	validationWebhookConfigNameTemplateVar = "${namespace}"
-	// These should be an invalid DNS-1123 label to ensure the user
-	// doesn't specific a valid name that matches out template.
-	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
 )
 
 type kubeController struct {
@@ -78,7 +70,6 @@ type Multicluster struct {
 
 	m                     sync.Mutex // protects remoteKubeControllers
 	remoteKubeControllers map[string]*kubeController
-	networksWatcher       mesh.NetworksWatcher
 	clusterLocal          model.ClusterLocalProvider
 
 	// fetchCaRoot maps the certificate name to the certificate
@@ -93,7 +84,6 @@ type Multicluster struct {
 }
 
 // NewMulticluster initializes data structure to store multicluster information
-// It also starts the secret controller
 func NewMulticluster(
 	serverID string,
 	kc kubernetes.Interface,
@@ -104,16 +94,10 @@ func NewMulticluster(
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	fetchCaRoot func() map[string]string,
-	networksWatcher mesh.NetworksWatcher,
 	clusterLocal model.ClusterLocalProvider,
 	s server.Instance,
 ) *Multicluster {
 	remoteKubeController := make(map[string]*kubeController)
-	if opts.ResyncPeriod == 0 {
-		// make sure a resync time of 0 wasn't passed in.
-		opts.ResyncPeriod = 30 * time.Second
-		log.Info("Resync time was configured to 0, resetting to 30")
-	}
 	mc := &Multicluster{
 		serverID:              serverID,
 		opts:                  opts,
@@ -124,7 +108,6 @@ func NewMulticluster(
 		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
-		networksWatcher:       networksWatcher,
 		clusterLocal:          clusterLocal,
 		secretNamespace:       secretNamespace,
 		syncInterval:          opts.GetSyncInterval(),
@@ -272,12 +255,8 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		}
 		// Patch validation webhook cert
 		if m.caBundleWatcher != nil {
-			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
-			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-				m.secretNamespace, m.caBundleWatcher)
-			if validationWebhookController != nil {
-				go validationWebhookController.Start(clusterStopCh)
-			}
+			controller.NewValidatingWebhookController(client, m.revision,
+				m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
 		}
 	}
 
@@ -365,7 +344,7 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
-			Reason: []model.TriggerReason{model.UnknownTrigger},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}

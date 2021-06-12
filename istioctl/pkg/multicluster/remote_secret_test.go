@@ -31,8 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -435,6 +437,42 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 				tt.Errorf("got\n%v\nwant\n%vdiff %v", got, c.want, diff)
 			}
 		})
+	}
+}
+
+func TestGenerateServiceAccount(t *testing.T) {
+	opts := RemoteSecretOptions{
+		CreateServiceAccount: true,
+		ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
+		KubeOptions: KubeOptions{
+			Namespace: "istio-system",
+		},
+	}
+	yaml, err := generateServiceAccountYAML(opts)
+	if err != nil {
+		t.Fatalf("failed to generate service account YAML: %v", err)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(yaml)
+	if err != nil {
+		t.Fatalf("could not parse k8s objects from generated YAML: %v", err)
+	}
+
+	mustFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
+	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRole")
+	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
+}
+
+func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) {
+	t.Helper()
+	var obj *object.K8sObject
+	for _, o := range objs {
+		if o.Kind == kind && o.Name == name {
+			obj = o
+			break
+		}
+	}
+	if obj == nil {
+		t.Fatalf("expected %v/%v", name, kind)
 	}
 }
 

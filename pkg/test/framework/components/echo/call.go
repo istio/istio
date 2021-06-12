@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 )
 
@@ -84,6 +85,9 @@ type CallOptions struct {
 	// Validator for server responses. If no validator is provided, only the number of responses received
 	// will be verified.
 	Validator Validator
+
+	Alpn       *proto.Alpn
+	ServerName string
 }
 
 // Validator validates that the given responses are expected.

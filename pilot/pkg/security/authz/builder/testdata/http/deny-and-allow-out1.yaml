@@ -14,11 +14,7 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: source.principal
-                    value:
-                      stringMatch:
-                        exact: deny
+                - authenticated:
+                    principalName:
+                      exact: spiffe://deny
   shadowRulesStatPrefix: istio_dry_run_allow_

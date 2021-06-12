@@ -1,3 +1,4 @@
+{{- if not .Values.global.externalIstiod }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -35,3 +36,4 @@ spec:
     istio: pilot
     {{- end }}
 ---
+{{- end }}

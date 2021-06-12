@@ -41,10 +41,9 @@ func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
 			name: "all components enabled",
 			iops: &v1alpha1.IstioOperatorSpec{
 				Components: &v1alpha1.IstioComponentSetSpec{
-					Base:         &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
-					Pilot:        &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
-					Cni:          &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
-					IstiodRemote: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+					Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
+					Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+					Cni:   &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
 					IngressGateways: []*v1alpha1.GatewaySpec{
 						{Name: "ingressgateway", Enabled: enabledPbVal},
 						{Name: "eastwestgateway", Enabled: enabledPbVal},
@@ -55,7 +54,7 @@ func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
 				},
 			},
 			expected: []string{
-				"base", "istiod", "cni", "istiod-remote",
+				"base", "istiod", "cni",
 				"ingress:ingressgateway", "ingress:eastwestgateway",
 				"egress:egressgateway",
 			},
@@ -64,10 +63,9 @@ func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
 			name: "cni and gateways are disabled",
 			iops: &v1alpha1.IstioOperatorSpec{
 				Components: &v1alpha1.IstioComponentSetSpec{
-					Base:         &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
-					Pilot:        &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
-					Cni:          &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
-					IstiodRemote: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+					Base:  &v1alpha1.BaseComponentSpec{Enabled: enabledPbVal},
+					Pilot: &v1alpha1.ComponentSpec{Enabled: enabledPbVal},
+					Cni:   &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
 					IngressGateways: []*v1alpha1.GatewaySpec{
 						{Name: "ingressgateway", Enabled: disabledPbVal},
 					},
@@ -76,16 +74,15 @@ func TestGetEnabledComponentsFromIOPSpec(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"base", "istiod", "istiod-remote"},
+			expected: []string{"base", "istiod"},
 		},
 		{
 			name: "all components are disabled",
 			iops: &v1alpha1.IstioOperatorSpec{
 				Components: &v1alpha1.IstioComponentSetSpec{
-					Base:         &v1alpha1.BaseComponentSpec{Enabled: disabledPbVal},
-					Pilot:        &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
-					Cni:          &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
-					IstiodRemote: &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
+					Base:  &v1alpha1.BaseComponentSpec{Enabled: disabledPbVal},
+					Pilot: &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
+					Cni:   &v1alpha1.ComponentSpec{Enabled: disabledPbVal},
 					IngressGateways: []*v1alpha1.GatewaySpec{
 						{Name: "ingressgateway", Enabled: disabledPbVal},
 					},

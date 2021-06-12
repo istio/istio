@@ -79,14 +79,14 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 		if err != nil {
 			return nil, err
 		}
-		for _, p := range pods.Items {
+		for i, p := range pods.Items {
 			deployment := getOwnerDeployment(&p, replicasets.Items)
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(ns.Name, deployment, p.Name, c.Name)
 			}
 			out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
 			out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
-			out.Pod[PodKey(p.Namespace, p.Name)] = &p
+			out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
 		}
 	}
 	if len(errs) != 0 {

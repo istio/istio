@@ -15,12 +15,17 @@
 package bootstrap
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"reflect"
 	"testing"
 
+	"github.com/golang/protobuf/jsonpb"
 	. "github.com/onsi/gomega"
 	"k8s.io/kubectl/pkg/util/fieldpath"
+
+	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestParseDownwardApi(t *testing.T) {
@@ -95,4 +100,50 @@ func TestGetNodeMetaData(t *testing.T) {
 	g.Expect(node.Metadata.WorkloadName).To(Equal(expectWorkloadName))
 	g.Expect(node.RawMetadata["OWNER"]).To(Equal(expectOwner))
 	g.Expect(node.RawMetadata["WORKLOAD_NAME"]).To(Equal(expectWorkloadName))
+}
+
+func TestConvertNodeMetadata(t *testing.T) {
+	node := &model.Node{
+		ID: "test",
+		Metadata: &model.BootstrapNodeMetadata{
+			NodeMetadata: model.NodeMetadata{
+				ProxyConfig: &model.NodeMetaProxyConfig{
+					ServiceCluster: "cluster",
+				},
+			},
+			Owner: "real-owner",
+		},
+		RawMetadata: map[string]interface{}{},
+	}
+	node.Metadata.Owner = "real-owner"
+	node.RawMetadata["OWNER"] = "fake-owner"
+	node.RawMetadata["UNKNOWN"] = "new-field"
+	node.RawMetadata["A"] = 1
+	node.RawMetadata["B"] = map[string]interface{}{"b": 1}
+
+	out := ConvertNodeToXDSNode(node)
+	{
+		buf := &bytes.Buffer{}
+		if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, out); err != nil {
+			t.Fatalf("failed to marshal: %v", err)
+		}
+		// nolint: lll
+		want := "{\"id\":\"test\",\"cluster\":\"cluster\",\"metadata\":{\"A\":1,\"B\":{\"b\":1},\"OWNER\":\"real-owner\",\"PROXY_CONFIG\":{\"serviceCluster\":\"cluster\"},\"UNKNOWN\":\"new-field\"}}"
+		if want != buf.String() {
+			t.Fatalf("ConvertNodeToXDSNode: got %q, want %q", buf.String(), want)
+		}
+	}
+
+	node2 := ConvertXDSNodeToNode(out)
+	{
+		got, err := json.Marshal(node2)
+		if err != nil {
+			t.Fatalf("failed to marshal: %v", err)
+		}
+		// nolint: lll
+		want := "{\"ID\":\"test\",\"Metadata\":{\"PROXY_CONFIG\":{\"serviceCluster\":\"cluster\"},\"OWNER\":\"real-owner\"},\"RawMetadata\":null,\"Locality\":null}"
+		if want != string(got) {
+			t.Fatalf("ConvertXDSNodeToNode: got %q, want %q", string(got), want)
+		}
+	}
 }

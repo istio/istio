@@ -71,7 +71,7 @@ func generate(input, output string, outputDir bool, outstream io.StringWriter) {
 
 	var err error
 	if output != "" {
-		err = gen.writeOuputFile(output, outputDir)
+		err = gen.writeOutputFile(output, outputDir)
 	} else {
 		_, err = outstream.WriteString(gen.joinManifests())
 	}
@@ -174,7 +174,7 @@ func (g *generator) joinManifests() string {
 	return yml.JoinString(m...)
 }
 
-func (g *generator) writeOuputFile(path string, dir bool) error {
+func (g *generator) writeOutputFile(path string, dir bool) error {
 	if dir {
 		// multi file
 		if err := os.Mkdir(path, 0o644); err != nil {

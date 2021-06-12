@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"errors"
+	goflag "flag"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -25,13 +26,14 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/validate"
 	"istio.io/istio/operator/cmd/mesh"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/tools/bug-report/pkg/bugreport"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
@@ -124,7 +126,7 @@ func ConfigAndEnvProcessing() error {
 }
 
 func init() {
-	viper.SetDefault("istioNamespace", controller.IstioNamespace)
+	viper.SetDefault("istioNamespace", constants.IstioSystemNamespace)
 	viper.SetDefault("xds-port", 15012)
 }
 
@@ -312,8 +314,30 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
+	// --vklog is non zero then KlogScope should be increased.
+	// klog is a special case.
+	if klogVerbose() {
+		log.KlogScope.SetOutputLevel(log.DebugLevel)
+	}
 	defaultNamespace = getDefaultNamespace(kubeconfig)
 	return nil
+}
+
+// isKlogVerbose returns true if klog verbosity is non-zero.
+// TODO move to istio.io/pkg/log
+func klogVerbose() bool {
+	gf := KlogVerboseFlag()
+	return gf.Value.String() != "0"
+}
+
+// KlogVerboseFlag returns verbose flag from the klog library.
+// After parsing it contains the parsed verbosity value.
+// TODO move to istio.io/pkg/log
+func KlogVerboseFlag() *goflag.Flag {
+	fs := &goflag.FlagSet{}
+	klog.InitFlags(fs)
+	// --v= flag of klog.
+	return fs.Lookup("v")
 }
 
 func getDefaultNamespace(kubeconfig string) string {

@@ -126,7 +126,7 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 	podGet := restClient.Get().Resource("pods").Namespace(ns).Name(podName)
 	obj, err := podGet.Do(context.TODO()).Get()
 	if err != nil {
-		return nil, fmt.Errorf("failed retrieving pod: %v", err)
+		return nil, fmt.Errorf("failed retrieving: %v in the %q namespace", err, ns)
 	}
 	pod, ok := obj.(*v1.Pod)
 	if !ok {

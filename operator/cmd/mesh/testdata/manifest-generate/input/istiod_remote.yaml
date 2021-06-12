@@ -5,7 +5,7 @@ spec:
   components:
     base:
       enabled: true
-    istiodRemote:
+    pilot:
       enabled: true
   values:
     global:

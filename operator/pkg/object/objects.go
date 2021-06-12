@@ -28,6 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -129,6 +130,16 @@ func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
 // UnstructuredObject exposes the raw object, primarily for testing
 func (o *K8sObject) UnstructuredObject() *unstructured.Unstructured {
 	return o.object
+}
+
+// ResolveK8sConflict - This method resolves k8s object possible
+// conflicting settings. Which K8sObjects may need such method
+// depends on the type of the K8sObject.
+func (o *K8sObject) ResolveK8sConflict() *K8sObject {
+	if o.Kind == names.PDBStr {
+		return resolvePDBConflict(o)
+	}
+	return o
 }
 
 // Unstructured exposes the raw object content, primarily for testing
@@ -522,4 +533,50 @@ func AllObjectHashes(m string) map[string]bool {
 	}
 
 	return ret
+}
+
+// resolvePDBConflict When user uses both minAvailable and
+// maxUnavailable to configure istio instances, these two
+// parameters are mutually exclusive, care must be taken
+// to resolve the issue
+func resolvePDBConflict(o *K8sObject) *K8sObject {
+	if o.json != nil {
+		spec := o.object.Object["spec"].(map[string]interface{})
+		isDefault := func(item interface{}) bool {
+			var ii intstr.IntOrString
+			switch item := item.(type) {
+			case int:
+				ii = intstr.FromInt(item)
+			case int64:
+				ii = intstr.FromInt(int(item))
+			case string:
+				ii = intstr.FromString(item)
+			default:
+				ii = intstr.FromInt(0)
+			}
+			intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
+			if err != nil || intVal == 0 {
+				return true
+			}
+			return false
+		}
+		if spec["maxUnavailable"] != nil && spec["minAvailable"] != nil {
+			// When both maxUnavailable and minAvailable present and
+			// neither has value 0, this is considered a conflict,
+			// then maxUnavailale will take precedence.
+			if !isDefault(spec["maxUnavailable"]) && !isDefault(spec["minAvailable"]) {
+				delete(spec, "minAvailable")
+				// Make sure that the json and yaml representation of the object
+				// is consistent with the changed object
+				o.json = nil
+				o.json, _ = o.JSON()
+				if o.yaml != nil {
+					o.yaml = nil
+					o.yaml, _ = o.YAML()
+				}
+				return o
+			}
+		}
+	}
+	return o
 }

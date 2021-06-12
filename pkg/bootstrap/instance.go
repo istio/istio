@@ -89,8 +89,8 @@ func toJSON(i interface{}) string {
 	return string(ba)
 }
 
-// getEffectiveTemplatePath gets the template file that should be used for bootstrap
-func getEffectiveTemplatePath(pc *model.NodeMetaProxyConfig) string {
+// GetEffectiveTemplatePath gets the template file that should be used for bootstrap
+func GetEffectiveTemplatePath(pc *model.NodeMetaProxyConfig) string {
 	var templateFilePath string
 	switch {
 	case pc.CustomConfigFile != "":
@@ -113,7 +113,7 @@ func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
 		return "", err
 	}
 
-	templateFile := getEffectiveTemplatePath(i.Metadata.ProxyConfig)
+	templateFile := GetEffectiveTemplatePath(i.Metadata.ProxyConfig)
 
 	outputFilePath := configFile(i.Metadata.ProxyConfig.ConfigPath, templateFile, epoch)
 	outputFile, err := os.Create(outputFilePath)

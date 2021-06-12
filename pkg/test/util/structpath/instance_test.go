@@ -58,7 +58,7 @@ func TestContainSubstring(t *testing.T) {
 			}
 			err := instance.Check()
 			if tt.err && err == nil {
-				t.Errorf("expected err but got %v for %s", err, tt.name)
+				t.Errorf("expected err but got none for %s", tt.name)
 			}
 		})
 	}

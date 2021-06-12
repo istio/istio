@@ -24,16 +24,14 @@ const (
 	caCertID = "ca-cert.pem"
 	// caPrivateKeyID is the private key file of CA.
 	caPrivateKeyID = "ca-key.pem"
-	// CASecret stores the key/cert of self-signed CA for persistency purpose.
-	CASecret = "istio-ca-secret"
-	// CertChainID is the ID/name for the certificate chain file.
-	CertChainID = "cert-chain.pem"
-	// PrivateKeyID is the ID/name for the private key file.
-	PrivateKeyID = "key.pem"
-	// RootCertID is the ID/name for the CA root certificate file.
-	RootCertID = "root-cert.pem"
-	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
-	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
+	// certChainID is the ID/name for the certificate chain file.
+	certChainID = "cert-chain.pem"
+	// privateKeyID is the ID/name for the private key file.
+	privateKeyID = "key.pem"
+	// rootCertID is the ID/name for the CA root certificate file.
+	rootCertID = "root-cert.pem"
+	// serviceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
+	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 )
 
 // BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
@@ -42,13 +40,13 @@ func BuildSecret(saName, scrtName, namespace string, certChain, privateKey, root
 	if saName == "" {
 		ServiceAccountNameAnnotation = nil
 	} else {
-		ServiceAccountNameAnnotation = map[string]string{ServiceAccountNameAnnotationKey: saName}
+		ServiceAccountNameAnnotation = map[string]string{serviceAccountNameAnnotationKey: saName}
 	}
 	return &v1.Secret{
 		Data: map[string][]byte{
-			CertChainID:    certChain,
-			PrivateKeyID:   privateKey,
-			RootCertID:     rootCert,
+			certChainID:    certChain,
+			privateKeyID:   privateKey,
+			rootCertID:     rootCert,
 			caCertID:       caCert,
 			caPrivateKeyID: caPrivateKey,
 		},

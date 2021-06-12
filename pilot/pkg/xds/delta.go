@@ -17,6 +17,7 @@ package xds
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -67,7 +68,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	if ids != nil {
 		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		log.Debug("Unauthenticated XDS: ", peerAddr)
+		log.Debugf("Unauthenticated XDS: %v", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
@@ -249,8 +250,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 		for _, rc := range res.Resources {
 			sz += len(rc.Resource.Value)
 		}
-		conn.proxy.Lock()
-		if res.Nonce != "" {
+		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
+			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
@@ -258,8 +259,8 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
 			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
+			conn.proxy.Unlock()
 		}
-		conn.proxy.Unlock()
 	} else {
 		log.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
@@ -273,6 +274,11 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryRequest, con *Connection) error {
 	if !s.shouldProcessRequest(con.proxy, deltaToSotwRequest(req)) {
 		return nil
+	}
+	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
+		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
+			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe,
+		}, &model.PushRequest{Full: true})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
@@ -410,7 +416,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 
 	t0 := time.Now()
 
-	res, err := gen.Generate(con.proxy, push, w, req)
+	res, logdata, err := gen.Generate(con.proxy, push, w, req)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -465,17 +471,31 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		return err
 	}
 
-	// Some types handle logs inside Generate, skip them here.
-	if !gen.Metadata().LogsDetails {
-		if log.DebugEnabled() {
-			// Add additional information to logs when debug mode enabled
-			log.Infof("%s: PUSH for node:%s resources:%d size:%s nonce:%v version:%v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.SystemVersionInfo)
-		} else {
-			log.Infof("%s: PUSH for node:%s resources:%d size:%s",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
-		}
+	ptype := "PUSH"
+	info := ""
+	if logdata.Incremental {
+		ptype = "PUSH INC"
 	}
+	if len(logdata.AdditionalInfo) > 0 {
+		info = " " + logdata.AdditionalInfo
+	}
+
+	switch {
+	case logdata.Incremental:
+		if log.DebugEnabled() {
+			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+		}
+	default:
+		debug := ""
+		if log.DebugEnabled() {
+			// Add additional information to logs when debug mode enabled.
+			debug = " nonce:" + resp.Nonce + " version:%" + resp.SystemVersionInfo
+		}
+		log.Infof("%s: %s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, con.proxy.ID, len(res),
+			util.ByteCount(ResourceSize(res)), info, debug)
+	}
+
 	return nil
 }
 

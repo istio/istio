@@ -16,11 +16,13 @@ package kubeauth
 
 import (
 	"fmt"
+	"net/http"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
@@ -39,8 +41,10 @@ type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
 type KubeJWTAuthenticator struct {
-	trustDomain string
-	jwtPolicy   string
+	// holder of a mesh configuration for dynamically updating trust domain
+	meshHolder mesh.Holder
+
+	jwtPolicy string
 
 	// Primary cluster kube client
 	kubeClient kubernetes.Interface
@@ -54,11 +58,10 @@ type KubeJWTAuthenticator struct {
 var _ security.Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(client kubernetes.Interface, clusterID string,
-	remoteKubeClientGetter RemoteKubeClientGetter,
-	trustDomain, jwtPolicy string) *KubeJWTAuthenticator {
+func NewKubeJWTAuthenticator(meshHolder mesh.Holder, client kubernetes.Interface, clusterID string,
+	remoteKubeClientGetter RemoteKubeClientGetter, jwtPolicy string) *KubeJWTAuthenticator {
 	return &KubeJWTAuthenticator{
-		trustDomain:            trustDomain,
+		meshHolder:             meshHolder,
 		jwtPolicy:              jwtPolicy,
 		kubeClient:             client,
 		clusterID:              clusterID,
@@ -72,6 +75,15 @@ func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 
 const DefaultKubernetesAudience = "kubernetes.default.svc"
 
+func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
+	targetJWT, err := security.ExtractRequestToken(req)
+	if err != nil {
+		return nil, fmt.Errorf("target JWT extraction error: %v", err)
+	}
+	clusterID := req.Header.Get(clusterIDMeta)
+	return a.authenticate(targetJWT, clusterID)
+}
+
 // Authenticate authenticates the call using the K8s JWT from the context.
 // The returned Caller.Identities is in SPIFFE format.
 func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Caller, error) {
@@ -80,8 +92,11 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
 	clusterID := extractClusterID(ctx)
-	var id []string
 
+	return a.authenticate(targetJWT, clusterID)
+}
+
+func (a *KubeJWTAuthenticator) authenticate(targetJWT, clusterID string) (*security.Caller, error) {
 	kubeClient := a.GetKubeClient(clusterID)
 	if kubeClient == nil {
 		return nil, fmt.Errorf("could not get cluster %s's kube client", clusterID)
@@ -118,7 +133,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 		// is unbound and the setting to require bound tokens is off
 		aud = nil
 	}
-	id, err = tokenreview.ValidateK8sJwt(kubeClient, targetJWT, aud)
+	id, err := tokenreview.ValidateK8sJwt(kubeClient, targetJWT, aud)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate the JWT from cluster %q: %v", clusterID, err)
 	}
@@ -129,7 +144,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 	callerServiceAccount := id[1]
 	return &security.Caller{
 		AuthSource: security.AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.trustDomain, callerNamespace, callerServiceAccount)},
+		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.meshHolder.Mesh().GetTrustDomain(), callerNamespace, callerServiceAccount)},
 	}, nil
 }
 

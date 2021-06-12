@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Updated** the Istiod debug interface to be only accessible over localhost or with proper authenciation (mTLS or JWT).
+  The recommended way to access the debug interface is through `istioctl experimental internal-debug`, which handles
+  this automatically.
+

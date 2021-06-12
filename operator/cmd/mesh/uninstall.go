@@ -105,7 +105,7 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
   istioctl x uninstall --purge`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if uiArgs.revision == "" && manifest.GetValueForSetFlag(uiArgs.set, "revision") == "" && uiArgs.filename == "" && !uiArgs.purge {
-				return fmt.Errorf("at least one of the --revision(or --set revision=<revision>), --filename or --purge flags must be set")
+				return fmt.Errorf("at least one of the --revision (or --set revision=<revision>), --filename or --purge flags must be set")
 			}
 			if len(args) > 0 {
 				return fmt.Errorf("istioctl uninstall does not take arguments")

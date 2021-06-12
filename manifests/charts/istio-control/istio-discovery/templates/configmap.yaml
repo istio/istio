@@ -51,7 +51,7 @@
 {{ toYaml $.Values.meshConfig.defaultConfig.tracing | indent 8 }}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
-      {{- if .Values.pilot.enabled }}
+      {{- if not .Values.global.externalIstiod }}
       discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012

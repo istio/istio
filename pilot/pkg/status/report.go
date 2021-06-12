@@ -58,9 +58,10 @@ func ResourceFromString(s string) *Resource {
 // TODO: maybe replace with a kubernetes resource identifier, if that's a thing
 type Resource struct {
 	schema.GroupVersionResource
-	Namespace  string
-	Name       string
-	Generation string
+	Namespace       string
+	Name            string
+	Generation      string
+	ResourceVersion string
 }
 
 func (r Resource) String() string {
@@ -75,16 +76,27 @@ func (r *Resource) ToModelKey() string {
 		r.Name, r.Namespace)
 }
 
-func ResourceFromModelConfig(c config.Config) *Resource {
+func ResourceFromModelConfig(c config.Config) Resource {
 	gvr := GVKtoGVR(c.GroupVersionKind)
 	if gvr == nil {
-		return nil
+		return Resource{}
 	}
-	return &Resource{
+	return Resource{
 		GroupVersionResource: *gvr,
 		Namespace:            c.Namespace,
 		Name:                 c.Name,
 		Generation:           strconv.FormatInt(c.Generation, 10),
+		ResourceVersion:      c.ResourceVersion,
+	}
+}
+
+func ResourceToModelConfig(c Resource) config.Meta {
+	gvk := GVRtoGVK(c.GroupVersionResource)
+	return config.Meta{
+		GroupVersionKind: gvk,
+		Namespace:        c.Namespace,
+		Name:             c.Name,
+		ResourceVersion:  c.ResourceVersion,
 	}
 }
 
@@ -98,4 +110,12 @@ func GVKtoGVR(in config.GroupVersionKind) *schema.GroupVersionResource {
 		Version:  in.Version,
 		Resource: found.Resource().Plural(),
 	}
+}
+
+func GVRtoGVK(in schema.GroupVersionResource) config.GroupVersionKind {
+	found, ok := collections.All.FindByGroupVersionResource(in)
+	if !ok {
+		return config.GroupVersionKind{}
+	}
+	return found.Resource().GroupVersionKind()
 }

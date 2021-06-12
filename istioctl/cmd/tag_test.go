@@ -49,6 +49,7 @@ var (
 						Namespace: "default",
 						Name:      "istiod",
 					},
+					CABundle: []byte("ca"),
 				},
 			},
 			{
@@ -58,6 +59,7 @@ var (
 						Namespace: "default",
 						Name:      "istiod",
 					},
+					CABundle: []byte("ca"),
 				},
 			},
 		},
@@ -75,6 +77,7 @@ var (
 						Namespace: "default",
 						Name:      "istiod-revision",
 					},
+					CABundle: []byte("ca"),
 				},
 			},
 			{
@@ -84,6 +87,7 @@ var (
 						Namespace: "default",
 						Name:      "istiod-revision",
 					},
+					CABundle: []byte("ca"),
 				},
 			},
 		},
@@ -98,13 +102,15 @@ var (
 			{
 				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
-					URL: &remoteInjectionURL,
+					URL:      &remoteInjectionURL,
+					CABundle: []byte("ca"),
 				},
 			},
 			{
 				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
 				ClientConfig: admit_v1.WebhookClientConfig{
-					URL: &remoteInjectionURL,
+					URL:      &remoteInjectionURL,
+					CABundle: []byte("ca"),
 				},
 			},
 		},
@@ -406,6 +412,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 		tagName     string
 		whURL       string
 		whSVC       string
+		whCA        string
 		numWebhooks int
 	}{
 		{
@@ -414,6 +421,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 			tagName:     "canary",
 			whURL:       "",
 			whSVC:       "istiod-revision",
+			whCA:        "ca",
 			numWebhooks: 2,
 		},
 		{
@@ -422,6 +430,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 			tagName:     "canary",
 			whURL:       remoteInjectionURL,
 			whSVC:       "",
+			whCA:        "ca",
 			numWebhooks: 2,
 		},
 		{
@@ -430,6 +439,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 			tagName:     "canary",
 			whURL:       "",
 			whSVC:       "istiod",
+			whCA:        "ca",
 			numWebhooks: 2,
 		},
 		{
@@ -438,6 +448,7 @@ func TestSetTagWebhookCreation(t *testing.T) {
 			tagName:     "default",
 			whURL:       "",
 			whSVC:       "istiod",
+			whCA:        "ca",
 			numWebhooks: 4,
 		},
 	}
@@ -492,6 +503,11 @@ func TestSetTagWebhookCreation(t *testing.T) {
 				}
 				if *injectionWhConf.URL != tc.whURL {
 					t.Fatalf("expected injection URL %s, got %s", tc.whURL, *injectionWhConf.URL)
+				}
+			}
+			if tc.whCA != "" {
+				if string(injectionWhConf.CABundle) != tc.whCA {
+					t.Fatalf("expected CA bundle %q, got %q", tc.whCA, injectionWhConf.CABundle)
 				}
 			}
 		}

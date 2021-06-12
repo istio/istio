@@ -29,6 +29,7 @@ import (
 
 	k8s "k8s.io/api/core/v1"
 
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -108,11 +109,11 @@ func signCertFromCitadel() (*x509.Certificate, crypto.PrivateKey) {
 	if err != nil {
 		log.Fatalf("Unmarshal secret error: %v", err)
 	}
-	key, err := util.ParsePemEncodedKey(secret.Data["ca-key.pem"])
+	key, err := util.ParsePemEncodedKey(secret.Data[ca.CAPrivateKeyFile])
 	if err != nil {
 		log.Fatalf("Unrecognized key format from citadel %v", err)
 	}
-	cert, err := util.ParsePemEncodedCertificate(secret.Data["ca-cert.pem"])
+	cert, err := util.ParsePemEncodedCertificate(secret.Data[ca.CACertFile])
 	if err != nil {
 		log.Fatalf("Unrecognized cert format from citadel %v", err)
 	}

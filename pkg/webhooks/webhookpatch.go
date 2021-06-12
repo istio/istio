@@ -30,10 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/keycertbundle"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/pkg/log"
 )
 
@@ -169,19 +166,4 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 
 	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
 	return err
-}
-
-func CreateValidationWebhookController(client kube.Client,
-	webhookConfigName, ns string, caBundleWatcher *keycertbundle.Watcher) *controller.Controller {
-	o := controller.Options{
-		WatchedNamespace:  ns,
-		CABundleWatcher:   caBundleWatcher,
-		WebhookConfigName: webhookConfigName,
-		ServiceName:       "istiod",
-	}
-	whController, err := controller.New(o, client)
-	if err != nil {
-		log.Errorf("failed to create validationWebhookController controller: %v", err)
-	}
-	return whController
 }

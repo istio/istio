@@ -176,6 +176,7 @@ type message struct {
 	Level       string `json:"level"`
 	Description string `json:"description"`
 	Template    string `json:"template"`
+	Url         string `json:"url"`
 	Args        []arg  `json:"args"`
 }
 
