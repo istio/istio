@@ -3447,7 +3447,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{
@@ -3467,7 +3467,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{
