@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+- 33385
+releaseNotes:
+- |
+  **Fixed** an issue causing Envoy Filters that merge the `transport_socket` field and have a custom transport socket name to be ignored.
