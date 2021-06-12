@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -252,7 +253,7 @@ func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 	delete(c.Annotations, DisconnectedAtAnnotation)
 }
 
-func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) error {
+func (c *Controller) RegisterWorkload(proxy *model.Proxy, node *core.Node, conTime time.Time) error {
 	if !features.WorkloadEntryAutoRegistration || c == nil {
 		return nil
 	}
@@ -266,14 +267,14 @@ func (c *Controller) RegisterWorkload(proxy *model.Proxy, conTime time.Time) err
 	c.adsConnections[makeProxyKey(proxy)]++
 	c.mutex.Unlock()
 
-	if err := c.registerWorkload(entryName, proxy, conTime); err != nil {
+	if err := c.registerWorkload(entryName, proxy, node, conTime); err != nil {
 		log.Errorf(err)
 		return err
 	}
 	return nil
 }
 
-func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conTime time.Time) error {
+func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, node *core.Node, conTime time.Time) error {
 	wle := c.store.Get(gvk.WorkloadEntry, entryName, proxy.Metadata.Namespace)
 	if wle != nil {
 		lastConTime, _ := time.Parse(timeFormat, wle.Annotations[ConnectedAtAnnotation])
@@ -301,7 +302,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
-	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
+	entry := workloadEntryFromGroup(entryName, proxy, node, groupCfg)
 	setConnectMeta(entry, c.instanceID, conTime)
 	_, err := c.store.Create(*entry)
 	if err != nil {
@@ -598,7 +599,7 @@ func mergeLabels(labels ...map[string]string) map[string]string {
 
 var workloadGroupIsController = true
 
-func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
+func workloadEntryFromGroup(name string, proxy *model.Proxy, node *core.Node, groupCfg *config.Config) *config.Config {
 	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
 	entry := group.Template.DeepCopy()
 	entry.Address = proxy.IPAddresses[0]
@@ -619,8 +620,8 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if proxy.Metadata.Network != "" {
 		entry.Network = proxy.Metadata.Network
 	}
-	if proxy.Locality != nil {
-		entry.Locality = util.LocalityToString(proxy.Locality)
+	if node.Locality != nil {
+		entry.Locality = util.LocalityToString(node.Locality)
 	}
 	if proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
 		annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
