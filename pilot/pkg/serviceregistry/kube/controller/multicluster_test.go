@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/util/retry"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -74,7 +74,7 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 		m.m.Lock()
 		defer m.m.Unlock()
 		return len(m.remoteKubeControllers) == expectedControllerCount
-	}, retry.Message(timeoutName), retry.Delay(time.Millisecond * 10), retry.Timeout(time.Second * 5))
+	}, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
 func Test_KubeSecretController(t *testing.T) {

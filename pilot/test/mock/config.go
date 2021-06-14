@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"istio.io/istio/pkg/test/util/retry"
 
 	networking "istio.io/api/networking/v1alpha3"
 	authz "istio.io/api/security/v1beta1"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
 
