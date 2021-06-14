@@ -12,8 +12,6 @@ spec:
     ingressGateways:
     - enabled: true
       name: istio-ingressgateway
-    istiodRemote:
-      enabled: false
     pilot:
       enabled: false
   hub: gcr.io/istio-testing

@@ -77,8 +77,6 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
-        - name: EXTERNAL_ISTIOD
-          value: "false"
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
@@ -107,8 +105,6 @@ spec:
           runAsNonRoot: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/istio/config
-          name: config-volume
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
@@ -120,12 +116,9 @@ spec:
         - mountPath: /var/run/secrets/remote
           name: istio-kubeconfig
           readOnly: true
-        - mountPath: /var/lib/istio/inject
-          name: inject
-          readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istiod-service-account
+      serviceAccountName: istiod
       volumes:
       - emptyDir:
           medium: Memory
@@ -145,12 +138,6 @@ spec:
         secret:
           optional: true
           secretName: istio-kubeconfig
-      - configMap:
-          name: istio-sidecar-injector
-        name: inject
-      - configMap:
-          name: istio
-        name: config-volume
 ---
 
 
