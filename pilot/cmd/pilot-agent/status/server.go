@@ -110,6 +110,7 @@ type Options struct {
 	EnvoyPrometheusPort int
 	Context             context.Context
 	FetchDNS            func() *nds.NameTable
+	NoEnvoy             bool
 }
 
 // Server provides an endpoint for handling status probes.
@@ -152,6 +153,7 @@ func NewServer(config Options) (*Server, error) {
 		LocalHostAddr: localhost,
 		AdminPort:     config.AdminPort,
 		Context:       config.Context,
+		NoEnvoy:       config.NoEnvoy,
 	})
 	probes = append(probes, config.Probes...)
 	s := &Server{

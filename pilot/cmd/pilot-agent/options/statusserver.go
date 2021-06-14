@@ -31,6 +31,7 @@ func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyCon
 		KubeAppProbers: kubeAppProberNameVar.Get(),
 		NodeType:       proxy.Type,
 		Probes:         []ready.Prober{agent},
+		NoEnvoy:        agent.EnvoyDisabled(),
 		FetchDNS:       agent.GetDNSTable,
 	}
 }

@@ -198,6 +198,10 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
+func (a *Agent) EnvoyDisabled() bool {
+	return a.envoyOpts.NoEnvoy
+}
+
 func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	provCert, err := a.FindRootCAForXDS()
 	if err != nil {
