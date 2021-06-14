@@ -196,7 +196,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		httpMux:                 http.NewServeMux(),
 		monitoringMux:           http.NewServeMux(),
 		readinessProbes:         make(map[string]readinessProbe),
-		workloadTrustBundle:     tb.NewTrustBundle(nil),
+		workloadTrustBundle:     tb.NewTrustBundle(nil, features.RemoteClusterTimeout),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
@@ -835,6 +835,9 @@ func (s *Server) cachesSynced() bool {
 		return false
 	}
 	if !s.configController.HasSynced() {
+		return false
+	}
+	if !s.workloadTrustBundle.HasSynced() {
 		return false
 	}
 	return true
