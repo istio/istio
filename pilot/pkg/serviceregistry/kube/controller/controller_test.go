@@ -162,6 +162,7 @@ func TestServices(t *testing.T) {
 				t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
 			}
 		})
+		return
 	}
 }
 
