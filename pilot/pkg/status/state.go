@@ -66,7 +66,7 @@ type DistributionController struct {
 	cmInformer      cache.SharedIndexInformer
 }
 
-func NewController(restConfig rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
+func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
 	c := &DistributionController{
 		CurrentState:    make(map[Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
@@ -81,12 +81,12 @@ func NewController(restConfig rest.Config, namespace string, cs model.ConfigStor
 	restConfig.QPS = float32(features.StatusQPS)
 	restConfig.Burst = features.StatusBurst
 	var err error
-	if c.dynamicClient, err = dynamic.NewForConfig(&restConfig); err != nil {
+	if c.dynamicClient, err = dynamic.NewForConfig(restConfig); err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
 
 	// configmap informer
-	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(&restConfig), 1*time.Minute,
+	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute,
 		informers.WithNamespace(namespace),
 		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
 			listOptions.LabelSelector = labels.Set(map[string]string{labelKey: "true"}).AsSelector().String()
