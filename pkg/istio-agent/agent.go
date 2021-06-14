@@ -23,9 +23,11 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
@@ -427,6 +429,16 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 			// This is a blocking call for graceful termination.
 			a.envoyAgent.Run(ctx)
+		}()
+	} else {
+		// TODO if this breaks unit tests then need to split NoEnvoy from testing flag
+		// wait for SIGTERM and perform graceful shutdown
+		stop := make(chan os.Signal)
+		signal.Notify(stop, syscall.SIGTERM)
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			<-stop
 		}()
 	}
 
