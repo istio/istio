@@ -124,6 +124,13 @@ var (
 		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.",
 	).Get()
 
+	// EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.
+	EnableMongoFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_MONGO_FILTER",
+		true,
+		"EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.",
+	).Get()
+
 	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
 	UseRemoteAddress = env.RegisterBoolVar(
