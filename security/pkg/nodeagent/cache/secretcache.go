@@ -635,6 +635,7 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if isRemove(event) {
 				for fc := range sc.fileCerts {
 					if fc.Filename == event.Name {
+						cacheLog.Debugf("removing file %s from file certs", event.Name)
 						delete(sc.fileCerts, fc)
 					}
 				}
