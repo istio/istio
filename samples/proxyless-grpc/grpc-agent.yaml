@@ -143,6 +143,9 @@
             - name: {{ $key }}
               value: "{{ $value }}"
             {{- end }}
+            # grpc uses xds:/// to resolve – no need to resolve VIP
+            - name: ISTIO_META_DNS_CAPTURE
+              value: "false"
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
             readinessProbe:
