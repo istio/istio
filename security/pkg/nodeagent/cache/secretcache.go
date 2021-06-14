@@ -631,6 +631,14 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			}
 			sc.certMutex.RLock()
 			resources := sc.fileCerts
+			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
+			if isRemove(event) {
+				for fc := range sc.fileCerts {
+					if fc.Filename == event.Name {
+						delete(sc.fileCerts, fc)
+					}
+				}
+			}
 			sc.certMutex.RUnlock()
 			// Trigger callbacks for all resources referencing this file. This is practically always
 			// a single resource.
