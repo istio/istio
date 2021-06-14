@@ -63,6 +63,9 @@ pilot:
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
 
+  # Necessary for EKS clusters running 3rd party CNI providers
+  enableHostNetwork: false
+
 
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
@@ -112,8 +115,8 @@ sidecarInjectorWebhook:
   templates: {}
 
   # Default templates specifies a set of default templates that are used in sidecar injection.
-  # By default, a template `sidecar` is always provided, which contains the template of default sidecar. 
-  # To inject other additional templates, define it using the `templates` option, and add it to 
+  # By default, a template `sidecar` is always provided, which contains the template of default sidecar.
+  # To inject other additional templates, define it using the `templates` option, and add it to
   # the default templates list.
   # For example:
   #
