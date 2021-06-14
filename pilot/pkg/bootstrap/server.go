@@ -171,6 +171,12 @@ type Server struct {
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
 
+	// internalStop is closed when the server is shutdown. This should be avoided as much as possible, in
+	// favor of AddStartFunc. This is only required if we *must* start something outside of this process.
+	// For example, everything depends on mesh config, so we use it there rather than trying to sequence everything
+	// in AddStartFunc
+	internalStop chan struct{}
+
 	statusReporter *status.Reporter
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
@@ -199,6 +205,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
+		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
 	// Apply custom initialization functions.
@@ -650,6 +657,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
+		close(s.internalStop)
 		s.fileWatcher.Close()
 
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,

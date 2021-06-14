@@ -251,12 +251,12 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	}
 
 	log.Infof("cacerts Secret found in remote cluster, saving contents to %s", dir)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	for key, data := range secret.Data {
 		filename := path.Join(dir, key)
-		if err := ioutil.WriteFile(filename, data, 0600); err != nil {
+		if err := ioutil.WriteFile(filename, data, 0o600); err != nil {
 			return err
 		}
 	}
@@ -330,9 +330,8 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 	// ca.go saves or uses the secret, but also writes to the configmap "istio-security", under caTLSRootCert
 	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
 	// self-signed CA.
-	rootCertRotatorChan := make(chan struct{})
 	// Start root cert rotator in a separate goroutine.
-	istioCA.Run(rootCertRotatorChan)
+	istioCA.Run(s.internalStop)
 	return istioCA, nil
 }
 
