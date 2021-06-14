@@ -136,7 +136,7 @@ users:
     token: sdsddsd`
 
 	sampleConfig := fmt.Sprintf(template, cluster1Host, cluster2Host)
-	err = ioutil.WriteFile(filePath, []byte(sampleConfig), 0644)
+	err = ioutil.WriteFile(filePath, []byte(sampleConfig), 0o644)
 	if err != nil {
 		return "", err
 	}

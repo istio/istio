@@ -145,7 +145,7 @@ func TestWasmCache(t *testing.T) {
 			cache.mux.Lock()
 			for k, m := range c.initialCachedModules {
 				filePath := filepath.Join(tmpDir, m.modulePath)
-				err := ioutil.WriteFile(filePath, []byte("data/\n"), 0644)
+				err := ioutil.WriteFile(filePath, []byte("data/\n"), 0o644)
 				if err != nil {
 					t.Fatalf("failed to write initial wasm module file %v", err)
 				}

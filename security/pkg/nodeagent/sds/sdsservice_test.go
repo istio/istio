@@ -33,12 +33,12 @@ import (
 )
 
 var (
-	fakeRootCert         = []byte{00}
-	fakeCertificateChain = []byte{01}
-	fakePrivateKey       = []byte{02}
+	fakeRootCert         = []byte{0o0}
+	fakeCertificateChain = []byte{0o1}
+	fakePrivateKey       = []byte{0o2}
 
-	fakePushCertificateChain = []byte{03}
-	fakePushPrivateKey       = []byte{04}
+	fakePushCertificateChain = []byte{0o3}
+	fakePushPrivateKey       = []byte{0o4}
 	pushSecret               = &ca2.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,

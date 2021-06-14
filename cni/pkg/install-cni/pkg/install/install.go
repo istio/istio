@@ -109,7 +109,7 @@ func (in *Installer) Cleanup() error {
 			if err != nil {
 				return err
 			}
-			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
 				return err
 			}
 		} else {

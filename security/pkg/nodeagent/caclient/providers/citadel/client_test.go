@@ -117,7 +117,7 @@ func serve(t *testing.T, ca mockCAServer, opts ...grpc.ServerOption) string {
 func TestCitadelClientRotation(t *testing.T) {
 	checkSign := func(t *testing.T, cli security.Client, expectError bool) {
 		t.Helper()
-		resp, err := cli.CSRSign([]byte{01}, 1)
+		resp, err := cli.CSRSign([]byte{0o1}, 1)
 		if expectError != (err != nil) {
 			t.Fatalf("expected error:%v, got error:%v", expectError, err)
 		}
@@ -220,7 +220,7 @@ func TestCitadelClient(t *testing.T) {
 			}
 			t.Cleanup(cli.Close)
 
-			resp, err := cli.CSRSign([]byte{01}, 1)
+			resp, err := cli.CSRSign([]byte{0o1}, 1)
 			if err != nil {
 				if !strings.Contains(err.Error(), tc.expectedErr) {
 					t.Errorf("error (%s) does not match expected error (%s)", err.Error(), tc.expectedErr)
@@ -337,7 +337,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 					return fmt.Errorf("failed to create ca client: %v", err)
 				}
 				t.Cleanup(cli.Close)
-				resp, err := cli.CSRSign([]byte{01}, 1)
+				resp, err := cli.CSRSign([]byte{0o1}, 1)
 				if err != nil {
 					if !strings.Contains(err.Error(), tc.expectedErr) {
 						return fmt.Errorf("error (%s) does not match expected error (%s)", err.Error(), tc.expectedErr)
