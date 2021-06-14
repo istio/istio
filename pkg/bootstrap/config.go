@@ -78,7 +78,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
 
 	xdsType := "GRPC"
-	if features.DeltaXds.Get() {
+	if features.DeltaXds {
 		xdsType = "DELTA_GRPC"
 	}
 
