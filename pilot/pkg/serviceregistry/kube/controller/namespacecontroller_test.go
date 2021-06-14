@@ -39,6 +39,9 @@ func TestNamespaceController(t *testing.T) {
 	}, client)
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	client.RunAndWait(stop)
 	nc.Run(stop)
 

@@ -32,13 +32,8 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
-	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
@@ -376,7 +371,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	// We shouldn't get an pushes; these only happen on changes
 	u.Expect(map[string]int{})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// Expect update callback
@@ -388,7 +383,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		PrivateKey:       privateKey,
 	})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We do NOT expect update callback. We only watch the cert file, since the key and cert must be updated
@@ -401,7 +396,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		PrivateKey:       testcerts.RotatedKey,
 	})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We expect to get an update notification, and the new root cert to be read

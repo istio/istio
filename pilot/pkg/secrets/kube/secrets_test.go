@@ -91,7 +91,11 @@ func TestSecretsController(t *testing.T) {
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewSecretsController(client, "")
-	client.RunAndWait(make(chan struct{}))
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	client.RunAndWait(stop)
 	cases := []struct {
 		name      string
 		namespace string

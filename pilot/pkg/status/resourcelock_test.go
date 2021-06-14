@@ -21,13 +21,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"istio.io/istio/tests/util/leak"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func TestResourceLock_Lock(t *testing.T) {
 	g := NewGomegaWithT(t)

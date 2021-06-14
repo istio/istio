@@ -330,9 +330,8 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 	// ca.go saves or uses the secret, but also writes to the configmap "istio-security", under caTLSRootCert
 	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
 	// self-signed CA.
-	rootCertRotatorChan := make(chan struct{})
 	// Start root cert rotator in a separate goroutine.
-	istioCA.Run(rootCertRotatorChan)
+	istioCA.Run(s.internalStop)
 	return istioCA, nil
 }
 
