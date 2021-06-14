@@ -98,12 +98,16 @@ func TestMonitorForChange(t *testing.T) {
 	}
 	mon := NewMonitor("", store, someConfigFunc, "")
 	stop := make(chan struct{})
-	defer func() { stop <- struct{}{} }() // shut it down
+	defer func() { close(stop) }()
 	mon.Start(stop)
 
 	go func() {
 		for i := 0; i < 10; i++ {
-			mon.updateCh <- struct{}{}
+			select {
+			case <-stop:
+				return
+			case mon.updateCh <- struct{}{}:
+			}
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
@@ -171,13 +175,17 @@ func TestMonitorForError(t *testing.T) {
 	}
 	mon := NewMonitor("", store, someConfigFunc, "")
 	stop := make(chan struct{})
-	defer func() { stop <- struct{}{} }() // shut it down
+	defer func() { close(stop) }()
 	mon.Start(stop)
 
 	go func() {
 		for i := 0; i < 10; i++ {
-			mon.updateCh <- struct{}{}
-			time.Sleep(time.Millisecond * 10)
+			select {
+			case <-stop:
+				return
+			case mon.updateCh <- struct{}{}:
+			}
+			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 	// Test ensures that after a coplilot connection error the data remains

@@ -24,7 +24,6 @@ import (
 	"github.com/google/uuid"
 
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util/leak"
 )
 
 var (
@@ -305,8 +304,4 @@ func TestTokenRotationJob(t *testing.T) {
 			p.Stop()
 		})
 	}
-}
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
 }

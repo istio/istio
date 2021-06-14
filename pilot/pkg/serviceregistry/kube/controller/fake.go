@@ -180,6 +180,9 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		c.AppendServiceHandler(opts.ServiceHandler)
 	}
 	c.stop = opts.Stop
+	if c.stop == nil {
+		c.stop = make(chan struct{})
+	}
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)

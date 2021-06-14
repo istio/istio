@@ -290,7 +290,10 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
 		PodName:        args.PodName,
 	}
-	s.statusReporter.Init(s.environment.GetLedger())
+	s.addStartFunc(func(stop <-chan struct{}) error {
+		s.statusReporter.Init(s.environment.GetLedger(), stop)
+		return nil
+	})
 	s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 		if writeStatus {
 			s.statusReporter.Start(s.kubeClient, args.Namespace, args.PodName, stop)
