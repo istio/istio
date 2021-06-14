@@ -77,7 +77,7 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 				// TODO should we requeue or wait for another event to trigger an update?
 				log.Errorf("failed to update status for %v/: %v", resource.String(), err)
 			}
-		}, uint(features.StatusMaxWorkers.Get())),
+		}, uint(features.StatusMaxWorkers)),
 	}
 }
 

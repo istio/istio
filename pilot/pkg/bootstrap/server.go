@@ -322,7 +322,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
 	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, features.JwtPolicy.Get()))
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, features.JwtPolicy))
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -926,17 +926,17 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 			return nil
 		}
 		err = s.initIstiodCertLoader()
-	} else if features.PilotCertProvider.Get() == constants.CertProviderNone {
+	} else if features.PilotCertProvider == constants.CertProviderNone {
 		return nil
-	} else if s.EnableCA() && features.PilotCertProvider.Get() == constants.CertProviderIstiod {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
-		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+	} else if s.EnableCA() && features.PilotCertProvider == constants.CertProviderIstiod {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost, args.Namespace)
 		if err == nil {
 			err = s.initIstiodCertLoader()
 		}
-	} else if features.PilotCertProvider.Get() == constants.CertProviderKubernetes {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
-		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost, args.Namespace)
 		if err == nil {
 			err = s.initIstiodCertLoader()
 		}
@@ -1076,11 +1076,11 @@ func (s *Server) fetchCARoot() map[string]string {
 	}
 
 	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
-	if features.PilotCertProvider.Get() == constants.CertProviderKubernetes {
+	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		return nil
 	}
 	// For no CA we don't distribute it either, as there is no cert
-	if features.PilotCertProvider.Get() == constants.CertProviderNone {
+	if features.PilotCertProvider == constants.CertProviderNone {
 		return nil
 	}
 
@@ -1130,7 +1130,7 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	var err error
 
-	if !features.MultiRootMesh.Get() {
+	if !features.MultiRootMesh {
 		return nil
 	}
 

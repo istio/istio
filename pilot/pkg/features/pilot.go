@@ -96,7 +96,7 @@ var (
 		true,
 		"If enabled, Pilot will include EDS pushes in the push debouncing, configured by PILOT_DEBOUNCE_AFTER and PILOT_DEBOUNCE_MAX."+
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
-	)
+	).Get()
 
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
@@ -137,7 +137,7 @@ var (
 	SkipValidateTrustDomain = env.RegisterBoolVar(
 		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
 		false,
-		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
+		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
 
 	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
@@ -251,13 +251,13 @@ var (
 	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
 	// for examples: istiod.mycompany.com
 	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
-		"Custom host name of istiod that istiod signs the server cert.")
+		"Custom host name of istiod that istiod signs the server cert.").Get()
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", constants.CertProviderIstiod,
-		"The provider of Pilot DNS certificate.")
+		"The provider of Pilot DNS certificate.").Get()
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
-		"The JWT validation policy.")
+		"The JWT validation policy.").Get()
 
 	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
 	// which disables timeout when it is not configured, to preserve the current behavior.
@@ -313,7 +313,7 @@ var (
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
-		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.").Get()
 
 	SpiffeBundleEndpoints = env.RegisterStringVar("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
@@ -337,7 +337,8 @@ var (
 	// need the fsGroup configuration for the projected service account volume mount,
 	// which is only used by first-party-jwt. The installer will automatically
 	// configure this on Kubernetes 1.19+.
-	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", JwtPolicy.Get() != jwt.PolicyFirstParty,
+	// Note: while this appears unused in the go code, this sets a default which is used in the injection template.
+	EnableLegacyFSGroupInjection = env.RegisterBoolVar("ENABLE_LEGACY_FSGROUP_INJECTION", JwtPolicy != jwt.PolicyFirstParty,
 		"If true, Istiod will set the pod fsGroup to 1337 on injection. This is required for Kubernetes 1.18 and older "+
 			`(see https://github.com/kubernetes/kubernetes/issues/57923 for details) unless JWT_POLICY is "first-party-jwt".`).Get()
 
@@ -393,7 +394,7 @@ var (
 
 	StatusMaxWorkers = env.RegisterIntVar("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
 		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
-		"but larger numbers may impact CPU in high scale environments.")
+		"but larger numbers may impact CPU in high scale environments.").Get()
 
 	WasmRemoteLoadConversion = env.RegisterBoolVar("ISTIO_AGENT_ENABLE_WASM_REMOTE_LOAD_CONVERSION", true,
 		"If enabled, Istio agent will intercept ECDS resource update, downloads Wasm module, "+
@@ -430,7 +431,7 @@ var (
 
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request")
+			"Resource Request").Get()
 
 	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
 		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
@@ -442,7 +443,7 @@ var (
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
 	MultiRootMesh = env.RegisterBoolVar("ISTIO_MULTIROOT_MESH", false,
-		"If enabled, mesh will support certificates signed by more than one trustAnchor for ISTIO_MUTUAL mTLS")
+		"If enabled, mesh will support certificates signed by more than one trustAnchor for ISTIO_MUTUAL mTLS").Get()
 
 	EnableEnvoyFilterMetrics = env.RegisterBoolVar("PILOT_ENVOY_FILTER_STATS", false,
 		"If true, Pilot will collect metrics for envoy filter operations.").Get()
