@@ -105,6 +105,7 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 // Cleanup's called in the test happen first.
 // Any existing goroutines before the test starts are filtered out. This ensures a single test failing doesn't
 // cause all future tests to fail. However, it is still possible another test influences the result when t.Parallel is used.
+// Where possible, CheckMain is preferred.
 func Check(t TestingTB) {
 	existingRaw, err := interestingGoroutines()
 	if err != nil {
