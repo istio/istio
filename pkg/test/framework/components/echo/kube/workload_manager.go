@@ -111,7 +111,7 @@ func (m *workloadManager) readyWorkloads() ([]echo.Workload, error) {
 	if len(out) == 0 {
 		err := fmt.Errorf("no workloads ready for echo %s/%s", m.cfg.Namespace.Name(), m.cfg.Service)
 		if connErrs != nil {
-			err = fmt.Errorf("%v: %v", err, connErrs)
+			err = fmt.Errorf("%v: failed connecting: %v", err, connErrs)
 		}
 		return nil, err
 	}
