@@ -278,19 +278,19 @@ func daemonsetsReady(daemonsets []*appsv1.DaemonSet) (bool, []string) {
 			notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 		}
 		if ds.Spec.UpdateStrategy.Type == appsv1.RollingUpdateDaemonSetStrategyType {
-			// Make sure every node has a ready pod
-			if ds.Status.NumberReady != ds.Status.DesiredNumberScheduled {
-				scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods are ready",
-					ds.Namespace, ds.Name, ds.Status.NumberReady, ds.Status.UpdatedNumberScheduled)
-				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
-			} else if ds.Status.DesiredNumberScheduled == 0 {
-				// if DesiredNumberScheduled equal 0, there some cases:
+			if ds.Status.DesiredNumberScheduled <= 0 {
+				// If DesiredNumberScheduled less then or equal 0, there some cases:
 				// 1) daemenset is just created
 				// 2) daemonset desired no pod
 				// 3) somebody changed it manually
-				// all the case is not a ready signal
+				// All the case is not a ready signal
 				scope.Infof("DaemonSet is not ready: %s/%s. Initializing, no pods is running",
 					ds.Namespace, ds.Name)
+				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
+			} else if ds.Status.NumberReady < ds.Status.DesiredNumberScheduled {
+				// Make sure every node has a ready pod
+				scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods are ready",
+					ds.Namespace, ds.Name, ds.Status.NumberReady, ds.Status.UpdatedNumberScheduled)
 				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 			}
 		}
