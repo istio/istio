@@ -24,9 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var (
-	ist istio.Instance
-)
+var ist istio.Instance
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).Setup(istio.Setup(&ist, setupConfig)).Run()
