@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pkg/config/host"
 )
 
 func Test_clusterMatch(t *testing.T) {
@@ -37,7 +36,6 @@ func Test_clusterMatch(t *testing.T) {
 		cluster        *cluster.Cluster
 		matchCondition *networking.EnvoyFilter_EnvoyConfigObjectMatch
 		operation      networking.EnvoyFilter_Patch_Operation
-		host           host.Name
 	}
 	tests := []struct {
 		name string
@@ -95,23 +93,6 @@ func Test_clusterMatch(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "service name match for inbound cluster",
-			args: args{
-				proxy:     &model.Proxy{Type: model.SidecarProxy},
-				operation: networking.EnvoyFilter_Patch_MERGE,
-				matchCondition: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
-						Cluster: &networking.EnvoyFilter_ClusterMatch{
-							Service: "foo.bar",
-						},
-					},
-				},
-				cluster: &cluster.Cluster{Name: "inbound|80||"},
-				host:    "foo.bar",
-			},
-			want: true,
-		},
-		{
 			name: "port mismatch",
 			args: args{
 				proxy:     &model.Proxy{Type: model.SidecarProxy},
@@ -150,7 +131,7 @@ func Test_clusterMatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := clusterMatch(tt.args.cluster, &model.EnvoyFilterConfigPatchWrapper{Match: tt.args.matchCondition}, []host.Name{tt.args.host}); got != tt.want {
+			if got := clusterMatch(tt.args.cluster, &model.EnvoyFilterConfigPatchWrapper{Match: tt.args.matchCondition}); got != tt.want {
 				t.Errorf("clusterMatch() = %v, want %v", got, tt.want)
 			}
 		})
@@ -185,7 +166,7 @@ func TestClusterPatching(t *testing.T) {
 				Context: networking.EnvoyFilter_GATEWAY,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
 					Cluster: &networking.EnvoyFilter_ClusterMatch{
-						Service: "gateway.com",
+						Name: "outbound|443||gateway.com",
 					},
 				},
 			},
@@ -531,7 +512,10 @@ func TestClusterPatching(t *testing.T) {
 		{Name: "inbound|9999||mgmtCluster"},
 	}
 	sidecarInboundOut := []*cluster.Cluster{
-		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
+		{
+			Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH,
+			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+		},
 	}
 
 	sidecarInboundServiceIn := []*cluster.Cluster{
@@ -612,14 +596,7 @@ func TestClusterPatching(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			efw := push.EnvoyFilters(tc.proxy)
-			output := []*cluster.Cluster{}
-			for _, c := range tc.input {
-				if ShouldKeepCluster(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)}) {
-					pc := ApplyClusterMerge(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)})
-					output = append(output, pc)
-				}
-			}
-			output = append(output, InsertedClusters(tc.patchContext, efw)...)
+			output := ApplyClusterPatches(tc.patchContext, efw, tc.input)
 			if diff := cmp.Diff(tc.output, output, protocmp.Transform()); diff != "" {
 				t.Errorf("%s mismatch (-want +got):\n%s", tc.name, diff)
 			}
