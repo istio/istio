@@ -415,6 +415,7 @@ var testGrid = []testCase{
 		name: "dupmatches",
 		inputFiles: []string{
 			"testdata/virtualservice_dupmatches.yaml",
+			"testdata/virtualservice_overlappingmatches.yaml",
 		},
 		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.IstioNetworkingV1Alpha3Virtualservices),
 		expected: []message{
@@ -431,6 +432,11 @@ var testGrid = []testCase{
 			{msg.VirtualServiceUnreachableRule, "VirtualService tls-routing.none"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing-almostmatch.none"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing.none"},
+
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService non-method-get"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-in-single-match"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-in-two-matches"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-mathes-with-different-methods"},
 		},
 	},
 	{
