@@ -79,7 +79,8 @@ func (a *Agent) generateGRPCBootstrap() error {
 		XDSServers: []xdsServer{{
 			ServerURI: serverURI,
 			// connect locally via agent
-			ChannelCreds: []channelCreds{{Type: "insecure"}},
+			ChannelCreds:   []channelCreds{{Type: "insecure"}},
+			ServerFeatures: []string{"xds_v3"},
 		}},
 		Node: &corev3.Node{
 			Id:       node.ID,

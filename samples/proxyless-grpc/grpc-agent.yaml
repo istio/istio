@@ -1,5 +1,5 @@
       grpc-agent: |-
-        {{- $grpcEnv := dict "GRPC_XDS_EXPERIMENTAL_V3_SUPPORT" "true" "GRPC_XDS_BOOTSTRAP" "/var/lib/istio/data/grpc-bootstrap.json" }}
+        {{- $grpcEnv := dict "GRPC_XDS_BOOTSTRAP" "/var/lib/istio/data/grpc-bootstrap.json" "GRPC_GO_LOG_VERBOSITY_LEVEL" "99" "GRPC_GO_LOG_SEVERITY_LEVEL" "info" }}
         {{- $containers := list }}
         {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
         metadata:
@@ -24,6 +24,9 @@
             volumeMounts:
             - mountPath: /var/lib/istio/data
               name: istio-data
+            # XDS channel between istioagent and gRPC client
+            - mountPath: /etc/istio/proxy
+              name: istio-envoy
           {{- end }}
           {{- end }}
           - name: istio-proxy
@@ -193,7 +196,7 @@
             - mountPath: /etc/istio/custom-bootstrap
               name: custom-bootstrap-volume
             {{- end }}
-            # SDS channel between istioagent and Envoy
+            # XDS channel between istioagent and gRPC client
             - mountPath: /etc/istio/proxy
               name: istio-envoy
             {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}

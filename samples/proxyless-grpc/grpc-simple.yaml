@@ -44,8 +44,6 @@
           {{- range $index, $container := .Spec.Containers }}
           - name: {{ $container.Name }}
             env:
-              - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
-                value: "true"
               - name: GRPC_XDS_BOOTSTRAP
                 value: /var/lib/grpc/data/bootstrap.json
               - name: GRPC_GO_LOG_VERBOSITY_LEVEL
