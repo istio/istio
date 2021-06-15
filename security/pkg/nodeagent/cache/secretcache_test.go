@@ -405,6 +405,21 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
 	})
+
+	// Remove the file and add it again and validate that proxy is updated with new cert.
+	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
+		t.Fatal(err)
+	}
+	// We expect to get an update notification, and the new root cert to be read
+	u.Expect(map[string]int{workloadResource: 1, rootResource: 2})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     testcerts.CACert,
+	})
+
 	// Double check workload cert is untouched
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
