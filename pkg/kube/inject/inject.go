@@ -669,7 +669,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		return nil, err
 	}
 	if patchBytes == nil {
-		if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
 			return out, nil
 		}
