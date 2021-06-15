@@ -827,6 +827,9 @@ func endpointConfigCmd() *cobra.Command {
 func bootstrapConfigCmd() *cobra.Command {
 	var podName, podNamespace string
 
+	// Shadow outputVariable since this command uses a different default value
+	var outputFormat string
+
 	bootstrapConfigCmd := &cobra.Command{
 		Use:   "bootstrap [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves bootstrap configuration for the Envoy in the specified pod",
@@ -837,6 +840,9 @@ func bootstrapConfigCmd() *cobra.Command {
   # Retrieve full bootstrap without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config bootstrap --file envoy-config.json
+
+  # Show a human-readable Istio and Envoy version summary
+  istioctl proxy-config bootstrap -o short
 `,
 		Aliases: []string{"b"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -860,19 +866,19 @@ func bootstrapConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			switch outputFormat {
-			case yamlOutput:
+			case summaryOutput:
+				return configWriter.PrintVersionSummary()
+			case jsonOutput, yamlOutput:
 				return configWriter.PrintBootstrapDump(outputFormat)
 			default:
-				return configWriter.PrintBootstrapDump(jsonOutput)
-				// TODO: cobra default value of global flag is passed instead of local flag
-				// i.e short is passed instead of json as declared below
-				// return fmt.Errorf("output format %q not supported", outputFormat)
+				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
 	}
 
-	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml")
+	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
 	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
