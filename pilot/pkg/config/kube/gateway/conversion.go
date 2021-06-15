@@ -119,7 +119,7 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 			log.Errorf("missing namespace %v for route %v, skipping", cfg.Namespace, cfg.Name)
 			return false
 		}
-		if !ns.Matches(klabels.Set(namespace.Labels)) {
+		if !ns.Matches(toNamespaceSet(namespace.Name, namespace.Labels)) {
 			return false
 		}
 	}
@@ -153,6 +153,24 @@ func isRouteMatch(cfg config.Config, gateway config.Meta,
 	}
 
 	return true
+}
+
+// NamespaceNameLabel represents that label added automatically to namespaces is newer Kubernetes clusters
+const NamespaceNameLabel = "kubernetes.io/metadata.name"
+
+func toNamespaceSet(name string, labels map[string]string) klabels.Labels {
+	// If namespace label is not set, implicitly insert it to support older Kubernetes versions
+	if labels[NamespaceNameLabel] == name {
+		// Already set, avoid copies
+		return klabels.Set(labels)
+	}
+	// First we need a copy to not modify the underlying object
+	ret := make(map[string]string, len(labels))
+	for k, v := range labels {
+		ret[k] = v
+	}
+	ret[NamespaceNameLabel] = name
+	return klabels.Set(ret)
 }
 
 func getGatewaySelectorFromSpec(spec config.Spec) *k8s.RouteGateways {
@@ -434,6 +452,10 @@ func buildHTTPVirtualServices(obj config.Config, gateways []gatewayReference, do
 }
 
 func hostnameToStringList(h []k8s.Hostname) []string {
+	// In the Istio API, empty hostname is not allowed. In the Kubernetes API hosts means "any"
+	if len(h) == 0 {
+		return []string{"*"}
+	}
 	res := make([]string, 0, len(h))
 	for _, i := range h {
 		res = append(res, string(i))
@@ -1054,7 +1076,7 @@ func buildListener(obj config.Config, l k8s.Listener, listenerIndex int) (*istio
 			// TODO currently we 1:1 support protocols in the API. If this changes we may
 			// need more logic here.
 			Protocol: string(l.Protocol),
-			Name:     fmt.Sprintf("%v-%v-gateway-%s-%s", strings.ToLower(string(l.Protocol)), l.Port, obj.Name, obj.Namespace),
+			Name:     fmt.Sprintf("%d-gateway-%s-%s", listenerIndex, obj.Name, obj.Namespace),
 		},
 		// TODO support RouteOverride
 		Tls: tls,
