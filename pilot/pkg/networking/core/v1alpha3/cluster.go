@@ -89,7 +89,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		inboundClusters = append(inboundClusters, cb.buildInboundPassthroughClusters()...)
 		inboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_INBOUND, envoyFilterPatches, inboundClusters)
-		clusters = make([]*cluster.Cluster, 0, len(outboundClusters)+len(inboundClusters))
 		clusters = append(outboundClusters, inboundClusters...)
 	case model.Router: // Gateways
 		clusters = configgen.buildOutboundClusters(cb)
@@ -242,11 +241,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		for epPort, instances := range clustersToBuild {
 			// The inbound cluster port equals to endpoint port.
 			localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, instances[0], instances)
-			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
-			hosts := make([]host.Name, 0, len(instances))
-			for _, si := range instances {
-				hosts = append(hosts, si.Service.Hostname)
-			}
 			clusters = append(clusters, localCluster.build())
 		}
 		return clusters
