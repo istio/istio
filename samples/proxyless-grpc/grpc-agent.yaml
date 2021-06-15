@@ -2,8 +2,6 @@
         {{- $grpcEnv := dict "GRPC_XDS_EXPERIMENTAL_V3_SUPPORT" "true" "GRPC_XDS_BOOTSTRAP" "/var/lib/istio/data/grpc-bootstrap.json" }}
         {{- $containers := list }}
         {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
-        {{- $otherContainers := list }}
-        {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $otherContainers $container }}{{end}}{{- end}}
         metadata:
           labels:
             istio.io/rev: {{ .Revision | default "default" | quote }}
@@ -15,7 +13,8 @@
           }
         spec:
           containers:
-          {{- range $index, $container := $otherContainers }}
+          {{- range $index, $container := .Spec.Containers  }}
+          {{ if not (eq $container.Name "istio-proxy") }}
           - name: {{ $container.Name }}
             env:
             {{- range $k, $v := $grpcEnv }}
@@ -25,7 +24,8 @@
             volumeMounts:
             - mountPath: /var/lib/istio/data
               name: istio-data
-           {{- end }}
+          {{- end }}
+          {{- end }}
           - name: istio-proxy
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
             image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
