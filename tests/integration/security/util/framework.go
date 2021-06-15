@@ -16,6 +16,8 @@
 package util
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -295,7 +297,7 @@ func WaitForConfig(ctx framework.TestContext, configs string, namespace namespac
 				// Get proxy status for additional debugging
 				s, _, _ := ik.Invoke([]string{"ps"})
 				ctx.Logf("proxy status: %v", s)
-				return err
+				return fmt.Errorf("cluster %s, err: %s", c.Name(), err.Error())
 			}
 			return nil
 		})

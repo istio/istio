@@ -42,7 +42,6 @@ const (
 
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/32392")
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
@@ -81,6 +80,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -98,6 +98,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
 							},
+							Path:  "/valid-token-2-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -115,6 +116,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
+							Path:  "/expired-token-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusUnauthorized,
@@ -125,6 +127,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/no-token-noauthz",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -139,6 +142,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -155,6 +159,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
+							Path:  "/expired-token",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusUnauthorized,
@@ -165,6 +170,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/no-token",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeForbidden,
@@ -174,6 +180,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/no-authn-authz",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -187,6 +194,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token-forward",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -204,6 +212,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token-forward-remote-jwks",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -217,7 +226,7 @@ func TestRequestAuthentication(t *testing.T) {
 						SkipMultiCluster: true,
 					},
 					{
-						Name:   "invalid aud",
+						Name:   "invalid-aud",
 						Config: "aud",
 						CallOpts: echo.CallOptions{
 							PortName: "http",
@@ -225,12 +234,13 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/invalid-aud",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeForbidden,
 					},
 					{
-						Name:   "valid aud",
+						Name:   "valid-aud",
 						Config: "aud",
 						CallOpts: echo.CallOptions{
 							PortName: "http",
@@ -238,12 +248,13 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1WithAud},
 							},
+							Path:  "/valid-aud",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
 					},
 					{
-						Name:   "verify policies are combined",
+						Name:   "verify-policies-are-combined",
 						Config: "aud",
 						CallOpts: echo.CallOptions{
 							PortName: "http",
@@ -251,6 +262,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
 							},
+							Path:  "/verify-policies-are-combined",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -264,6 +276,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/invalid-jwks-valid-token-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusUnauthorized,
@@ -277,6 +290,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
+							Path:  "/invalid-jwks-expired-token-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusUnauthorized,
@@ -287,6 +301,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/invalid-jwks-no-token-noauthz",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -306,6 +321,7 @@ func TestRequestAuthentication(t *testing.T) {
 										"dst":       dst[0].Config().Service,
 									},
 								), ns.Name())
+								util.WaitForConfig(t, policy, ns)
 								return t.Config().ApplyYAML(ns.Name(), policy)
 							}
 							return nil
@@ -411,6 +427,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 									"dst":       dst[0].Config().Service,
 								},
 							), ns.Name())
+							util.WaitForConfig(t, policy, ns)
 							return t.Config().ApplyYAML(ns.Name(), policy)
 						}).
 						From(filters(t, ns.Name(), false)...).
