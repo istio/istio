@@ -72,11 +72,15 @@ func (a *Agent) generateGRPCBootstrap() error {
 	// TODO secure control plane channel (most likely JWT + TLS, but possibly allow mTLS)
 	serverURI := a.proxyConfig.DiscoveryAddress
 	if a.cfg.ProxyXDSViaAgent {
-		serverURI = "localhost:15010"
+		serverURI = fmt.Sprintf("unix:///%s", a.cfg.XdsUdsPath)
 	}
 
 	bootstrap := grpcBootstrap{
-		XDSServers: []xdsServer{{ServerURI: serverURI}},
+		XDSServers: []xdsServer{{
+			ServerURI: serverURI,
+			// connect locally via agent
+			ChannelCreds: []channelCreds{{Type: "insecure"}},
+		}},
 		Node: &corev3.Node{
 			Id:       node.ID,
 			Locality: node.Locality,
