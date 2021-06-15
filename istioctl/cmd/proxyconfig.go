@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"regexp"
 	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
