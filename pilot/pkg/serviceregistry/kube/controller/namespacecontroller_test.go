@@ -27,6 +27,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/k8s"
 )
@@ -57,6 +58,11 @@ func TestNamespaceController(t *testing.T) {
 
 	deleteConfigMap(t, client, "foo")
 	expectConfigMap(t, nc.configmapLister, "foo", testdata)
+
+	for _, namespace := range inject.IgnoredNamespaces {
+		createNamespace(t, client, namespace, testdata)
+		expectConfigMapNotExist(t, nc.configmapLister, namespace)
+	}
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
@@ -100,4 +106,16 @@ func expectConfigMap(t *testing.T, client listerv1.ConfigMapLister, ns string, d
 		}
 		return nil
 	}, retry.Timeout(time.Second*2))
+}
+
+func expectConfigMapNotExist(t *testing.T, client listerv1.ConfigMapLister, ns string) {
+	t.Helper()
+	err := retry.Until(func() bool {
+		_, err := client.ConfigMaps(ns).Get(CACertNamespaceConfigMap)
+		return err == nil
+	}, retry.Timeout(time.Second*2))
+
+	if err == nil {
+		t.Fatalf("%s namespace should not have istio-ca-root-cert configmap.", ns)
+	}
 }
