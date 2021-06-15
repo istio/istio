@@ -970,7 +970,7 @@ spec:
 	return cases
 }
 
-func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
+func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 
 	destinationSets := []echo.Instances{
@@ -987,12 +987,12 @@ func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
 			skip:   false,
-			call:   apps.Ingress.CallWithRetryOrFail,
+			call:   apps.Naked[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Count: 1,
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
+				Count:   1,
+				Port:    &echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Address: gateway,
 				Headers: map[string][]string{
 					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
 					"Host":            {fqdn},

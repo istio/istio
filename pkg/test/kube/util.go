@@ -96,6 +96,7 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
 	}
 
 	if len(fetched) == 0 {
+		scopes.Framework.Infof("No pods found...")
 		return nil, fmt.Errorf("no pods fetched")
 	}
 
