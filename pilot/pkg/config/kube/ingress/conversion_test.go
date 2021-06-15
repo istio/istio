@@ -77,7 +77,7 @@ func TestGoldenConversion(t *testing.T) {
 			output := marshalYaml(t, ordered)
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
 			if util.Refresh() {
-				if err := ioutil.WriteFile(goldenFile, output, 0644); err != nil {
+				if err := ioutil.WriteFile(goldenFile, output, 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}

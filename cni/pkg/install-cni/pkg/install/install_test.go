@@ -311,14 +311,14 @@ func TestCleanup(t *testing.T) {
 
 			// Create existing binary files
 			for _, filename := range []string{"istio-cni", "istio-iptables"} {
-				if err := ioutil.WriteFile(filepath.Join(cniBinDir, filename), []byte{1, 2, 3}, 0755); err != nil {
+				if err := ioutil.WriteFile(filepath.Join(cniBinDir, filename), []byte{1, 2, 3}, 0o755); err != nil {
 					t.Fatal(err)
 				}
 			}
 
 			// Create kubeconfig
 			kubeConfigFilePath := filepath.Join(cniNetDir, "kubeconfig")
-			if err := ioutil.WriteFile(kubeConfigFilePath, []byte{1, 2, 3}, 0755); err != nil {
+			if err := ioutil.WriteFile(kubeConfigFilePath, []byte{1, 2, 3}, 0o755); err != nil {
 				t.Fatal(err)
 			}
 
