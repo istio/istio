@@ -412,7 +412,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	})
 
 	// Remove the file and add it again and validate that proxy is updated with new cert.
-	if os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
+	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
 		t.Fatal(err)
 	}
 	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
