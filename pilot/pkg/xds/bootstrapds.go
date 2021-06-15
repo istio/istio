@@ -22,6 +22,8 @@ import (
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -36,7 +38,7 @@ type BootstrapGenerator struct {
 var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
-func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, _ *model.WatchedResource,
+func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, _ *model.WatchedResource,
 	_ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ConvertXDSNodeToNode(proxy.XdsNode)
@@ -54,9 +56,23 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, 
 	if err = jsonpb.Unmarshal(io.Reader(&buf), bs); err != nil {
 		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", buf.String(), err)
 	}
+	bs = e.applyPatches(bs, proxy, push)
 	return model.Resources{
 		&discovery.Resource{
 			Resource: util.MessageToAny(bs),
 		},
 	}, model.DefaultXdsLogDetails, nil
+}
+
+func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *model.Proxy, push *model.PushContext) *bootstrapv3.Bootstrap {
+	patches := push.EnvoyFilters(proxy)
+	if patches == nil {
+		return bs
+	}
+	for _, patch := range patches.Patches[networking.EnvoyFilter_BOOTSTRAP] {
+		if patch.Operation == networking.EnvoyFilter_Patch_MERGE {
+			proto.Merge(bs, patch.Value)
+		}
+	}
+	return bs
 }

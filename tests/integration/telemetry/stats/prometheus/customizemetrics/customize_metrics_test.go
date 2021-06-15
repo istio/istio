@@ -112,18 +112,37 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
+	enableBootstrapDiscovery := `
+proxyMetadata:
+	BOOTSTRAP_XDS_AGENT: "true"`
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(echo.Config{
 			Service:   "client",
 			Namespace: appNsInst,
 			Ports:     nil,
-			Subsets:   []echo.SubsetConfig{{}},
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarProxyConfig: {
+							Value: enableBootstrapDiscovery,
+						},
+					},
+				},
+			},
 		}).
 		WithConfig(echo.Config{
 			Service:   "server",
 			Namespace: appNsInst,
-			Subsets:   []echo.SubsetConfig{{}},
+			Subsets: []echo.SubsetConfig{
+				{
+					Annotations: map[echo.Annotation]*echo.AnnotationValue{
+						echo.SidecarProxyConfig: {
+							Value: enableBootstrapDiscovery,
+						},
+					},
+				},
+			},
 			Ports: []echo.Port{
 				{
 					Name:         "http",
@@ -169,6 +188,7 @@ values:
                response_code: istio_responseClass
                request_operation: istio_operationId
                grpc_response_status: istio_grpcResponseStatus
+               custom_dimension: 'test'
              tags_to_remove:
              - %s
 `
@@ -212,6 +232,26 @@ func setupEnvoyFilter(ctx resource.Context) error {
 		return err
 	}
 
+	// enable custom tag in the stats
+	bootstrapPatch := `
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: bootstrap-tag
+spec:
+  configPatches:
+    - applyTo: BOOTSTRAP
+      patch:
+        operation: MERGE
+        value:
+          stats_config:
+            stats_tags:
+            - regex: "(custom_dimension=\\.=(.*?);\\.;"
+              tag_name: "custom_dimension"
+`
+	if err := ctx.Config().ApplyYAML(appNsInst.Name(), bootstrapPatch); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -263,6 +303,7 @@ func buildQuery(protocol string) (destinationQuery string) {
 		"source_version":                 "v1",
 		"source_workload":                "client-v1",
 		"source_workload_namespace":      appNsInst.Name(),
+		"custom_dimension":               "test",
 	}
 	if protocol == httpProtocol {
 		labels["request_operation"] = "getoperation"
