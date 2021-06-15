@@ -127,7 +127,11 @@ func buildNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, stat
 	filterstack := make([]*listener.Filter, 0)
 	switch port.Protocol {
 	case protocol.Mongo:
-		filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
+		if features.EnableMongoFilter {
+			filterstack = append(filterstack, buildMongoFilter(statPrefix), tcpFilter)
+		} else {
+			filterstack = append(filterstack, tcpFilter)
+		}
 	case protocol.Redis:
 		if features.EnableRedisFilter {
 			// redis filter has route config, it is a terminating filter, no need append tcp filter.

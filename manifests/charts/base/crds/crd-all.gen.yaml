@@ -2498,6 +2498,11 @@ spec:
                       type: object
                   type: object
                 type: array
+              priority:
+                description: Priority defines the order in which patch sets are applied
+                  within a context.
+                format: int32
+                type: integer
               workloadSelector:
                 properties:
                   labels:
