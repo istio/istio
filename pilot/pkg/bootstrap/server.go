@@ -113,8 +113,7 @@ type Server struct {
 	clusterID   string
 	environment *model.Environment
 
-	kubeRestConfig *rest.Config
-	kubeClient     kubelib.Client
+	kubeClient kubelib.Client
 
 	multicluster      *kubecontroller.Multicluster
 	secretsController *kubesecrets.Multicluster
@@ -539,6 +538,10 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 // This is determined by the presence of a kube registry, which
 // uses in-context k8s, or a config source of type k8s.
 func (s *Server) initKubeClient(args *PilotArgs) error {
+	if s.kubeClient != nil {
+		// Already initialized by startup arguments
+		return nil
+	}
 	hasK8SConfigStore := false
 	if args.RegistryOptions.FileDir == "" {
 		// If file dir is set - config controller will just use file.
@@ -561,9 +564,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	}
 
 	if hasK8SConfigStore || hasKubeRegistry(args.RegistryOptions.Registries) {
-		var err error
 		// Used by validation
-		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+		kubeRestConfig, err := kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
 			config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
 		})
@@ -571,7 +573,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig))
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
