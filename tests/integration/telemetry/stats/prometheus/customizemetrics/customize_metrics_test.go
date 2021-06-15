@@ -114,7 +114,8 @@ func testSetup(ctx resource.Context) (err error) {
 	}
 	enableBootstrapDiscovery := `
 proxyMetadata:
-	BOOTSTRAP_XDS_AGENT: "true"`
+  BOOTSTRAP_XDS_AGENT: "true"`
+
 	echos, err := echoboot.NewBuilder(ctx).
 		WithClusters(ctx.Clusters()...).
 		WithConfig(echo.Config{
