@@ -48,6 +48,11 @@ import (
 	"istio.io/pkg/log"
 )
 
+type mutableListenerOpts struct {
+	mutable *MutableListener
+	opts    buildListenerOpts
+}
+
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
 		log.Debugf("buildGatewayListeners: no gateways for router %v", builder.node.ID)
@@ -59,7 +64,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
 	errs := istiomultierror.New()
-	listeners := make([]*listener.Listener, 0)
+	mutableopts := make(map[uint32]mutableListenerOpts)
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	for port, ms := range mergedGateway.MergedServers {
 		servers := ms.Servers
@@ -173,6 +178,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				FilterChains: filterChains,
 			},
 		}
+		mutableopts[port.Number] = mutableListenerOpts{mutable: mutable, opts: opts}
 
 		pluginParams := &plugin.InputParams{
 			Node:            builder.node,
@@ -184,18 +190,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
-
+	}
+	listeners := make([]*listener.Listener, 0)
+	for _, ml := range mutableopts {
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := mutable.build(opts); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
+		if err := ml.mutable.build(ml.opts); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", ml.mutable.Listener.Name, err.Error()))
 			continue
 		}
 
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
-				len(mutable.Listener.FilterChains), mutable.Listener)
+				len(ml.mutable.Listener.FilterChains), ml.mutable.Listener)
 		}
-		listeners = append(listeners, mutable.Listener)
+		listeners = append(listeners, ml.mutable.Listener)
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err := errs.ErrorOrNil()
@@ -204,7 +212,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		log.Info(err.Error())
 	}
 
-	if len(listeners) == 0 {
+	if len(mutableopts) == 0 {
 		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
 		return builder
 	}
