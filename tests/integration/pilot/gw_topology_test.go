@@ -37,8 +37,8 @@ func TestXFFGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway"})
 			injectLabel := `sidecar.istio.io/inject: "true"`
-			if len(t.Settings().Revision) > 0 {
-				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revision)
+			if len(t.Settings().Revisions.Default()) > 0 {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
 			}
 
 			templateParams := map[string]string{
