@@ -464,12 +464,17 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
 		// Instead, we add an aggressive sync polling
-		fastWaitForCacheSync(c.kubeInformer)
-		fastWaitForCacheSyncDynamic(c.dynamicInformer)
-		fastWaitForCacheSyncDynamic(c.metadataInformer)
-		fastWaitForCacheSync(c.istioInformer)
-		fastWaitForCacheSync(c.gatewayapiInformer)
-		_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+		fastWaitForCacheSync(stop, c.kubeInformer)
+		fastWaitForCacheSyncDynamic(stop, c.dynamicInformer)
+		fastWaitForCacheSyncDynamic(stop, c.metadataInformer)
+		fastWaitForCacheSync(stop, c.istioInformer)
+		fastWaitForCacheSync(stop, c.gatewayapiInformer)
+		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+			select {
+			case <-stop:
+				return false, fmt.Errorf("channel closed")
+			default:
+			}
 			if c.informerWatchesPending.Load() == 0 {
 				return true, nil
 			}
@@ -503,10 +508,15 @@ type dynamicInformerSync interface {
 
 // Wait for cache sync immediately, rather than with 100ms delay which slows tests
 // See https://github.com/kubernetes/kubernetes/issues/95262#issuecomment-703141573
-func fastWaitForCacheSync(informerFactory reflectInformerSync) {
+func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		select {
+		case <-stop:
+			return false, fmt.Errorf("channel closed")
+		default:
+		}
 		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
 			if !synced {
 				return false, nil
@@ -516,10 +526,15 @@ func fastWaitForCacheSync(informerFactory reflectInformerSync) {
 	})
 }
 
-func fastWaitForCacheSyncDynamic(informerFactory dynamicInformerSync) {
+func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		select {
+		case <-stop:
+			return false, fmt.Errorf("channel closed")
+		default:
+		}
 		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
 			if !synced {
 				return false, nil
