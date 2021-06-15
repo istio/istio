@@ -30,7 +30,7 @@ import (
 
 // TODO use structs from gRPC lib if created/exported
 type grpcBootstrap struct {
-	XDSServer     xdsServer                      `json:"xds_server,omitempty"`
+	XDSServers    []xdsServer                    `json:"xds_servers,omitempty"`
 	Node          *corev3.Node                   `json:"node,omitempty"`
 	CertProviders map[string]certificateProvider `json:"certificate_providers,omitempty"`
 }
@@ -76,7 +76,7 @@ func (a *Agent) generateGRPCBootstrap() error {
 	}
 
 	bootstrap := grpcBootstrap{
-		XDSServer: xdsServer{ServerURI: serverURI},
+		XDSServers: []xdsServer{{ServerURI: serverURI}},
 		Node: &corev3.Node{
 			Id:       node.ID,
 			Locality: node.Locality,
