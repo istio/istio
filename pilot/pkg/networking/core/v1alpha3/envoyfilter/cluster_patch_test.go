@@ -166,7 +166,7 @@ func TestClusterPatching(t *testing.T) {
 				Context: networking.EnvoyFilter_GATEWAY,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
 					Cluster: &networking.EnvoyFilter_ClusterMatch{
-						Name: "outbound|443||gateway.com",
+						Service: "gateway.com",
 					},
 				},
 			},
@@ -190,7 +190,7 @@ func TestClusterPatching(t *testing.T) {
 				Context: networking.EnvoyFilter_SIDECAR_INBOUND,
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
 					Cluster: &networking.EnvoyFilter_ClusterMatch{
-						Service: "service.servicens",
+						PortNumber: 7443,
 					},
 				},
 			},
@@ -512,10 +512,7 @@ func TestClusterPatching(t *testing.T) {
 		{Name: "inbound|9999||mgmtCluster"},
 	}
 	sidecarInboundOut := []*cluster.Cluster{
-		{
-			Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH,
-			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-		},
+		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
 	}
 
 	sidecarInboundServiceIn := []*cluster.Cluster{
