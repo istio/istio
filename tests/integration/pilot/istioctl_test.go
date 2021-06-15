@@ -526,7 +526,7 @@ func TestKubeInject(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			var output string
-			args := []string{"kube-inject", "-f", "testdata/hello.yaml", "--revision=" + t.Settings().Revision}
+			args := []string{"kube-inject", "-f", "testdata/hello.yaml", "--revision=" + t.Settings().Revisions.Default()}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			if !strings.Contains(output, "istio-proxy") {
 				t.Fatal("istio-proxy has not been injected")
