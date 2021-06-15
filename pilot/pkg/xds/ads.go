@@ -554,9 +554,6 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	if err != nil {
 		return nil, err
 	}
-	if len(meta.Labels) == 0 {
-		log.Warnf("proxy %s does not have labels in metadata, some functionality might not work properly", node.Id)
-	}
 	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
 		return nil, err
