@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"regexp"
 	"strings"
@@ -340,6 +341,7 @@ func clusterConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -351,6 +353,18 @@ func clusterConfigCmd() *cobra.Command {
 		"Envoy config dump JSON file")
 
 	return clusterConfigCmd
+}
+
+func validArgsFunction(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	podsName, err := getPodsNameInDefaultNamespace(toComplete)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return podsName, cobra.ShellCompDirectiveNoFileComp
 }
 
 func allConfigCmd() *cobra.Command {
@@ -447,6 +461,7 @@ func allConfigCmd() *cobra.Command {
 			}
 			return nil
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -530,6 +545,7 @@ func listenerConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -659,6 +675,7 @@ func logCmd() *cobra.Command {
 			_, _ = fmt.Fprint(c.OutOrStdout(), resp)
 			return nil
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
@@ -736,6 +753,7 @@ func routeConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -811,6 +829,7 @@ func endpointConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -870,6 +889,7 @@ func bootstrapConfigCmd() *cobra.Command {
 				// return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml")
@@ -923,6 +943,7 @@ func secretConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
+		ValidArgsFunction: validArgsFunction,
 	}
 
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -992,4 +1013,26 @@ func getPodNameBySelector(labelSelector string) ([]string, string, error) {
 	}
 	ns = pl.Items[0].Namespace
 	return podNames, ns, nil
+}
+
+func getPodsNameInDefaultNamespace(toComplete string) ([]string, error) {
+	kubeClient, err := kubeClient(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	podList, err := kubeClient.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var podsName []string
+	for _, pod := range podList.Items {
+		if toComplete == "" || strings.HasPrefix(pod.Name, toComplete) {
+			podsName = append(podsName, pod.Name)
+		}
+	}
+
+	return podsName, nil
 }
