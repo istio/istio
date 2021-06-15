@@ -69,11 +69,9 @@ func validate(s *Settings) error {
 		s.Revisions = RevVerMap{
 			s.Revision: "",
 		}
-	} else {
+	} else if s.Revisions != nil {
 		// TODO(Monkeyanator) remove once existing jobs are migrated to use compatibility flag.
-		if s.Revisions != nil {
-			s.Compatibility = true
-		}
+		s.Compatibility = true
 	}
 
 	if s.Revisions == nil && s.Compatibility {
