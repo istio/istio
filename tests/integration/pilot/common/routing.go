@@ -1295,11 +1295,12 @@ func protocolSniffingCases() []TrafficTestCase {
 func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	ipCases := []struct {
-		name           string
-		endpoint       string
-		disableSidecar bool
-		port           string
-		code           int
+		name            string
+		endpoint        string
+		disableSidecar  bool
+		port            string
+		code            int
+		minIstioVersion string
 	}{
 		// instance IP bind
 		{
@@ -1333,6 +1334,8 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			disableSidecar: true,
 			port:           "http-localhost",
 			code:           503,
+			// when testing with pre-1.10 versions this request succeeds
+			minIstioVersion: "1.10.0",
 		},
 		{
 			name:     "localhost IP with wildcard sidecar",
@@ -1351,6 +1354,8 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			endpoint: "",
 			port:     "http-localhost",
 			code:     503,
+			// when testing with pre-1.10 versions this request succeeds
+			minIstioVersion: "1.10.0",
 		},
 
 		// Wildcard bind
@@ -1418,6 +1423,7 @@ spec:
 						Timeout:   time.Second * 5,
 						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
 					},
+					minIstioVersion: ipCase.minIstioVersion,
 				})
 		}
 	}
