@@ -44,7 +44,7 @@ const (
 	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
 )
 
-var gcpMetadataVar = env.RegisterStringVar("GCP_METADATA", "", "Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE")
+var GCPMetadata = env.RegisterStringVar("GCP_METADATA", "", "Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
 
 var (
 	shouldFillMetadata = metadata.OnGCE
@@ -112,7 +112,7 @@ type gcpEnv struct {
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
 func IsGCP() bool {
-	if gcpMetadataVar.Get() != "" {
+	if GCPMetadata != "" {
 		// Assume this is running on GCP if GCP project env variable is set.
 		return true
 	}
@@ -133,7 +133,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 	if e == nil {
 		return md
 	}
-	if gcpMetadataVar.Get() == "" && !shouldFillMetadata() {
+	if GCPMetadata == "" && !shouldFillMetadata() {
 		return md
 	}
 
@@ -162,6 +162,11 @@ func (e *gcpEnv) Metadata() map[string]string {
 		md[GCPCluster] = envCN
 	} else if cn, err := clusterNameFn(); err == nil {
 		md[GCPCluster] = cn
+	}
+	// Exit early now if not on GCE. This allows setting env var when not on GCE.
+	if !shouldFillMetadata() {
+		e.metadata = md
+		return md
 	}
 	if in, err := instanceNameFn(); err == nil {
 		md[GCEInstance] = in
@@ -192,7 +197,7 @@ var (
 
 func parseGCPMetadata() (pid, npid, cluster, location string) {
 	envOnce.Do(func() {
-		gcpmd := gcpMetadataVar.Get()
+		gcpmd := GCPMetadata
 		if len(gcpmd) > 0 {
 			log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpmd)
 			parts := strings.Split(gcpmd, "|")
