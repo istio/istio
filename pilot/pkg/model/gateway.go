@@ -231,11 +231,10 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 							log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
 							continue
 						}
-						for port := range mergedServers {
-							if port.Number == serverPort.Number {
-								mergedServers[port].Servers = append(mergedServers[port].Servers, s)
-								break
-							}
+						if mergedServers[serverPort] == nil {
+							mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+						} else {
+							mergedServers[serverPort].Servers = append(mergedServers[serverPort].Servers, s)
 						}
 					}
 				} else {

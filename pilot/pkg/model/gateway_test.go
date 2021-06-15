@@ -121,7 +121,7 @@ func TestMergeGateways(t *testing.T) {
 		{
 			"simple-passthrough",
 			[]config.Config{gwSimple, gwPassthrough},
-			1,
+			2,
 			2,
 			map[string]int{"https.443.https.foo-simple.not-default-2": 1},
 			2,
