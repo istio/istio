@@ -554,6 +554,9 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	if err != nil {
 		return nil, err
 	}
+	if len(meta.Labels) == 0 {
+		log.Warnf("proxy %s does not have labels in metadata, some functionality might not work properly", node.Id)
+	}
 	proxy, err := model.ParseServiceNodeWithMetadata(node.Id, meta)
 	if err != nil {
 		return nil, err
@@ -573,7 +576,6 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return err
 	}
-
 	s.computeProxyState(proxy, nil)
 
 	// Get the locality from the proxy's service instances.
@@ -621,7 +623,6 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushReq
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
 	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
-	proxy.SetWorkloadLabels(s.Env)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
