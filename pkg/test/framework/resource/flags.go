@@ -69,9 +69,14 @@ func validate(s *Settings) error {
 		s.Revisions = RevVerMap{
 			s.Revision: "",
 		}
+	} else {
+		// TODO(Monkeyanator) remove once existing jobs are migrated to use compatibility flag.
+		if s.Revisions != nil {
+			s.Compatibility = true
+		}
 	}
 
-	if s.Compatibility && s.Revisions == nil {
+	if s.Revisions == nil && s.Compatibility {
 		return fmt.Errorf("cannot use --istio.test.compatibility without setting --istio.test.revisions")
 	}
 
