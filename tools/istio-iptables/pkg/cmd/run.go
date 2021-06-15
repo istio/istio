@@ -284,6 +284,15 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	for _, cidr := range ipv6RangesExclude.IPNets {
 		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
 	}
+
+	// Redirect traffic to Envoy for the included outbound ports
+	if iptConfigurator.cfg.OutboundPortsInclude != "" {
+		for _, port := range split(iptConfigurator.cfg.OutboundPortsInclude) {
+			iptConfigurator.iptables.AppendRuleV6(
+				constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "--dport", port, "-j", constants.ISTIOREDIRECT)
+		}
+	}
+
 	// Apply outbound IPv6 inclusions.
 	if ipv6RangesInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
