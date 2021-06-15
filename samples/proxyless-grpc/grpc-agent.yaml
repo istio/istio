@@ -57,6 +57,8 @@
             - name: "{{ $k }}"
               value: "{{ $v }}"
             {{- end }}
+            - name: ISTIO_META_GENERATOR
+              value: grpc
             - name: OUTPUT_CERTS
               value: /var/lib/istio/data
             {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
