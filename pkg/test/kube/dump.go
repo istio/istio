@@ -336,8 +336,8 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 		return
 	}
 	args := []string{"x", "internal-debug", "--all", endpoint}
-	if ctx.Settings().Revision != "" {
-		args = append(args, "--revision", ctx.Settings().Revision)
+	if ctx.Settings().Revisions.Default() != "" {
+		args = append(args, "--revision", ctx.Settings().Revisions.Default())
 	}
 	scopes.Framework.Debugf("dump %v: %v", endpoint, args)
 	stdout, _, err := ik.Invoke(args)
