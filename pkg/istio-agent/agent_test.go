@@ -380,7 +380,7 @@ func TestAgent(t *testing.T) {
 	})
 	t.Run("gRPC XDS bootstrap", func(t *testing.T) {
 		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
-		Setup(t, func(a AgentTest) AgentTest {
+		a := Setup(t, func(a AgentTest) AgentTest {
 			a.Security.OutputKeyCertToDir = "/cert/path"
 			a.AgentConfig.GRPCBootstrapPath = bootstrapPath
 			a.envoyEnable = false
@@ -390,6 +390,8 @@ func TestAgent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not read bootstrap config: %v", err)
 		}
+		// make UDS path in file deterministic
+		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
 		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
 	})
 }

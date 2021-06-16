@@ -1,7 +1,7 @@
 {
   "xds_servers": [
     {
-      "server_uri": "unix:////var/folders/43/dd38c_f97lvdt_p9rgj7hvq400r4rr/T/TestAgent_gRPC_XDS_bootstrap447825173/001/XDS",
+      "server_uri": "unix:///etc/istio/XDS",
       "channel_creds": [
         {
           "type": "insecure"
