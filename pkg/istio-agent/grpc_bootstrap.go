@@ -20,12 +20,11 @@ import (
 	"path"
 	"time"
 
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"istio.io/istio/pkg/file"
-
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"istio.io/istio/pkg/file"
 )
 
 // TODO use structs from gRPC lib if created/exported

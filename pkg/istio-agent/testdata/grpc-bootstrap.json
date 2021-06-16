@@ -1,7 +1,17 @@
 {
-  "xds_server": {
-    "server_uri": "localhost:15010"
-  },
+  "xds_servers": [
+    {
+      "server_uri": "unix:////var/folders/43/dd38c_f97lvdt_p9rgj7hvq400r4rr/T/TestAgent_gRPC_XDS_bootstrap447825173/001/XDS",
+      "channel_creds": [
+        {
+          "type": "insecure"
+        }
+      ],
+      "server_features": [
+        "xds_v3"
+      ]
+    }
+  ],
   "node": {
     "id": "sidecar~127.0.0.1~pod1.fake-namespace~fake-namespace.svc.cluster.local",
     "metadata": {},

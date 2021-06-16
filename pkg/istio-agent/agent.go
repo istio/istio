@@ -183,6 +183,9 @@ type AgentOptions struct {
 
 	// GRPCBootstrapPath if set will generate a file compatible with GRPC_XDS_BOOTSTRAP
 	GRPCBootstrapPath string
+
+	// Disables all envoy agent features
+	DisableEnvoy bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -405,7 +408,11 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}
 	}
 
-	if !a.envoyOpts.NoEnvoy {
+	if a.envoyOpts.TestOnly {
+		return a.wg.Wait, nil
+	}
+
+	if !a.cfg.DisableEnvoy {
 		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
@@ -435,7 +442,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			a.envoyAgent.Run(ctx)
 		}()
 	} else {
-		// TODO if this breaks unit tests then need to split NoEnvoy from testing flag
 		// wait for SIGTERM and perform graceful shutdown
 		stop := make(chan os.Signal)
 		signal.Notify(stop, syscall.SIGTERM)

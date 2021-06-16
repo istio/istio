@@ -26,8 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"sigs.k8s.io/yaml"
-
 	"gomodules.xyz/jsonpatch/v3"
 	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -363,8 +361,6 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 	if err := postProcessPod(mergedPod, *injectedPodData, req); err != nil {
 		return nil, fmt.Errorf("failed to process pod: %v", err)
 	}
-	out, _ := yaml.Marshal(mergedPod)
-	log.Debugf("injected pod %s:\n%v", mergedPod.Name, out)
 
 	patch, err := createPatch(mergedPod, originalPodSpec)
 	if err != nil {
@@ -726,7 +722,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	wh.mu.RLock()
-	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, pod.ObjectMeta) {
+	if !injectRequired(IgnoredNamespaces, wh.Config, &pod.Spec, pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
 		wh.mu.RUnlock()

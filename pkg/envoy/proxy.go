@@ -52,8 +52,8 @@ type ProxyConfig struct {
 	ParentShutdownDuration *types.Duration
 	Concurrency            int32
 
-	// Disables all envoy agent features (for unit testing)
-	NoEnvoy bool
+	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
+	TestOnly bool
 }
 
 // NewProxy creates an instance of the proxy control commands
