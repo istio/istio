@@ -109,7 +109,7 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if c.fileContents != "" {
-				err = ioutil.WriteFile(filepath.Join(c.dir, c.inFilename), []byte(c.fileContents), 0644)
+				err = ioutil.WriteFile(filepath.Join(c.dir, c.inFilename), []byte(c.fileContents), 0o644)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -287,7 +287,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					err = ioutil.WriteFile(filepath.Join(tempDir, c.delayedConfName), data, 0644)
+					err = ioutil.WriteFile(filepath.Join(tempDir, c.delayedConfName), data, 0o644)
 					if err != nil {
 						t.Fatal(err)
 					}

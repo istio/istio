@@ -53,8 +53,10 @@ var (
 	denyBody       = fmt.Sprintf("denied by ext_authz for not found header `%s: %s` in the request", checkHeader, allowedValue)
 )
 
-type extAuthzServerV2 struct{}
-type extAuthzServerV3 struct{}
+type (
+	extAuthzServerV2 struct{}
+	extAuthzServerV3 struct{}
+)
 
 // ExtAuthzServer implements the ext_authz v2/v3 gRPC and HTTP check request API.
 type ExtAuthzServer struct {

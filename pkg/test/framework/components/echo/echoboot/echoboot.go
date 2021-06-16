@@ -113,6 +113,8 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 		targetClusters = cluster.Clusters{cfg.Cluster}
 	}
 
+	// If we didn't deploy VMs, but we don't care about VMs, we can ignore this.
+	shouldSkip := b.ctx.Settings().SkipVM && cfg.DeployAsVM
 	deployedTo := 0
 	for idx, c := range targetClusters {
 		ec, ok := c.(echo.Cluster)
@@ -128,6 +130,8 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 			if c.Kind() == cluster.Kubernetes {
 				scopes.Framework.Warnf("%s does not contain injection templates for %s; skipping deployment", c.Name(), perClusterConfig.FQDN())
 			}
+			// Don't error out when injection template missing.
+			shouldSkip = true
 			continue
 		}
 
@@ -146,8 +150,6 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 		deployedTo++
 	}
 
-	// If we didn't deploy VMs, but we don't care about VMs, we can ignore this.
-	shouldSkip := b.ctx.Settings().SkipVM && cfg.DeployAsVM
 	if deployedTo == 0 && !shouldSkip {
 		b.errs = multierror.Append(b.errs, fmt.Errorf("no clusters were eligible for app %s", cfg.Service))
 	}

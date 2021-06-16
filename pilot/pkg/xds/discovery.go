@@ -182,7 +182,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		debounceOptions: debounceOptions{
 			debounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
-			enableEDSDebounce: features.EnableEDSDebounce.Get(),
+			enableEDSDebounce: features.EnableEDSDebounce,
 		},
 		Cache:      model.DisabledCache{},
 		instanceID: instanceID,

@@ -35,7 +35,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	o := &security.Options{
 		CAEndpoint:                     caEndpointEnv,
 		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              features.PilotCertProvider.Get(),
+		PilotCertProvider:              features.PilotCertProvider,
 		OutputKeyCertToDir:             outputKeyCertToDir,
 		ProvCert:                       provCert,
 		WorkloadUDSPath:                filepath.Join(proxyConfig.ConfigPath, "SDS"),

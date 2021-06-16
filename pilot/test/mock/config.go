@@ -30,8 +30,8 @@ import (
 	config2 "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
 
@@ -349,9 +349,9 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 	CheckMapInvariant(store, t, namespace, n)
 
 	log.Infof("Waiting till all events are received")
-	pkgtest.NewEventualOpts(500*time.Millisecond, 60*time.Second).Eventually(t, "receive events", func() bool {
+	retry.UntilOrFail(t, func() bool {
 		return added.Load() == n64 && deleted.Load() == n64
-	})
+	}, retry.Message("receive events"), retry.Delay(time.Millisecond*500), retry.Timeout(time.Minute))
 }
 
 // CheckCacheFreshness validates operational invariants of a cache
@@ -439,7 +439,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	stop := make(chan struct{})
 	defer close(stop)
 	go cache.Run(stop)
-	pkgtest.Eventually(t, "HasSynced", cache.HasSynced)
+	retry.UntilOrFail(t, cache.HasSynced, retry.Message("HasSynced"))
 	os, _ := cache.List(mockGvk, namespace)
 	if len(os) != n {
 		t.Errorf("cache.List => Got %d, expected %d", len(os), n)
@@ -453,11 +453,11 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check again in the controller cache
-	pkgtest.Eventually(t, "no elements in cache", func() bool {
+	retry.UntilOrFail(t, func() bool {
 		os, _ = cache.List(mockGvk, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
-	})
+	}, retry.Message("no elements in cache"))
 
 	// now add through the controller
 	for i := 0; i < n; i++ {
@@ -467,13 +467,13 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	}
 
 	// check directly through the client
-	pkgtest.Eventually(t, "cache and backing store match", func() bool {
+	retry.UntilOrFail(t, func() bool {
 		cs, _ := cache.List(mockGvk, namespace)
 		os, _ := store.List(mockGvk, namespace)
 		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
 		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
-	})
+	}, retry.Message("cache and backing store match"))
 
 	// remove elements directly through the client
 	for i := 0; i < n; i++ {

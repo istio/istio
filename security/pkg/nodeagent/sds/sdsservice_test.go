@@ -28,17 +28,16 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	ca2 "istio.io/istio/pkg/security"
-	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
 
 var (
-	fakeRootCert         = []byte{00}
-	fakeCertificateChain = []byte{01}
-	fakePrivateKey       = []byte{02}
+	fakeRootCert         = []byte{0o0}
+	fakeCertificateChain = []byte{0o1}
+	fakePrivateKey       = []byte{0o2}
 
-	fakePushCertificateChain = []byte{03}
-	fakePushPrivateKey       = []byte{04}
+	fakePushCertificateChain = []byte{0o3}
+	fakePushPrivateKey       = []byte{0o4}
 	pushSecret               = &ca2.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
@@ -47,10 +46,6 @@ var (
 	testResourceName = "default"
 	rootResourceName = "ROOTCA"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 type TestServer struct {
 	t       *testing.T
