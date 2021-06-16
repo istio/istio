@@ -5,4 +5,4 @@ issue:
   - 33405
 releaseNotes:
   - |
-    **Fixed** a bug where multiple gateways on the same port with SIMPLE and PASSTHROUGH modes is not working correctly.
+    **Fixed** a bug where multiple gateways on the same port with `SIMPLE` and `PASSTHROUGH` modes is not working correctly.
