@@ -17,6 +17,7 @@ package envoyfilter
 import (
 	"testing"
 
+	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -207,6 +208,11 @@ func TestClusterPatching(t *testing.T) {
 			ApplyTo: networking.EnvoyFilter_CLUSTER,
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						PortNumber: 443,
+					},
+				},
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
@@ -220,10 +226,33 @@ func TestClusterPatching(t *testing.T) {
 								"tls_minimum_protocol_version":"TLSv1_3"}}}}}`),
 			},
 		},
+		// Patch custom TLS type
+		{
+			ApplyTo: networking.EnvoyFilter_CLUSTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+					Cluster: &networking.EnvoyFilter_ClusterMatch{
+						PortNumber: 7777,
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`
+					{"transport_socket":{
+						"name":"transport_sockets.alts",
+						"typed_config":{
+							"@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
+              "type_url": "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+							"value":{"handshaker_service":"1.2.3.4"}}}}`),
+			},
+		},
 	}
 
 	sidecarOutboundIn := []*cluster.Cluster{
-		{Name: "cluster1",
+		{
+			Name:            "outbound|443||cluster1",
 			DnsLookupFamily: cluster.Cluster_V4_ONLY,
 			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
 			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
@@ -249,13 +278,15 @@ func TestClusterPatching(t *testing.T) {
 				},
 			},
 		},
-		{Name: "cluster2",
+		{
+			Name: "outbound|443||cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
 			}, LbPolicy: cluster.Cluster_MAGLEV,
 		},
-		{Name: "cluster3",
+		{
+			Name:            "outbound|443||cluster3",
 			DnsLookupFamily: cluster.Cluster_V4_ONLY,
 			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
 			TransportSocket: &core.TransportSocket{
@@ -276,10 +307,63 @@ func TestClusterPatching(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "outbound|7777||custom-tls-addition",
+		},
+		{
+			Name:            "outbound|7777||custom-tls-replacement",
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							TlsParams: &tls.TlsParameters{
+								EcdhCurves:                []string{"X25519"},
+								TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_1,
+							},
+							TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+								InstanceName:    "instance",
+								CertificateName: "certificate",
+							},
+						},
+					}),
+				},
+			},
+		},
+		{
+			Name:            "outbound|7777||custom-tls-replacement-tsm",
+			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			LbPolicy:        cluster.Cluster_ROUND_ROBIN,
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-istio",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_1,
+									},
+									TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+										InstanceName:    "instance",
+										CertificateName: "certificate",
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
 	}
 
 	sidecarOutboundOut := []*cluster.Cluster{
-		{Name: "cluster1",
+		{
+			Name:            "outbound|443||cluster1",
 			DnsLookupFamily: cluster.Cluster_V6_ONLY,
 			LbPolicy:        cluster.Cluster_RING_HASH,
 			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
@@ -305,7 +389,8 @@ func TestClusterPatching(t *testing.T) {
 				},
 			},
 		},
-		{Name: "cluster2",
+		{
+			Name: "outbound|443||cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
@@ -325,7 +410,8 @@ func TestClusterPatching(t *testing.T) {
 				},
 			},
 		},
-		{Name: "cluster3",
+		{
+			Name:            "outbound|443||cluster3",
 			DnsLookupFamily: cluster.Cluster_V6_ONLY,
 			LbPolicy:        cluster.Cluster_RING_HASH,
 			TransportSocket: &core.TransportSocket{
@@ -347,6 +433,61 @@ func TestClusterPatching(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name:            "outbound|7777||custom-tls-addition",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy:        cluster.Cluster_RING_HASH,
+			TransportSocket: &core.TransportSocket{
+				Name: "transport_sockets.alts",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&udpa.TypedStruct{
+						TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+						Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
+					}),
+				},
+			},
+		},
+		{
+			Name:            "outbound|7777||custom-tls-replacement",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy:        cluster.Cluster_RING_HASH,
+			TransportSocket: &core.TransportSocket{
+				Name: "transport_sockets.alts",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: util.MessageToAny(&udpa.TypedStruct{
+						TypeUrl: "type.googleapis.com/envoy.extensions.transport_sockets.alts.v3.Alts",
+						Value:   buildGolangPatchStruct(`{"handshaker_service":"1.2.3.4"}`),
+					}),
+				},
+			},
+		},
+		{
+			Name:            "outbound|7777||custom-tls-replacement-tsm",
+			DnsLookupFamily: cluster.Cluster_V6_ONLY,
+			LbPolicy:        cluster.Cluster_RING_HASH,
+			TransportSocketMatches: []*cluster.Cluster_TransportSocketMatch{
+				{
+					Name: "tlsMode-istio",
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.UpstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{
+									TlsParams: &tls.TlsParameters{
+										EcdhCurves:                []string{"X25519"},
+										TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_1,
+									},
+									TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+										InstanceName:    "instance",
+										CertificateName: "certificate",
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
 		{Name: "new-cluster1"},
 		{Name: "new-cluster2"},
 	}
@@ -361,7 +502,8 @@ func TestClusterPatching(t *testing.T) {
 
 	gatewayInput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V4_ONLY, LbPolicy: cluster.Cluster_ROUND_ROBIN},
-		{Name: "cluster2",
+		{
+			Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
@@ -371,7 +513,8 @@ func TestClusterPatching(t *testing.T) {
 	}
 	gatewayOutput := []*cluster.Cluster{
 		{Name: "cluster1", DnsLookupFamily: cluster.Cluster_V6_ONLY, LbPolicy: cluster.Cluster_RING_HASH},
-		{Name: "cluster2",
+		{
+			Name: "cluster2",
 			Http2ProtocolOptions: &core.Http2ProtocolOptions{
 				AllowConnect:  true,
 				AllowMetadata: true,
