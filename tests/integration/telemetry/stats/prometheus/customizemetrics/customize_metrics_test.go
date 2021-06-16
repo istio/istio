@@ -239,6 +239,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: bootstrap-tag
+  namespace: istio-system
 spec:
   configPatches:
     - applyTo: BOOTSTRAP
@@ -247,7 +248,7 @@ spec:
         value:
           stats_config:
             stats_tags:
-            - regex: "(custom_dimension=\\.=(.*?);\\.;"
+            - regex: "(custom_dimension=\\.=(.*?);\\.;)"
               tag_name: "custom_dimension"
 `
 	if err := ctx.Config().ApplyYAML("istio-system", bootstrapPatch); err != nil {

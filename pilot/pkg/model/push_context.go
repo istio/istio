@@ -1646,9 +1646,7 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 			}
 			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
 				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
-				fmt.Printf("ADDED\n")
 			}
-			fmt.Printf("PROCESSED %#v\n", efw.Patches)
 		}
 	}
 
