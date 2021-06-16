@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	envoy_extensions_transport_sockets_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -48,6 +50,10 @@ import (
 // handleAck will detect if the message is an ACK or NACK, and update/log/count
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
+
+// TransportSocket proto message has a `name` field which is expected to be set
+// to this value by the management server.
+const transportSocketName = "envoy.transport_sockets.tls"
 
 type GrpcConfigGenerator struct{}
 
@@ -147,6 +153,40 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 			log.Warn("Failed to parse ", n, " ", err)
 			continue
 		}
+
+		porti, err := strconv.Atoi(portn)
+		if err != nil {
+			log.Warn("Failed to parse ", n, " ", err)
+			continue
+		}
+
+		// SANS associated with this host name.
+		// TODO: apply DestinationRules, etc
+		sans := push.ServiceAccounts[host.Name(hn)][porti]
+
+		// Assumes 'default' name, and credentials/tls/certprovider/pemfile
+
+		tlsC := &envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{
+			CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+				TlsCertificateCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
+					InstanceName:    "default",
+					CertificateName: "default",
+				},
+
+				ValidationContextType: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
+						ValidationContextCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
+							InstanceName:    "default",
+							CertificateName: "ROOTCA",
+						},
+						DefaultValidationContext: &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{
+							MatchSubjectAltNames: util.StringToExactMatch(sans),
+						},
+					},
+				},
+			},
+		}
+
 		rc := &cluster.Cluster{
 			Name:                 n,
 			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
@@ -158,7 +198,12 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 					},
 				},
 			},
+			TransportSocket: &core.TransportSocket{
+				Name:       transportSocketName,
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsC)},
+			},
 		}
+		// see grpc/xds/internal/client/xds.go securityConfigFromCluster
 		resp = append(resp, &discovery.Resource{
 			Name:     n,
 			Resource: util.MessageToAny(rc),
