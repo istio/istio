@@ -33,6 +33,8 @@ import (
 	"syscall"
 	"time"
 
+	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
+
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -111,6 +113,7 @@ type Options struct {
 	Context             context.Context
 	FetchDNS            func() *nds.NameTable
 	NoEnvoy             bool
+	GRPCBootstrap       string
 }
 
 // Server provides an endpoint for handling status probes.
@@ -149,12 +152,19 @@ func NewServer(config Options) (*Server, error) {
 		localhost = localHostIPv6
 	}
 	probes := make([]ready.Prober, 0)
-	probes = append(probes, &ready.Probe{
-		LocalHostAddr: localhost,
-		AdminPort:     config.AdminPort,
-		Context:       config.Context,
-		NoEnvoy:       config.NoEnvoy,
-	})
+	if !config.NoEnvoy {
+		probes = append(probes, &ready.Probe{
+			LocalHostAddr: localhost,
+			AdminPort:     config.AdminPort,
+			Context:       config.Context,
+			NoEnvoy:       config.NoEnvoy,
+		})
+	}
+
+	if config.GRPCBootstrap != "" {
+		probes = append(probes, grpcready.NewProbe(config.GRPCBootstrap))
+	}
+
 	probes = append(probes, config.Probes...)
 	s := &Server{
 		statusPort:            config.StatusPort,

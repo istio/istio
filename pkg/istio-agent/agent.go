@@ -30,6 +30,8 @@ import (
 	"syscall"
 	"time"
 
+	"istio.io/istio/pkg/istio-agent/grpcxds"
+
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -117,6 +119,8 @@ type Agent struct {
 
 	// Signals true completion (e.g. with delayed graceful termination of Envoy)
 	wg sync.WaitGroup
+
+	grpcBootstrap *grpcxds.Bootstrap
 }
 
 // AgentOptions contains additional config for the agent, not included in ProxyConfig.
@@ -468,6 +472,26 @@ func (a *Agent) initLocalDNSServer() (err error) {
 	return nil
 }
 
+func (a *Agent) generateGRPCBootstrap() error {
+	// generate metadata
+	node, err := a.generateNodeMetadata()
+	if err != nil {
+		return fmt.Errorf("failed generating node metadata: %v", err)
+	}
+
+	_, err = grpcxds.GenerateBootstrapFile(grpcxds.GenerateBootstrapOptions{
+		Node:             node,
+		ProxyXDSViaAgent: a.cfg.ProxyXDSViaAgent,
+		XdsUdsPath:       a.cfg.XdsUdsPath,
+		DiscoveryAddress: a.proxyConfig.DiscoveryAddress,
+		CertDir:          a.secOpts.OutputKeyCertToDir,
+	}, a.cfg.GRPCBootstrapPath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *Agent) Check() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
@@ -645,4 +669,9 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 	}
 
 	return cache.NewSecretManagerClient(caClient, a.secOpts)
+}
+
+// GRPCBootstrapPath returns the most recently generated gRPC bootstrap or nil if there is none.
+func (a *Agent) GRPCBootstrapPath() string {
+	return a.cfg.GRPCBootstrapPath
 }

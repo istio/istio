@@ -276,7 +276,7 @@ func TestGolden(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run("Bootstrap-"+c.base, func(t *testing.T) {
+		t.Run("BootstrapPath-"+c.base, func(t *testing.T) {
 			if c.setup != nil {
 				c.setup()
 			}
