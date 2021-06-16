@@ -201,8 +201,14 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
+// EnvoyDisabled if true inidcates calling Run will not run and wait for Envoy.
 func (a *Agent) EnvoyDisabled() bool {
-	return a.envoyOpts.NoEnvoy
+	return a.envoyOpts.TestOnly || a.cfg.DisableEnvoy
+}
+
+// WaitForSigterm if true indicates calling Run will block until SIGKILL is received.
+func (a *Agent) WaitForSigterm() bool {
+	return a.EnvoyDisabled() && !a.envoyOpts.TestOnly
 }
 
 func (a *Agent) generateNodeMetadata() (*model.Node, error) {
@@ -408,11 +414,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}
 	}
 
-	if a.envoyOpts.TestOnly {
-		return a.wg.Wait, nil
-	}
-
-	if !a.cfg.DisableEnvoy {
+	if !a.EnvoyDisabled() {
 		err = a.initializeEnvoyAgent(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start envoy agent: %v", err)
@@ -441,7 +443,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			// This is a blocking call for graceful termination.
 			a.envoyAgent.Run(ctx)
 		}()
-	} else {
+	} else if a.WaitForSigterm() {
 		// wait for SIGTERM and perform graceful shutdown
 		stop := make(chan os.Signal)
 		signal.Notify(stop, syscall.SIGTERM)
