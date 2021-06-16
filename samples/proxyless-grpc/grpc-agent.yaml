@@ -24,9 +24,9 @@
             volumeMounts:
             - mountPath: /var/lib/istio/data
               name: istio-data
-            # XDS channel between istioagent and gRPC client
+            # UDS channel between istioagent and gRPC client for XDS/SDS
             - mountPath: /etc/istio/proxy
-              name: istio-envoy
+              name: istio-xds
           {{- end }}
           {{- end }}
           - name: istio-proxy
@@ -35,17 +35,12 @@
           {{- else }}
             image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}"
           {{- end }}
-            ports:
-            - containerPort: 15090
-              protocol: TCP
-              name: http-envoy-prom
             args:
             - proxy
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
             - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
-            - --no-proxy
           {{- if .Values.global.sts.servicePort }}
             - --stsPort={{ .Values.global.sts.servicePort }}
           {{- end }}
@@ -151,6 +146,8 @@
             # grpc uses xds:/// to resolve – no need to resolve VIP
             - name: ISTIO_META_DNS_CAPTURE
               value: "false"
+            - name: DISABLE_ENVOY
+              value: "true"
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
             readinessProbe:
@@ -198,9 +195,9 @@
             - mountPath: /etc/istio/custom-bootstrap
               name: custom-bootstrap-volume
             {{- end }}
-            # XDS channel between istioagent and gRPC client
+            # UDS channel between istioagent and gRPC client for XDS/SDS
             - mountPath: /etc/istio/proxy
-              name: istio-envoy
+              name: istio-xds
             {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
             - mountPath: /var/run/secrets/tokens
               name: istio-token
@@ -214,10 +211,10 @@
             {{ end }}
             {{- end }}
           volumes:
-          # SDS channel between istioagent and Envoy
+          # UDS channel between istioagent and gRPC client for XDS/SDS
           - emptyDir:
               medium: Memory
-            name: istio-envoy
+            name: istio-xds
           - name: istio-data
             emptyDir: {}
           - name: istio-podinfo
