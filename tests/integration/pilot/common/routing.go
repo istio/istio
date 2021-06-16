@@ -1197,7 +1197,7 @@ spec:
 		// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 		// and could be broken by having only 1 pod so its good to have this check in place
 		cases = append(cases, TrafficTestCase{
-			name:   fmt.Sprintf("no consistent"),
+			name:   "no consistent",
 			config: svc,
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
@@ -1233,19 +1233,17 @@ spec:
 		// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
 		// But its pretty hard to test that, so for now just ensure we hit the same one.
 		cases = append(cases, TrafficTestCase{
-			name:   fmt.Sprintf("source ip"),
+			name:   "source ip",
 			config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 			call:   c.CallWithRetryOrFail,
 			opts:   callOpts,
-		})
-		cases = append(cases, TrafficTestCase{
-			name:   fmt.Sprintf("query param"),
+		}, TrafficTestCase{
+			name:   "query param",
 			config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
 			call:   c.CallWithRetryOrFail,
 			opts:   callOpts,
-		})
-		cases = append(cases, TrafficTestCase{
-			name:   fmt.Sprintf("http header"),
+		}, TrafficTestCase{
+			name:   "http header",
 			config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
 			call:   c.CallWithRetryOrFail,
 			opts:   callOpts,
