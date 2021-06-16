@@ -50,7 +50,7 @@ spec:
     spec:
       containers:
       - name: details
-        image: istio/examples-bookinfo-details-v1:0.2.3
+        image: istio/examples-bookinfo-details-v1:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -93,7 +93,7 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v1:0.2.3
+        image: docker.io/istio/examples-bookinfo-reviews-v1:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -136,7 +136,7 @@ spec:
     spec:
       containers:
       - name: productpage
-        image: docker.io/istio/examples-bookinfo-productpage-v1:0.2.3
+        image: docker.io/istio/examples-bookinfo-productpage-v1:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
