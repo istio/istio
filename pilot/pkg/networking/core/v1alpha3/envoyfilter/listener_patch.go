@@ -226,12 +226,12 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 			return
 		} else if cp.Operation == networking.EnvoyFilter_Patch_MERGE {
 
-			ret, err := mergeTransportSocketListener(fc, cp)
+			merged, err := mergeTransportSocketListener(fc, cp)
 			if err != nil {
 				log.Debugf("merge of transport socket failed for listener: %v", err)
 				continue
 			}
-			if !ret {
+			if !merged {
 				proto.Merge(fc, cp.Value)
 			}
 		}
@@ -240,8 +240,9 @@ func doFilterChainOperation(patchContext networking.EnvoyFilter_PatchContext,
 }
 
 // Test if the patch contains a config for TransportSocket
-func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
-
+// Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
+// outside of this function.
+func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
 	cpValueCast, okCpCast := (cp.Value).(*xdslistener.FilterChain)
 	if !okCpCast {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
@@ -250,6 +251,10 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFi
 	// Test if the patch contains a config for TransportSocket
 	applyPatch := false
 	if cpValueCast.GetTransportSocket() != nil {
+		if fc.GetTransportSocket() == nil {
+			// There is no existing filter chain, we will add it outside this function; report back that we did not merge.
+			return false, nil
+		}
 		// Test if the listener contains a config for TransportSocket
 		applyPatch = fc.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == fc.GetTransportSocket().Name
 	} else {
@@ -272,8 +277,8 @@ func mergeTransportSocketListener(fc *xdslistener.FilterChain, cp *model.EnvoyFi
 			proto.Merge(dstListener, retVal)
 		}
 	}
-	// Default: we won't call proto.Merge() if the patch is transportSocket and the listener isn't
-	return true, nil
+	// If we already applied the patch, we skip proto.Merge() in the outer function
+	return applyPatch, nil
 }
 
 func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,

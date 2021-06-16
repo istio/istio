@@ -58,8 +58,9 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 }
 
 // Test if the patch contains a config for TransportSocket
-func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (bool, error) {
-
+// Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
+// outside of this function.
+func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
 	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
 	if !okCpCast {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
@@ -76,9 +77,19 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 				break
 			}
 		}
+		if tsmPatch == nil && len(c.GetTransportSocketMatches()) > 0 {
+			// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
+			// Drop the filter, but indicate that we handled the merge so that the outer function does not try
+			// to merge it again
+			return true, nil
+		}
 	} else if cpValueCast.GetTransportSocket() != nil && c.GetTransportSocket() != nil {
 		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
 			tsmPatch = c.GetTransportSocket()
+		} else {
+			// There is a name mismatch, so we cannot do a deep merge. Instead just replace the transport socket
+			c.TransportSocket = cpValueCast.TransportSocket
+			return true, nil
 		}
 	}
 
