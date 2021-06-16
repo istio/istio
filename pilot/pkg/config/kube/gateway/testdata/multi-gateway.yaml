@@ -1,0 +1,33 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  addresses:
+  - type: NamedAddress
+    value: istio-ingressgateway
+  - type: NamedAddress
+    value: istio-ingressgateway.not-default.svc.domain.suffix
+  - type: NamedAddress
+    value: example.com
+  listeners:
+  - hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    routes:
+      kind: HTTPRoute
+  - port: 34000
+    protocol: TCP
+    routes:
+      namespaces:
+        from: All
+      kind: TCPRoute

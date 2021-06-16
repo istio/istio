@@ -77,7 +77,7 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 				// TODO should we requeue or wait for another event to trigger an update?
 				log.Errorf("failed to update status for %v/: %v", resource.String(), err)
 			}
-		}, uint(features.StatusMaxWorkers.Get())),
+		}, uint(features.StatusMaxWorkers)),
 	}
 }
 
@@ -138,7 +138,7 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	}
 }
 
-func (c *controller) Recompute() error {
+func (c *controller) Recompute(context model.GatewayContext) error {
 	t0 := time.Now()
 	defer func() {
 		log.Debugf("recompute complete in %v", time.Since(t0))
@@ -176,6 +176,7 @@ func (c *controller) Recompute() error {
 		TLSRoute:      deepCopyStatus(tlsRoute),
 		BackendPolicy: deepCopyStatus(backendPolicy),
 		Domain:        c.domain,
+		Context:       context,
 	}
 
 	if !anyApisUsed(input) {

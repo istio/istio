@@ -19,9 +19,10 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
+	istio_agent "istio.io/istio/pkg/istio-agent"
 )
 
-func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, probes ...ready.Prober) *status.Options {
+func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istio_agent.Agent) *status.Options {
 	return &status.Options{
 		IPv6:           IsIPv6Proxy(proxy.IPAddresses),
 		PodIP:          InstanceIPVar.Get(),
@@ -29,6 +30,7 @@ func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyCon
 		StatusPort:     uint16(proxyConfig.StatusPort),
 		KubeAppProbers: kubeAppProberNameVar.Get(),
 		NodeType:       proxy.Type,
-		Probes:         probes,
+		Probes:         []ready.Prober{agent},
+		FetchDNS:       agent.GetDNSTable,
 	}
 }

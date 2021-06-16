@@ -1104,3 +1104,797 @@ spec:
 		Servers   []string
 	}{name, namespace, servers})
 }
+
+func createGatewayWithServiceSelector(name, service string, servers ...string) string {
+	if name == "" {
+		name = "default"
+	}
+	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: "{{.Name}}"
+  namespace: "istio-system"
+  annotations:
+    internal.istio.io/gateway-service: "{{.Service}}"
+spec:
+  servers:
+{{- range $i, $p := $.Servers }}
+  -
+{{$p | trim | indent 4}}
+{{- end }}
+---
+`, struct {
+		Name    string
+		Service string
+		Servers []string
+	}{name, service, servers})
+}
+
+func TestTargetPort(t *testing.T) {
+	runGatewayTest(t,
+		simulationTest{
+			name: "basic",
+			config: createGatewayWithServiceSelector("gateway80", "istio-ingressgateway.istio-system.svc.cluster.local", `
+port:
+ number: 80
+ name: http
+ protocol: HTTP
+hosts:
+- "example.com"
+`) + createGatewayWithServiceSelector("gateway81", "istio-ingressgateway.istio-system.svc.cluster.local", `
+port:
+ number: 8080
+ name: http
+ protocol: HTTP
+hosts:
+- "example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+ name: service-instance
+ namespace: istio-system
+spec:
+ hosts: ["istio-ingressgateway.istio-system.svc.cluster.local"]
+ ports:
+ - number: 80
+   targetPort: 8080
+   name: http
+   protocol: HTTP
+ resolution: STATIC
+ location: MESH_INTERNAL
+ endpoints:
+ - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+ name: a
+spec:
+ hosts:
+ - "example.com"
+ gateways:
+ - istio-system/gateway80
+ - istio-system/gateway81
+ http:
+ - match:
+   - uri:
+       prefix: /
+   route:
+   - destination:
+       host: a
+       port:
+         number: 80`,
+			calls: []simulation.Expect{
+				{
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "example.com:80",
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "multiple target port",
+			config: createGatewayWithServiceSelector("gateway80", "ingress1.istio-system.svc.cluster.local", `
+port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+`) + createGatewayWithServiceSelector("gateway81", "ingress2.istio-system.svc.cluster.local", `
+port:
+  number: 80
+  name: http
+  protocol: HTTP
+hosts:
+- "example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+spec:
+  hosts: ["ingress1.istio-system.svc.cluster.local"]
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance-2
+  namespace: istio-system
+spec:
+  hosts: ["ingress2.istio-system.svc.cluster.local"]
+  ports:
+  - number: 80
+    targetPort: 8081
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: a
+spec:
+  hosts:
+  - "example.com"
+  gateways:
+  - istio-system/gateway80
+  - istio-system/gateway81
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: a
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: b
+spec:
+  hosts:
+  - "example.com"
+  gateways:
+  - istio-system/gateway80
+  - istio-system/gateway81
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: b
+        port:
+          number: 8081`,
+			calls: []simulation.Expect{
+				{
+					Name: "target port 1",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "example.com:80",
+					},
+				},
+				{
+					Name: "target port 2",
+					Call: simulation.Call{
+						Port:       8081,
+						HostHeader: "example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8081",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8081",
+						VirtualHostMatched: "example.com:80",
+					},
+				},
+			},
+		})
+}
+
+func TestGatewayServices(t *testing.T) {
+	runGatewayTest(t,
+		simulationTest{
+			name: "single service",
+			config: createGatewayWithServiceSelector("gateway", "istio-ingressgateway.istio-system.svc.cluster.local", `
+port:
+  number: 80
+  name: http-80
+  protocol: HTTP
+hosts:
+- "80.example.com"
+`, `
+port:
+  number: 82
+  name: http-82
+  protocol: HTTP
+hosts:
+- "82.example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+spec:
+  hosts: ["istio-ingressgateway.istio-system.svc.cluster.local"]
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: a
+spec:
+  hosts:
+  - "*.example.com"
+  gateways:
+  - istio-system/gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: a
+        port:
+          number: 80`,
+			calls: []simulation.Expect{
+				{
+					Name: "port 8080",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "80.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "80.example.com:80",
+					},
+				},
+				{
+					Name: "no service match",
+					Call: simulation.Call{
+						Port:       82,
+						HostHeader: "81.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					// For gateway service reference, if there is no matching port we do not setup a listener
+					Result: simulation.Result{
+						Error: simulation.ErrNoListener,
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "wrong namespace",
+			config: createGatewayWithServiceSelector("gateway", "istio-ingressgateway.not-istio-system.svc.cluster.local", `
+port:
+  number: 80
+  name: http-80
+  protocol: HTTP
+hosts:
+- "80.example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: not-istio-system
+spec:
+  hosts: ["istio-ingressgateway.not-istio-system.svc.cluster.local"]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---`,
+			calls: []simulation.Expect{
+				{
+					Name: "port 80",
+					Call: simulation.Call{
+						Port:       80,
+						HostHeader: "80.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						// Service selected is in another namespace, we cannot cross namespace boundary
+						Error: simulation.ErrNoListener,
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "multiple services",
+			config: createGatewayWithServiceSelector("gateway", "istio-ingressgateway.istio-system.svc.cluster.local,ingress.com", `
+port:
+  number: 80
+  name: http-80
+  protocol: HTTP
+hosts:
+- "80.example.com"
+`, `
+port:
+  number: 81
+  name: http-81
+  protocol: HTTP
+hosts:
+- "81.example.com"
+`, `
+port:
+  number: 82
+  name: http-82
+  protocol: HTTP
+hosts:
+- "82.example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+spec:
+  hosts: ["istio-ingressgateway.istio-system.svc.cluster.local"]
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance2
+  namespace: istio-system
+spec:
+  hosts: ["ingress.com"]
+  ports:
+  - number: 81
+    targetPort: 8081
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: a
+spec:
+  hosts:
+  - "*.example.com"
+  gateways:
+  - istio-system/gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: a
+        port:
+          number: 80`,
+			calls: []simulation.Expect{
+				{
+					Name: "port 8080",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "80.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "80.example.com:80",
+					},
+				},
+				{
+					Name: "port 8081",
+					Call: simulation.Call{
+						Port:       8081,
+						HostHeader: "81.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8081",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8081",
+						VirtualHostMatched: "81.example.com:81",
+					},
+				},
+				{
+					// For gateway service reference, if there is no matching port we do not setup a listener
+					Name: "no service match",
+					Call: simulation.Call{
+						Port:       82,
+						HostHeader: "81.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						Error: simulation.ErrNoListener,
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "multiple overlapping services",
+			config: createGatewayWithServiceSelector("gateway", "istio-ingressgateway.istio-system.svc.cluster.local,ingress.com", `
+port:
+ number: 80
+ name: http-80
+ protocol: HTTP
+hosts:
+- "80.example.com"
+`, `
+port:
+ number: 81
+ name: http-81
+ protocol: HTTP
+hosts:
+- "81.example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+ name: service-instance
+ namespace: istio-system
+spec:
+ hosts: ["istio-ingressgateway.istio-system.svc.cluster.local"]
+ ports:
+ - number: 80
+   targetPort: 8080
+   name: http
+   protocol: HTTP
+ resolution: STATIC
+ location: MESH_INTERNAL
+ endpoints:
+ - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+ name: service-instance2
+ namespace: istio-system
+spec:
+ hosts: ["ingress.com"]
+ ports:
+ - number: 81
+   targetPort: 8080
+   name: http
+   protocol: HTTP
+ resolution: STATIC
+ location: MESH_INTERNAL
+ endpoints:
+ - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+ name: a-80
+spec:
+ hosts:
+ - "80.example.com"
+ gateways:
+ - istio-system/gateway
+ http:
+ - match:
+   - uri:
+       prefix: /
+   route:
+   - destination:
+       host: a
+       port:
+         number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+ name: a-81
+spec:
+ hosts:
+ - "81.example.com"
+ gateways:
+ - istio-system/gateway
+ http:
+ - match:
+   - uri:
+       prefix: /
+   route:
+   - destination:
+       host: a
+       port:
+         number: 80`,
+			calls: []simulation.Expect{
+				{
+					Name: "port 8080 from 80",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "80.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "80.example.com:80",
+					},
+				},
+				{
+					Name: "port 8080 from 81",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "81.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "81.example.com:81",
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "multiple overlapping services wildcard",
+			config: createGatewayWithServiceSelector("gateway", "istio-ingressgateway.istio-system.svc.cluster.local,ingress.com", `
+port:
+  number: 80
+  name: http-80
+  protocol: HTTP
+hosts:
+- "80.example.com"
+`, `
+port:
+  number: 81
+  name: http-81
+  protocol: HTTP
+hosts:
+- "81.example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+spec:
+  hosts: ["istio-ingressgateway.istio-system.svc.cluster.local"]
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance2
+  namespace: istio-system
+spec:
+  hosts: ["ingress.com"]
+  ports:
+  - number: 81
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+ name: a-80
+spec:
+ hosts:
+ - "80.example.com"
+ gateways:
+ - istio-system/gateway
+ http:
+ - match:
+   - uri:
+       prefix: /
+   route:
+   - destination:
+       host: a
+       port:
+         number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+ name: a-81
+spec:
+ hosts:
+ - "81.example.com"
+ gateways:
+ - istio-system/gateway
+ http:
+ - match:
+   - uri:
+       prefix: /
+   route:
+   - destination:
+       host: a
+       port:
+         number: 80`,
+			calls: []simulation.Expect{
+				{
+					Name: "port 8080 from 80",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "80.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "80.example.com:80",
+					},
+				},
+				{
+					Name: "port 8080 from 81",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "81.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "81.example.com:81",
+					},
+				},
+			},
+		},
+		simulationTest{
+			name: "no match selector",
+			config: createGateway("gateway", "istio-system", `
+port:
+  number: 80
+  name: http-80
+  protocol: HTTP
+hosts:
+- "80.example.com"
+`, `
+port:
+  number: 82
+  name: http-82
+  protocol: HTTP
+hosts:
+- "82.example.com"
+`) + `
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-instance
+  namespace: istio-system
+spec:
+  hosts: ["istio-ingressgateway.istio-system.svc.cluster.local"]
+  ports:
+  - number: 80
+    targetPort: 8080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: a
+spec:
+  hosts:
+  - "*.example.com"
+  gateways:
+  - istio-system/gateway
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: a
+        port:
+          number: 80`,
+			calls: []simulation.Expect{
+				{
+					Name: "port 8080",
+					Call: simulation.Call{
+						Port:       8080,
+						HostHeader: "80.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_8080",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.8080",
+						VirtualHostMatched: "80.example.com:80",
+					},
+				},
+				{
+					// For gateway selector more, if there is no matching service we use the port as is
+					Name: "no service match",
+					Call: simulation.Call{
+						Port:       82,
+						HostHeader: "82.example.com",
+						Protocol:   simulation.HTTP,
+					},
+					Result: simulation.Result{
+						ListenerMatched:    "0.0.0.0_82",
+						ClusterMatched:     "outbound|80||a.default",
+						RouteConfigMatched: "http.82",
+						VirtualHostMatched: "82.example.com:82",
+					},
+				},
+			},
+		})
+}

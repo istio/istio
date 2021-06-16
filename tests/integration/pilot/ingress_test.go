@@ -52,7 +52,7 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
+			t.Config().ApplyYAMLOrFail(t, "", `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -64,6 +64,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -71,32 +72,41 @@ spec:
     port: 80
     protocol: HTTP
     routes:
+      namespaces:
+        from: All
       kind: HTTPRoute
   - port: 31400
     protocol: TCP
     routes:
+      namespaces:
+        from: All
       kind: TCPRoute
----
+---`)
+			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http
 spec:
- hostnames: ["my.domain.example"]
- rules:
- - matches:
-   - path:
-       type: Prefix
-       value: /get
-   forwardTo:
-     - serviceName: b
-       port: 80
+  hostnames: ["my.domain.example"]
+  gateways:
+    allow: All
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /get
+    forwardTo:
+    - serviceName: b
+      port: 80
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: TCPRoute
 metadata:
   name: tcp
 spec:
+  gateways:
+    allow: All
   rules:
   - forwardTo:
      - serviceName: b
@@ -419,10 +429,9 @@ func TestCustomGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.custom").
 		Run(func(t framework.TestContext) {
-			gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway"})
 			injectLabel := `sidecar.istio.io/inject: "true"`
-			if len(t.Settings().Revision) > 0 {
-				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revision)
+			if t.Settings().Revisions.Default() != "" {
+				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
 			}
 
 			templateParams := map[string]string{
@@ -432,7 +441,8 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal"})
+				_ = t.Config().ApplyYAMLNoCleanup(gatewayNs.Name(), tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
   name: custom-gateway
@@ -515,10 +525,11 @@ spec:
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
 			t.NewSubTest("helm").Run(func(t framework.TestContext) {
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
-				if len(t.Settings().Revision) > 0 {
-					rev = t.Settings().Revision
+				if t.Settings().Revisions.Default() != "" {
+					rev = t.Settings().Revisions.Default()
 				}
 				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
 revision: %v
@@ -546,7 +557,7 @@ gateways:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
 					return err
 				}, retry.Timeout(time.Minute*2))
-				t.Config().ApplyYAMLOrFail(t, gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.Config().ApplyYAMLNoCleanup(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: app

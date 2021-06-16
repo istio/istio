@@ -1,0 +1,72 @@
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: public-html
+data:
+  secret.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <body>
+    secret_data_leaked
+    </body>
+    </html>
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+    service: nginx
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 80
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.20.0
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: public-html
+              mountPath: /usr/share/nginx/html/private
+      volumes:
+        - name: public-html
+          configMap:
+            name: public-html

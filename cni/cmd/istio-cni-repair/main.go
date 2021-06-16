@@ -32,9 +32,9 @@ import (
 	"go.uber.org/multierr"
 	client "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/cni/pkg/repair"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
@@ -127,10 +127,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 
 // Set up Kubernetes client using kubeconfig (or in-cluster config if no file provided)
 func clientSetup() (clientset *client.Clientset, err error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	config, err := kubeConfig.ClientConfig()
+	config, err := kube.DefaultRestConfig("", "")
 	if err != nil {
 		return
 	}

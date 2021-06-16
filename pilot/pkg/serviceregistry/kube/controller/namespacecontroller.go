@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/security/pkg/k8s"
 )
@@ -144,6 +145,13 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 // On namespace change, update the config map.
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) error {
+	// skip special kubernetes system namespaces
+	for _, namespace := range inject.IgnoredNamespaces {
+		if ns.Name == namespace {
+			return nil
+		}
+	}
+
 	if ns.Status.Phase != v1.NamespaceTerminating {
 		return nc.insertDataForNamespace(ns.Name)
 	}

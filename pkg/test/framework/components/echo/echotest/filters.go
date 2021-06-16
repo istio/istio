@@ -113,7 +113,7 @@ func oneRegularPod(instances echo.Instances, exclude echo.Instances) echo.Instan
 // - Multi-Subset
 func RegularPod(instance echo.Instance) bool {
 	c := instance.Config()
-	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet()
+	return len(c.Subsets) == 1 && !c.IsVM() && !c.IsTProxy() && !c.IsNaked() && !c.IsHeadless() && !c.IsStatefulSet() && !c.IsProxylessGRPC()
 }
 
 // Not includes all workloads that don't match the given filter

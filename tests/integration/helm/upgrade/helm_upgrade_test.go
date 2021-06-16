@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	previousSupportedVersion = "1.9.0"
-	nMinusTwoVersion         = "1.8.1"
+	previousSupportedVersion = "1.10.0"
+	nMinusTwoVersion         = "1.9.0"
 )
 
 // TestDefaultInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)

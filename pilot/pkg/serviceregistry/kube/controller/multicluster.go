@@ -243,7 +243,7 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
-		if features.InjectionWebhookConfigName.Get() != "" && m.caBundleWatcher != nil {
+		if features.InjectionWebhookConfigName != "" && m.caBundleWatcher != nil {
 			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
 			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
 			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher.GetCABundle())

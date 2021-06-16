@@ -1,0 +1,3 @@
+Istio Version:       1.10.0
+Istio Proxy Version: 436f365a8007cd8a13a9f1321e7cce94bcc8883e
+Envoy Version:       1.18.3/Clean/RELEASE/BoringSSL

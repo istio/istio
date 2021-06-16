@@ -54,7 +54,7 @@ func TestProfileDump(t *testing.T) {
 
 			if refreshGoldenFiles() {
 				t.Logf("Refreshing golden file for %s", outPath)
-				if err := ioutil.WriteFile(outPath, []byte(got), 0644); err != nil {
+				if err := ioutil.WriteFile(outPath, []byte(got), 0o644); err != nil {
 					t.Error(err)
 				}
 			}
@@ -113,7 +113,7 @@ func TestProfileDumpFlags(t *testing.T) {
 
 			if refreshGoldenFiles() {
 				t.Logf("Refreshing golden file for %s", outPath)
-				if err := ioutil.WriteFile(outPath, []byte(got), 0644); err != nil {
+				if err := ioutil.WriteFile(outPath, []byte(got), 0o644); err != nil {
 					t.Error(err)
 				}
 			}
