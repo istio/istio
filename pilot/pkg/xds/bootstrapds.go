@@ -72,6 +72,7 @@ func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *mode
 	for _, patch := range patches.Patches[networking.EnvoyFilter_BOOTSTRAP] {
 		if patch.Operation == networking.EnvoyFilter_Patch_MERGE {
 			proto.Merge(bs, patch.Value)
+			fmt.Printf("merged %#v into %#v\n", patch.Value, bs)
 		}
 	}
 	return bs
