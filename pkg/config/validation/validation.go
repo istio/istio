@@ -133,7 +133,9 @@ type AnalysisAwareError struct {
 	Parameters []interface{}
 }
 
-type OverlappingForHTTPRoute struct {
+// OverlappingMatchValidationForHTTPRoute holds necessary information from virtualservice
+// to do such overlapping match validation
+type OverlappingMatchValidationForHTTPRoute struct {
 	RouteStr         string
 	MatchStr         string
 	Prefix           string
@@ -752,11 +754,6 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 					listenerMatch := cp.Match.GetListener()
 					if listenerMatch.FilterChain != nil {
 						if listenerMatch.FilterChain.Filter != nil {
-							if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
-								// This would be an error but is a warning for backwards compatibility
-								errs = appendValidation(errs, WrapWarning(
-									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: golint,stylecheck
-							}
 							// filter names are required if network filter matches are being made
 							if listenerMatch.FilterChain.Filter.Name == "" {
 								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: golint,stylecheck
@@ -1981,21 +1978,20 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 	})
 
 func assignExactOrPrefix(exact, prefix string) string {
-	if exact == "" {
-		if prefix != "" {
-			return matchPrefix + prefix
-		}
-	} else {
+	if exact != "" {
 		return matchExact + exact
+	}
+	if prefix != "" {
+		return matchPrefix + prefix
 	}
 	return ""
 }
 
-// genMatchHTTPRoutes build the match rules into struct OverlappingForHTTPRoute
+// genMatchHTTPRoutes build the match rules into struct OverlappingMatchValidationForHTTPRoute
 // based on particular HTTPMatchRequest, according to comments on https://github.com/istio/istio/pull/32701
 // only support Match's port, method, authority, headers, query params and nonheaders for now.
 func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatchRequest,
-	rulen, matchn int) (matchHTTPRoutes *OverlappingForHTTPRoute) {
+	rulen, matchn int) (matchHTTPRoutes *OverlappingMatchValidationForHTTPRoute) {
 	// skip current match if no match field for current route
 	if match == nil {
 		return nil
@@ -2048,7 +2044,7 @@ func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatch
 			noHeaderMap[nhkey] = nhvalueMatch
 		}
 
-		matchHTTPRoutes = &OverlappingForHTTPRoute{
+		matchHTTPRoutes = &OverlappingMatchValidationForHTTPRoute{
 			routeName(route, rulen),
 			requestName(match, matchn),
 			tmpPrefix,
@@ -2064,8 +2060,8 @@ func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatch
 	return nil
 }
 
-// coveredValidation validate the overlapping match between two instance of OverlappingForHTTPRoute
-func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
+// coveredValidation validate the overlapping match between two instance of OverlappingMatchValidationForHTTPRoute
+func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
 	// check the URI overlapping match, such as vB.Prefix is '/debugs' and vA.Prefix is '/debug'
 	if strings.HasPrefix(vB.Prefix, vA.Prefix) {
 		// check the port field
@@ -2074,14 +2070,14 @@ func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 		}
 
 		// check the match method
-		if strings.Compare(vA.MatchMethod, vB.MatchMethod) != 0 {
+		if vA.MatchMethod != vB.MatchMethod {
 			if !strings.HasPrefix(vA.MatchMethod, vB.MatchMethod) {
 				return false
 			}
 		}
 
 		// check the match authority
-		if strings.Compare(vA.MatchAuthority, vB.MatchAuthority) != 0 {
+		if vA.MatchAuthority != vB.MatchAuthority {
 			if !strings.HasPrefix(vA.MatchAuthority, vB.MatchAuthority) {
 				return false
 			}
@@ -2097,7 +2093,7 @@ func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 			vBhdValue, ok := vB.MatchHeaders[hdKey]
 			if !ok {
 				return false
-			} else if strings.Compare(hdValue, vBhdValue) != 0 {
+			} else if hdValue != vBhdValue {
 				if !strings.HasPrefix(hdValue, vBhdValue) {
 					return false
 				}
@@ -2114,7 +2110,7 @@ func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 			vBqpValue, ok := vB.MatchQueryParams[qpKey]
 			if !ok {
 				return false
-			} else if strings.Compare(qpValue, vBqpValue) != 0 {
+			} else if qpValue != vBqpValue {
 				if !strings.HasPrefix(qpValue, vBqpValue) {
 					return false
 				}
@@ -2131,7 +2127,7 @@ func coveredValidation(vA, vB *OverlappingForHTTPRoute) bool {
 			vBnhValue, ok := vB.MatchNonHeaders[nhKey]
 			if !ok {
 				return false
-			} else if strings.Compare(nhValue, vBnhValue) != 0 {
+			} else if nhValue != vBnhValue {
 				if !strings.HasPrefix(nhValue, vBnhValue) {
 					return false
 				}
@@ -2148,7 +2144,7 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
-	var matchHTTPRoutes []*OverlappingForHTTPRoute
+	var matchHTTPRoutes []*OverlappingMatchValidationForHTTPRoute
 	for rulen, route := range routes {
 		if route == nil {
 			continue
@@ -2172,7 +2168,7 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 			} else {
 				matchesEncountered[asJSON(match)] = rulen
 			}
-			// build the match rules into struct OverlappingForHTTPRoute based on current match
+			// build the match rules into struct OverlappingMatchValidationForHTTPRoute based on current match
 			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
 			if matchHTTPRoute != nil {
 				matchHTTPRoutes = append(matchHTTPRoutes, matchHTTPRoute)
