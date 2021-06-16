@@ -250,7 +250,7 @@ spec:
             - regex: "(custom_dimension=\\.=(.*?);\\.;"
               tag_name: "custom_dimension"
 `
-	if err := ctx.Config().ApplyYAML(appNsInst.Name(), bootstrapPatch); err != nil {
+	if err := ctx.Config().ApplyYAML("istio-system", bootstrapPatch); err != nil {
 		return err
 	}
 	return nil

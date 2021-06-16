@@ -329,7 +329,6 @@ func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) erro
 			b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
 			return nil
 		}
-		fmt.Printf("%s\n", buf.String())
 		if err := b.envoyUpdate(buf.Bytes()); err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
 			return nil
