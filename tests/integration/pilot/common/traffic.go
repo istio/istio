@@ -242,6 +242,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
+	cases["consistent-hash"] = consistentHashCases(apps)
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
 	if !t.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)

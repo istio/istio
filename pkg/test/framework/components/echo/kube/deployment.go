@@ -121,6 +121,7 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
+        test.istio.io/class: {{ $.Class }}
 {{- if $.Compatibility }}
         istio.io/rev: {{ $revision }}
 {{- end }}
@@ -670,6 +671,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
 		"Revisions":       settings.Revisions.TemplateMap(),
 		"Compatibility":   settings.Compatibility,
+		"Class":           getConfigClass(cfg),
 	}
 	return params, nil
 }
@@ -706,6 +708,7 @@ spec:
   metadata:
     labels:
       app: {{.name}}
+      test.istio.io/class: {{ .class }}
   template:
     serviceAccount: {{.serviceaccount}}
     network: "{{.network}}"
@@ -723,6 +726,7 @@ spec:
 		"namespace":      cfg.Namespace.Name(),
 		"serviceaccount": serviceAccount(cfg),
 		"network":        cfg.Cluster.NetworkName(),
+		"class":          getConfigClass(cfg),
 	})
 
 	// Push the WorkloadGroup for auto-registration
@@ -838,6 +842,25 @@ spec:
 	}
 
 	return nil
+}
+
+func getConfigClass(cfg echo.Config) string {
+	if cfg.IsProxylessGRPC() {
+		return "proxyless"
+	} else if cfg.IsVM() {
+		return "vm"
+	} else if cfg.IsTProxy() {
+		return "tproxy"
+	} else if cfg.IsNaked() {
+		return "naked"
+	} else if cfg.IsExternal() {
+		return "external"
+	} else if cfg.IsStatefulSet() {
+		return "statefulset"
+	} else if cfg.IsHeadless() {
+		return "headless"
+	}
+	return "standard"
 }
 
 func patchProxyConfigFile(file string, overrides string) error {
