@@ -99,8 +99,8 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
-		Setup(testSetup).
 		Setup(setupEnvoyFilter).
+		Setup(testSetup).
 		Run()
 }
 
@@ -254,6 +254,8 @@ spec:
 	if err := ctx.Config().ApplyYAML("istio-system", bootstrapPatch); err != nil {
 		return err
 	}
+	// Ensure bootstrap patch is applied before starting echo.
+	time.Sleep(time.Minute)
 	return nil
 }
 

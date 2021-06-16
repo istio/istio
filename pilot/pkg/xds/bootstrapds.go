@@ -26,7 +26,9 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/bootstrap"
 )
 
@@ -69,9 +71,14 @@ func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *mode
 	if patches == nil {
 		return bs
 	}
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+		envoyfilter.IncrementEnvoyFilterErrorMetric(envoyfilter.Bootstrap)
+		log.Errorf("bootstrap patch caused panic, so the patches did not take effect")
+	})
 	for _, patch := range patches.Patches[networking.EnvoyFilter_BOOTSTRAP] {
 		if patch.Operation == networking.EnvoyFilter_Patch_MERGE {
 			proto.Merge(bs, patch.Value)
+			envoyfilter.IncrementEnvoyFilterMetric(patch.Key(), envoyfilter.Bootstrap, true)
 		}
 	}
 	return bs
