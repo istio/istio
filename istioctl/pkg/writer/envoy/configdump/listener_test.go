@@ -137,6 +137,22 @@ func TestListenerFilter_Verify(t *testing.T) {
 			},
 			expect: true,
 		},
+		{
+			desc: "listener-pipe",
+			inFilter: &ListenerFilter{
+				Address: "",
+				Port:    0,
+				Type:    "",
+			},
+			inListener: &listener.Listener{
+				Address: &v3.Address{
+					Address: &v3.Address_Pipe{
+						Pipe: &v3.Pipe{Path: "unix:///dev/shm/uds.socket"},
+					},
+				},
+			},
+			expect: true,
+		},
 	}
 
 	for _, tt := range tests {

@@ -105,12 +105,12 @@ func retrieveListenerType(l *listener.Listener) string {
 
 func retrieveListenerAddress(l *listener.Listener) string {
 	sockAddr := l.Address.GetSocketAddress()
-	if nil != sockAddr {
+	if sockAddr != nil {
 		return sockAddr.Address
 	}
 
 	pipe := l.Address.GetPipe()
-	if nil != pipe {
+	if pipe != nil {
 		return pipe.Path
 	}
 
