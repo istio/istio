@@ -1627,10 +1627,12 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
 func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
+	fmt.Printf("MATCHING ENVOY FILTERS: %#v\n", proxy)
 	// this should never happen
 	if proxy == nil {
 		return nil
 	}
+	fmt.Printf("ALL ENVOY FILTERS: %#v\n", ps.envoyFiltersByNamespace)
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
