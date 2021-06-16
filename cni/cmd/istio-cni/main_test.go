@@ -133,7 +133,9 @@ func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace strin
 func resetGlobalTestVariables() {
 	getKubePodInfoCalled = false
 	nsenterFuncCalled = false
-
+	testInitContainers = map[string]struct{}{
+		"foo-init": {},
+	}
 	testContainers = []string{"mockContainer"}
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
