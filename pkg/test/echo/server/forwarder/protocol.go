@@ -207,7 +207,7 @@ func newProtocol(cfg Config) (protocol, error) {
 			}
 		}
 		return proto, nil
-	case scheme.GRPC:
+	case scheme.GRPC, scheme.XDS:
 		// grpc-go sets incorrect authority header
 		authority := headers.Get(hostHeader)
 
@@ -217,8 +217,11 @@ func newProtocol(cfg Config) (protocol, error) {
 			security = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 		}
 
-		// Strip off the scheme from the address.
-		address := rawURL[len(urlScheme+"://"):]
+		// Strip off the scheme from the address (for regular gRPC).
+		address := rawURL
+		if urlScheme == string(scheme.GRPC) {
+			address = rawURL[len(urlScheme+"://"):]
+		}
 
 		// Connect to the GRPC server.
 		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)

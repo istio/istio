@@ -97,3 +97,41 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigWriter_PrintVersionSummary(t *testing.T) {
+	tests := []struct {
+		name           string
+		wantOutputFile string
+		callPrime      bool
+		wantErr        bool
+	}{
+		{
+			name:           "returns expected version summary onto Stdout",
+			callPrime:      true,
+			wantOutputFile: "testdata/versionsummary.txt",
+		},
+		{
+			name:    "errors if config dump is not primed",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOut := &bytes.Buffer{}
+			cw := &ConfigWriter{Stdout: gotOut}
+			cd, _ := ioutil.ReadFile("testdata/configdump.json")
+			if tt.callPrime {
+				cw.Prime(cd)
+			}
+			err := cw.PrintVersionSummary()
+			if tt.wantOutputFile != "" {
+				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
+			}
+			if err == nil && tt.wantErr {
+				t.Errorf("PrintVersionSummary (%v) did not produce expected err", tt.name)
+			} else if err != nil && !tt.wantErr {
+				t.Errorf("PrintVersionSummary (%v) produced unexpected err: %v", tt.name, err)
+			}
+		})
+	}
+}

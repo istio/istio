@@ -927,6 +927,30 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			},
 			autoDetected,
 		},
+		{
+			"Simple TLS",
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				PrivateKey:        "/custom/key.pem",
+				ClientCertificate: "/custom/chain.pem",
+				CaCertificates:    "/custom/root.pem",
+			},
+			[]string{"custom.foo.com"},
+			"custom.foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/meta/chain.pem",
+				TLSClientKey:       "/custom/meta/key.pem",
+				TLSClientRootCert:  "/custom/meta/root.pem",
+			}},
+			false, false, model.MTLSUnknown,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				PrivateKey:        "/custom/key.pem",
+				ClientCertificate: "/custom/chain.pem",
+				CaCertificates:    "/custom/root.pem",
+			},
+			userSupplied,
+		},
 	}
 
 	for _, tt := range tests {

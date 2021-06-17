@@ -1529,7 +1529,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env, nil)
+	listeners := buildAllListeners(p, env)
 	found := false
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
@@ -1555,7 +1555,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env, nil)
+	listeners = buildAllListeners(p, env)
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
@@ -1568,7 +1568,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env, nil)
+	listeners := buildAllListeners(p, env)
 	for _, l := range listeners {
 
 		if l.AccessLog == nil {
@@ -1585,7 +1585,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env, nil)
+	listeners = buildAllListeners(p, env)
 	for _, l := range listeners {
 		if l.AccessLog[0].Filter == nil {
 			t.Fatal("expected filter config in listener access log configuration")
@@ -2320,7 +2320,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, env *model.Environment, proxyVersion *model.IstioVersion) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env *model.Environment) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
@@ -2330,7 +2330,6 @@ func buildAllListeners(p plugin.Plugin, env *model.Environment, proxyVersion *mo
 	proxy := getProxy()
 	proxy.ServiceInstances = nil
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	proxy.IstioVersion = proxyVersion
 	builder := NewListenerBuilder(proxy, env.PushContext)
 	return configgen.buildSidecarListeners(builder).getListeners()
 }

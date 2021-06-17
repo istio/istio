@@ -87,6 +87,8 @@ type TrafficTestCase struct {
 	minIstioVersion string
 }
 
+var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
+
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
 	if c.opts.Target != nil {
 		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
@@ -127,7 +129,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			}).
 			WithDefaultFilters().
 			From(c.sourceFilters...).
-			To(c.targetFilters...).
+			// TODO mainly testing proxyless features as a client for now
+			To(append(c.targetFilters, noProxyless)...).
 			ConditionallyTo(c.comboFilters...)
 
 		doTest := func(t framework.TestContext, src echo.Caller, dsts echo.Services) {
@@ -135,8 +138,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				t.SkipNow()
 			}
 			if c.minIstioVersion != "" {
-				if resource.IstioVersion(c.minIstioVersion).
-					Compare(t.Settings().Revisions.Minimum()) > 0 {
+				skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+				if skipMV {
 					t.SkipNow()
 				}
 			}
@@ -195,8 +198,8 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 			t.SkipNow()
 		}
 		if c.minIstioVersion != "" {
-			if resource.IstioVersion(c.minIstioVersion).
-				Compare(t.Settings().Revisions.Minimum()) > 0 {
+			skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+			if skipMV {
 				t.SkipNow()
 			}
 		}

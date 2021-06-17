@@ -1039,7 +1039,7 @@ roleRef:
   name: istio-reader-clusterrole-istio-system
 subjects:
   - kind: ServiceAccount
-    name: istio-reader-aggregate
+    name: istio-reader-service-account
     namespace: istio-system
 ---
 # Source: istio-discovery/templates/clusterrolebinding.yaml

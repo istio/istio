@@ -67,7 +67,7 @@ func testDryRun(t *testing.T, policies []string, cases []dryRunCase) {
 									return err
 								}
 								return verifyAccessLog(t, cltInstance, tc.wantLog)
-							}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
+							}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout*2))
 							if err != nil {
 								return err
 							}

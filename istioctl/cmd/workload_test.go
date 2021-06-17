@@ -187,7 +187,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 						&v1.Secret{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "test"},
 							Data: map[string][]byte{
-								"token": []byte{},
+								"token": {},
 							},
 						},
 					),

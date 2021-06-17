@@ -51,9 +51,8 @@ require (
 	github.com/kr/pretty v0.2.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.0
-	github.com/lucas-clemente/quic-go v0.21.0
+	github.com/lucas-clemente/quic-go v0.20.1
 	github.com/mattn/go-isatty v0.0.13
-	github.com/mholt/archiver/v3 v3.5.0
 	github.com/miekg/dns v1.1.42
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -65,7 +64,6 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.25.0
 	github.com/ryanuber/go-glob v1.0.0
-	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
@@ -91,15 +89,16 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.6.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210601145914-9a4239731e79
-	istio.io/client-go v0.0.0-20210601151459-89ee09f12704
-	istio.io/gogo-genproto v0.0.0-20210528151221-bb0f9b7849f3
-	istio.io/pkg v0.0.0-20210528151021-2059ed14a0e6
+	istio.io/api v0.0.0-20210615171420-66712274f52a
+	istio.io/client-go v0.0.0-20210615173247-621ed7b7b853
+	istio.io/gogo-genproto v0.0.0-20210608134700-fda16a2217d8
+	istio.io/pkg v0.0.0-20210615171718-eba82ec69a0a
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.0
 	k8s.io/apimachinery v0.21.1
 	k8s.io/cli-runtime v0.21.1
 	k8s.io/client-go v0.21.1
+	k8s.io/klog/v2 v2.8.0
 	k8s.io/kube-openapi v0.0.0-20210527164424-3c818078ee3d
 	k8s.io/kubectl v0.21.1
 	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b

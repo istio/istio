@@ -1049,5 +1049,5 @@ func (node *Proxy) IsVM() bool {
 
 type GatewayController interface {
 	ConfigStoreCache
-	Recompute() error
+	Recompute(GatewayContext) error
 }

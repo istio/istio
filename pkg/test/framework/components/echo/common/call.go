@@ -53,6 +53,8 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), opts.Address)
 	case scheme.TCP:
 		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
+	case scheme.XDS:
+		targetURL = fmt.Sprintf("%s:///%s", string(opts.Scheme), addressAndPort)
 	default:
 		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.Path)
 	}

@@ -4,7 +4,6 @@ components.egressGateways[0].enabled=false
 components.egressGateways[0].name="istio-egressgateway"
 components.ingressGateways[0].enabled=true
 components.ingressGateways[0].name="istio-ingressgateway"
-components.istiodRemote.enabled=false
 components.pilot.enabled=false
 hub="gcr.io/istio-testing"
 meshConfig.enablePrometheusMerge=true

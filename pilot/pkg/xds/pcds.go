@@ -33,7 +33,7 @@ type PcdsGenerator struct {
 var _ model.XdsResourceGenerator = &PcdsGenerator{}
 
 func pcdsNeedsPush(req *model.PushRequest) bool {
-	if !features.MultiRootMesh.Get() {
+	if !features.MultiRootMesh {
 		return false
 	}
 

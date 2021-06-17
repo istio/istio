@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -59,10 +60,14 @@ type ProxyConfig struct {
 func NewProxy(cfg ProxyConfig) Proxy {
 	// inject tracing flag for higher levels
 	var args []string
-	if cfg.LogLevel != "" {
-		args = append(args, "-l", cfg.LogLevel)
+	logLevel, componentLogs := splitComponentLog(cfg.LogLevel)
+	if logLevel != "" {
+		args = append(args, "-l", logLevel)
 	}
-	if cfg.ComponentLogLevel != "" {
+	if len(componentLogs) > 0 {
+		args = append(args, "--component-log-level", strings.Join(componentLogs, ","))
+	} else if cfg.ComponentLogLevel != "" {
+		// Use the old setting if we don't set any component log levels in LogLevel
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
 
@@ -70,6 +75,26 @@ func NewProxy(cfg ProxyConfig) Proxy {
 		ProxyConfig: cfg,
 		extraArgs:   args,
 	}
+}
+
+// splitComponentLog breaks down an argument string into a log level (ie "info") and component log levels (ie "misc:error").
+// This allows using a single log level API, with the same semantics as Istio's logging, to configure Envoy which
+// has two different settings
+func splitComponentLog(level string) (string, []string) {
+	levels := strings.Split(level, ",")
+	var logLevel string
+	var componentLogs []string
+	for _, sl := range levels {
+		spl := strings.Split(sl, ":")
+		if len(spl) == 1 {
+			logLevel = spl[0]
+		} else if len(spl) == 2 {
+			componentLogs = append(componentLogs, sl)
+		} else {
+			log.Warnf("dropping invalid log level: %v", sl)
+		}
+	}
+	return logLevel, componentLogs
 }
 
 func (e *envoy) Drain() error {

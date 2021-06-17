@@ -16,7 +16,6 @@ package xds
 
 import (
 	"context"
-	"os"
 	"sync"
 	"time"
 
@@ -25,13 +24,14 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
 )
 
 func NewDeltaAdsTest(t test.Failer, conn *grpc.ClientConn) *DeltaAdsTest {
-	os.Setenv("ISTIO_DELTA_XDS", "true")
+	features.DeltaXds = true
 	return NewDeltaXdsTest(t, conn, func(conn *grpc.ClientConn) (DeltaDiscoveryClient, error) {
 		xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
 		return xds.DeltaAggregatedResources(context.Background())
@@ -200,6 +200,7 @@ func (a *DeltaAdsTest) RequestResponseAck(req *discovery.DeltaDiscoveryRequest) 
 	req = a.fillInRequestDefaults(req)
 	a.Request(req)
 	resp := a.ExpectResponse()
+	req.ResponseNonce = resp.Nonce
 	a.Request(&discovery.DeltaDiscoveryRequest{
 		Node:          req.Node,
 		TypeUrl:       req.TypeUrl,

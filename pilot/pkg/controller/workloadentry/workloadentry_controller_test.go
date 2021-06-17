@@ -37,12 +37,7 @@ import (
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util/leak"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func init() {
 	features.WorkloadEntryAutoRegistration = true
