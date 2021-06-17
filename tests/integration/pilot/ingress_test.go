@@ -221,16 +221,16 @@ func TestIngress(t *testing.T) {
 				apiVersion = "v1"
 			}
 
-			ingressClassConfig := `
+			ingressClassConfig := fmt.Sprintf(`
 apiVersion: networking.k8s.io/%s
 kind: IngressClass
 metadata:
   name: istio-test
 spec:
-  controller: istio.io/ingress-controller`
+  controller: istio.io/ingress-controller`, apiVersion)
 
 			ingressConfigTemplate := `
-apiVersion: networking.k8s.io/v1
+apiVersion: networking.k8s.io/v1beta
 kind: Ingress
 metadata:
   name: %s
@@ -252,9 +252,41 @@ spec:
             backend:
               serviceName: b
               servicePort: 80`
+			if apiVersion == "v1" {
+				ingressConfigTemplate = `
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: %s
+spec:
+  ingressClassName: %s
+  tls:
+  - hosts: ["foo.example.com"]
+    secretName: k8s-ingress-secret-foo
+  - hosts: ["bar.example.com"]
+    secretName: k8s-ingress-secret-bar
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: b
+            port:
+              name: http
+        path: %s/namedport
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: b
+            port:
+              number: 80
+        path: %s
+        pathType: ImplementationSpecific
+`
+			}
 
-			if err := t.Config().ApplyYAML(apps.Namespace.Name(), fmt.Sprintf(ingressClassConfig, apiVersion),
-				fmt.Sprintf(ingressConfigTemplate, apiVersion, "ingress", "istio-test", "/test", "/test")); err != nil {
+			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
 				t.Fatal(err)
 			}
 
@@ -358,8 +390,8 @@ spec:
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
-			if err := t.Config().ApplyYAML(apps.Namespace.Name(), fmt.Sprintf(ingressClassConfig, apiVersion),
-				fmt.Sprintf(ingressConfigTemplate, apiVersion, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
+			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
 				t.Fatal(err)
 			}
 			// these cases make sure that when new Ingress configs are applied our controller picks up on them
@@ -419,7 +451,7 @@ spec:
 
 			for _, c := range ingressUpdateCases {
 				c := c
-				updatedIngress := fmt.Sprintf(ingressConfigTemplate, apiVersion, updateIngressName, c.ingressClass, c.path, c.path)
+				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path)
 				t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
