@@ -1169,7 +1169,10 @@ func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
 		c := c
 
 		// First setup a service selecting a few services. This is needed to ensure we can load balance across many pods.
-		svcName := fmt.Sprintf("consistent-hash-%s", c.Config().Cluster.NetworkName())
+		svcName := "consistent-hash"
+		if nw := c.Config().Cluster.NetworkName(); nw != "" {
+			svcName += "-" + nw
+		}
 		svc := tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
@@ -1181,7 +1184,10 @@ spec:
     targetPort: {{.TargetPort}}
   selector:
     test.istio.io/class: standard
-    topology.istio.io/network: {{.Network}}`, map[string]interface{}{
+    {{- if .Network }}
+    topology.istio.io/network: {{.Network}}
+	{{- end }}
+`, map[string]interface{}{
 			"Service":    svcName,
 			"Network":    c.Config().Cluster.NetworkName(),
 			"Port":       FindPortByName("http").ServicePort,
