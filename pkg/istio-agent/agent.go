@@ -119,8 +119,6 @@ type Agent struct {
 
 	// Signals true completion (e.g. with delayed graceful termination of Envoy)
 	wg sync.WaitGroup
-
-	grpcBootstrap *grpcxds.Bootstrap
 }
 
 // AgentOptions contains additional config for the agent, not included in ProxyConfig.

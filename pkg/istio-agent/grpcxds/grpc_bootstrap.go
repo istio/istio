@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"time"
 
@@ -160,7 +161,7 @@ func GenerateBootstrapFile(opts GenerateBootstrapOptions, path string) (*Bootstr
 	if err != nil {
 		return nil, err
 	}
-	if err := file.AtomicWrite(path, jsonData, 0o644); err != nil {
+	if err := file.AtomicWrite(path, jsonData, os.FileMode(0o644)); err != nil {
 		return nil, fmt.Errorf("failed writing to %s: %v", path, err)
 	}
 	return bootstrap, nil
