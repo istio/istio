@@ -970,7 +970,7 @@ spec:
 	return cases
 }
 
-func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
+func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 
 	destinationSets := []echo.Instances{
@@ -987,12 +987,12 @@ func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
 			skip:   false,
-			call:   apps.Ingress.CallWithRetryOrFail,
+			call:   apps.Naked[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Count: 1,
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
+				Count:   1,
+				Port:    &echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Address: gateway,
 				Headers: map[string][]string{
 					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
 					"Host":            {fqdn},
@@ -1295,11 +1295,12 @@ func protocolSniffingCases() []TrafficTestCase {
 func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	ipCases := []struct {
-		name           string
-		endpoint       string
-		disableSidecar bool
-		port           string
-		code           int
+		name            string
+		endpoint        string
+		disableSidecar  bool
+		port            string
+		code            int
+		minIstioVersion string
 	}{
 		// instance IP bind
 		{
@@ -1333,6 +1334,8 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			disableSidecar: true,
 			port:           "http-localhost",
 			code:           503,
+			// when testing with pre-1.10 versions this request succeeds
+			minIstioVersion: "1.10.0",
 		},
 		{
 			name:     "localhost IP with wildcard sidecar",
@@ -1351,6 +1354,8 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			endpoint: "",
 			port:     "http-localhost",
 			code:     503,
+			// when testing with pre-1.10 versions this request succeeds
+			minIstioVersion: "1.10.0",
 		},
 
 		// Wildcard bind
@@ -1418,6 +1423,7 @@ spec:
 						Timeout:   time.Second * 5,
 						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
 					},
+					minIstioVersion: ipCase.minIstioVersion,
 				})
 		}
 	}

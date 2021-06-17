@@ -19,12 +19,18 @@ import (
 	"testing"
 )
 
-var KnownSubstrings = []string{"unknown command"}
+var KnownErrorCode = map[error]int{
+	errors.New("unknown command"):                           ExitIncorrectUsage,
+	errors.New("unexpected error"):                          ExitUnknownError,
+	CommandParseError{e: errors.New("command parse error")}: ExitIncorrectUsage,
+	FileParseError{}:                                        ExitDataError,
+	AnalyzerFoundIssuesError{}:                              ExitAnalyzerFoundIssues,
+}
 
 func TestKnownExitStrings(t *testing.T) {
-	for _, s := range KnownSubstrings {
-		if GetExitCode(errors.New(s)) == ExitUnknownError {
-			t.Errorf("Expected %q to have a known exit code.", s)
+	for err, wantCode := range KnownErrorCode {
+		if code := GetExitCode(err); code != wantCode {
+			t.Errorf("For %v want %v, but is %v", err, wantCode, code)
 		}
 	}
 }
