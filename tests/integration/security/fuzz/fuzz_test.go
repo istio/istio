@@ -43,6 +43,19 @@ spec:
     - operation:
         paths: ["/private/secret.html"]
 `
+	// nolint: lll
+	jwtToken           = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcjVWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdCI6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7QNBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRnemRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
+	jwtTool            = "jwttool"
+	requestAuthnPolicy = `
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt
+spec:
+  jwtRules:
+  - issuer: "testing@secure.istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.10/security/tools/jwt/samples/jwks.json"
+`
 )
 
 func deploy(t framework.TestContext, name, ns, yaml string) {
@@ -50,12 +63,14 @@ func deploy(t framework.TestContext, name, ns, yaml string) {
 	if _, err := kube.WaitUntilPodsAreReady(kube.NewPodFetch(t.Clusters().Default(), ns, "app="+name)); err != nil {
 		t.Fatalf("Wait for pod %s failed: %v", name, err)
 	}
-	if name != dotdotpwn {
-		if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns, name); err != nil {
-			t.Fatalf("Wait for service %s failed: %v", name, err)
-		}
+	t.Logf("deploy %s is ready", name)
+}
+
+func waitService(t framework.TestContext, name, ns string) {
+	if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns, name); err != nil {
+		t.Fatalf("Wait for service %s failed: %v", name, err)
 	}
-	t.Logf("%s is ready", name)
+	t.Logf("service %s is ready", name)
 }
 
 func runDotdotPwnTest(t framework.TestContext, ns, server string) {
@@ -99,10 +114,85 @@ func TestFuzzAuthorization(t *testing.T) {
 			deploy(t, apacheServer, ns, "backends/apache/apache.yaml")
 			deploy(t, nginxServer, ns, "backends/nginx/nginx.yaml")
 			deploy(t, dotdotpwn, ns, "fuzzers/dotdotpwn/dotdotpwn.yaml")
+			waitService(t, apacheServer, ns)
+			waitService(t, nginxServer, ns)
 			for _, target := range []string{apacheServer, nginxServer} {
 				t.NewSubTest(target).Run(func(t framework.TestContext) {
 					runDotdotPwnTest(t, ns, target)
 				})
 			}
+		})
+}
+
+func runJwtToolTest(t framework.TestContext, ns, server string) {
+	pods, err := t.Clusters().Default().PodsForSelector(context.TODO(), ns, "app="+jwtTool)
+	if err != nil {
+		t.Fatalf("failed to get jwttool pod: %v", err)
+	}
+	t.Logf("running jwttool fuzz test against the %s (should normally complete in 10 seconds)...", server)
+
+	// Run the jwttool fuzz testing with "--mode at" to run all tests:
+	// - JWT Attack Playbook
+	// - Fuzz existing claims to force errors
+	// - Fuzz common claims
+	commands := []string{
+		"./run.sh",
+		"--targeturl",
+		fmt.Sprintf("http://%s:8080/private/secret.html", server),
+		"--noproxy",
+		"--headers",
+		fmt.Sprintf("Authorization: Bearer %s", jwtToken),
+		"--mode",
+		"at",
+	}
+	stdout, stderr, err := t.Clusters().Default().PodExecCommands(pods.Items[0].Name, ns, jwtTool, commands)
+	if err != nil {
+		t.Fatalf("failed to run jwttool: %v", err)
+	}
+	t.Logf("%s\n%s\n", stdout, stderr)
+	t.Logf("jwttool fuzz test completed for %s", server)
+
+	if !strings.Contains(stdout, "Prescan: original token Response Code: 200") {
+		t.Errorf("could not find prescan check, please make sure the jwt_tool.py completed successfully")
+	}
+	errCases := []string{}
+	scanStarted := false
+	for _, line := range strings.Split(stdout, "\n") {
+		if scanStarted {
+			// First check the response is a valid test case.
+			if strings.Contains(line, "jwttool_") && !strings.Contains(line, "(should always be valid)") {
+				// Then add it to errCases if the test case has a response code other than 401.
+				if !strings.Contains(line, "Response Code: 401") {
+					errCases = append(errCases, line)
+				}
+			}
+		} else if strings.Contains(line, "LAUNCHING SCAN") {
+			scanStarted = true
+		}
+	}
+	if len(errCases) != 0 {
+		t.Errorf("found %d potential policy bypass requests:\n- %s", len(errCases), strings.Join(errCases, "\n- "))
+	} else {
+		t.Logf("no potential policy bypass requests found")
+	}
+}
+
+func TestRequestAuthentication(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.fuzz.jwt").
+		Run(func(t framework.TestContext) {
+			ns := "fuzz-jwt"
+			namespace.ClaimOrFail(t, t, ns)
+
+			t.Config().ApplyYAMLOrFail(t, ns, requestAuthnPolicy)
+			t.Logf("request authentication policy applied")
+
+			// We don't care about the actual backend for JWT test, one backend is good enough.
+			deploy(t, apacheServer, ns, "backends/apache/apache.yaml")
+			deploy(t, jwtTool, ns, "fuzzers/jwt_tool/jwt_tool.yaml")
+			waitService(t, apacheServer, ns)
+			t.NewSubTest(apacheServer).Run(func(t framework.TestContext) {
+				runJwtToolTest(t, ns, apacheServer)
+			})
 		})
 }
