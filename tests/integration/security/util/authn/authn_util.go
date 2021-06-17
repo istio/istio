@@ -58,6 +58,7 @@ func (c *TestCase) CheckAuthn(responses client.ParsedResponses, err error) error
 	}
 	// Checking if echo backend see header with the given value by finding them in response body
 	// (given the current behavior of echo convert all headers into key=value in the response body)
+	fmt.Printf("****dump response body****\n%s\n", responses[0].Body)
 	for k, v := range c.ExpectHeaders {
 		matcher := fmt.Sprintf("%s=%s", k, v)
 		if len(v) == 0 {

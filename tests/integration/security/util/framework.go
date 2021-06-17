@@ -289,7 +289,7 @@ func CheckExistence(ctx framework.TestContext, instances ...echo.Instances) {
 
 func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
 	errG := multierror.Group{}
-	for _, c := range ctx.Clusters().Primaries() {
+	for _, c := range ctx.Clusters() {
 		c := c
 		errG.Go(func() error {
 			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})

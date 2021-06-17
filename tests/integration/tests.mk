@@ -73,8 +73,9 @@ check-go-tag:
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 -vet=off ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 -vet=off ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/ -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
+	--test.run=TestRequestAuthentication \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate presubmit integration test targets for each component in kubernetes environment
