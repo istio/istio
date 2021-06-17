@@ -60,7 +60,7 @@ webhooks:
       service:
         name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
         namespace: {{ .Values.global.istioNamespace }}
-        path: "/validate"pkg/webhooks/validation/controller/controller.go
+        path: "/validate"
       {{- end }}
       caBundle: ""
     rules:
