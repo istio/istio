@@ -139,13 +139,13 @@ func reTaintNodeByPod(obj interface{}, c *Controller) error {
 
 // controller will run all of the critical pod controllers and node controllers, process node and pod in every second
 func (tc *Controller) Run(stopCh <-chan struct{}) {
-	for _, podcontroller := range tc.podController {
-		go podcontroller.Run(stopCh)
+	for _, podController := range tc.podController {
+		go podController.Run(stopCh)
 		// wait for cache sync up
 		err := wait.Poll(100*time.Millisecond, 60*time.Second, func() (bool, error) {
-			return podcontroller.HasSynced(), nil
+			return podController.HasSynced(), nil
 		})
-		if err != nil || !podcontroller.HasSynced() {
+		if err != nil || !podController.HasSynced() {
 			runtime.HandleError(fmt.Errorf("timed out waiting for caches to sync pod controller, err: %s", err))
 			return
 		}
