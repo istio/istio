@@ -147,7 +147,6 @@ spec:
 					Headers: map[string][]string{
 						"Host": {"my.domain.example"},
 					},
-					Validator: echo.ExpectOK(),
 				})
 			})
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
@@ -162,7 +161,6 @@ spec:
 					Headers: map[string][]string{
 						"Host": {"my.domain.example"},
 					},
-					Validator: echo.ExpectOK(),
 				})
 			})
 			t.NewSubTest("mesh").Run(func(t framework.TestContext) {
@@ -253,6 +251,11 @@ spec:
 				t.Fatal(err)
 			}
 
+			validator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(t.Clusters()))
+			count := 1
+			if t.Clusters().IsMulticluster() {
+				count = 2 * len(t.Clusters())
+			}
 			// TODO check all clusters were hit
 			cases := []struct {
 				name string
@@ -269,7 +272,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 				{
@@ -284,7 +288,8 @@ spec:
 							"Host": {"foo.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialA.CaCert,
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 				{
@@ -299,7 +304,8 @@ spec:
 							"Host": {"bar.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 				{
@@ -314,14 +320,21 @@ spec:
 							"Host": {"bar.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 			}
-			for _, c := range cases {
-				c := c
-				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
+
+			for _, ingr := range apps.Ingresses {
+				ingr := ingr
+				t.NewSubTestf("from %s", ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
+					for _, c := range cases {
+						c := c
+						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+							ingr.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
+						})
+					}
 				})
 			}
 
