@@ -54,7 +54,9 @@ import (
 // to this value by the management server.
 const transportSocketName = "envoy.transport_sockets.tls"
 
-type GrpcConfigGenerator struct{}
+type GrpcConfigGenerator struct {
+	Cds model.XdsResourceGenerator
+}
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
 	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
@@ -62,7 +64,11 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 	case v3.ListenerType:
 		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		if g.Cds != nil {
+			return g.Cds.Generate(proxy, push, w, updates)
+		} else {
+			return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		}
 	case v3.RouteType:
 		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	}

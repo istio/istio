@@ -543,7 +543,9 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
-	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{
+		Cds: s.Generators[v3.ClusterType],
+	}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
 	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
