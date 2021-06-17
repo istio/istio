@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/tests/common/jwt"
 )
 
 const (
@@ -43,8 +44,6 @@ spec:
     - operation:
         paths: ["/private/secret.html"]
 `
-	// nolint: lll
-	jwtToken           = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcjVWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdCI6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7QNBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRnemRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
 	jwtTool            = "jwttool"
 	requestAuthnPolicy = `
 apiVersion: security.istio.io/v1beta1
@@ -53,8 +52,10 @@ metadata:
   name: jwt
 spec:
   jwtRules:
-  - issuer: "testing@secure.istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.10/security/tools/jwt/samples/jwks.json"
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.10/tests/common/jwt/jwks.json"
+  - issuer: "test-issuer-2@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.10/tests/common/jwt/jwks.json"
 `
 )
 
@@ -124,7 +125,7 @@ func TestFuzzAuthorization(t *testing.T) {
 		})
 }
 
-func runJwtToolTest(t framework.TestContext, ns, server string) {
+func runJwtToolTest(t framework.TestContext, ns, server, jwtToken string) {
 	pods, err := t.Clusters().Default().PodsForSelector(context.TODO(), ns, "app="+jwtTool)
 	if err != nil {
 		t.Fatalf("failed to get jwttool pod: %v", err)
@@ -153,7 +154,7 @@ func runJwtToolTest(t framework.TestContext, ns, server string) {
 	t.Logf("jwttool fuzz test completed for %s", server)
 
 	if !strings.Contains(stdout, "Prescan: original token Response Code: 200") {
-		t.Errorf("could not find prescan check, please make sure the jwt_tool.py completed successfully")
+		t.Fatalf("could not find prescan check, please make sure the jwt_tool.py completed successfully")
 	}
 	errCases := []string{}
 	scanStarted := false
@@ -191,8 +192,22 @@ func TestRequestAuthentication(t *testing.T) {
 			deploy(t, apacheServer, ns, "backends/apache/apache.yaml")
 			deploy(t, jwtTool, ns, "fuzzers/jwt_tool/jwt_tool.yaml")
 			waitService(t, apacheServer, ns)
-			t.NewSubTest(apacheServer).Run(func(t framework.TestContext) {
-				runJwtToolTest(t, ns, apacheServer)
-			})
+			testCases := []struct {
+				name      string
+				baseToken string
+			}{
+				{"TokenIssuer1", jwt.TokenIssuer1},
+				{"TokenIssuer1WithAud", jwt.TokenIssuer1WithAud},
+				{"TokenIssuer1WithAzp", jwt.TokenIssuer1WithAzp},
+				{"TokenIssuer2", jwt.TokenIssuer2},
+				{"TokenIssuer1WithNestedClaims1", jwt.TokenIssuer1WithNestedClaims1},
+				{"TokenIssuer1WithNestedClaims2", jwt.TokenIssuer1WithNestedClaims2},
+				{"TokenIssuer2WithSpaceDelimitedScope", jwt.TokenIssuer2WithSpaceDelimitedScope},
+			}
+			for _, tc := range testCases {
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					runJwtToolTest(t, ns, apacheServer, tc.baseToken)
+				})
+			}
 		})
 }
