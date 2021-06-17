@@ -1169,17 +1169,30 @@ func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
 		c := c
 
 		// First setup a service selecting a few services. This is needed to ensure we can load balance across many pods.
-		svc := fmt.Sprintf(`apiVersion: v1
+		svcName := "consistent-hash"
+		if nw := c.Config().Cluster.NetworkName(); nw != "" {
+			svcName += "-" + nw
+		}
+		svc := tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
 metadata:
-  name: consistent-hash
+  name: {{.Service}}
 spec:
   ports:
   - name: http
-    port: %d
-    targetPort: %d
+    port: {{.Port}}
+    targetPort: {{.TargetPort}}
   selector:
-    test.istio.io/class: standard`, FindPortByName("http").ServicePort, FindPortByName("http").InstancePort)
+    test.istio.io/class: standard
+    {{- if .Network }}
+    topology.istio.io/network: {{.Network}}
+	{{- end }}
+`, map[string]interface{}{
+			"Service":    svcName,
+			"Network":    c.Config().Cluster.NetworkName(),
+			"Port":       FindPortByName("http").ServicePort,
+			"TargetPort": FindPortByName("http").InstancePort,
+		})
 
 		destRule := `
 ---
@@ -1202,7 +1215,7 @@ spec:
 			call:   c.CallWithRetryOrFail,
 			opts: echo.CallOptions{
 				Count:   10,
-				Address: "consistent-hash",
+				Address: svcName,
 				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
 				Validator: echo.And(
 					echo.ExpectOK(),
@@ -1220,7 +1233,7 @@ spec:
 		headers.Add("x-some-header", "baz")
 		callOpts := echo.CallOptions{
 			Count:   10,
-			Address: "consistent-hash",
+			Address: svcName,
 			Path:    "/?some-query-param=bar",
 			Headers: headers,
 			Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
