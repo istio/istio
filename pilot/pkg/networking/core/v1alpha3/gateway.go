@@ -50,7 +50,7 @@ import (
 
 type mutableListenerOpts struct {
 	mutable *MutableListener
-	opts    buildListenerOpts
+	opts    *buildListenerOpts
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
@@ -119,7 +119,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
-		opts := buildListenerOpts{
+		opts := &buildListenerOpts{
 			push:       builder.push,
 			proxy:      builder.node,
 			bind:       bind,
@@ -129,6 +129,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		}
 
 		p := protocol.Parse(port.Protocol)
+		lname := opts.bind + "_" + strconv.Itoa(opts.port.Port)
 		newFilterChains := make([]istionetworking.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
@@ -160,7 +161,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 					// Check if we have already built a listener for this - this happens when there are multiple gateways
 					// one with SIMPLE TLS and another with PASSTHROUGH. In that case we should append the filter chains
 					// to the existing listener.
-					lname := opts.bind + "_" + strconv.Itoa(opts.port.Port)
 					mops, exists := mutableopts[lname]
 					if exists {
 						additionalFilterChainOpts := make([]*filterChainOpts, 0)
@@ -186,17 +186,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			opts.filterChainOpts = newFilterChainOpts
 		}
 
-		l := buildListener(opts, core.TrafficDirection_OUTBOUND)
-
-		mutable := &MutableListener{
-			MutableObjects: istionetworking.MutableObjects{
-				Listener: l,
-				// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
-				// this is for.
-				FilterChains: newFilterChains,
-			},
+		var mutable *MutableListener
+		if mopts, exists := mutableopts[lname]; !exists {
+			mutable = &MutableListener{
+				MutableObjects: istionetworking.MutableObjects{
+					// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
+					// this is for.
+					FilterChains: newFilterChains,
+				},
+			}
+			mutableopts[lname] = mutableListenerOpts{mutable: mutable, opts: opts}
+		} else {
+			mutable = mopts.mutable
 		}
-		mutableopts[mutable.Listener.Name] = mutableListenerOpts{mutable: mutable, opts: opts}
 
 		pluginParams := &plugin.InputParams{
 			Node:            builder.node,
@@ -211,8 +213,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	}
 	listeners := make([]*listener.Listener, 0)
 	for _, ml := range mutableopts {
+		ml.mutable.Listener = buildListener(*ml.opts, core.TrafficDirection_OUTBOUND)
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := ml.mutable.build(ml.opts); err != nil {
+		if err := ml.mutable.build(*ml.opts); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", ml.mutable.Listener.Name, err.Error()))
 			continue
 		}
