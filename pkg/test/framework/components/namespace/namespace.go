@@ -41,7 +41,7 @@ type Instance interface {
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
 func Claim(ctx resource.Context, nsConfig Config) (i Instance, err error) {
-	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revisions.Default())
 	return claimKube(ctx, &nsConfig)
 }
 
@@ -64,7 +64,7 @@ func New(ctx resource.Context, nsConfig Config) (i Instance, err error) {
 	if ctx.Settings().StableNamespaces {
 		return Claim(ctx, nsConfig)
 	}
-	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revisions.Default())
 	return newKube(ctx, &nsConfig)
 }
 

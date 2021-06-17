@@ -209,7 +209,7 @@ func TestAgent(t *testing.T) {
 		// Handle special edge case where we output certs to /etc/certs, which has magic implicit
 		// reading from file logic
 		dir := "./etc/certs"
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() {
@@ -496,7 +496,7 @@ func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
 }
 
 func copyCerts(t *testing.T, dir string) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/cert-chain.pem"), dir, "cert-chain.pem"); err != nil {

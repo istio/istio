@@ -343,7 +343,7 @@ messages:
     code: IST0131
     level: Info
     description: "A VirtualService rule match duplicates a match in a previous rule."
-    template: "VirtualService rule %v match %v is not used (duplicates a match in rule %v)."
+    template: "VirtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0131/"
     args:
       - name: ruleno

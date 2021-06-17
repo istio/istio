@@ -21,7 +21,7 @@ import (
 )
 
 func trustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {
-	if features.SkipValidateTrustDomain.Get() {
+	if features.SkipValidateTrustDomain {
 		return nil
 	}
 
