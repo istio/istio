@@ -137,7 +137,7 @@ func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string) (map[string][
 	return c.Results, nil
 }
 
-func (c MockClient) EnvoyDo(_ context.Context, podName, _, _, _ string, _ []byte) ([]byte, error) {
+func (c MockClient) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
 	results, ok := c.Results[podName]
 	if !ok {
 		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
