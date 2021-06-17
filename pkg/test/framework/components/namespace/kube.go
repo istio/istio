@@ -117,7 +117,7 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 			}
 		}
 	}
-	return &kubeNamespace{prefix: nsConfig.Prefix, name: nsConfig.Prefix}, nil
+	return &kubeNamespace{prefix: nsConfig.Prefix, name: nsConfig.Prefix, ctx: ctx}, nil
 }
 
 // setNamespaceLabel labels a namespace with the given key, value pair
