@@ -31,7 +31,6 @@ import (
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -225,11 +224,11 @@ func newController(
 	webhookInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				opts.FieldSelector = fields.OneTermEqualSelector("metadata.name", c.webhookName).String()
+				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
 				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				opts.FieldSelector = fields.OneTermEqualSelector("metadata.name", c.webhookName).String()
+				opts.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision)
 				return client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Watch(context.TODO(), opts)
 			},
 		},
