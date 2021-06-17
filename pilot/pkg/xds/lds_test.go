@@ -296,7 +296,11 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			adsc := s.Connect(&model.Proxy{ConfigNamespace: "consumerns", Metadata: &model.NodeMetadata{Labels: test.labels}, IPAddresses: []string{test.ip}}, nil, watchAll)
+			adsc := s.Connect(&model.Proxy{
+				ConfigNamespace: "consumerns",
+				Metadata:        &model.NodeMetadata{Labels: test.labels},
+				IPAddresses:     []string{test.ip},
+			}, nil, watchAll)
 
 			// Expect 1 HTTP listeners for 8081
 			if len(adsc.GetHTTPListeners()) != 1 {
