@@ -626,11 +626,36 @@ func HandleDNSUDP(
 		case DeleteOps:
 			ext.RunQuietlyAndIgnore(cmd, raw...)
 		}
+
+		table := constants.RAW
+		raw = []string{
+			"-t", table, opsStr, chain,
+			"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid,
+			"-j", constants.CT, "--zone", "1",
+		}
+		switch ops {
+		case AppendOps:
+			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
+		case DeleteOps:
+			ext.RunQuietlyAndIgnore(cmd, raw...)
+		}
 	}
 	for _, gid := range split(proxyGID) {
 		raw = []string{
 			"-t", table, opsStr, chain,
 			"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN,
+		}
+		switch ops {
+		case AppendOps:
+			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
+		case DeleteOps:
+			ext.RunQuietlyAndIgnore(cmd, raw...)
+		}
+		table := constants.RAW
+		raw = []string{
+			"-t", table, opsStr, chain,
+			"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid,
+			"-j", constants.CT, "--zone", "1",
 		}
 		switch ops {
 		case AppendOps:
@@ -667,6 +692,18 @@ func HandleDNSUDP(
 				"-t", table, opsStr, chain,
 				"-p", "udp", "--dport", "53", "-d", s + "/32",
 				"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort,
+			}
+			switch ops {
+			case AppendOps:
+				iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
+			case DeleteOps:
+				ext.RunQuietlyAndIgnore(cmd, raw...)
+			}
+			table := constants.RAW
+			raw = []string{
+				"-t", table, opsStr, chain,
+				"-p", "udp", "--dport", "53", "-d", s + "/32",
+				"-j", constants.CT, "--zone", "2",
 			}
 			switch ops {
 			case AppendOps:

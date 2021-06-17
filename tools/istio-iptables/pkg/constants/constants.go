@@ -20,6 +20,7 @@ import "time"
 const (
 	MANGLE = "mangle"
 	NAT    = "nat"
+	RAW    = "raw"
 	FILTER = "filter"
 )
 
@@ -51,6 +52,7 @@ const (
 	REJECT   = "REJECT"
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
+	CT       = "CT"
 )
 
 // iptables chains
