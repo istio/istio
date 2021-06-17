@@ -160,7 +160,13 @@ func TestLDSWithIngressGateway(t *testing.T) {
 			return &m
 		}(),
 	})
-	adsc := s.Connect(&model.Proxy{ConfigNamespace: "istio-system", IPAddresses: []string{"99.1.1.1"}, Type: model.Router}, nil, watchAll)
+	labels := labels.Instance{"istio": "ingressgateway"}
+	adsc := s.Connect(&model.Proxy{
+		ConfigNamespace: "istio-system",
+		Metadata:        &model.NodeMetadata{Labels: labels},
+		IPAddresses:     []string{"99.1.1.1"},
+		Type:            model.Router,
+	}, nil, watchAll)
 
 	// Expect 2 listeners : 1 for 80, 1 for 443
 	// where 443 listener has 3 filter chains
@@ -212,8 +218,13 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 			return &m
 		}(),
 	})
-	s.MemRegistry.AddWorkload("98.1.1.1", labels.Instance{"app": "consumeronly"}) // These labels must match the sidecars workload selector
-	adsc := s.Connect(&model.Proxy{ConfigNamespace: "consumerns", IPAddresses: []string{"98.1.1.1"}}, nil, watchAll)
+	labels := labels.Instance{"app": "consumeronly"}
+	s.MemRegistry.AddWorkload("98.1.1.1", labels) // These labels must match the sidecars workload selector
+	adsc := s.Connect(&model.Proxy{
+		ConfigNamespace: "consumerns",
+		Metadata:        &model.NodeMetadata{Labels: labels},
+		IPAddresses:     []string{"98.1.1.1"},
+	}, nil, watchAll)
 
 	// Expect 2 HTTP listeners for outbound 8081 and one virtualInbound which has the same inbound 9080
 	// as a filter chain. Since the adsclient code treats any listener with a HTTP connection manager filter in ANY
@@ -259,21 +270,25 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	tests := []struct {
 		name            string
 		ip              string
+		labels          labels.Instance
 		expectLuaFilter bool
 	}{
 		{
 			name:            "Add filter with matching labels to sidecar",
 			ip:              "98.1.1.1",
+			labels:          labels.Instance{"app": "envoyfilter-test-app", "some": "otherlabel"},
 			expectLuaFilter: true,
 		},
 		{
 			name:            "Ignore filter with not matching labels to sidecar",
 			ip:              "98.1.1.2",
+			labels:          labels.Instance{"app": "no-envoyfilter-test-app"},
 			expectLuaFilter: false,
 		},
 		{
 			name:            "Ignore filter with empty labels to sidecar",
 			ip:              "98.1.1.3",
+			labels:          labels.Instance{},
 			expectLuaFilter: false,
 		},
 	}
@@ -281,7 +296,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			adsc := s.Connect(&model.Proxy{ConfigNamespace: "consumerns", IPAddresses: []string{test.ip}}, nil, watchAll)
+			adsc := s.Connect(&model.Proxy{ConfigNamespace: "consumerns", Metadata: &model.NodeMetadata{Labels: test.labels}, IPAddresses: []string{test.ip}}, nil, watchAll)
 
 			// Expect 1 HTTP listeners for 8081
 			if len(adsc.GetHTTPListeners()) != 1 {
