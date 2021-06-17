@@ -1613,12 +1613,21 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 	}
 
 	sort.SliceStable(envoyFilterConfigs, func(i, j int) bool {
-		// If name is the same across namespaces, then behavior is nondeterministic. In this case,
-		// to ensure consistent ordering based on name, we also sort by creationTimestamp.
-		if envoyFilterConfigs[i].Name != envoyFilterConfigs[j].Name {
-			return envoyFilterConfigs[i].Name < envoyFilterConfigs[j].Name
+		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
+		jfilter := envoyFilterConfigs[j].Spec.(*networking.EnvoyFilter)
+		// If prirority is same fallback to name and creation timestamp, else use prirority.
+		if ifilter.Priority == jfilter.Priority {
+			// If creation time is the same, then behavior is nondeterministic. In this case, we can
+			// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+			// CreationTimestamp is stored in seconds, so this is not uncommon.
+			if envoyFilterConfigs[i].CreationTimestamp == envoyFilterConfigs[j].CreationTimestamp {
+				in := envoyFilterConfigs[i].Name + "." + envoyFilterConfigs[i].Namespace
+				jn := envoyFilterConfigs[j].Name + "." + envoyFilterConfigs[j].Namespace
+				return in < jn
+			}
+			return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
 		}
-		return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
+		return ifilter.Priority < jfilter.Priority
 	})
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
