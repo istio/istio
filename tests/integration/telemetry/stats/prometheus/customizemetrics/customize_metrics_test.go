@@ -182,7 +182,7 @@ values:
                response_code: istio_responseClass
                request_operation: istio_operationId
                grpc_response_status: istio_grpcResponseStatus
-               custom_dimension: 'test'
+               custom_dimension: "'test'"
              tags_to_remove:
              - %s
 `
