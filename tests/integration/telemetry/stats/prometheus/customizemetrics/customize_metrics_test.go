@@ -105,13 +105,6 @@ func TestMain(m *testing.M) {
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	appNsInst, err = namespace.New(ctx, namespace.Config{
-		Prefix: "echo",
-		Inject: true,
-	})
-	if err != nil {
-		return
-	}
 	enableBootstrapDiscovery := `
 proxyMetadata:
   BOOTSTRAP_XDS_AGENT: "true"`
@@ -197,6 +190,14 @@ values:
 }
 
 func setupEnvoyFilter(ctx resource.Context) error {
+	var nsErr error
+	appNsInst, nsErr = namespace.New(ctx, namespace.Config{
+		Prefix: "echo",
+		Inject: true,
+	})
+	if nsErr != nil {
+		return nsErr
+	}
 	proxyDepFile := path.Join(env.IstioSrc, "istio.deps")
 	depJSON, err := ioutil.ReadFile(proxyDepFile)
 	if err != nil {
