@@ -1022,7 +1022,8 @@ func getPodsNameInDefaultNamespace(toComplete string) ([]string, error) {
 	}
 
 	ctx := context.Background()
-	podList, err := kubeClient.CoreV1().Pods(defaultNamespace).List(ctx, metav1.ListOptions{})
+	ns := handlers.HandleNamespace(namespace, defaultNamespace)
+	podList, err := kubeClient.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
