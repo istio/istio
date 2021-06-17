@@ -19,13 +19,12 @@ import (
 	"strconv"
 	"strings"
 
-	envoy_extensions_transport_sockets_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoyauth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -166,20 +165,20 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 
 		// Assumes 'default' name, and credentials/tls/certprovider/pemfile
 
-		tlsC := &envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{
-			CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
-				TlsCertificateCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
+		tlsC := &envoyauth.UpstreamTlsContext{
+			CommonTlsContext: &envoyauth.CommonTlsContext{
+				TlsCertificateCertificateProviderInstance: &envoyauth.CommonTlsContext_CertificateProviderInstance{
 					InstanceName:    "default",
 					CertificateName: "default",
 				},
 
-				ValidationContextType: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
-						ValidationContextCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
+				ValidationContextType: &envoyauth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &envoyauth.CommonTlsContext_CombinedCertificateValidationContext{
+						ValidationContextCertificateProviderInstance: &envoyauth.CommonTlsContext_CertificateProviderInstance{
 							InstanceName:    "default",
 							CertificateName: "ROOTCA",
 						},
-						DefaultValidationContext: &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{
+						DefaultValidationContext: &envoyauth.CertificateValidationContext{
 							MatchSubjectAltNames: util.StringToExactMatch(sans),
 						},
 					},

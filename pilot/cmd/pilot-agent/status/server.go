@@ -33,8 +33,6 @@ import (
 	"syscall"
 	"time"
 
-	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
-
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -45,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"

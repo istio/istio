@@ -22,11 +22,9 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"gopkg.in/yaml.v3"
 
 	"istio.io/istio/pkg/kube/inject"
-
-	"gopkg.in/yaml.v2"
-
 	"istio.io/istio/pkg/test/env"
 )
 

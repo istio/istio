@@ -30,11 +30,8 @@ import (
 	"syscall"
 	"time"
 
-	"istio.io/istio/pkg/istio-agent/grpcxds"
-
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 
@@ -48,6 +45,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
