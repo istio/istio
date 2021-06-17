@@ -8,24 +8,24 @@ communicate with `istiod`.
 
 1. Choose a template:
 
-```bash
-TEMPLATE=<grpc-simple|grpc-agent>
-```
+    ```bash
+    TEMPLATE=<grpc-simple|grpc-agent>
+    ```
 
-2. Install the template:
+1. Install the template:
 
-```bash
-# get the orignal template; remove resource version to make it easy to restore the orignal
-kubectl -n istio-system get cm istio-sidecar-injector -oyaml | grep -v resourceVersion > original-injector-cm.yaml
-# patch the ConfigMap with the new template
-sed "/templates:/ r samples/proxyless-grpc/$TEMPLATE.yaml" original-injector-cm.yaml > custom-injector-cm.yaml
-# apply it to the cluster
-kubectl apply -f custom-injector-cm.yaml
-```
+    ```bash
+    # get the orignal template; remove resource version to make it easy to restore the orignal
+    kubectl -n istio-system get cm istio-sidecar-injector -oyaml | grep -v resourceVersion > original-injector-cm.yaml
+    # patch the ConfigMap with the new template
+    sed "/templates:/ r samples/proxyless-grpc/$TEMPLATE.yaml" original-injector-cm.yaml > custom-injector-cm.yaml
+    # apply it to the cluster
+    kubectl apply -f custom-injector-cm.yaml
+    ```
 
-2. Use the template in a deployment:
+1. Use the template in a deployment:
 
-Create/modify any Deployment/Pod so that it has the `inject.istio.io` annotation with the relevant template name.
+   Create/modify any Deployment/Pod so that it has the `inject.istio.io` annotation with the relevant template name.
 
 ### grpc-simple
 
@@ -42,5 +42,6 @@ for the following:
 * Acting as an XDS proxy to `istiod`
 
 This template does *not*:
+
 * Run `istio-iptables` init container
 * Run Envoy via the agent.
