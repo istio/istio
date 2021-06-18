@@ -64,6 +64,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
 	errs := istiomultierror.New()
+	// Mutable objects keyed by listener name so that we can build listeners at the end.
 	mutableopts := make(map[string]mutableListenerOpts)
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	for port, ms := range mergedGateway.MergedServers {
@@ -127,7 +128,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			bindToPort: true,
 			class:      ListenerClassGateway,
 		}
-
 		p := protocol.Parse(port.Protocol)
 		lname := opts.bind + "_" + strconv.Itoa(opts.port.Port)
 		newFilterChains := make([]istionetworking.FilterChain, 0)
@@ -158,28 +158,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 					})
 				} else {
 					// This is the case of TCP or PASSTHROUGH.
-					// Check if we have already built a listener for this - this happens when there are multiple gateways
-					// one with SIMPLE TLS and another with PASSTHROUGH. In that case we should append the filter chains
-					// to the existing listener.
-					mops, exists := mutableopts[lname]
-					if exists {
-						additionalFilterChainOpts := make([]*filterChainOpts, 0)
-						additionalFilterChains := make([]istionetworking.FilterChain, 0)
-						tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
-							server, mergedGateway.GatewayNameForServer[server])
-						additionalFilterChainOpts = append(additionalFilterChainOpts, tcpChainOpts...)
-						for i := 0; i < len(tcpChainOpts); i++ {
-							additionalFilterChains = append(additionalFilterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolTCP})
-						}
-						mops.opts.filterChainOpts = append(mops.opts.filterChainOpts, additionalFilterChainOpts...)
-						mops.mutable.MutableObjects.FilterChains = append(mops.mutable.MutableObjects.FilterChains, additionalFilterChains...)
-					} else {
-						tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
-							server, mergedGateway.GatewayNameForServer[server])
-						newFilterChainOpts = append(newFilterChainOpts, tcpChainOpts...)
-						for i := 0; i < len(tcpChainOpts); i++ {
-							newFilterChains = append(newFilterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolTCP})
-						}
+					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
+						server, mergedGateway.GatewayNameForServer[server])
+					newFilterChainOpts = append(newFilterChainOpts, tcpChainOpts...)
+					for i := 0; i < len(tcpChainOpts); i++ {
+						newFilterChains = append(newFilterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolTCP})
 					}
 				}
 			}
@@ -197,6 +180,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 			mutableopts[lname] = mutableListenerOpts{mutable: mutable, opts: opts}
 		} else {
+			mopts.opts.filterChainOpts = append(mopts.opts.filterChainOpts, opts.filterChainOpts...)
+			mopts.mutable.MutableObjects.FilterChains = append(mopts.mutable.MutableObjects.FilterChains, newFilterChains...)
 			mutable = mopts.mutable
 		}
 
