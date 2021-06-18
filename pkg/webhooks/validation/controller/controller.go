@@ -444,7 +444,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(webhookName string, ca
 }
 
 func (o *Options) validatingWebhookName() string {
-	name := "istio"
+	name := "istio-validator"
 	if o.Revision != "default" {
 		name = fmt.Sprintf("%s-%s", name, o.Revision)
 	}

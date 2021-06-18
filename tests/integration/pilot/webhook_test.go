@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var vwcName = "istio"
+var vwcName = "istio-validator"
 
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
