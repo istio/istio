@@ -230,7 +230,7 @@ spec:
   controller: istio.io/ingress-controller`, apiVersion)
 
 			ingressConfigTemplate := `
-apiVersion: networking.k8s.io/v1beta
+apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: %s
@@ -370,7 +370,24 @@ spec:
 				host, _ := apps.Ingress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
-					ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+					if apiVersion == apiVersion {
+						ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+						if len(ing.Status.LoadBalancer.Ingress) < 1 {
+							return fmt.Errorf("unexpected ingress status, ingress is empty")
+						}
+						got := ing.Status.LoadBalancer.Ingress[0].Hostname
+						if hostIsIP {
+							got = ing.Status.LoadBalancer.Ingress[0].IP
+						}
+						if got != host {
+							return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
+						}
+						return nil
+					}
+					ing, err := t.Clusters().Default().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
