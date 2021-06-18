@@ -340,7 +340,7 @@ func TestRequestAuthentication(t *testing.T) {
 							t.NewSubTest(fmt.Sprintf("%s-from-cluster-%s-to-cluster-%s",
 								c.Name, src.Config().Cluster.StableName(), dest[0].Config().Cluster.StableName())).Run(
 								func(t framework.TestContext) {
-									if c.Config == "authn-only" {
+									if c.Config == "authn-only" || c.Config == "remote" || c.Config == "authn-authz" {
 										for _, c := range t.Clusters() {
 											checkPolicy := fmt.Sprintf("kubectl -n %s get RequestAuthentication request-authn -oyaml",
 												dest[0].Config().Namespace.Name())
@@ -355,7 +355,7 @@ func TestRequestAuthentication(t *testing.T) {
 										}
 									}
 									c.CallOpts.Target = dest[0]
-									c.DestClusters = dest.Match(echo.InCluster(src.Config().Cluster)).Clusters()
+									c.DestClusters = dest.Clusters()
 									c.CallOpts.Validator = echo.And(echo.ValidatorFunc(c.CheckAuthn))
 									src.CallWithRetryOrFail(t, c.CallOpts, echo.DefaultCallRetryOptions()...)
 								})
