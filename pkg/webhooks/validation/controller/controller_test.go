@@ -164,7 +164,7 @@ const (
 	revision  = "revision"
 )
 
-var webhookName = fmt.Sprintf("%s-%s", istiod, namespace)
+var webhookName = fmt.Sprintf("istio-validator-revision-%s", namespace)
 
 func createTestController(t *testing.T) *fakeController {
 	fakeClient := kube.NewFakeClient()
