@@ -35,6 +35,8 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
+		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer
+		RequireMaxVersion(21).
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			// TODO: due to issue https://github.com/istio/istio/issues/25286,

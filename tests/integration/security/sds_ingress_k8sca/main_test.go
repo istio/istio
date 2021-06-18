@@ -35,6 +35,8 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
+		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer
+		RequireMaxVersion(21).
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
 			// Skip VM as eastwest gateway is disabled.
