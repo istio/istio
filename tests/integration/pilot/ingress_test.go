@@ -206,16 +206,21 @@ func TestIngress(t *testing.T) {
 				ingressutil.DeleteKubeSecret(t, []string{credName2})
 			})
 
-			ingressClassConfig := `
-apiVersion: networking.k8s.io/v1beta1
+			apiVersion := "v1beta1"
+			if t.Clusters().Default().MinKubeVersion(19) {
+				apiVersion = "v1"
+			}
+
+			ingressClassConfig := fmt.Sprintf(`
+apiVersion: networking.k8s.io/%s
 kind: IngressClass
 metadata:
   name: istio-test
 spec:
-  controller: istio.io/ingress-controller`
+  controller: istio.io/ingress-controller`, apiVersion)
 
 			ingressConfigTemplate := `
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1beta
 kind: Ingress
 metadata:
   name: %s
@@ -237,6 +242,38 @@ spec:
             backend:
               serviceName: b
               servicePort: 80`
+			if apiVersion == "v1" {
+				ingressConfigTemplate = `
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: %s
+spec:
+  ingressClassName: %s
+  tls:
+  - hosts: ["foo.example.com"]
+    secretName: k8s-ingress-secret-foo
+  - hosts: ["bar.example.com"]
+    secretName: k8s-ingress-secret-bar
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: b
+            port:
+              name: http
+        path: %s/namedport
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: b
+            port:
+              number: 80
+        path: %s
+        pathType: ImplementationSpecific
+`
+			}
 
 			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
 				fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
