@@ -1215,8 +1215,6 @@ spec:
 					}),
 				),
 			},
-			// TODO fix for multicluster single-network
-			skip: len(apps.PodA) > 1,
 		})
 		headers := http.Header{}
 		headers.Add("x-some-header", "baz")
@@ -1239,22 +1237,16 @@ spec:
 			config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 			call:   c.CallWithRetryOrFail,
 			opts:   callOpts,
-			// TODO fix for multicluster single-network
-			skip: len(apps.PodA) > 1,
 		}, TrafficTestCase{
 			name:   "query param",
 			config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
 			call:   c.CallWithRetryOrFail,
 			opts:   callOpts,
-			// TODO fix for multicluster single-network
-			skip: len(apps.PodA) > 1,
 		}, TrafficTestCase{
 			name:   "http header",
 			config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
 			call:   c.CallWithRetryOrFail,
 			opts:   callOpts,
-			// TODO fix for multicluster single-network
-			skip: len(apps.PodA) > 1,
 		})
 	}
 
