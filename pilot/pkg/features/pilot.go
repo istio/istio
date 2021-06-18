@@ -222,11 +222,17 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
-	EnableMCSServiceExport = env.RegisterBoolVar(
-		"PILOT_ENABLE_MCS_SERVICEEXPORT",
+	EnableMCSAutoExport = env.RegisterBoolVar(
+		"ENABLE_MCS_AUTOEXPORT",
 		false,
-		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
+		"If enabled, istiod will automatically generate MCS ServiceExport objects for each "+
+			"service in each cluster. Services defined to be cluster-local in MeshConfig are excluded.",
 	).Get()
+
+	EnableMCSServiceDiscovery = env.RegisterBoolVar("ENABLE_MCS_SERVICE_DISCOVERY", false,
+		"If enabled, istiod will enable Kubernetes MCS service discovery mode. In this mode, service endpoints "+
+			"in a cluster will only discoverable within the same cluster unless explicitly exported "+
+			"(via the ServiceExport CR).").Get()
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",

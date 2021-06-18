@@ -442,6 +442,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			if len(metaServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(metaServices))
 			}
+			// Remove the discoverability function so that it's ignored by DeepEqual.
+			clearDiscoverabilityPolicy(metaServices[0].Endpoint)
 			if !reflect.DeepEqual(expected, metaServices[0]) {
 				t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
 			}
@@ -512,6 +514,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			if len(podServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
+			clearDiscoverabilityPolicy(podServices[0].Endpoint)
 			if !reflect.DeepEqual(expected, podServices[0]) {
 				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
 			}
@@ -577,6 +580,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			if len(podServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
+			clearDiscoverabilityPolicy(podServices[0].Endpoint)
 			if !reflect.DeepEqual(expected, podServices[0]) {
 				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
 			}
@@ -1815,8 +1819,9 @@ func TestEndpointUpdate(t *testing.T) {
 			if ev == nil {
 				t.Fatalf("Timeout xds push")
 			}
-			if ev.ID != string(kube.ServiceHostname("svc1", "nsa", controller.domainSuffix)) {
-				t.Errorf("Expect service %s updated, but got %s", kube.ServiceHostname("svc1", "nsa", controller.domainSuffix), ev.ID)
+			if ev.ID != string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix)) {
+				t.Errorf("Expect service %s updated, but got %s",
+					kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix), ev.ID)
 			}
 		})
 	}
@@ -2100,5 +2105,11 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func clearDiscoverabilityPolicy(ep *model.IstioEndpoint) {
+	if ep != nil {
+		ep.DiscoverabilityPolicy = nil
 	}
 }
