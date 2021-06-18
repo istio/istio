@@ -296,7 +296,7 @@ func checkPreconditions(params InjectionParameters) {
 	}
 }
 
-func getInjectionStatus(podSpec corev1.PodSpec) string {
+func getInjectionStatus(podSpec corev1.PodSpec, revision string) string {
 	stat := &SidecarInjectionStatus{}
 	for _, c := range podSpec.InitContainers {
 		stat.InitContainers = append(stat.InitContainers, c.Name)
@@ -310,6 +310,10 @@ func getInjectionStatus(podSpec corev1.PodSpec) string {
 	for _, c := range podSpec.ImagePullSecrets {
 		stat.ImagePullSecrets = append(stat.ImagePullSecrets, c.Name)
 	}
+	if revision == "" {
+		revision = "default"
+	}
+	stat.Revision = revision
 	statusAnnotationValue, err := json.Marshal(stat)
 	if err != nil {
 		return "{}"
@@ -545,7 +549,7 @@ func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionPar
 		pod.Labels[label.TopologyNetwork.Name] = nw
 	}
 	// Add all additional injected annotations. These are overridden if needed
-	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
+	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec, req.revision)
 
 	// Deprecated; should be set directly in the template instead
 	for k, v := range req.injectedAnnotations {

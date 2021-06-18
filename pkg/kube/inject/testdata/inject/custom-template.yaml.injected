@@ -16,7 +16,7 @@ spec:
         prometheus.istio.io/merge-metrics: "false"
         proxy.istio.io/overrides: '{"containers":[{"name":"hello","image":"fake.docker.io/google-samples/hello-go-gke:1.0","resources":{},"readinessProbe":{"httpGet":{"port":80}}}]}'
         sidecar.istio.io/rewriteAppHTTPProbers: "false"
-        sidecar.istio.io/status: '{"initContainers":null,"containers":["hello"],"volumes":["some-injected-file"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"initContainers":null,"containers":["hello"],"volumes":["some-injected-file"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
