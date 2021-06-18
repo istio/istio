@@ -819,6 +819,19 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 	node.ServiceInstances = instances
 }
 
+// SetWorkloadLabels will set the node.Metadata.Labels only when it is nil.
+func (node *Proxy) SetWorkloadLabels(env *Environment) {
+	// First get the workload labels from node meta
+	if len(node.Metadata.Labels) > 0 {
+		return
+	}
+	// Fallback to calling GetProxyWorkloadLabels
+	l := env.GetProxyWorkloadLabels(node)
+	if len(l) > 0 {
+		node.Metadata.Labels = l[0]
+	}
+}
+
 // DiscoverIPVersions discovers the IP Versions supported by Proxy based on its IP addresses.
 func (node *Proxy) DiscoverIPVersions() {
 	for i := 0; i < len(node.IPAddresses); i++ {
