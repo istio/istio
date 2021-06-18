@@ -107,7 +107,7 @@ proxyStatsMatcher:
 			expect: func() meshconfig.ProxyConfig {
 				m := mesh.DefaultProxyConfig()
 				m.DiscoveryAddress = "annotation:123"
-				m.ProxyMetadata = map[string]string{"ANNOTATION": "something"}
+				m.ProxyMetadata = map[string]string{"ANNOTATION": "something", "SOME": "setting"}
 				m.DrainDuration = types.DurationProto(5 * time.Second)
 				m.ExtraStatTags = []string{"b"}
 				m.ProxyStatsMatcher = &meshconfig.ProxyConfig_ProxyStatsMatcher{}
