@@ -5768,7 +5768,6 @@ rules:
     resources:
       - "signers"
     resourceNames:
-    - "kubernetes.io/legacy-unknown"
     verbs: ["approve"]
 
   # Used by Istiod to verify the JWT tokens
