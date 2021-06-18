@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -214,4 +215,11 @@ func convertToService(obj interface{}) (*v1.Service, error) {
 		}
 	}
 	return cm, nil
+}
+
+func namespacedNameForService(svc *model.Service) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: svc.Attributes.Namespace,
+		Name:      svc.Attributes.Name,
+	}
 }

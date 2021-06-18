@@ -412,6 +412,32 @@ type IstioEndpoint struct {
 	// If this endpoint sidecar proxy does not support h2 tunnel, this endpoint will not show up in the EDS clusters
 	// which are generated for h2 tunnel.
 	TunnelAbility networking.TunnelAbility
+
+	// Determines the discoverability of this endpoint throughout the mesh.
+	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
+}
+
+// IsDiscoverableFromProxy indicates whether or not this endpoint is discoverable from the given Proxy.
+func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
+	if ep == nil || ep.DiscoverabilityPolicy == nil {
+		// If no policy was assigned, default to discoverable mesh-wide.
+		return true
+	}
+	return ep.DiscoverabilityPolicy(ep, p)
+}
+
+// EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
+type EndpointDiscoverabilityPolicy func(*IstioEndpoint, *Proxy) bool
+
+// AlwaysDiscoverable is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
+var AlwaysDiscoverable = func(*IstioEndpoint, *Proxy) bool {
+	return true
+}
+
+// DiscoverableFromSameCluster is an EndpointDiscoverabilityPolicy that only allows an endpoint to be discoverable
+// from proxies within the same cluster.
+var DiscoverableFromSameCluster = func(ep *IstioEndpoint, p *Proxy) bool {
+	return ep.Locality.ClusterID == p.Metadata.ClusterID
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.

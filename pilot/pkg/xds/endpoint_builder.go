@@ -71,6 +71,7 @@ type EndpointBuilder struct {
 	hostname   host.Name
 	port       int
 	push       *model.PushContext
+	proxy      *model.Proxy
 
 	mtlsChecker *mtlsChecker
 }
@@ -90,6 +91,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
 		push:       push,
+		proxy:      proxy,
 		subsetName: subsetName,
 		hostname:   hostname,
 		port:       port,
@@ -281,8 +283,11 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 		if isClusterLocal && (clusterID != b.clusterID) {
 			continue
 		}
-
 		for _, ep := range endpoints {
+			// TODO(nmittler): Consider merging discoverability policy with cluster-local
+			if !ep.IsDiscoverableFromProxy(b.proxy) {
+				continue
+			}
 			if svcPort.Name != ep.ServicePortName {
 				continue
 			}
