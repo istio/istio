@@ -370,7 +370,7 @@ spec:
 				host, _ := apps.Ingress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
-					if apiVersion == apiVersion {
+					if apiVersion == "v1beta1" {
 						ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 						if err != nil {
 							return err
