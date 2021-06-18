@@ -1194,19 +1194,19 @@ spec:
 			"TargetPort": FindPortByName("http").InstancePort,
 		})
 
-		destRule := `
+		destRule := fmt.Sprintf(`
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: consistent-hash
+  name: %s
 spec:
-  host: consistent-hash
+  host: %s
   trafficPolicy:
     loadBalancer:
       consistentHash:
         {{. | indent 8}}
-`
+`, svcName, svcName)
 		// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 		// and could be broken by having only 1 pod so its good to have this check in place
 		cases = append(cases, TrafficTestCase{
