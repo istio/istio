@@ -201,12 +201,12 @@ func TestIngress(t *testing.T) {
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(t, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false)
+			ingressutil.CreateIngressKubeSecret(t, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false, t.Clusters().Kube()...)
 			t.ConditionalCleanup(func() {
 				ingressutil.DeleteKubeSecret(t, []string{credName})
 			})
 			credName2 := "k8s-ingress-secret-bar"
-			ingressutil.CreateIngressKubeSecret(t, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false)
+			ingressutil.CreateIngressKubeSecret(t, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false, t.Clusters().Kube()...)
 			t.ConditionalCleanup(func() {
 				ingressutil.DeleteKubeSecret(t, []string{credName2})
 			})

@@ -114,7 +114,7 @@ func IngressKubeSecretYAML(name, namespace string, ingressType CallType, ingress
 // and creates K8s secrets for ingress gateway.
 // nolint: interfacer
 func CreateIngressKubeSecret(t framework.TestContext, credNames []string,
-	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool) {
+	ingressType CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool, clusters ...cluster.Cluster) {
 	t.Helper()
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
@@ -126,7 +126,10 @@ func CreateIngressKubeSecret(t framework.TestContext, credNames []string,
 	}
 	// Create Kubernetes secret for ingress gateway
 	wg := multierror.Group{}
-	for _, cluster := range t.Clusters().Kube() {
+	if len(clusters) == 0 {
+		clusters = cluster.Clusters{t.Clusters().Default()}
+	}
+	for _, cluster := range clusters {
 		cluster := cluster
 		wg.Go(func() error {
 			for _, cn := range credNames {
