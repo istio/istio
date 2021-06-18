@@ -31,7 +31,6 @@ spec:
       labels:
         app: foo
         version: bar
-        test.istio.io/class: standard
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"

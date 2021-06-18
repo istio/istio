@@ -34,7 +34,6 @@ spec:
       labels:
         app: multiversion
         version: v-istio
-        test.istio.io/class: standard
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -118,7 +117,6 @@ spec:
       labels:
         app: multiversion
         version: v-legacy
-        test.istio.io/class: standard
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
