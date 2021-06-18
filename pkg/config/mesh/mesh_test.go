@@ -52,6 +52,48 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatalf("expected drainDuration: 5s, got %q", mc.DefaultConfig.DrainDuration.Seconds)
 		}
 	})
+
+	t.Run("apply proxy metadata", func(t *testing.T) {
+		config := mesh.DefaultMeshConfig()
+		config.DefaultConfig.ProxyMetadata = map[string]string{
+			"merged":  "original",
+			"default": "foo",
+		}
+		mc, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Ensure we didn't modify the passed in mesh config
+		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
+
+			"merged":   "override",
+			"default":  "foo",
+			"override": "bar",
+		}) {
+			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
+		}
+	})
+	t.Run("apply proxy metadata to mesh config", func(t *testing.T) {
+		config := mesh.DefaultMeshConfig()
+		config.DefaultConfig.ProxyMetadata = map[string]string{
+			"merged":  "original",
+			"default": "foo",
+		}
+		mc, err := mesh.ApplyMeshConfig(`defaultConfig:
+  proxyMetadata: {"merged":"override","override":"bar"}`, config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Ensure we didn't modify the passed in mesh config
+		if !reflect.DeepEqual(mc.DefaultConfig.ProxyMetadata, map[string]string{
+
+			"merged":   "override",
+			"default":  "foo",
+			"override": "bar",
+		}) {
+			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
+		}
+	})
 }
 
 func TestDefaultProxyConfig(t *testing.T) {
