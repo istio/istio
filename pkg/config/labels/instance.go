@@ -56,6 +56,14 @@ type Instance map[string]string
 
 // SubsetOf is true if the label has identical values for the keys
 func (i Instance) SubsetOf(that Instance) bool {
+	if len(i) == 0 {
+		return true
+	}
+
+	if len(that) == 0 || len(that) < len(i) {
+		return false
+	}
+
 	for k, v := range i {
 		if that[k] != v {
 			return false

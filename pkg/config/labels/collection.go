@@ -18,7 +18,7 @@ package labels
 // collection of labels
 type Collection []Instance
 
-// HasSubsetOf returns true if the input labels are a super set of one labels in a
+// HasSubsetOf returns true if the input labels are a superset of one labels in a
 // collection or if the tag collection is empty
 func (c Collection) HasSubsetOf(that Instance) bool {
 	if len(c) == 0 {
@@ -36,7 +36,7 @@ func (c Collection) HasSubsetOf(that Instance) bool {
 	return false
 }
 
-// IsSupersetOf returns true if the input labels are a subset set of any set of labels in a
+// IsSupersetOf returns true if the input labels are a subset of any set of labels in a
 // collection
 func (c Collection) IsSupersetOf(that Instance) bool {
 	if len(c) == 0 {
