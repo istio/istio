@@ -5767,7 +5767,6 @@ rules:
   - apiGroups: ["certificates.k8s.io"]
     resources:
       - "signers"
-    resourceNames:
     verbs: ["approve"]
 
   # Used by Istiod to verify the JWT tokens
