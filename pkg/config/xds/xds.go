@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 
+	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -58,6 +59,8 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 		obj = &route.Route{}
 	case networking.EnvoyFilter_EXTENSION_CONFIG:
 		obj = &core.TypedExtensionConfig{}
+	case networking.EnvoyFilter_BOOTSTRAP:
+		obj = &bootstrapv3.Bootstrap{}
 	default:
 		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: golint,stylecheck
 	}
