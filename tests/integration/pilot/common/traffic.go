@@ -243,6 +243,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
 	cases["use-client-protocol"] = useClientProtocolCases(apps)
+	cases["destinationrule"] = destinationRuleCases(apps)
 	if !t.Settings().SkipVM {
 		cases["vm"] = VMTestCases(apps.VM, apps)
 	}
