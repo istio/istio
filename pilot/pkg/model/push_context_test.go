@@ -263,7 +263,47 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 	envoyFilters := []config.Config{
 		{
+			Meta: config.Meta{Name: "default-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
 			Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
 			Spec: &networking.EnvoyFilter{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 					{
@@ -347,10 +387,12 @@ func TestEnvoyFilterOrder(t *testing.T) {
 		},
 	}
 
-	expected := []string{
+	expectedns := []string{
 		"testns/high-priority", "testns/default-priority", "testns/a-medium-priority",
 		"testns/b-medium-priority", "testns/b-low-priority", "testns/a-low-priority",
 	}
+
+	expectedns1 := []string{"testns-1/default-priority", "testns-1/a-medium-priority", "testns-1/b-medium-priority"}
 
 	for _, config := range envoyFilters {
 		store.Create(config)
@@ -365,12 +407,19 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	if err := pc.initEnvoyFilters(env); err != nil {
 		t.Fatal(err)
 	}
-	got := make([]string, 0)
+	gotns := make([]string, 0)
 	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
-		got = append(got, filter.Key())
+		gotns = append(gotns, filter.Key())
 	}
-	if !reflect.DeepEqual(expected, got) {
-		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expected, got)
+	gotns1 := make([]string, 0)
+	for _, filter := range pc.envoyFiltersByNamespace["testns-1"] {
+		gotns1 = append(gotns1, filter.Key())
+	}
+	if !reflect.DeepEqual(expectedns, gotns) {
+		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns, gotns)
+	}
+	if !reflect.DeepEqual(expectedns1, gotns1) {
+		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns1, gotns1)
 	}
 }
 
