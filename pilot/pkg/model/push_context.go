@@ -1622,12 +1622,12 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if envoyFilterConfigs[i].CreationTimestamp == envoyFilterConfigs[j].CreationTimestamp {
-			in := envoyFilterConfigs[i].Name + "." + envoyFilterConfigs[i].Namespace
-			jn := envoyFilterConfigs[j].Name + "." + envoyFilterConfigs[j].Namespace
-			return in < jn
+		if envoyFilterConfigs[i].CreationTimestamp != envoyFilterConfigs[j].CreationTimestamp {
+			return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
 		}
-		return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
+		in := envoyFilterConfigs[i].Name + "." + envoyFilterConfigs[i].Namespace
+		jn := envoyFilterConfigs[j].Name + "." + envoyFilterConfigs[j].Namespace
+		return in < jn
 	})
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
