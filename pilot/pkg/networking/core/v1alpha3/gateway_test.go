@@ -45,7 +45,6 @@ import (
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
-	// TODO(ramaraochavali): Add more test cases.
 	testCases := []struct {
 		name   string
 		server *networking.Server
@@ -1605,8 +1604,13 @@ func TestBuildGatewayListeners(t *testing.T) {
 								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
 							},
 							{
+								Port:  &networking.Port{Name: "tcp", Number: 9443, Protocol: "TLS"},
+								Hosts: []string{"barone.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_PASSTHROUGH},
+							},
+							{
 								Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
-								Hosts: []string{"foo.example.com"},
+								Hosts: []string{"bar.example.com"},
 							},
 						},
 					},
@@ -1616,13 +1620,14 @@ func TestBuildGatewayListeners(t *testing.T) {
 				{
 					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
 					Spec: &networking.VirtualService{
-						Gateways: []string{"passthrough-gateway/testns"},
+						Gateways: []string{"testns/passthrough-gateway"},
+						Hosts:    []string{"barone.example.com"},
 						Tls: []*networking.TLSRoute{
 							{
 								Match: []*networking.TLSMatchAttributes{
 									{
-										Port:     443,
-										SniHosts: []string{"foo.example.com"},
+										Port:     9443,
+										SniHosts: []string{"barone.example.com"},
 									},
 								},
 								Route: []*networking.RouteDestination{
@@ -1637,7 +1642,117 @@ func TestBuildGatewayListeners(t *testing.T) {
 					},
 				},
 			},
+			[]string{"0.0.0.0_443", "0.0.0.0_80", "0.0.0.0_9443"},
+		},
+		{
+			"gateway with multiple http servers",
+			&pilot_model.Proxy{},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "gateway1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "http", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+							{
+								Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+								Hosts: []string{"foo.example.com"},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gateway2", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "http", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*.exampleone.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+							{
+								Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+								Hosts: []string{"bar.example.com"},
+							},
+						},
+					},
+				},
+			},
+			nil,
 			[]string{"0.0.0.0_443", "0.0.0.0_80"},
+		},
+		{
+			"gateway with multiple TLS HTTPS TCP servers",
+			&pilot_model.Proxy{},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "gateway1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"*.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"https.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 9443, Protocol: "TCP"},
+								Hosts: []string{"tcp.example.com"},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gateway2", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "http", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*.exampleone.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 443, Protocol: "TLS"},
+								Hosts: []string{"*.exampleone.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway1"},
+						Hosts:    []string{"tcp.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{
+									{
+										Port: 9443,
+									},
+								},
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "foo.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			[]string{"0.0.0.0_443", "0.0.0.0_9443"},
 		},
 	}
 
