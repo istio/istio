@@ -379,7 +379,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	if !req.Full {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
-	resources := make(model.Resources, 0)
+	var resources model.Resources
 	empty := 0
 
 	cached := 0
