@@ -69,7 +69,7 @@ func newSidecar(pod kubeCore.Pod, cluster cluster.Cluster) (*sidecar, error) {
 				return true, nil
 			}
 		}
-		return false, errors.New("envoy BootstrapPath not found in config dump")
+		return false, errors.New("envoy Bootstrap not found in config dump")
 	}); err != nil {
 		return nil, err
 	}

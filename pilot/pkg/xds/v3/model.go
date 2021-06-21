@@ -36,7 +36,7 @@ const (
 	ProxyConfigType = apiTypePrefix + "istio.mesh.v1alpha1.ProxyConfig"
 	// DebugType requests debug info from istio, a secured implementation for istio debug interface.
 	DebugType     = "istio.io/debug"
-	BootstrapType = apiTypePrefix + "envoy.config.bootstrap.v3.BootstrapPath"
+	BootstrapType = apiTypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"

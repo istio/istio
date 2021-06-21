@@ -174,7 +174,7 @@ func TestAgent(t *testing.T) {
 		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("VMs", func(t *testing.T) {
-		// BootstrapPath sets up a short lived JWT token and root certificate. The initial run will fetch
+		// Bootstrap sets up a short lived JWT token and root certificate. The initial run will fetch
 		// a certificate and write it to disk. This will be used (by mTLS authenticator) for future
 		// requests to both the CA and XDS.
 		dir := mktemp()
