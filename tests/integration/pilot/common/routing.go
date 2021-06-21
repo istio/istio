@@ -656,6 +656,7 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 	client := apps.PodA
 	destination := apps.PodC[0]
 	cases = append(cases,
+		// Validates the config is generated correctly when only idletimeout is specified in DR.
 		TrafficTestCase{
 			name:   "only idletimeout specified in DR",
 			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
