@@ -178,8 +178,8 @@ func TestLabelsEquals(t *testing.T) {
 		want bool
 	}{
 		{
-			a: nil,
-			b: nil,
+			a:    nil,
+			b:    nil,
 			want: true,
 		},
 		{
@@ -204,8 +204,8 @@ func TestLabelsEquals(t *testing.T) {
 			a: labels.Instance{"a": "b"},
 		},
 		{
-			b: labels.Instance{"a": "b", "c": "d"},
-			a: labels.Instance{"a": "b", "c": "d"},
+			b:    labels.Instance{"a": "b", "c": "d"},
+			a:    labels.Instance{"a": "b", "c": "d"},
 			want: true,
 		},
 	}
