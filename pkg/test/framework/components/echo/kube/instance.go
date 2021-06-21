@@ -219,7 +219,10 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 	}
 	aggErr := istiomultierror.New()
 	for _, w := range workloads {
-		out, err := common.ForwardEcho(c.cfg.Service, w.(*workload).Client, &opts, retry, retryOptions...)
+		clusterName := w.(*workload).cluster.Name()
+		serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, clusterName)
+
+		out, err := common.ForwardEcho(serviceName, w.(*workload).Client, &opts, retry, retryOptions...)
 		if err != nil {
 			aggErr = multierror.Append(aggErr, err)
 			continue

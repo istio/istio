@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Improved** the `meshConfig.defaultConfig.proxyMetadata` field to do a deep merge when overriden, rather than replacing all values.

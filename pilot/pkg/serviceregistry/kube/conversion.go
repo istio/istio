@@ -22,6 +22,7 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -166,15 +167,23 @@ func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
+
+	discoverabilityPolicy := model.AlwaysDiscoverable
+	if features.EnableMCSServiceDiscovery {
+		// MCS spec does not allow export of external name services.
+		// See https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#exporting-services.
+		discoverabilityPolicy = model.DiscoverableFromSameCluster
+	}
 	for _, portEntry := range svc.Ports {
 		out = append(out, &model.ServiceInstance{
 			Service:     svc,
 			ServicePort: portEntry,
 			Endpoint: &model.IstioEndpoint{
-				Address:         k8sSvc.Spec.ExternalName,
-				EndpointPort:    uint32(portEntry.Port),
-				ServicePortName: portEntry.Name,
-				Labels:          k8sSvc.Labels,
+				Address:               k8sSvc.Spec.ExternalName,
+				EndpointPort:          uint32(portEntry.Port),
+				ServicePortName:       portEntry.Name,
+				Labels:                k8sSvc.Labels,
+				DiscoverabilityPolicy: discoverabilityPolicy,
 			},
 		})
 	}

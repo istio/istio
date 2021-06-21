@@ -123,24 +123,26 @@ func augmentLabels(in labels.Instance, clusterID, locality string) labels.Instan
 func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointAddress string,
 	endpointPort int32,
-	svcPortName string) *model.IstioEndpoint {
+	svcPortName string,
+	discoverabilityPolicy model.EndpointDiscoverabilityPolicy) *model.IstioEndpoint {
 	if b == nil {
 		return nil
 	}
 
 	return &model.IstioEndpoint{
-		Labels:          b.labels,
-		ServiceAccount:  b.serviceAccount,
-		Locality:        b.locality,
-		TLSMode:         b.tlsMode,
-		Address:         endpointAddress,
-		EndpointPort:    uint32(endpointPort),
-		ServicePortName: svcPortName,
-		Network:         b.endpointNetwork(endpointAddress),
-		WorkloadName:    b.workloadName,
-		Namespace:       b.namespace,
-		HostName:        b.hostname,
-		SubDomain:       b.subDomain,
+		Labels:                b.labels,
+		ServiceAccount:        b.serviceAccount,
+		Locality:              b.locality,
+		TLSMode:               b.tlsMode,
+		Address:               endpointAddress,
+		EndpointPort:          uint32(endpointPort),
+		ServicePortName:       svcPortName,
+		Network:               b.endpointNetwork(endpointAddress),
+		WorkloadName:          b.workloadName,
+		Namespace:             b.namespace,
+		HostName:              b.hostname,
+		SubDomain:             b.subDomain,
+		DiscoverabilityPolicy: discoverabilityPolicy,
 	}
 }
 

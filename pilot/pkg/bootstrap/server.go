@@ -222,6 +222,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
 
+	args.RegistryOptions.KubeOptions.EnableMCSServiceDiscovery = features.EnableMCSServiceDiscovery
+
 	prometheus.EnableHandlingTimeHistogram()
 
 	// Apply the arguments to the configuration.

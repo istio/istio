@@ -262,7 +262,7 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
 	// TODO(nmittler): Need a better solution. Leader election doesn't take into account locality.
-	if features.EnableMCSServiceExport {
+	if features.EnableMCSAutoExport {
 		log.Infof("joining leader-election for %s in %s on cluster %s",
 			leaderelection.ServiceExportController, options.SystemNamespace, options.ClusterID)
 		// Block server exit on graceful termination of the leader controller.
