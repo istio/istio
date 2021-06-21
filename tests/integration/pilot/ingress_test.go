@@ -147,7 +147,6 @@ spec:
 					Headers: map[string][]string{
 						"Host": {"my.domain.example"},
 					},
-					Validator: echo.ExpectOK(),
 				})
 			})
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
@@ -162,7 +161,6 @@ spec:
 					Headers: map[string][]string{
 						"Host": {"my.domain.example"},
 					},
-					Validator: echo.ExpectOK(),
 				})
 			})
 			t.NewSubTest("mesh").Run(func(t framework.TestContext) {
@@ -199,19 +197,16 @@ func TestIngress(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			if t.Clusters().IsMulticluster() {
-				t.Skip("TODO convert this test to support multicluster")
-			}
 			skipIfIngressClassUnsupported(t)
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(t, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false)
+			ingressutil.CreateIngressKubeSecret(t, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false, t.Clusters().Kube()...)
 			t.ConditionalCleanup(func() {
 				ingressutil.DeleteKubeSecret(t, []string{credName})
 			})
 			credName2 := "k8s-ingress-secret-bar"
-			ingressutil.CreateIngressKubeSecret(t, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false)
+			ingressutil.CreateIngressKubeSecret(t, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false, t.Clusters().Kube()...)
 			t.ConditionalCleanup(func() {
 				ingressutil.DeleteKubeSecret(t, []string{credName2})
 			})
@@ -290,6 +285,11 @@ spec:
 				t.Fatal(err)
 			}
 
+			validator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(t.Clusters()))
+			count := 1
+			if t.Clusters().IsMulticluster() {
+				count = 2 * len(t.Clusters())
+			}
 			// TODO check all clusters were hit
 			cases := []struct {
 				name string
@@ -306,7 +306,8 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 				{
@@ -321,7 +322,8 @@ spec:
 							"Host": {"foo.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialA.CaCert,
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 				{
@@ -336,7 +338,8 @@ spec:
 							"Host": {"bar.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 				{
@@ -351,14 +354,21 @@ spec:
 							"Host": {"bar.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: echo.ExpectOK(),
+						Validator: validator,
+						Count:     count,
 					},
 				},
 			}
-			for _, c := range cases {
-				c := c
-				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
+
+			for _, ingr := range apps.Ingresses {
+				ingr := ingr
+				t.NewSubTestf("from %s", ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
+					for _, c := range cases {
+						c := c
+						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+							ingr.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
+						})
+					}
 				})
 			}
 

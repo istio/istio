@@ -138,6 +138,10 @@ func (c *ingressImpl) AddressForPort(port int) (string, int) {
 	return host, port
 }
 
+func (c *ingressImpl) Cluster() cluster.Cluster {
+	return c.cluster
+}
+
 // HTTPAddress returns the externally reachable HTTP host and port (80) of the component.
 func (c *ingressImpl) HTTPAddress() (string, int) {
 	return c.AddressForPort(80)
