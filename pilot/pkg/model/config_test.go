@@ -179,6 +179,11 @@ func TestLabelsEquals(t *testing.T) {
 	}{
 		{
 			a: nil,
+			b: nil,
+			want: true,
+		},
+		{
+			a: nil,
 			b: labels.Instance{"a": "b"},
 		},
 		{
@@ -188,6 +193,19 @@ func TestLabelsEquals(t *testing.T) {
 		{
 			a:    labels.Instance{"a": "b"},
 			b:    labels.Instance{"a": "b"},
+			want: true,
+		},
+		{
+			a: labels.Instance{"a": "b"},
+			b: labels.Instance{"a": "b", "c": "d"},
+		},
+		{
+			b: labels.Instance{"a": "b", "c": "d"},
+			a: labels.Instance{"a": "b"},
+		},
+		{
+			b: labels.Instance{"a": "b", "c": "d"},
+			a: labels.Instance{"a": "b", "c": "d"},
 			want: true,
 		},
 	}
