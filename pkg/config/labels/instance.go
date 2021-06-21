@@ -80,7 +80,10 @@ func (i Instance) Equals(that Instance) bool {
 	if that == nil {
 		return i == nil
 	}
-	return i.SubsetOf(that) && that.SubsetOf(i)
+	if len(i) != len(that) {
+		return false
+	}
+	return i.SubsetOf(that)
 }
 
 // Validate ensures tag is well-formed
