@@ -437,7 +437,7 @@ var AlwaysDiscoverable = func(*IstioEndpoint, *Proxy) bool {
 // DiscoverableFromSameCluster is an EndpointDiscoverabilityPolicy that only allows an endpoint to be discoverable
 // from proxies within the same cluster.
 var DiscoverableFromSameCluster = func(ep *IstioEndpoint, p *Proxy) bool {
-	return ep.Locality.ClusterID == p.Metadata.ClusterID
+	return p.InCluster(ep.Locality.ClusterID)
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
