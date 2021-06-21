@@ -162,6 +162,9 @@ type ExtendedClient interface {
 	// GetIstioPods retrieves the pod objects for Istio deployments
 	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
 
+	// PodExecCommands takes a list of commands and the pod data to run the commands in the specified pod.
+	PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error)
+
 	// PodExec takes a command and the pod data to run the command in the specified pod.
 	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
 
@@ -564,7 +567,7 @@ func (c *client) Revision() string {
 	return c.revision
 }
 
-func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
+func (c *client) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout, stderr string, err error) {
 	defer func() {
 		if err != nil {
 			if len(stderr) > 0 {
@@ -576,7 +579,6 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 		}
 	}()
 
-	commandFields := strings.Fields(command)
 	req := c.restClient.Post().
 		Resource("pods").
 		Name(podName).
@@ -585,7 +587,7 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 		Param("container", container).
 		VersionedParams(&v1.PodExecOptions{
 			Container: container,
-			Command:   commandFields,
+			Command:   commands,
 			Stdin:     false,
 			Stdout:    true,
 			Stderr:    true,
@@ -612,6 +614,11 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
 	return
+}
+
+func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
+	commandFields := strings.Fields(command)
+	return c.PodExecCommands(podName, podNamespace, container, commandFields)
 }
 
 func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container string, previousLog bool) (string, error) {
