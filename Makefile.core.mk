@@ -382,6 +382,9 @@ copy-templates:
 	cp manifests/charts/base/templates/crds.yaml manifests/charts/external-istiod/config/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml manifests/charts/external-istiod/config/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/external-istiod/config/templates
+	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/external-istiod/config/files
+	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/external-istiod/config/files
+	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/external-istiod/config/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml manifests/charts/external-istiod/config/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/role.yaml manifests/charts/external-istiod/config/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/rolebinding.yaml manifests/charts/external-istiod/config/templates
