@@ -1,4 +1,3 @@
-{{- $grpcEnv := dict "GRPC_XDS_BOOTSTRAP" "/var/lib/istio/data/grpc-bootstrap.json" "GRPC_GO_LOG_VERBOSITY_LEVEL" "99" "GRPC_GO_LOG_SEVERITY_LEVEL" "info" }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -16,10 +15,8 @@ spec:
   {{ if not (eq $container.Name "istio-proxy") }}
   - name: {{ $container.Name }}
     env:
-    {{- range $k, $v := $grpcEnv }}
-    - name: "{{ $k }}"
-      value: "{{ $v }}"
-    {{- end }}
+    - name: "GRPC_XDS_BOOTSTRAP"
+      value: "/var/lib/istio/data/grpc-bootstrap.json"
     volumeMounts:
     - mountPath: /var/lib/istio/data
       name: istio-data
@@ -47,10 +44,8 @@ spec:
     - --log_as_json
   {{- end }}
     env:
-    {{- range $k, $v := $grpcEnv }}
-    - name: "{{ $k }}"
-      value: "{{ $v }}"
-    {{- end }}
+    - name: "GRPC_XDS_BOOTSTRAP"
+      value: "/var/lib/istio/data/grpc-bootstrap.json"
     - name: ISTIO_META_GENERATOR
       value: grpc
     - name: OUTPUT_CERTS
