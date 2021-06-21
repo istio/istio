@@ -1397,6 +1397,10 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 
 	StripHostPort := []bool{false, true}
+	oldValue := features.StripHostPort
+	t.Cleanup(func() {
+		features.StripHostPort = oldValue
+	})
 	for _, value := range StripHostPort {
 		features.StripHostPort = value
 		for _, tt := range cases {
