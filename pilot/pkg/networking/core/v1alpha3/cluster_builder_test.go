@@ -798,7 +798,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
+			mesh := testMesh()
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &mesh})
 			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 			service := &model.Service{
 				Ports: model.PortList{
@@ -849,7 +850,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}{
 		{
 			name: "basics",
-			mesh: testMesh,
+			mesh: testMesh(),
 			instances: []*model.ServiceInstance{
 				{
 					Service:     service,
@@ -1005,7 +1006,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 		{
 			name: "cluster local",
-			mesh: withClusterLocalHosts(testMesh, "*.example.org"),
+			mesh: withClusterLocalHosts(testMesh(), "*.example.org"),
 			instances: []*model.ServiceInstance{
 				{
 					Service:     service,
