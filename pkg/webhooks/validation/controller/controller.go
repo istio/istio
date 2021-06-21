@@ -287,7 +287,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		return true
 	}
 
-	if err := c.reconcileRequest(req); err != nil {
+	if retry, err := c.reconcileRequest(req); retry || err != nil {
 		c.queue.AddRateLimited(&reconcileRequest{
 			event:       retryEvent,
 			description: "retry reconcile request",
@@ -302,16 +302,16 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 // reconcile the desired state with the kube-apiserver.
 // the returned results indicate if the reconciliation should be retried and/or
 // if there was an error.
-func (c *Controller) reconcileRequest(req *reconcileRequest) error {
+func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
 	configuration, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
 			scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
-			return nil
+			return false, nil
 		}
-		return err
+		return false, err
 	}
 
 	scope.Infof("Reconcile(enter): %v", req)
@@ -322,14 +322,14 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 		scope.Errorf("Failed to load CA bundle: %v", err)
 		reportValidationConfigLoadError(err.(*configError).Reason())
 		// no point in retrying unless cert file changes.
-		return nil
+		return false, nil
 	}
 	failurePolicy := kubeApiAdmission.Ignore
 	ready := c.readyForFailClose()
 	if ready {
 		failurePolicy = kubeApiAdmission.Fail
 	}
-	return c.updateValidatingWebhookConfiguration(configuration, caBundle, failurePolicy)
+	return !ready, c.updateValidatingWebhookConfiguration(configuration, caBundle, failurePolicy)
 }
 
 func (c *Controller) readyForFailClose() bool {
