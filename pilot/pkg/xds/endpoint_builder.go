@@ -96,7 +96,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		hostname:   hostname,
 		port:       port,
 	}
-	if b.push.Gateways().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
+	if b.push.NetworkGateways().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
 		// We only need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH
 		// As an optimization, we skip this logic entirely for everything else.
 		b.mtlsChecker = newMtlsChecker(push, port, dr)

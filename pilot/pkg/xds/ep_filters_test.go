@@ -488,7 +488,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 			},
 		},
 	}}, origServices...))
-	serviceDiscovery.AddGateways(&model.Gateway{
+	serviceDiscovery.AddGateways(&model.NetworkGateway{
 		Network: "network2",
 		Addr:    "aeiou.scooby.do",
 		Port:    80,

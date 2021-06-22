@@ -108,13 +108,13 @@ func (c *Controller) reloadMeshNetworks() {
 	c.ranger = ranger
 }
 
-func (c *Controller) NetworkGateways() []*model.Gateway {
+func (c *Controller) NetworkGateways() []*model.NetworkGateway {
 	c.RLock()
 	defer c.RUnlock()
 	if c.networkGateways == nil || len(c.networkGateways) == 0 {
 		return nil
 	}
-	gws := make([]*model.Gateway, 0)
+	gws := make([]*model.NetworkGateway, 0)
 	for _, netGws := range c.networkGateways {
 		if netGws == nil {
 			continue
@@ -164,10 +164,10 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 	}
 
 	if c.networkGateways[svc.Hostname] == nil {
-		c.networkGateways[svc.Hostname] = map[string][]*model.Gateway{}
+		c.networkGateways[svc.Hostname] = map[string][]*model.NetworkGateway{}
 	}
 
-	gws := make([]*model.Gateway, 0, len(svc.Attributes.ClusterExternalAddresses))
+	gws := make([]*model.NetworkGateway, 0, len(svc.Attributes.ClusterExternalAddresses))
 
 	// TODO(landow) ClusterExternalAddresses doesn't need to get used outside of the kube controller, and spreads
 	// TODO(cont)   logic between ConvertService, extractGatewaysInner, and updateServiceNodePortAddresses.
@@ -184,7 +184,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 		ips := svc.Attributes.ClusterExternalAddresses[c.Cluster()]
 		for _, ip := range ips {
-			gws = append(gws, &model.Gateway{
+			gws = append(gws, &model.NetworkGateway{
 				Cluster: model.ClusterID(c.Cluster()),
 				Network: model.NetworkID(network),
 				Addr:    ip,
@@ -196,7 +196,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 	gwsChanged := len(c.networkGateways[svc.Hostname][network]) != len(gws)
 	if !gwsChanged {
 		// number of gateways are the same, check that their contents are the same
-		found := map[model.Gateway]bool{}
+		found := map[model.NetworkGateway]bool{}
 		for _, gw := range gws {
 			found[*gw] = true
 		}

@@ -202,7 +202,7 @@ type PushContext struct {
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
-	gateways Gateways
+	networkGateways *NetworkGateways
 
 	initDone        atomic.Bool
 	initializeMutex sync.Mutex
@@ -1871,11 +1871,11 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks(env *Environment) {
-	ps.gateways = newGateways(env)
+	ps.networkGateways = newNetworkGateways(env)
 }
 
-func (ps *PushContext) Gateways() Gateways {
-	return ps.gateways
+func (ps *PushContext) NetworkGateways() *NetworkGateways {
+	return ps.networkGateways
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

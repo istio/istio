@@ -36,8 +36,8 @@ func (id ClusterID) Equals(other ClusterID) bool {
 	return SameOrEmpty(string(id), string(other))
 }
 
-// Gateway is the gateway of a network
-type Gateway struct {
+// NetworkGateway is the gateway of a network
+type NetworkGateway struct {
 	// Network is the ID of the network where this Gateway resides.
 	Network NetworkID
 	// Cluster is the ID of the k8s cluster where this Gateway resides.
@@ -48,33 +48,18 @@ type Gateway struct {
 	Port uint32
 }
 
-// Gateways provides information about network Gateway resources throughout the mesh.
-type Gateways interface {
-	// IsMultiNetworkEnabled returns true if one or more Gateways are configured.
-	IsMultiNetworkEnabled() bool
-
-	// All returns all configured Gateway resources in the entire mesh.
-	All() []*Gateway
-
-	// ForNetwork returns all Gateway resources configured for the given network.
-	ForNetwork(network NetworkID) []*Gateway
-
-	// ForNetworkAndCluster returns all Gateway resources configured for the given network and cluster.
-	ForNetworkAndCluster(network NetworkID, cluster ClusterID) []*Gateway
-}
-
-// newGateways creates a new Gateways from the Environment by merging
+// newNetworkGateways creates a new NetworkGateways from the Environment by merging
 // together the MeshNetworks and ServiceRegistry-specific gateways.
-func newGateways(env *Environment) Gateways {
+func newNetworkGateways(env *Environment) *NetworkGateways {
 	// Generate the a snapshot of the state of gateways by merging the contents of
 	// MeshNetworks and the ServiceRegistries.
-	gatewayMap := make(map[NetworkID]map[ClusterID][]*Gateway)
+	gatewayMap := make(map[NetworkID]map[ClusterID][]*NetworkGateway)
 
-	addGateway := func(gateway *Gateway) {
+	addGateway := func(gateway *NetworkGateway) {
 		// Get (or create) an entry for the network.
 		gatewaysByCluster := gatewayMap[gateway.Network]
 		if gatewaysByCluster == nil {
-			gatewaysByCluster = make(map[ClusterID][]*Gateway)
+			gatewaysByCluster = make(map[ClusterID][]*NetworkGateway)
 			gatewayMap[gateway.Network] = gatewaysByCluster
 		}
 
@@ -92,12 +77,16 @@ func newGateways(env *Environment) Gateways {
 			gws := networkConf.Gateways
 			for _, gw := range gws {
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-					addGateway(&Gateway{
+					addGateway(&NetworkGateway{
 						Cluster: noCluster, /* TODO(nmittler): Add Cluster to the API */
 						Network: NetworkID(network),
 						Addr:    gw.GetAddress(),
 						Port:    gw.Port,
 					})
+				} else {
+					log.Warnf("Failed parsing gateway address %s in MeshNetworks config. "+
+						"Hostnames are not supported for gateways",
+						gw.GetAddress())
 				}
 			}
 		}
@@ -110,32 +99,32 @@ func newGateways(env *Environment) Gateways {
 		addGateway(gateway)
 	}
 
-	return &gatewaysImpl{
+	return &NetworkGateways{
 		gateways: gatewayMap,
 	}
 }
 
-type gatewaysImpl struct {
-	gateways map[NetworkID]map[ClusterID][]*Gateway
+type NetworkGateways struct {
+	gateways map[NetworkID]map[ClusterID][]*NetworkGateway
 }
 
-func (gws *gatewaysImpl) IsMultiNetworkEnabled() bool {
+func (gws *NetworkGateways) IsMultiNetworkEnabled() bool {
 	return len(gws.gateways) > 0
 }
 
-func (gws *gatewaysImpl) All() []*Gateway {
-	out := make([]*Gateway, 0)
+func (gws *NetworkGateways) All() []*NetworkGateway {
+	out := make([]*NetworkGateway, 0)
 	for _, byCluster := range gws.gateways {
 		out = append(out, byCluster[noCluster]...)
 	}
 	return out
 }
 
-func (gws *gatewaysImpl) ForNetwork(network NetworkID) []*Gateway {
+func (gws *NetworkGateways) ForNetwork(network NetworkID) []*NetworkGateway {
 	return gws.ForNetworkAndCluster(network, noCluster)
 }
 
-func (gws *gatewaysImpl) ForNetworkAndCluster(network NetworkID, cluster ClusterID) []*Gateway {
+func (gws *NetworkGateways) ForNetworkAndCluster(network NetworkID, cluster ClusterID) []*NetworkGateway {
 	gatewaysByCluster := gws.gateways[network]
 	if gatewaysByCluster != nil {
 		return gatewaysByCluster[cluster]

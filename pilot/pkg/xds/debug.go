@@ -688,13 +688,13 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[string][]*model.Gateway
+	NetworkGateways       map[string][]*model.NetworkGateway
 }
 
 // PushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, _ *http.Request) {
-	gateways := s.globalPushContext().Gateways().All()
-	byNetwork := make(map[string][]*model.Gateway)
+	gateways := s.globalPushContext().NetworkGateways().All()
+	byNetwork := make(map[string][]*model.NetworkGateway)
 	for _, gateway := range gateways {
 		byNetwork[string(gateway.Network)] = append(byNetwork[string(gateway.Network)], gateway)
 	}
