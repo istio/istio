@@ -604,11 +604,11 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 				// Check if the hostnames match per usual hostname matching rules
 				hostFound := false
 				for _, h := range rule.Hosts {
-					// TODO: This is a bug. VirtualServices can have many hosts
-					// while the user might be importing only a single host
-					// We need to generate a new VirtualService with just the matched host
+					// VirtualServices can have many hosts while the user might be importing only a single host
+					// so we need to generate a new VirtualService with just the matched host
 					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
+						newVSConfig := newVSConfigHostsSetting(c, h)
+						importedVirtualServices = append(importedVirtualServices, newVSConfig)
 						hostFound = true
 						break
 					}
@@ -626,11 +626,11 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 				// Check if the hostnames match per usual hostname matching rules
 				hostFound := false
 				for _, h := range rule.Hosts {
-					// TODO: This is a bug. VirtualServices can have many hosts
-					// while the user might be importing only a single host
-					// We need to generate a new VirtualService with just the matched host
+					// VirtualServices can have many hosts while the user might be importing only a single host
+					// so we need to generate a new VirtualService with just the matched host
 					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
+						newVSConfig := newVSConfigHostsSetting(c, h)
+						importedVirtualServices = append(importedVirtualServices, newVSConfig)
 						hostFound = true
 						break
 					}
@@ -722,4 +722,14 @@ func needsPortMatch(ilw *IstioEgressListenerWrapper) bool {
 	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
 	return ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
 		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
+}
+
+// newConfigHostsSetting clone vs config based on origin, then setting new vs config's hosts.
+func newVSConfigHostsSetting(origin config.Config, hosts string) config.Config {
+	newVSConfig := origin.DeepCopy()
+	newVirtualService := newVSConfig.Spec.(*networking.VirtualService)
+	newVirtualService.Hosts = []string{hosts}
+	newVSConfig.Spec = config.Spec(newVirtualService)
+
+	return newVSConfig
 }
