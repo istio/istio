@@ -312,7 +312,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
-	if b.MultiNetworkConfigured() {
+	if b.push.NetworkGateways().IsMultiNetworkEnabled() {
 		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
