@@ -254,7 +254,7 @@ type Controller struct {
 	// tracks which services on which ports should act as a gateway for networkForRegistry
 	registryServiceNameGateways map[host.Name]uint32
 	// gateways for each network, indexed by the service that runs them so we clean them up later
-	networkGateways map[host.Name]map[string][]*model.Gateway
+	networkGateways map[host.Name]map[string][]*model.NetworkGateway
 
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
@@ -279,7 +279,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
 		workloadInstancesIPsByName:  make(map[string]string),
 		registryServiceNameGateways: make(map[host.Name]uint32),
-		networkGateways:             make(map[host.Name]map[string][]*model.Gateway),
+		networkGateways:             make(map[host.Name]map[string][]*model.NetworkGateway),
 		informerInit:                atomic.NewBool(false),
 		beginSync:                   atomic.NewBool(false),
 		initialSync:                 atomic.NewBool(false),
