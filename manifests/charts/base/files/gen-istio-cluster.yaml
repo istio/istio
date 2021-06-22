@@ -2500,6 +2500,11 @@ spec:
                       type: object
                   type: object
                 type: array
+              priority:
+                description: Priority defines the order in which patch sets are applied
+                  within a context.
+                format: int32
+                type: integer
               workloadSelector:
                 properties:
                   labels:
@@ -5832,6 +5837,9 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
+  - apiGroups: ["multicluster.x-k8s.io"]
+    resources: ["serviceexports"]
+    verbs: ["get", "watch", "list"]
 ---
 # Source: base/templates/clusterrolebinding.yaml
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

@@ -406,6 +406,10 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		if isClusterLocal && (cb.proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
 			continue
 		}
+		// TODO(nmittler): Consider merging discoverability policy with cluster-local
+		if !instance.Endpoint.IsDiscoverableFromProxy(cb.proxy) {
+			continue
+		}
 		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
 		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -896,7 +900,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableClus
 	}
 }
 
-// finalizeClusters does any final cluster field marshaling. This should be called
+// normalizeClusters normalizes clusters to avoid duplicate clusters. This should be called
 // at the end before adding the cluster to list of clusters.
 func (cb *ClusterBuilder) normalizeClusters(clusters []*cluster.Cluster) []*cluster.Cluster {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.

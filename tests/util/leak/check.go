@@ -105,6 +105,7 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 // Cleanup's called in the test happen first.
 // Any existing goroutines before the test starts are filtered out. This ensures a single test failing doesn't
 // cause all future tests to fail. However, it is still possible another test influences the result when t.Parallel is used.
+// Where possible, CheckMain is preferred.
 func Check(t TestingTB) {
 	existingRaw, err := interestingGoroutines()
 	if err != nil {
@@ -138,7 +139,7 @@ func Check(t TestingTB) {
 //       leak.CheckMain(m)
 //   }
 // Failures here are scoped to the package, not a specific test. To determine the source of the failure,
-// you can use the tool `./tools/go-ordered-test.sh ./my/package`. This runs each test individually.
+// you can use the tool `go test -exec $PWD/tools/go-ordered-test ./my/package`. This runs each test individually.
 // If there are some tests that are leaky, you the Check method can be used on individual tests.
 func CheckMain(m TestingM) {
 	exitCode := m.Run()

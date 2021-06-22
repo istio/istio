@@ -35,12 +35,12 @@ var (
 )
 
 func saveCreds(csrPem []byte, privPem []byte) {
-	err := ioutil.WriteFile(*outCsr, csrPem, 0644)
+	err := ioutil.WriteFile(*outCsr, csrPem, 0o644)
 	if err != nil {
 		log.Fatalf("Could not write output certificate request: %s.", err)
 	}
 
-	err = ioutil.WriteFile(*outPriv, privPem, 0600)
+	err = ioutil.WriteFile(*outPriv, privPem, 0o600)
 	if err != nil {
 		log.Fatalf("Could not write output private key: %s.", err)
 	}

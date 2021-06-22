@@ -56,6 +56,14 @@ type Instance map[string]string
 
 // SubsetOf is true if the label has identical values for the keys
 func (i Instance) SubsetOf(that Instance) bool {
+	if len(i) == 0 {
+		return true
+	}
+
+	if len(that) == 0 || len(that) < len(i) {
+		return false
+	}
+
 	for k, v := range i {
 		if that[k] != v {
 			return false
@@ -72,7 +80,10 @@ func (i Instance) Equals(that Instance) bool {
 	if that == nil {
 		return i == nil
 	}
-	return i.SubsetOf(that) && that.SubsetOf(i)
+	if len(i) != len(that) {
+		return false
+	}
+	return i.SubsetOf(that)
 }
 
 // Validate ensures tag is well-formed

@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util/leak"
 )
 
 const (
@@ -44,12 +43,7 @@ const (
 	routeB = "https.443.https.my-gateway.testns"
 )
 
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
-
 func TestStatusEvents(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	ads := s.Connect(
@@ -120,7 +114,6 @@ func TestAdsUnsubscribe(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(nil)
@@ -139,7 +132,6 @@ func TestAdsReconnect(t *testing.T) {
 
 // Regression for connection with a bad ID
 func TestAdsBadId(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithID("").WithType(v3.ClusterType)
 	xds.AdsPushAll(s.Discovery)
@@ -177,7 +169,6 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 // nolint: lll
 func TestAdsPushScoping(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	const (

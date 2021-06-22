@@ -16,6 +16,7 @@ package resource
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -88,7 +89,7 @@ func (rv *RevVerMap) String() string {
 	return strings.Join(rvPairs, ",")
 }
 
-// Versions returns an ordered list of Istio versions from the given RevVerMap.
+// Versions returns the Istio versions present in the given RevVerMap.
 func (rv *RevVerMap) Versions() IstioVersions {
 	if rv == nil {
 		return nil
@@ -100,9 +101,34 @@ func (rv *RevVerMap) Versions() IstioVersions {
 	return vers
 }
 
+// Default returns the revision with the newest `IstioVersion`, or in the case of a tie, the first
+// alphabetically.
+func (rv *RevVerMap) Default() string {
+	if rv == nil || len(*rv) == 0 {
+		return ""
+	}
+	max := rv.Maximum()
+	var candidates []string
+	for rev, ver := range *rv {
+		if ver.Compare(max) == 0 {
+			candidates = append(candidates, rev)
+		}
+	}
+	if len(candidates) == 0 {
+		panic("could not find revision with max IstioVersion")
+	}
+	sort.Strings(candidates)
+	return candidates[0]
+}
+
 // Minimum returns the minimum version from the revision-version mapping.
 func (rv *RevVerMap) Minimum() IstioVersion {
 	return rv.Versions().Minimum()
+}
+
+// Maximum returns the maximum version from the revision-version mapping.
+func (rv *RevVerMap) Maximum() IstioVersion {
+	return rv.Versions().Maximum()
 }
 
 // IsMultiVersion returns whether the associated IstioVersions have multiple specified versions.
@@ -169,9 +195,25 @@ func (v IstioVersions) Minimum() IstioVersion {
 	min := v[0]
 	for i := 1; i < len(v); i++ {
 		ver := v[i]
-		if ver.Compare(min) > 1 {
+		if ver.Compare(min) < 0 {
 			min = ver
 		}
 	}
 	return min
+}
+
+// Maximum returns the maximum from a set of IstioVersions
+// returns empty value if no versions.
+func (v IstioVersions) Maximum() IstioVersion {
+	if len(v) == 0 {
+		return ""
+	}
+	max := v[0]
+	for i := 1; i < len(v); i++ {
+		ver := v[i]
+		if ver.Compare(max) > 0 {
+			max = ver
+		}
+	}
+	return max
 }

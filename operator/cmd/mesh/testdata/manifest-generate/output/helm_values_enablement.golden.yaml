@@ -53,8 +53,6 @@ spec:
               protocol: TCP
             - containerPort: 8443
               protocol: TCP
-            - containerPort: 15443
-              protocol: TCP
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
@@ -66,8 +64,6 @@ spec:
           - --proxyLogLevel=warning
           - --proxyComponentLogLevel=misc:error
           - --log_output_level=default:info
-          - --serviceCluster
-          - istio-egressgateway
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -128,22 +124,18 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
-          - name: CANONICAL_SERVICE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-name']
-          - name: CANONICAL_REVISION
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: ISTIO_META_WORKLOAD_NAME
             value: istio-egressgateway
           - name: ISTIO_META_OWNER
             value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/istio-egressgateway
+          - name: ISTIO_META_MESH_ID
+            value: "cluster.local"
+          - name: TRUST_DOMAIN
+            value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           - name: ISTIO_META_ROUTER_MODE
-            value: standard
+            value: "standard"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
@@ -179,16 +171,6 @@ spec:
             - path: "annotations"
               fieldRef:
                 fieldPath: metadata.annotations
-            - path: "cpu-limit"
-              resourceFieldRef:
-                containerName: istio-proxy
-                resource: limits.cpu
-                divisor: 1m
-            - path: "cpu-request"
-              resourceFieldRef:
-                containerName: istio-proxy
-                resource: requests.cpu
-                divisor: 1m
       - name: istio-envoy
         emptyDir: {}
       - name: istio-data
@@ -277,9 +259,4 @@ spec:
       port: 443
       protocol: TCP
       targetPort: 8443
-    -
-      name: tls
-      port: 15443
-      protocol: TCP
-      targetPort: 15443
 ---

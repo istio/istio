@@ -145,7 +145,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:     ia.cfg.XDSHeaders,
 		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
 		proxyAddresses: ia.cfg.ProxyIPAddresses,
 	}
 

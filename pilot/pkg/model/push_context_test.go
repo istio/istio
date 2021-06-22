@@ -42,12 +42,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/istio/tests/util/leak"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func TestMergeUpdateRequest(t *testing.T) {
 	push0 := &PushContext{}
@@ -221,7 +216,6 @@ func TestEnvoyFilters(t *testing.T) {
 			expectedListenerPatches: 0,
 			expectedClusterPatches:  0,
 		},
-
 		{
 			name: "proxy matches envoyfilter in root ns",
 			proxy: &Proxy{
@@ -258,6 +252,174 @@ func TestEnvoyFilters(t *testing.T) {
 				t.Errorf("Expect %d envoy filter listener patches, but got %d", tt.expectedListenerPatches, len(filter.Patches[networking.EnvoyFilter_LISTENER]))
 			}
 		})
+	}
+}
+
+func TestEnvoyFilterOrder(t *testing.T) {
+	env := &Environment{}
+	store := istioConfigStore{ConfigStore: NewFakeStore()}
+
+	ctime := time.Now()
+
+	envoyFilters := []config.Config{
+		{
+			Meta: config.Meta{Name: "default-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-medium-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-low-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: time.Now()},
+			Spec: &networking.EnvoyFilter{
+				Priority: 20,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-low-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 20,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "high-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				Priority: -1,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expectedns := []string{
+		"testns/high-priority", "testns/default-priority", "testns/a-medium-priority",
+		"testns/b-medium-priority", "testns/b-low-priority", "testns/a-low-priority",
+	}
+
+	expectedns1 := []string{"testns-1/default-priority", "testns-1/a-medium-priority", "testns-1/b-medium-priority"}
+
+	for _, config := range envoyFilters {
+		store.Create(config)
+	}
+	env.IstioConfigStore = &store
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = mesh.NewFixedWatcher(&m)
+	env.Init()
+
+	// Init a new push context
+	pc := NewPushContext()
+	if err := pc.initEnvoyFilters(env); err != nil {
+		t.Fatal(err)
+	}
+	gotns := make([]string, 0)
+	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
+		gotns = append(gotns, filter.Key())
+	}
+	gotns1 := make([]string, 0)
+	for _, filter := range pc.envoyFiltersByNamespace["testns-1"] {
+		gotns1 = append(gotns1, filter.Key())
+	}
+	if !reflect.DeepEqual(expectedns, gotns) {
+		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns, gotns)
+	}
+	if !reflect.DeepEqual(expectedns1, gotns1) {
+		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns1, gotns1)
 	}
 }
 

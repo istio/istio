@@ -630,7 +630,10 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				continue
 			}
 			sc.certMutex.RLock()
-			resources := sc.fileCerts
+			resources := make(map[FileCert]struct{})
+			for k, v := range sc.fileCerts {
+				resources[k] = v
+			}
 			sc.certMutex.RUnlock()
 			// Trigger callbacks for all resources referencing this file. This is practically always
 			// a single resource.
@@ -639,6 +642,18 @@ func (sc *SecretManagerClient) handleFileWatch() {
 				if k.Filename == event.Name {
 					sc.CallUpdateCallback(k.ResourceName)
 				}
+			}
+			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
+			if isRemove(event) {
+				sc.certMutex.Lock()
+				for fc := range sc.fileCerts {
+					if fc.Filename == event.Name {
+						cacheLog.Debugf("removing file %s from file certs", event.Name)
+						delete(sc.fileCerts, fc)
+						break
+					}
+				}
+				sc.certMutex.Unlock()
 			}
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.

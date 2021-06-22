@@ -1612,7 +1612,23 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		return err
 	}
 
-	sortConfigByCreationTime(envoyFilterConfigs)
+	sort.SliceStable(envoyFilterConfigs, func(i, j int) bool {
+		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
+		jfilter := envoyFilterConfigs[j].Spec.(*networking.EnvoyFilter)
+		if ifilter.Priority != jfilter.Priority {
+			return ifilter.Priority < jfilter.Priority
+		}
+		// If prirority is same fallback to name and creation timestamp, else use prirority.
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if envoyFilterConfigs[i].CreationTimestamp != envoyFilterConfigs[j].CreationTimestamp {
+			return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
+		}
+		in := envoyFilterConfigs[i].Name + "." + envoyFilterConfigs[i].Namespace
+		jn := envoyFilterConfigs[j].Name + "." + envoyFilterConfigs[j].Namespace
+		return in < jn
+	})
 
 	ps.envoyFiltersByNamespace = make(map[string][]*EnvoyFilterWrapper)
 	for _, envoyFilterConfig := range envoyFilterConfigs {
@@ -1828,26 +1844,39 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 					foundExternal.Insert(externalIPs...)
 				}
 			} else {
-				hintPort := sets.NewSet()
-				for _, instances := range gc.ps.ServiceIndex.instancesByPort[svc] {
-					for _, i := range instances {
-						if i.Endpoint.EndpointPort == uint32(port) {
-							hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
+				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svc]) {
+					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
+				} else {
+					hintPort := sets.NewSet()
+					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svc] {
+						for _, i := range instances {
+							if i.Endpoint.EndpointPort == uint32(port) {
+								hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
+							}
 						}
 					}
-				}
-				if len(hintPort) > 0 {
-					warnings = append(warnings, fmt.Sprintf(
-						"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
-						port, g, hintPort.SortedList()))
-				} else {
-					warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
+					if len(hintPort) > 0 {
+						warnings = append(warnings, fmt.Sprintf(
+							"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
+							port, g, hintPort.SortedList()))
+					} else {
+						warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
+					}
 				}
 			}
 		}
 	}
 	sort.Strings(warnings)
 	return foundInternal.SortedList(), foundExternal.SortedList(), warnings
+}
+
+func instancesEmpty(m map[int][]*ServiceInstance) bool {
+	for _, instances := range m {
+		if len(instances) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // pre computes gateways for each network

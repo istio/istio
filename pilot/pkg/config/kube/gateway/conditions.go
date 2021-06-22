@@ -16,31 +16,22 @@ package gateway
 
 import (
 	"sort"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 )
 
-func createGatewayReference(gw string) k8s.RouteStatusGatewayReference {
-	ref := k8s.RouteStatusGatewayReference{}
-	if gw == constants.IstioMeshGateway {
-		ref.Name = experimentalMeshGatewayName
-		// TODO this is not namespaced but a namespace is required
-		ref.Namespace = "default"
-	} else {
-		s := strings.Split(gw, "/")
-		ref.Name = s[1] // TODO name here is the internal name, need to use the external name
-		ref.Namespace = s[0]
+func createGatewayReference(gw gatewayReference) k8s.RouteStatusGatewayReference {
+	return k8s.RouteStatusGatewayReference{
+		Name:      gw.Name,
+		Namespace: gw.Namespace,
 	}
-	return ref
 }
 
-func createRouteStatus(gateways []string, obj config.Config, current []k8s.RouteGatewayStatus, routeErr *ConfigError) []k8s.RouteGatewayStatus {
+func createRouteStatus(gateways []gatewayReference, obj config.Config, current []k8s.RouteGatewayStatus, routeErr *ConfigError) []k8s.RouteGatewayStatus {
 	setGateways := map[k8s.RouteStatusGatewayReference]struct{}{}
 	for _, gw := range gateways {
 		setGateways[createGatewayReference(gw)] = struct{}{}

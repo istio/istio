@@ -230,6 +230,7 @@ func (r ParsedResponses) clusterDistribution() map[string]int {
 // This can be used in combination with echo.Instances.Clusters(), for example:
 //     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
 func (r ParsedResponses) CheckReachedClusters(clusters cluster.Clusters) error {
+	clusters = clusters.Kube()
 	hits := r.clusterDistribution()
 	exp := map[string]struct{}{}
 	for _, expCluster := range clusters {
@@ -250,6 +251,7 @@ func (r ParsedResponses) CheckReachedClusters(clusters cluster.Clusters) error {
 // For example, with 100 requests and 20 percent error, each cluster must given received 20±4 responses. Only the passed
 // in clusters will be validated.
 func (r ParsedResponses) CheckEqualClusterTraffic(clusters cluster.Clusters, precisionPct int) error {
+	clusters = clusters.Kube()
 	clusterHits := r.clusterDistribution()
 	expected := len(r) / len(clusters)
 	precision := int(float32(expected) * (float32(precisionPct) / 100))

@@ -2609,6 +2609,52 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false, warning: false},
+		{name: "non-method-get", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/product"},
+						},
+					},
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
+						},
+						Method: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{Exact: "GET"},
+						},
+					},
+				},
+			}},
+		}, valid: true, warning: true},
+		{name: "uri-with-prefix-exact", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+						},
+					},
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{Exact: "/"},
+						},
+						Method: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{Exact: "GET"},
+						},
+					},
+				},
+			}},
+		}, valid: true, warning: false},
 	}
 
 	for _, tc := range testCases {
@@ -3453,7 +3499,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		{name: "listener with invalid filter match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{
@@ -3473,7 +3519,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 		{name: "listener with sub filter match and invalid applyTo", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
-					ApplyTo: networking.EnvoyFilter_LISTENER,
+					ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 							Listener: &networking.EnvoyFilter_ListenerMatch{

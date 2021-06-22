@@ -86,7 +86,13 @@ func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, hostname, _ string, entry []*model.IstioEndpoint) {
+	if len(entry) > 0 {
+		select {
+		case fx.Events <- FakeXdsEvent{Type: "eds cache", ID: hostname, Endpoints: entry}:
+		default:
+		}
+	}
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.
@@ -137,6 +143,7 @@ type FakeControllerOptions struct {
 	DomainSuffix              string
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	EnableMCSServiceDiscovery bool
 
 	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
 	SkipCacheSyncWait bool
@@ -174,12 +181,16 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		ClusterID:                 opts.ClusterID,
 		SyncInterval:              time.Microsecond,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
+		EnableMCSServiceDiscovery: opts.EnableMCSServiceDiscovery,
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
 	}
 	c.stop = opts.Stop
+	if c.stop == nil {
+		c.stop = make(chan struct{})
+	}
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)

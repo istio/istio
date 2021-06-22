@@ -235,6 +235,9 @@ func TestGCPMetadata(t *testing.T) {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			for e, v := range tt.env {
 				os.Setenv(e, v)
+				if e == "GCP_METADATA" {
+					GCPMetadata = v
+				}
 			}
 			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn, instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn =
 				tt.shouldFill, tt.projectIDFn, tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn,
@@ -246,6 +249,9 @@ func TestGCPMetadata(t *testing.T) {
 			}
 			for e := range tt.env {
 				os.Unsetenv(e)
+				if e == "GCP_METADATA" {
+					GCPMetadata = ""
+				}
 			}
 			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})

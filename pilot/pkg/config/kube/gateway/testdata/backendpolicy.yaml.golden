@@ -11,7 +11,7 @@ spec:
   - hosts:
     - '*'
     port:
-      name: tcp-34000-gateway-gateway-istio-system
+      name: 0-gateway-gateway-istio-system
       number: 34000
       protocol: TCP
 ---

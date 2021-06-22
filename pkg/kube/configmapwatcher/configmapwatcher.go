@@ -105,7 +105,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	// Trigger initial callback.
 	c.queue.Add(struct{}{})
-	wait.Until(c.runWorker, time.Second, stop)
+
+	go wait.Until(c.runWorker, time.Second, stop)
+	<-stop
 }
 
 // HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
