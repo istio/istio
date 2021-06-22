@@ -165,7 +165,7 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Labels {
 		return klabels.Set(labels)
 	}
 	// First we need a copy to not modify the underlying object
-	ret := make(map[string]string, len(labels))
+	ret := make(map[string]string, len(labels)+1)
 	for k, v := range labels {
 		ret[k] = v
 	}
