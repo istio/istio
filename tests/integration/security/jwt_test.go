@@ -314,6 +314,22 @@ func TestRequestAuthentication(t *testing.T) {
 					}
 					echotest.New(t, apps.All).
 						SetupForDestination(func(t framework.TestContext, dst echo.Instances) error {
+							destRule := `apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: vm-reqperconn-policy
+spec:
+  host: {{ .dsthost }}
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1`
+							destRuleCfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
+								destRule,
+								map[string]string{
+									"dsthost": fmt.Sprintf("%s.%s.svc.cluster.local", dst[0].Config().Service, ns.Name()),
+								},
+							), ns.Name())
 							if c.Config != "" {
 								policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 									file.AsStringOrFail(t, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)),
@@ -323,11 +339,17 @@ func TestRequestAuthentication(t *testing.T) {
 									},
 								), ns.Name())
 								fmt.Printf("dump security policy\n%s\n", policy)
-								if err := t.Config().ApplyYAML(ns.Name(), policy); err != nil {
+								if err := t.Config().ApplyYAML(ns.Name(), policy, destRuleCfg); err != nil {
 									t.Logf("failed to apply policy: %v", err)
 									return err
 								}
 								util.WaitForConfig(t, policy, ns)
+							} else {
+								if err := t.Config().ApplyYAML(ns.Name(), destRuleCfg); err != nil {
+									t.Logf("failed to apply destination rule: %v", err)
+									return err
+								}
+								util.WaitForConfig(t, destRuleCfg, ns)
 							}
 							return nil
 						}).
