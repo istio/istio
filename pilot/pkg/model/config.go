@@ -17,6 +17,7 @@ package model
 import (
 	"crypto/md5"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -41,6 +42,10 @@ type ConfigKey struct {
 	Kind      config.GroupVersionKind
 	Name      string
 	Namespace string
+}
+
+func (key ConfigKey) String() string {
+	return fmt.Sprintf("%s/%s.%s", key.Kind.Kind, key.Name, key.Namespace)
 }
 
 func (key ConfigKey) HashCode() uint64 {

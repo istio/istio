@@ -363,6 +363,15 @@ func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
 	debounce(s.pushChannel, stopCh, s.debounceOptions, s.Push, s.CommittedUpdates)
 }
 
+// extractFirstConfigKey grabs the "first" element in the map. This is random, so this function
+// should only be used when we have pre-validated that the map has only a single item
+func extractFirstConfigKey(c map[model.ConfigKey]struct{}) model.ConfigKey {
+	for x := range c {
+		return x
+	}
+	return model.ConfigKey{}
+}
+
 // The debounce helper function is implemented to enable mocking
 func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceOptions, pushFn func(req *model.PushRequest), updateSent *atomic.Int64) {
 	var timeChan <-chan time.Time
@@ -391,9 +400,17 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
 			if req != nil {
 				pushCounter++
-				log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-					pushCounter, debouncedEvents,
-					quietTime, eventDelay, req.Full)
+				configsUpdated := len(req.ConfigsUpdated)
+				if configsUpdated == 1 {
+					update := extractFirstConfigKey(req.ConfigsUpdated)
+					log.Infof("Push debounce stable[%d] %d for config %v: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, update.String(),
+						quietTime, eventDelay, req.Full)
+				} else {
+					log.Infof("Push debounce stable[%d] %d for %d configs: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, configsUpdated,
+						quietTime, eventDelay, req.Full)
+				}
 
 				free = false
 				go push(req, debouncedEvents)
