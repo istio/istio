@@ -438,7 +438,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		for _, ep := range eps {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		if weight > math.MaxUint32 {
+		if weight >= math.MaxUint32 {
 			weight = math.MaxUint32
 		}
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{

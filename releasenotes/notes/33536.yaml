@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 33536
+releaseNotes:
+  - |
+    **Fixed** a bug where Istio config gen fails when sum of endpoint weights over uint32 max.
