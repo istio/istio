@@ -833,7 +833,7 @@ func (s *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	return model.GetServiceAccounts(svc, ports, s)
 }
 
-func (s *ServiceEntryStore) NetworkGateways() map[string][]*model.Gateway {
+func (s *ServiceEntryStore) NetworkGateways() []*model.Gateway {
 	// TODO implement mesh networks loading logic from kube controller if needed
 	return nil
 }

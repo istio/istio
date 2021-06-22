@@ -37,7 +37,7 @@ type ServiceController struct {
 var _ model.Controller = &ServiceController{}
 
 // Memory does not support workload handlers; everything is done in terms of instances
-func (c *ServiceController) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {}
+func (c *ServiceController) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
 
 // AppendServiceHandler appends a service handler to the controller
 func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) {
@@ -55,7 +55,7 @@ func (c *ServiceController) HasSynced() bool { return true }
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
 	services        map[host.Name]*model.Service
-	networkGateways map[string][]*model.Gateway
+	networkGateways []*model.Gateway
 	// EndpointShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
@@ -96,7 +96,6 @@ func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]*labels.Instance{},
-		networkGateways:     map[string][]*model.Gateway{},
 	}
 }
 
@@ -314,7 +313,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Co
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if svc.Hostname == "world.default.svc.cluster.local" {
@@ -326,10 +325,10 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) SetGatewaysForNetwork(nw string, gws ...*model.Gateway) {
-	sd.networkGateways[nw] = gws
+func (sd *ServiceDiscovery) AddGateways(gws ...*model.Gateway) {
+	sd.networkGateways = append(sd.networkGateways, gws...)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
+func (sd *ServiceDiscovery) NetworkGateways() []*model.Gateway {
 	return sd.networkGateways
 }

@@ -108,19 +108,19 @@ func (c *Controller) reloadMeshNetworks() {
 	c.ranger = ranger
 }
 
-func (c *Controller) NetworkGateways() map[string][]*model.Gateway {
+func (c *Controller) NetworkGateways() []*model.Gateway {
 	c.RLock()
 	defer c.RUnlock()
 	if c.networkGateways == nil || len(c.networkGateways) == 0 {
 		return nil
 	}
-	gws := map[string][]*model.Gateway{}
+	gws := make([]*model.Gateway, 0)
 	for _, netGws := range c.networkGateways {
 		if netGws == nil {
 			continue
 		}
-		for nw, gw := range netGws {
-			gws[nw] = append(gws[nw], gw...)
+		for _, gw := range netGws {
+			gws = append(gws, gw...)
 		}
 	}
 	return gws
@@ -184,7 +184,12 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 		ips := svc.Attributes.ClusterExternalAddresses[c.Cluster()]
 		for _, ip := range ips {
-			gws = append(gws, &model.Gateway{Addr: ip, Port: gwPort})
+			gws = append(gws, &model.Gateway{
+				Cluster: model.ClusterID(c.Cluster()),
+				Network: model.NetworkID(network),
+				Addr:    ip,
+				Port:    gwPort,
+			})
 		}
 	}
 

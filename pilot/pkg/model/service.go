@@ -42,6 +42,11 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 )
 
+const (
+	// DefaultLoadBalancingWeight is the default weight applied to IstioEndpoint, if not set explicitly.
+	DefaultLoadBalancingWeight = 1
+)
+
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
 // ports where the service is listening for connections. *Optionally*, a
@@ -417,6 +422,14 @@ type IstioEndpoint struct {
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
 }
 
+// GetLoadBalancingWeight returns the LbWeight for this endpoint, or DefaultLoadBalancingWeight if not set.
+func (ep *IstioEndpoint) GetLoadBalancingWeight() uint32 {
+	if ep.LbWeight > 0 {
+		return ep.LbWeight
+	}
+	return DefaultLoadBalancingWeight
+}
+
 // IsDiscoverableFromProxy indicates whether or not this endpoint is discoverable from the given Proxy.
 func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 	if ep == nil || ep.DiscoverabilityPolicy == nil {
@@ -537,8 +550,8 @@ type ServiceDiscovery interface {
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
 
-	// NetworkGateways returns a map of network name to Gateways that can be used to access that network.
-	NetworkGateways() map[string][]*Gateway
+	// NetworkGateways returns a list of network gateways that can be used to access endpoints residing in this registry..
+	NetworkGateways() []*Gateway
 }
 
 // GetNames returns port names
