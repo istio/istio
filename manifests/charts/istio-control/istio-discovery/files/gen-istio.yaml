@@ -946,7 +946,7 @@ data:
               emptyDir: {}
       grpc-agent: |
         {{- $containers := list }}
-        {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
+        {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-agent") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
         metadata:
           annotations: {
             {{- if eq (len $containers) 1 }}
@@ -957,7 +957,7 @@ data:
         spec:
           containers:
           {{- range $index, $container := .Spec.Containers  }}
-          {{ if not (eq $container.Name "istio-proxy") }}
+          {{ if not (eq $container.Name "istio-agent") }}
           - name: {{ $container.Name }}
             env:
             - name: "GRPC_XDS_BOOTSTRAP"
@@ -970,7 +970,7 @@ data:
               name: istio-xds
           {{- end }}
           {{- end }}
-          - name: istio-proxy
+          - name: istio-agent
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
             image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
           {{- else }}

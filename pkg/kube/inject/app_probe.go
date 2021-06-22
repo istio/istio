@@ -106,7 +106,7 @@ func DumpAppProbers(podspec *corev1.PodSpec, targetPort int32) string {
 		return p
 	}
 	for _, c := range podspec.Containers {
-		if c.Name == ProxyContainerName {
+		if c.Name == ProxyContainerName || c.Name == AgentContainerName {
 			continue
 		}
 		readyz, livez, startupz := status.FormatProberURL(c.Name)

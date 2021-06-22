@@ -74,6 +74,9 @@ const (
 	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
 
+	// AgentContainerName is the name of the istio-agent container that doesn't run Envoy
+	AgentContainerName = "istio-agent"
+
 	// ValidationContainerName is the name of the init container that validates
 	// if CNI has made the necessary changes to iptables
 	ValidationContainerName = "istio-validation"
