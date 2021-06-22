@@ -366,6 +366,25 @@ func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
 	}
 }
 
+func TestCmdAddExcludePodWithExcludeCNIAnnotation(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	k8Args = "K8S_POD_NAMESPACE=testNS;K8S_POD_NAME=testPodName"
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testInitContainers = map[string]struct{}{
+		"foo-init": {},
+	}
+	testAnnotations[sidecarStatusKey] = "true"
+	testAnnotations[cniDisabledKey] = "true"
+	getKubePodInfoCalled = true
+
+	testCmdAdd(t)
+
+	if nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to not get called")
+	}
+}
+
 func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
 	defer resetGlobalTestVariables()
 
