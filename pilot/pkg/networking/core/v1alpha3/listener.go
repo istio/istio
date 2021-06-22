@@ -283,6 +283,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 			},
 			ServerName:          EnvoyServerName,
 			DelayedCloseTimeout: features.DelayedCloseTimeout,
+			Http2ProtocolOptions: &core.Http2ProtocolOptions{
+				AllowConnect: true,
+			},
 		},
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy

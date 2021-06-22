@@ -242,6 +242,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
+	cases["websocket"] = websocketTestCases(apps)
 	if len(t.Clusters().ByNetwork()) == 1 {
 		// Consistent hashing does not work for multinetwork. The first request will consistently go to a
 		// gateway, but that gateway will tcp_proxy it to a random pod.

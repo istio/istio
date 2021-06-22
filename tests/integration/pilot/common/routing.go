@@ -1955,3 +1955,38 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 
 	return cases
 }
+
+func websocketTestCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := make([]TrafficTestCase, 0)
+	clients := apps.PodA
+	destination := apps.PodC[0]
+	h2UpgradeDR := func(dst string) string {
+		return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    connectionPool:
+      http:
+        h2UpgradePolicy: UPGRADE
+	`, dst, dst)
+	}
+
+	for _, client := range clients {
+		cases = append(cases, TrafficTestCase{
+			name:   fmt.Sprintf("websocket-h2-upgrade"),
+			config: h2UpgradeDR(destination.Config().Service),
+			call:   client.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:   destination,
+				PortName: "http",
+				Scheme:   scheme.WebSocket,
+				Count:    50,
+			},
+		})
+	}
+
+	return cases
+}
