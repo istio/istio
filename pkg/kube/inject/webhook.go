@@ -310,6 +310,8 @@ func getInjectionStatus(podSpec corev1.PodSpec, revision string) string {
 	for _, c := range podSpec.ImagePullSecrets {
 		stat.ImagePullSecrets = append(stat.ImagePullSecrets, c.Name)
 	}
+	// Rather than setting istio.io/rev label on injected pods include them here in status annotation.
+	// This keeps us from overwriting the istio.io/rev label when using revision tags (i.e. istio.io/rev=<tag>).
 	if revision == "" {
 		revision = "default"
 	}
