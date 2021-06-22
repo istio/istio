@@ -330,6 +330,11 @@ spec:
 									"dsthost": fmt.Sprintf("%s.%s.svc.cluster.local", dst[0].Config().Service, ns.Name()),
 								},
 							), ns.Name())
+							if err := t.Config().ApplyYAML(ns.Name(), destRuleCfg); err != nil {
+								t.Logf("failed to apply destination rule: %v", err)
+								return err
+							}
+							util.WaitForConfig(t, destRuleCfg, ns)
 							if c.Config != "" {
 								policy := yml.MustApplyNamespace(t, tmpl.MustEvaluate(
 									file.AsStringOrFail(t, fmt.Sprintf("testdata/requestauthn/%s.yaml.tmpl", c.Config)),
@@ -338,26 +343,19 @@ spec:
 										"dst":       dst[0].Config().Service,
 									},
 								), ns.Name())
-								fmt.Printf("dump security policy\n%s\n", policy)
-								if err := t.Config().ApplyYAML(ns.Name(), policy, destRuleCfg); err != nil {
+								if err := t.Config().ApplyYAML(ns.Name(), policy); err != nil {
 									t.Logf("failed to apply policy: %v", err)
 									return err
 								}
 								util.WaitForConfig(t, policy, ns)
-							} else {
-								if err := t.Config().ApplyYAML(ns.Name(), destRuleCfg); err != nil {
-									t.Logf("failed to apply destination rule: %v", err)
-									return err
-								}
-								util.WaitForConfig(t, destRuleCfg, ns)
 							}
 							return nil
 						}).
 						From(
 							// TODO(JimmyCYJ): enable VM and fix valid-token-forward-remote-jwks and invalid_aud.
-							filters(t, ns.Name(), true)...).
+							util.SourceFilter(t, apps, ns.Name(), true)...).
 						ConditionallyTo(echotest.ReachableDestinations).
-						To(filters(t, ns.Name(), false)...).
+						To(util.DestFilter(t, apps, ns.Name(), false)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(fmt.Sprintf("%s-from-cluster-%s-to-cluster-%s",
 								c.Name, src.Config().Cluster.StableName(), dest[0].Config().Cluster.StableName())).Run(
@@ -385,28 +383,6 @@ spec:
 				}
 			})
 		})
-}
-
-// filters returns a set of filters to only select injected workloads. VM is skipped
-// if skipVM is true.
-// TODO(JimmyCYJ): Simplify this function as a single filter.
-func filters(t framework.TestContext, ns string, skipVM bool) []echotest.Filter {
-	rt := []echotest.Filter{
-		echotest.SingleSimplePodServiceAndAllSpecial(),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-		func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns)) },
-		// TODO(JimmyCYJ): extend clusters to cover cross-cluster traffic.
-		func(instances echo.Instances) echo.Instances {
-			return instances.Match(echo.InCluster(t.Clusters().Default()))
-		},
-	}
-	if skipVM {
-		rt = append(rt, echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsVirtualMachine()) }))
-	}
-	return rt
 }
 
 // TestIngressRequestAuthentication tests beta authn policy for jwt on ingress.
@@ -473,12 +449,12 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							util.WaitForConfig(t, policy, ns)
 							return t.Config().ApplyYAML(ns.Name(), policy)
 						}).
-						From(filters(t, ns.Name(), false)...).
+						From(util.SourceFilter(t, apps, ns.Name(), false)...).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
 							return to.Match(echo.InCluster(from.Config().Cluster))
 						}).
-						To(filters(t, ns.Name(), false)...).
+						To(util.DestFilter(t, apps, ns.Name(), false)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
