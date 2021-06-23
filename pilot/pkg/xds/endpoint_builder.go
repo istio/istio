@@ -64,6 +64,7 @@ type EndpointBuilder struct {
 	locality        *core.Locality
 	destinationRule *config.Config
 	service         *model.Service
+	clusterLocal    bool
 	tunnelType      networking.TunnelType
 
 	// These fields are provided for convenience only
@@ -87,6 +88,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
+		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
 		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
@@ -113,7 +115,14 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
-	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality), b.tunnelType.ToString()}
+	params := []string{
+		b.clusterName,
+		b.network,
+		b.clusterID,
+		strconv.FormatBool(b.clusterLocal),
+		util.LocalityToString(b.locality),
+		b.tunnelType.ToString(),
+	}
 	if b.push != nil && b.push.AuthnPolicies != nil {
 		params = append(params, b.push.AuthnPolicies.AggregateVersion)
 	}
@@ -256,7 +265,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := b.push.IsClusterLocal(b.service)
+	isClusterLocal := b.clusterLocal
 
 	shards.mutex.Lock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output. Since

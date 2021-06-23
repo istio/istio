@@ -846,13 +846,6 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
-	// If we don't know what updated, cannot safely cache. Clear the whole cache
-	if len(req.ConfigsUpdated) == 0 {
-		s.Cache.ClearAll()
-	} else {
-		// Otherwise, just clear the updated configs
-		s.Cache.Clear(req.ConfigsUpdated)
-	}
 	if !req.Full {
 		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
 			version, s.adsClientCount(), req.Push.PushVersion)
