@@ -15,19 +15,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dotdotpwn
+  name: tomcat
 spec:
   selector:
     matchLabels:
-      app: dotdotpwn
+      app: tomcat
   template:
     metadata:
       labels:
-        app: dotdotpwn
-      annotations:
-        # Do not inject Envoy in the fuzzer side to make sure the server Envoy sees the original fuzzed request.
-        "sidecar.istio.io/inject": "false"
+        app: tomcat
     spec:
       containers:
-        - name: dotdotpwn
-          image: gcr.io/istio-testing/dotdotpwn:0.1
+        - name: tomcat
+          image: gcr.io/istio-testing/fuzz_tomcat:0.1
+          ports:
+          - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tomcat
+  labels:
+    app: tomcat
+    service: tomcat
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: tomcat
