@@ -1,41 +1,22 @@
 {{- if .Values.global.configCluster }}
 apiVersion: rbac.authorization.k8s.io/v1
-{{- end }}
 kind: Role
-{{- end }}
 metadata:
-{{- end }}
   name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
-{{- end }}
   namespace: {{ .Values.global.istioNamespace }}
-{{- end }}
   labels:
-{{- end }}
     app: istiod
-{{- end }}
     release: {{ .Release.Name }}
-{{- end }}
 rules:
-{{- end }}
 # permissions to verify the webhook is ready and rejecting
-{{- end }}
 # invalid config. We use --server-dry-run so no config is persisted.
-{{- end }}
 - apiGroups: ["networking.istio.io"]
-{{- end }}
   verbs: ["create"]
-{{- end }}
   resources: ["gateways"]
-{{- end }}
 
-{{- end }}
 # For storing CA secret
-{{- end }}
 - apiGroups: [""]
-{{- end }}
   resources: ["secrets"]
-{{- end }}
   # TODO lock this down to istio-ca-cert if not using the DNS cert mesh config
-{{- end }}
   verbs: ["create", "get", "watch", "list", "update", "delete"]
 {{- end }}
