@@ -616,9 +616,9 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 	return def
 }
 
-// UnnamedNetwork is the default network that proxies in the mesh
-// get when they don't request a specific network view.
 const (
+	// UnnamedNetwork is the default network that proxies in the mesh
+	// get when they don't request a specific network view.
 	UnnamedNetwork = ""
 	Undefined      = ""
 )
