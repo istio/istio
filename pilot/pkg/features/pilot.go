@@ -15,7 +15,6 @@
 package features
 
 import (
-	"os"
 	"strconv"
 	"time"
 
@@ -430,9 +429,9 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
-	DeltaXds = LookupBoolVar("ISTIO_DELTA_XDS", false,
+	DeltaXds = RegisterHiddenBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request")
+			"Resource Request").Get()
 
 	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
 		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
@@ -451,19 +450,14 @@ func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
 
-// LookupBoolVar looks up a new boolean environment variable that is hidden from documentation.
-// nolint
-func LookupBoolVar(name string, defaultValue bool, description string) bool {
-	result, ok := os.LookupEnv(name)
-	if !ok {
-		return defaultValue
+// RegisterHiddenBoolVar registers a new boolean environment variable that is hidden from documentation.
+func RegisterHiddenBoolVar(name string, defaultValue bool, description string) env.BoolVar {
+	v := env.Var{Name: name, DefaultValue: strconv.FormatBool(defaultValue), Description: description, Type: env.BOOL}
+	env.RegisterVar(v)
+	for _, bv := range env.VarDescriptions() {
+		if bv.Name == v.Name {
+			return env.BoolVar{bv}
+		}
 	}
-
-	b, err := strconv.ParseBool(result)
-	if err != nil {
-		log.Warnf("Invalid environment variable value `%s`, expecting true/false, defaulting to %v", result, defaultValue)
-		b = defaultValue
-	}
-
-	return b
+	return env.BoolVar{}
 }
