@@ -616,9 +616,12 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 	return def
 }
 
-// UnnamedNetwork is the default network that proxies in the mesh
-// get when they don't request a specific network view.
-const UnnamedNetwork = ""
+const (
+	// UnnamedNetwork is the default network that proxies in the mesh
+	// get when they don't request a specific network view.
+	UnnamedNetwork = ""
+	Undefined      = ""
+)
 
 // GetNetworkView returns the networks that the proxy requested.
 // When sending EDS/CDS-with-dns-endpoints, Pilot will only send
@@ -651,7 +654,7 @@ func (node *Proxy) InCluster(cluster string) bool {
 }
 
 func SameOrEmpty(a, b string) bool {
-	return a == UnnamedNetwork || b == UnnamedNetwork || a == b
+	return a == Undefined || b == Undefined || a == b
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
