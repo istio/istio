@@ -125,14 +125,13 @@ func tagSetCommand() *cobra.Command {
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
 		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl x revision tag set prod --revision 1-8-0
+ istioctl revision tag set prod --revision 1-8-0
 
  # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
  kubectl label ns test-ns istio.io/rev=prod
 
  # Change the revision tag to reference the "1-8-1" revision
- istioctl x revision tag prod --revision 1-8-1 --overwrite
-
+ istioctl revision tag set prod --revision 1-8-1 --overwrite
 
  # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
  kubectl rollout restart deployments -n test-ns
