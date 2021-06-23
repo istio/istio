@@ -27,12 +27,12 @@ func init() {
 
 var (
 	requests = monitoring.NewSum(
-		"dns_total_requests",
+		"dns_requests_total",
 		"Total number of DNS requests.",
 	)
 
 	upstreamRequests = monitoring.NewSum(
-		"dns_total_upstream_requests",
+		"dns_upstream_requests_total",
 		"Total number of DNS requests forwarded to upstream.",
 	)
 
