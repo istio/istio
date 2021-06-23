@@ -187,7 +187,12 @@ func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string
 		ServiceAccounts: sets.Set{},
 	}
 	s.EndpointShardsByService[serviceName][namespace] = ep
-
+	// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
+	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      serviceName,
+		Namespace: namespace,
+	}: {}})
 	return ep, true
 }
 

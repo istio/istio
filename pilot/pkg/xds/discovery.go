@@ -295,11 +295,23 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 	}
 }
 
+// dropCacheForRequest clears the cache in response to a push request
+func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
+	// If we don't know what updated, cannot safely cache. Clear the whole cache
+	if len(req.ConfigsUpdated) == 0 {
+		s.Cache.ClearAll()
+	} else {
+		// Otherwise, just clear the updated configs
+		s.Cache.Clear(req.ConfigsUpdated)
+	}
+}
+
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
+		s.dropCacheForRequest(req)
 		s.AdsPushAll(versionInfo(), req)
 		return
 	}
@@ -507,6 +519,8 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 
 	s.updateMutex.Lock()
 	s.Env.PushContext = push
+	// Ensure we drop the cache in the lock to avoid races, where we drop the cache, fill it back up, then update push context
+	s.dropCacheForRequest(req)
 	s.updateMutex.Unlock()
 
 	return push, nil
