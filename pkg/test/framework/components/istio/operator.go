@@ -331,13 +331,9 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	errG := multierror.Group{}
 	for _, cluster := range ctx.Clusters().Kube().Primaries() {
 		cluster := cluster
-		errG.Go(func() error {
-			return installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
-		})
-	}
-	if err := errG.Wait(); err != nil {
-		scopes.Framework.Errorf("one or more errors occurred installing control-plane clusters: %v", err)
-		return i, err
+		if err = installControlPlaneCluster(i, cfg, cluster, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec); err != nil {
+			return i, err
+		}
 	}
 
 	// after control planes are setup, configure discovery for remote-config clusters

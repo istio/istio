@@ -157,6 +157,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceAll,
 		"Config namespace")
 
+	_ = rootCmd.RegisterFlagCompletionFunc("istioNamespace", validNamespaceArgsFunction)
+	_ = rootCmd.RegisterFlagCompletionFunc("namespace", validNamespaceArgsFunction)
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 	hiddenFlags := []string{
