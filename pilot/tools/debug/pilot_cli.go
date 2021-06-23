@@ -253,11 +253,12 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 	// Make sure istio-pilot is reachable.
 	reachable := false
 	url := fmt.Sprintf("localhost:%d", localPort)
-	for i := 0; i < 10 && !reachable; i++ {
+	for i := 0; i < 10; i++ {
 		conn, err := net.Dial("tcp", url)
 		if err == nil {
 			_ = conn.Close()
 			reachable = true
+			break
 		}
 		time.Sleep(1 * time.Second)
 	}

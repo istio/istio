@@ -652,6 +652,30 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 	return cases
 }
 
+// destinationRuleCases contains tests some specific DestinationRule tests.
+func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
+	var cases []TrafficTestCase
+	client := apps.PodA
+	destination := apps.PodC[0]
+	cases = append(cases,
+		// Validates the config is generated correctly when only idletimeout is specified in DR.
+		TrafficTestCase{
+			name:   "only idletimeout specified in DR",
+			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
+			call:   client[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:    destination,
+				PortName:  "http",
+				Count:     1,
+				HTTP2:     true,
+				Validator: echo.ExpectOK(),
+			},
+			minIstioVersion: "1.10.0",
+		},
+	)
+	return cases
+}
+
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
 func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
@@ -1863,6 +1887,23 @@ spec:
     connectionPool:
       http:
         useClientProtocol: true
+---
+`, name, app)
+}
+
+func idletimeoutDestinationRule(name, app string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      http:
+        idleTimeout: 100s
 ---
 `, name, app)
 }

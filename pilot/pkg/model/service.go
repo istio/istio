@@ -437,7 +437,7 @@ var AlwaysDiscoverable = func(*IstioEndpoint, *Proxy) bool {
 // DiscoverableFromSameCluster is an EndpointDiscoverabilityPolicy that only allows an endpoint to be discoverable
 // from proxies within the same cluster.
 var DiscoverableFromSameCluster = func(ep *IstioEndpoint, p *Proxy) bool {
-	return ep.Locality.ClusterID == p.Metadata.ClusterID
+	return p.InCluster(ep.Locality.ClusterID)
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -537,8 +537,8 @@ type ServiceDiscovery interface {
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
 
-	// NetworkGateways returns a map of network name to Gateways that can be used to access that network.
-	NetworkGateways() map[string][]*Gateway
+	// NetworkGateways returns a list of network gateways that can be used to access endpoints residing in this registry..
+	NetworkGateways() []*NetworkGateway
 }
 
 // GetNames returns port names

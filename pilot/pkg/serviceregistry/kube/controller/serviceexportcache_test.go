@@ -35,6 +35,7 @@ const (
 	serviceExportName      = "test-svc"
 	serviceExportNamespace = "test-ns"
 	serviceExportPodIP     = "128.0.0.2"
+	testCluster            = "test-cluster"
 )
 
 var serviceExportNamespacedName = types.NamespacedName{
@@ -100,6 +101,7 @@ func newTestServiceExportCache(t *testing.T, stopCh chan struct{}) *serviceExpor
 	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{
 		EnableMCSServiceDiscovery: true,
 		Stop:                      stopCh,
+		ClusterID:                 testCluster,
 	})
 
 	// Create the test service and endpoints.

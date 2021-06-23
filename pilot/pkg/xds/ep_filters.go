@@ -36,7 +36,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
-	for _, gateways := range b.push.NetworkGateways() {
+	byNetwork := b.gatewaysByNetwork()
+	for _, gateways := range byNetwork {
 		if num := len(gateways); num > 0 {
 			multiples *= num
 		}
@@ -65,7 +66,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			epNetwork := istioMetadata(lbEp, "network")
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
-			if model.SameOrEmpty(b.network, epNetwork) || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
+			gatewaysForNetwork := b.push.NetworkGateways().ForNetwork(model.NetworkID(epNetwork))
+			if model.SameOrEmpty(b.network, epNetwork) || len(gatewaysForNetwork) == 0 {
 				// Copy on write.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
@@ -97,7 +99,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		// we initiate mTLS automatically to this remote gateway. Split horizon to remote gateway cannot
 		// work with plaintext
 		for network, w := range remoteEps {
-			gateways := b.push.NetworkGatewaysByNetwork(network)
+			gateways := b.push.NetworkGateways().ForNetwork(model.NetworkID(network))
 
 			gatewayNum := len(gateways)
 			weight := w * uint32(multiples/gatewayNum)
@@ -132,6 +134,16 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	}
 
 	return filtered
+}
+
+func (b *EndpointBuilder) gatewaysByNetwork() map[model.NetworkID][]*model.NetworkGateway {
+	gateways := b.push.NetworkGateways().All()
+	byNetwork := make(map[model.NetworkID][]*model.NetworkGateway)
+	for _, gateway := range gateways {
+		networkGateways := append(byNetwork[gateway.Network], gateway)
+		byNetwork[gateway.Network] = networkGateways
+	}
+	return byNetwork
 }
 
 // EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at
