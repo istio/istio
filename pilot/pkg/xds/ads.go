@@ -803,7 +803,7 @@ func (s *DiscoveryServer) adsClientCount() int {
 	return len(s.adsClients)
 }
 
-func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
+func (s *DiscoveryServer) ProxyUpdate(clusterID model.ClusterID, ip string) {
 	var connection *Connection
 
 	for _, v := range s.Clients() {

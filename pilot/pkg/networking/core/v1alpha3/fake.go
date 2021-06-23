@@ -123,7 +123,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	msd.ClusterID = string(serviceregistry.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
-		ClusterID:        string(serviceregistry.Mock),
+		ClusterID:        model.ClusterID(serviceregistry.Mock),
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: msd,
 		Controller:       msd.Controller,
@@ -306,4 +306,4 @@ func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {}
 
-func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {}
+func (f *FakeXdsUpdater) ProxyUpdate(_ model.ClusterID, _ string) {}

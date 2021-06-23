@@ -60,14 +60,14 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		}
 
 		// Weight (number of endpoints) for the EDS cluster for each remote networks
-		remoteEps := map[string]uint32{}
+		remoteEps := map[model.NetworkID]uint32{}
 		// Calculate remote network endpoints
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
-			epNetwork := istioMetadata(lbEp, "network")
+			epNetwork := model.NetworkID(istioMetadata(lbEp, "network"))
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
-			gatewaysForNetwork := b.push.NetworkManager().GatewaysForNetwork(model.NetworkID(epNetwork))
-			if model.SameOrEmpty(b.network, epNetwork) || len(gatewaysForNetwork) == 0 {
+			gatewaysForNetwork := b.push.NetworkManager().GatewaysForNetwork(epNetwork)
+			if model.SameOrEmpty(string(b.network), string(epNetwork)) || len(gatewaysForNetwork) == 0 {
 				// Copy on write.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{

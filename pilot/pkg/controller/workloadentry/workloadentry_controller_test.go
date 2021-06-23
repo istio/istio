@@ -304,7 +304,7 @@ func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreCache) {
 func checkNoEntry(store model.ConfigStoreCache, wg config.Config, proxy *model.Proxy) error {
 	name := wg.Name + "-" + proxy.IPAddresses[0]
 	if proxy.Metadata.Network != "" {
-		name += "-" + proxy.Metadata.Network
+		name += "-" + string(proxy.Metadata.Network)
 	}
 
 	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
@@ -322,7 +322,7 @@ func checkEntry(
 ) (err error) {
 	name := wg.Name + "-" + proxy.IPAddresses[0]
 	if proxy.Metadata.Network != "" {
-		name += "-" + proxy.Metadata.Network
+		name += "-" + string(proxy.Metadata.Network)
 	}
 
 	cfg := store.Get(gvk.WorkloadEntry, name, wg.Namespace)
@@ -342,7 +342,7 @@ func checkEntry(
 	}
 
 	if proxy.Metadata.Network != "" {
-		if we.Network != proxy.Metadata.Network {
+		if we.Network != string(proxy.Metadata.Network) {
 			err = multierror.Append(fmt.Errorf("entry has network %s; expected to match meta network %s", we.Network, proxy.Metadata.Network))
 		}
 	} else {
@@ -442,7 +442,7 @@ func checkHealthOrFail(t test.Failer, store model.ConfigStoreCache, proxy *model
 	}
 }
 
-func fakeProxy(ip string, wg config.Config, nw string) *model.Proxy {
+func fakeProxy(ip string, wg config.Config, nw model.NetworkID) *model.Proxy {
 	return &model.Proxy{
 		IPAddresses: []string{ip},
 		Metadata: &model.NodeMetadata{

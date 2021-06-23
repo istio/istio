@@ -250,7 +250,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Address:         addr,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
-			Network:         endpoint.Network,
+			Network:         model.NetworkID(endpoint.Network),
 			Locality: model.Locality{
 				Label: endpoint.Locality,
 			},
@@ -391,7 +391,7 @@ func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadIn
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			// Not setting ports here as its done by k8s controller
-			Network: we.Network,
+			Network: model.NetworkID(we.Network),
 			Locality: model.Locality{
 				Label: we.Locality,
 			},

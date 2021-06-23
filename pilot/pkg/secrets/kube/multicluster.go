@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/secrets"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -28,10 +29,10 @@ import (
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
 type Multicluster struct {
-	remoteKubeControllers map[string]*SecretsController
+	remoteKubeControllers map[model.ClusterID]*SecretsController
 	m                     sync.Mutex // protects remoteKubeControllers
 	secretController      *secretcontroller.Controller
-	localCluster          string
+	localCluster          model.ClusterID
 	stop                  <-chan struct{}
 }
 
@@ -54,9 +55,9 @@ func init() {
 	monitoring.MustRegister(clustersCount)
 }
 
-func NewMulticluster(client kube.Client, localCluster, secretNamespace string, stop <-chan struct{}) *Multicluster {
+func NewMulticluster(client kube.Client, localCluster model.ClusterID, secretNamespace string, stop <-chan struct{}) *Multicluster {
 	m := &Multicluster{
-		remoteKubeControllers: map[string]*SecretsController{},
+		remoteKubeControllers: map[model.ClusterID]*SecretsController{},
 		localCluster:          localCluster,
 		stop:                  stop,
 	}
@@ -67,15 +68,15 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string, s
 	// Add the local cluster
 	m.addMemberCluster(client, localCluster)
 	sc := secretcontroller.StartSecretController(client,
-		func(k string, c *secretcontroller.Cluster) error {
+		func(k model.ClusterID, c *secretcontroller.Cluster) error {
 			m.addMemberCluster(c.Client, k)
 			return nil
 		},
-		func(k string, c *secretcontroller.Cluster) error {
+		func(k model.ClusterID, c *secretcontroller.Cluster) error {
 			m.updateMemberCluster(c.Client, k)
 			return nil
 		},
-		func(k string) error { m.deleteMemberCluster(k); return nil },
+		func(k model.ClusterID) error { m.deleteMemberCluster(k); return nil },
 		secretNamespace,
 		time.Millisecond*100,
 		stop)
@@ -87,7 +88,7 @@ func (m *Multicluster) HasSynced() bool {
 	return m.secretController.HasSynced()
 }
 
-func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
+func (m *Multicluster) addMemberCluster(clients kube.Client, key model.ClusterID) {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
 	sc := NewSecretsController(clients, key)
 	m.m.Lock()
@@ -96,19 +97,19 @@ func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
 	m.m.Unlock()
 }
 
-func (m *Multicluster) updateMemberCluster(clients kube.Client, key string) {
+func (m *Multicluster) updateMemberCluster(clients kube.Client, key model.ClusterID) {
 	m.deleteMemberCluster(key)
 	m.addMemberCluster(clients, key)
 }
 
-func (m *Multicluster) deleteMemberCluster(key string) {
+func (m *Multicluster) deleteMemberCluster(key model.ClusterID) {
 	m.m.Lock()
 	delete(m.remoteKubeControllers, key)
 	remoteClusters.Record(float64(len(m.remoteKubeControllers) - 1))
 	m.m.Unlock()
 }
 
-func (m *Multicluster) ForCluster(clusterID string) (secrets.Controller, error) {
+func (m *Multicluster) ForCluster(clusterID model.ClusterID) (secrets.Controller, error) {
 	if _, f := m.remoteKubeControllers[clusterID]; !f {
 		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
 	}

@@ -54,7 +54,7 @@ import (
 
 type FakeOptions struct {
 	// If provided, a service registry with the name of each map key will be created with the given objects.
-	KubernetesObjectsByCluster map[string][]runtime.Object
+	KubernetesObjectsByCluster map[model.ClusterID][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
 	KubernetesObjects []runtime.Object
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes")
@@ -370,8 +370,8 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 	return loadAssignments
 }
 
-func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {
-	objects := map[string][]runtime.Object{}
+func getKubernetesObjects(t test.Failer, opts FakeOptions) map[model.ClusterID][]runtime.Object {
+	objects := map[model.ClusterID][]runtime.Object{}
 
 	if len(opts.KubernetesObjects) > 0 {
 		objects["Kuberentes"] = append(objects["Kuberenetes"], opts.KubernetesObjects...)
@@ -396,7 +396,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.
 	}
 
 	if len(objects) == 0 {
-		return map[string][]runtime.Object{"Kubernetes": {}}
+		return map[model.ClusterID][]runtime.Object{"Kubernetes": {}}
 	}
 
 	return objects

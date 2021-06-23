@@ -78,7 +78,7 @@ func TestInboundClusters(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("backend.default.svc.cluster.local"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,
@@ -93,7 +93,7 @@ func TestInboundClusters(t *testing.T) {
 	serviceAlt := &model.Service{
 		Hostname:    host.Name("backend-alt.default.svc.cluster.local"),
 		Address:     "1.1.1.2",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,

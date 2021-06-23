@@ -109,7 +109,7 @@ type Options struct {
 	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
-	ClusterID string
+	ClusterID model.ClusterID
 
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
@@ -188,8 +188,8 @@ type kubernetesNode struct {
 type controllerInterface interface {
 	getPodLocality(pod *v1.Pod) string
 	cidrRanger() cidranger.Ranger
-	defaultNetwork() string
-	Cluster() string
+	defaultNetwork() model.NetworkID
+	Cluster() model.ClusterID
 }
 
 var _ controllerInterface = &Controller{}
@@ -248,13 +248,13 @@ type Controller struct {
 	ranger cidranger.Ranger
 
 	// Network name for to be used when the meshNetworks for registry nor network label on pod is specified
-	network string
+	network model.NetworkID
 	// Network name for the registry as specified by the MeshNetworks configmap
-	networkForRegistry string
+	networkForRegistry model.NetworkID
 	// tracks which services on which ports should act as a gateway for networkForRegistry
 	registryServiceNameGateways map[host.Name]uint32
 	// gateways for each network, indexed by the service that runs them so we clean them up later
-	networkGateways map[host.Name]map[string]gatewaySet
+	networkGateways map[host.Name]map[model.NetworkID]gatewaySet
 
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
@@ -279,7 +279,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
 		workloadInstancesIPsByName:  make(map[string]string),
 		registryServiceNameGateways: make(map[host.Name]uint32),
-		networkGateways:             make(map[host.Name]map[string]gatewaySet),
+		networkGateways:             make(map[host.Name]map[model.NetworkID]gatewaySet),
 		informerInit:                atomic.NewBool(false),
 		beginSync:                   atomic.NewBool(false),
 		initialSync:                 atomic.NewBool(false),
@@ -357,7 +357,7 @@ func (c *Controller) Provider() serviceregistry.ProviderID {
 	return serviceregistry.Kubernetes
 }
 
-func (c *Controller) Cluster() string {
+func (c *Controller) Cluster() model.ClusterID {
 	return c.opts.ClusterID
 }
 
@@ -374,7 +374,7 @@ func (c *Controller) cidrRanger() cidranger.Ranger {
 	return c.ranger
 }
 
-func (c *Controller) defaultNetwork() string {
+func (c *Controller) defaultNetwork() model.NetworkID {
 	c.RLock()
 	defer c.RUnlock()
 	if c.networkForRegistry != "" {
@@ -390,7 +390,7 @@ func (c *Controller) Cleanup() error {
 	}
 	for _, s := range svcs {
 		name := kube.ServiceHostname(s.Name, s.Namespace, c.opts.DomainSuffix)
-		c.opts.XDSUpdater.SvcUpdate(c.Cluster(), string(name), s.Namespace, model.EventDelete)
+		c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(name), s.Namespace, model.EventDelete)
 	}
 	return nil
 }
@@ -450,11 +450,11 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	if event == model.EventAdd || event == model.EventUpdate {
 		endpoints := c.buildEndpointsForService(svcConv)
 		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(c.Cluster(), string(svcConv.Hostname), svc.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSCacheUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, endpoints)
 		}
 	}
 
-	c.opts.XDSUpdater.SvcUpdate(c.Cluster(), string(svcConv.Hostname), svc.Namespace, event)
+	c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -1025,7 +1025,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 			}
 			// fire off eds update
-			c.opts.XDSUpdater.EDSUpdate(c.Cluster(), string(service.Hostname), service.Attributes.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSUpdate(string(c.Cluster()), string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
 }
@@ -1045,7 +1045,7 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 	nw := ns.Labels[label.TopologyNetwork.Name]
 	c.Lock()
 	oldDefaultNetwork := c.network
-	c.network = nw
+	c.network = model.NetworkID(nw)
 	c.Unlock()
 	// network changed, not using mesh networks, and controller has been initialized
 	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() {

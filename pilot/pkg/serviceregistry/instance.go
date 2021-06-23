@@ -28,7 +28,7 @@ type Instance interface {
 	Provider() ProviderID
 
 	// Cluster for which the service registry applies. Only needed for multicluster systems.
-	Cluster() string
+	Cluster() model.ClusterID
 }
 
 var _ Instance = &Simple{}
@@ -36,7 +36,7 @@ var _ Instance = &Simple{}
 // Simple Instance implementation, where fields are set individually.
 type Simple struct {
 	ProviderID ProviderID
-	ClusterID  string
+	ClusterID  model.ClusterID
 
 	model.Controller
 	model.ServiceDiscovery
@@ -46,6 +46,6 @@ func (r Simple) Provider() ProviderID {
 	return r.ProviderID
 }
 
-func (r Simple) Cluster() string {
+func (r Simple) Cluster() model.ClusterID {
 	return r.ClusterID
 }

@@ -51,7 +51,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_ model.ClusterID, _ string) {
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "proxy"}:
 	default:
@@ -138,7 +138,7 @@ type FakeControllerOptions struct {
 	MeshWatcher               mesh.Watcher
 	ServiceHandler            func(service *model.Service, event model.Event)
 	Mode                      EndpointMode
-	ClusterID                 string
+	ClusterID                 model.ClusterID
 	WatchedNamespaces         string
 	DomainSuffix              string
 	XDSUpdater                model.XDSUpdater

@@ -210,7 +210,7 @@ var _ controllerInterface = testController{}
 
 type testController struct {
 	locality string
-	cluster  string
+	cluster  model.ClusterID
 }
 
 func (c testController) getPodLocality(*v1.Pod) string {
@@ -221,10 +221,10 @@ func (c testController) cidrRanger() cidranger.Ranger {
 	return nil
 }
 
-func (c testController) defaultNetwork() string {
+func (c testController) defaultNetwork() model.NetworkID {
 	return ""
 }
 
-func (c testController) Cluster() string {
+func (c testController) Cluster() model.ClusterID {
 	return c.cluster
 }

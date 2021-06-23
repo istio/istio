@@ -110,7 +110,7 @@ type readinessProbe func() (bool, error)
 type Server struct {
 	XDSServer *xds.DiscoveryServer
 
-	clusterID   string
+	clusterID   model.ClusterID
 	environment *model.Environment
 
 	kubeClient kubelib.Client
@@ -376,11 +376,11 @@ func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, erro
 	return jwtAuthn, nil
 }
 
-func getClusterID(args *PilotArgs) string {
+func getClusterID(args *PilotArgs) model.ClusterID {
 	clusterID := args.RegistryOptions.KubeOptions.ClusterID
 	if clusterID == "" {
 		if hasKubeRegistry(args.RegistryOptions.Registries) {
-			clusterID = string(serviceregistry.Kubernetes)
+			clusterID = model.ClusterID(serviceregistry.Kubernetes)
 		}
 	}
 	return clusterID

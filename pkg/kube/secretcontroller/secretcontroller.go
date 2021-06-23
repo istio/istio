@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -58,10 +59,10 @@ var timeouts = monitoring.NewSum(
 )
 
 // newClientCallback prototype for the add secret callback function.
-type newClientCallback func(clusterID string, cluster *Cluster) error
+type newClientCallback func(clusterID model.ClusterID, cluster *Cluster) error
 
 // removeClientCallback prototype for the remove secret callback function.
-type removeClientCallback func(clusterID string) error
+type removeClientCallback func(clusterID model.ClusterID) error
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
@@ -112,31 +113,31 @@ func (r *Cluster) HasSynced() bool {
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
 	sync.RWMutex
-	remoteClusters map[string]*Cluster
+	remoteClusters map[model.ClusterID]*Cluster
 }
 
 // newClustersStore initializes data struct to store clusters information
 func newClustersStore() *ClusterStore {
-	remoteClusters := make(map[string]*Cluster)
+	remoteClusters := make(map[model.ClusterID]*Cluster)
 	return &ClusterStore{
 		remoteClusters: remoteClusters,
 	}
 }
 
-func (c *ClusterStore) Store(key string, value *Cluster) {
+func (c *ClusterStore) Store(key model.ClusterID, value *Cluster) {
 	c.Lock()
 	defer c.Unlock()
 	c.remoteClusters[key] = value
 }
 
-func (c *ClusterStore) Get(key string) (*Cluster, bool) {
+func (c *ClusterStore) Get(key model.ClusterID) (*Cluster, bool) {
 	c.RLock()
 	defer c.RUnlock()
 	out, ok := c.remoteClusters[key]
 	return out, ok
 }
 
-func (c *ClusterStore) Delete(key string) {
+func (c *ClusterStore) Delete(key model.ClusterID) {
 	c.Lock()
 	defer c.Unlock()
 	delete(c.remoteClusters, key)
@@ -387,7 +388,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, secretName string) (
 func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 	for clusterID, kubeConfig := range s.Data {
 		action, callback := "Adding", c.addCallback
-		if prev, ok := c.cs.Get(clusterID); ok {
+		if prev, ok := c.cs.Get(model.ClusterID(clusterID)); ok {
 			action, callback = "Updating", c.updateCallback
 			// clusterID must be unique even across multiple secrets
 			if prev.secretName != secretName {
@@ -408,8 +409,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretName, err)
 			continue
 		}
-		c.cs.Store(clusterID, remoteCluster)
-		if err := callback(clusterID, remoteCluster); err != nil {
+		c.cs.Store(model.ClusterID(clusterID), remoteCluster)
+		if err := callback(model.ClusterID(clusterID), remoteCluster); err != nil {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretName, err)
 			continue
 		}

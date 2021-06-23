@@ -534,12 +534,12 @@ type NodeMetadata struct {
 	MeshID string `json:"MESH_ID,omitempty"`
 
 	// ClusterID defines the cluster the node belongs to.
-	ClusterID string `json:"CLUSTER_ID,omitempty"`
+	ClusterID ClusterID `json:"CLUSTER_ID,omitempty"`
 
 	// Network defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a node and not on same network
 	// will be replaced with the gateway defined in the settings.
-	Network string `json:"NETWORK,omitempty"`
+	Network NetworkID `json:"NETWORK,omitempty"`
 
 	// RequestedNetworkView specifies the networks that the proxy wants to see
 	RequestedNetworkView StringList `json:"REQUESTED_NETWORK_VIEW,omitempty"`
@@ -627,14 +627,14 @@ const (
 // When sending EDS/CDS-with-dns-endpoints, Pilot will only send
 // endpoints corresponding to the networks that the proxy wants to see.
 // If not set, we assume that the proxy wants to see endpoints in any network.
-func (node *Proxy) GetNetworkView() map[string]bool {
+func (node *Proxy) GetNetworkView() map[NetworkID]bool {
 	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
 		return nil
 	}
 
-	nmap := make(map[string]bool)
+	nmap := make(map[NetworkID]bool)
 	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[n] = true
+		nmap[NetworkID(n)] = true
 	}
 	nmap[UnnamedNetwork] = true
 
@@ -643,14 +643,14 @@ func (node *Proxy) GetNetworkView() map[string]bool {
 
 // InNetwork returns true if the proxy is on the given network, or if either
 // the proxy's network or the given network is unspecified ("").
-func (node *Proxy) InNetwork(network string) bool {
-	return node == nil || SameOrEmpty(network, node.Metadata.Network)
+func (node *Proxy) InNetwork(network NetworkID) bool {
+	return node == nil || SameOrEmpty(string(network), string(node.Metadata.Network))
 }
 
 // InCluster returns true if the proxy is in the given cluster, or if either
 // the proxy's cluster id or the given cluster id is unspecified ("").
-func (node *Proxy) InCluster(cluster string) bool {
-	return node == nil || SameOrEmpty(cluster, node.Metadata.ClusterID)
+func (node *Proxy) InCluster(cluster ClusterID) bool {
+	return node == nil || SameOrEmpty(string(cluster), string(node.Metadata.ClusterID))
 }
 
 func SameOrEmpty(a, b string) bool {

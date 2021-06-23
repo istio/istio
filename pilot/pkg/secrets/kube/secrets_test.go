@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/kube"
 )
@@ -161,7 +162,7 @@ func TestForCluster(t *testing.T) {
 	sc.addMemberCluster(remoteClient, "remote")
 	sc.addMemberCluster(remoteClient, "remote2")
 	cases := []struct {
-		cluster string
+		cluster model.ClusterID
 		allowed bool
 	}{
 		{"local", true},
@@ -170,7 +171,7 @@ func TestForCluster(t *testing.T) {
 		{"invalid", false},
 	}
 	for _, tt := range cases {
-		t.Run(tt.cluster, func(t *testing.T) {
+		t.Run(string(tt.cluster), func(t *testing.T) {
 			_, err := sc.ForCluster(tt.cluster)
 			if (err == nil) != tt.allowed {
 				t.Fatalf("expected allowed=%v, got err=%v", tt.allowed, err)
@@ -191,7 +192,7 @@ func TestAuthorize(t *testing.T) {
 	cases := []struct {
 		sa      string
 		ns      string
-		cluster string
+		cluster model.ClusterID
 		allowed bool
 	}{
 		{"sa-denied", "ns-local", "local", false},
@@ -252,7 +253,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	cases := []struct {
 		name      string
 		namespace string
-		cluster   string
+		cluster   model.ClusterID
 		cert      string
 		key       string
 		caCert    string

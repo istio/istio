@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
@@ -37,7 +38,7 @@ const (
 	clusterIDMeta = "clusterid"
 )
 
-type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
+type RemoteKubeClientGetter func(clusterID model.ClusterID) kubernetes.Interface
 
 // KubeJWTAuthenticator authenticates K8s JWTs.
 type KubeJWTAuthenticator struct {
@@ -49,7 +50,7 @@ type KubeJWTAuthenticator struct {
 	// Primary cluster kube client
 	kubeClient kubernetes.Interface
 	// Primary cluster ID
-	clusterID string
+	clusterID model.ClusterID
 
 	// remote cluster kubeClient getter
 	remoteKubeClientGetter RemoteKubeClientGetter
@@ -58,7 +59,7 @@ type KubeJWTAuthenticator struct {
 var _ security.Authenticator = &KubeJWTAuthenticator{}
 
 // NewKubeJWTAuthenticator creates a new kubeJWTAuthenticator.
-func NewKubeJWTAuthenticator(meshHolder mesh.Holder, client kubernetes.Interface, clusterID string,
+func NewKubeJWTAuthenticator(meshHolder mesh.Holder, client kubernetes.Interface, clusterID model.ClusterID,
 	remoteKubeClientGetter RemoteKubeClientGetter, jwtPolicy string) *KubeJWTAuthenticator {
 	return &KubeJWTAuthenticator{
 		meshHolder:             meshHolder,
@@ -80,7 +81,7 @@ func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security
 	if err != nil {
 		return nil, fmt.Errorf("target JWT extraction error: %v", err)
 	}
-	clusterID := req.Header.Get(clusterIDMeta)
+	clusterID := model.ClusterID(req.Header.Get(clusterIDMeta))
 	return a.authenticate(targetJWT, clusterID)
 }
 
@@ -96,7 +97,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*security.Call
 	return a.authenticate(targetJWT, clusterID)
 }
 
-func (a *KubeJWTAuthenticator) authenticate(targetJWT, clusterID string) (*security.Caller, error) {
+func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID model.ClusterID) (*security.Caller, error) {
 	kubeClient := a.GetKubeClient(clusterID)
 	if kubeClient == nil {
 		return nil, fmt.Errorf("could not get cluster %s's kube client", clusterID)
@@ -148,7 +149,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT, clusterID string) (*secur
 	}, nil
 }
 
-func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interface {
+func (a *KubeJWTAuthenticator) GetKubeClient(clusterID model.ClusterID) kubernetes.Interface {
 	// first match local/primary cluster
 	// or if clusterID is not sent (we assume that its a single cluster)
 	if a.clusterID == clusterID || clusterID == "" {
@@ -167,7 +168,7 @@ func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interf
 	return nil
 }
 
-func extractClusterID(ctx context.Context) string {
+func extractClusterID(ctx context.Context) model.ClusterID {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return ""
@@ -179,7 +180,7 @@ func extractClusterID(ctx context.Context) string {
 	}
 
 	if len(clusterIDHeader) == 1 {
-		return clusterIDHeader[0]
+		return model.ClusterID(clusterIDHeader[0])
 	}
 	return ""
 }

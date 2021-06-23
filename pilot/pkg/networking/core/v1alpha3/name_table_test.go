@@ -63,7 +63,7 @@ func TestNameTable(t *testing.T) {
 	headlessService := &model.Service{
 		Hostname:    host.Name("headless-svc.testns.svc.cluster.local"),
 		Address:     constants.UnspecifiedIP,
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -80,7 +80,7 @@ func TestNameTable(t *testing.T) {
 	wildcardService := &model.Service{
 		Hostname:    host.Name("*.testns.svc.cluster.local"),
 		Address:     "172.10.10.10",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -104,7 +104,7 @@ func TestNameTable(t *testing.T) {
 	cidrService := &model.Service{
 		Hostname:    host.Name("*.testns.svc.cluster.local"),
 		Address:     "172.217.0.0/16",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",

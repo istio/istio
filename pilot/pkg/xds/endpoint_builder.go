@@ -58,9 +58,9 @@ func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.Pu
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
-	network         string
-	networkView     map[string]bool
-	clusterID       string
+	network         model.NetworkID
+	networkView     map[model.NetworkID]bool
+	clusterID       model.ClusterID
 	locality        *core.Locality
 	destinationRule *config.Config
 	service         *model.Service
@@ -117,8 +117,8 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 func (b EndpointBuilder) Key() string {
 	params := []string{
 		b.clusterName,
-		b.network,
-		b.clusterID,
+		string(b.network),
+		string(b.clusterID),
 		strconv.FormatBool(b.clusterLocal),
 		util.LocalityToString(b.locality),
 		b.tunnelType.ToString(),
@@ -135,7 +135,7 @@ func (b EndpointBuilder) Key() string {
 	if b.networkView != nil {
 		nv := make([]string, 0, len(b.networkView))
 		for nw := range b.networkView {
-			nv = append(nv, nw)
+			nv = append(nv, string(nw))
 		}
 		sort.Strings(nv)
 		params = append(params, nv...)
@@ -167,7 +167,7 @@ func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
 	return edsDependentTypes
 }
 
-func (b *EndpointBuilder) canViewNetwork(network string) bool {
+func (b *EndpointBuilder) canViewNetwork(network model.NetworkID) bool {
 	if b.networkView == nil {
 		return true
 	}
@@ -284,7 +284,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 		endpoints := shards.Shards[clusterID]
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (clusterID != b.clusterID) {
+		if isClusterLocal && (model.ClusterID(clusterID) != b.clusterID) {
 			continue
 		}
 		for _, ep := range endpoints {

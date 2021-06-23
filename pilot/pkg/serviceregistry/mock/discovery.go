@@ -47,12 +47,12 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 }
 
 // MakeService creates a memory service
-func MakeService(hostname host.Name, address string, serviceAccounts []string, clusterID string) *model.Service {
+func MakeService(hostname host.Name, address string, serviceAccounts []string, clusterID model.ClusterID) *model.Service {
 	return &model.Service{
 		CreationTime:    time.Now(),
 		Hostname:        hostname,
 		Address:         address,
-		ClusterVIPs:     map[string]string{clusterID: address},
+		ClusterVIPs:     map[model.ClusterID]string{clusterID: address},
 		ServiceAccounts: serviceAccounts,
 		Ports: []*model.Port{
 			{

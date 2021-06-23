@@ -69,7 +69,7 @@ type Multicluster struct {
 	XDSUpdater        model.XDSUpdater
 
 	m                     sync.Mutex // protects remoteKubeControllers
-	remoteKubeControllers map[string]*kubeController
+	remoteKubeControllers map[model.ClusterID]*kubeController
 	clusterLocal          model.ClusterLocalProvider
 
 	// fetchCaRoot maps the certificate name to the certificate
@@ -97,7 +97,7 @@ func NewMulticluster(
 	clusterLocal model.ClusterLocalProvider,
 	s server.Instance,
 ) *Multicluster {
-	remoteKubeController := make(map[string]*kubeController)
+	remoteKubeController := make(map[model.ClusterID]*kubeController)
 	mc := &Multicluster{
 		serverID:              serverID,
 		opts:                  opts,
@@ -129,7 +129,7 @@ func (m *Multicluster) close() (err error) {
 	m.closing = true
 
 	// Gather all of the member clusters.
-	var clusterIDs []string
+	var clusterIDs []model.ClusterID
 	for clusterID := range m.remoteKubeControllers {
 		clusterIDs = append(clusterIDs, clusterID)
 	}
@@ -150,7 +150,7 @@ func (m *Multicluster) close() (err error) {
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.Cluster) error {
+func (m *Multicluster) AddMemberCluster(clusterID model.ClusterID, rc *secretcontroller.Cluster) error {
 	m.m.Lock()
 
 	if m.closing {
@@ -292,7 +292,7 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clusterID string, rc *secretcontroller.Cluster) error {
+func (m *Multicluster) UpdateMemberCluster(clusterID model.ClusterID, rc *secretcontroller.Cluster) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
@@ -302,7 +302,7 @@ func (m *Multicluster) UpdateMemberCluster(clusterID string, rc *secretcontrolle
 // DeleteMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
-func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
+func (m *Multicluster) DeleteMemberCluster(clusterID model.ClusterID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)
@@ -350,7 +350,7 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 	}
 }
 
-func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interface {
+func (m *Multicluster) GetRemoteKubeClient(clusterID model.ClusterID) kubernetes.Interface {
 	m.m.Lock()
 	defer m.m.Unlock()
 	if c := m.remoteKubeControllers[clusterID]; c != nil {

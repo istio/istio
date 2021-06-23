@@ -74,7 +74,7 @@ func TestConvertResources(t *testing.T) {
 				Attributes: model.ServiceAttributes{
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
-					ClusterExternalAddresses: map[string][]string{
+					ClusterExternalAddresses: map[model.ClusterID][]string{
 						"Kubernetes": {"1.2.3.4"},
 					},
 				},

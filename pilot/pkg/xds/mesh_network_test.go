@@ -105,7 +105,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 }
 
 func TestMeshNetworking(t *testing.T) {
-	ingressServiceScenarios := map[corev1.ServiceType]map[string][]runtime.Object{
+	ingressServiceScenarios := map[corev1.ServiceType]map[model.ClusterID][]runtime.Object{
 		corev1.ServiceTypeLoadBalancer: {
 			// cluster/network 1's ingress can be found up by registry service name in meshNetworks
 			"cluster-1": {&corev1.Service{
@@ -326,11 +326,11 @@ func TestMeshNetworking(t *testing.T) {
 type meshNetworkingTest struct {
 	workloads         []*workload
 	meshNetworkConfig *meshconfig.MeshNetworks
-	kubeObjects       map[string][]runtime.Object
+	kubeObjects       map[model.ClusterID][]runtime.Object
 }
 
 func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest, configs ...config.Config) {
-	kubeObjects := map[string][]runtime.Object{}
+	kubeObjects := map[model.ClusterID][]runtime.Object{}
 	for k, v := range tt.kubeObjects {
 		kubeObjects[k] = v
 	}
@@ -372,8 +372,8 @@ type workload struct {
 	ip   string
 	port int32
 
-	clusterID   string
-	metaNetwork string
+	clusterID   model.ClusterID
+	metaNetwork model.NetworkID
 	networkView []string
 
 	labels map[string]string
@@ -413,7 +413,7 @@ func (w *workload) clusterName() string {
 	return fmt.Sprintf("outbound|%d||%s", w.port, name)
 }
 
-func (w *workload) kubeObjects() (string, []runtime.Object) {
+func (w *workload) kubeObjects() (model.ClusterID, []runtime.Object) {
 	if w.kind == Pod {
 		return w.clusterID, w.buildPodService()
 	}

@@ -313,7 +313,7 @@ func TestController_GetPodLocality(t *testing.T) {
 }
 
 func TestGetProxyServiceInstances(t *testing.T) {
-	clusterID := "fakeCluster"
+	clusterID := model.ClusterID("fakeCluster")
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
@@ -408,7 +408,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
+					ClusterVIPs:     map[model.ClusterID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -425,7 +425,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						label.SecurityTlsMode.Name: "mutual",
 						NodeRegionLabelGA:          "r",
 						NodeZoneLabelGA:            "z",
-						label.TopologyCluster.Name: clusterID,
+						label.TopologyCluster.Name: string(clusterID),
 					},
 					ServiceAccount:  "account",
 					Address:         "1.1.1.1",
@@ -479,7 +479,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
+					ClusterVIPs:     map[model.ClusterID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -503,7 +503,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						NodeRegionLabelGA:          "region1",
 						NodeZoneLabelGA:            "zone1",
 						label.TopologySubzone.Name: "subzone1",
-						label.TopologyCluster.Name: clusterID,
+						label.TopologyCluster.Name: string(clusterID),
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
@@ -545,7 +545,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
+					ClusterVIPs:     map[model.ClusterID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -569,7 +569,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"istio-locality":           "region.zone",
 						NodeRegionLabelGA:          "region",
 						NodeZoneLabelGA:            "zone",
-						label.TopologyCluster.Name: clusterID,
+						label.TopologyCluster.Name: string(clusterID),
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,

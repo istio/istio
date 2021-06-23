@@ -18,20 +18,6 @@ import (
 	"net"
 )
 
-// NetworkID is the unique identifier for a network.
-type NetworkID string
-
-func (id NetworkID) Equals(other NetworkID) bool {
-	return SameOrEmpty(string(id), string(other))
-}
-
-// ClusterID is the unique identifier for a k8s cluster.
-type ClusterID string
-
-func (id ClusterID) Equals(other ClusterID) bool {
-	return SameOrEmpty(string(id), string(other))
-}
-
 // NetworkGateway is the gateway of a network
 type NetworkGateway struct {
 	// Network is the ID of the network where this Gateway resides.

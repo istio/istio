@@ -80,7 +80,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	fx.Events <- Event{kind: "xds", pushReq: req}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_ model.ClusterID, _ string) {
 }
 
 func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ model.Event) {

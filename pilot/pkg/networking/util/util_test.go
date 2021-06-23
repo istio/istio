@@ -1133,10 +1133,10 @@ func TestEndpointMetadata(t *testing.T) {
 	features.EndpointTelemetryLabel = true
 	cases := []struct {
 		name         string
-		network      string
+		network      model.NetworkID
 		tlsMode      string
 		workloadName string
-		clusterID    string
+		clusterID    model.ClusterID
 		namespace    string
 		labels       labels.Instance
 		want         *core.Metadata

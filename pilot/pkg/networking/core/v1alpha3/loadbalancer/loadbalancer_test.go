@@ -244,7 +244,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[string]string),
+			ClusterVIPs: make(map[model.ClusterID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -299,7 +299,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[string]string),
+			ClusterVIPs: make(map[model.ClusterID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",

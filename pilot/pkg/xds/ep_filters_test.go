@@ -483,7 +483,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	serviceDiscovery := memregistry.NewServiceDiscovery(append([]*model.Service{{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
-			ClusterExternalAddresses: map[string][]string{
+			ClusterExternalAddresses: map[model.ClusterID][]string{
 				"cluster2": {""},
 			},
 		},
@@ -624,7 +624,7 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 	}
 }
 
-func xdsConnection(network string) *Connection {
+func xdsConnection(network model.NetworkID) *Connection {
 	return &Connection{
 		proxy: &model.Proxy{
 			Metadata: &model.NodeMetadata{Network: network},

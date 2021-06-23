@@ -42,6 +42,20 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 )
 
+// NetworkID is the unique identifier for a network.
+type NetworkID string
+
+func (id NetworkID) Equals(other NetworkID) bool {
+	return SameOrEmpty(string(id), string(other))
+}
+
+// ClusterID is the unique identifier for a k8s cluster.
+type ClusterID string
+
+func (id ClusterID) Equals(other ClusterID) bool {
+	return SameOrEmpty(string(id), string(other))
+}
+
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
 // ports where the service is listening for connections. *Optionally*, a
@@ -91,7 +105,7 @@ type Service struct {
 
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
-	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
+	ClusterVIPs map[ClusterID]string `json:"cluster-vips,omitempty"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -341,7 +355,7 @@ type Locality struct {
 	Label string
 
 	// ClusterID where the endpoint is located
-	ClusterID string
+	ClusterID ClusterID
 }
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -381,7 +395,7 @@ type IstioEndpoint struct {
 	ServiceAccount string
 
 	// Network holds the network where this endpoint is present
-	Network string
+	Network NetworkID
 
 	// The locality where the endpoint is present.
 	Locality Locality
@@ -468,14 +482,14 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses map[string][]string
+	ClusterExternalAddresses map[ClusterID][]string
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
 	// node port IPs, we need to use the kubernetes assigned node ports of the service
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
-	ClusterExternalPorts map[string]map[uint32]uint32
+	ClusterExternalPorts map[ClusterID]map[uint32]uint32
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -710,7 +724,7 @@ func (s *Service) DeepCopy() *Service {
 		CreationTime:    s.CreationTime,
 		Hostname:        s.Hostname,
 		Address:         s.Address,
-		ClusterVIPs:     clusterVIPs.(map[string]string),
+		ClusterVIPs:     clusterVIPs.(map[ClusterID]string),
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,
 	}

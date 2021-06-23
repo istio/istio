@@ -96,7 +96,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	fx.Events <- Event{kind: "xds", pushReq: req}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_, ip string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_ model.ClusterID, ip string) {
 	fx.Events <- Event{kind: "xds", proxyIP: ip}
 }
 

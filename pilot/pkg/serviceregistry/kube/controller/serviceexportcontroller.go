@@ -48,7 +48,7 @@ type ServiceExportController struct {
 // ServiceExportOptions provide options for creating a ServiceExportController.
 type ServiceExportOptions struct {
 	Client       kube.Client
-	ClusterID    string
+	ClusterID    model.ClusterID
 	DomainSuffix string
 	ClusterLocal model.ClusterLocalProvider
 }

@@ -238,7 +238,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "udp",
@@ -256,7 +256,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test5.com"),
 		Address:      "8.8.8.8",
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "MySQL",
@@ -274,7 +274,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test6.com"),
 		Address:      "2.2.2.2",
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "unknown",
@@ -527,7 +527,7 @@ func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -552,7 +552,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[model.ClusterID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -569,7 +569,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test1.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[model.ClusterID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "foo",
@@ -592,7 +592,7 @@ func TestOutboundTls(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[model.ClusterID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -2477,7 +2477,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 		CreationTime: creationTime,
 		Hostname:     host.Name(hostname),
 		Address:      ip,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -2497,7 +2497,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 		CreationTime: creationTime,
 		Hostname:     host.Name(hostname),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",

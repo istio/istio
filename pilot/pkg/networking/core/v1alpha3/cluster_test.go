@@ -293,7 +293,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 	service := &model.Service{
 		Hostname:     host.Name(c.serviceHostname),
 		Address:      "1.1.1.1",
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Ports:        servicePort,
 		Resolution:   c.serviceResolution,
 		MeshExternal: c.externalService,
@@ -1417,7 +1417,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("*.example.org"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.ClientSideLB,
 	}
@@ -1524,7 +1524,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("backend.default.svc.cluster.local"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.Passthrough,
 	}
@@ -1668,7 +1668,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("redis.com"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.Passthrough,
 	}
@@ -1928,7 +1928,7 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("static.test"),
 		Address:     "1.1.1.2",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports: []*model.Port{
 			{
 				Name:     "default",

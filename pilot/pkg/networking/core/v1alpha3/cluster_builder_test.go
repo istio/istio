@@ -66,7 +66,7 @@ func TestApplyDestinationRule(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("foo.default.svc.cluster.local"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports:       servicePort,
 		Resolution:  model.ClientSideLB,
 		Attributes:  serviceAttribute,
@@ -78,7 +78,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		clusterMode            ClusterMode
 		service                *model.Service
 		port                   *model.Port
-		networkView            map[string]bool
+		networkView            map[model.NetworkID]bool
 		destRule               *networking.DestinationRule
 		expectedSubsetClusters []*cluster.Cluster
 	}{
@@ -89,7 +89,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode:            DefaultClusterMode,
 			service:                &model.Service{},
 			port:                   &model.Port{},
-			networkView:            map[string]bool{},
+			networkView:            map[model.NetworkID]bool{},
 			destRule:               nil,
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
@@ -99,7 +99,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[string]bool{},
+			networkView: map[model.NetworkID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -125,7 +125,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[string]bool{},
+			networkView: map[model.NetworkID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -153,7 +153,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: SniDnatClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[string]bool{},
+			networkView: map[model.NetworkID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -179,7 +179,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[string]bool{},
+			networkView: map[model.NetworkID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -221,7 +221,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[string]bool{},
+			networkView: map[model.NetworkID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -833,7 +833,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("*.example.org"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[model.ClusterID]string),
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.DNSLB,
 		Attributes: model.ServiceAttributes{
@@ -1093,7 +1093,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			})
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
-			nv := map[string]bool{
+			nv := map[model.NetworkID]bool{
 				"nw-0":               true,
 				"nw-1":               true,
 				model.UnnamedNetwork: true,

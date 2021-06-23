@@ -153,7 +153,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	// Now verify ClusterVIPs for each service
-	ClusterVIPs := map[host.Name]map[string]string{
+	ClusterVIPs := map[host.Name]map[model.ClusterID]string{
 		mock.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
@@ -469,7 +469,7 @@ func TestSkipSearchingRegistryForProxy(t *testing.T) {
 	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.External}
 
 	cases := []struct {
-		nodeClusterID string
+		nodeClusterID model.ClusterID
 		registry      serviceregistry.Instance
 		want          bool
 	}{

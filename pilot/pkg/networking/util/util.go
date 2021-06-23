@@ -478,7 +478,8 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterID string, labels labels.Instance) *core.Metadata {
+func BuildLbEndpointMetadata(network model.NetworkID, tlsMode, workloadname, namespace string,
+	clusterID model.ClusterID, labels labels.Instance) *core.Metadata {
 	if network == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
 		return nil
 	}
@@ -488,7 +489,7 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 	}
 
 	if network != "" {
-		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}})
+		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: string(network)}})
 	}
 
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
@@ -518,7 +519,7 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 			sb.WriteString(csr)
 		}
 		sb.WriteString(";")
-		sb.WriteString(clusterID)
+		sb.WriteString(string(clusterID))
 		addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
 	}
 

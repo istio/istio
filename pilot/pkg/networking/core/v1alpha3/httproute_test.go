@@ -1144,7 +1144,7 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		CreationTime: tnow,
 		Hostname:     host.Name(hostname),
 		Address:      ip,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[model.ClusterID]string),
 		Resolution:   model.DNSLB,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: string(serviceregistry.Kubernetes),
