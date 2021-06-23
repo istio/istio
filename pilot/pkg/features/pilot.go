@@ -15,6 +15,8 @@
 package features
 
 import (
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
@@ -428,7 +430,7 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
-	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
+	DeltaXds = LookupBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
 			"Resource Request")
 
@@ -447,4 +449,21 @@ var (
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
+}
+
+// LookupBoolVar looks up a new boolean environment variable that is hidden from documentation.
+// nolint
+func LookupBoolVar(name string, defaultValue bool, description string) bool {
+	result, ok := os.LookupEnv(name)
+	if !ok {
+		return defaultValue
+	}
+
+	b, err := strconv.ParseBool(result)
+	if err != nil {
+		log.Warnf("Invalid environment variable value `%s`, expecting true/false, defaulting to %v", result, defaultValue)
+		b = defaultValue
+	}
+
+	return b
 }
