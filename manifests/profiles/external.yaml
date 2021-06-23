@@ -16,3 +16,7 @@ spec:
   values:
     global:
       externalIstiod: true
+      omitSidecarInjectorConfigMap: true
+      configCluster: false
+    pilot:
+      configMap: false

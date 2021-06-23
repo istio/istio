@@ -100,6 +100,9 @@ const (
 
 	CNIComponentName ComponentName = "Cni"
 
+	// istiod remote component
+	IstiodRemoteComponentName ComponentName = "IstiodRemote"
+
 	// Gateway components
 	IngressComponentName ComponentName = "IngressGateways"
 	EgressComponentName  ComponentName = "EgressGateways"
@@ -119,6 +122,7 @@ var (
 		IstioBaseComponentName,
 		PilotComponentName,
 		CNIComponentName,
+		IstiodRemoteComponentName,
 	}
 
 	// AllComponentNames is a list of all Istio components.
@@ -144,6 +148,7 @@ var (
 		EgressComponentName:             "Egress gateways",
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
+		IstiodRemoteComponentName:       "Istiod remote",
 	}
 )
 

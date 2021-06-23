@@ -61,13 +61,12 @@ func TestMain(m *testing.M) {
   ingressGateways:
   - enabled: false
     name: istio-ingressgateway
-  remote:
-    enabled: true
-  config:
+  istiodRemote:
     enabled: true
 values:
   global:
     externalIstiod: true
+    configCluster: true
   istiodRemote:
     injectionURL: https://istiod.istio-system.svc:15017/inject
   base:

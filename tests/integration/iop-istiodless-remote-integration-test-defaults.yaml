@@ -12,13 +12,12 @@ spec:
       enabled: false
     pilot:
       enabled: false
-    remote:
-      enabled: true
-    config:
+    istiodRemote:
       enabled: true
   values:
     global:
       externalIstiod: true
+      configCluster: true
       proxy:
         resources:
           requests:
