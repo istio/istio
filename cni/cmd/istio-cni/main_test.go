@@ -41,6 +41,7 @@ var (
 	testContainers     = []string{"mockContainer"}
 	testLabels         = map[string]string{}
 	testAnnotations    = map[string]string{}
+	testProxyEnv       = map[string]string{}
 	testInitContainers = map[string]struct{}{
 		"foo-init": {},
 	}
@@ -126,6 +127,7 @@ func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace strin
 	pi.Labels = testLabels
 	pi.Annotations = testAnnotations
 	pi.InitContainers = testInitContainers
+	pi.ProxyEnvironments = testProxyEnv
 
 	return &pi, nil
 }
@@ -137,6 +139,7 @@ func resetGlobalTestVariables() {
 	testContainers = []string{"mockContainer"}
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
+	testProxyEnv = map[string]string{}
 
 	interceptRuleMgrType = "mock"
 	testAnnotations[sidecarStatusKey] = "true"
@@ -366,7 +369,7 @@ func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
 	}
 }
 
-func TestCmdAddExcludePodWithExcludeCNIAnnotation(t *testing.T) {
+func TestCmdAddExcludePodWithEnvoyDisableEnv(t *testing.T) {
 	defer resetGlobalTestVariables()
 
 	k8Args = "K8S_POD_NAMESPACE=testNS;K8S_POD_NAME=testPodName"
@@ -375,7 +378,7 @@ func TestCmdAddExcludePodWithExcludeCNIAnnotation(t *testing.T) {
 		"foo-init": {},
 	}
 	testAnnotations[sidecarStatusKey] = "true"
-	testAnnotations[cniDisabledKey] = "true"
+	testProxyEnv["DISABLE_ENVOY"] = "true"
 	getKubePodInfoCalled = true
 
 	testCmdAdd(t)

@@ -37,8 +37,6 @@ var (
 	nsSetupBinDir       = "/opt/cni/bin"
 	injectAnnotationKey = annotation.SidecarInject.Name
 	sidecarStatusKey    = annotation.SidecarStatus.Name
-	// TODO move to API
-	cniDisabledKey = "sidecar.istio.io/excludeCNI"
 
 	interceptRuleMgrType   = defInterceptRuleMgrType
 	loggingOptions         = log.DefaultOptions()
@@ -210,6 +208,13 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 				excludePod = true
 			}
 
+			if val, ok := pi.ProxyEnvironments["DISABLE_ENVOY"]; ok {
+				if val, err := strconv.ParseBool(val); err == nil && val {
+					log.Infof("Pod excluded due to DISABLE_ENVOY on istio-proxy")
+					excludePod = true
+				}
+			}
+
 			log.Infof("Found containers %v", pi.Containers)
 			if len(pi.Containers) > 1 {
 				log.WithLabels(
@@ -224,15 +229,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
 						if !injectEnabled {
 							log.Infof("Pod excluded due to inject-disabled annotation")
-							excludePod = true
-						}
-					}
-				}
-				if val, ok := pi.Annotations[cniDisabledKey]; ok {
-					log.Infof("Pod %s contains excludeCNI annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
-					if excludeCNI, err := strconv.ParseBool(val); err == nil {
-						if excludeCNI {
-							log.Infof("Pod excluded due to excludeCNI annotation")
 							excludePod = true
 						}
 					}
