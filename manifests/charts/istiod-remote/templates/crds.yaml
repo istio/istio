@@ -1,4 +1,9 @@
+{{- if .Values.global.configCluster }}
 {{- if .Values.base.enableCRDTemplates }}
+{{- end }}
 {{ .Files.Get "crds/crd-all.gen.yaml" }}
+{{- end }}
 {{ .Files.Get "crds/crd-operator.yaml" }}
+{{- end }}
+{{- end }}
 {{- end }}

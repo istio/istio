@@ -368,32 +368,32 @@ copy-templates:
 	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/ingress/egress/g' {} \;
 	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
 
-	# remote cluster charts
-	cp manifests/charts/base/templates/reader-serviceaccount.yaml manifests/charts/external-istiod/remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml manifests/charts/external-istiod/remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrole.yaml manifests/charts/external-istiod/remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrolebinding.yaml manifests/charts/external-istiod/remote/templates
-	# Copy istio-discovery values, but apply some local customizations
-	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/external-istiod/remote/
-	yq w manifests/charts/external-istiod/remote/values.yaml telemetry.enabled false -i
-	yq w manifests/charts/external-istiod/remote/values.yaml global.externalIstiod true -i
+	# external istiod remote cluster charts
+	cp manifests/charts/base/templates/reader-serviceaccount.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrole.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrolebinding.yaml manifests/charts/istiod-remote/templates
 
-	# config cluster charts
-	cp manifests/charts/base/templates/crds.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/external-istiod/config/files
-	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/external-istiod/config/files
-	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/role.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/rolebinding.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/clusterrole.yaml manifests/charts/external-istiod/config/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml manifests/charts/external-istiod/config/templates
-	# Copy istio-discovery values, but apply some local customizations
-	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/external-istiod/config/
-	yq w manifests/charts/external-istiod/config/values.yaml telemetry.enabled false -i
-	yq w manifests/charts/external-istiod/config/values.yaml global.externalIstiod true -i
+	# external istiod config cluster charts
+	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files
+	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/istiod-remote/files
+	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/base/crds/crd-all.gen.yaml manifests/charts/istiod-remote/crds
+	cp manifests/charts/base/crds/crd-operator.yaml manifests/charts/istiod-remote/crds
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$ a {{- end }}' manifests/charts/base/templates/crds.yaml > manifests/charts/istiod-remote/templates/crds.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml > manifests/charts/istiod-remote/templates/validatingwebhookconfiguration.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml > manifests/charts/istiod-remote/templates/serviceaccount.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/role.yaml > manifests/charts/istiod-remote/templates/role.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/rolebinding.yaml > manifests/charts/istiod-remote/templates/rolebinding.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/clusterrole.yaml > manifests/charts/istiod-remote/templates/clusterrole.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml > manifests/charts/istiod-remote/templates/clusterrolebinding.yaml
+	# copy istio-discovery values, but apply some local customizations
+	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
+	yq w manifests/charts/istiod-remote/values.yaml telemetry.enabled false -i
+	yq w manifests/charts/istiod-remote/values.yaml global.externalIstiod true -i
+	yq w manifests/charts/istiod-remote/values.yaml global.omitSidecarInjectorConfigMap true -i
+	yq w manifests/charts/istiod-remote/values.yaml pilot.configMap false -i
 
 # Generate kustomize templates.
 gen-kustomize:

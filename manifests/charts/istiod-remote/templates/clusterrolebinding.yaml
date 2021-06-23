@@ -1,15 +1,31 @@
+{{- if .Values.global.configCluster }}
 apiVersion: rbac.authorization.k8s.io/v1
+{{- end }}
 kind: ClusterRoleBinding
+{{- end }}
 metadata:
+{{- end }}
   name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- end }}
   labels:
+{{- end }}
     app: istiod
+{{- end }}
     release: {{ .Release.Name }}
+{{- end }}
 roleRef:
+{{- end }}
   apiGroup: rbac.authorization.k8s.io
+{{- end }}
   kind: ClusterRole
+{{- end }}
   name: istiod-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+{{- end }}
 subjects:
+{{- end }}
   - kind: ServiceAccount
+{{- end }}
     name: istiod{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}
+{{- end }}
     namespace: {{ .Values.global.istioNamespace }}
+{{- end }}

@@ -73,6 +73,7 @@ data:
     {
       "global": {
         "caAddress": "",
+        "configCluster": false,
         "defaultPodDisruptionBudget": {
           "enabled": true
         },

@@ -1,0 +1,48 @@
+# SYNC WITH manifests/charts/istio-operator/templates
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: istiooperators.install.istio.io
+  labels:
+    release: istio
+spec:
+  conversion:
+    strategy: None
+  group: install.istio.io
+  names:
+    kind: IstioOperator
+    listKind: IstioOperatorList
+    plural: istiooperators
+    singular: istiooperator
+    shortNames:
+    - iop
+    - io
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Istio control plane revision
+      jsonPath: .spec.revision
+      name: Revision
+      type: string
+    - description: IOP current state
+      jsonPath: .status.status
+      name: Status
+      type: string
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    subresources:
+      status: {}
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        type: object
+        x-kubernetes-preserve-unknown-fields: true
+    served: true
+    storage: true
+---

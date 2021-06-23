@@ -9,8 +9,12 @@ spec:
         ISTIO_META_DNS_CAPTURE: "true"
   components:
     base:
-      enabled: true
+      enabled: false
     pilot:
+      enabled: false
+    remote:
+      enabled: true
+    config:
       enabled: true
   values:
     global:

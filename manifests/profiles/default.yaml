@@ -34,6 +34,10 @@ spec:
     cni:
       enabled: false
     
+    # Remote and config cluster configuration for an external istiod
+    istiodRemote:
+      enabled: false
+
   # Global values passed through to helm global.yaml.
   # Please keep this in sync with manifests/charts/global.yaml
   values:

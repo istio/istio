@@ -53,17 +53,18 @@ func TestMain(m *testing.M) {
 			cfg.ConfigClusterValues =
 				`components:
   base:
-    enabled: true
+    enabled: false
   pilot:
-    enabled: true
+    enabled: false
   telemetry:
     enabled: false
   ingressGateways:
   - enabled: false
     name: istio-ingressgateway
-  egressGateways:
-  - enabled: false
-    name: istio-egressgateway
+  remote:
+    enabled: true
+  config:
+    enabled: true
 values:
   global:
     externalIstiod: true

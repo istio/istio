@@ -8,6 +8,8 @@ egressGateways:
 ingressGateways:
 - enabled: true
   name: istio-ingressgateway
+istiodRemote:
+  enabled: false
 pilot:
   enabled: false
 
