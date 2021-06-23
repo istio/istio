@@ -134,24 +134,24 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	var opts clioptions.ControlPlaneOptions
 	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
 	if err != nil {
-		return err
+		return wrapErrorf("creating extended kubernetes client according to given parameters", err)
 	}
 	restConfig, clientset, client, err := K8sConfig(iArgs.kubeConfigPath, iArgs.context)
 	if err != nil {
-		return err
+		return wrapErrorf("fetching kubernetes config file and clientset according to given config path", err)
 	}
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return err
+		return wrapErrorf("checking minimum supported Kubernetes version for istio", err)
 	}
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
-		return err
+		return wrapErrorf("fetching istio version", err)
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
-		return err
+		return wrapErrorf("createing an IstioOperatorSpec from different sources", err)
 	}
 
 	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
@@ -347,4 +347,8 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+}
+
+func wrapErrorf(operation string, err error) error {
+	return fmt.Errorf("encounter error when %s, error detail:(%v)", operation, err)
 }
