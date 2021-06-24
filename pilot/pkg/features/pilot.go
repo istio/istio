@@ -15,7 +15,6 @@
 package features
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
@@ -446,9 +445,9 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
-	DeltaXds = RegisterHiddenBoolVar("ISTIO_DELTA_XDS", false,
+	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request").Get()
+			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
 	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
 		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
@@ -492,16 +491,4 @@ var (
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
-}
-
-// RegisterHiddenBoolVar registers a new boolean environment variable that is hidden from documentation.
-func RegisterHiddenBoolVar(name string, defaultValue bool, description string) env.BoolVar {
-	v := env.Var{Name: name, DefaultValue: strconv.FormatBool(defaultValue), Description: description, Type: env.BOOL}
-	env.RegisterVar(v)
-	for _, bv := range env.VarDescriptions() {
-		if bv.Name == v.Name {
-			return env.BoolVar{bv}
-		}
-	}
-	return env.BoolVar{}
 }
