@@ -160,21 +160,29 @@ func TestTCPStackdriverAuthzDryRun(t *testing.T) {
 		Features("observability.telemetry.stackdriver").
 		Run(func(ctx framework.TestContext) {
 			createDryRunPolicy(t, ctx, dryRunTCPAuthorizationPolicy)
+			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range clt {
-				err := retry.UntilSuccess(func() error {
-					_, err := cltInstance.Call(echo.CallOptions{
-						Target:   srv[0],
-						PortName: "tcp",
-						Count:    telemetry.RequestCountMultipler * len(srv),
-					})
+				cltInstance := cltInstance
+				g.Go(func() error {
+					err := retry.UntilSuccess(func() error {
+						_, err := cltInstance.Call(echo.CallOptions{
+							Target:   srv[0],
+							PortName: "tcp",
+							Count:    telemetry.RequestCountMultipler * len(srv),
+						})
+						if err != nil {
+							return err
+						}
+						return verifyAccessLog(t, cltInstance, dryRunTCPServerLogEntry)
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}
-					return verifyAccessLog(t, cltInstance, dryRunTCPServerLogEntry)
-				}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
-				if err != nil {
-					t.Fatalf("test failed: %v", err)
-				}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
+				t.Fatalf("test failed: %v", err)
 			}
 		})
 }

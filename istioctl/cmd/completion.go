@@ -59,40 +59,6 @@ func validPodsNameArgsFunction(cmd *cobra.Command, args []string, toComplete str
 	return podsName, cobra.ShellCompDirectiveNoFileComp
 }
 
-func getNamespacesName(toComplete string) ([]string, error) {
-	kubeClient, err := kubeClient(kubeconfig, configContext)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := context.Background()
-	nsList, err := getNamespaces(ctx, kubeClient)
-	if err != nil {
-		return nil, err
-	}
-
-	var nsNameList []string
-	for _, ns := range nsList {
-		if toComplete == "" || strings.HasPrefix(ns.Name, toComplete) {
-			nsNameList = append(nsNameList, ns.Name)
-		}
-	}
-
-	return nsNameList, nil
-}
-
-func validNamespaceArgsFunction(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-
-	nsName, err := getNamespacesName(toComplete)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveNoFileComp
-	}
-	return nsName, cobra.ShellCompDirectiveNoFileComp
-}
-
 func getServicesName(toComplete string) ([]string, error) {
 	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {

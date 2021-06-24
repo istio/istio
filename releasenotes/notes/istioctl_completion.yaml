@@ -27,5 +27,5 @@ area: istioctl
 # release notes.
 releaseNotes:
 - |
-  **Added** istioctl now supports completion for Kubernetes resources like pods, services, namespaces, etc.
+  **Added** istioctl now supports completion for Kubernetes pods, services.
 
