@@ -66,7 +66,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			epNetwork := istioMetadata(lbEp, "network")
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
-			gatewaysForNetwork := b.push.NetworkGateways().ForNetwork(model.NetworkID(epNetwork))
+			gatewaysForNetwork := b.push.NetworkManager().GatewaysForNetwork(model.NetworkID(epNetwork))
 			if model.SameOrEmpty(b.network, epNetwork) || len(gatewaysForNetwork) == 0 {
 				// Copy on write.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
@@ -99,7 +99,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		// we initiate mTLS automatically to this remote gateway. Split horizon to remote gateway cannot
 		// work with plaintext
 		for network, w := range remoteEps {
-			gateways := b.push.NetworkGateways().ForNetwork(model.NetworkID(network))
+			gateways := b.push.NetworkManager().GatewaysForNetwork(model.NetworkID(network))
 
 			gatewayNum := len(gateways)
 			weight := w * uint32(multiples/gatewayNum)
@@ -137,7 +137,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 }
 
 func (b *EndpointBuilder) gatewaysByNetwork() map[model.NetworkID][]*model.NetworkGateway {
-	gateways := b.push.NetworkGateways().All()
+	gateways := b.push.NetworkManager().AllGateways()
 	byNetwork := make(map[model.NetworkID][]*model.NetworkGateway)
 	for _, gateway := range gateways {
 		networkGateways := append(byNetwork[gateway.Network], gateway)
