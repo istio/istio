@@ -151,6 +151,7 @@ func ExternalServices(instances echo.Instances) echo.Instances {
 var ReachableDestinations CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
 	return to.Match(fromNaked(from).
 		And(reachableFromVM(from)).
+		And(reachableFromProxylessGRPC(from)).
 		And(reachableNakedDestinations(from)).
 		And(reachableHeadlessDestinations(from)))
 }
@@ -177,6 +178,13 @@ func reachableNakedDestinations(from echo.Instance) echo.Matcher {
 // TODO https://github.com/istio/istio/issues/27154
 func reachableFromVM(from echo.Instance) echo.Matcher {
 	if !from.Config().IsVM() {
+		return echo.Any
+	}
+	return echo.Not(echo.IsExternal())
+}
+
+func reachableFromProxylessGRPC(from echo.Instance) echo.Matcher {
+	if !from.Config().IsProxylessGRPC() {
 		return echo.Any
 	}
 	return echo.Not(echo.IsExternal())

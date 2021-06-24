@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
@@ -110,6 +111,8 @@ type Options struct {
 	EnvoyPrometheusPort int
 	Context             context.Context
 	FetchDNS            func() *nds.NameTable
+	NoEnvoy             bool
+	GRPCBootstrap       string
 }
 
 // Server provides an endpoint for handling status probes.
@@ -148,11 +151,19 @@ func NewServer(config Options) (*Server, error) {
 		localhost = localHostIPv6
 	}
 	probes := make([]ready.Prober, 0)
-	probes = append(probes, &ready.Probe{
-		LocalHostAddr: localhost,
-		AdminPort:     config.AdminPort,
-		Context:       config.Context,
-	})
+	if !config.NoEnvoy {
+		probes = append(probes, &ready.Probe{
+			LocalHostAddr: localhost,
+			AdminPort:     config.AdminPort,
+			Context:       config.Context,
+			NoEnvoy:       config.NoEnvoy,
+		})
+	}
+
+	if config.GRPCBootstrap != "" {
+		probes = append(probes, grpcready.NewProbe(config.GRPCBootstrap))
+	}
+
 	probes = append(probes, config.Probes...)
 	s := &Server{
 		statusPort:            config.StatusPort,
