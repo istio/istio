@@ -100,13 +100,20 @@ func (m *workloadManager) WaitForReadyWorkloads() (out []echo.Workload, err erro
 
 func (m *workloadManager) readyWorkloads() ([]echo.Workload, error) {
 	out := make([]echo.Workload, 0, len(m.workloads))
+	var connErrs error
 	for _, w := range m.workloads {
 		if w.IsReady() {
 			out = append(out, w)
+		} else if w.connectErr != nil {
+			connErrs = multierror.Append(connErrs, w.connectErr)
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no workloads ready for echo %s/%s", m.cfg.Namespace.Name(), m.cfg.Service)
+		err := fmt.Errorf("no workloads ready for echo %s/%s", m.cfg.Namespace.Name(), m.cfg.Service)
+		if connErrs != nil {
+			err = fmt.Errorf("%v: failed connecting: %v", err, connErrs)
+		}
+		return nil, err
 	}
 	return out, nil
 }

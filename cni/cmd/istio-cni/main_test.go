@@ -41,6 +41,7 @@ var (
 	testContainers     = []string{"mockContainer"}
 	testLabels         = map[string]string{}
 	testAnnotations    = map[string]string{}
+	testProxyEnv       = map[string]string{}
 	testInitContainers = map[string]struct{}{
 		"foo-init": {},
 	}
@@ -126,6 +127,7 @@ func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace strin
 	pi.Labels = testLabels
 	pi.Annotations = testAnnotations
 	pi.InitContainers = testInitContainers
+	pi.ProxyEnvironments = testProxyEnv
 
 	return &pi, nil
 }
@@ -139,6 +141,7 @@ func resetGlobalTestVariables() {
 	testContainers = []string{"mockContainer"}
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
+	testProxyEnv = map[string]string{}
 
 	interceptRuleMgrType = "mock"
 	testAnnotations[sidecarStatusKey] = "true"
@@ -359,6 +362,25 @@ func TestCmdAddExcludePodWithIstioInitContainer(t *testing.T) {
 		"istio-init": {},
 	}
 	testAnnotations[sidecarStatusKey] = "true"
+	getKubePodInfoCalled = true
+
+	testCmdAdd(t)
+
+	if nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to not get called")
+	}
+}
+
+func TestCmdAddExcludePodWithEnvoyDisableEnv(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	k8Args = "K8S_POD_NAMESPACE=testNS;K8S_POD_NAME=testPodName"
+	testContainers = []string{"mockContainer", "mockContainer2"}
+	testInitContainers = map[string]struct{}{
+		"foo-init": {},
+	}
+	testAnnotations[sidecarStatusKey] = "true"
+	testProxyEnv["DISABLE_ENVOY"] = "true"
 	getKubePodInfoCalled = true
 
 	testCmdAdd(t)

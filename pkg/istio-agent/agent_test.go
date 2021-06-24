@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -87,6 +88,7 @@ func TestAgent(t *testing.T) {
 		}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 	}
 
+	// NOTE: Long test names may result in weird errors on bind; see https://github.com/golang/go/issues/6895
 	t.Run("Kubernetes defaults", func(t *testing.T) {
 		// XDS and CA are both using JWT authentication and TLS. Root certificates distributed in
 		// configmap to each namespace.
@@ -375,6 +377,22 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "bootstrap discovery", 15000)
+	})
+	t.Run("gRPC XDS bootstrap", func(t *testing.T) {
+		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.Security.OutputKeyCertToDir = "/cert/path"
+			a.AgentConfig.GRPCBootstrapPath = bootstrapPath
+			a.envoyEnable = false
+			return a
+		})
+		got, err := ioutil.ReadFile(bootstrapPath)
+		if err != nil {
+			t.Fatalf("could not read bootstrap config: %v", err)
+		}
+		// make UDS path in file deterministic
+		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
+		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
 	})
 }
 
