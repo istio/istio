@@ -25,11 +25,13 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 )
 
 type LbEpInfo struct {
@@ -483,7 +485,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	serviceDiscovery := memregistry.NewServiceDiscovery(append([]*model.Service{{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
-			ClusterExternalAddresses: map[string][]string{
+			ClusterExternalAddresses: map[cluster.ID][]string{
 				"cluster2": {""},
 			},
 		},
@@ -624,7 +626,7 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 	}
 }
 
-func xdsConnection(network string) *Connection {
+func xdsConnection(network network.ID) *Connection {
 	return &Connection{
 		proxy: &model.Proxy{
 			Metadata: &model.NodeMetadata{Network: network},

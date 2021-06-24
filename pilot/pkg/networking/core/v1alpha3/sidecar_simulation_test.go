@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -78,7 +79,7 @@ func TestInboundClusters(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("backend.default.svc.cluster.local"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[cluster2.ID]string),
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,
@@ -93,7 +94,7 @@ func TestInboundClusters(t *testing.T) {
 	serviceAlt := &model.Service{
 		Hostname:    host.Name("backend-alt.default.svc.cluster.local"),
 		Address:     "1.1.1.2",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[cluster2.ID]string),
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,

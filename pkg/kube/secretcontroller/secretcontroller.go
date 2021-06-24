@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -58,10 +59,10 @@ var timeouts = monitoring.NewSum(
 )
 
 // newClientCallback prototype for the add secret callback function.
-type newClientCallback func(clusterID string, cluster *Cluster) error
+type newClientCallback func(clusterID cluster.ID, cluster *Cluster) error
 
 // removeClientCallback prototype for the remove secret callback function.
-type removeClientCallback func(clusterID string) error
+type removeClientCallback func(clusterID cluster.ID) error
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
@@ -112,31 +113,31 @@ func (r *Cluster) HasSynced() bool {
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
 	sync.RWMutex
-	remoteClusters map[string]*Cluster
+	remoteClusters map[cluster.ID]*Cluster
 }
 
 // newClustersStore initializes data struct to store clusters information
 func newClustersStore() *ClusterStore {
-	remoteClusters := make(map[string]*Cluster)
+	remoteClusters := make(map[cluster.ID]*Cluster)
 	return &ClusterStore{
 		remoteClusters: remoteClusters,
 	}
 }
 
-func (c *ClusterStore) Store(key string, value *Cluster) {
+func (c *ClusterStore) Store(key cluster.ID, value *Cluster) {
 	c.Lock()
 	defer c.Unlock()
 	c.remoteClusters[key] = value
 }
 
-func (c *ClusterStore) Get(key string) (*Cluster, bool) {
+func (c *ClusterStore) Get(key cluster.ID) (*Cluster, bool) {
 	c.RLock()
 	defer c.RUnlock()
 	out, ok := c.remoteClusters[key]
 	return out, ok
 }
 
-func (c *ClusterStore) Delete(key string) {
+func (c *ClusterStore) Delete(key cluster.ID) {
 	c.Lock()
 	defer c.Unlock()
 	delete(c.remoteClusters, key)
@@ -243,8 +244,8 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 func (c *Controller) close() {
 	c.cs.Lock()
 	defer c.cs.Unlock()
-	for _, cluster := range c.cs.remoteClusters {
-		close(cluster.Stop)
+	for _, remoteCluster := range c.cs.remoteClusters {
+		close(remoteCluster.Stop)
 	}
 }
 
@@ -256,9 +257,9 @@ func (c *Controller) hasSynced() bool {
 	}
 	c.cs.RLock()
 	defer c.cs.RUnlock()
-	for _, cluster := range c.cs.remoteClusters {
-		if !cluster.HasSynced() {
-			log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.secretName)
+	for _, remoteCluster := range c.cs.remoteClusters {
+		if !remoteCluster.HasSynced() {
+			log.Debugf("remote cluster %s registered informers have not been synced up yet", remoteCluster.secretName)
 			return false
 		}
 	}
@@ -387,7 +388,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, secretName string) (
 func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 	for clusterID, kubeConfig := range s.Data {
 		action, callback := "Adding", c.addCallback
-		if prev, ok := c.cs.Get(clusterID); ok {
+		if prev, ok := c.cs.Get(cluster.ID(clusterID)); ok {
 			action, callback = "Updating", c.updateCallback
 			// clusterID must be unique even across multiple secrets
 			if prev.secretName != secretName {
@@ -408,8 +409,8 @@ func (c *Controller) addMemberCluster(secretName string, s *corev1.Secret) {
 			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretName, err)
 			continue
 		}
-		c.cs.Store(clusterID, remoteCluster)
-		if err := callback(clusterID, remoteCluster); err != nil {
+		c.cs.Store(cluster.ID(clusterID), remoteCluster)
+		if err := callback(cluster.ID(clusterID), remoteCluster); err != nil {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretName, err)
 			continue
 		}
@@ -425,15 +426,15 @@ func (c *Controller) deleteMemberCluster(secretName string) {
 		c.cs.Unlock()
 		log.Infof("Number of remote clusters: %d", len(c.cs.remoteClusters))
 	}()
-	for clusterID, cluster := range c.cs.remoteClusters {
-		if cluster.secretName == secretName {
+	for clusterID, remoteCluster := range c.cs.remoteClusters {
+		if remoteCluster.secretName == secretName {
 			log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretName)
 			err := c.removeCallback(clusterID)
 			if err != nil {
 				log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 					clusterID, secretName, err)
 			}
-			close(cluster.Stop)
+			close(remoteCluster.Stop)
 			delete(c.cs.remoteClusters, clusterID)
 		}
 	}

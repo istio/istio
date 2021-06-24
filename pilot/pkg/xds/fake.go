@@ -42,6 +42,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -54,7 +55,7 @@ import (
 
 type FakeOptions struct {
 	// If provided, a service registry with the name of each map key will be created with the given objects.
-	KubernetesObjectsByCluster map[string][]runtime.Object
+	KubernetesObjectsByCluster map[cluster.ID][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
 	KubernetesObjects []runtime.Object
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes")
@@ -133,12 +134,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			})
 		})
 	}
-	for cluster, objs := range k8sObjects {
+	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)
 		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
 			ServiceHandler:  serviceHandler,
 			Client:          client,
-			ClusterID:       cluster,
+			ClusterID:       k8sCluster,
 			DomainSuffix:    "cluster.local",
 			XDSUpdater:      s,
 			NetworksWatcher: opts.NetworksWatcher,
@@ -148,7 +149,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Stop:              stop,
 		})
 		// start default client informers after creating ingress/secret controllers
-		if defaultKubeClient == nil || cluster == "Kubernetes" {
+		if defaultKubeClient == nil || k8sCluster == "Kubernetes" {
 			defaultKubeClient = client
 			defaultKubeController = k8s
 		} else {
@@ -370,8 +371,8 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 	return loadAssignments
 }
 
-func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {
-	objects := map[string][]runtime.Object{}
+func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runtime.Object {
+	objects := map[cluster.ID][]runtime.Object{}
 
 	if len(opts.KubernetesObjects) > 0 {
 		objects["Kuberentes"] = append(objects["Kuberenetes"], opts.KubernetesObjects...)
@@ -391,12 +392,12 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.
 		}
 	}
 
-	for cluster, clusterObjs := range opts.KubernetesObjectsByCluster {
-		objects[cluster] = append(objects[cluster], clusterObjs...)
+	for k8sCluster, clusterObjs := range opts.KubernetesObjectsByCluster {
+		objects[k8sCluster] = append(objects[k8sCluster], clusterObjs...)
 	}
 
 	if len(objects) == 0 {
-		return map[string][]runtime.Object{"Kubernetes": {}}
+		return map[cluster.ID][]runtime.Object{"Kubernetes": {}}
 	}
 
 	return objects
