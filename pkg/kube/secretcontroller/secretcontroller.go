@@ -142,7 +142,7 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 }
 
 // Get existing clusters registered for the given secret
-func (c *ClusterStore) GetExistingClusters(secretKey string) []*Cluster {
+func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
 	c.RLock()
 	defer c.RUnlock()
 	out := make([]*Cluster, 0, len(c.remoteClusters[secretKey]))
@@ -403,16 +403,10 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 
 func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	// First delete clusters
-	existingClusters := c.cs.GetExistingClusters(secretKey)
+	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
 		if _, ok := s.Data[existingCluster.clusterID]; !ok {
-			// for cluster that not exists in the secret should be deleted
-			err := c.removeCallback(cluster.ID(existingCluster.clusterID))
-			if err != nil {
-				log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
-					existingCluster.clusterID, secretKey, err)
-			}
-			c.deleteMemberCluster(secretKey, cluster.clusterID)
+			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.clusterID))
 		}
 	}
 
@@ -464,7 +458,7 @@ func (c *Controller) deleteSecret(secretKey string) {
 	}
 }
 
-func (c *Controller) deleteMemberCluster(secretKey, clusterID string) {
+func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID) {
 	c.cs.Lock()
 	defer func() {
 		c.cs.Unlock()
