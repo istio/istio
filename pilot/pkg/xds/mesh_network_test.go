@@ -95,7 +95,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 			t.Fatal(err)
 		}
 		if err := retry.Until(func() bool {
-			return len(s.PushContext().NetworkGateways().ForNetwork("network-1")) == 1
+			return len(s.PushContext().NetworkManager().GatewaysForNetwork("network-1")) == 1
 		}); err != nil {
 			t.Fatal("push context did not reinitialize with gateways; xds event may not have been triggred")
 		}
