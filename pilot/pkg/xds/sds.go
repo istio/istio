@@ -45,7 +45,7 @@ type SecretResource struct {
 }
 
 func (sr SecretResource) Key() string {
-	return "sds://" + sr.ResourceName
+	return "sds://" + sr.Type + "/" + sr.Name + "/" + sr.Namespace
 }
 
 // DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level

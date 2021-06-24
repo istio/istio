@@ -158,7 +158,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "", stop)
-	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
+	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache)
 	defaultKubeClient.RunAndWait(stop)
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
