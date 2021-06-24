@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package secrets
+package network
 
-import "istio.io/istio/pkg/cluster"
+import "istio.io/istio/pkg/util/identifier"
 
-type Controller interface {
-	GetKeyAndCert(name, namespace string) (key []byte, cert []byte)
-	GetCaCert(name, namespace string) (cert []byte)
-	Authorize(serviceAccount, namespace string) error
-	AddEventHandler(func(name, namespace string))
+// ID is the unique identifier for a network.
+type ID string
+
+func (id ID) Equals(other ID) bool {
+	return identifier.IsSameOrEmpty(string(id), string(other))
 }
 
-type MulticlusterController interface {
-	ForCluster(cluster cluster.ID) (Controller, error)
+func (id ID) String() string {
+	return string(id)
 }

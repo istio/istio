@@ -34,11 +34,13 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -105,7 +107,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 }
 
 func TestMeshNetworking(t *testing.T) {
-	ingressServiceScenarios := map[corev1.ServiceType]map[string][]runtime.Object{
+	ingressServiceScenarios := map[corev1.ServiceType]map[cluster.ID][]runtime.Object{
 		corev1.ServiceTypeLoadBalancer: {
 			// cluster/network 1's ingress can be found up by registry service name in meshNetworks
 			"cluster-1": {&corev1.Service{
@@ -326,19 +328,19 @@ func TestMeshNetworking(t *testing.T) {
 type meshNetworkingTest struct {
 	workloads         []*workload
 	meshNetworkConfig *meshconfig.MeshNetworks
-	kubeObjects       map[string][]runtime.Object
+	kubeObjects       map[cluster.ID][]runtime.Object
 }
 
 func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest, configs ...config.Config) {
-	kubeObjects := map[string][]runtime.Object{}
+	kubeObjects := map[cluster.ID][]runtime.Object{}
 	for k, v := range tt.kubeObjects {
 		kubeObjects[k] = v
 	}
 	configObjects := configs
 	for _, w := range tt.workloads {
-		cluster, objs := w.kubeObjects()
-		if cluster != "" {
-			kubeObjects[cluster] = append(kubeObjects[cluster], objs...)
+		k8sCluster, objs := w.kubeObjects()
+		if k8sCluster != "" {
+			kubeObjects[k8sCluster] = append(kubeObjects[k8sCluster], objs...)
 		}
 		configObjects = append(configObjects, w.configs()...)
 	}
@@ -372,8 +374,8 @@ type workload struct {
 	ip   string
 	port int32
 
-	clusterID   string
-	metaNetwork string
+	clusterID   cluster.ID
+	metaNetwork network.ID
 	networkView []string
 
 	labels map[string]string
@@ -413,7 +415,7 @@ func (w *workload) clusterName() string {
 	return fmt.Sprintf("outbound|%d||%s", w.port, name)
 }
 
-func (w *workload) kubeObjects() (string, []runtime.Object) {
+func (w *workload) kubeObjects() (cluster.ID, []runtime.Object) {
 	if w.kind == Pod {
 		return w.clusterID, w.buildPodService()
 	}

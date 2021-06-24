@@ -43,8 +43,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
@@ -478,7 +480,8 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterID string, labels labels.Instance) *core.Metadata {
+func BuildLbEndpointMetadata(network network.ID, tlsMode, workloadname, namespace string,
+	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
 	if network == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
 		return nil
 	}
@@ -488,7 +491,7 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 	}
 
 	if network != "" {
-		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}})
+		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network.String()}})
 	}
 
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
@@ -518,7 +521,7 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 			sb.WriteString(csr)
 		}
 		sb.WriteString(";")
-		sb.WriteString(clusterID)
+		sb.WriteString(clusterID.String())
 		addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
 	}
 

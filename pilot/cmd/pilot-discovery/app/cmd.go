@@ -145,7 +145,7 @@ func addFlags(c *cobra.Command) {
 		"Controller resync interval")
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.DomainSuffix, "domain", constants.DefaultKubernetesDomain,
 		"DNS domain suffix")
-	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.ClusterID, "clusterID", features.ClusterName,
+	c.PersistentFlags().StringVar((*string)(&serverArgs.RegistryOptions.KubeOptions.ClusterID), "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)
