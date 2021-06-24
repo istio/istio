@@ -67,7 +67,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	// Mutable objects keyed by listener name so that we can build listeners at the end.
 	mutableopts := make(map[string]mutableListenerOpts)
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
-	for port, ms := range mergedGateway.MergedServers {
+	for _, port := range mergedGateway.ServerPorts {
+		ms := mergedGateway.MergedServers[port]
 		servers := ms.Servers
 		var si *model.ServiceInstance
 

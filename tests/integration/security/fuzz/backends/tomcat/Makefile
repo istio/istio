@@ -12,22 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: dotdotpwn
-spec:
-  selector:
-    matchLabels:
-      app: dotdotpwn
-  template:
-    metadata:
-      labels:
-        app: dotdotpwn
-      annotations:
-        # Do not inject Envoy in the fuzzer side to make sure the server Envoy sees the original fuzzed request.
-        "sidecar.istio.io/inject": "false"
-    spec:
-      containers:
-        - name: dotdotpwn
-          image: gcr.io/istio-testing/dotdotpwn:0.1
+HUB ?= "gcr.io/istio-testing/fuzz_tomcat"
+TAG ?= "0.1"
+
+push: Dockerfile
+	docker build . -t $(HUB):$(TAG)
+	docker push $(HUB):$(TAG)

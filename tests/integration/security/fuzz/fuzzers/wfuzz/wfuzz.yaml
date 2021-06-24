@@ -15,19 +15,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dotdotpwn
+  name: wfuzz
+  labels:
+    app: wfuzz
 spec:
+  replicas: 1
   selector:
     matchLabels:
-      app: dotdotpwn
+      app: wfuzz
   template:
     metadata:
       labels:
-        app: dotdotpwn
+        app: wfuzz
       annotations:
         # Do not inject Envoy in the fuzzer side to make sure the server Envoy sees the original fuzzed request.
         "sidecar.istio.io/inject": "false"
     spec:
       containers:
-        - name: dotdotpwn
-          image: gcr.io/istio-testing/dotdotpwn:0.1
+      - name: wfuzz
+        image: ghcr.io/xmendez/wfuzz:v3.1.0
+        command: [ "sleep" ]
+        args: [ "365d" ]
+        volumeMounts:
+          - name: wordlist
+            mountPath: /wordlist
+      volumes:
+        - name: wordlist
+          configMap:
+            name: wordlist
+---

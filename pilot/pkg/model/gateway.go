@@ -53,6 +53,9 @@ type TLSServerInfo struct {
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
 type MergedGateway struct {
+	// ServerPorts maintains a list of unique server ports, used for stable ordering.
+	ServerPorts []ServerPort
+
 	// MergedServers maps from physical port to virtual servers.
 	MergedServers map[ServerPort]*MergedServers
 
@@ -112,6 +115,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
 	mergedServers := make(map[ServerPort]*MergedServers)
+	serverPorts := make([]ServerPort, 0)
 	plainTextServers := make(map[uint32]ServerPort)
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
@@ -190,6 +194,7 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 							// Merge it to servers with the same port and bind.
 							if mergedServers[serverPort] == nil {
 								mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
+								serverPorts = append(serverPorts, serverPort)
 							}
 							ms := mergedServers[serverPort]
 							ms.RouteName = routeName
@@ -233,6 +238,7 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 						}
 						if mergedServers[serverPort] == nil {
 							mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+							serverPorts = append(serverPorts, serverPort)
 						} else {
 							mergedServers[serverPort].Servers = append(mergedServers[serverPort].Servers, s)
 						}
@@ -247,6 +253,7 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 						serversByRouteName[routeName] = []*networking.Server{s}
 					}
 					mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
+					serverPorts = append(serverPorts, serverPort)
 				}
 				log.Debugf("MergeGateways: gateway %q merged server %v", gatewayName, s.Hosts)
 			}
@@ -255,6 +262,7 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
+		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
 		TLSServerInfo:                   tlsServerInfo,
 		ServersByRouteName:              serversByRouteName,

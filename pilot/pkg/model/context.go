@@ -828,7 +828,6 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	if len(node.Metadata.Labels) > 0 {
 		return
 	}
-
 	// Fallback to calling GetProxyWorkloadLabels
 	l := env.GetProxyWorkloadLabels(node)
 	if len(l) > 0 {
