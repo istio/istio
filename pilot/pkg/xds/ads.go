@@ -866,8 +866,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(req *model.PushRequest) {
-	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
-	// the same connection table
+	// Push config changes, iterating over connected envoys.
 	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
 		if currentlyPending != 0 {
