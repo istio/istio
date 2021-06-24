@@ -435,8 +435,12 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 
 	for locality, eps := range lbEndpoints {
 		var weight uint32
+		var overflowStatus bool
 		for _, ep := range eps {
-			weight = addUint32AvoidOverflow(weight, ep.LoadBalancingWeight.GetValue())
+			weight, overflowStatus = addUint32(weight, ep.LoadBalancingWeight.GetValue())
+		}
+		if overflowStatus {
+			log.Warnf("Sum of localityLbEndpoints weight is overflow")
 		}
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
@@ -450,14 +454,14 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 	return localityLbEndpoints
 }
 
-// addUint32AvoidOverflow returns sum of two uint32.
-// If sum overflows, and the MaxUint32 returns.
-func addUint32AvoidOverflow(left, right uint32) uint32 {
+// addUint32AvoidOverflow returns sum of two uint32 and status. If sum overflows,
+// and returns MaxUint32 and status.
+func addUint32(left, right uint32) (uint32, bool) {
 	newVal := left + right
 	if newVal < left || newVal < right {
-		return math.MaxUint32
+		return math.MaxUint32, true
 	}
-	return newVal
+	return newVal, false
 }
 
 // buildInboundPassthroughClusters builds passthrough clusters for inbound.
