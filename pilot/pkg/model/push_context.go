@@ -17,7 +17,6 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -203,19 +202,10 @@ type PushContext struct {
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
-	networksMu      sync.RWMutex
-	networkGateways map[string][]*Gateway
+	networkGateways *NetworkGateways
 
 	initDone        atomic.Bool
 	initializeMutex sync.Mutex
-}
-
-// Gateway is the gateway of a network
-type Gateway struct {
-	// gateway ip address
-	Addr string
-	// gateway port
-	Port uint32
 }
 
 type processedDestRules struct {
@@ -910,6 +900,9 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
+	if service == nil {
+		return false
+	}
 	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
 }
 
@@ -1881,46 +1874,11 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 
 // pre computes gateways for each network
 func (ps *PushContext) initMeshNetworks(env *Environment) {
-	ps.networksMu.Lock()
-	defer ps.networksMu.Unlock()
-	ps.networkGateways = map[string][]*Gateway{}
-
-	// First, use addresses directly specified in meshNetworks
-	meshNetworks := env.Networks()
-	if meshNetworks != nil {
-		for network, networkConf := range meshNetworks.Networks {
-			gws := networkConf.Gateways
-			for _, gw := range gws {
-				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-					ps.networkGateways[network] = append(ps.networkGateways[network], &Gateway{gw.GetAddress(), gw.Port})
-				}
-			}
-
-		}
-	}
-
-	// Second, load registry specific gateways.
-	for network, gateways := range env.NetworkGateways() {
-		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
-		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-		ps.networkGateways[network] = append(ps.networkGateways[network], gateways...)
-	}
+	ps.networkGateways = newNetworkGateways(env)
 }
 
-func (ps *PushContext) NetworkGateways() map[string][]*Gateway {
-	ps.networksMu.RLock()
-	defer ps.networksMu.RUnlock()
+func (ps *PushContext) NetworkGateways() *NetworkGateways {
 	return ps.networkGateways
-}
-
-func (ps *PushContext) NetworkGatewaysByNetwork(network string) []*Gateway {
-	ps.networksMu.RLock()
-	defer ps.networksMu.RUnlock()
-	if ps.networkGateways != nil {
-		return ps.networkGateways[network]
-	}
-
-	return nil
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

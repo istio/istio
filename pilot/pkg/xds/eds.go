@@ -187,7 +187,12 @@ func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string
 		ServiceAccounts: sets.Set{},
 	}
 	s.EndpointShardsByService[serviceName][namespace] = ep
-
+	// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
+	s.Cache.Clear(map[model.ConfigKey]struct{}{{
+		Kind:      gvk.ServiceEntry,
+		Name:      serviceName,
+		Namespace: namespace,
+	}: {}})
 	return ep, true
 }
 
@@ -312,7 +317,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
-	if b.MultiNetworkConfigured() {
+	if b.push.NetworkGateways().IsMultiNetworkEnabled() {
 		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
 	}
 	if model.IsDNSSrvSubsetKey(b.clusterName) {

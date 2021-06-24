@@ -243,9 +243,9 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
+func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	// TODO use logic from kube controller if needed
-	return map[string][]*model.Gateway{}
+	return []*model.NetworkGateway{}
 }
 
 type Controller struct{}

@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -293,31 +294,58 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 // or all pods in the namespace if none are provided.
 func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
-
-	dumpProxyCommand(c, pods, workDir, "proxy-config.json", "pilot-agent request GET config_dump?include_eds=true")
-	dumpProxyCommand(c, pods, workDir, "proxy-clusters.txt", "pilot-agent request GET clusters")
+	for _, pod := range pods {
+		if !hasEnvoy(pod) {
+			continue
+		}
+		dumpProxyCommand(c, pod, workDir, "proxy-config.json", "pilot-agent request GET config_dump?include_eds=true")
+		dumpProxyCommand(c, pod, workDir, "proxy-clusters.txt", "pilot-agent request GET clusters")
+	}
 }
 
-func dumpProxyCommand(c cluster.Cluster, pods []corev1.Pod, workDir, filename, command string) {
-	for _, pod := range pods {
-		isVM := checkIfVM(pod)
-		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
-		for _, container := range containers {
-			if container.Name != "istio-proxy" && !isVM {
-				// if we don't have istio-proxy container, and we're not running as a VM, agent isn't running
-				continue
-			}
+func dumpProxyCommand(c cluster.Cluster, pod corev1.Pod, workDir, filename, command string) {
+	isVM := checkIfVM(pod)
+	containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
+	for _, container := range containers {
+		if container.Name != "istio-proxy" && !isVM {
+			// if we don't have istio-proxy container, and we're not running as a VM, agent isn't running
+			continue
+		}
 
-			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
-				fname := podOutputPath(workDir, c, pod, filename)
-				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-					scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
-				}
-			} else {
-				scopes.Framework.Errorf("Unable to get execute command %q on pod: %s/%s for: %v", command, pod.Namespace, pod.Name, err)
+		if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
+			fname := podOutputPath(workDir, c, pod, filename)
+			if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
+				scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
 			}
+		} else {
+			scopes.Framework.Errorf("Unable to get execute command %q on pod: %s/%s for: %v", command, pod.Namespace, pod.Name, err)
 		}
 	}
+}
+
+func hasEnvoy(pod corev1.Pod) bool {
+	if checkIfVM(pod) {
+		// assume VMs run Envoy
+		return true
+	}
+	f := false
+	for _, c := range pod.Spec.Containers {
+		if c.Name == "istio-proxy" {
+			f = true
+			break
+		}
+	}
+	if !f {
+		// no proxy container
+		return false
+	}
+	for k, v := range pod.ObjectMeta.Annotations {
+		if k == inject.TemplatesAnnotation && strings.HasPrefix(v, "grpc-") {
+			// proxy container may run only agent for proxyless gRPC
+			return false
+		}
+	}
+	return true
 }
 
 func checkIfVM(pod corev1.Pod) bool {
@@ -360,5 +388,7 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 }
 
 func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
-	dumpProxyCommand(c, pods, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 GET /debug/ndsz")
+	for _, pod := range pods {
+		dumpProxyCommand(c, pod, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 GET /debug/ndsz")
+	}
 }

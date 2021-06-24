@@ -285,7 +285,7 @@ spec:
 				t.Fatal(err)
 			}
 
-			validator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(t.Clusters()))
+			validator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(apps.PodB.Clusters()))
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())

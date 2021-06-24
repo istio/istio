@@ -229,7 +229,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					{
 						Annotations: map[echo.Annotation]*echo.AnnotationValue{
 							echo.SidecarInjectTemplates: {
-								Value: "grpc",
+								Value: "grpc-agent",
 							},
 						},
 					},

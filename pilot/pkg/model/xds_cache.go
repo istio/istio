@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
@@ -201,17 +202,23 @@ func newLru() simplelru.LRUCache {
 // because multiple writers may get cache misses concurrently, but they ought to generate identical
 // configuration. This also checks that our XDS config generation is deterministic, which is a very
 // important property.
-func (l *lruCache) assertUnchanged(existing *discovery.Resource, replacement *discovery.Resource) {
+func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, replacement *discovery.Resource) {
 	if l.enableAssertions {
 		if existing == nil {
 			// This is a new addition, not an update
 			return
 		}
-		if !cmp.Equal(existing, replacement, protocmp.Transform()) {
-			warning := fmt.Errorf("assertion failed, cache entry changed but not cleared: %v\n%v\n%v",
-				cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
-			panic(warning)
-		}
+		// Record time so that we can correlate when the error actually happened, since the async reporting
+		// may be delayed
+		t0 := time.Now()
+		// This operation is really slow, which makes tests fail for unrelated reasons, so we process it async.
+		go func() {
+			if !cmp.Equal(existing, replacement, protocmp.Transform()) {
+				warning := fmt.Errorf("assertion failed at %v, cache entry changed but not cleared for key %v: %v\n%v\n%v",
+					t0, key, cmp.Diff(existing, replacement, protocmp.Transform()), existing, replacement)
+				panic(warning)
+			}
+		}()
 	}
 }
 
@@ -242,7 +249,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.R
 		if toWrite.token == 0 {
 			panic("token cannot be empty. was Get() called before Add()?")
 		}
-		l.assertUnchanged(cur.(cacheValue).value, value)
+		l.assertUnchanged(k, cur.(cacheValue).value, value)
 	}
 	l.store.Add(k, toWrite)
 	indexConfig(l.configIndex, entry.Key(), entry)
