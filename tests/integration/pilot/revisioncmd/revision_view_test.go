@@ -134,7 +134,7 @@ func TestRevisionCommand(t *testing.T) {
 }
 
 func testRevisionListingVerbose(t framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
-	listVerboseCmd := []string{"x", "revision", "list", "-d", manifestPath, "-v", "-o", "json"}
+	listVerboseCmd := []string{"revision", "list", "-d", manifestPath, "-v", "-o", "json"}
 	stdout, _, err := istioCtl.Invoke(listVerboseCmd)
 	if err != nil {
 		t.Fatalf("unexpected error while invoking istioctl command %v: %v", listVerboseCmd, err)
@@ -207,7 +207,7 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 }
 
 func testNonExistentRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
-	describeArgs := []string{"x", "revision", "describe", "ghost", "-o", "json", "-v"}
+	describeArgs := []string{"revision", "describe", "ghost", "-o", "json", "-v"}
 	_, _, err := istioCtl.Invoke(describeArgs)
 	if err == nil {
 		t.Fatalf("expected error for non-existent revision 'ghost', but didn't get it")
@@ -215,7 +215,7 @@ func testNonExistentRevisionDescription(t framework.TestContext, istioCtl istioc
 }
 
 func testInvalidRevisionFormat(t framework.TestContext, istioCtl istioctl.Instance, _ map[string]*revisionResource) {
-	describeArgs := []string{"x", "revision", "describe", "$%#@abc", "-o", "json", "-v"}
+	describeArgs := []string{"revision", "describe", "$%#@abc", "-o", "json", "-v"}
 	_, _, err := istioCtl.Invoke(describeArgs)
 	if err == nil || !strings.Contains(err.Error(), "invalid revision format") {
 		t.Fatalf("expected error message saying revision format is invalid, but got %v", err)
@@ -228,8 +228,8 @@ func testInvalidOutputFormat(t framework.TestContext, istioCtl istioctl.Instance
 		command []string
 	}
 	for _, tt := range []invalidFormatTest{
-		{name: "list", command: []string{"x", "revision", "list", "-o", "mystery"}},
-		{name: "describe", command: []string{"x", "revision", "describe", "canary", "-o", "mystery"}},
+		{name: "list", command: []string{"revision", "list", "-o", "mystery"}},
+		{name: "describe", command: []string{"revision", "describe", "canary", "-o", "mystery"}},
 	} {
 		t.NewSubTest(tt.name).Run(func(st framework.TestContext) {
 			_, _, fErr := istioCtl.Invoke(tt.command)
@@ -241,7 +241,7 @@ func testInvalidOutputFormat(t framework.TestContext, istioCtl istioctl.Instance
 }
 
 func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cmd.RevisionDescription, error) {
-	describeCmd := []string{"x", "revision", "describe", revision, "-d", manifestPath, "-o", "json", "-v"}
+	describeCmd := []string{"revision", "describe", revision, "-d", manifestPath, "-o", "json", "-v"}
 	descr, _, err := istioCtl.Invoke(describeCmd)
 	if err != nil {
 		return nil, err
