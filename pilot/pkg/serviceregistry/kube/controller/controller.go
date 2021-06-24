@@ -194,6 +194,10 @@ type controllerInterface interface {
 
 var _ controllerInterface = &Controller{}
 
+type ipWithNetwork struct {
+	address, network string
+}
+
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
@@ -240,9 +244,9 @@ type Controller struct {
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
 	// workload instances from workload entries  - map of ip -> workload instance
-	workloadInstancesByIP map[string]*model.WorkloadInstance
+	workloadInstancesByIP map[ipWithNetwork]map[string]*model.WorkloadInstance
 	// Stores a map of workload instance name/namespace to address
-	workloadInstancesIPsByName map[string]string
+	workloadInstancesIPsByName map[string]ipWithNetwork
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -276,8 +280,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
-		workloadInstancesIPsByName:  make(map[string]string),
+		workloadInstancesByIP:       make(map[ipWithNetwork]map[string]*model.WorkloadInstance),
+		workloadInstancesIPsByName:  make(map[string]ipWithNetwork),
 		registryServiceNameGateways: make(map[host.Name]uint32),
 		networkGateways:             make(map[host.Name]map[string][]*model.NetworkGateway),
 		informerInit:                atomic.NewBool(false),
@@ -825,30 +829,32 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	out := make([]*model.ServiceInstance, 0)
 
 	c.RLock()
-	for _, wi := range c.workloadInstancesByIP {
-		if wi.Namespace != svc.Attributes.Namespace {
-			continue
-		}
-		if selector.SubsetOf(wi.Endpoint.Labels) {
-			// create an instance with endpoint whose service port name matches
-			istioEndpoint := *wi.Endpoint
-			if targetPortName != "" {
-				// This is a named port, find the corresponding port in the port map
-				matchedPort := wi.PortMap[targetPortName]
-				if matchedPort == 0 {
-					// No match found, skip this endpoint
-					continue
-				}
-				istioEndpoint.EndpointPort = matchedPort
-			} else {
-				istioEndpoint.EndpointPort = uint32(targetPort)
+	for _, workloadInstances := range c.workloadInstancesByIP {
+		for _, wi := range workloadInstances {
+			if wi.Namespace != svc.Attributes.Namespace {
+				continue
 			}
-			istioEndpoint.ServicePortName = servicePort.Name
-			out = append(out, &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: servicePort,
-				Endpoint:    &istioEndpoint,
-			})
+			if selector.SubsetOf(wi.Endpoint.Labels) {
+				// create an instance with endpoint whose service port name matches
+				istioEndpoint := *wi.Endpoint
+				if targetPortName != "" {
+					// This is a named port, find the corresponding port in the port map
+					matchedPort := wi.PortMap[targetPortName]
+					if matchedPort == 0 {
+						// No match found, skip this endpoint
+						continue
+					}
+					istioEndpoint.EndpointPort = matchedPort
+				} else {
+					istioEndpoint.EndpointPort = uint32(targetPort)
+				}
+				istioEndpoint.ServicePortName = servicePort.Name
+				out = append(out, &model.ServiceInstance{
+					Service:     svc,
+					ServicePort: servicePort,
+					Endpoint:    &istioEndpoint,
+				})
+			}
 		}
 	}
 	c.RUnlock()
@@ -881,12 +887,23 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
 	if len(proxy.IPAddresses) > 0 {
-		proxyIP := proxy.IPAddresses[0]
+		proxyIPWithNetwork := ipWithNetwork{
+			address: proxy.IPAddresses[0],
+			network: proxy.Metadata.Network,
+		}
 		c.RLock()
-		workload, f := c.workloadInstancesByIP[proxyIP]
+		workloads := make([]*model.WorkloadInstance, 0)
+		workloadsByIP, f := c.workloadInstancesByIP[proxyIPWithNetwork]
+		for _, workload := range workloadsByIP {
+			workloads = append(workloads, workload)
+		}
 		c.RUnlock()
 		if f {
-			return c.hydrateWorkloadInstance(workload)
+			hydratedInstances := make([]*model.ServiceInstance, 0)
+			for _, wl := range workloads {
+				hydratedInstances = append(hydratedInstances, c.hydrateWorkloadInstance(wl)...)
+			}
+			return hydratedInstances
 		}
 		pod := c.pods.getPodByProxy(proxy)
 		if pod != nil && !proxy.IsVM() {
@@ -976,18 +993,33 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	// this is from a workload entry. Store it in separate map so that
 	// the InstancesByPort can use these as well as the k8s pods.
 	c.Lock()
+	ipAddr := ipWithNetwork{address: si.Endpoint.Address, network: si.Endpoint.Network}
+	k := si.Namespace + "/" + si.Name
 	switch event {
 	case model.EventDelete:
-		delete(c.workloadInstancesByIP, si.Endpoint.Address)
+		if _, ok := c.workloadInstancesByIP[ipAddr]; ok {
+			delete(c.workloadInstancesByIP[ipAddr], k)
+			if len(c.workloadInstancesByIP[ipAddr]) == 0 {
+				delete(c.workloadInstancesByIP, ipAddr)
+			}
+		}
+		delete(c.workloadInstancesIPsByName, k)
 	default: // add or update
 		// Check to see if the workload entry changed. If it did, clear the old entry
-		k := si.Namespace + "/" + si.Name
 		existing := c.workloadInstancesIPsByName[k]
-		if existing != si.Endpoint.Address {
+		if existing != ipAddr {
 			delete(c.workloadInstancesByIP, existing)
 		}
-		c.workloadInstancesByIP[si.Endpoint.Address] = si
-		c.workloadInstancesIPsByName[k] = si.Endpoint.Address
+		if _, ok := c.workloadInstancesByIP[ipAddr]; !ok {
+			c.workloadInstancesByIP[ipAddr] = make(map[string]*model.WorkloadInstance)
+		}
+		// Two workload entries can have the same IP address and network, and could be
+		// in different namespace. So while building index based on IP address we should
+		// also take into account, the config name which generated a service-instance.
+		// Otherwise, we end up overwriting the other or deleting causing an unrelated
+		// service in a different namespace to lose its endpoints.
+		c.workloadInstancesByIP[ipAddr][k] = si
+		c.workloadInstancesIPsByName[k] = ipAddr
 	}
 	c.Unlock()
 
