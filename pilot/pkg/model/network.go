@@ -18,10 +18,6 @@ import (
 	"net"
 )
 
-const (
-	noCluster = ""
-)
-
 // NetworkID is the unique identifier for a network.
 type NetworkID string
 
@@ -48,26 +44,18 @@ type NetworkGateway struct {
 	Port uint32
 }
 
-// newNetworkGateways creates a new NetworkGateways from the Environment by merging
+// newNetworkManager creates a new NetworkManager from the Environment by merging
 // together the MeshNetworks and ServiceRegistry-specific gateways.
-func newNetworkGateways(env *Environment) *NetworkGateways {
+func newNetworkManager(env *Environment) *NetworkManager {
 	// Generate the a snapshot of the state of gateways by merging the contents of
 	// MeshNetworks and the ServiceRegistries.
-	gatewayMap := make(map[NetworkID]map[ClusterID][]*NetworkGateway)
+	byNetwork := make(map[NetworkID][]*NetworkGateway)
+	byNetworkAndCluster := make(map[networkAndCluster][]*NetworkGateway)
 
 	addGateway := func(gateway *NetworkGateway) {
-		// Get (or create) an entry for the network.
-		gatewaysByCluster := gatewayMap[gateway.Network]
-		if gatewaysByCluster == nil {
-			gatewaysByCluster = make(map[ClusterID][]*NetworkGateway)
-			gatewayMap[gateway.Network] = gatewaysByCluster
-		}
-
-		gatewaysByCluster[gateway.Cluster] = append(gatewaysByCluster[gateway.Cluster], gateway)
-		if gateway.Cluster != noCluster {
-			// Also make sure this gateway appears in the global list of all gateways for the network.
-			gatewaysByCluster[noCluster] = append(gatewaysByCluster[noCluster], gateway)
-		}
+		byNetwork[gateway.Network] = append(byNetwork[gateway.Network], gateway)
+		nc := networkAndClusterFor(gateway)
+		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], gateway)
 	}
 
 	// First, load gateways from the static MeshNetworks config.
@@ -78,7 +66,7 @@ func newNetworkGateways(env *Environment) *NetworkGateways {
 			for _, gw := range gws {
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
 					addGateway(&NetworkGateway{
-						Cluster: noCluster, /* TODO(nmittler): Add Cluster to the API */
+						Cluster: "", /* TODO(nmittler): Add Cluster to the API */
 						Network: NetworkID(network),
 						Addr:    gw.GetAddress(),
 						Port:    gw.Port,
@@ -99,35 +87,49 @@ func newNetworkGateways(env *Environment) *NetworkGateways {
 		addGateway(gateway)
 	}
 
-	return &NetworkGateways{
-		gateways: gatewayMap,
+	return &NetworkManager{
+		byNetwork:           byNetwork,
+		byNetworkAndCluster: byNetworkAndCluster,
 	}
 }
 
-type NetworkGateways struct {
-	gateways map[NetworkID]map[ClusterID][]*NetworkGateway
+// NetworkManager provides gateway details for accessing remote networks.
+type NetworkManager struct {
+	byNetwork           map[NetworkID][]*NetworkGateway
+	byNetworkAndCluster map[networkAndCluster][]*NetworkGateway
 }
 
-func (gws *NetworkGateways) IsMultiNetworkEnabled() bool {
-	return len(gws.gateways) > 0
+type networkAndCluster struct {
+	network NetworkID
+	cluster ClusterID
 }
 
-func (gws *NetworkGateways) All() []*NetworkGateway {
+func networkAndClusterFor(g *NetworkGateway) networkAndCluster {
+	return networkAndCluster{
+		network: g.Network,
+		cluster: g.Cluster,
+	}
+}
+
+func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
+	return len(mgr.byNetwork) > 0
+}
+
+func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
 	out := make([]*NetworkGateway, 0)
-	for _, byCluster := range gws.gateways {
-		out = append(out, byCluster[noCluster]...)
+	for _, gateways := range mgr.byNetwork {
+		out = append(out, gateways...)
 	}
 	return out
 }
 
-func (gws *NetworkGateways) ForNetwork(network NetworkID) []*NetworkGateway {
-	return gws.ForNetworkAndCluster(network, noCluster)
+func (mgr *NetworkManager) GatewaysForNetwork(network NetworkID) []*NetworkGateway {
+	return mgr.byNetwork[network]
 }
 
-func (gws *NetworkGateways) ForNetworkAndCluster(network NetworkID, cluster ClusterID) []*NetworkGateway {
-	gatewaysByCluster := gws.gateways[network]
-	if gatewaysByCluster != nil {
-		return gatewaysByCluster[cluster]
-	}
-	return nil
+func (mgr *NetworkManager) GatewaysForNetworkAndCluster(network NetworkID, cluster ClusterID) []*NetworkGateway {
+	return mgr.byNetworkAndCluster[networkAndCluster{
+		network: network,
+		cluster: cluster,
+	}]
 }
