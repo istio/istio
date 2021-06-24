@@ -556,10 +556,11 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:          EnvoyServerName,
-		HttpProtocolOptions: httpProtoOpts,
-		StripPortMode:       stripPortMode,
-		DelayedCloseTimeout: features.DelayedCloseTimeout,
+		ServerName:           EnvoyServerName,
+		HttpProtocolOptions:  httpProtoOpts,
+		Http2ProtocolOptions: http2ProtocolOptions(),
+		StripPortMode:        stripPortMode,
+		DelayedCloseTimeout:  features.DelayedCloseTimeout,
 	}
 }
 
