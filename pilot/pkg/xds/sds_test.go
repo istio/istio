@@ -17,6 +17,7 @@ package xds
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -327,7 +328,7 @@ func TestGenerate(t *testing.T) {
 			cc.Fake.Unlock()
 
 			gen := s.Discovery.Generators[v3.SecretType]
-
+			tt.request.Start = time.Now()
 			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), s.PushContext(),
 				&model.WatchedResource{ResourceNames: tt.resources}, tt.request)
 			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
@@ -360,7 +361,7 @@ func TestCaching(t *testing.T) {
 	})
 	gen := s.Discovery.Generators[v3.SecretType]
 
-	fullPush := &model.PushRequest{Full: true}
+	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
 	istiosystem := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"}
 	otherNamespace := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"}, Type: model.Router, ConfigNamespace: "other-namespace"}
 

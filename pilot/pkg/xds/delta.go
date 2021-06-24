@@ -278,7 +278,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe,
-		}, &model.PushRequest{Full: true})
+		}, &model.PushRequest{Full: true, Start: time.Now()})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
@@ -310,6 +310,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	}
 
 	push := s.globalPushContext()
+	request.Start = time.Now()
 	return s.pushDeltaXds(con, push, versionInfo(), con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)
 }
 

@@ -201,7 +201,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
-		}, &model.PushRequest{Full: true})
+		}, &model.PushRequest{Full: true, Start: time.Now()})
 	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
@@ -232,6 +232,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	push := s.globalPushContext()
+	request.Start = time.Now()
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
 }
