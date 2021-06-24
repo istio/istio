@@ -359,17 +359,17 @@ func TestCaching(t *testing.T) {
 	istiosystem := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"}
 	otherNamespace := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"}, Type: model.Router, ConfigNamespace: "other-namespace"}
 
-	secrets, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
+	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
 		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
-	raw := xdstest.ExtractTLSSecrets(t, secrets)
+	raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	if len(raw) != 1 {
 		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
 	}
 
 	// We should not get secret returned, even though we are asking for the same one
-	secrets, _ = gen.Generate(s.SetupProxy(otherNamespace), s.PushContext(),
+	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), s.PushContext(),
 		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
-	raw = xdstest.ExtractTLSSecrets(t, secrets)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	if len(raw) != 0 {
 		t.Fatalf("failed to get expected secrets for unauthorized proxy: %v", raw)
 	}
