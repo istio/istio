@@ -63,7 +63,7 @@ var (
 			{
 				Port: &networking.Port{
 					Number:   9009,
-					Name:     "http-9009-gateway-gwspec-ns1",
+					Name:     "0-gateway-gwspec-ns1",
 					Protocol: "HTTP",
 				},
 				Hosts: []string{"*"},

@@ -537,8 +537,8 @@ type ServiceDiscovery interface {
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
 
-	// NetworkGateways returns a map of network name to Gateways that can be used to access that network.
-	NetworkGateways() map[string][]*Gateway
+	// NetworkGateways returns a list of network gateways that can be used to access endpoints residing in this registry..
+	NetworkGateways() []*NetworkGateway
 }
 
 // GetNames returns port names

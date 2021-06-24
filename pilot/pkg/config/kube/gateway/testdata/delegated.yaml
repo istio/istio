@@ -1,0 +1,62 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+  - hostname: "apple.example"
+    port: 80
+    protocol: HTTP
+    routes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: apple
+      kind: HTTPRoute
+  - hostname: "banana.example"
+    port: 80
+    protocol: HTTP
+    routes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: banana
+      kind: HTTPRoute
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: apple
+spec:
+  gateways:
+    allow: All
+  rules:
+  - forwardTo:
+    - serviceName: httpbin-apple
+      port: 80
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: banana
+spec:
+  gateways:
+    allow: All
+  rules:
+  - forwardTo:
+    - serviceName: httpbin-banana
+      port: 80
+---

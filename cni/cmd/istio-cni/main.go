@@ -34,9 +34,10 @@ import (
 )
 
 var (
-	nsSetupBinDir          = "/opt/cni/bin"
-	injectAnnotationKey    = annotation.SidecarInject.Name
-	sidecarStatusKey       = annotation.SidecarStatus.Name
+	nsSetupBinDir       = "/opt/cni/bin"
+	injectAnnotationKey = annotation.SidecarInject.Name
+	sidecarStatusKey    = annotation.SidecarStatus.Name
+
 	interceptRuleMgrType   = defInterceptRuleMgrType
 	loggingOptions         = log.DefaultOptions()
 	podRetrievalMaxRetries = 30
@@ -205,6 +206,13 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 					"namespace", string(k8sArgs.K8S_POD_NAMESPACE)).
 					Info("Pod excluded due to being already injected with istio-init container")
 				excludePod = true
+			}
+
+			if val, ok := pi.ProxyEnvironments["DISABLE_ENVOY"]; ok {
+				if val, err := strconv.ParseBool(val); err == nil && val {
+					log.Infof("Pod excluded due to DISABLE_ENVOY on istio-proxy")
+					excludePod = true
+				}
 			}
 
 			log.Infof("Found containers %v", pi.Containers)

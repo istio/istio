@@ -726,7 +726,8 @@ func TestInitPushContext(t *testing.T) {
 	diff := cmp.Diff(old, newPush,
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
-			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{}, AuthenticationPolicies{}),
+			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
+			AuthenticationPolicies{}, NetworkGateways{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -1718,7 +1719,7 @@ func (l *localServiceDiscovery) GetIstioServiceAccounts(svc *Service, ports []in
 	return nil
 }
 
-func (l *localServiceDiscovery) NetworkGateways() map[string][]*Gateway {
+func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
 	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
 }
