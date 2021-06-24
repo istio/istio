@@ -16,7 +16,10 @@ package controller
 
 import (
 	"net"
+	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/yl2chen/cidranger"
 
@@ -31,7 +34,7 @@ type namedRangerEntry struct {
 	network net.IPNet
 }
 
-// returns the IPNet for the network
+// Network returns the IPNet for the network
 func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
 }
@@ -111,19 +114,20 @@ func (c *Controller) reloadMeshNetworks() {
 func (c *Controller) NetworkGateways() []*model.NetworkGateway {
 	c.RLock()
 	defer c.RUnlock()
+
 	if c.networkGateways == nil || len(c.networkGateways) == 0 {
 		return nil
 	}
-	gws := make([]*model.NetworkGateway, 0)
-	for _, netGws := range c.networkGateways {
-		if netGws == nil {
-			continue
-		}
-		for _, gw := range netGws {
-			gws = append(gws, gw...)
+
+	// Merge all the gateways into a single set to eliminate duplicates.
+	out := make(gatewaySet)
+	for _, byNetwork := range c.networkGateways {
+		for _, gateways := range byNetwork {
+			out.addAll(gateways)
 		}
 	}
-	return gws
+
+	return out.toArray()
 }
 
 // extractGatewaysFromService checks if the service is a cross-network gateway
@@ -164,10 +168,14 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 	}
 
 	if c.networkGateways[svc.Hostname] == nil {
-		c.networkGateways[svc.Hostname] = map[string][]*model.NetworkGateway{}
+		c.networkGateways[svc.Hostname] = make(map[string]gatewaySet)
+	}
+	// Create the entry for this network, if doesn't exist.
+	if c.networkGateways[svc.Hostname][network] == nil {
+		c.networkGateways[svc.Hostname][network] = make(gatewaySet)
 	}
 
-	gws := make([]*model.NetworkGateway, 0, len(svc.Attributes.ClusterExternalAddresses))
+	newGateways := make(gatewaySet)
 
 	// TODO(landow) ClusterExternalAddresses doesn't need to get used outside of the kube controller, and spreads
 	// TODO(cont)   logic between ConvertService, extractGatewaysInner, and updateServiceNodePortAddresses.
@@ -184,7 +192,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 		ips := svc.Attributes.ClusterExternalAddresses[c.Cluster()]
 		for _, ip := range ips {
-			gws = append(gws, &model.NetworkGateway{
+			newGateways.add(model.NetworkGateway{
 				Cluster: model.ClusterID(c.Cluster()),
 				Network: model.NetworkID(network),
 				Addr:    ip,
@@ -193,22 +201,11 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 	}
 
-	gwsChanged := len(c.networkGateways[svc.Hostname][network]) != len(gws)
-	if !gwsChanged {
-		// number of gateways are the same, check that their contents are the same
-		found := map[model.NetworkGateway]bool{}
-		for _, gw := range gws {
-			found[*gw] = true
-		}
-		for _, gw := range c.networkGateways[svc.Hostname][network] {
-			if _, ok := found[*gw]; !ok {
-				gwsChanged = true
-				break
-			}
-		}
-	}
-	c.networkGateways[svc.Hostname][network] = gws
-	return gwsChanged
+	previousGateways := c.networkGateways[svc.Hostname][network]
+	gatewaysChanged := newGateways.equals(previousGateways)
+	c.networkGateways[svc.Hostname][network] = newGateways
+
+	return gatewaysChanged
 }
 
 // getGatewayDetails finds the port and network to use for cross-network traffic on the given service.
@@ -277,4 +274,45 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 	}
 
 	return out
+}
+
+// gatewaySet is a helper to manage a set of NetworkGateway instances.
+type gatewaySet map[model.NetworkGateway]struct{}
+
+func (s gatewaySet) equals(other gatewaySet) bool {
+	return reflect.DeepEqual(s, other)
+}
+
+func (s gatewaySet) add(gw model.NetworkGateway) {
+	s[gw] = struct{}{}
+}
+
+func (s gatewaySet) addAll(other gatewaySet) {
+	for gw := range other {
+		s[gw] = struct{}{}
+	}
+}
+
+func (s gatewaySet) toArray() []*model.NetworkGateway {
+	gws := make([]*model.NetworkGateway, 0, len(s))
+	for gw := range s {
+		gw := gw
+		gws = append(gws, &gw)
+	}
+
+	// Sort the array so that it's stable.
+	sort.SliceStable(gws, func(i, j int) bool {
+		if cmp := strings.Compare(string(gws[i].Network), string(gws[j].Network)); cmp < 0 {
+			return true
+		}
+		if cmp := strings.Compare(string(gws[i].Cluster), string(gws[j].Cluster)); cmp < 0 {
+			return true
+		}
+		if cmp := strings.Compare(gws[i].Addr, gws[j].Addr); cmp < 0 {
+			return true
+		}
+		return gws[i].Port < gws[j].Port
+	})
+
+	return gws
 }
