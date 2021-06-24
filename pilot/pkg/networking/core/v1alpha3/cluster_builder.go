@@ -440,7 +440,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 			weight, overflowStatus = addUint32(weight, ep.LoadBalancingWeight.GetValue())
 		}
 		if overflowStatus {
-			log.Warnf("Sum of localityLbEndpoints weight is overflow")
+			log.Warnf("Sum of localityLbEndpoints weight is overflow: service:%s, port: %d, locality:%s",
+				service.Hostname, port, locality)
 		}
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
