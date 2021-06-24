@@ -134,29 +134,35 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	var opts clioptions.ControlPlaneOptions
 	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
 	if err != nil {
-		return wrapErrorf("creating extended kubernetes client according to given parameters", err)
+		operation := "encounter error when creating Kubernetes client, error detail"
+		return wrapErrorf(operation, err)
 	}
 	restConfig, clientset, client, err := K8sConfig(iArgs.kubeConfigPath, iArgs.context)
 	if err != nil {
-		return wrapErrorf("fetching kubernetes config file and clientset according to given config path", err)
+		operation := "encounter error when fetching Kubernetes config file, error detail"
+		return wrapErrorf(operation, err)
 	}
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return wrapErrorf("checking minimum supported Kubernetes version for istio", err)
+		operation := "encounter error when checking minimum supported Kubernetes version, error detail"
+		return wrapErrorf(operation, err)
 	}
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
-		return wrapErrorf("fetching istio version", err)
+		operation := "encounter error when fetching Istio version, error detail"
+		return wrapErrorf(operation, err)
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
-		return wrapErrorf("createing an IstioOperatorSpec from different sources", err)
+		operation := "encounter error when generating config, error detail"
+		return wrapErrorf(operation, err)
 	}
 
 	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
 	if err != nil {
-		return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
+		operation := "failed to get profile, namespace or enabled components, error detail"
+		return wrapErrorf(operation, err)
 	}
 
 	// Ignore the err because we don't want to show
@@ -350,5 +356,5 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 }
 
 func wrapErrorf(operation string, err error) error {
-	return fmt.Errorf("encounter error when %s, error detail:(%v)", operation, err)
+	return fmt.Errorf("%s: %v", operation, err)
 }
