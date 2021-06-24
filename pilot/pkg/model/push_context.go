@@ -630,7 +630,9 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 			}
 
 			for _, host := range virtualServiceDestinationHosts(vs) {
-				hostsFromGateways[host] = struct{}{}
+				if _, ok := hostsFromGateways[host]; !ok {
+					hostsFromGateways[host] = struct{}{}
+				}
 			}
 		}
 	}
