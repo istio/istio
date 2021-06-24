@@ -25,6 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/identifier"
 )
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
@@ -60,14 +62,14 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		}
 
 		// Weight (number of endpoints) for the EDS cluster for each remote networks
-		remoteEps := map[model.NetworkID]uint32{}
+		remoteEps := map[network.ID]uint32{}
 		// Calculate remote network endpoints
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
-			epNetwork := model.NetworkID(istioMetadata(lbEp, "network"))
+			epNetwork := network.ID(istioMetadata(lbEp, "network"))
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
 			gatewaysForNetwork := b.push.NetworkManager().GatewaysForNetwork(epNetwork)
-			if model.SameOrEmpty(string(b.network), string(epNetwork)) || len(gatewaysForNetwork) == 0 {
+			if identifier.IsSameOrEmpty(string(b.network), string(epNetwork)) || len(gatewaysForNetwork) == 0 {
 				// Copy on write.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
@@ -98,8 +100,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		// gateway with the relevant weight. For each gateway endpoint, set the tlsMode metadata so that
 		// we initiate mTLS automatically to this remote gateway. Split horizon to remote gateway cannot
 		// work with plaintext
-		for network, w := range remoteEps {
-			gateways := b.push.NetworkManager().GatewaysForNetwork(model.NetworkID(network))
+		for nw, w := range remoteEps {
+			gateways := b.push.NetworkManager().GatewaysForNetwork(nw)
 
 			gatewayNum := len(gateways)
 			weight := w * uint32(multiples/gatewayNum)
@@ -122,7 +124,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 					},
 				}
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, "", "", b.clusterID, labels.Instance{})
+				gwEp.Metadata = util.BuildLbEndpointMetadata(nw, model.IstioMutualTLSModeLabel, "", "", b.clusterID, labels.Instance{})
 				// Currently gateway endpoint does not support tunnel.
 				lbEndpoints.append(gwEp, networking.MakeTunnelAbility())
 			}
@@ -136,9 +138,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	return filtered
 }
 
-func (b *EndpointBuilder) gatewaysByNetwork() map[model.NetworkID][]*model.NetworkGateway {
+func (b *EndpointBuilder) gatewaysByNetwork() map[network.ID][]*model.NetworkGateway {
 	gateways := b.push.NetworkManager().AllGateways()
-	byNetwork := make(map[model.NetworkID][]*model.NetworkGateway)
+	byNetwork := make(map[network.ID][]*model.NetworkGateway)
 	for _, gateway := range gateways {
 		networkGateways := append(byNetwork[gateway.Network], gateway)
 		byNetwork[gateway.Network] = networkGateways

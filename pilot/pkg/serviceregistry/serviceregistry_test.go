@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -80,7 +81,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	fx.Events <- Event{kind: "xds", pushReq: req}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_ model.ClusterID, _ string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, _ string) {
 }
 
 func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ model.Event) {

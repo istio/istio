@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -244,7 +245,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[model.ClusterID]string),
+			ClusterVIPs: make(map[cluster2.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -299,7 +300,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		{
 			Hostname:    "test.example.org",
 			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[model.ClusterID]string),
+			ClusterVIPs: make(map[cluster2.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",

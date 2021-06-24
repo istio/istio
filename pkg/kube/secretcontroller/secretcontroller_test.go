@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -50,26 +50,26 @@ func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
 
 var (
 	mu      sync.Mutex
-	added   model.ClusterID
-	updated model.ClusterID
-	deleted model.ClusterID
+	added   cluster.ID
+	updated cluster.ID
+	deleted cluster.ID
 )
 
-func addCallback(id model.ClusterID, _ *Cluster) error {
+func addCallback(id cluster.ID, _ *Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(id model.ClusterID, _ *Cluster) error {
+func updateCallback(id cluster.ID, _ *Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
 	return nil
 }
 
-func deleteCallback(id model.ClusterID) error {
+func deleteCallback(id cluster.ID) error {
 	mu.Lock()
 	defer mu.Unlock()
 	deleted = id
@@ -104,9 +104,9 @@ func Test_SecretController(t *testing.T) {
 		delete *v1.Secret
 
 		// only set one of these per step. The others should be empty.
-		wantAdded   model.ClusterID
-		wantUpdated model.ClusterID
-		wantDeleted model.ClusterID
+		wantAdded   cluster.ID
+		wantUpdated cluster.ID
+		wantDeleted cluster.ID
 	}{
 		{add: secret0, wantAdded: "c0"},
 		{update: secret0UpdateKubeconfigChanged, wantUpdated: "c0"},
@@ -148,19 +148,19 @@ func Test_SecretController(t *testing.T) {
 
 			switch {
 			case step.wantAdded != "":
-				g.Eventually(func() model.ClusterID {
+				g.Eventually(func() cluster.ID {
 					mu.Lock()
 					defer mu.Unlock()
 					return added
 				}, 10*time.Second).Should(Equal(step.wantAdded))
 			case step.wantUpdated != "":
-				g.Eventually(func() model.ClusterID {
+				g.Eventually(func() cluster.ID {
 					mu.Lock()
 					defer mu.Unlock()
 					return updated
 				}, 10*time.Second).Should(Equal(step.wantUpdated))
 			case step.wantDeleted != "":
-				g.Eventually(func() model.ClusterID {
+				g.Eventually(func() cluster.ID {
 					mu.Lock()
 					defer mu.Unlock()
 					return deleted

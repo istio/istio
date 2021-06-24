@@ -56,6 +56,7 @@ import (
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -110,7 +111,7 @@ type readinessProbe func() (bool, error)
 type Server struct {
 	XDSServer *xds.DiscoveryServer
 
-	clusterID   model.ClusterID
+	clusterID   cluster.ID
 	environment *model.Environment
 
 	kubeClient kubelib.Client
@@ -376,11 +377,11 @@ func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, erro
 	return jwtAuthn, nil
 }
 
-func getClusterID(args *PilotArgs) model.ClusterID {
+func getClusterID(args *PilotArgs) cluster.ID {
 	clusterID := args.RegistryOptions.KubeOptions.ClusterID
 	if clusterID == "" {
 		if hasKubeRegistry(args.RegistryOptions.Registries) {
-			clusterID = model.ClusterID(serviceregistry.Kubernetes)
+			clusterID = cluster.ID(serviceregistry.Kubernetes)
 		}
 	}
 	return clusterID

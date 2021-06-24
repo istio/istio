@@ -25,7 +25,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/spiffe"
@@ -33,7 +33,7 @@ import (
 
 var (
 	domainSuffix = "company.com"
-	clusterID    = model.ClusterID("test-cluster")
+	clusterID    = cluster.ID("test-cluster")
 )
 
 func TestConvertProtocol(t *testing.T) {

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
@@ -803,7 +804,7 @@ func (s *DiscoveryServer) adsClientCount() int {
 	return len(s.adsClients)
 }
 
-func (s *DiscoveryServer) ProxyUpdate(clusterID model.ClusterID, ip string) {
+func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 	var connection *Connection
 
 	for _, v := range s.Clients() {

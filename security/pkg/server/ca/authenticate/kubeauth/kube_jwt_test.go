@@ -28,7 +28,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -62,7 +62,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 
 func TestAuthenticate(t *testing.T) {
 	primaryCluster := "Kubernetes"
-	remoteCluster := model.ClusterID("remote")
+	remoteCluster := cluster.ID("remote")
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
 
@@ -156,7 +156,7 @@ func TestAuthenticate(t *testing.T) {
 				})
 			}
 
-			remoteKubeClientGetter := func(clusterID model.ClusterID) kubernetes.Interface {
+			remoteKubeClientGetter := func(clusterID cluster.ID) kubernetes.Interface {
 				if clusterID == remoteCluster {
 					client := fake.NewSimpleClientset()
 					if tc.remoteCluster {

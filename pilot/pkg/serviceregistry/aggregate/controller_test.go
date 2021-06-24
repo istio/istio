@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -153,7 +154,7 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	// Now verify ClusterVIPs for each service
-	ClusterVIPs := map[host.Name]map[model.ClusterID]string{
+	ClusterVIPs := map[host.Name]map[cluster.ID]string{
 		mock.HelloService.Hostname: {
 			"cluster-1": "10.1.1.0",
 			"cluster-2": "10.1.2.0",
@@ -469,7 +470,7 @@ func TestSkipSearchingRegistryForProxy(t *testing.T) {
 	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.External}
 
 	cases := []struct {
-		nodeClusterID model.ClusterID
+		nodeClusterID cluster.ID
 		registry      serviceregistry.Instance
 		want          bool
 	}{

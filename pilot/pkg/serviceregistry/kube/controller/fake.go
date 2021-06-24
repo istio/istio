@@ -22,6 +22,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 )
@@ -51,7 +52,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_ model.ClusterID, _ string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, _ string) {
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "proxy"}:
 	default:
@@ -138,7 +139,7 @@ type FakeControllerOptions struct {
 	MeshWatcher               mesh.Watcher
 	ServiceHandler            func(service *model.Service, event model.Event)
 	Mode                      EndpointMode
-	ClusterID                 model.ClusterID
+	ClusterID                 cluster.ID
 	WatchedNamespaces         string
 	DomainSuffix              string
 	XDSUpdater                model.XDSUpdater

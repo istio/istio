@@ -39,6 +39,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
@@ -101,7 +102,7 @@ func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
 }
 
 func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
-	proxyNetworkView map[model.NetworkID]bool) *cluster.Cluster {
+	proxyNetworkView map[network.ID]bool) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
@@ -159,7 +160,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
-	proxyNetworkView map[model.NetworkID]bool) []*cluster.Cluster {
+	proxyNetworkView map[network.ID]bool) []*cluster.Cluster {
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
@@ -381,7 +382,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	return localCluster
 }
 
-func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[model.NetworkID]bool, service *model.Service,
+func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.ID]bool, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
 	if service.Resolution != model.DNSLB {
 		return nil

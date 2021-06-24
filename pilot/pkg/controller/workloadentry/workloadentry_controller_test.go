@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -442,7 +443,7 @@ func checkHealthOrFail(t test.Failer, store model.ConfigStoreCache, proxy *model
 	}
 }
 
-func fakeProxy(ip string, wg config.Config, nw model.NetworkID) *model.Proxy {
+func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {
 	return &model.Proxy{
 		IPAddresses: []string{ip},
 		Metadata: &model.NodeMetadata{

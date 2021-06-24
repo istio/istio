@@ -19,7 +19,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -33,7 +33,7 @@ var (
 	)
 
 	mu       sync.RWMutex
-	handlers = map[model.ClusterID]cache.WatchErrorHandler{}
+	handlers = map[cluster.ID]cache.WatchErrorHandler{}
 )
 
 func init() {
@@ -42,7 +42,7 @@ func init() {
 
 // ErrorHandlerForCluster fetches or creates an ErrorHandler that emits a metric
 // and logs when a watch error occurs. For use with SetWatchErrorHandler on SharedInformer.
-func ErrorHandlerForCluster(clusterID model.ClusterID) cache.WatchErrorHandler {
+func ErrorHandlerForCluster(clusterID cluster.ID) cache.WatchErrorHandler {
 	mu.RLock()
 	handler, ok := handlers[clusterID]
 	mu.RUnlock()
@@ -52,7 +52,7 @@ func ErrorHandlerForCluster(clusterID model.ClusterID) cache.WatchErrorHandler {
 
 	mu.Lock()
 	defer mu.Unlock()
-	clusterMetric := errorMetric.With(clusterLabel.Value(string(clusterID)))
+	clusterMetric := errorMetric.With(clusterLabel.Value(clusterID.String()))
 	h := func(_ *cache.Reflector, err error) {
 		clusterMetric.Increment()
 		log.Errorf("watch error in cluster %s: %v", clusterID, err)

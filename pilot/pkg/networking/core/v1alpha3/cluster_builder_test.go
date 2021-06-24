@@ -40,11 +40,14 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/test/xdstest"
+	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/identifier"
 )
 
 func TestApplyDestinationRule(t *testing.T) {
@@ -66,7 +69,7 @@ func TestApplyDestinationRule(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("foo.default.svc.cluster.local"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[model.ClusterID]string),
+		ClusterVIPs: make(map[cluster2.ID]string),
 		Ports:       servicePort,
 		Resolution:  model.ClientSideLB,
 		Attributes:  serviceAttribute,
@@ -78,7 +81,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		clusterMode            ClusterMode
 		service                *model.Service
 		port                   *model.Port
-		networkView            map[model.NetworkID]bool
+		networkView            map[network.ID]bool
 		destRule               *networking.DestinationRule
 		expectedSubsetClusters []*cluster.Cluster
 	}{
@@ -89,7 +92,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode:            DefaultClusterMode,
 			service:                &model.Service{},
 			port:                   &model.Port{},
-			networkView:            map[model.NetworkID]bool{},
+			networkView:            map[network.ID]bool{},
 			destRule:               nil,
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
@@ -99,7 +102,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[model.NetworkID]bool{},
+			networkView: map[network.ID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -125,7 +128,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[model.NetworkID]bool{},
+			networkView: map[network.ID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -153,7 +156,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: SniDnatClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[model.NetworkID]bool{},
+			networkView: map[network.ID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -179,7 +182,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[model.NetworkID]bool{},
+			networkView: map[network.ID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
@@ -221,7 +224,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			networkView: map[model.NetworkID]bool{},
+			networkView: map[network.ID]bool{},
 			destRule: &networking.DestinationRule{
 				Host: "foo.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -833,7 +836,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	service := &model.Service{
 		Hostname:    host.Name("*.example.org"),
 		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[model.ClusterID]string),
+		ClusterVIPs: make(map[cluster2.ID]string),
 		Ports:       model.PortList{servicePort},
 		Resolution:  model.DNSLB,
 		Attributes: model.ServiceAttributes{
@@ -1093,10 +1096,10 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			})
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
-			nv := map[model.NetworkID]bool{
+			nv := map[network.ID]bool{
 				"nw-0":               true,
 				"nw-1":               true,
-				model.UnnamedNetwork: true,
+				identifier.Undefined: true,
 			}
 			actual := cb.buildLocalityLbEndpoints(nv, service, 8080, nil)
 			sortEndpoints(actual)

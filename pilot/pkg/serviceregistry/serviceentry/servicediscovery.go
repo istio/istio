@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/informermetric"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -68,7 +69,7 @@ type configKey struct {
 type ServiceEntryStore struct { // nolint:golint
 	XdsUpdater model.XDSUpdater
 	store      model.IstioConfigStore
-	clusterID  model.ClusterID
+	clusterID  cluster.ID
 
 	storeMutex sync.RWMutex
 
@@ -97,7 +98,7 @@ func DisableServiceEntryProcessing() ServiceDiscoveryOption {
 	}
 }
 
-func WithClusterID(clusterID model.ClusterID) ServiceDiscoveryOption {
+func WithClusterID(clusterID cluster.ID) ServiceDiscoveryOption {
 	return func(o *ServiceEntryStore) {
 		o.clusterID = clusterID
 	}
@@ -468,7 +469,7 @@ func (s *ServiceEntryStore) Provider() serviceregistry.ProviderID {
 	return serviceregistry.External
 }
 
-func (s *ServiceEntryStore) Cluster() model.ClusterID {
+func (s *ServiceEntryStore) Cluster() cluster.ID {
 	// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 	// VIPs or CIDR ranges in the address field
 	return ""

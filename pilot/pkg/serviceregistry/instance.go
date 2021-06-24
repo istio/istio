@@ -16,6 +16,7 @@ package serviceregistry
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 )
 
 // Instance of a service registry. A single service registry combines the capabilities of service discovery
@@ -28,7 +29,7 @@ type Instance interface {
 	Provider() ProviderID
 
 	// Cluster for which the service registry applies. Only needed for multicluster systems.
-	Cluster() model.ClusterID
+	Cluster() cluster.ID
 }
 
 var _ Instance = &Simple{}
@@ -36,7 +37,7 @@ var _ Instance = &Simple{}
 // Simple Instance implementation, where fields are set individually.
 type Simple struct {
 	ProviderID ProviderID
-	ClusterID  model.ClusterID
+	ClusterID  cluster.ID
 
 	model.Controller
 	model.ServiceDiscovery
@@ -46,6 +47,6 @@ func (r Simple) Provider() ProviderID {
 	return r.ProviderID
 }
 
-func (r Simple) Cluster() model.ClusterID {
+func (r Simple) Cluster() cluster.ID {
 	return r.ClusterID
 }

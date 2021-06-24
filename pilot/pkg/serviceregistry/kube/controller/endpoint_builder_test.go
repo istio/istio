@@ -24,7 +24,9 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/network"
 )
 
 func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
@@ -210,7 +212,7 @@ var _ controllerInterface = testController{}
 
 type testController struct {
 	locality string
-	cluster  model.ClusterID
+	cluster  cluster2.ID
 }
 
 func (c testController) getPodLocality(*v1.Pod) string {
@@ -221,10 +223,10 @@ func (c testController) cidrRanger() cidranger.Ranger {
 	return nil
 }
 
-func (c testController) defaultNetwork() model.NetworkID {
+func (c testController) defaultNetwork() network.ID {
 	return ""
 }
 
-func (c testController) Cluster() model.ClusterID {
+func (c testController) Cluster() cluster2.ID {
 	return c.cluster
 }

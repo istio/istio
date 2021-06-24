@@ -12,17 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package secrets
+package identifier
 
-import "istio.io/istio/pkg/cluster"
+const Undefined = ""
 
-type Controller interface {
-	GetKeyAndCert(name, namespace string) (key []byte, cert []byte)
-	GetCaCert(name, namespace string) (cert []byte)
-	Authorize(serviceAccount, namespace string) error
-	AddEventHandler(func(name, namespace string))
-}
-
-type MulticlusterController interface {
-	ForCluster(cluster cluster.ID) (Controller, error)
+func IsSameOrEmpty(a, b string) bool {
+	return a == Undefined || b == Undefined || a == b
 }

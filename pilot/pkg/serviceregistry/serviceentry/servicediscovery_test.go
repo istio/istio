@@ -26,6 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -96,7 +97,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	fx.Events <- Event{kind: "xds", pushReq: req}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_ model.ClusterID, ip string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, ip string) {
 	fx.Events <- Event{kind: "xds", proxyIP: ip}
 }
 

@@ -31,8 +31,8 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/secrets"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -61,7 +61,7 @@ type SecretsController struct {
 	secrets informersv1.SecretInformer
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
-	clusterID model.ClusterID
+	clusterID cluster.ID
 
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
@@ -76,7 +76,7 @@ type authorizationResponse struct {
 
 var _ secrets.Controller = &SecretsController{}
 
-func NewSecretsController(client kube.Client, clusterID model.ClusterID) *SecretsController {
+func NewSecretsController(client kube.Client, clusterID cluster.ID) *SecretsController {
 	// Informer is lazy loaded, load it now
 	_ = client.KubeInformer().Core().V1().Secrets().Informer()
 

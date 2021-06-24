@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
@@ -48,7 +49,7 @@ type ServiceExportController struct {
 // ServiceExportOptions provide options for creating a ServiceExportController.
 type ServiceExportOptions struct {
 	Client       kube.Client
-	ClusterID    model.ClusterID
+	ClusterID    cluster.ID
 	DomainSuffix string
 	ClusterLocal model.ClusterLocalProvider
 }

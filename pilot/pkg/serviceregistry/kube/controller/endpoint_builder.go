@@ -23,8 +23,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/network"
 )
 
 // A stateful IstioEndpoint builder with metadata used to build IstioEndpoint
@@ -32,7 +34,7 @@ type EndpointBuilder struct {
 	controller controllerInterface
 
 	labels         labels.Instance
-	metaNetwork    model.NetworkID
+	metaNetwork    network.ID
 	serviceAccount string
 	locality       model.Locality
 	tlsMode        string
@@ -96,7 +98,7 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 }
 
 // augmentLabels adds additional labels to the those provided.
-func augmentLabels(in labels.Instance, clusterID model.ClusterID, locality string) labels.Instance {
+func augmentLabels(in labels.Instance, clusterID cluster.ID, locality string) labels.Instance {
 	// Copy the original labels to a new map.
 	out := make(labels.Instance)
 	for k, v := range in {
@@ -115,7 +117,7 @@ func augmentLabels(in labels.Instance, clusterID model.ClusterID, locality strin
 		out[label.TopologySubzone.Name] = subzone
 	}
 	if len(clusterID) > 0 {
-		out[label.TopologyCluster.Name] = string(clusterID)
+		out[label.TopologyCluster.Name] = clusterID.String()
 	}
 	return out
 }
@@ -147,7 +149,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 }
 
 // return the mesh network for the endpoint IP. Empty string if not found.
-func (b *EndpointBuilder) endpointNetwork(endpointIP string) model.NetworkID {
+func (b *EndpointBuilder) endpointNetwork(endpointIP string) network.ID {
 	// Try to determine the network by checking whether the endpoint IP belongs
 	// to any of the configure networks' CIDR ranges
 	if b.controller.cidrRanger() != nil {
@@ -166,7 +168,7 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) model.NetworkID {
 
 	// If not using cidr-lookup, or non of the given ranges contain the address, use the pod-label
 	if nw := b.labels[label.TopologyNetwork.Name]; nw != "" {
-		return model.NetworkID(nw)
+		return network.ID(nw)
 	}
 
 	// If we're building the endpoint based on proxy meta, prefer the injected ISTIO_META_NETWORK value.

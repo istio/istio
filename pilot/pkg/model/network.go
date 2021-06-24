@@ -16,14 +16,17 @@ package model
 
 import (
 	"net"
+
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/network"
 )
 
 // NetworkGateway is the gateway of a network
 type NetworkGateway struct {
 	// Network is the ID of the network where this Gateway resides.
-	Network NetworkID
+	Network network.ID
 	// Cluster is the ID of the k8s cluster where this Gateway resides.
-	Cluster ClusterID
+	Cluster cluster.ID
 	// gateway ip address
 	Addr string
 	// gateway port
@@ -35,7 +38,7 @@ type NetworkGateway struct {
 func newNetworkManager(env *Environment) *NetworkManager {
 	// Generate the a snapshot of the state of gateways by merging the contents of
 	// MeshNetworks and the ServiceRegistries.
-	byNetwork := make(map[NetworkID][]*NetworkGateway)
+	byNetwork := make(map[network.ID][]*NetworkGateway)
 	byNetworkAndCluster := make(map[networkAndCluster][]*NetworkGateway)
 
 	addGateway := func(gateway *NetworkGateway) {
@@ -47,13 +50,13 @@ func newNetworkManager(env *Environment) *NetworkManager {
 	// First, load gateways from the static MeshNetworks config.
 	meshNetworks := env.Networks()
 	if meshNetworks != nil {
-		for network, networkConf := range meshNetworks.Networks {
+		for nw, networkConf := range meshNetworks.Networks {
 			gws := networkConf.Gateways
 			for _, gw := range gws {
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
 					addGateway(&NetworkGateway{
 						Cluster: "", /* TODO(nmittler): Add Cluster to the API */
-						Network: NetworkID(network),
+						Network: network.ID(nw),
 						Addr:    gw.GetAddress(),
 						Port:    gw.Port,
 					})
@@ -81,13 +84,13 @@ func newNetworkManager(env *Environment) *NetworkManager {
 
 // NetworkManager provides gateway details for accessing remote networks.
 type NetworkManager struct {
-	byNetwork           map[NetworkID][]*NetworkGateway
+	byNetwork           map[network.ID][]*NetworkGateway
 	byNetworkAndCluster map[networkAndCluster][]*NetworkGateway
 }
 
 type networkAndCluster struct {
-	network NetworkID
-	cluster ClusterID
+	network network.ID
+	cluster cluster.ID
 }
 
 func networkAndClusterFor(g *NetworkGateway) networkAndCluster {
@@ -109,13 +112,13 @@ func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
 	return out
 }
 
-func (mgr *NetworkManager) GatewaysForNetwork(network NetworkID) []*NetworkGateway {
-	return mgr.byNetwork[network]
+func (mgr *NetworkManager) GatewaysForNetwork(nw network.ID) []*NetworkGateway {
+	return mgr.byNetwork[nw]
 }
 
-func (mgr *NetworkManager) GatewaysForNetworkAndCluster(network NetworkID, cluster ClusterID) []*NetworkGateway {
+func (mgr *NetworkManager) GatewaysForNetworkAndCluster(nw network.ID, c cluster.ID) []*NetworkGateway {
 	return mgr.byNetworkAndCluster[networkAndCluster{
-		network: network,
-		cluster: cluster,
+		network: nw,
+		cluster: c,
 	}]
 }
