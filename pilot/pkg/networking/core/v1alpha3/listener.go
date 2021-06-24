@@ -281,16 +281,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 				Uri:     true,
 				Dns:     true,
 			},
-			ServerName:          EnvoyServerName,
-			DelayedCloseTimeout: features.DelayedCloseTimeout,
-			Http2ProtocolOptions: &core.Http2ProtocolOptions{
-				AllowConnect: true,
-			},
+			ServerName:           EnvoyServerName,
+			DelayedCloseTimeout:  features.DelayedCloseTimeout,
+			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if pluginParams.ServiceInstance.ServicePort.Protocol.IsHTTP2() {
-		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+		httpOpts.connectionManager.Http2ProtocolOptions = http2ProtocolOptions()
 		if pluginParams.ServiceInstance.ServicePort.Protocol == protocol.GRPCWeb {
 			httpOpts.addGRPCWebFilter = true
 		}

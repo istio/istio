@@ -1976,7 +1976,7 @@ spec:
 
 	for _, client := range clients {
 		cases = append(cases, TrafficTestCase{
-			name:   fmt.Sprintf("websocket-h2-upgrade"),
+			name:   "websocket-h2-upgrade",
 			config: h2UpgradeDR(destination.Config().Service),
 			call:   client.CallWithRetryOrFail,
 			opts: echo.CallOptions{
