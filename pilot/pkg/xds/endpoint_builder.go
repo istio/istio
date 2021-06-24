@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -270,6 +271,13 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	isClusterLocal := b.clusterLocal
 
 	shards.mutex.Lock()
+	if shards != nil {
+		lensByCluster := ""
+		for c, s := range shards.Shards {
+			lensByCluster += fmt.Sprintf("%s:%d;", c, len(s))
+		}
+		log.Errorf("howardjohn: generate shards %v for %v from %v: %p, %s", b.service.Hostname, b.proxy.ID, shards, lensByCluster)
+	}
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output. Since
 	// len(shards) ~= number of remote clusters which isn't too large, doing this sort shouldn't be
 	// too problematic. If it becomes an issue we can cache it in the EndpointShards struct.

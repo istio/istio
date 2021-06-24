@@ -152,7 +152,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard string, hostname string, namespac
 
 	ep.mutex.Lock()
 	x := ep.Version.Inc()
-	log.Errorf("howardjohn: eds update %v/%v to %v", hostname, namespace, x)
+	log.Errorf("howardjohn: eds update %v/%v to %v before %v now %v", hostname, namespace, x, len(ep.Shards[shard]), istioEndpoints)
 	ep.Shards[shard] = istioEndpoints
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
@@ -310,7 +310,9 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	s.mutex.RLock()
 	epShards, f := s.EndpointShardsByService[string(b.hostname)][b.service.Attributes.Namespace]
 	if epShards != nil {
-		log.Errorf("howardjohn: generate shards %v for %v", epShards.Version.Load(), b.service.Hostname)
+		log.Errorf("howardjohn: generate shards %v for %v from %v: %p", epShards.Version.Load(), b.service.Hostname, b.proxy.ID, epShards)
+	} else {
+		log.Errorf("howardjohn: generate shards nil for %v from %v", b.service.Hostname, b.proxy.ID)
 	}
 	s.mutex.RUnlock()
 	if !f {
