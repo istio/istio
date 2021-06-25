@@ -119,9 +119,9 @@ var (
 	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
 
 	pushContextInitTime = monitoring.NewDistribution(
-		"pilot_pushcontext_init_time",
+		"pilot_pushcontext_init_seconds",
 		"Total time in seconds Pilot takes to init pushContext.",
-		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
+		[]float64{.01, .1, 0.5, 1, 3, 5},
 	)
 
 	pushTime = monitoring.NewDistribution(

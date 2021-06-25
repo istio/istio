@@ -329,7 +329,9 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if err != nil {
 		return
 	}
-	pushContextInitTime.Record(time.Since(t0).Seconds())
+	initContextTime := time.Since(t0)
+	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+	pushContextInitTime.Record(initContextTime.Seconds())
 
 	versionMutex.Lock()
 	version = versionLocal
