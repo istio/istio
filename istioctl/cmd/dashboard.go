@@ -418,7 +418,8 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 
 	var err error
 	for _, localPort := range portPrefs {
-		fw, err := client.NewPortForwarder(podName, namespace, localAddress, localPort, remotePort)
+		var fw kube.PortForwarder
+		fw, err = client.NewPortForwarder(podName, namespace, localAddress, localPort, remotePort)
 		if err != nil {
 			return fmt.Errorf("could not build port forwarder for %s: %v", flavor, err)
 		}
