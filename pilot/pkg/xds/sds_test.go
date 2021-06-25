@@ -51,6 +51,7 @@ func TestParseResourceName(t *testing.T) {
 				Name:         "cert",
 				Namespace:    "default",
 				ResourceName: "kubernetes://cert",
+				Cluster:      "cluster",
 			},
 		},
 		{
@@ -62,6 +63,7 @@ func TestParseResourceName(t *testing.T) {
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes://namespace/cert",
+				Cluster:      "cluster",
 			},
 		},
 		{
@@ -79,7 +81,7 @@ func TestParseResourceName(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseResourceName(tt.resource, tt.defaultNamespace)
+			got, err := parseResourceName(tt.resource, tt.defaultNamespace, "cluster")
 			if tt.err != (err != nil) {
 				t.Fatalf("expected err=%v but got err=%v", tt.err, err)
 			}
