@@ -126,7 +126,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	results := model.Resources{}
 	cached, regenerated := 0, 0
 	for _, resource := range w.ResourceNames {
-		sr, err := parseResourceName(resource, proxy.ConfigNamespace, string(proxy.Metadata.ClusterID))
+		sr, err := parseResourceName(resource, proxy.ConfigNamespace, proxy.Metadata.ClusterID)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("error parsing resource name: %v", err)
