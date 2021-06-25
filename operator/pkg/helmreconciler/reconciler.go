@@ -155,6 +155,12 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		return nil, err
 	}
 
+	// ToDo: Returned []MutatingWebhookConfiguration will be used for IST0139 analysis
+	_, err = h.FilterRenderedComponentManifest(name.PilotComponentName, name.MutatingWebhookConfigurationStr)
+	if err != nil {
+		return nil, err
+	}
+
 	status := h.processRecursive(manifestMap)
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)

@@ -16,11 +16,16 @@ package helmreconciler
 
 import (
 	"fmt"
-
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"strings"
 )
 
 // RenderCharts renders charts for h.
@@ -51,4 +56,39 @@ func (h *HelmReconciler) RenderCharts() (name.ManifestMap, error) {
 	h.manifests = manifests
 
 	return manifests, err
+}
+
+func (h *HelmReconciler) FilterRenderedComponentManifest(componentName name.ComponentName, k8sObjectKind string) ([]string, error) {
+	var filteredObject []string
+	if len(h.manifests) == 0 {
+		return filteredObject, fmt.Errorf("")
+	}
+	mergedManifests, ok := h.manifests[componentName]
+	if !ok {
+		return filteredObject, fmt.Errorf("")
+	}
+
+	// Need to deserialize merged component YAML to ObjectReference in order to get particular Object YAML
+	var errsOut util.Errors
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer()
+	for _, mergedManifest := range mergedManifests {
+		manifests := strings.Split(mergedManifest, helm.YAMLSeparator)
+		for _, manifest := range manifests {
+			objectYAMLRaw, _, err := deserializer.Decode([]byte(manifest), nil, &v1.ObjectReference{})
+			if err != nil {
+				errsOut = append(errsOut, err)
+				continue
+			}
+			objectYAML := objectYAMLRaw.(*v1.ObjectReference)
+			if objectYAML.Kind == k8sObjectKind {
+				filteredObject = append(filteredObject, manifest)
+			}
+		}
+	}
+	if len(errsOut) > 0 {
+		return filteredObject, errsOut.ToError()
+	}
+	return filteredObject, nil
 }
