@@ -340,7 +340,7 @@ func clusterConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -448,7 +448,7 @@ func allConfigCmd() *cobra.Command {
 			}
 			return nil
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -532,7 +532,7 @@ func listenerConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -662,7 +662,7 @@ func logCmd() *cobra.Command {
 			_, _ = fmt.Fprint(c.OutOrStdout(), resp)
 			return nil
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	levelListString := fmt.Sprintf("[%s, %s, %s, %s, %s, %s, %s]",
@@ -740,7 +740,7 @@ func routeConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -816,7 +816,7 @@ func endpointConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
@@ -882,7 +882,7 @@ func bootstrapConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
@@ -936,7 +936,7 @@ func secretConfigCmd() *cobra.Command {
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
-		ValidArgsFunction: validPodsNameArgsFunction,
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")

@@ -47,7 +47,7 @@ func getPodsNameInDefaultNamespace(toComplete string) ([]string, error) {
 	return podsName, nil
 }
 
-func validPodsNameArgsFunction(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validPodsNameArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -82,7 +82,7 @@ func getServicesName(toComplete string) ([]string, error) {
 	return serviceNameList, nil
 }
 
-func validServiceArgsFunction(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func validServiceArgs(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) != 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
