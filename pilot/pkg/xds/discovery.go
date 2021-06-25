@@ -106,12 +106,11 @@ type DiscoveryServer struct {
 	// incremental updates. This is keyed by service and namespace
 	EndpointShardsByService map[string]map[string]*EndpointShards
 
-	// pushChannel is the buffer used for debouncing,
-	// after debouncing the pushRequest will be send to pushQueue
+	// pushChannel is the buffer used for debouncing.
+	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
 
-	// mutex used for Environment.PushContext
-	// TODO: is this necessary?
+	// mutex used for protecting Environment.PushContext
 	updateMutex sync.RWMutex
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
