@@ -147,6 +147,7 @@ the configuration objects that affect that pod.`,
 			// Now look for ingress gateways
 			return printIngressInfo(writer, matchingServices, podsLabels, client, configClient, kubeClient)
 		},
+		ValidArgsFunction: validPodsNameArgs,
 	}
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
@@ -1087,6 +1088,7 @@ the configuration objects that affect that service.`,
 			// Now look for ingress gateways
 			return printIngressInfo(writer, svcs, podsLabels, client, configClient, kubeClient)
 		},
+		ValidArgsFunction: validServiceArgs,
 	}
 
 	cmd.PersistentFlags().BoolVar(&ignoreUnmeshed, "ignoreUnmeshed", false,
