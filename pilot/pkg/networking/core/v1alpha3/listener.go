@@ -1309,7 +1309,10 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager)
 
-	configureTracing(listenerOpts, connectionManager)
+	filterModifierCtx := &xdsfilters.FilterModifierContext{}
+	configureTracing(listenerOpts, connectionManager, filterModifierCtx)
+
+	xdsfilters.ModifyFilter(filterModifierCtx, connectionManager.HttpFilters)
 
 	return connectionManager
 }
