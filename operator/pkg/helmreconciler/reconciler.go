@@ -17,17 +17,17 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -151,12 +151,6 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		return nil, err
 	}
 	manifestMap, err := h.RenderCharts()
-	if err != nil {
-		return nil, err
-	}
-
-	// ToDo: Returned []MutatingWebhookConfiguration will be used for IST0139 analysis
-	_, err = h.FilterRenderedComponentManifest(name.PilotComponentName, name.MutatingWebhookConfigurationStr)
 	if err != nil {
 		return nil, err
 	}
