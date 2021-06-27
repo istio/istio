@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
+// nolint
 func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.ServiceInstance {
 	instances := make(map[int][]*model.ServiceInstance)
 	for _, port := range service.Ports {
