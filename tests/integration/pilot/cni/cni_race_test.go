@@ -129,7 +129,7 @@ func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster) {
 		// Verify that at least one pod is in broken state due to the race condition.
 		for _, p := range pods.Items {
 			for _, container := range p.Status.InitContainerStatuses {
-				if state := container.LastTerminationState.Terminated; state.ExitCode ==
+				if state := container.LastTerminationState.Terminated; state != nil && state.ExitCode ==
 					constants.ValidationErrorCode {
 					return nil
 				}
