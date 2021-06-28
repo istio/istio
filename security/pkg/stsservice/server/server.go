@@ -196,6 +196,7 @@ func (s *Server) sendSuccessfulResponse(w http.ResponseWriter, tokenData []byte)
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(tokenData); err != nil {
 		stsServerLog.Errorf("failure in sending STS success response: %v", err)
+		return
 	}
 	stsServerLog.Debug("sent out STS success response")
 }
