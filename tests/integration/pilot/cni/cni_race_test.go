@@ -51,16 +51,17 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, nil)).
 		Setup(func(t resource.Context) error {
 			return util.SetupApps(t, ist, apps, false)
-		}).Run()
+		}).
+		Run()
 }
 
 func TestCNIRaceRepair(t *testing.T) {
-	if !ist.Settings().EnableCNI {
-		t.Skip("CNI race condition mitigation is only tested when CNI is enabled.")
-	}
 	framework.NewTest(t).
 		Features("traffic.cni.race-condition-repair").
 		Run(func(t framework.TestContext) {
+			if !ist.Settings().EnableCNI {
+				t.Skip("CNI race condition mitigation is only tested when CNI is enabled.")
+			}
 			cluster := t.Clusters().Default()
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
 			if err := deleteCNIDaemonset(cluster); err != nil {
