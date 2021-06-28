@@ -421,6 +421,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
+			log.Errorf("howardjohn: starting proxy=%v,token=%v,debug=<pending>,key=%v", proxy.ID, token, builder.Key())
 			l, debug := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
@@ -435,7 +436,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 				Resource: util.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			debugLog := fmt.Sprintf("proxy=%v,token=%v,debug=%v", proxy.ID, token, debug)
+			debugLog := fmt.Sprintf("proxy=%v,token=%v,debug=%v,key=%v", proxy.ID, token, debug, builder.Key())
 			log.Errorf("howardjohn: writing %v", debugLog)
 			eds.Server.Cache.Add(builder, token, resource, debugLog)
 		}

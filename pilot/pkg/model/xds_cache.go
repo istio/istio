@@ -292,6 +292,9 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bo
 func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if len(configs) == 0 {
+		log.Errorf("howardjohn: attempt clearing, but configs are empty")
+	}
 	for ckey := range configs {
 		log.Errorf("howardjohn: delete cache key %v", ckey)
 		referenced := l.configIndex[ckey]
@@ -311,6 +314,7 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 func (l *lruCache) ClearAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	log.Errorf("howardjohn: delete ALL cache keys")
 	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
 	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
