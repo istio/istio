@@ -21,9 +21,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc"
 	"net/url"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -90,19 +92,9 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 		return nil, err
 	}
 	for _, pod := range pods {
-		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, centralOpts.XdsPodPort)
+		response, err := getPodXdsResponse(kubeClient, pod, centralOpts, xdsOpts, dr, istioNamespace, dialOpts)
 		if err != nil {
 			return nil, err
-		}
-		err = fw.Start()
-		if err != nil {
-			return nil, err
-		}
-		defer fw.Close()
-		xdsOpts.Xds = fw.Address()
-		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
-		if err != nil {
-			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
 		responses = append(responses, response)
 		if !all && len(responses) > 0 {
@@ -110,6 +102,25 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 		}
 	}
 	return responses, nil
+}
+
+func getPodXdsResponse(kubeClient kube.ExtendedClient, pod v1.Pod, centralOpts clioptions.CentralControlPlaneOptions, xdsOpts clioptions.CentralControlPlaneOptions,
+	dr *xdsapi.DiscoveryRequest, istioNamespace string, dialOpts []grpc.DialOption) (response *xdsapi.DiscoveryResponse, err error) {
+	fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, centralOpts.XdsPodPort)
+	if err != nil {
+		return nil, err
+	}
+	err = fw.Start()
+	if err != nil {
+		return nil, err
+	}
+	defer fw.Close()
+	xdsOpts.Xds = fw.Address()
+	response, err = xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
+	if err != nil {
+		return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
+	}
+	return response, nil
 }
 
 func mergeShards(responses map[string]*xdsapi.DiscoveryResponse) (*xdsapi.DiscoveryResponse, error) {
