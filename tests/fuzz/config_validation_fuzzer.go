@@ -21,14 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
-
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 var scheme = runtime.NewScheme()
