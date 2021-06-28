@@ -64,9 +64,7 @@ func TestCNIRaceRepair(t *testing.T) {
 			}
 			cluster := t.Clusters().Default()
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
-			if err := deleteCNIDaemonset(cluster); err != nil {
-				t.Fatalf("failed to delete CNI Dameonset %v", err)
-			}
+			deleteCNIDaemonset(t, cluster)
 
 			// Rollout restart instances in namespace 1, and wait for a broken instance.
 			rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", apps.Namespace1.Name())
@@ -83,15 +81,15 @@ func TestCNIRaceRepair(t *testing.T) {
 		})
 }
 
-func deleteCNIDaemonset(c cluster.Cluster) error {
+func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 	if err := c.(istioKube.ExtendedClient).
 		Kube().AppsV1().DaemonSets("kube-system").
 		Delete(context.Background(), "istio-cni-node", metav1.DeleteOptions{}); err != nil {
-		return err
+		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
 	}
 
 	// Wait until the CNI Daemonset pod cannot be fetched anymore
-	err := retry.UntilSuccess(func() error {
+	retry.UntilSuccessOrFail(ctx, func() error {
 		scopes.Framework.Infof("Checking if CNI Daemonset pod is deleted...")
 		pods, err := c.PodsForSelector(context.TODO(), "kube-system", "k8s-app=istio-cni-node")
 		if err != nil {
@@ -102,8 +100,6 @@ func deleteCNIDaemonset(c cluster.Cluster) error {
 		}
 		return nil
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
-
-	return err
 }
 
 func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) error {
