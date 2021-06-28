@@ -281,11 +281,11 @@ func (s *DiscoveryServer) UpdateServiceAccount(shards *EndpointShards, serviceNa
 // llbEndpointAndOptionsForCluster return the endpoints for a cluster
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
 // perf tests.
-func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, error) {
+func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]*LocLbEndpointsAndOptions, string, error) {
 	if b.service == nil {
 		// Shouldn't happen here
 		log.Debugf("can not find the service for cluster %s", b.clusterName)
-		return make([]*LocLbEndpointsAndOptions, 0), nil
+		return make([]*LocLbEndpointsAndOptions, 0), "", nil
 	}
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
@@ -297,20 +297,22 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
 	if b.service.Resolution == model.DNSLB {
 		log.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
-		return nil, fmt.Errorf("cluster %s in eds cluster", b.clusterName)
+		return nil, "", fmt.Errorf("cluster %s in eds cluster", b.clusterName)
 	}
 
 	svcPort, f := b.service.Ports.GetByPort(b.port)
 	if !f {
 		// Shouldn't happen here
 		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
-		return make([]*LocLbEndpointsAndOptions, 0), nil
+		return make([]*LocLbEndpointsAndOptions, 0), "", nil
 	}
 
 	s.mutex.RLock()
 	epShards, f := s.EndpointShardsByService[string(b.hostname)][b.service.Attributes.Namespace]
+	var ver uint64
 	if epShards != nil {
-		log.Errorf("howardjohn: generate shards %v for %v from %v: %p", epShards.Version.Load(), b.service.Hostname, b.proxy.ID, epShards)
+		ver = epShards.Version.Load()
+		log.Errorf("howardjohn: generate shards %v for %v from %v: %p", ver, b.service.Hostname, b.proxy.ID, epShards)
 	} else {
 		log.Errorf("howardjohn: generate shards nil for %v from %v", b.service.Hostname, b.proxy.ID)
 	}
@@ -318,16 +320,16 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	if !f {
 		// Shouldn't happen here
 		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
-		return make([]*LocLbEndpointsAndOptions, 0), nil
+		return make([]*LocLbEndpointsAndOptions, 0), "", nil
 	}
 
-	return b.buildLocalityLbEndpointsFromShards(epShards, svcPort), nil
+	return b.buildLocalityLbEndpointsFromShards(epShards, svcPort), fmt.Sprintf("ver:%v,shards:%p", ver, epShards), nil
 }
 
-func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	llbOpts, err := s.llbEndpointAndOptionsForCluster(b)
+func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) (*endpoint.ClusterLoadAssignment, string) {
+	llbOpts, debug, err := s.llbEndpointAndOptionsForCluster(b)
 	if err != nil {
-		return buildEmptyClusterLoadAssignment(b.clusterName)
+		return buildEmptyClusterLoadAssignment(b.clusterName), ""
 	}
 
 	// If networks are set (by default they aren't) apply the Split Horizon
@@ -356,7 +358,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		l = util.CloneClusterLoadAssignment(l)
 		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
 	}
-	return l
+	return l, debug
 }
 
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
@@ -419,7 +421,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
-			l := eds.Server.generateEndpoints(builder)
+			l, debug := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
 			}
@@ -433,7 +435,9 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 				Resource: util.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, token, resource, proxy.ID)
+			debugLog := fmt.Sprintf("proxy=%v,token=%v,debug=%v", proxy.ID, token, debug)
+			log.Errorf("howardjohn: writing %v", debugLog)
+			eds.Server.Cache.Add(builder, token, resource, debugLog)
 		}
 	}
 	return resources, model.XdsLogDetails{

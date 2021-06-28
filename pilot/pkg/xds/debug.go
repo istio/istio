@@ -788,7 +788,8 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	clusters := con.Clusters()
 	eps := make([]jsonMarshalProto, 0, len(clusters))
 	for _, clusterName := range clusters {
-		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))})
+		ep, _ := s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))
+		eps = append(eps, jsonMarshalProto{ep})
 	}
 	writeJSON(w, eps)
 }
