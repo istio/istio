@@ -73,6 +73,8 @@ type FakeOptions struct {
 
 	// Callback to modify the server before it is started
 	DiscoveryServerModifier func(s *DiscoveryServer)
+	// Callback to modify the kube client before it is started
+	KubeClientModifier func(c kubelib.Client)
 
 	// Time to debounce
 	// By default, set to 0s to speed up tests
@@ -135,6 +137,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	for cluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)
+		if opts.KubeClientModifier != nil {
+			opts.KubeClientModifier(client)
+		}
 		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
 			ServiceHandler:  serviceHandler,
 			Client:          client,

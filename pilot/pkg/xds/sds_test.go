@@ -31,6 +31,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -352,9 +353,11 @@ func TestGenerate(t *testing.T) {
 func TestCaching(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{
 		KubernetesObjects: []runtime.Object{genericCert},
+		KubeClientModifier: func(c kube.Client) {
+			cc := c.Kube().(*fake.Clientset)
+			kubesecrets.DisableAuthorizationForTest(cc)
+		},
 	})
-	cc := s.KubeClient().Kube().(*fake.Clientset)
-	kubesecrets.DisableAuthorizationForTest(cc)
 	gen := s.Discovery.Generators[v3.SecretType]
 
 	fullPush := &model.PushRequest{Full: true}
