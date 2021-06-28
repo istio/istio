@@ -18,6 +18,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 require (
 	cloud.google.com/go v0.82.0
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20210626112853-139b25a67133
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aws/aws-sdk-go v1.38.51
 	github.com/cenkalti/backoff v2.2.1+incompatible
