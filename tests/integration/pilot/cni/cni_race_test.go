@@ -101,7 +101,7 @@ func deleteCNIDaemonset(c cluster.Cluster) error {
 			return errors.New("CNI Daemonset pod still exists after deletion")
 		}
 		return nil
-	})
+	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 
 	return err
 }
@@ -136,7 +136,7 @@ func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster) {
 			}
 		}
 		return fmt.Errorf("cannot find any pod with wanted exit code %v", constants.ValidationErrorCode)
-	}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
 func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster) {
@@ -151,12 +151,12 @@ func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster) {
 		// Verify that no pod is broken by the race condition now.
 		for _, p := range pods.Items {
 			for _, container := range p.Status.InitContainerStatuses {
-				if state := container.LastTerminationState.Terminated; state.ExitCode ==
+				if state := container.LastTerminationState.Terminated; state != nil && state.ExitCode ==
 					constants.ValidationErrorCode {
 					return errors.New("there are still pods in broken state due to CNI race condition")
 				}
 			}
 		}
 		return nil
-	}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
