@@ -76,11 +76,12 @@ var (
 	webhookName      = ""
 )
 
-type tagWebhookConfig struct {
-	tag                string
-	revision           string
-	remoteInjectionURL string
-	caBundle           string
+// TagWebhookConfig holds config needed to render a tag webhook.
+type TagWebhookConfig struct {
+	Tag      string
+	Revision string
+	URL      string
+	CABundle string
 }
 
 func tagCommand() *cobra.Command {
@@ -533,7 +534,7 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 }
 
 // tagWebhookConfigFromCanonicalWebhook parses configuration needed to create tag webhook from existing revision webhook.
-func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (*tagWebhookConfig, error) {
+func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tag string) (*TagWebhookConfig, error) {
 	rev, err := getWebhookRevision(wh)
 	if err != nil {
 		return nil, err
@@ -562,16 +563,16 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook")
 	}
 
-	return &tagWebhookConfig{
-		tag:                tag,
-		revision:           rev,
-		remoteInjectionURL: injectionURL,
-		caBundle:           caBundle,
+	return &TagWebhookConfig{
+		Tag:      tag,
+		Revision: rev,
+		URL:      injectionURL,
+		CABundle: caBundle,
 	}, nil
 }
 
 // tagWebhookYAML generates YAML for the tag webhook MutatingWebhookConfiguration.
-func tagWebhookYAML(config *tagWebhookConfig, chartPath string) (string, error) {
+func tagWebhookYAML(config *TagWebhookConfig, chartPath string) (string, error) {
 	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", istioNamespace)
 
 	if err := r.Run(); err != nil {
@@ -590,7 +591,7 @@ sidecarInjectorWebhook:
 
 istiodRemote:
   injectionURL: %s
-`, config.revision, config.tag, config.remoteInjectionURL)
+`, config.Revision, config.Tag, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, revisionTagTemplateName)
@@ -617,7 +618,7 @@ istiodRemote:
 	}
 	decodedWh := whObject.(*admit_v1.MutatingWebhookConfiguration)
 	for i := range decodedWh.Webhooks {
-		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.caBundle)
+		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
 	if webhookName != "" {
 		decodedWh.Name = webhookName
