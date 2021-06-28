@@ -288,15 +288,17 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 	}
 
 	if retry, err := c.reconcileRequest(req); retry || err != nil {
-		c.queue.AddRateLimited(&reconcileRequest{
-			event:       retryEvent,
-			description: "retry reconcile request",
-		})
+		c.queue.AddRateLimited(retryRequest)
 		utilruntime.HandleError(err)
 	} else {
 		c.queue.Forget(obj)
 	}
 	return true
+}
+
+var retryRequest = &reconcileRequest{
+	event:       retryEvent,
+	description: "retry reconcile request",
 }
 
 // reconcile the desired state with the kube-apiserver.
