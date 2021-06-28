@@ -17,6 +17,7 @@ package model
 import (
 	"crypto/md5"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -317,7 +318,24 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 	} else if strings.HasPrefix(resource, "file-root:") {
 		filesString := strings.TrimPrefix(resource, "file-root:")
 		split := strings.Split(filesString, ResourceSeparator)
-		if len(split) != 1 {
+		if filesString == "system" && len(split) != 1 {
+			var certFiles = []string{
+				"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
+				"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
+				"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
+				"/etc/pki/tls/cacert.pem",                           // OpenELEC
+				"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
+				"/etc/ssl/cert.pem",                                 // Alpine Linux
+				"/usr/local/etc/ssl/cert.pem",                       // FreeBSD
+			}
+
+			for _, cert := range certFiles {
+				if _, err := os.Stat(cert); err == nil {
+					return SdsCertificateConfig{"", "", cert}, true
+				}
+			}
+
+		} else if len(split) != 1 {
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{"", "", split[0]}, true

@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"strings"
 
@@ -543,24 +542,6 @@ func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
-
-	var certFiles = []string{
-		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
-		"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
-		"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
-		"/etc/pki/tls/cacert.pem",                           // OpenELEC
-		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
-		"/etc/ssl/cert.pem",                                 // Alpine Linux
-		"/usr/local/etc/ssl/cert.pem",                       // FreeBSD
-
-	}
-	if features.VerifyCertAtClient && tls.CaCertificates == "" {
-		for _, cert := range certFiles {
-			if _, err := os.Stat(cert); err == nil {
-				tls.CaCertificates = cert
-			}
-		}
-	}
 
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
