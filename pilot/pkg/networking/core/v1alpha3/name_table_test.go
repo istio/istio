@@ -171,11 +171,11 @@ func TestNameTable(t *testing.T) {
 	wpush.AddPublicServices([]*model.Service{cidrService})
 
 	cases := []struct {
-		name              string
-		proxy             *model.Proxy
-		push              *model.PushContext
-		mcheadless        bool
-		expectedNameTable *nds.NameTable
+		name                       string
+		proxy                      *model.Proxy
+		push                       *model.PushContext
+		enableMultiClusterHeadless bool
+		expectedNameTable          *nds.NameTable
 	}{
 		{
 			name:  "headless service pods",
@@ -250,7 +250,7 @@ func TestNameTable(t *testing.T) {
 			},
 		},
 		{
-			name:  "headless service pods with cluster isolation",
+			name:  "multi cluster headless service pods",
 			proxy: cl1proxy,
 			push:  push,
 			expectedNameTable: &nds.NameTable{
@@ -289,10 +289,10 @@ func TestNameTable(t *testing.T) {
 			},
 		},
 		{
-			name:       "headless service pods with cluster isolation and multi cluster enabled",
-			proxy:      cl1proxy,
-			push:       push,
-			mcheadless: true,
+			name:                       "multi cluster headless service pods with multi cluster enabled",
+			proxy:                      cl1proxy,
+			push:                       push,
+			enableMultiClusterHeadless: true,
 			expectedNameTable: &nds.NameTable{
 				Table: map[string]*nds.NameTable_NameInfo{
 					"pod1.headless-svc.testns.svc.cluster.local": {
@@ -355,7 +355,7 @@ func TestNameTable(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			dvalue := features.MulticlusterHeadlessEnabled
-			features.MulticlusterHeadlessEnabled = tt.mcheadless
+			features.MulticlusterHeadlessEnabled = tt.enableMultiClusterHeadless
 			defer func() { features.MulticlusterHeadlessEnabled = dvalue }()
 			configgen := core.NewConfigGenerator(nil, model.DisabledCache{})
 			if diff := cmp.Diff(configgen.BuildNameTable(tt.proxy, tt.push), tt.expectedNameTable); diff != "" {
