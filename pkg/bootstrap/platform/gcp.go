@@ -46,7 +46,7 @@ const (
 )
 
 var GCPMetadata = env.RegisterStringVar("GCP_METADATA", "", "Pipe separted GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
-var gcpQuotaProjectVar = env.RegisterStringVar("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.")
+var GCPQuotaProjectVar = env.RegisterStringVar("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
 
 var (
 	shouldFillMetadata = metadata.OnGCE
@@ -165,8 +165,8 @@ func (e *gcpEnv) Metadata() map[string]string {
 	} else if cn, err := clusterNameFn(); err == nil {
 		md[GCPCluster] = cn
 	}
-	if gcpQuotaProjectVar.Get() != "" {
-		md[GCPQuotaProject] = gcpQuotaProjectVar.Get()
+	if GCPQuotaProjectVar != "" {
+		md[GCPQuotaProject] = GCPQuotaProjectVar
 	}
 	// Exit early now if not on GCE. This allows setting env var when not on GCE.
 	if !shouldFillMetadata() {

@@ -273,7 +273,12 @@ func TestGCPQuotaProject(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			shouldFillMetadata = func() bool { return true }
-			os.Setenv("GCP_QUOTA_PROJECT", v.quotaProject)
+			tmpQuotaProject := GCPQuotaProjectVar
+			GCPQuotaProjectVar = v.quotaProject
+			defer func() {
+				GCPQuotaProjectVar = tmpQuotaProject
+				shouldFillMetadata = metadata.OnGCE
+			}()
 			meta := NewGCP().Metadata()
 			val, found := meta[GCPQuotaProject]
 			if got, want := found, v.wantFound; got != want {
@@ -282,8 +287,6 @@ func TestGCPQuotaProject(t *testing.T) {
 			if got, want := val, v.wantProject; got != want {
 				tt.Errorf("Incorrect value for GCPQuotaProject; got = %q, want = %q", got, want)
 			}
-			os.Unsetenv("GCP_QUOTA_PROJECT")
-			shouldFillMetadata = metadata.OnGCE
 		})
 	}
 }
