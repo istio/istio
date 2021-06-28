@@ -33,8 +33,13 @@ import (
 
 const secretNamespace string = "istio-system"
 
-func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
-	return &v1.Secret{
+type clusterCredential struct {
+	clusterID  string
+	kubeconfig []byte
+}
+
+func makeSecret(secret string, clusterConfigs ...clusterCredential) *v1.Secret {
+	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secret,
 			Namespace: secretNamespace,
@@ -42,10 +47,13 @@ func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
 				MultiClusterSecretLabel: "true",
 			},
 		},
-		Data: map[string][]byte{
-			clusterID: kubeconfig,
-		},
+		Data: map[string][]byte{},
 	}
+
+	for _, config := range clusterConfigs {
+		s.Data[config.clusterID] = config.kubeconfig
+	}
+	return s
 }
 
 var (
@@ -90,10 +98,12 @@ func Test_SecretController(t *testing.T) {
 	clientset := kube.NewFakeClient()
 
 	var (
-		secret0                        = makeSecret("s0", "c0", []byte("kubeconfig0-0"))
-		secret0UpdateKubeconfigChanged = makeSecret("s0", "c0", []byte("kubeconfig0-1"))
-		secret0UpdateKubeconfigSame    = makeSecret("s0", "c0", []byte("kubeconfig0-1"))
-		secret1                        = makeSecret("s1", "c1", []byte("kubeconfig1-0"))
+		secret0                        = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
+		secret0UpdateKubeconfigChanged = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0UpdateKubeconfigSame    = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0AddCluster              = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0DeleteCluster           = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret1                        = makeSecret("s1", clusterCredential{"c1", []byte("kubeconfig1-0")})
 	)
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
 
@@ -108,12 +118,14 @@ func Test_SecretController(t *testing.T) {
 		wantUpdated cluster.ID
 		wantDeleted cluster.ID
 	}{
-		{add: secret0, wantAdded: "c0"},
-		{update: secret0UpdateKubeconfigChanged, wantUpdated: "c0"},
-		{update: secret0UpdateKubeconfigSame},
-		{add: secret1, wantAdded: "c1"},
-		{delete: secret0, wantDeleted: "c0"},
-		{delete: secret1, wantDeleted: "c1"},
+		{add: secret0, wantAdded: "c0"},                             // 0
+		{update: secret0UpdateKubeconfigChanged, wantUpdated: "c0"}, // 1
+		{update: secret0UpdateKubeconfigSame},                       // 2
+		{update: secret0AddCluster, wantAdded: "c0-1"},              // 3
+		{update: secret0DeleteCluster, wantDeleted: "c0-1"},         // 4
+		{add: secret1, wantAdded: "c1"},                             // 5
+		{delete: secret0, wantDeleted: "c0"},                        // 6
+		{delete: secret1, wantDeleted: "c1"},                        // 7
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
