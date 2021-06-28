@@ -46,25 +46,28 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	s := framework.NewSuite(m).Label(label.CustomSetup).Setup(istio.Setup(&ist, nil))
-	if !ist.Settings().EnableCNI {
-		s.Skip("CNI race condition mitigation is only tested when CNI is enabled.")
-	}
-	s.Setup(func(t resource.Context) error {
-		return util.SetupApps(t, ist, apps, false)
-	}).Run()
+	framework.NewSuite(m).
+		Label(label.CustomSetup).
+		Setup(istio.Setup(&ist, nil)).
+		Setup(func(t resource.Context) error {
+			return util.SetupApps(t, ist, apps, false)
+		}).Run()
 }
 
 func TestCNIRaceRepair(t *testing.T) {
+	if !ist.Settings().EnableCNI {
+		t.Skip("CNI race condition mitigation is only tested when CNI is enabled.")
+	}
 	framework.NewTest(t).
+		Features("traffic.cni.race-condition-repair").
 		Run(func(t framework.TestContext) {
 			cluster := t.Clusters().Default()
-			// To begin with, delete CNI Daemonset to simulate a CNI race condition
+			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
 			if err := deleteCNIDaemonset(cluster); err != nil {
 				t.Fatalf("failed to delete CNI Dameonset %v", err)
 			}
 
-			// Rollout restart instances in namespace 1, and wait for a new instance come up with exit status
+			// Rollout restart instances in namespace 1, and wait for a broken instance.
 			rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", apps.Namespace1.Name())
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
@@ -140,6 +143,9 @@ func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster) {
 		pods, err := cluster.CoreV1().Pods(apps.Namespace1.Name()).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
+		}
+		if len(pods.Items) == 0 {
+			return errors.New("no pod found")
 		}
 		// Verify that no pod is broken by the race condition now.
 		for _, p := range pods.Items {
