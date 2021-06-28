@@ -439,6 +439,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			debugLog := fmt.Sprintf("proxy=%v,token=%v,debug=%v,key=%v", proxy.ID, token, debug, builder.Key())
 			log.Errorf("howardjohn: writing %v", debugLog)
 			eds.Server.Cache.Add(builder, token, resource, debugLog)
+			log.Errorf("howardjohn: wrote %v", debugLog)
 		}
 	}
 	return resources, model.XdsLogDetails{
