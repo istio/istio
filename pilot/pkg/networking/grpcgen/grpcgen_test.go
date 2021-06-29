@@ -135,9 +135,8 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
-		//ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		//defer cancel()
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
 		conn, err := grpc.DialContext(ctx, "xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure(), grpc.WithBlock(),
 			grpc.WithResolvers(xdsresolver))
 		if err != nil {
