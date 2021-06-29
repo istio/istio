@@ -239,9 +239,11 @@ func (bpr brokenPodReconciler) detectPod(pod v1.Pod) bool {
 	return false
 }
 
-func MaybeStartRepair(ctx context.Context) {
+func StartRepair(ctx context.Context) {
+	log.Info("Start CNI race condition repair.")
 	filters, options := parseFlags()
 	if !options.Enabled {
+		log.Info("CNI repair is disable.")
 		return
 	}
 

@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 
 		installer := install.NewInstaller(cfg, isReady)
 
-		repair.MaybeStartRepair(ctx)
+		repair.StartRepair(ctx)
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
