@@ -63,7 +63,7 @@ func (p *Log) createStatus(maxWidth int) string {
 	wait := make([]string, 0, len(p.components))
 	for c, l := range p.components {
 		comps = append(comps, name.UserFacingComponentName(name.ComponentName(c)))
-		wait = append(wait, l.waiting...)
+		wait = append(wait, l.waitingResources()...)
 	}
 	sort.Strings(comps)
 	sort.Strings(wait)
@@ -180,6 +180,7 @@ type ManifestLog struct {
 	err      string
 	finished bool
 	waiting  []string
+	mu       sync.Mutex
 }
 
 func (p *ManifestLog) ReportProgress() {
@@ -193,6 +194,8 @@ func (p *ManifestLog) ReportError(err string) {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.err = err
 	p.report()
 }
@@ -201,6 +204,8 @@ func (p *ManifestLog) ReportFinished() {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.finished = true
 	p.report()
 }
@@ -209,6 +214,14 @@ func (p *ManifestLog) ReportWaiting(resources []string) {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
 	p.waiting = resources
+	p.mu.Unlock()
 	p.report()
+}
+
+func (p *ManifestLog) waitingResources() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.waiting
 }
