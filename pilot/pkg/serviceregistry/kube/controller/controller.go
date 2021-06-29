@@ -370,6 +370,10 @@ func (c *Controller) discoverabilityPolicyForService(name types.NamespacedName) 
 	return model.DiscoverableFromSameCluster
 }
 
+func (c *Controller) ExportedServices() []string {
+	return c.exports.ExportedServices()
+}
+
 func (c *Controller) cidrRanger() cidranger.Ranger {
 	c.RLock()
 	defer c.RUnlock()
