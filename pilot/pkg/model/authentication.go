@@ -318,7 +318,7 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 	} else if strings.HasPrefix(resource, "file-root:") {
 		filesString := strings.TrimPrefix(resource, "file-root:")
 		split := strings.Split(filesString, ResourceSeparator)
-		if filesString == "system" && len(split) != 1 {
+		if filesString == "system" {
 			var certFiles = []string{
 				"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
 				"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
