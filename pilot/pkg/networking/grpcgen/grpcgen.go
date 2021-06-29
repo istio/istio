@@ -58,8 +58,16 @@ type GrpcConfigGenerator struct {
 	Cds model.XdsResourceGenerator
 }
 
+var shortnames = map[string]string{
+	v3.ListenerType: "lds",
+	v3.RouteType:    "rds",
+	v3.ClusterType:  "cds",
+}
+
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
 	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	log.Infof("begininning gRPC  %s, gen for %s, names %v", shortnames[w.TypeUrl], proxy.ID, w.ResourceNames)
+
 	switch w.TypeUrl {
 	case v3.ListenerType:
 		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
@@ -81,7 +89,6 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 // specific services.
 func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
 	resp := model.Resources{}
-
 	filter := map[string]bool{}
 	for _, name := range names {
 		if strings.Contains(name, ":") {
