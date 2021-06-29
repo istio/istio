@@ -326,6 +326,7 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if len(endpoints) == 0 {
+		log.Errorf("adiprerepa: host %+v slice %s endpoints of length 0. endpointKeys: %+v\n", hostname, slice, e.endpointKeysByServiceAndSlice[hostname])
 		for _, ip := range e.endpointKeysByServiceAndSlice[hostname][slice] {
 			delete(e.endpointByKey, ip)
 		}
@@ -350,6 +351,10 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 }
 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
+	/*
+	EndpointSlice A has IP X, EndpointSlice B has IP X
+	when A is removed, we need to keep IP X (EndpointSlice B)
+	 */
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
