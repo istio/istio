@@ -18,22 +18,21 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/api/label"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/env"
 )
+
+const istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 
 var (
 	defaultRevisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
@@ -134,7 +133,7 @@ func TestTagList(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-sample",
 							Labels: map[string]string{
-								istioTagLabel:                         "sample",
+								tag.IstioTagLabel:                     "sample",
 								label.IoIstioRev.Name:                 "sample-revision",
 								helmreconciler.IstioComponentLabelStr: "Pilot",
 							},
@@ -173,7 +172,7 @@ func TestTagList(t *testing.T) {
 							Name: "istio-revision-test",
 							Labels: map[string]string{
 								label.IoIstioRev.Name: "revision",
-								istioTagLabel:         "test",
+								tag.IstioTagLabel:     "test",
 							},
 						},
 					},
@@ -246,7 +245,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-sample",
-							Labels: map[string]string{istioTagLabel: "sample"},
+							Labels: map[string]string{tag.IstioTagLabel: "sample"},
 						},
 					},
 				},
@@ -265,7 +264,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{istioTagLabel: "wrong"},
+							Labels: map[string]string{tag.IstioTagLabel: "wrong"},
 						},
 					},
 				},
@@ -275,7 +274,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{istioTagLabel: "wrong"},
+							Labels: map[string]string{tag.IstioTagLabel: "wrong"},
 						},
 					},
 				},
@@ -293,7 +292,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{istioTagLabel: "match"},
+							Labels: map[string]string{tag.IstioTagLabel: "match"},
 						},
 					},
 				},
@@ -303,7 +302,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{istioTagLabel: "match"},
+							Labels: map[string]string{tag.IstioTagLabel: "match"},
 						},
 					},
 				},
@@ -402,114 +401,5 @@ func TestSetTagErrors(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestSetTagWebhookCreation(t *testing.T) {
-	tcs := []struct {
-		name        string
-		webhook     admit_v1.MutatingWebhookConfiguration
-		tagName     string
-		whURL       string
-		whSVC       string
-		whCA        string
-		numWebhooks int
-	}{
-		{
-			name:        "webhook-pointing-to-service",
-			webhook:     revisionCanonicalWebhook,
-			tagName:     "canary",
-			whURL:       "",
-			whSVC:       "istiod-revision",
-			whCA:        "ca",
-			numWebhooks: 2,
-		},
-		{
-			name:        "webhook-pointing-to-url",
-			webhook:     revisionCanonicalWebhookRemote,
-			tagName:     "canary",
-			whURL:       remoteInjectionURL,
-			whSVC:       "",
-			whCA:        "ca",
-			numWebhooks: 2,
-		},
-		{
-			name:        "webhook-pointing-to-default-revision",
-			webhook:     defaultRevisionCanonicalWebhook,
-			tagName:     "canary",
-			whURL:       "",
-			whSVC:       "istiod",
-			whCA:        "ca",
-			numWebhooks: 2,
-		},
-		{
-			name:        "webhook-pointing-to-default-revision",
-			webhook:     defaultRevisionCanonicalWebhook,
-			tagName:     "default",
-			whURL:       "",
-			whSVC:       "istiod",
-			whCA:        "ca",
-			numWebhooks: 4,
-		},
-	}
-	scheme := runtime.NewScheme()
-	codecFactory := serializer.NewCodecFactory(scheme)
-	deserializer := codecFactory.UniversalDeserializer()
-
-	istioNamespace = "istio-system"
-	for _, tc := range tcs {
-		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName)
-		if err != nil {
-			t.Fatalf("webhook parsing failed with error: %v", err)
-		}
-		webhookYAML, err := tagWebhookYAML(webhookConfig, filepath.Join(env.IstioSrc, "manifests"))
-		if err != nil {
-			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
-		}
-
-		whObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admit_v1.MutatingWebhookConfiguration{})
-		if err != nil {
-			t.Fatalf("could not parse webhook from generated YAML: %s", webhookYAML)
-		}
-		wh := whObject.(*admit_v1.MutatingWebhookConfiguration)
-
-		// expect both namespace.sidecar-injector.istio.io and object.sidecar-injector.istio.io webhooks
-		if len(wh.Webhooks) != tc.numWebhooks {
-			t.Errorf("expected %d webhook(s) in MutatingWebhookConfiguration, found %d",
-				tc.numWebhooks, len(wh.Webhooks))
-		}
-		tag, exists := wh.ObjectMeta.Labels[istioTagLabel]
-		if !exists {
-			t.Errorf("expected tag webhook to have %s label, did not find", istioTagLabel)
-		}
-		if tag != tc.tagName {
-			t.Errorf("expected tag webhook to have istio.io/tag=%s, found %s instead", tc.tagName, tag)
-		}
-
-		// ensure all webhooks have the correct client config
-		for _, webhook := range wh.Webhooks {
-			injectionWhConf := webhook.ClientConfig
-			if tc.whSVC != "" {
-				if injectionWhConf.Service == nil {
-					t.Fatalf("expected injection service %s, got nil", tc.whSVC)
-				}
-				if injectionWhConf.Service.Name != tc.whSVC {
-					t.Fatalf("expected injection service %s, got %s", tc.whSVC, injectionWhConf.Service.Name)
-				}
-			}
-			if tc.whURL != "" {
-				if injectionWhConf.URL == nil {
-					t.Fatalf("expected injection URL %s, got nil", tc.whURL)
-				}
-				if *injectionWhConf.URL != tc.whURL {
-					t.Fatalf("expected injection URL %s, got %s", tc.whURL, *injectionWhConf.URL)
-				}
-			}
-			if tc.whCA != "" {
-				if string(injectionWhConf.CABundle) != tc.whCA {
-					t.Fatalf("expected CA bundle %q, got %q", tc.whCA, injectionWhConf.CABundle)
-				}
-			}
-		}
 	}
 }
