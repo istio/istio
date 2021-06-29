@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	mcsCore "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
@@ -31,6 +32,7 @@ import (
 type serviceExportCache interface {
 	isExported(name types.NamespacedName) bool
 	HasSynced() bool
+	ExportedServices() []string
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
@@ -101,6 +103,22 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 	return err == nil
 }
 
+func (ec *serviceExportCacheImpl) ExportedServices() []string {
+	// List all exports in this cluster.
+	exports, err := ec.lister.List(klabels.NewSelector())
+	if err != nil {
+		return make([]string, 0)
+	}
+
+	// Convert to ExportedService
+	out := make([]string, 0, len(exports))
+	for _, export := range exports {
+		out = append(out, fmt.Sprintf("%s:%s/%s", ec.Cluster(), export.Namespace, export.Name))
+	}
+
+	return out
+}
+
 func (ec *serviceExportCacheImpl) HasSynced() bool {
 	return ec.informer.HasSynced()
 }
@@ -120,4 +138,9 @@ func (c disabledServiceExportCache) isExported(types.NamespacedName) bool {
 
 func (c disabledServiceExportCache) HasSynced() bool {
 	return true
+}
+
+func (c disabledServiceExportCache) ExportedServices() []string {
+	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
+	return nil
 }

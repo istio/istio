@@ -1875,7 +1875,7 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 
 // pre computes gateways for each network
 func (ps *PushContext) initNetworkManager(env *Environment) {
-	ps.networkMgr = newNetworkManager(env)
+	ps.networkMgr = NewNetworkManager(env)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {
