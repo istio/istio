@@ -297,7 +297,15 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 
 	// If we're creating the "default" revision tag we must generate the validating webhook.
 	if tagName == tag.DefaultRevisionName {
-		vwhYAML, err := tag.GenerateValidatingWebhook(tagWhConfig)
+		whs, err := tag.GetValidatingWebhooksWithRevision(ctx, kubeClient, revision)
+		if err != nil {
+			return err
+		}
+		validatingWhConfig, err := tag.TagWebhookConfigFromValidatingWebhook(whs[0], tagName)
+		if err != nil {
+			return fmt.Errorf("failed to create validating webhook config: %w", err)
+		}
+		vwhYAML, err := tag.GenerateValidatingWebhook(validatingWhConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create validating webhook: %w", err)
 		}

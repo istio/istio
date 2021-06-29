@@ -30,8 +30,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/istioctl/pkg/tag"
-
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -50,6 +48,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"

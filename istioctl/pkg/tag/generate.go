@@ -8,20 +8,23 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/istio/operator/pkg/helm"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+
+	"istio.io/api/label"
+	"istio.io/istio/operator/pkg/helm"
 )
 
 const (
 	IstioTagLabel       = "istio.io/tag"
 	DefaultRevisionName = "default"
 
-	pilotDiscoveryChart         = "istio-control/istio-discovery"
-	revisionTagTemplateName     = "revision-tags.yaml"
-	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
+	pilotDiscoveryChart          = "istio-control/istio-discovery"
+	revisionTagTemplateName      = "revision-tags.yaml"
+	istioInjectionWebhookSuffix  = "sidecar-injector.istio.io"
+	istioValidationWebhookSuffix = "validation.istio.io"
 )
 
 // TagWebhookConfig holds config needed to render a tag webhook.
@@ -130,6 +133,45 @@ func TagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	found := false
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
+			found = true
+			caBundle = string(w.ClientConfig.CABundle)
+			if w.ClientConfig.URL != nil {
+				injectionURL = *w.ClientConfig.URL
+			} else {
+				injectionURL = ""
+			}
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook")
+	}
+
+	return &TagWebhookConfig{
+		Tag:            tagName,
+		Revision:       rev,
+		URL:            injectionURL,
+		CABundle:       caBundle,
+		IstioNamespace: "istio-system",
+	}, nil
+}
+
+// TagWebhookConfigFromCanonicalValidatingWebhook parses configuration needed for validating webhook configuration.
+func TagWebhookConfigFromValidatingWebhook(wh admit_v1.ValidatingWebhookConfiguration, tagName string) (*TagWebhookConfig, error) {
+	rev, ok := wh.ObjectMeta.Labels[label.IoIstioRev.Name]
+	if !ok {
+		return nil, fmt.Errorf("could not extract revision from webhook")
+	}
+	// if the revision is "default", render templates with an empty revision
+	if rev == DefaultRevisionName {
+		rev = ""
+	}
+
+	var injectionURL string
+	var caBundle string
+	found := false
+	for _, w := range wh.Webhooks {
+		if strings.HasSuffix(w.Name, istioValidationWebhookSuffix) {
 			found = true
 			caBundle = string(w.ClientConfig.CABundle)
 			if w.ClientConfig.URL != nil {

@@ -5,14 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"istio.io/api/label"
+	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/istio/pkg/test/env"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
-	admit_v1 "k8s.io/api/admissionregistration/v1"
+	"istio.io/api/label"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (

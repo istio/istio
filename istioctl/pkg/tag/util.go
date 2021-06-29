@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/api/label"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/api/label"
 )
 
 func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admit_v1.MutatingWebhookConfiguration, error) {
@@ -36,6 +37,18 @@ func GetWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag st
 // this retrieves the webhook created at revision installation rather than tag webhooks
 func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, IstioTagLabel),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return webhooks.Items, nil
+}
+
+// GetValidatingWebhooksWithRevision returns validating webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
+// this retrieves the webhook created at revision installation rather than tags.
+func GetValidatingWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admit_v1.ValidatingWebhookConfiguration, error) {
+	webhooks, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, IstioTagLabel),
 	})
 	if err != nil {
