@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/istioctl/pkg/tag"
+
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -512,7 +514,7 @@ It's best to do kube-inject when the resource is initially created.
 			var meshConfig *meshconfig.MeshConfig
 			rev := opts.Revision
 			// if the revision is "default", render templates with an empty revision
-			if rev == defaultRevisionName {
+			if rev == tag.DefaultRevisionName {
 				rev = ""
 			}
 			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev)
