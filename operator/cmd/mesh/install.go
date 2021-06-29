@@ -137,35 +137,29 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	var opts clioptions.ControlPlaneOptions
 	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
 	if err != nil {
-		operation := "encounter error when creating Kubernetes client, error detail"
-		return wrapErrorf(operation, err)
+		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
 	restConfig, clientset, client, err := K8sConfig(iArgs.kubeConfigPath, iArgs.context)
 	if err != nil {
-		operation := "encounter error when fetching Kubernetes config file, error detail"
-		return wrapErrorf(operation, err)
+		return fmt.Errorf("fetch Kubernetes config file: %v", err)
 	}
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		operation := "encounter error when checking minimum supported Kubernetes version, error detail"
-		return wrapErrorf(operation, err)
+		return fmt.Errorf("check minimum supported Kubernetes version: %v", err)
 	}
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
-		operation := "encounter error when fetching Istio version, error detail"
-		return wrapErrorf(operation, err)
+		return fmt.Errorf("fetch Istio version: %v", err)
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
-		operation := "encounter error when generating config, error detail"
-		return wrapErrorf(operation, err)
+		return fmt.Errorf("generate config: %v", err)
 	}
 
 	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
 	if err != nil {
-		operation := "failed to get profile, namespace or enabled components, error detail"
-		return wrapErrorf(operation, err)
+		return fmt.Errorf("failed to get profile, namespace or enabled components: %v", err)
 	}
 
 	// Ignore the err because we don't want to show
@@ -356,8 +350,4 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
-}
-
-func wrapErrorf(operation string, err error) error {
-	return fmt.Errorf("%s: %v", operation, err)
 }
