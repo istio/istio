@@ -26,27 +26,32 @@ import (
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/install"
+	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/pkg/log"
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
-	Short: "Install and configure Istio CNI plugin on a node, and ",
+	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
 
+		// TODO(bianpengyuan) consolidate repair config with install config.
 		var cfg *config.Config
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
 		log.Infof("install cni with configuration: \n%+v", cfg)
 
+		// Start metrics server
+		monitoring.SetupMonitoring(":15014", "/metrics", ctx.Done())
+
 		isReady := install.StartServer()
 
 		installer := install.NewInstaller(cfg, isReady)
 
-		repair.MaybeStartRepair()
+		repair.MaybeStartRepair(ctx)
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

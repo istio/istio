@@ -17,10 +17,7 @@ package repair
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
@@ -242,9 +239,9 @@ func (bpr brokenPodReconciler) detectPod(pod v1.Pod) bool {
 	return false
 }
 
-func MaybeStartRepair() {
+func MaybeStartRepair(ctx context.Context) {
 	filters, options := parseFlags()
-	if !options.enabled {
+	if !options.Enabled {
 		return
 	}
 
@@ -253,23 +250,15 @@ func MaybeStartRepair() {
 		log.Fatalf("CNI repair could not construct clientSet: %s", err)
 	}
 
-	podFixer := newBrokenPodReconciler(clientSet, filters, options.repairOptions)
+	podFixer := newBrokenPodReconciler(clientSet, filters, options.RepairOptions)
 	logCurrentOptions(&podFixer, options)
-	stopCh := make(chan struct{})
 
-	// Start metrics server
-	go func() {
-		setupMonitoring(":15014", "/metrics", stopCh)
-	}()
-
-	if options.runAsDaemon {
+	if options.RunAsDaemon {
 		rc, err := NewRepairController(podFixer)
 		if err != nil {
 			log.Fatalf("Fatal error constructing repair controller: %+v", err)
 		}
-		go func() {
-			rc.Run(stopCh)
-		}()
+		rc.Run(ctx.Done())
 	} else {
 		err = nil
 		if podFixer.Options.LabelPods {
@@ -282,16 +271,6 @@ func MaybeStartRepair() {
 			log.Fatalf(err.Error())
 		}
 	}
-	handleSigTerm(stopCh)
-}
-
-func handleSigTerm(ch chan struct{}) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		close(ch)
-	}()
 }
 
 // Set up Kubernetes client using kubeconfig (or in-cluster config if no file provided)

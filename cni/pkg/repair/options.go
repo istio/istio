@@ -26,9 +26,9 @@ import (
 )
 
 type controllerOptions struct {
-	repairOptions *Options `json:"repair_options"`
-	runAsDaemon   bool     `json:"run_as_daemon"`
-	enabled       bool     `json:"enabled"`
+	RepairOptions *Options `json:"repair_options"`
+	RunAsDaemon   bool     `json:"run_as_daemon"`
+	Enabled       bool     `json:"enabled"`
 }
 
 var loggingOptions = log.DefaultOptions()
@@ -97,9 +97,9 @@ func parseFlags() (filters *Filters, options *controllerOptions) {
 		LabelSelectors:                  viper.GetString("label-selectors"),
 	}
 	options = &controllerOptions{
-		enabled:     viper.GetBool("enabled"),
-		runAsDaemon: viper.GetBool("run-as-daemon"),
-		repairOptions: &Options{
+		Enabled:     viper.GetBool("enabled"),
+		RunAsDaemon: viper.GetBool("run-as-daemon"),
+		RepairOptions: &Options{
 			DeletePods:    viper.GetBool("delete-pods"),
 			LabelPods:     viper.GetBool("label-pods"),
 			PodLabelKey:   viper.GetString("broken-pod-label-key"),
@@ -116,7 +116,7 @@ func parseFlags() (filters *Filters, options *controllerOptions) {
 
 // Log human-readable output describing the current filter and option selection
 func logCurrentOptions(bpr *brokenPodReconciler, options *controllerOptions) {
-	if options.runAsDaemon {
+	if options.RunAsDaemon {
 		log.Infof("Controller Option: Running as a Daemon.")
 	}
 	if bpr.Options.DeletePods {

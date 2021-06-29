@@ -15,7 +15,6 @@
 package repair
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -85,7 +84,7 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 func (rc *Controller) Run(stopCh <-chan struct{}) {
 	go rc.podController.Run(stopCh)
 	if !cache.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
-		runtime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
+		log.Error("timed out waiting for pod caches to sync")
 		return
 	}
 
@@ -100,9 +99,6 @@ func (rc *Controller) Run(stopCh <-chan struct{}) {
 		time.Second,
 		stopCh,
 	)
-
-	<-stopCh
-	log.Infof("Stopping repair controller.")
 }
 
 // Process the next available item in the work queue.
