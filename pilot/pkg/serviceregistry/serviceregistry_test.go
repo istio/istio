@@ -960,6 +960,44 @@ func TestEndpointsDeduping(t *testing.T) {
 	}, 80, []ServiceInstanceResponse{})
 }
 
+func TestSameIPEndpointSlicing(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		KubernetesEndpointMode: kubecontroller.EndpointSliceOnly,
+	})
+	namespace := "namespace"
+	labels := map[string]string{
+		"app": "bar",
+	}
+	makeService(t, s.KubeClient(), &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "http",
+				Port: 80,
+			}, {
+				Name: "http-other",
+				Port: 90,
+			}},
+			Selector:  labels,
+			ClusterIP: "9.9.9.9",
+		},
+	})
+
+	// Delete endpoints with same IP
+	createEndpointSlice(t, s.KubeClient(), "slice1", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
+	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+
+	s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice1", metav1.DeleteOptions{})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+	s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice2", metav1.DeleteOptions{})
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+}
+
+
 type ServiceInstanceResponse struct {
 	Hostname   host.Name
 	Namestring string
