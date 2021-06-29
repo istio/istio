@@ -41,7 +41,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
-	network2 "istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/network"
 	proto2 "istio.io/istio/pkg/proto"
 )
 
@@ -1135,7 +1135,7 @@ func TestEndpointMetadata(t *testing.T) {
 	features.EndpointTelemetryLabel = true
 	cases := []struct {
 		name         string
-		network      network2.ID
+		network      network.ID
 		tlsMode      string
 		workloadName string
 		clusterID    cluster.ID
