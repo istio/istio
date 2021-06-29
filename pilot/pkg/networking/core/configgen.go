@@ -15,10 +15,10 @@
 package core
 
 import (
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -35,7 +35,7 @@ type ConfigGenerator interface {
 	BuildListeners(node *model.Proxy, push *model.PushContext) []*listener.Listener
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters(node *model.Proxy, push *model.PushContext) []*cluster.Cluster
+	BuildClusters(node *model.Proxy, push *model.PushContext) ([]*discovery.Resource, model.XdsLogDetails)
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*route.RouteConfiguration

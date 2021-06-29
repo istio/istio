@@ -34,6 +34,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
@@ -109,17 +111,22 @@ var testCases = []ConfigInput{
 	},
 }
 
-func disableLogging() {
+func configureBenchmark(t test.Failer) {
 	for _, s := range istiolog.Scopes() {
 		if s.Name() == benchmarkScope.Name() {
 			continue
 		}
 		s.SetOutputLevel(istiolog.NoneLevel)
 	}
+	ov := features.EnableXDSCaching
+	features.EnableXDSCaching = false
+	t.Cleanup(func() {
+		features.EnableXDSCaching = ov
+	})
 }
 
 func BenchmarkInitPushContext(b *testing.B) {
-	disableLogging()
+	configureBenchmark(b)
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupTest(b, tt)
@@ -132,7 +139,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 }
 
 func BenchmarkRouteGeneration(b *testing.B) {
-	disableLogging()
+	configureBenchmark(b)
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -178,7 +185,7 @@ func TestValidateTelemetry(t *testing.T) {
 }
 
 func BenchmarkClusterGeneration(b *testing.B) {
-	disableLogging()
+	configureBenchmark(b)
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -196,7 +203,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 }
 
 func BenchmarkListenerGeneration(b *testing.B) {
-	disableLogging()
+	configureBenchmark(b)
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -214,7 +221,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 }
 
 func BenchmarkNameTableGeneration(b *testing.B) {
-	disableLogging()
+	configureBenchmark(b)
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -232,7 +239,7 @@ func BenchmarkNameTableGeneration(b *testing.B) {
 }
 
 func BenchmarkSecretGeneration(b *testing.B) {
-	disableLogging()
+	configureBenchmark(b)
 	cases := []ConfigInput{
 		{
 			Name:     "secrets",
@@ -290,7 +297,7 @@ func createGateways(n int) map[string]*meshconfig.Network {
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
 func BenchmarkEndpointGeneration(b *testing.B) {
-	disableLogging()
+	configureBenchmark(b)
 
 	const numNetworks = 4
 	tests := []struct {

@@ -275,10 +275,11 @@ func TestApplyDestinationRule(t *testing.T) {
 				Services:       []*model.Service{tt.service},
 			})
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView)
+			destRule := cb.push.DestinationRule(cb.proxy, tt.service)
+			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
 			}
@@ -804,7 +805,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &mesh})
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
 			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
@@ -813,7 +814,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			}
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
-				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxy.GetNetworkView())
+				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxy.GetNetworkView(), nil)
 			}
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
@@ -1220,7 +1221,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				Instances:  tt.instances,
 			})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext(), nil)
 			nv := map[network.ID]bool{
 				"nw-0":               true,
 				"nw-1":               true,
@@ -1266,7 +1267,7 @@ func TestBuildPassthroughClusters(t *testing.T) {
 			proxy := &model.Proxy{IPAddresses: tt.ips}
 			cg := NewConfigGenTest(t, TestOptions{})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext(), nil)
 			clusters := cb.buildInboundPassthroughClusters()
 
 			var hasIpv4, hasIpv6 bool
@@ -1487,7 +1488,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	push := model.NewPushContext()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cb := NewClusterBuilder(proxy, push)
+			cb := NewClusterBuilder(proxy, push, model.DisabledCache{})
 			opts := &buildClusterOpts{
 				mutable: NewMutableCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
@@ -2290,7 +2291,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cb := NewClusterBuilder(nil, nil)
+			cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
 			if tc.h2 {
 				cb.setH2Options(tc.opts.mutable)
 			}
@@ -2311,7 +2312,7 @@ func newTestCluster() *MutableCluster {
 }
 
 func newH2TestCluster() *MutableCluster {
-	cb := NewClusterBuilder(nil, nil)
+	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
@@ -2320,7 +2321,7 @@ func newH2TestCluster() *MutableCluster {
 }
 
 func newDownstreamTestCluster() *MutableCluster {
-	cb := NewClusterBuilder(nil, nil)
+	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
@@ -2446,7 +2447,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(nil, nil)
+	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2483,7 +2484,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(nil, nil)
+	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
