@@ -339,6 +339,25 @@ type WatchedResource struct {
 	// Note that Envoy may send multiple requests for the same type, for
 	// example to update the set of watched resources or to ACK/NACK.
 	LastRequest *discovery.DiscoveryRequest
+
+	// filter is the internal map allowing filters based on ResourceNames
+	filter map[string]struct{}
+}
+
+// IncludesResource allows filtering based on the ResourceNames of a WatchedResource.
+func (w *WatchedResource) IncludesResource(name string) bool {
+	if len(w.ResourceNames) == 0 {
+		return true
+	}
+	if w.filter == nil {
+		// generate the filter only once, assume ResourceNames is always set first and not-changed
+		w.filter = make(map[string]struct{}, len(w.ResourceNames))
+		for _, name := range w.ResourceNames {
+			w.filter[name] = struct{}{}
+		}
+	}
+	_, ok := w.filter[name]
+	return ok
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
@@ -855,6 +874,11 @@ func (node *Proxy) SupportsIPv4() bool {
 // SupportsIPv6 returns true if proxy supports IPv6 addresses.
 func (node *Proxy) SupportsIPv6() bool {
 	return node.ipv6Support
+}
+
+// GRPCGen returns true if the "proxy" expects gRPC-compatible xDS responses.
+func (node *Proxy) GRPCGen() bool {
+	return node.Metadata.Generator == "grpc"
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.

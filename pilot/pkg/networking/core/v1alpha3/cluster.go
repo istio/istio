@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"istio.io/pkg/log"
 	"math"
 	"strconv"
 	"strings"
@@ -70,7 +69,7 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, push)
@@ -80,10 +79,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	case model.SidecarProxy:
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
+		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher, w)...)
 
-		if proxy.Metadata.Generator != "grpc" {
-			log.Info("building non-grpc stuff for %s (gen is %s)", proxy.ID, proxy.Metadata.Generator)
+		if !proxy.GRPCGen() {
 			// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 			clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 			clusters = append(clusters, outboundPatcher.insertedClusters()...)
@@ -109,10 +107,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	return cb.normalizeClusters(clusters)
 }
 
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher, w *model.WatchedResource) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	networkView := cb.proxy.GetNetworkView()
-
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && cb.proxy.Type == model.Router {
 		services = cb.push.GatewayServices(cb.proxy)
@@ -129,6 +126,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
 			clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+			if !w.IncludesResource(clusterName) {
+				continue
+			}
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
