@@ -13,7 +13,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package cni
+package pilot
 
 import (
 	"context"
@@ -28,36 +28,17 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
-
-var (
-	ist  istio.Instance
-	apps = &util.EchoDeployments{}
-)
-
-func TestMain(m *testing.M) {
-	framework.NewSuite(m).
-		Label(label.CustomSetup).
-		Setup(istio.Setup(&ist, nil)).
-		Setup(func(t resource.Context) error {
-			return util.SetupApps(t, ist, apps, false)
-		}).
-		Run()
-}
 
 func TestCNIRaceRepair(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.cni.race-condition-repair").
 		Run(func(t framework.TestContext) {
-			if !ist.Settings().EnableCNI {
+			if !i.Settings().EnableCNI {
 				t.Skip("CNI race condition mitigation is only tested when CNI is enabled.")
 			}
 			cluster := t.Clusters().Default()
@@ -66,14 +47,14 @@ func TestCNIRaceRepair(t *testing.T) {
 			cniDaemonSet := getCNIDaemonSet(t, cluster)
 			deleteCNIDaemonset(t, cluster)
 
-			// Rollout restart instances in namespace 1, and wait for a broken instance.
-			rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", apps.Namespace1.Name())
+			// Rollout restart instances in the echo namespace, and wait for a broken instance.
+			rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", apps.Namespace.Name())
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
 			waitForBrokenPodOrFail(t, cluster)
 
-			// Now bring back CNI Daemonset, and pod in namespace 1 should be repaired.
+			// Now bring back CNI Daemonset, and pod in the echo namespace should be repaired.
 			deployCNIDaemonset(t, cluster, cniDaemonSet)
 			waitForRepairOrFail(t, cluster)
 		})
@@ -131,7 +112,7 @@ func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonS
 
 func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster) {
 	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.CoreV1().Pods(apps.Namespace1.Name()).List(context.TODO(), metav1.ListOptions{})
+		pods, err := cluster.CoreV1().Pods(apps.Namespace.Name()).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -153,7 +134,7 @@ func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster) {
 
 func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster) {
 	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.CoreV1().Pods(apps.Namespace1.Name()).List(context.TODO(), metav1.ListOptions{})
+		pods, err := cluster.CoreV1().Pods(apps.Namespace.Name()).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
