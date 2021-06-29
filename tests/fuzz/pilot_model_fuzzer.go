@@ -27,22 +27,21 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 )
 
-var (
-	protocols = []protocol.Instance{protocol.TCP,
-		protocol.UDP,
-		protocol.GRPC,
-		protocol.GRPCWeb,
-		protocol.HTTP,
-		protocol.HTTP_PROXY,
-		protocol.HTTP2,
-		protocol.HTTPS,
-		protocol.Thrift,
-		protocol.TLS,
-		protocol.Mongo,
-		protocol.Redis,
-		protocol.MySQL,
-	}
-)
+var protocols = []protocol.Instance{
+	protocol.TCP,
+	protocol.UDP,
+	protocol.GRPC,
+	protocol.GRPCWeb,
+	protocol.HTTP,
+	protocol.HTTP_PROXY,
+	protocol.HTTP2,
+	protocol.HTTPS,
+	protocol.Thrift,
+	protocol.TLS,
+	protocol.Mongo,
+	protocol.Redis,
+	protocol.MySQL,
+}
 
 // Creates a new fuzzed ServiceInstance
 func NewSI(f *fuzz.ConsumeFuzzer) (*model.ServiceInstance, error) {
@@ -73,7 +72,7 @@ func NewSI(f *fuzz.ConsumeFuzzer) (*model.ServiceInstance, error) {
 func getProtocolInstance(f *fuzz.ConsumeFuzzer) (protocol.Instance, error) {
 	pIndex, err := f.GetInt()
 	if err != nil {
-		return protocol.Unsupported, errors.New("Could not create protocolInstance")
+		return protocol.Unsupported, errors.New("could not create protocolInstance")
 	}
 	i := protocols[pIndex%len(protocols)]
 	return i, nil
