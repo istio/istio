@@ -602,7 +602,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.executeCommands()
 }
 
-type UdpRuleApplier struct {
+type UDPRuleApplier struct {
 	iptables *builder.IptablesBuilderImpl
 	ext      dep.Dependencies
 	ops      Ops
@@ -611,7 +611,7 @@ type UdpRuleApplier struct {
 	cmd      string
 }
 
-func (f UdpRuleApplier) Run(args ...string) {
+func (f UDPRuleApplier) Run(args ...string) {
 	switch f.ops {
 	case AppendOps:
 		f.iptables.AppendRuleV4(f.chain, f.table, args...)
@@ -622,12 +622,12 @@ func (f UdpRuleApplier) Run(args ...string) {
 	}
 }
 
-func (f UdpRuleApplier) WithChain(chain string) UdpRuleApplier {
+func (f UDPRuleApplier) WithChain(chain string) UDPRuleApplier {
 	f.chain = chain
 	return f
 }
 
-func (f UdpRuleApplier) WithTable(table string) UdpRuleApplier {
+func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 	f.table = table
 	return f
 }
@@ -637,7 +637,7 @@ func (f UdpRuleApplier) WithTable(table string) UdpRuleApplier {
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilderImpl, ext dep.Dependencies,
 	cmd, proxyUID, proxyGID string, dnsServersV4 []string, captureAllDNS bool) {
-	f := UdpRuleApplier{
+	f := UDPRuleApplier{
 		iptables: iptables,
 		ext:      ext,
 		ops:      ops,
@@ -680,7 +680,7 @@ func HandleDNSUDP(
 // Traffic that goes from istio to DNS servers and vice versa are zone 1 and traffic from
 // DNS client to istio and vice versa goes to zone 2
 func addConntrackZoneDNSUDP(
-	f UdpRuleApplier, proxyUID, proxyGID string, dnsServersV4 []string, captureAllDNS bool) {
+	f UDPRuleApplier, proxyUID, proxyGID string, dnsServersV4 []string, captureAllDNS bool) {
 	// TODO: add ip6 as well
 	for _, uid := range split(proxyUID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
