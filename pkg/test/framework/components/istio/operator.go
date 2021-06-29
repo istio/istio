@@ -451,7 +451,7 @@ spec:
 	return nil
 }
 
-func initIOPFile(cfg Config, iopFile string, valuesYaml string, extraTemplates map[string]string) (*opAPI.IstioOperatorSpec, error) {
+func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*opAPI.IstioOperatorSpec, error) {
 	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &pkgAPI.IstioOperator{}
@@ -467,16 +467,6 @@ func initIOPFile(cfg Config, iopFile string, valuesYaml string, extraTemplates m
 		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal base values: %v", err)
 		}
-	}
-
-	for name, template := range extraTemplates {
-		if values.SidecarInjectorWebhook == nil {
-			values.SidecarInjectorWebhook = &pkgAPI.SidecarInjectorConfig{}
-		}
-		if values.SidecarInjectorWebhook.Templates == nil {
-			values.SidecarInjectorWebhook.Templates = make(map[string]interface{})
-		}
-		values.SidecarInjectorWebhook.Templates[name] = template
 	}
 
 	valuesMap, err := gogoprotomarshal.ToJSONMap(values)
@@ -1009,27 +999,6 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 	return nil
 }
 
-var additionalTemplatePaths = []string{"samples/proxyless-grpc/grpc-agent.yaml"}
-
-func loadAdditionalTemplates() (map[string]string, error) {
-	allTemplates := make(map[string]string, len(additionalTemplatePaths))
-	for _, path := range additionalTemplatePaths {
-		path := filepath.Join(testenv.IstioSrc, path)
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("failed reading %s: %v", path, err)
-		}
-		fileTemplates := make(map[string]string)
-		if err := yaml.Unmarshal(data, &fileTemplates); err != nil {
-			return nil, fmt.Errorf("failed parsing %s: %v", path, err)
-		}
-		for k, v := range fileTemplates {
-			allTemplates[k] = v
-		}
-	}
-	return allTemplates, nil
-}
-
 func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, error) {
 	var err error
 	configFiles := istioctlConfigFiles{
@@ -1037,16 +1006,9 @@ func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, 
 		configIopFile: "",
 		remoteIopFile: "",
 	}
-
-	// load additional templates from samples so they can be included in the iop for all cluster types
-	extraTemplates, err := loadAdditionalTemplates()
-	if err != nil {
-		return configFiles, fmt.Errorf("failed loading additional injection templates: %v", err)
-	}
-
 	// Generate the istioctl config file for control plane(primary) cluster
 	configFiles.iopFile = filepath.Join(workDir, "iop.yaml")
-	if configFiles.operatorSpec, err = initIOPFile(cfg, configFiles.iopFile, cfg.ControlPlaneValues, extraTemplates); err != nil {
+	if configFiles.operatorSpec, err = initIOPFile(cfg, configFiles.iopFile, cfg.ControlPlaneValues); err != nil {
 		return configFiles, err
 	}
 
@@ -1056,7 +1018,7 @@ func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, 
 	}
 
 	configFiles.remoteIopFile = filepath.Join(workDir, "remote.yaml")
-	if configFiles.remoteOperatorSpec, err = initIOPFile(cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues, extraTemplates); err != nil {
+	if configFiles.remoteOperatorSpec, err = initIOPFile(cfg, configFiles.remoteIopFile, cfg.RemoteClusterValues); err != nil {
 		return configFiles, err
 	}
 
@@ -1065,7 +1027,7 @@ func createIstioctlConfigFile(workDir string, cfg Config) (istioctlConfigFiles, 
 	configFiles.configOperatorSpec = configFiles.operatorSpec
 	if cfg.ConfigClusterValues != "" {
 		configFiles.configIopFile = filepath.Join(workDir, "config.yaml")
-		if configFiles.configOperatorSpec, err = initIOPFile(cfg, configFiles.configIopFile, cfg.ConfigClusterValues, extraTemplates); err != nil {
+		if configFiles.configOperatorSpec, err = initIOPFile(cfg, configFiles.configIopFile, cfg.ConfigClusterValues); err != nil {
 			return configFiles, err
 		}
 	}

@@ -447,7 +447,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			a.envoyAgent.Run(ctx)
 		}()
 	} else if a.WaitForSigterm() {
-		log.Info("Running in no-envoy mode")
 		// wait for SIGTERM and perform graceful shutdown
 		stop := make(chan os.Signal)
 		signal.Notify(stop, syscall.SIGTERM)

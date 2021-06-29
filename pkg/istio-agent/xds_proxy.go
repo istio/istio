@@ -134,7 +134,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		localHostAddr = localHostIPv6
 	}
 	var envoyProbe ready.Prober
-	if !ia.EnvoyDisabled() {
+	if !ia.cfg.DisableEnvoy {
 		envoyProbe = &ready.Probe{
 			AdminPort:     uint16(ia.proxyConfig.ProxyAdminPort),
 			LocalHostAddr: localHostAddr,
