@@ -254,8 +254,8 @@ func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.R
 		l.assertUnchanged(k, cur.(cacheValue), value, metadata)
 	}
 	l.store.Add(k, toWrite)
-	indexConfig(l.configIndex, entry.Key(), entry)
-	indexType(l.typesIndex, entry.Key(), entry)
+	indexConfig(l.configIndex, k, entry)
+	indexType(l.typesIndex, k, entry)
 	size(l.store.Len())
 }
 
@@ -279,6 +279,8 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bo
 		tok := CacheToken(l.nextToken.Inc())
 		log.Errorf("howardjohn: generated token for %v: %v", k, tok)
 		l.store.Add(k, cacheValue{token: tok})
+		indexConfig(l.configIndex, k, entry)
+		indexType(l.typesIndex, k, entry)
 		return nil, tok, false
 	}
 	cv := val.(cacheValue)
