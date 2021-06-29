@@ -137,24 +137,24 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	var opts clioptions.ControlPlaneOptions
 	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
 	if err != nil {
-		return err
+		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
 	restConfig, clientset, client, err := K8sConfig(iArgs.kubeConfigPath, iArgs.context)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch Kubernetes config file: %v", err)
 	}
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return err
+		return fmt.Errorf("check minimum supported Kubernetes version: %v", err)
 	}
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch Istio version: %v", err)
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
-		return err
+		return fmt.Errorf("generate config: %v", err)
 	}
 
 	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
