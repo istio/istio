@@ -459,11 +459,10 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 // addUint32AvoidOverflow returns sum of two uint32 and status. If sum overflows,
 // and returns MaxUint32 and status.
 func addUint32(left, right uint32) (uint32, bool) {
-	newVal := left + right
-	if newVal < left || newVal < right {
+	if math.MaxUint32-right < left {
 		return math.MaxUint32, true
 	}
-	return newVal, false
+	return left + right, false
 }
 
 // buildInboundPassthroughClusters builds passthrough clusters for inbound.
@@ -685,7 +684,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		}
 	}
 
-	if settings != nil && settings.Http != nil && settings.Http.UseClientProtocol {
+	if settings.Http != nil && settings.Http.UseClientProtocol {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
