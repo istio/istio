@@ -38,6 +38,7 @@ var rootCmd = &cobra.Command{
 		ctx := cmd.Context()
 
 		// TODO(bianpengyuan) consolidate repair config with install config.
+		// TODO(bianpengyuan) add log scope for install & repair.
 		var cfg *config.Config
 		if cfg, err = constructConfig(); err != nil {
 			return

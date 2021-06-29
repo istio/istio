@@ -369,7 +369,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 }
 
 // Testing constructor
-func TestnewBrokenPodReconciler(t *testing.T) {
+func TestNewBrokenPodReconciler(t *testing.T) {
 	var (
 		client  = fake.NewSimpleClientset()
 		filter  = Filters{}

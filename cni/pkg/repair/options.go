@@ -31,8 +31,6 @@ type controllerOptions struct {
 	Enabled       bool     `json:"enabled"`
 }
 
-var loggingOptions = log.DefaultOptions()
-
 // Parse command line options
 func parseFlags() (filters *Filters, options *controllerOptions) {
 	// Parse command line flags
