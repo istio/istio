@@ -17,13 +17,17 @@ package repair
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"go.uber.org/multierr"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client "k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -45,22 +49,22 @@ type Filters struct {
 }
 
 // The pod reconciler struct. Contains state used to reconcile broken pods.
-type BrokenPodReconciler struct {
+type brokenPodReconciler struct {
 	client  client.Interface
 	Filters *Filters
 	Options *Options
 }
 
-// Constructs a new BrokenPodReconciler struct.
-func NewBrokenPodReconciler(client client.Interface, filters *Filters, options *Options) BrokenPodReconciler {
-	return BrokenPodReconciler{
+// Constructs a new brokenPodReconciler struct.
+func newBrokenPodReconciler(client client.Interface, filters *Filters, options *Options) brokenPodReconciler {
+	return brokenPodReconciler{
 		client:  client,
 		Filters: filters,
 		Options: options,
 	}
 }
 
-func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
+func (bpr brokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
 	log.Debugf("Reconciling pod %s", pod.Name)
 
 	if bpr.Options.DeletePods {
@@ -72,7 +76,7 @@ func (bpr BrokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
 }
 
 // Label all pods detected as broken by ListPods with a customizable label
-func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
+func (bpr brokenPodReconciler) LabelBrokenPods() (err error) {
 	// Get a list of all broken pods
 	podList, err := bpr.ListBrokenPods()
 	if err != nil {
@@ -85,7 +89,7 @@ func (bpr BrokenPodReconciler) LabelBrokenPods() (err error) {
 	return err
 }
 
-func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
+func (bpr brokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 	// Added for safety, to make sure no healthy pods get labeled.
 	m := podsRepaired.With(typeLabel.Value(labelType))
 	if !bpr.detectPod(pod) {
@@ -119,7 +123,7 @@ func (bpr BrokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 }
 
 // Delete all pods detected as broken by ListPods
-func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
+func (bpr brokenPodReconciler) DeleteBrokenPods() error {
 	// Get a list of all broken pods
 	podList, err := bpr.ListBrokenPods()
 	if err != nil {
@@ -143,7 +147,7 @@ func (bpr BrokenPodReconciler) DeleteBrokenPods() error {
 	return nil
 }
 
-func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
+func (bpr brokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 	m := podsRepaired.With(typeLabel.Value(deleteType))
 	// Added for safety, to make sure no healthy pods get labeled.
 	if !bpr.detectPod(pod) {
@@ -161,7 +165,7 @@ func (bpr BrokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 }
 
 // Lists all pods identified as broken by our Filter criteria
-func (bpr BrokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
+func (bpr brokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 	var rawList *v1.PodList
 	rawList, err = bpr.client.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		LabelSelector: bpr.Filters.LabelSelectors,
@@ -181,8 +185,8 @@ func (bpr BrokenPodReconciler) ListBrokenPods() (list v1.PodList, err error) {
 	return
 }
 
-// Given a pod, returns 'true' if the pod is a match to the BrokenPodReconciler filter criteria.
-func (bpr BrokenPodReconciler) detectPod(pod v1.Pod) bool {
+// Given a pod, returns 'true' if the pod is a match to the brokenPodReconciler filter criteria.
+func (bpr brokenPodReconciler) detectPod(pod v1.Pod) bool {
 	// Helper function; checks that a container's termination message matches filter
 	matchTerminationMessage := func(state *v1.ContainerStateTerminated) bool {
 		// If we are filtering on init container termination message and the termination message of 'state' does not match, exit
@@ -236,4 +240,66 @@ func (bpr BrokenPodReconciler) detectPod(pod v1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func MaybeStartRepair() {
+	filters, options := parseFlags()
+	if !options.enabled {
+		return
+	}
+
+	clientSet, err := clientSetup()
+	if err != nil {
+		log.Fatalf("CNI repair could not construct clientSet: %s", err)
+	}
+
+	podFixer := newBrokenPodReconciler(clientSet, filters, options.repairOptions)
+	logCurrentOptions(&podFixer, options)
+	stopCh := make(chan struct{})
+
+	// Start metrics server
+	go func() {
+		setupMonitoring(":15014", "/metrics", stopCh)
+	}()
+
+	if options.runAsDaemon {
+		rc, err := NewRepairController(podFixer)
+		if err != nil {
+			log.Fatalf("Fatal error constructing repair controller: %+v", err)
+		}
+		go func() {
+			rc.Run(stopCh)
+		}()
+	} else {
+		err = nil
+		if podFixer.Options.LabelPods {
+			err = multierr.Append(err, podFixer.LabelBrokenPods())
+		}
+		if podFixer.Options.DeletePods {
+			err = multierr.Append(err, podFixer.DeleteBrokenPods())
+		}
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
+	}
+	handleSigTerm(stopCh)
+}
+
+func handleSigTerm(ch chan struct{}) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		close(ch)
+	}()
+}
+
+// Set up Kubernetes client using kubeconfig (or in-cluster config if no file provided)
+func clientSetup() (clientset *client.Clientset, err error) {
+	config, err := kube.DefaultRestConfig("", "")
+	if err != nil {
+		return
+	}
+	clientset, err = client.NewForConfig(config)
+	return
 }

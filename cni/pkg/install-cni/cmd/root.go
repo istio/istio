@@ -26,12 +26,13 @@ import (
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/install"
+	"istio.io/istio/cni/pkg/repair"
 	"istio.io/pkg/log"
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
-	Short: "Install and configure Istio CNI plugin on a node",
+	Short: "Install and configure Istio CNI plugin on a node, and ",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
 
@@ -44,6 +45,8 @@ var rootCmd = &cobra.Command{
 		isReady := install.StartServer()
 
 		installer := install.NewInstaller(cfg, isReady)
+
+		repair.MaybeStartRepair()
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

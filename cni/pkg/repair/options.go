@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,42 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// A simple daemonset binary to repair pods that are crashlooping
-// after winning a race condition against istio-cni
-package main
+package repair
 
 import (
 	"fmt"
-	"net"
-	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"go.opencensus.io/stats/view"
-	"go.uber.org/multierr"
-	client "k8s.io/client-go/kubernetes"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"istio.io/istio/cni/pkg/repair"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
 
-type ControllerOptions struct {
-	RepairOptions *repair.Options `json:"repair_options"`
-	RunAsDaemon   bool            `json:"run_as_daemon"`
+type controllerOptions struct {
+	repairOptions *Options `json:"repair_options"`
+	runAsDaemon   bool     `json:"run_as_daemon"`
+	enabled       bool     `json:"enabled"`
 }
 
 var loggingOptions = log.DefaultOptions()
 
 // Parse command line options
-func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
+func parseFlags() (filters *Filters, options *controllerOptions) {
 	// Parse command line flags
 	// Filter Options
 	pflag.String("node-name", "", "The name of the managed node (will manage all nodes if unset)")
@@ -73,6 +60,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	pflag.String("field-selectors", "", "A set of field selectors in label=value format that will be added to the pod list filters")
 
 	// Repair Options
+	pflag.Bool("enabled", true, "Whether enable race condition repair or not.")
 	pflag.Bool("delete-pods", false, "Controller will delete pods")
 	pflag.Bool("label-pods", false, "Controller will label pods")
 	pflag.Bool("run-as-daemon", false, "Controller will run in a loop")
@@ -100,7 +88,7 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	viper.SetEnvPrefix("REPAIR")
 	viper.AutomaticEnv()
 	// Pull runtime args into structs
-	filters = &repair.Filters{
+	filters = &Filters{
 		InitContainerName:               viper.GetString("init-container-name"),
 		InitContainerTerminationMessage: viper.GetString("init-container-termination-message"),
 		InitContainerExitCode:           viper.GetInt("init-container-exit-code"),
@@ -108,9 +96,10 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 		FieldSelectors:                  viper.GetString("field-selectors"),
 		LabelSelectors:                  viper.GetString("label-selectors"),
 	}
-	options = &ControllerOptions{
-		RunAsDaemon: viper.GetBool("run-as-daemon"),
-		RepairOptions: &repair.Options{
+	options = &controllerOptions{
+		enabled:     viper.GetBool("enabled"),
+		runAsDaemon: viper.GetBool("run-as-daemon"),
+		repairOptions: &Options{
 			DeletePods:    viper.GetBool("delete-pods"),
 			LabelPods:     viper.GetBool("label-pods"),
 			PodLabelKey:   viper.GetString("broken-pod-label-key"),
@@ -125,19 +114,9 @@ func parseFlags() (filters *repair.Filters, options *ControllerOptions) {
 	return
 }
 
-// Set up Kubernetes client using kubeconfig (or in-cluster config if no file provided)
-func clientSetup() (clientset *client.Clientset, err error) {
-	config, err := kube.DefaultRestConfig("", "")
-	if err != nil {
-		return
-	}
-	clientset, err = client.NewForConfig(config)
-	return
-}
-
 // Log human-readable output describing the current filter and option selection
-func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptions) {
-	if options.RunAsDaemon {
+func logCurrentOptions(bpr *brokenPodReconciler, options *controllerOptions) {
+	if options.runAsDaemon {
 		log.Infof("Controller Option: Running as a Daemon.")
 	}
 	if bpr.Options.DeletePods {
@@ -167,88 +146,5 @@ func logCurrentOptions(bpr *repair.BrokenPodReconciler, options *ControllerOptio
 	}
 	if bpr.Filters.InitContainerExitCode != 0 {
 		log.Infof("Filter option: Only managing pods where init container exit status is %d", bpr.Filters.InitContainerExitCode)
-	}
-}
-
-func main() {
-	loggingOptions.OutputPaths = []string{"stderr"}
-	loggingOptions.JSONEncoding = true
-	if err := log.Configure(loggingOptions); err != nil {
-		os.Exit(1)
-	}
-
-	filters, options := parseFlags()
-
-	clientSet, err := clientSetup()
-	if err != nil {
-		log.Fatalf("Could not construct clientSet: %s", err)
-	}
-
-	podFixer := repair.NewBrokenPodReconciler(clientSet, filters, options.RepairOptions)
-	logCurrentOptions(&podFixer, options)
-	stopCh := make(chan struct{})
-
-	// Start metrics server
-	go func() {
-		setupMonitoring(":15014", "/metrics", stopCh)
-	}()
-
-	if options.RunAsDaemon {
-		rc, err := repair.NewRepairController(podFixer)
-		if err != nil {
-			log.Fatalf("Fatal error constructing repair controller: %+v", err)
-		}
-		rc.Run(stopCh)
-
-	} else {
-		err = nil
-		if podFixer.Options.LabelPods {
-			err = multierr.Append(err, podFixer.LabelBrokenPods())
-		}
-		if podFixer.Options.DeletePods {
-			err = multierr.Append(err, podFixer.DeleteBrokenPods())
-		}
-		if err != nil {
-			log.Fatalf(err.Error())
-		}
-	}
-	handleSigTerm(stopCh)
-}
-
-func handleSigTerm(ch chan struct{}) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		close(ch)
-	}()
-}
-
-func setupMonitoring(addr, path string, stop chan struct{}) {
-	mux := http.NewServeMux()
-	var listener net.Listener
-	var err error
-	if listener, err = net.Listen("tcp", addr); err != nil {
-		log.Errorf("unable to listen on socket: %v", err)
-	}
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})
-	if err != nil {
-		log.Errorf("could not set up prometheus exporter: %v", err)
-	}
-	view.RegisterExporter(exporter)
-	mux.Handle(path, exporter)
-	monitoringServer := &http.Server{
-		Handler: mux,
-	}
-	go func() {
-		err = monitoringServer.Serve(listener)
-		if err != nil {
-			log.Errorf("error running monitoring http server: %s", err)
-		}
-	}()
-	<-stop
-	err = monitoringServer.Close()
-	if err != nil {
-		log.Errorf("error closing monitoring http server: %s", err)
 	}
 }

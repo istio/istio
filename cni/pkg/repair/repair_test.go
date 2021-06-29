@@ -261,7 +261,7 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bpr := BrokenPodReconciler{
+			bpr := brokenPodReconciler{
 				client:  fake.NewSimpleClientset(),
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
@@ -349,7 +349,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bpr := BrokenPodReconciler{
+			bpr := brokenPodReconciler{
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
@@ -369,7 +369,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 }
 
 // Testing constructor
-func TestNewBrokenPodReconciler(t *testing.T) {
+func TestnewBrokenPodReconciler(t *testing.T) {
 	var (
 		client  = fake.NewSimpleClientset()
 		filter  = Filters{}
@@ -384,7 +384,7 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantBpr BrokenPodReconciler
+		wantBpr brokenPodReconciler
 	}{
 		{
 			name: "Constructor test",
@@ -393,7 +393,7 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 				filters: &filter,
 				options: &options,
 			},
-			wantBpr: BrokenPodReconciler{
+			wantBpr: brokenPodReconciler{
 				client:  client,
 				Filters: &filter,
 				Options: &options,
@@ -402,9 +402,9 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotBpr := NewBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options)
+			gotBpr := newBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options)
 			if !reflect.DeepEqual(gotBpr, tt.wantBpr) {
-				t.Errorf("NewBrokenPodReconciler() = %v, want %v", gotBpr, tt.wantBpr)
+				t.Errorf("newBrokenPodReconciler() = %v, want %v", gotBpr, tt.wantBpr)
 			}
 		})
 	}
@@ -497,7 +497,7 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			exp := initStats(tt.name)
-			bpr := BrokenPodReconciler{
+			bpr := brokenPodReconciler{
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,
@@ -570,7 +570,7 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			exp := initStats(tt.name)
-			bpr := BrokenPodReconciler{
+			bpr := brokenPodReconciler{
 				client:  tt.fields.client,
 				Filters: tt.fields.Filters,
 				Options: tt.fields.Options,

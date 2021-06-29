@@ -35,10 +35,10 @@ type Controller struct {
 	workQueue     workqueue.RateLimitingInterface
 	podController cache.Controller
 
-	reconciler BrokenPodReconciler
+	reconciler brokenPodReconciler
 }
 
-func NewRepairController(reconciler BrokenPodReconciler) (*Controller, error) {
+func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 	c := &Controller{
 		clientset:  reconciler.client,
 		workQueue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
