@@ -16,19 +16,52 @@
 package fuzz
 
 import (
+	"errors"
+
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 )
 
+var (
+	protocols = []protocol.Instance{protocol.TCP,
+		protocol.UDP,
+		protocol.GRPC,
+		protocol.GRPCWeb,
+		protocol.HTTP,
+		protocol.HTTP_PROXY,
+		protocol.HTTP2,
+		protocol.HTTPS,
+		protocol.Thrift,
+		protocol.TLS,
+		protocol.Mongo,
+		protocol.Redis,
+		protocol.MySQL,
+	}
+)
+
+// Creates a new fuzzed ServiceInstance
 func NewSI(f *fuzz.ConsumeFuzzer) (*model.ServiceInstance, error) {
 	si := &model.ServiceInstance{}
 	err := f.GenerateStruct(si)
 	if err != nil {
 		return si, err
 	}
+	s, err := NewS(f)
+	if err != nil {
+		return si, err
+	}
+	p, err := createPort(f)
+	if err != nil {
+		return si, err
+	}
+	s.Ports = append(s.Ports, p)
+	si.ServicePort = p
+	si.Service = s
 	err = si.Validate()
 	if err != nil {
 		return si, err
@@ -36,12 +69,76 @@ func NewSI(f *fuzz.ConsumeFuzzer) (*model.ServiceInstance, error) {
 	return si, nil
 }
 
+// Gets a protocol from global var protocols
+func getProtocolInstance(f *fuzz.ConsumeFuzzer) (protocol.Instance, error) {
+	pIndex, err := f.GetInt()
+	if err != nil {
+		return protocol.Unsupported, errors.New("Could not create protocolInstance")
+	}
+	i := protocols[pIndex%len(protocols)]
+	return i, nil
+}
+
+// Creates a new fuzzed Port
+func createPort(f *fuzz.ConsumeFuzzer) (*model.Port, error) {
+	p := &model.Port{}
+	name, err := f.GetString()
+	if err != nil {
+		return p, err
+	}
+	port, err := f.GetInt()
+	if err != nil {
+		return p, err
+	}
+	protocolinstance, err := getProtocolInstance(f)
+	if err != nil {
+		return p, err
+	}
+	p.Name = name
+	p.Port = port
+	p.Protocol = protocolinstance
+	return p, nil
+}
+
+// Creates a new fuzzed Port slice
+func createPorts(f *fuzz.ConsumeFuzzer) ([]*model.Port, error) {
+	ports := make([]*model.Port, 0, 20)
+	numberOfPorts, err := f.GetInt()
+	if err != nil {
+		return ports, err
+	}
+	// Maximum 20 ports:
+	maxPorts := numberOfPorts % 20
+	if maxPorts == 0 {
+		maxPorts = 1
+	}
+	for i := 0; i < maxPorts; i++ {
+		port, err := createPort(f)
+		if err != nil {
+			return ports, err
+		}
+		ports = append(ports, port)
+	}
+	return ports, nil
+}
+
+// Creates a new fuzzed Service
 func NewS(f *fuzz.ConsumeFuzzer) (*model.Service, error) {
 	s := &model.Service{}
 	err := f.GenerateStruct(s)
 	if err != nil {
 		return s, err
 	}
+	ports, err := createPorts(f)
+	if err != nil {
+		return s, err
+	}
+	s.Ports = ports
+	hostname, err := f.GetString()
+	if err != nil {
+		return s, err
+	}
+	s.Hostname = host.Name(hostname)
 	err = s.Validate()
 	if err != nil {
 		return s, err
@@ -49,19 +146,13 @@ func NewS(f *fuzz.ConsumeFuzzer) (*model.Service, error) {
 	return s, nil
 }
 
+// Creates an Environment with fuzzed values
+// and passes that to InitContext
 func FuzzInitContext(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	configString, err := f.GetString()
-	if err != nil {
-		return 0
-	}
-	m, err := mesh.ApplyMeshConfigDefaults(configString)
-	if err != nil {
-		return 0
-	}
 
 	// Create service instances
-	serviceInstances := make([]*model.ServiceInstance, 0)
+	serviceInstances := make([]*model.ServiceInstance, 0, 20)
 	number, err := f.GetInt()
 	if err != nil {
 		return 0
@@ -77,7 +168,7 @@ func FuzzInitContext(data []byte) int {
 	}
 
 	// Create services
-	services := make([]*model.Service, 0)
+	services := make([]*model.Service, 0, 20)
 	number, err = f.GetInt()
 	if err != nil {
 		return 0
@@ -92,61 +183,26 @@ func FuzzInitContext(data []byte) int {
 		services = append(services, s)
 	}
 
+	configString, err := f.GetString()
+	if err != nil {
+		return 0
+	}
+	m, err := mesh.ApplyMeshConfigDefaults(configString)
+	if err != nil {
+		return 0
+	}
+
 	env := &model.Environment{}
 	store := model.NewFakeStore()
 
 	env.IstioConfigStore = model.MakeIstioStore(store)
-	env.ServiceDiscovery = &localServiceDiscovery{
-		services:         services,
-		serviceInstances: serviceInstances,
-	}
+	sd := memory.NewServiceDiscovery(services)
+	sd.WantGetProxyServiceInstances = serviceInstances
+	env.ServiceDiscovery = sd
 
 	env.Watcher = mesh.NewFixedWatcher(m)
 	env.Init()
 	pc := model.NewPushContext()
 	_ = pc.InitContext(env, nil, nil)
-
 	return 1
-}
-
-// The following code is taken as-is
-// from istio/pilot/pkg/model/push_context_test.go:
-
-var _ model.ServiceDiscovery = &localServiceDiscovery{}
-
-// MockDiscovery is an in-memory ServiceDiscover with mock services
-type localServiceDiscovery struct {
-	services         []*model.Service
-	serviceInstances []*model.ServiceInstance
-}
-
-var _ model.ServiceDiscovery = &localServiceDiscovery{}
-
-func (l *localServiceDiscovery) Services() ([]*model.Service, error) {
-	return l.services, nil
-}
-
-func (l *localServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
-	panic("implement me")
-}
-
-func (l *localServiceDiscovery) InstancesByPort(svc *model.Service, servicePort int, labels labels.Collection) []*model.ServiceInstance {
-	return l.serviceInstances
-}
-
-func (l *localServiceDiscovery) GetProxyServiceInstances(proxy *model.Proxy) []*model.ServiceInstance {
-	panic("implement me")
-}
-
-func (l *localServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
-	panic("implement me")
-}
-
-func (l *localServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	return nil
-}
-
-func (l *localServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
-	// TODO implement fromRegistry logic from kube controller if needed
-	return nil
 }
