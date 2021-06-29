@@ -166,7 +166,7 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 		"NETWORK":       {Kind: &structpb.Value_StringValue{StringValue: network}},
 	}}
 
-	ads.RequestResponseAck(&discovery.DiscoveryRequest{
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		Node: &core.Node{
 			Id:       ads.ID,
 			Metadata: metadata,
@@ -175,7 +175,7 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 	})
 
 	clusterName := "outbound|1080||service5.default.svc.cluster.local"
-	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		Node: &core.Node{
 			Id:       ads.ID,
 			Metadata: metadata,

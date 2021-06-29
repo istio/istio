@@ -190,7 +190,7 @@ func TestLDS(t *testing.T) {
 	t.Run("sidecar", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ListenerType)
-		ads.RequestResponseAck(nil)
+		ads.RequestResponseAck(t, nil)
 	})
 
 	// 'router' or 'gateway' type of listener
@@ -199,7 +199,7 @@ func TestLDS(t *testing.T) {
 		// Matches Gateway config in test data
 		labels := map[string]string{"version": "v2", "app": "my-gateway-controller"}
 		ads := s.ConnectADS().WithType(v3.ListenerType).WithID(gatewayID(gatewayIP))
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			Node: &core.Node{
 				Id:       ads.ID,
 				Metadata: model.NodeMetadata{Labels: labels}.ToStruct(),
