@@ -28,6 +28,10 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
@@ -42,21 +46,41 @@ func TestCNIRaceRepair(t *testing.T) {
 				t.Skip("CNI race condition mitigation is only tested when CNI is enabled.")
 			}
 			cluster := t.Clusters().Default()
+
+			ns := namespace.NewOrFail(t, t, namespace.Config{
+				Prefix: "cni-race",
+				Inject: true,
+			})
+
+			// Create a echo deployment in the cni-race namespace.
+			t.Logf("Deploy an echo instance in namespace %v...", ns.Name())
+			echoboot.
+				NewBuilder(t, cluster).
+				WithConfig(echo.Config{
+					Namespace:         ns,
+					Ports:             common.EchoPorts,
+					Subsets:           []echo.SubsetConfig{{}},
+					WorkloadOnlyPorts: common.WorkloadPorts,
+				}).BuildOrFail(t)
+
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
 			// Temporarily store CNI DaemonSet, which will be deployed again later.
+			t.Log("Delete CNI Daemonset temporarily to simulate race condition")
 			cniDaemonSet := getCNIDaemonSet(t, cluster)
 			deleteCNIDaemonset(t, cluster)
 
 			// Rollout restart instances in the echo namespace, and wait for a broken instance.
-			rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", apps.Namespace.Name())
+			t.Log("Rollout restart echo instance to get a broken instance")
+			rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", ns.Name())
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
-			waitForBrokenPodOrFail(t, cluster)
+			waitForBrokenPodOrFail(t, cluster, ns)
 
+			t.Log("Redeploy CNI and verify repair takes effect by evicting the broken pod")
 			// Now bring back CNI Daemonset, and pod in the echo namespace should be repaired.
 			deployCNIDaemonset(t, cluster, cniDaemonSet)
-			waitForRepairOrFail(t, cluster)
+			waitForRepairOrFail(t, cluster, ns)
 		})
 }
 
@@ -110,14 +134,14 @@ func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonS
 	}
 }
 
-func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster) {
+func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
 	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.CoreV1().Pods(apps.Namespace.Name()).List(context.TODO(), metav1.ListOptions{})
+		pods, err := cluster.CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
 		if len(pods.Items) == 0 {
-			return errors.New("still waiting the pod in namespace 1 to start")
+			return fmt.Errorf("still waiting the pod in namespace %v to start", ns.Name())
 		}
 		// Verify that at least one pod is in broken state due to the race condition.
 		for _, p := range pods.Items {
@@ -132,9 +156,9 @@ func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster) {
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
-func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster) {
+func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
 	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.CoreV1().Pods(apps.Namespace.Name()).List(context.TODO(), metav1.ListOptions{})
+		pods, err := cluster.CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
