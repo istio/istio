@@ -16,6 +16,7 @@ package grpcgen_test
 
 import (
 	"context"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -25,16 +26,12 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 
-	// To setup the env vars needed for grpc-go. Should be loaded before grpc/xds is loaded.
-	_ "istio.io/istio/pilot/test/grpcgen"
-
 	//  To install the xds resolvers and balancers.
-	_ "google.golang.org/grpc/xds"
+	grpcxds "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
-
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 )
@@ -47,6 +44,14 @@ var (
 )
 
 func TestGRPC(t *testing.T) {
+	bootstap, err := ioutil.ReadFile("testdata/xds_bootstrap.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	xdsresolver, err := grpcxds.NewXDSResolverWithConfigForTesting(bootstap)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ds := xds.NewXDS(make(chan struct{}))
 
 	sd := ds.DiscoveryServer.MemRegistry
@@ -98,19 +103,17 @@ func TestGRPC(t *testing.T) {
 	}
 	ds.DiscoveryServer.UpdateServiceShards(env.PushContext)
 
-	err := ds.StartGRPC(grpcAddr)
-	if err != nil {
+	if err := ds.StartGRPC(grpcAddr); err != nil {
 		t.Fatal(err)
 	}
 	defer ds.GRPCListener.Close()
 
 	t.Run("gRPC-resolve", func(t *testing.T) {
-		rb := resolver.Get("xds")
+		rb := xdsresolver
 		stateCh := &Channel{ch: make(chan interface{}, 1)}
 		errorCh := &Channel{ch: make(chan interface{}, 1)}
 		_, err := rb.Build(resolver.Target{Endpoint: istiodSvcAddr},
 			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
-
 		if err != nil {
 			t.Fatal("Failed to resolve XDS ", err)
 		}
@@ -134,7 +137,8 @@ func TestGRPC(t *testing.T) {
 	t.Run("gRPC-dial", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		conn, err := grpc.DialContext(ctx, "xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure(), grpc.WithBlock())
+		conn, err := grpc.DialContext(ctx, "xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure(), grpc.WithBlock(),
+			grpc.WithResolvers(xdsresolver))
 		if err != nil {
 			t.Fatal("XDS gRPC", err)
 		}
@@ -147,9 +151,7 @@ func TestGRPC(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Log(s.Send(&discovery.DiscoveryRequest{}))
-
 	})
-
 }
 
 type testLBClientConn struct {
