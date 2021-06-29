@@ -53,6 +53,7 @@ spec:
             memory: 40Mi
 
     pilot:
+      autoscaleEnabled: false
       env:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
@@ -61,13 +62,13 @@ spec:
 
     gateways:
       istio-ingressgateway:
-        autoscaleMax: 1
+        autoscaleEnabled: false
         resources:
           requests:
             cpu: 10m
             memory: 40Mi
       istio-egressgateway:
-        autoscaleMax: 1
+        autoscaleEnabled: false
         resources:
           requests:
             cpu: 10m
