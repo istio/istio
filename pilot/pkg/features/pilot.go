@@ -447,7 +447,7 @@ var (
 
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request").Get()
+			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
 	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
 		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",

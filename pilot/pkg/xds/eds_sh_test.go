@@ -31,8 +31,10 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/network"
 )
 
 // Testing the Split Horizon EDS.
@@ -214,12 +216,13 @@ func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, networ
 // service with the provided amount of endpoints. It also creates a service for
 // the ingress with the provided external IP
 func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
-	id := fmt.Sprintf("network%d", clusterNum)
+	clusterID := cluster.ID(fmt.Sprintf("cluster%d", clusterNum))
+	networkID := network.ID(fmt.Sprintf("network%d", clusterNum))
 	memRegistry := memory.NewServiceDiscovery(nil)
 	memRegistry.EDSUpdater = server.Discovery
 
 	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(serviceregistry.Simple{
-		ClusterID:        id,
+		ClusterID:        clusterID,
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: memRegistry,
 		Controller:       &memory.ServiceController{},
@@ -244,7 +247,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 	}
 
 	if len(gws) != 0 {
-		addNetwork(server, id, &meshconfig.Network{
+		addNetwork(server, networkID, &meshconfig.Network{
 			Gateways: gws,
 		})
 	}
@@ -272,7 +275,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 			Address:         fmt.Sprintf("10.%d.0.%d", clusterNum, i+1),
 			EndpointPort:    2080,
 			ServicePortName: "http-main",
-			Network:         id,
+			Network:         networkID,
 			Locality: model.Locality{
 				Label: "az",
 			},
@@ -283,13 +286,13 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
 }
 
-func addNetwork(server *xds.FakeDiscoveryServer, id string, network *meshconfig.Network) {
+func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
 	meshNetworks := *server.Env().Networks()
 	c := map[string]*meshconfig.Network{}
 	for k, v := range meshNetworks.Networks {
 		c[k] = v
 	}
-	c[id] = network
+	c[string(id)] = network
 	meshNetworks.Networks = c
 	server.Env().SetNetworks(&meshNetworks)
 }

@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -67,7 +68,7 @@ func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
-func (c *Controller) DeleteRegistry(clusterID string, providerID serviceregistry.ProviderID) {
+func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID serviceregistry.ProviderID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
@@ -97,9 +98,9 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	return out
 }
 
-func (c *Controller) getRegistryIndex(clusterID string, provider serviceregistry.ProviderID) (int, bool) {
+func (c *Controller) getRegistryIndex(clusterID cluster.ID, provider serviceregistry.ProviderID) (int, bool) {
 	for i, r := range c.registries {
-		if r.Cluster() == clusterID && r.Provider() == provider {
+		if r.Cluster().Equals(clusterID) && r.Provider() == provider {
 			return i, true
 		}
 	}
@@ -171,10 +172,10 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	return out, errs
 }
 
-func mergeService(dst, src *model.Service, srcCluster string) {
+func mergeService(dst, src *model.Service, srcCluster cluster.ID) {
 	dst.Mutex.Lock()
 	if dst.ClusterVIPs == nil {
-		dst.ClusterVIPs = make(map[string]string)
+		dst.ClusterVIPs = make(map[cluster.ID]string)
 	}
 	dst.ClusterVIPs[srcCluster] = src.Address
 	dst.Mutex.Unlock()
@@ -199,7 +200,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, port int, labels labels
 	return instances
 }
 
-func nodeClusterID(node *model.Proxy) string {
+func nodeClusterID(node *model.Proxy) cluster.ID {
 	if node.Metadata == nil || node.Metadata.ClusterID == "" {
 		return ""
 	}
@@ -208,14 +209,14 @@ func nodeClusterID(node *model.Proxy) string {
 
 // Skip the service registry when there won't be a match
 // because the proxy is in a different cluster.
-func skipSearchingRegistryForProxy(nodeClusterID string, r serviceregistry.Instance) bool {
+func skipSearchingRegistryForProxy(nodeClusterID cluster.ID, r serviceregistry.Instance) bool {
 	// Always search non-kube (usually serviceentry) registry.
 	// Check every registry if cluster ID isn't specified.
 	if r.Provider() != serviceregistry.Kubernetes || nodeClusterID == "" {
 		return false
 	}
 
-	return r.Cluster() != nodeClusterID
+	return !r.Cluster().Equals(nodeClusterID)
 }
 
 // GetProxyServiceInstances lists service instances co-located with a given proxy
