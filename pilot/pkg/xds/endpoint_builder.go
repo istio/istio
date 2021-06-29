@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	network2 "istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/network"
 )
 
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
@@ -60,8 +60,8 @@ func GetTunnelBuilderType(_ string, proxy *model.Proxy, _ *model.PushContext) ne
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
-	network         network2.ID
-	networkView     map[network2.ID]bool
+	network         network.ID
+	networkView     map[network.ID]bool
 	clusterID       cluster.ID
 	locality        *core.Locality
 	destinationRule *config.Config
@@ -169,7 +169,7 @@ func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
 	return edsDependentTypes
 }
 
-func (b *EndpointBuilder) canViewNetwork(network network2.ID) bool {
+func (b *EndpointBuilder) canViewNetwork(network network.ID) bool {
 	if b.networkView == nil {
 		return true
 	}
