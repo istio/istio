@@ -80,16 +80,20 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
-		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
-		clusters = append(clusters, outboundPatcher.insertedClusters()...)
 
-		// Setup inbound clusters
-		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
-		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
-		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
-		clusters = append(clusters, inboundPatcher.insertedClusters()...)
+		if proxy.Metadata.Generator != "grpc" {
+
+			// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
+			clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
+			clusters = append(clusters, outboundPatcher.insertedClusters()...)
+
+			// Setup inbound clusters
+			inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
+			clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
+			// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
+			clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
+			clusters = append(clusters, inboundPatcher.insertedClusters()...)
+		}
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
