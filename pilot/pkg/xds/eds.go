@@ -152,7 +152,7 @@ func (s *DiscoveryServer) edsCacheUpdate(shard string, hostname string, namespac
 
 	ep.mutex.Lock()
 	x := ep.Version.Inc()
-	log.Errorf("howardjohn: eds update %v/%v to %v before %v now %v", hostname, namespace, x, len(ep.Shards[shard]), istioEndpoints)
+	log.Errorf("howardjohn: eds update %v/%v to %v before %v now %v. %p", hostname, namespace, x, len(ep.Shards[shard]), len(istioEndpoints), ep)
 	ep.Shards[shard] = istioEndpoints
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)

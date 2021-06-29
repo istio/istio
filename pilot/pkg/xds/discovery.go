@@ -299,7 +299,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 
 // dropCacheForRequest clears the cache in response to a push request
 func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
-	log.Errorf("howardjohn: dropping cache for push %v", req.Start)
+	log.Errorf("howardjohn: dropping cache for push %v", len(req.ConfigsUpdated))
 	// If we don't know what updated, cannot safely cache. Clear the whole cache
 	if len(req.ConfigsUpdated) == 0 {
 		s.Cache.ClearAll()

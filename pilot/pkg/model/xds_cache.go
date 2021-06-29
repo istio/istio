@@ -277,17 +277,20 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bo
 		// If the entry is not found at all, this is our first read of it. We will generate and store
 		// a new token. Subsequent writes must include it.
 		tok := CacheToken(l.nextToken.Inc())
+		log.Errorf("howardjohn: generated token for %v: %v", k, tok)
 		l.store.Add(k, cacheValue{token: tok})
 		return nil, tok, false
 	}
 	cv := val.(cacheValue)
 	if cv.value == nil {
 		miss()
+		log.Errorf("howardjohn: cache miss %v: %v", k, cv.token)
 		// We have generated a token previously, so return that, but this is still a cache miss as
 		// no value is stored.
 		return nil, cv.token, false
 	}
 	hit()
+	log.Errorf("howardjohn: hit miss %v: %v", k, cv.token)
 	return cv.value, cv.token, true
 }
 
