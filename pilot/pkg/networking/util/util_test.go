@@ -1255,6 +1255,11 @@ func TestEndpointMetadata(t *testing.T) {
 									StringValue: "network",
 								},
 							},
+							"cluster": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "cluster",
+								},
+							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;service;v1;cluster",
@@ -1290,6 +1295,11 @@ func TestEndpointMetadata(t *testing.T) {
 									StringValue: "network",
 								},
 							},
+							"cluster": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "cluster",
+								},
+							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;;;cluster",
@@ -1323,6 +1333,11 @@ func TestEndpointMetadata(t *testing.T) {
 							"network": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "network",
+								},
+							},
+							"cluster": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "cluster",
 								},
 							},
 							"workload": {

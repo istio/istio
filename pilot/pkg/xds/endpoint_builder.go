@@ -385,13 +385,9 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 
-	epWeight := e.LbWeight
-	if epWeight == 0 {
-		epWeight = 1
-	}
 	ep := &endpoint.LbEndpoint{
 		LoadBalancingWeight: &wrappers.UInt32Value{
-			Value: epWeight,
+			Value: e.GetLoadBalancingWeight(),
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{

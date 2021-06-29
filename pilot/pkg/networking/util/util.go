@@ -480,9 +480,9 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network network.ID, tlsMode, workloadname, namespace string,
+func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
 	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
-	if network == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
+	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
 		return nil
 	}
 
@@ -490,8 +490,12 @@ func BuildLbEndpointMetadata(network network.ID, tlsMode, workloadname, namespac
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
 
-	if network != "" {
-		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network.String()}})
+	if networkID != "" {
+		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: networkID.String()}})
+	}
+	// TODO(nmittler): Is there any concern with adding an extra label?
+	if clusterID != "" {
+		addIstioEndpointLabel(metadata, "cluster", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: clusterID.String()}})
 	}
 
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
