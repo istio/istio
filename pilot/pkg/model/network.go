@@ -33,9 +33,9 @@ type NetworkGateway struct {
 	Port uint32
 }
 
-// newNetworkManager creates a new NetworkManager from the Environment by merging
+// NewNetworkManager creates a new NetworkManager from the Environment by merging
 // together the MeshNetworks and ServiceRegistry-specific gateways.
-func newNetworkManager(env *Environment) *NetworkManager {
+func NewNetworkManager(env *Environment) *NetworkManager {
 	// Generate the a snapshot of the state of gateways by merging the contents of
 	// MeshNetworks and the ServiceRegistries.
 	byNetwork := make(map[network.ID][]*NetworkGateway)
@@ -43,7 +43,7 @@ func newNetworkManager(env *Environment) *NetworkManager {
 
 	addGateway := func(gateway *NetworkGateway) {
 		byNetwork[gateway.Network] = append(byNetwork[gateway.Network], gateway)
-		nc := networkAndClusterFor(gateway)
+		nc := networkAndClusterForGateway(gateway)
 		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], gateway)
 	}
 
@@ -70,10 +70,16 @@ func newNetworkManager(env *Environment) *NetworkManager {
 	}
 
 	// Second, load registry-specific gateways.
-	for _, gateway := range env.NetworkGateways() {
-		// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
-		// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-		addGateway(gateway)
+	for _, gw := range env.NetworkGateways() {
+		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
+			// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
+			// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
+			addGateway(gw)
+		} else {
+			log.Warnf("Failed parsing gateway address %s from Service Registry. "+
+				"Hostnames are not supported for gateways",
+				gw.Addr)
+		}
 	}
 
 	return &NetworkManager{
@@ -86,18 +92,6 @@ func newNetworkManager(env *Environment) *NetworkManager {
 type NetworkManager struct {
 	byNetwork           map[network.ID][]*NetworkGateway
 	byNetworkAndCluster map[networkAndCluster][]*NetworkGateway
-}
-
-type networkAndCluster struct {
-	network network.ID
-	cluster cluster.ID
-}
-
-func networkAndClusterFor(g *NetworkGateway) networkAndCluster {
-	return networkAndCluster{
-		network: g.Network,
-		cluster: g.Cluster,
-	}
 }
 
 func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
@@ -117,8 +111,21 @@ func (mgr *NetworkManager) GatewaysForNetwork(nw network.ID) []*NetworkGateway {
 }
 
 func (mgr *NetworkManager) GatewaysForNetworkAndCluster(nw network.ID, c cluster.ID) []*NetworkGateway {
-	return mgr.byNetworkAndCluster[networkAndCluster{
+	return mgr.byNetworkAndCluster[networkAndClusterFor(nw, c)]
+}
+
+type networkAndCluster struct {
+	network network.ID
+	cluster cluster.ID
+}
+
+func networkAndClusterForGateway(g *NetworkGateway) networkAndCluster {
+	return networkAndClusterFor(g.Network, g.Cluster)
+}
+
+func networkAndClusterFor(nw network.ID, c cluster.ID) networkAndCluster {
+	return networkAndCluster{
 		network: nw,
 		cluster: c,
-	}]
+	}
 }
