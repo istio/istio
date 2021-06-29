@@ -817,7 +817,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	// be detected
 	// This is not using adsc, which consumes the events automatically.
 	ads := s.ConnectADS()
-	ads.Request(nil)
+	ads.Request(t, nil)
 
 	n := nclients
 	wg.Add(n)
