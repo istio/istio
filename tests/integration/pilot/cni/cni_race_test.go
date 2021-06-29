@@ -19,18 +19,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
+	v1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -64,6 +62,8 @@ func TestCNIRaceRepair(t *testing.T) {
 			}
 			cluster := t.Clusters().Default()
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
+			// Temporarily store CNI DaemonSet, which will be deployed again later.
+			cniDaemonSet := getCNIDaemonSet(t, cluster)
 			deleteCNIDaemonset(t, cluster)
 
 			// Rollout restart instances in namespace 1, and wait for a broken instance.
@@ -74,11 +74,22 @@ func TestCNIRaceRepair(t *testing.T) {
 			waitForBrokenPodOrFail(t, cluster)
 
 			// Now bring back CNI Daemonset, and pod in namespace 1 should be repaired.
-			if err := deployCNIDaemonset(t, cluster); err != nil {
-				t.Fatalf("failed to deploy CNI Dameonset %v", err)
-			}
+			deployCNIDaemonset(t, cluster, cniDaemonSet)
 			waitForRepairOrFail(t, cluster)
 		})
+}
+
+func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *v1.DaemonSet {
+	cniDaemonSet, err := c.(istioKube.ExtendedClient).
+		Kube().AppsV1().DaemonSets("kube-system").
+		Get(context.Background(), "istio-cni-node", metav1.GetOptions{})
+	if err != nil {
+		ctx.Fatalf("failed to get CNI Daemonset %v", err)
+	}
+	if cniDaemonSet == nil {
+		ctx.Fatal("cannot find CNI Daemonset")
+	}
+	return cniDaemonSet
 }
 
 func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
@@ -90,7 +101,7 @@ func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 
 	// Wait until the CNI Daemonset pod cannot be fetched anymore
 	retry.UntilSuccessOrFail(ctx, func() error {
-		scopes.Framework.Infof("Checking if CNI Daemonset pod is deleted...")
+		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
 		pods, err := c.PodsForSelector(context.TODO(), "kube-system", "k8s-app=istio-cni-node")
 		if err != nil {
 			return err
@@ -102,15 +113,18 @@ func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
-func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) error {
-	args := []string{
-		"install", "-f", filepath.Join(env.IstioSrc,
-			"tests/integration/pilot/cni/testdata/cni.yaml"),
-		"--skip-confirmation",
+func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *v1.DaemonSet) {
+	deployDaemonSet := v1.DaemonSet{}
+	deployDaemonSet.Spec = cniDaemonSet.Spec
+	deployDaemonSet.ObjectMeta = metav1.ObjectMeta{
+		Name:      cniDaemonSet.ObjectMeta.Name,
+		Namespace: cniDaemonSet.ObjectMeta.Namespace,
 	}
-	istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
-	_, _, err := istioCtl.Invoke(args)
-	return err
+	_, err := c.(istioKube.ExtendedClient).Kube().AppsV1().DaemonSets("kube-system").
+		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
+	if err != nil {
+		ctx.Fatalf("failed to deploy CNI Daemonset %v", err)
+	}
 }
 
 func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster) {
