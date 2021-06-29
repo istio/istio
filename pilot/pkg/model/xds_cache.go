@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/golang-lru/simplelru"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
+	istiolog "istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -215,6 +216,7 @@ func (l *lruCache) assertUnchanged(key string, existing cacheValue, replacement 
 		// This operation is really slow, which makes tests fail for unrelated reasons, so we process it async.
 		go func() {
 			if !cmp.Equal(existing.value, replacement, protocmp.Transform()) {
+				_ = istiolog.Sync()
 				warning := fmt.Errorf("assertion failed at %v for %v with token %v, cache entry changed but not cleared for key %v: %v\n%v\n%v",
 					t0, metadata, existing.token, key, cmp.Diff(existing.value, replacement, protocmp.Transform()), existing.value, replacement)
 				panic(warning)
