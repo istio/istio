@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"istio.io/pkg/log"
 	"math"
 	"strconv"
 	"strings"
@@ -82,7 +83,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, outboundPatcher)...)
 
 		if proxy.Metadata.Generator != "grpc" {
-
+			log.Info("building non-grpc stuff for %s (gen is %s)", proxy.ID, proxy.Metadata.Generator)
 			// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 			clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 			clusters = append(clusters, outboundPatcher.insertedClusters()...)
