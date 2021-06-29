@@ -117,8 +117,10 @@ func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonS
 	deployDaemonSet := v1.DaemonSet{}
 	deployDaemonSet.Spec = cniDaemonSet.Spec
 	deployDaemonSet.ObjectMeta = metav1.ObjectMeta{
-		Name:      cniDaemonSet.ObjectMeta.Name,
-		Namespace: cniDaemonSet.ObjectMeta.Namespace,
+		Name:        cniDaemonSet.ObjectMeta.Name,
+		Namespace:   cniDaemonSet.ObjectMeta.Namespace,
+		Labels:      cniDaemonSet.ObjectMeta.Labels,
+		Annotations: cniDaemonSet.ObjectMeta.Annotations,
 	}
 	_, err := c.(istioKube.ExtendedClient).Kube().AppsV1().DaemonSets("kube-system").
 		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
