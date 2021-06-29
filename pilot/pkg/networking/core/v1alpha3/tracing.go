@@ -46,12 +46,12 @@ import (
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = extensionproviders.LookupCluster
 
-func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager, mctx *xdsfilters.FilterModifierContext) {
+func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager, rfCtx *xdsfilters.RouterFilterContext) {
 	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy.ConfigNamespace, labels.Collection{opts.proxy.Metadata.Labels})
-	configureTracingFromSpec(spec, opts, hcm, mctx)
+	configureTracingFromSpec(spec, opts, hcm, rfCtx)
 }
 
-func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager, mctx *xdsfilters.FilterModifierContext) {
+func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager, rfCtx *xdsfilters.RouterFilterContext) {
 	meshCfg := opts.push.Mesh
 	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
 
@@ -90,7 +90,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	providerConfigured := false
 	for _, p := range meshCfg.ExtensionProviders {
 		if strings.EqualFold(p.Name, providerName) {
-			tcfg, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, p, mctx)
+			tcfg, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, p, rfCtx)
 			if err != nil {
 				log.Warnf("Not able to configure requested tracing provider %q: %v", p.Name, err)
 				continue
@@ -122,7 +122,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
 func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
-	providerCfg *meshconfig.MeshConfig_ExtensionProvider, mctx *xdsfilters.FilterModifierContext) (*hpb.HttpConnectionManager_Tracing, error) {
+	providerCfg *meshconfig.MeshConfig_ExtensionProvider, rfCtx *xdsfilters.RouterFilterContext) (*hpb.HttpConnectionManager_Tracing, error) {
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
@@ -151,7 +151,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-		mctx.RouterFilterModifierCtx.EnableStartChildSpan = true
+		rfCtx.StartChildSpan = true
 
 		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service, provider.Skywalking.Port, 0, func(clusterName string) (*anypb.Any, error) {
 			s := &tracingcfg.SkyWalkingConfig{

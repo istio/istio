@@ -67,12 +67,6 @@ var (
 			TypedConfig: util.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
-	Router = &hcm.HttpFilter{
-		Name: wellknown.Router,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&router.Router{}),
-		},
-	}
 	GrpcWeb = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -156,6 +150,17 @@ var (
 
 	HTTPMx = buildHTTPMxFilter()
 )
+
+func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
+		Name: wellknown.Router,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&router.Router{
+				StartChildSpan: ctx.StartChildSpan,
+			}),
+		},
+	}
+}
 
 var (
 	// These ALPNs are injected in the client side by the ALPN filter.
