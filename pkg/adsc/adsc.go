@@ -606,12 +606,13 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
 		}
 
-		if filter.Name == wellknown.TCPProxy {
+		switch filter.Name {
+		case wellknown.TCPProxy:
 			lt[l.Name] = l
 			config, _ := conversion.MessageToStruct(filter.GetTypedConfig())
 			c := config.Fields["cluster"].GetStringValue()
 			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
-		} else if filter.Name == wellknown.HTTPConnectionManager {
+		case wellknown.HTTPConnectionManager:
 			lh[l.Name] = l
 
 			// Getting from config is too painful..
@@ -621,13 +622,13 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			} else {
 				routes = append(routes, fmt.Sprintf("%d", port))
 			}
-		} else if filter.Name == wellknown.MongoProxy {
+		case wellknown.MongoProxy:
 			// ignore for now
-		} else if filter.Name == wellknown.RedisProxy {
+		case wellknown.RedisProxy:
 			// ignore for now
-		} else if filter.Name == wellknown.MySQLProxy {
+		case wellknown.MySQLProxy:
 			// ignore for now
-		} else {
+		default:
 			tm := &jsonpb.Marshaler{Indent: "  "}
 			adscLog.Infof(tm.MarshalToString(l))
 		}
