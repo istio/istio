@@ -189,7 +189,7 @@ func (e *endpointsController) forgetEndpoint(endpoint interface{}) []*model.Isti
 			e.c.pods.endpointDeleted(key, ea.IP)
 		}
 	}
-	return make([]*model.IstioEndpoint, 0)
+	return nil
 }
 
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
