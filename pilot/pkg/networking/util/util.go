@@ -490,14 +490,6 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
 
-	if networkID != "" {
-		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: networkID.String()}})
-	}
-	// TODO(nmittler): Is there any concern with adding an extra label?
-	if clusterID != "" {
-		addIstioEndpointLabel(metadata, "cluster", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: clusterID.String()}})
-	}
-
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
 		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{

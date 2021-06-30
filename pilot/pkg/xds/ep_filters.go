@@ -75,8 +75,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				Value: weight,
 			}
 
-			epNetwork := network.ID(istioMetadata(lbEp, "network"))
-			epCluster := cluster.ID(istioMetadata(lbEp, "cluster"))
+			istioEndpoint := ep.istioEndpoints[i]
+			epNetwork := istioEndpoint.Network
+			epCluster := istioEndpoint.Locality.ClusterID
 			gateways := b.selectNetworkGateways(epNetwork, epCluster)
 
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
@@ -130,6 +131,16 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		// Now create endpoints for the gateways.
 		for gw, weight := range gatewayWeights {
 			epAddr := util.BuildAddress(gw.Addr, gw.Port)
+
+			// Generate a fake IstioEndpoint to carry network and cluster information.
+			gwIstioEp := &model.IstioEndpoint{
+				Network: gw.Network,
+				Locality: model.Locality{
+					ClusterID: gw.Cluster,
+				},
+			}
+
+			// Generate the EDS endpoint for this gateway.
 			gwEp := &endpoint.LbEndpoint{
 				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 					Endpoint: &endpoint.Endpoint{
@@ -144,7 +155,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			gwEp.Metadata = util.BuildLbEndpointMetadata(gw.Network, model.IstioMutualTLSModeLabel,
 				"", "", b.clusterID, labels.Instance{})
 			// Currently gateway endpoint does not support tunnel.
-			lbEndpoints.append(gwEp, networking.MakeTunnelAbility())
+			lbEndpoints.append(gwIstioEp, gwEp, networking.MakeTunnelAbility())
 		}
 
 		// Endpoint members could be stripped or aggregated by network. Adjust weight value here.

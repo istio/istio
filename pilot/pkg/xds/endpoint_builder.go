@@ -213,6 +213,7 @@ func (t *EndpointH2TunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelTy
 }
 
 type LocLbEndpointsAndOptions struct {
+	istioEndpoints []*model.IstioEndpoint
 	// The protobuf message which contains LbEndpoint slice.
 	llbEndpoints endpoint.LocalityLbEndpoints
 	// The runtime information of the LbEndpoint slice. Each LbEndpoint has individual metadata at the same index.
@@ -227,7 +228,8 @@ func MakeTunnelApplier(_ *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbilit
 	return &EndpointNoTunnelApplier{}
 }
 
-func (e *LocLbEndpointsAndOptions) append(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
+func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
+	e.istioEndpoints = append(e.istioEndpoints, ep)
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
 	e.tunnelMetadata = append(e.tunnelMetadata, MakeTunnelApplier(le, tunnelOpt))
 }
@@ -305,18 +307,18 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
 				locLbEps = &LocLbEndpointsAndOptions{
-					endpoint.LocalityLbEndpoints{
+					llbEndpoints: endpoint.LocalityLbEndpoints{
 						Locality:    util.ConvertLocality(ep.Locality.Label),
 						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 					},
-					make([]EndpointTunnelApplier, 0, len(endpoints)),
+					tunnelMetadata: make([]EndpointTunnelApplier, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
-			locLbEps.append(ep.EnvoyEndpoint, ep.TunnelAbility)
+			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels

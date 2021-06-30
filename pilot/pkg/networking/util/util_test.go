@@ -1211,11 +1211,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: ";;;;",
@@ -1250,16 +1245,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
-							"cluster": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "cluster",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;service;v1;cluster",
@@ -1290,16 +1275,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
-							"cluster": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "cluster",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;;;cluster",
@@ -1330,16 +1305,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
-							"cluster": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "cluster",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: ";;;;cluster",
