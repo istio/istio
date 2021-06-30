@@ -37,6 +37,7 @@ shift
 
 set -e
 
+ARCH_SUFFIX=${ARCH_SUFFIX:-0}
 BUILD_GOOS=${GOOS:-linux}
 BUILD_GOARCH=${GOARCH:-amd64}
 GOBINARY=${GOBINARY:-go}
@@ -83,9 +84,28 @@ if [ "${DEBUG}" == "1" ]; then
     OPTIMIZATION_FLAGS=()
 fi
 
+OUTDIR=${OUT}
+
+if [ "${ARCH_SUFFIX}" == "1" ]; then
+  OUTDIR="${OUT}/${BUILD_GOARCH}/"
+fi
+
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
-        -o "${OUT}" \
+        -o "${OUTDIR}" \
         "${OPTIMIZATION_FLAGS[@]}" \
         -pkgdir="${GOPKG}/${BUILD_GOOS}_${BUILD_GOARCH}" \
         -ldflags "${LDFLAGS} ${LD_EXTRAFLAGS}" "${@}"
+
+if [ "${ARCH_SUFFIX}" == "1" ]; then
+  BINARIES=$(ls "${OUTDIR}")
+
+  # ${BUILD_GOARCH}/xxx => xxx-${BUILD_GOARCH}
+
+  for bin in ${BINARIES}; do
+      mv "${OUTDIR}/${bin}" "${OUT}/${bin}-${BUILD_GOARCH}"
+  done
+
+  rm -rf "${OUTDIR}"
+fi
+

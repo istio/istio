@@ -16,8 +16,9 @@ RUN echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 # Install the Echo application
 COPY echo-start.sh /usr/local/bin/echo-start.sh
-COPY client /usr/local/bin/client
-COPY server /usr/local/bin/server
+ARG TARGETARCH
+COPY client-${TARGETARCH:-amd64} /usr/local/bin/client
+COPY server-${TARGETARCH:-amd64} /usr/local/bin/server
 RUN chmod +x /usr/local/bin/client /usr/local/bin/server
 
 ENTRYPOINT ["/usr/local/bin/echo-start.sh"]

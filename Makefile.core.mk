@@ -304,8 +304,8 @@ build: depend ## Builds all go binaries.
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(STANDARD_BINARIES)
-	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) ARCH_SUFFIX=1 common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(STANDARD_BINARIES)
+	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) ARCH_SUFFIX=1 common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ -tags=agent $(AGENT_BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
 # There are two use cases here:

@@ -47,7 +47,7 @@ DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
                              pilot-discovery pilot-agent \
                              istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
-        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
+        $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE)-* $(ISTIO_DOCKER)/))
 
 # rule for the test certs.
 $(ISTIO_DOCKER)/certs:
@@ -84,12 +84,12 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm: init
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=&& chmod 755 ${SIDECAR} pilot-agent && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
+docker.proxyv2: BUILD_PRE=&& chmod 755 ${SIDECAR}-* pilot-agent-* && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} --build-arg SIDECAR=${SIDECAR}
 docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/${SIDECAR}
-docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
+docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent-*
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.compiled.wasm
@@ -97,20 +97,20 @@ docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm
 	$(DOCKER_RULE)
 
-docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
+docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery-* && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
-docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery
+docker.pilot: $(ISTIO_OUT_LINUX)/pilot-discovery-*
 docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 # Test application
-docker.app: BUILD_PRE=&& chmod 755 server client
+docker.app: BUILD_PRE=&& chmod 755 server-* client-*
 docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app: $(ECHO_DOCKER)/Dockerfile.app
-docker.app: $(ISTIO_OUT_LINUX)/client
-docker.app: $(ISTIO_OUT_LINUX)/server
+docker.app: $(ISTIO_OUT_LINUX)/client-*
+docker.app: $(ISTIO_OUT_LINUX)/server-*
 docker.app: $(ISTIO_DOCKER)/certs
 	$(DOCKER_RULE)
 
@@ -120,8 +120,8 @@ docker.app_sidecar_ubuntu_xenial: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_xenial: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_xenial: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/client-*
+docker.app_sidecar_ubuntu_xenial: $(ISTIO_OUT_LINUX)/server-*
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
@@ -131,8 +131,8 @@ docker.app_sidecar_ubuntu_bionic: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_bionic: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_bionic: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/client-*
+docker.app_sidecar_ubuntu_bionic: $(ISTIO_OUT_LINUX)/server-*
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
@@ -142,8 +142,8 @@ docker.app_sidecar_ubuntu_focal: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_ubuntu_focal: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_ubuntu_focal: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/client-*
+docker.app_sidecar_ubuntu_focal: $(ISTIO_OUT_LINUX)/server-*
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
@@ -153,8 +153,8 @@ docker.app_sidecar_debian_9: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_9: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_debian_9: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/client-*
+docker.app_sidecar_debian_9: $(ISTIO_OUT_LINUX)/server-*
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
@@ -164,8 +164,8 @@ docker.app_sidecar_debian_10: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/release/istio-sidecar.deb
 docker.app_sidecar_debian_10: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_debian_10: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/client-*
+docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server-*
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
@@ -175,8 +175,8 @@ docker.app_sidecar_centos_8: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/release/istio-sidecar.rpm
 docker.app_sidecar_centos_8: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_centos_8: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/client-*
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/server-*
 docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
 	$(DOCKER_RULE)
 
@@ -186,28 +186,28 @@ docker.app_sidecar_centos_7: tools/packaging/common/envoy_bootstrap.json
 docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/release/istio-sidecar-centos-7.rpm
 docker.app_sidecar_centos_7: $(ISTIO_DOCKER)/certs
 docker.app_sidecar_centos_7: pkg/test/echo/docker/echo-start.sh
-docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/client
-docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/client-*
+docker.app_sidecar_centos_7: $(ISTIO_OUT_LINUX)/server-*
 docker.app_sidecar_centos_7: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_7
 	$(DOCKER_RULE)
 
 docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.istioctl: istioctl/docker/Dockerfile.istioctl
-docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
+docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl-*
 	$(DOCKER_RULE)
 
 docker.operator: manifests
 docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.operator: operator/docker/Dockerfile.operator
-docker.operator: $(ISTIO_OUT_LINUX)/operator
+docker.operator: $(ISTIO_OUT_LINUX)/operator-*
 	$(DOCKER_RULE)
 
 # CNI
 docker.install-cni: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
-docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
-docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
-docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-*
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables-*
+docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni-*
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint-*
 docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
 	$(DOCKER_RULE)
 

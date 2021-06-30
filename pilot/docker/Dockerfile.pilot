@@ -14,7 +14,8 @@ FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
 # hadolint ignore=DL3006
 FROM ${BASE_DISTRIBUTION}
 
-COPY pilot-discovery /usr/local/bin/
+ARG TARGETARCH
+COPY pilot-discovery-${TARGETARCH:-amd64} /usr/local/bin/pilot-discovery
 
 # Copy templates for bootstrap generation.
 COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json

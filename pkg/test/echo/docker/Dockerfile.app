@@ -2,8 +2,9 @@ ARG BASE_VERSION=latest
 
 FROM gcr.io/istio-release/base:${BASE_VERSION}
 
-COPY client /usr/local/bin/client
-COPY server /usr/local/bin/server
+ARG TARGETARCH
+COPY client-${TARGETARCH:-amd64} /usr/local/bin/client
+COPY server-${TARGETARCH:-amd64} /usr/local/bin/server
 COPY certs/cert.crt /cert.crt
 COPY certs/cert.key /cert.key
 

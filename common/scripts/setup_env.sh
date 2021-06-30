@@ -34,6 +34,9 @@ elif [[ ${LOCAL_ARCH} == armv8* ]]; then
     export TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
     export TARGET_ARCH=arm64
+elif [[ ${LOCAL_ARCH} == arm64* ]]; then
+    # Apple M1
+    export TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == armv* ]]; then
     export TARGET_ARCH=arm
 elif [[ ${LOCAL_ARCH} == s390x ]]; then
@@ -76,11 +79,11 @@ export DOCKER_GID
 TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///')
 export TIMEZONE
 
-export TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
-export TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_${TARGET_ARCH}}"
+export TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}}"
+export TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux}"
 
-export CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
-export CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_${TARGET_ARCH}}"
+export CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}}"
+export CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux}"
 
 export IMG="${IMG:-gcr.io/istio-testing/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
