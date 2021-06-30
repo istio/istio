@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -327,9 +326,7 @@ func newEndpointSliceCache() *endpointSliceCache {
 func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints []*model.IstioEndpoint) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	log.Errorf("yo %+v %s %+v", *endpoints[0], slice, hostname)
 	if len(endpoints) == 0 {
-		log.Errorf("adiprerepa: host %+v slice %s endpoints of length 0. endpointKeys: %+v\n", hostname, slice, e.endpointKeysByServiceAndSlice[hostname])
 		for _, ip := range e.endpointKeysByServiceAndSlice[hostname][slice] {
 			delete(e.endpointByKey, ip)
 		}
@@ -351,19 +348,16 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 		e.endpointByKey[key] = ep
 	}
 	e.endpointKeysByServiceAndSlice[hostname][slice] = keys
-	log.Errorf("adiprerepa: endpoints for hostname %+v: %+v", hostname, e.endpointKeysByServiceAndSlice[hostname])
 }
 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	log.Errorf("deleting of key %+v slice %v keys %v", hostname, slice, reflect.ValueOf(e.endpointKeysByServiceAndSlice).MapKeys())
 	delete(e.endpointKeysByServiceAndSlice[hostname], slice)
 	if len(e.endpointKeysByServiceAndSlice[hostname]) == 0 {
 		delete(e.endpointKeysByServiceAndSlice, hostname)
 	}
-	log.Errorf("adiprerepa: endpoints AFTER DELETE: %+v", e.endpointKeysByServiceAndSlice[hostname])
 }
 
 func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
