@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	istiolog "istio.io/pkg/log"
@@ -197,6 +198,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.MeshHandler)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
+	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
 }
@@ -220,7 +222,7 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 			return
 		}
 		// Authenticate request with the same method as XDS
-		authFailMsgs := []string{}
+		authFailMsgs := make([]string, 0)
 		var ids []string
 		for _, authn := range s.Authenticators {
 			u, err := authn.AuthenticateRequest(req)
@@ -347,7 +349,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	svc, _ := s.Env.ServiceDiscovery.Services()
-	resp := []endpointzResponse{}
+	resp := make([]endpointzResponse, 0)
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
 			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
@@ -397,8 +399,8 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 	}
 }
 
-// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
-// b64 encoding of a 64 bit array, which will always be 12 chars in length.
+// VersionLen is the Config Version and is only used as the nonce prefix, but we can reconstruct
+// it because is is a b64 encoding of a 64 bit array, which will always be 12 chars in length.
 // len = ceil(bitlength/(2^6))+1
 const VersionLen = 12
 
@@ -438,7 +440,7 @@ func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
-	configs := []kubernetesConfig{}
+	configs := make([]kubernetesConfig, 0)
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
@@ -460,7 +462,7 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
-	schemas := []config.GroupVersionKind{}
+	schemas := make([]config.GroupVersionKind, 0)
 	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
 		schemas = append(schemas, schema.Resource().GroupVersionKind())
 		return false
@@ -558,11 +560,11 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
 
 	for _, cs := range clusters {
-		cluster, err := anypb.New(cs)
+		c, err := anypb.New(cs)
 		if err != nil {
 			return nil, err
 		}
-		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cluster})
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: c})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
@@ -693,7 +695,7 @@ type PushContextDebug struct {
 
 // PushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, _ *http.Request) {
-	gateways := s.globalPushContext().NetworkGateways().All()
+	gateways := s.globalPushContext().NetworkManager().AllGateways()
 	byNetwork := make(map[string][]*model.NetworkGateway)
 	for _, gateway := range gateways {
 		byNetwork[string(gateway.Network)] = append(byNetwork[string(gateway.Network)], gateway)
@@ -706,7 +708,7 @@ func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, _ *http.Requ
 	writeJSON(w, push)
 }
 
-// lists all the supported debug endpoints.
+// Debug lists all the supported debug endpoints.
 func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	type debugEndpoint struct {
 		Name string
@@ -733,7 +735,7 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// lists all the supported debug commands in json.
+// List all the supported debug commands in json.
 func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 	var cmdNames []string
 	for k := range s.debugHandlers {
@@ -824,8 +826,42 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, instances)
 }
 
-func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.Env.NetworkGateways())
+func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
+	// Merge the gateways from the service registries with those configured statically with MeshNetworks.
+	mgr := model.NewNetworkManager(s.Env)
+	writeJSON(w, mgr.AllGateways())
+}
+
+func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
+	aggregateController, ok := s.Env.ServiceDiscovery.(*aggregate.Controller)
+	if !ok {
+		writeJSON(w, nil)
+		return
+	}
+
+	type ServiceExporter interface {
+		ExportedServices() []string
+	}
+
+	jsonMap := make(map[cluster.ID][]string)
+	for _, registry := range aggregateController.GetRegistries() {
+		if ctrl, ok := registry.(ServiceExporter); ok {
+			for _, export := range ctrl.ExportedServices() {
+				parts := strings.Split(export, ":")
+				if len(parts) == 2 {
+					clusterID := cluster.ID(parts[0])
+					namespacedName := parts[1]
+
+					// Append the export and keep the array sorted.
+					svcs := append(jsonMap[clusterID], namespacedName)
+					sort.Strings(svcs)
+					jsonMap[clusterID] = svcs
+				}
+			}
+		}
+	}
+
+	writeJSON(w, jsonMap)
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.

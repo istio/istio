@@ -79,7 +79,7 @@ func TestNDS(t *testing.T) {
 			})
 
 			ads := s.ConnectADS().WithType(v3.NameTableType)
-			res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 				Node: &corev3.Node{
 					Id:       ads.ID,
 					Metadata: tt.meta.ToStruct(),

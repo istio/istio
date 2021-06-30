@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
@@ -30,12 +31,14 @@ import (
 	kubeTypedAdmission "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/label"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 )
 
@@ -244,10 +247,32 @@ func TestGreenfield(t *testing.T) {
 		return true, &v1alpha3.Gateway{}, kubeErrors.NewInternalError(errors.New(deniedRequestMessageFragment))
 	})
 	reconcileHelper(t, c)
-	g.Expect(c.Actions()[2].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
+	g.Expect(c.Actions()[1].Matches("update", "validatingwebhookconfigurations")).Should(BeTrue())
 	g.Expect(c.ValidatingWebhookConfigurations().Get(context.TODO(), webhookName, kubeApiMeta.GetOptions{})).
 		Should(Equal(webhookConfigWithCABundleFail),
 			"istiod config created when endpoint is ready and invalid config is denied")
+}
+
+// TestBackoff ensures when we fail to update the webhook, we are doing backoff
+func TestBackoff(t *testing.T) {
+	c := createTestController(t)
+	maxAttempts := 5
+	c.queue = workqueue.NewRateLimitingQueue(workqueue.NewItemFastSlowRateLimiter(1*time.Millisecond, 180*time.Minute, maxAttempts))
+
+	// install adds the webhook config with fail open policy
+	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})
+	_ = c.configStore.Add(unpatchedWebhookConfig)
+
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	go c.Run(stop)
+	// This is fairly difficult to properly test. Basically what we do is setup the queue to retry 5x quickly, then extremely slowly.
+	// This ensures that we are actually retrying using the provided rate limiter.
+	retry.UntilOrFail(t, func() bool {
+		return len(c.istioFakeClient.Actions()) == (2*maxAttempts + 1)
+	}, retry.Timeout(time.Second*5))
 }
 
 func TestCABundleChange(t *testing.T) {

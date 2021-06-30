@@ -34,15 +34,10 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Mux:          s.httpsMux,
 	}
-	whServer, err := server.New(params)
+	_, err := server.New(params)
 	if err != nil {
 		return err
 	}
-
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		whServer.Run(stop)
-		return nil
-	})
 
 	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {

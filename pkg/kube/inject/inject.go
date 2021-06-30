@@ -731,6 +731,7 @@ type SidecarInjectionStatus struct {
 	Containers       []string `json:"containers"`
 	Volumes          []string `json:"volumes"`
 	ImagePullSecrets []string `json:"imagePullSecrets"`
+	Revision         string   `json:"revision"`
 }
 
 func potentialPodName(metadata metav1.ObjectMeta) string {

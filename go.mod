@@ -18,6 +18,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 require (
 	cloud.google.com/go v0.82.0
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20210626112853-139b25a67133
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aws/aws-sdk-go v1.38.51
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -82,17 +83,17 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.47.0
 	google.golang.org/genproto v0.0.0-20210517163617-5e0236093d7a
-	google.golang.org/grpc v1.38.0
+	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.6.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210624015053-a1354df09731
-	istio.io/client-go v0.0.0-20210622203821-7c897f716804
+	istio.io/api v0.0.0-20210630020755-4cf3c6594295
+	istio.io/client-go v0.0.0-20210629171146-722c7ea95e6d
 	istio.io/gogo-genproto v0.0.0-20210621193247-e3a6cd9a4a01
-	istio.io/pkg v0.0.0-20210623174702-a2d1b73c1536
+	istio.io/pkg v0.0.0-20210629234124-a07f3feea30b
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.0
 	k8s.io/apimachinery v0.21.1

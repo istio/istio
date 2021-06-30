@@ -212,7 +212,7 @@ func NewServer(config Options) (*Server, error) {
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
 		if !appProberPattern.Match([]byte(path)) {
-			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
+			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern %v`, appProberPattern)
 		}
 		if prober.HTTPGet == nil {
 			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
@@ -540,8 +540,6 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
-	// get the http client must exist because
-	httpClient := s.appProbeClient[path]
 
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
@@ -582,6 +580,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
+
+	// get the http client must exist because
+	httpClient := s.appProbeClient[path]
 
 	// Send the request.
 	response, err := httpClient.Do(appReq)

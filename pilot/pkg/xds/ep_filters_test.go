@@ -25,11 +25,13 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 )
 
 type LbEpInfo struct {
@@ -478,16 +480,18 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	//  - 1 IP gateway for network3
 	//  - 0 gateways for network4
 	env := environment()
-	delete(env.Networks().Networks, "network2")
 	origServices, _ := env.Services()
+	origGateways := env.NetworkGateways()
 	serviceDiscovery := memregistry.NewServiceDiscovery(append([]*model.Service{{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
-			ClusterExternalAddresses: map[string][]string{
+			ClusterExternalAddresses: map[cluster.ID][]string{
 				"cluster2": {""},
 			},
 		},
 	}}, origServices...))
+	serviceDiscovery.AddGateways(origGateways...)
+	// Also add a hostname-based Gateway, which will be rejected.
 	serviceDiscovery.AddGateways(&model.NetworkGateway{
 		Network: "network2",
 		Addr:    "aeiou.scooby.do",
@@ -496,75 +500,8 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 
 	env.ServiceDiscovery = serviceDiscovery
 	env.Init()
-
-	// The tests below are calling the endpoints filter from each one of the
-	// networks and examines the returned filtered endpoints
-	tests := []networkFilterCase{
-		{
-			name: "from_network1",
-			conn: xdsConnection("network1"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 2 local endpoints
-						{address: "10.0.0.1", weight: 1},
-						{address: "10.0.0.2", weight: 1},
-						// 0 endpoint to gateway of network2 a its a dns name instead of IP
-						{address: "40.0.0.1", weight: 1},
-					},
-					weight: 3,
-				},
-			},
-		},
-		{
-			name: "from_network2",
-			conn: xdsConnection("network2"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "20.0.0.1", weight: 1},
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
-						{address: "40.0.0.1", weight: 1},
-					},
-					weight: 4,
-				},
-			},
-		},
-		{
-			name: "from_network3",
-			conn: xdsConnection("network3"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
-						// 0 endpoint to gateway of network2 as its a DNS gateway
-						{address: "40.0.0.1", weight: 1},
-					},
-					weight: 3,
-				},
-			},
-		},
-		{
-			name: "from_network4",
-			conn: xdsConnection("network4"),
-			want: []LocLbEpInfo{
-				{
-					lbEps: []LbEpInfo{
-						// 1 local endpoint
-						{address: "40.0.0.1", weight: 1},
-						// 1 endpoint to gateway of network1 with weight 2 because it has 2 endpoints
-						{address: "1.1.1.1", weight: 2},
-						// 0 endpoint to gateway of network2 as its a dns gateway
-					},
-					weight: 3,
-				},
-			},
-		},
-	}
-	runNetworkFilterTest(t, env, tests)
+	// Run the tests and ensure that the new gateway is never used.
+	runNetworkFilterTest(t, env, networkFiltered)
 }
 
 type networkFilterCase struct {
@@ -624,7 +561,7 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 	}
 }
 
-func xdsConnection(network string) *Connection {
+func xdsConnection(network network.ID) *Connection {
 	return &Connection{
 		proxy: &model.Proxy{
 			Metadata: &model.NodeMetadata{Network: network},

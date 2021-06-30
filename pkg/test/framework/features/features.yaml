@@ -51,6 +51,8 @@ features:
     mcs:
       autoexport:
       servicediscovery:
+    cni:
+      race-condition-repair:
   usability:
     observability:
       describe:

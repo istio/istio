@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grpcgen
+package cluster
 
-import "os"
+import "istio.io/istio/pkg/util/identifier"
 
-// This init function sets up the env vars needed for grpcgen_test.
-func init() {
-	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
-	os.Setenv("GRPC_XDS_EXPERIMENTAL_V3_SUPPORT", "true")
+// ID is the unique identifier for a k8s cluster.
+type ID string
+
+func (id ID) Equals(other ID) bool {
+	return identifier.IsSameOrEmpty(string(id), string(other))
+}
+
+func (id ID) String() string {
+	return string(id)
 }
