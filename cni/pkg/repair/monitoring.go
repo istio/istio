@@ -14,7 +14,9 @@
 
 package repair
 
-import "istio.io/pkg/monitoring"
+import (
+	"istio.io/pkg/monitoring"
+)
 
 var (
 	typeLabel  = monitoring.MustCreateLabel("type")
