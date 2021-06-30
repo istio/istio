@@ -16,9 +16,13 @@
 package telemetry
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
@@ -38,4 +42,25 @@ func PromDumpWithAttributes(cluster cluster.Cluster, prometheus prometheus.Insta
 	}
 
 	return ""
+}
+
+// Get trust domain of the cluster.
+func GetTrustDomain(cluster cluster.Cluster, istioNamespace string) string {
+	meshConfigMap, err := cluster.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), "istio", metav1.GetOptions{})
+	defaultTrustDomain := mesh.DefaultMeshConfig().TrustDomain
+	if err != nil {
+		return defaultTrustDomain
+	}
+
+	configYaml, ok := meshConfigMap.Data["mesh"]
+	if !ok {
+		return defaultTrustDomain
+	}
+
+	cfg, err := mesh.ApplyMeshConfigDefaults(configYaml)
+	if err != nil {
+		return defaultTrustDomain
+	}
+
+	return cfg.TrustDomain
 }

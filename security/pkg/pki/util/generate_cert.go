@@ -97,6 +97,9 @@ type CertOptions struct {
 	// when generating private keys. Currently only ECDSA is supported.
 	// If empty, RSA is used, otherwise ECC is used.
 	ECSigAlg SupportedECSignatureAlgorithms
+
+	// Subjective Alternative Name values.
+	DNSNames string
 }
 
 // GenCertKeyFromOptions generates a X.509 certificate and a private key with the given options.
@@ -253,6 +256,10 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 	return cert, key, nil
 }
 
+// ClockSkewGracePeriod defines the period of time a certificate will be valid before its creation.
+// This is meant to handle cases where we have clock skew between the CA and workloads.
+const ClockSkewGracePeriod = time.Minute * 2
+
 // genCertTemplateFromCSR generates a certificate template with the given CSR.
 // The NotBefore value of the cert is set to current time.
 func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, ttl time.Duration, isCA bool) (
@@ -300,7 +307,7 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	return &x509.Certificate{
 		SerialNumber:          serialNum,
 		Subject:               subject,
-		NotBefore:             now,
+		NotBefore:             now.Add(-ClockSkewGracePeriod),
 		NotAfter:              now.Add(ttl),
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsages,
@@ -361,6 +368,11 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		exts = []pkix.Extension{*s}
 	}
 
+	dnsNames := strings.Split(options.DNSNames, ",")
+	if len(dnsNames[0]) == 0 {
+		dnsNames = nil
+	}
+
 	return &x509.Certificate{
 		SerialNumber:          serialNum,
 		Subject:               subject,
@@ -371,6 +383,7 @@ func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) 
 		IsCA:                  options.IsCA,
 		BasicConstraintsValid: true,
 		ExtraExtensions:       exts,
+		DNSNames:              dnsNames,
 	}, nil
 }
 

@@ -46,10 +46,6 @@ type StatusSyncer struct {
 	meshHolder mesh.Holder
 	client     kubernetes.Interface
 
-	// Name of service (istio-ingressgateway default) to find the IP
-	ingressService  string
-	ingressSelector string
-
 	queue              queue.Instance
 	ingressLister      ingresslister.IngressLister
 	podLister          listerv1.PodLister
@@ -67,7 +63,7 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSyncer {
 	// queue requires a time duration for a retry delay after a handler error
-	q := queue.NewQueue(1 * time.Second)
+	q := queue.NewQueue(5 * time.Second)
 
 	return &StatusSyncer{
 		meshHolder:         meshHolder,
@@ -78,14 +74,15 @@ func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSynce
 		nodeLister:         client.KubeInformer().Core().V1().Nodes().Lister(),
 		ingressClassLister: client.KubeInformer().Networking().V1().IngressClasses().Lister(),
 		queue:              q,
-		ingressService:     meshHolder.Mesh().IngressService,
-		ingressSelector:    meshHolder.Mesh().IngressSelector,
 	}
 }
 
 func (s *StatusSyncer) onEvent() error {
 	addrs, err := s.runningAddresses(ingressNamespace)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
 
@@ -155,9 +152,11 @@ func (s *StatusSyncer) updateStatus(status []coreV1.LoadBalancerIngress) error {
 // where the ingress controller is currently running
 func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	addrs := make([]string, 0)
+	ingressService := s.meshHolder.Mesh().IngressService
+	ingressSelector := s.meshHolder.Mesh().IngressSelector
 
-	if s.ingressService != "" {
-		svc, err := s.serviceLister.Services(ingressNs).Get(s.ingressService)
+	if ingressService != "" {
+		svc, err := s.serviceLister.Services(ingressNs).Get(ingressService)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +179,7 @@ func (s *StatusSyncer) runningAddresses(ingressNs string) ([]string, error) {
 	}
 
 	// get all pods acting as ingress gateways
-	igSelector := getIngressGatewaySelector(s.ingressSelector, s.ingressService)
+	igSelector := getIngressGatewaySelector(ingressSelector, ingressService)
 	igPods, err := s.podLister.Pods(ingressNamespace).List(labels.SelectorFromSet(igSelector))
 	if err != nil {
 		return nil, err

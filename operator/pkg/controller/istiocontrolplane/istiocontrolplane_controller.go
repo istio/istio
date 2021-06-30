@@ -88,15 +88,13 @@ var (
 		{Group: "", Version: "v1", Kind: name.PodStr},
 		{Group: "", Version: "v1", Kind: name.SecretStr},
 		{Group: "", Version: "v1", Kind: name.SAStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleBindingStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.ValidatingWebhookConfigurationStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
-		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
+		{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
 	}
 
 	ownedResourcePredicates = predicate.Funcs{
@@ -311,8 +309,12 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 	globalValues := iopMerged.Spec.Values["global"].(map[string]interface{})
 	scope.Info("Detecting third-party JWT support")
+	kubeClient, err := kubernetes.NewForConfig(r.config)
+	if err != nil {
+		return reconcile.Result{}, nil
+	}
 	var jwtPolicy util.JWTPolicy
-	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.config); err != nil {
+	if jwtPolicy, err = util.DetectSupportedJWTPolicy(kubeClient); err != nil {
 		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
 		scope.Warnf("Failed to detect third-party JWT support: %v", err)
 	} else {

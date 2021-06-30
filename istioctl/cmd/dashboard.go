@@ -45,6 +45,8 @@ var (
 	labelSelector = ""
 
 	addonNamespace = ""
+
+	envoyDashNs = ""
 )
 
 // port-forward to Istio System Prometheus; open browser
@@ -261,7 +263,7 @@ func envoyDashCmd() *cobra.Command {
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(addonNamespace, defaultNamespace), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), handlers.HandleNamespace(envoyDashNs, defaultNamespace), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -279,7 +281,7 @@ func envoyDashCmd() *cobra.Command {
 				ns = pl.Items[0].Namespace
 			} else {
 				podName, ns, err = handlers.InferPodInfoFromTypedResource(args[0],
-					handlers.HandleNamespace(addonNamespace, defaultNamespace),
+					handlers.HandleNamespace(envoyDashNs, defaultNamespace),
 					client.UtilFactory())
 				if err != nil {
 					return err
@@ -475,7 +477,7 @@ func dashboard() *cobra.Command {
 
 	envoy := envoyDashCmd()
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	envoy.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", istioNamespace,
+	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", defaultNamespace,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	dashboardCmd.AddCommand(envoy)
 

@@ -29,6 +29,7 @@ import (
 
 	k8s "k8s.io/api/core/v1"
 
+	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -45,7 +46,7 @@ const (
 var (
 	host           = flag.String("host", "", "Comma-separated hostnames and IPs to generate a certificate for.")
 	validFrom      = flag.String("start-date", "", "Creation date in format of "+timeLayout)
-	validFor       = flag.Duration("duration", 365*24*time.Hour, "Duration that certificate is valid for.")
+	validFor       = flag.Duration("duration", 10*365*24*time.Hour, "Duration that certificate is valid for.")
 	isCA           = flag.Bool("ca", false, "Whether this cert should be a Certificate Authority.")
 	signerCertFile = flag.String("signer-cert", "", "Signer certificate file (PEM encoded).")
 	signerPrivFile = flag.String("signer-priv", "", "Signer private key file (PEM encoded).")
@@ -56,8 +57,9 @@ var (
 	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
 	mode           = flag.String("mode", selfSignedMode, "Supported mode: self-signed, signer, citadel")
 	// Enable this flag if istio mTLS is enabled and the service is running as server side
-	isServer = flag.Bool("server", false, "Whether this certificate is for a server.")
-	ec       = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
+	isServer  = flag.Bool("server", false, "Whether this certificate is for a server.")
+	ec        = flag.String("ec-sig-alg", "", "Generate an elliptical curve private key with the specified algorithm")
+	sanFields = flag.String("san", "", "Subject Alternative Names")
 )
 
 func checkCmdLine() {
@@ -107,11 +109,11 @@ func signCertFromCitadel() (*x509.Certificate, crypto.PrivateKey) {
 	if err != nil {
 		log.Fatalf("Unmarshal secret error: %v", err)
 	}
-	key, err := util.ParsePemEncodedKey(secret.Data["ca-key.pem"])
+	key, err := util.ParsePemEncodedKey(secret.Data[ca.CAPrivateKeyFile])
 	if err != nil {
 		log.Fatalf("Unrecognized key format from citadel %v", err)
 	}
-	cert, err := util.ParsePemEncodedCertificate(secret.Data["ca-cert.pem"])
+	cert, err := util.ParsePemEncodedCertificate(secret.Data[ca.CACertFile])
 	if err != nil {
 		log.Fatalf("Unrecognized cert format from citadel %v", err)
 	}
@@ -150,6 +152,7 @@ func main() {
 		RSAKeySize:   *keySize,
 		IsServer:     *isServer,
 		ECSigAlg:     util.SupportedECSignatureAlgorithms(*ec),
+		DNSNames:     *sanFields,
 	}
 	certPem, privPem, err := util.GenCertKeyFromOptions(opts)
 	if err != nil {

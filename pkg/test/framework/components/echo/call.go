@@ -58,7 +58,7 @@ type CallOptions struct {
 	// If no Host header is provided, a default will be chosen for the target service endpoint.
 	Headers http.Header
 
-	// Timeout used for each individual request. Must be > 0, otherwise 30 seconds is used.
+	// Timeout used for each individual request. Must be > 0, otherwise 5 seconds is used.
 	Timeout time.Duration
 
 	// Message to be sent if this is a GRPC request
@@ -70,6 +70,12 @@ type CallOptions struct {
 	// Use the custom certificate to make the call. This is mostly used to make mTLS request directly
 	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
 	Cert, Key, CaCert string
+
+	// Use the custom certificates file to make the call.
+	CertFile, KeyFile, CaCertFile string
+
+	// Skip verify peer's certificate.
+	InsecureSkipVerify bool
 
 	// FollowRedirects will instruct the call to follow 301 redirects. Otherwise, the original 301 response
 	// is returned directly.

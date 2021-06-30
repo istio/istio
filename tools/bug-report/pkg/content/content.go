@@ -144,8 +144,8 @@ func GetClusterInfo(p *Params) (map[string]string, error) {
 }
 
 // GetClusterContext returns the cluster context.
-func GetClusterContext() (string, error) {
-	return kubectlcmd.RunCmd("config current-context", "", false)
+func GetClusterContext(kubeConfig string) (string, error) {
+	return kubectlcmd.RunCmd(fmt.Sprintf("--kubeconfig=%s config current-context", kubeConfig), "", false)
 }
 
 // GetNodeInfo returns node information.
@@ -250,7 +250,11 @@ func GetAnalyze(p *Params) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	out[p.Namespace] = output
+	if p.Namespace == common.NamespaceAll {
+		out[common.StrNamespaceAll] = output
+	} else {
+		out[p.Namespace] = output
+	}
 	return out, nil
 }
 

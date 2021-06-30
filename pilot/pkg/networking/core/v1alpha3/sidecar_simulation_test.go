@@ -970,8 +970,7 @@ spec:
 				FilterChainMatched: "virtualInbound",
 			},
 			Permissive: simulation.Result{
-				Error: simulation.ErrNoFilterChain,
-				Skip:  "https://github.com/istio/istio/issues/29538",
+				ClusterMatched: "InboundPassthroughClusterIpv4",
 			},
 			Strict: simulation.Result{
 				// tls, but not mTLS
@@ -991,9 +990,7 @@ spec:
 				ClusterMatched: "InboundPassthroughClusterIpv4",
 			},
 			Permissive: simulation.Result{
-				Error: simulation.ErrMTLSError,
-				// We are matching the mtls chain unexpectedly
-				Skip: "https://github.com/istio/istio/issues/29538#issuecomment-742819586",
+				ClusterMatched: "InboundPassthroughClusterIpv4",
 			},
 			Strict: simulation.Result{
 				// tls, but not mTLS

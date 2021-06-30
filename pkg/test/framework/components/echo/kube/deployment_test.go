@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster/clusterboot"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -159,7 +160,7 @@ func TestDeploymentYAML(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			clusters, err := clusterboot.NewFactory().With(cluster.Config{
 				Kind: cluster.Fake, Name: "cluster-0",
-				Meta: cluster.ConfigMeta{"majorVersion": 1, "minorVersion": 16},
+				Meta: config.Map{"majorVersion": 1, "minorVersion": 16},
 			}).Build()
 			if err != nil {
 				t.Fatal(err)
@@ -168,11 +169,14 @@ func TestDeploymentYAML(t *testing.T) {
 			if err := common.FillInDefaults(nil, &tc.config); err != nil {
 				t.Errorf("failed filling in defaults: %v", err)
 			}
+			if !config.Parsed() {
+				config.Parse()
+			}
 			serviceYAML, err := GenerateService(tc.config)
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := generateDeploymentYAML(tc.config, settings, tc.revVerMap)
+			deploymentYAML, err := GenerateDeployment(tc.config, settings, tc.revVerMap)
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}

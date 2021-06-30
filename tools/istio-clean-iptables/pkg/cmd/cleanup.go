@@ -39,7 +39,7 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, cmd string) {
 	redirectDNS := cfg.RedirectDNS
 	// Remove the old DNS UDP rules
 	if redirectDNS {
-		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesBuilder(), ext, cmd, cfg.ProxyUID, cfg.ProxyGID, cfg.DNSServersV4)
+		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesBuilder(), ext, cmd, cfg.ProxyUID, cfg.ProxyGID, cfg.DNSServersV4, cfg.CaptureAllDNS)
 	}
 
 	// Flush and delete the istio chains from NAT table.

@@ -23,6 +23,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	knetworking "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ingressinformer "k8s.io/client-go/informers/networking/v1"
@@ -235,6 +236,17 @@ func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(c
 	case gvk.Gateway:
 		c.gatewayHandlers = append(c.gatewayHandlers, f)
 	}
+}
+
+func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	var errs error
+	if err := c.serviceInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	if err := c.ingressInformer.SetWatchErrorHandler(handler); err != nil {
+		errs = multierror.Append(err, errs)
+	}
+	return errs
 }
 
 func (c *controller) HasSynced() bool {

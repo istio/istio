@@ -1,0 +1,35 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-1
+  namespace: foo
+  annotations:
+    "istio.io/dry-run": "true"
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            paths: ["/allow"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-2
+  namespace: foo
+  annotations:
+    "istio.io/dry-run": "true"
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  action: DENY
+  rules:
+    - to:
+        - operation:
+            paths: ["/deny"]

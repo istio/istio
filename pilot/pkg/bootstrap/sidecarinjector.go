@@ -76,12 +76,10 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	log.Info("initializing sidecar injector")
 
 	parameters := inject.WebhookParameters{
-		Watcher: watcher,
-		Env:     s.environment,
-		// Disable monitoring. The injection metrics will be picked up by Pilots metrics exporter already
-		MonitoringPort: -1,
-		Mux:            s.httpsMux,
-		Revision:       args.Revision,
+		Watcher:  watcher,
+		Env:      s.environment,
+		Mux:      s.httpsMux,
+		Revision: args.Revision,
 	}
 
 	wh, err := inject.NewWebhook(parameters)
@@ -94,11 +92,10 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	if features.InjectionWebhookConfigName.Get() != "" {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			// No leader election - different istiod revisions will patch their own cert.
-			caBundlePath := s.caBundlePath
-			if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
-				caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
-			}
-			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, caBundlePath)
+			caBundle := s.istiodCertBundleWatcher.GetCABundle()
+			// TODO(hzxuzhonghu): this should be consistent with validating webhook,
+			// update webhook configuration by watching the cabundle
+			patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, caBundle)
 			if err != nil {
 				log.Errorf("failed to create webhook cert patcher: %v", err)
 				return nil
@@ -109,7 +106,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 		})
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		go wh.Run(stop)
+		wh.Run(stop)
 		return nil
 	})
 	return wh, nil

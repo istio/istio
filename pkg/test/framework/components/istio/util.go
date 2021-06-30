@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -109,12 +110,12 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		for _, p := range pods.Items {
 			names = append(names, p.Name)
 		}
-		scopes.Framework.Debugf("Querying remote service %s, pods:\n%v\n", svcName, names)
+		scopes.Framework.Debugf("Querying remote service %s, pods:%v", svcName, names)
 		if len(pods.Items) == 0 {
 			return nil, false, fmt.Errorf("no remote service pod found")
 		}
 
-		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
+		scopes.Framework.Debugf("Found pod: %v", pods.Items[0].Name)
 		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
 			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")
@@ -149,12 +150,17 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 		return nil, false, err
 	}
 
-	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-		return nil, false, fmt.Errorf("service %s is not available yet: %s/%s", svcName, svc.Namespace, svc.Name)
+	if len(svc.Status.LoadBalancer.Ingress) == 0 {
+		return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
 	}
-
-	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: port}, true, nil
+	ingr := svc.Status.LoadBalancer.Ingress[0]
+	if ingr.IP == "" && ingr.Hostname == "" {
+		return nil, false, fmt.Errorf("service %s/%s is not available yet: no ingress", svc.Namespace, svc.Name)
+	}
+	if ingr.IP != "" {
+		return net.TCPAddr{IP: net.ParseIP(ingr.IP), Port: port}, true, nil
+	}
+	return net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)), true, nil
 }
 
 func (i *operatorComponent) isExternalControlPlane() bool {

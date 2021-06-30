@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"path"
 	"strings"
 	"testing"
@@ -194,8 +195,15 @@ func setupEnvoyFilter(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
+	attrGenURL := fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/attributegen-%v.wasm", proxySHA)
+	useRemoteWasmModule := false
+	resp, err := http.Get(attrGenURL)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		useRemoteWasmModule = true
+	}
 	con, err := tmpl.Evaluate(string(content), map[string]interface{}{
-		"ProxySHA": proxySHA,
+		"WasmRemoteLoad":  useRemoteWasmModule,
+		"AttributeGenURL": attrGenURL,
 	})
 	if err != nil {
 		return err

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -212,7 +213,12 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c.forwarder = forwarder
 	scopes.Framework.Debugf("initialized zipkin port forwarder: %v", forwarder.Address())
 
-	ingressDomain := fmt.Sprintf("%s.nip.io", cfgIn.IngressAddr.IP.String())
+	isIP := net.ParseIP(cfgIn.IngressAddr).String() != "<nil>"
+	ingressDomain := cfgIn.IngressAddr
+	if isIP {
+		ingressDomain = fmt.Sprintf("%s.nip.io", cfgIn.IngressAddr)
+	}
+
 	c.address = fmt.Sprintf("http://tracing.%s", ingressDomain)
 	scopes.Framework.Debugf("Zipkin address: %s ", c.address)
 	err = installServiceEntry(ctx, cfg.TelemetryNamespace, ingressDomain)

@@ -51,7 +51,7 @@ func TestWorkloadAgentGenerateSecret(t *testing.T) {
 
 func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceName string), options security.Options) *SecretManagerClient {
 	t.Helper()
-	sc, err := NewSecretManagerClient(caClient, options)
+	sc, err := NewSecretManagerClient(caClient, &options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestRotateTime(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			sc := &SecretManagerClient{configOptions: security.Options{SecretRotationGracePeriodRatio: tt.gracePeriod}}
+			sc := &SecretManagerClient{configOptions: &security.Options{SecretRotationGracePeriodRatio: tt.gracePeriod}}
 			got := sc.rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire})
 			if !almostEqual(got, tt.expected) {
 				t.Fatalf("expected %v got %v", tt.expected, got)

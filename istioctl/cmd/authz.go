@@ -35,8 +35,8 @@ var checkCmd = &cobra.Command{
 	Use:   "check [<type>/]<name>[.<namespace>]",
 	Short: "Check AuthorizationPolicy applied in the pod.",
 	Long: `Check prints the AuthorizationPolicy applied to a pod by directly checking
-the Envoy configuration of the pod. The command is especially useful for inspecting 
-the policy propagation from Istiod to Envoy and the final AuthorizationPolicy list merged 
+the Envoy configuration of the pod. The command is especially useful for inspecting
+the policy propagation from Istiod to Envoy and the final AuthorizationPolicy list merged
 from multiple sources (mesh-level, namespace-level and workload-level).
 
 The command also supports reading from a standalone config dump file with flag -f.`,

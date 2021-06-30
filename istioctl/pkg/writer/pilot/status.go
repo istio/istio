@@ -24,7 +24,6 @@ import (
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/xds"
@@ -43,7 +42,8 @@ type writerStatus struct {
 
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
 type XdsStatusWriter struct {
-	Writer io.Writer
+	Writer                 io.Writer
+	InternalDebugAllIstiod bool
 }
 
 type xdsWriterStatus struct {
@@ -150,18 +150,23 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*xdsapi.DiscoveryResponse
 			return err
 		}
 	}
-	return w.Flush()
+	if w != nil {
+		return w.Flush()
+	}
+	return nil
 }
 
 func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, error) {
 	// Gather the statuses before printing so they may be sorted
 	var fullStatus []*xdsWriterStatus
-	for _, dr := range drs {
+	mappedResp := map[string]string{}
+	var w *tabwriter.Writer
+	for id, dr := range drs {
 		for _, resource := range dr.Resources {
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
 				clientConfig := xdsstatus.ClientConfig{}
-				err := ptypes.UnmarshalAny(resource, &clientConfig)
+				err := resource.UnmarshalTo(&clientConfig)
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
@@ -176,21 +181,38 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 					routeStatus:    rds,
 					endpointStatus: eds,
 				})
+				if len(fullStatus) == 0 {
+					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
+				}
+
+				w = new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
+				_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
+
+				sort.Slice(fullStatus, func(i, j int) bool {
+					return fullStatus[i].proxyID < fullStatus[j].proxyID
+				})
 			default:
-				return nil, nil, fmt.Errorf("/debug/syncz unexpected resource type %q", resource.TypeUrl)
+				for _, resource := range dr.Resources {
+					if s.InternalDebugAllIstiod {
+						mappedResp[id] = string(resource.Value) + "\n"
+					} else {
+						_, _ = s.Writer.Write(resource.Value)
+						_, _ = s.Writer.Write([]byte("\n"))
+					}
+				}
+				fullStatus = nil
 			}
 		}
 	}
-	if len(fullStatus) == 0 {
-		return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
+	if len(mappedResp) > 0 {
+		mresp, err := json.MarshalIndent(mappedResp, "", "  ")
+		if err != nil {
+			return nil, nil, err
+		}
+		_, _ = s.Writer.Write(mresp)
+		_, _ = s.Writer.Write([]byte("\n"))
 	}
 
-	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
-
-	sort.Slice(fullStatus, func(i, j int) bool {
-		return fullStatus[i].proxyID < fullStatus[j].proxyID
-	})
 	return w, fullStatus, nil
 }
 

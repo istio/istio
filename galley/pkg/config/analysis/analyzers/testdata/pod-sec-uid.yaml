@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-sec-uid
+  labels:
+    app: helloworld
+    version: v2
+spec:
+  securityContext:
+    runAsUser: 1337
+  containers:
+  - name: helloworld
+    image: docker.io/istio/examples-helloworld-v2
+    resources:
+      requests:
+        cpu: "100m"
+    imagePullPolicy: IfNotPresent #Always
+    ports:
+    - containerPort: 5000

@@ -49,6 +49,16 @@ func TestCompareIstioVersion(t *testing.T) {
 			IstioVersion("1.3"),
 			1,
 		},
+		{
+			IstioVersion(""),
+			IstioVersion(""),
+			0,
+		},
+		{
+			IstioVersion(""),
+			IstioVersion("1.9"),
+			1,
+		},
 	}
 
 	for _, tc := range tcs {

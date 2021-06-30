@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// nolint: lll
 //go:generate sh -c "echo '// +build !agent' > filter_types.gen.go"
 //go:generate sh -c "echo '// Copyright Istio Authors' >> filter_types.gen.go"
 //go:generate sh -c "echo '//' >> filter_types.gen.go"
@@ -28,7 +29,7 @@
 //go:generate sh -c "echo '// limitations under the License.\n' >> filter_types.gen.go"
 //go:generate sh -c "echo '//  GENERATED FILE -- DO NOT EDIT\n' >> filter_types.gen.go"
 //go:generate sh -c "echo 'package xds\n\nimport (' >> filter_types.gen.go"
-//go:generate sh -c "go list github.com/envoyproxy/go-control-plane/... | grep 'v[2-9]' | xargs -n1 -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
+//go:generate sh -c "go list github.com/envoyproxy/go-control-plane/... | grep 'v[2-9]' | grep -v /pkg/ | xargs -n1 -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
 //go:generate sh -c "echo '\n\t// Istio-specific Envoy filters' >> filter_types.gen.go"
 //go:generate sh -c "go list istio.io/istio/pkg/envoy/config/filter/... | grep 'v[2-9]' | xargs -n1 -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
 //go:generate sh -c "echo ')' >> filter_types.gen.go"

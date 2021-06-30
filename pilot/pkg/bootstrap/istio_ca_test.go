@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 const namespace = "istio-system"
@@ -96,10 +97,10 @@ func createCASecret(client kube.Client) error {
 			Name:      "cacerts",
 		},
 		Data: map[string][]byte{
-			"ca-cert.pem":    caCert,
-			"ca-key.pem":     caKey,
-			"cert-chain.pem": certChain,
-			"root-cert.pem":  rootCert,
+			ca.CACertFile:       caCert,
+			ca.CAPrivateKeyFile: caKey,
+			ca.CertChainFile:    certChain,
+			ca.RootCertFile:     rootCert,
 		},
 	}
 	if _, err = secrets.Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {

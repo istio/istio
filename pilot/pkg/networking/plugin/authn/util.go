@@ -17,11 +17,27 @@ package authn
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 func trustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {
 	if features.SkipValidateTrustDomain.Get() {
 		return nil
 	}
-	return append([]string{meshConfig.TrustDomain}, meshConfig.TrustDomainAliases...)
+
+	tds := append([]string{meshConfig.TrustDomain}, meshConfig.TrustDomainAliases...)
+	return dedupTrustDomains(tds)
+}
+
+func dedupTrustDomains(tds []string) []string {
+	known := sets.NewSet()
+	deduped := []string{}
+
+	for _, td := range tds {
+		if td != "" && !known.Contains(td) {
+			known.Insert(td)
+			deduped = append(deduped, td)
+		}
+	}
+	return deduped
 }

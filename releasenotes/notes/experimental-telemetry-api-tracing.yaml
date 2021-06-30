@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 24284
+
+releaseNotes:
+- |
+  **Added** experimental support for Telemetry API. 

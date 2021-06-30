@@ -36,6 +36,7 @@ type Instance interface {
 	Name() string
 	SetLabel(key, value string) error
 	RemoveLabel(key string) error
+	Prefix() string
 }
 
 // Claim an existing namespace in all clusters, or create a new one if doesn't exist.
@@ -60,10 +61,10 @@ func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 
 // New creates a new Namespace in all clusters.
 func New(ctx resource.Context, nsConfig Config) (i Instance, err error) {
-	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
 	if ctx.Settings().StableNamespaces {
 		return Claim(ctx, nsConfig)
 	}
+	overwriteRevisionIfEmpty(&nsConfig, ctx.Settings().Revision)
 	return newKube(ctx, &nsConfig)
 }
 
@@ -83,5 +84,9 @@ func overwriteRevisionIfEmpty(nsConfig *Config, revision string) {
 	// the label will remain as is.
 	if nsConfig.Revision == "" {
 		nsConfig.Revision = revision
+	}
+	// Allow setting revision explicitly to `default` to avoid configuration overwrite
+	if nsConfig.Revision == "default" {
+		nsConfig.Revision = ""
 	}
 }

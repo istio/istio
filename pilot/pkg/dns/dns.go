@@ -177,11 +177,12 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	// clients usually do not do more than one query either.
 
 	lp := h.lookupTable.Load()
+	hostname := strings.ToLower(req.Question[0].Name)
 	if lp == nil {
+		log.Debugf("dns request for host %q before lookup table is loaded", hostname)
 		response = new(dns.Msg)
 		response.SetReply(req)
 		response.Rcode = dns.RcodeServerFailure
-		log.Debugf("dns request before lookup table is loaded")
 		_ = w.WriteMsg(response)
 		return
 	}
@@ -189,7 +190,6 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	var answers []dns.RR
 
 	// This name will always end in a dot
-	hostname := strings.ToLower(req.Question[0].Name)
 	answers, hostFound := lookupTable.lookupHost(req.Question[0].Qtype, hostname)
 
 	if hostFound {
@@ -215,14 +215,20 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		_ = w.WriteMsg(response)
 		return
 	}
+
 	// We did not find the host in our internal cache. Query upstream and return the response as is.
+	log.Debugf("response for hostname %q (found=false): %v", hostname, response)
 	response = h.queryUpstream(proxy.upstreamClient, req, log)
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
 	response.Truncate(size(proxy.protocol, req))
-	log.Debugf("response for hostname %q (found=false): %v", hostname, response)
 	_ = w.WriteMsg(response)
+}
+
+// IsReady returns true if DNS lookup table is updated atleast once.
+func (h *LocalDNSServer) IsReady() bool {
+	return h.lookupTable.Load() != nil
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 var (
@@ -108,17 +109,17 @@ func (r ParsedResponses) Len() int {
 	return len(r)
 }
 
-func (r ParsedResponses) Check(check func(int, *ParsedResponse) error) (err error) {
+func (r ParsedResponses) Check(check func(int, *ParsedResponse) error) error {
 	if r.Len() == 0 {
 		return fmt.Errorf("no responses received")
 	}
-
+	err := istiomultierror.New()
 	for i, resp := range r {
 		if e := check(i, resp); e != nil {
 			err = multierror.Append(err, e)
 		}
 	}
-	return
+	return err.ErrorOrNil()
 }
 
 func (r ParsedResponses) CheckOrFail(t test.Failer, check func(int, *ParsedResponse) error) ParsedResponses {

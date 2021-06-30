@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/26668
+
+docs:
+ - '[reference] https://istio.io/latest/docs/reference/config/annotations/'
+
+releaseNotes:
+- |
+  **Fixed** an issue to enableCoreDump using the sidecar annotation

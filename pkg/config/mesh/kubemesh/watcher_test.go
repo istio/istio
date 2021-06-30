@@ -24,10 +24,12 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -36,7 +38,7 @@ const (
 	key       string = "MeshConfig"
 )
 
-func makeConfigMap(resourceVersion string, data map[string]string) *v1.ConfigMap {
+func makeConfigMapWithName(name, resourceVersion string, data map[string]string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       namespace,
@@ -45,6 +47,76 @@ func makeConfigMap(resourceVersion string, data map[string]string) *v1.ConfigMap
 		},
 		Data: data,
 	}
+}
+
+func makeConfigMap(resourceVersion string, data map[string]string) *v1.ConfigMap {
+	return makeConfigMapWithName(name, resourceVersion, data)
+}
+
+func TestExtraConfigmap(t *testing.T) {
+	extraCmName := "extra"
+
+	cmCore := makeConfigMap("1", map[string]string{
+		key: "ingressClass: core",
+	})
+	cmUser := makeConfigMapWithName(extraCmName, "1", map[string]string{
+		key: "ingressClass: user",
+	})
+	cmUserinvalid := makeConfigMapWithName(extraCmName, "1", map[string]string{
+		key: "ingressClass: 1",
+	})
+	setup := func() (corev1.ConfigMapInterface, mesh.Watcher) {
+		client := kube.NewFakeClient()
+		cms := client.Kube().CoreV1().ConfigMaps(namespace)
+		w := NewConfigMapWatcher(client, namespace, name, key, true)
+		AddUserMeshConfig(client, w, namespace, key, extraCmName)
+		return cms, w
+	}
+
+	t.Run("core first", func(t *testing.T) {
+		cms, w := setup()
+		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cms.Create(context.Background(), cmUser, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+	})
+	t.Run("user first", func(t *testing.T) {
+		cms, w := setup()
+		if _, err := cms.Create(context.Background(), cmUser, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+	})
+	t.Run("only user", func(t *testing.T) {
+		cms, w := setup()
+		if _, err := cms.Create(context.Background(), cmUser, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "user" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+	})
+	t.Run("only core", func(t *testing.T) {
+		cms, w := setup()
+		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+	})
+	t.Run("invalid user config", func(t *testing.T) {
+		cms, w := setup()
+		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cms.Create(context.Background(), cmUserinvalid, metav1.CreateOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+	})
 }
 
 func TestNewConfigMapWatcher(t *testing.T) {
@@ -66,7 +138,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	client := kube.NewFakeClient()
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
-	w := NewConfigMapWatcher(client, namespace, name, key)
+	w := NewConfigMapWatcher(client, namespace, name, key, false)
 
 	defaultMesh := mesh.DefaultMeshConfig()
 

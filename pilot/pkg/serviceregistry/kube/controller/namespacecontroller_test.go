@@ -36,7 +36,7 @@ func TestNamespaceController(t *testing.T) {
 	nc := NewNamespaceController(func() map[string]string {
 		return testdata
 	}, client)
-
+	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := make(chan struct{})
 	client.RunAndWait(stop)
 	nc.Run(stop)
@@ -45,7 +45,8 @@ func TestNamespaceController(t *testing.T) {
 	expectConfigMap(t, client, "foo", testdata)
 
 	newData := map[string]string{"key": "value", "foo": "bar"}
-	if err := k8s.InsertDataToConfigMap(client.CoreV1(), metav1.ObjectMeta{Name: CACertNamespaceConfigMap, Namespace: "foo"}, newData); err != nil {
+	if err := k8s.InsertDataToConfigMap(client.CoreV1(), nc.configmapLister,
+		metav1.ObjectMeta{Name: CACertNamespaceConfigMap, Namespace: "foo"}, newData); err != nil {
 		t.Fatal(err)
 	}
 	expectConfigMap(t, client, "foo", newData)
@@ -56,6 +57,10 @@ func TestNamespaceController(t *testing.T) {
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
 	t.Helper()
+	_, err := client.CoreV1().ConfigMaps(ns).Get(context.TODO(), CACertNamespaceConfigMap, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := client.CoreV1().ConfigMaps(ns).Delete(context.TODO(), CACertNamespaceConfigMap, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}

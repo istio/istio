@@ -22,8 +22,8 @@ import (
 type Messages []Message
 
 // Add a new message to the messages
-func (ms *Messages) Add(m Message) {
-	*ms = append(*ms, m)
+func (ms *Messages) Add(m ...Message) {
+	*ms = append(*ms, m...)
 }
 
 // Sort the message lexicographically by level, code, resource origin name, then string.

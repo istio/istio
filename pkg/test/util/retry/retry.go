@@ -178,7 +178,11 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 
 		select {
 		case <-to:
-			return nil, fmt.Errorf("timeout while waiting after %d attempts (last error: %v)", attempts, lasterr)
+			convergeStr := ""
+			if cfg.converge > 1 {
+				convergeStr = fmt.Sprintf(", %d/%d successes", successes, cfg.converge)
+			}
+			return nil, fmt.Errorf("timeout while waiting after %d attempts%s (last error: %v)", attempts, convergeStr, lasterr)
 		case <-time.After(cfg.delay):
 		}
 

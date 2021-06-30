@@ -1084,7 +1084,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("failed to initialize push context")
 	}
 	if registryOnly {

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 29270
+
+releaseNotes:
+- |
+  **Updated** `istioctl kube-inject` will call webhook server to get the injection template by default.

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package caclient
+package caclient_test
 
 import (
 	"fmt"
@@ -22,11 +22,13 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
-	secop "istio.io/istio/pilot/cmd/pilot-agent/security"
+	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/credentialfetcher"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/stsservice"
 	stsmock "istio.io/istio/security/pkg/stsservice/mock"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -51,7 +53,7 @@ func TestGetTokenForXDS(t *testing.T) {
 	jwtPolicy := jwt.PolicyThirdParty
 	credFetcherTypeEnv := ""
 	credIdentityProvider := google.GCEProvider
-	sop := security.Options{
+	sop := &security.Options{
 		CAEndpoint:                     "",
 		CAProviderName:                 "Citadel",
 		PilotCertProvider:              "istiod",
@@ -68,7 +70,7 @@ func TestGetTokenForXDS(t *testing.T) {
 		SecretTTL:                      24 * time.Hour,
 		SecretRotationGracePeriodRatio: 0.5,
 	}
-	secOpts, err := secop.SetupSecurityOptions(proxyConfig, sop, jwtPolicy,
+	secOpts, err := options.SetupSecurityOptions(proxyConfig, sop, jwtPolicy,
 		credFetcherTypeEnv, credIdentityProvider)
 	if err != nil {
 		t.Fatalf("failed to setup security options: %v", err)
@@ -79,6 +81,11 @@ func TestGetTokenForXDS(t *testing.T) {
 	}
 	secOpts.JWTPath = jwtPath
 	defer os.Remove(jwtPath)
+
+	mockCredFetcher, err := credentialfetcher.NewCredFetcher(security.Mock, "", "", "")
+	if err != nil {
+		t.Fatalf("failed to create mock credential fetcher: %v", err)
+	}
 	// Use a mock token manager because real token exchange requires a working k8s token,
 	// permissions for token exchange, and connection to the token exchange server.
 	tokenManager := stsmock.CreateFakeTokenManager()
@@ -94,6 +101,7 @@ func TestGetTokenForXDS(t *testing.T) {
 	tests := []struct {
 		name        string
 		provider    string
+		credFetcher security.CredFetcher
 		expectToken string
 	}{
 		{
@@ -106,12 +114,18 @@ func TestGetTokenForXDS(t *testing.T) {
 			provider:    "",
 			expectToken: mock.FakeSubjectToken,
 		},
+		{
+			name:        "credential fetcher and google.GCPAuthProvider",
+			provider:    google.GCPAuthProvider,
+			credFetcher: mockCredFetcher,
+			expectToken: mock.FakeAccessToken,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			secOpts.XdsAuthProvider = tt.provider
-			provider := NewXDSTokenProvider(secOpts)
+			provider := caclient.NewXDSTokenProvider(secOpts)
 			token, err := provider.GetToken()
 			if err != nil {
 				t.Errorf("failed to get token: %v", err)

@@ -121,3 +121,7 @@ func (c *clientFactory) Validator(validate bool) (validation.Schema, error) {
 func (c *clientFactory) OpenAPISchema() (openapi.Resources, error) {
 	return c.factory.OpenAPISchema()
 }
+
+func (c *clientFactory) OpenAPIGetter() discovery.OpenAPISchemaInterface {
+	return c.factory.OpenAPIGetter()
+}

@@ -46,7 +46,8 @@ func (c *Checker) Check() error {
 				c.From.Config().Service, c.Options.Target.Config().Service, c.Options.PortName, c.Options.Scheme, err)
 		}
 		// TODO: check why grpc can not reach all clusters
-		if c.DestClusters.IsMulticluster() && c.Options.Scheme != scheme.GRPC && c.Options.Count > 1 {
+		// headless will have inconsistent loadbalancing, so we don't check clusters
+		if c.DestClusters.IsMulticluster() && c.Options.Scheme != scheme.GRPC && c.Options.Count > 1 && !c.Options.Target.Config().IsHeadless() {
 			err = results.CheckReachedClusters(c.DestClusters)
 			if err != nil {
 				return err

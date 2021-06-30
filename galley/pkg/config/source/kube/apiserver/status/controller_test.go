@@ -27,10 +27,11 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
-	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/config/resource"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 const subfield = "testMessages"
@@ -357,16 +358,12 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 	g.Consistently(cl.Actions).Should(HaveLen(1))
 }
 
-func setupClient() (*mock.Kube, *fake.FakeDynamicClient) {
-	k := mock.NewKube()
-
-	cl := fake.NewSimpleDynamicClient(runtime.NewScheme())
-	k.AddResponse(cl, nil)
-
-	return k, cl
+func setupClient() (kube.Interfaces, *fake.FakeDynamicClient) {
+	k := kubelib.NewFakeClient()
+	return kube.NewInterfacesFromClient(k), k.Dynamic().(*fake.FakeDynamicClient)
 }
 
-func setupClientWithReactors(retVal runtime.Object, updateErrVal error) (*mock.Kube, *fake.FakeDynamicClient) {
+func setupClientWithReactors(retVal runtime.Object, updateErrVal error) (kube.Interfaces, *fake.FakeDynamicClient) {
 	k, cl := setupClient()
 
 	cl.ReactionChain = nil

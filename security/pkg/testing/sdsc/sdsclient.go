@@ -25,7 +25,6 @@ import (
 	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
-	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -150,7 +149,7 @@ func ValidateResponse(response *discovery.DiscoveryResponse) error {
 		return fmt.Errorf("unexpected resource size in the response, %v ", response.Resources)
 	}
 	var pb authapi.Secret
-	if err := ptypes.UnmarshalAny(response.Resources[0], &pb); err != nil {
+	if err := response.Resources[0].UnmarshalTo(&pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 	return nil

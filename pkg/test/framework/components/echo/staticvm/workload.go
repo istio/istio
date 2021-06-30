@@ -16,6 +16,7 @@ package staticvm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -48,13 +49,24 @@ func newWorkloads(address []string, grpcPort int, tls *common.TLSSettings) ([]ec
 	return out, nil
 }
 
-func newWorkload(address string, grpcPort int, tls *common.TLSSettings) (*workload, error) {
-	c, err := client.New(fmt.Sprintf("%s:%d", address, grpcPort), tls)
+func newWorkload(addresses string, grpcPort int, tls *common.TLSSettings) (*workload, error) {
+	var (
+		external string
+		internal string
+	)
+	parts := strings.Split(addresses, ":")
+	external = parts[0]
+	if len(parts) > 1 {
+		internal = parts[1]
+	}
+
+	c, err := client.New(fmt.Sprintf("%s:%d", external, grpcPort), tls)
 	if err != nil {
 		return nil, err
 	}
 	return &workload{
 		Instance: c,
+		address:  internal,
 	}, nil
 }
 

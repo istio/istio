@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug
+area: networking
+issue:
+  - 31336
+releaseNotes:
+  - |
+    **Fixed** a bug causing runaway logs in `istiod` after disabling the default ingress controller.

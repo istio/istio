@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
@@ -34,18 +33,8 @@ const (
 )
 
 // DetectSupportedJWTPolicy queries the api-server to detect whether it has TokenRequest support
-func DetectSupportedJWTPolicy(config *rest.Config) (JWTPolicy, error) {
-	if config == nil {
-		// this happens in unit tests- there's no such thing as a fake config
-		// TODO(dgn): refactor to use Client instead of Config, so this can be faked
-		return ThirdPartyJWT, nil
-	}
-
-	d, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		return "", err
-	}
-	_, s, err := d.ServerGroupsAndResources()
+func DetectSupportedJWTPolicy(client kubernetes.Interface) (JWTPolicy, error) {
+	_, s, err := client.Discovery().ServerGroupsAndResources()
 	// This may fail if any api service is down. We should only fail if the specific API we care about failed
 	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {

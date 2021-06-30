@@ -28,6 +28,10 @@ const (
 	ProxyContainerName     = "istio-proxy"
 	DiscoveryContainerName = "discovery"
 	OperatorContainerName  = "istio-operator"
+
+	// namespaceAll is the default argument of across all namespaces
+	NamespaceAll    = ""
+	StrNamespaceAll = "allNamespaces"
 )
 
 type kv struct {

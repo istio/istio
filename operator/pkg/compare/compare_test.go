@@ -64,8 +64,8 @@ metadata:
     release: istio`,
 			want: `metadata:
   labels:
-    app: -> istio-ingressgateway
-  name: -> istio-ingressgateway
+    app: <empty> -> istio-ingressgateway (ADDED)
+  name: <empty> -> istio-ingressgateway (ADDED)
 `,
 		},
 		{
@@ -86,8 +86,8 @@ metadata:
     release: istio`,
 			want: `metadata:
   labels:
-    app: istio-ingressgateway ->
-  name: istio-ingressgateway ->
+    app: istio-ingressgateway -> <empty> (REMOVED)
+  name: istio-ingressgateway -> <empty> (REMOVED)
 `,
 		},
 		{
@@ -109,7 +109,7 @@ metadata:
     release: istio`,
 			want: `metadata:
   labels:
-    app: istio-ingressgateway ->
+    app: istio-ingressgateway -> <empty> (REMOVED)
 `,
 		},
 		{
@@ -131,7 +131,7 @@ metadata:
     release: istio`,
 			want: `metadata:
   labels:
-    app: -> istio-ingressgateway
+    app: <empty> -> istio-ingressgateway (ADDED)
 `,
 		},
 		{
@@ -321,8 +321,8 @@ metadata:
 `,
 			want: `metadata:
   labels:
-    '[?->2]': -> label1
-    '[0->?]': label1 ->
+    '[?->2]': <empty> -> label1 (ADDED)
+    '[0->?]': label1 -> <empty> (REMOVED)
 `,
 		},
 		{
@@ -353,9 +353,9 @@ metadata:
 			want: `metadata:
   labels:
     '[#0]': label0 -> label4
-    '[?->1]': -> label5
-    '[?->2]': -> label2
-    '[?->3]': -> label3
+    '[?->1]': <empty> -> label5 (ADDED)
+    '[?->2]': <empty> -> label2 (ADDED)
+    '[?->3]': <empty> -> label3 (ADDED)
     '[2->5]': label2 -> label0
 `,
 		},
@@ -385,8 +385,8 @@ metadata:
 `,
 			want: `metadata:
   labels:
-    '[?->3]': -> label4
-    '[?->4]': -> label5
+    '[?->3]': <empty> -> label4 (ADDED)
+    '[?->4]': <empty> -> label5 (ADDED)
 `,
 		},
 		{
@@ -415,8 +415,8 @@ metadata:
 `,
 			want: `metadata:
   labels:
-    '[3->?]': label4 ->
-    '[4->?]': label5 ->
+    '[3->?]': label4 -> <empty> (REMOVED)
+    '[4->?]': label5 -> <empty> (REMOVED)
 `,
 		},
 	}
@@ -557,7 +557,7 @@ metadata:
 			i: []string{"metadata.annotations.checksum/config-volume"},
 			want: `metadata:
   annotations: map[checksum/config-volume:43d72e930ed33e3e01731f8bcbf31dbf02cb1c1fc53bcc09199ab45c0d031b60]
-    ->
+    -> <empty> (REMOVED)
 `,
 		},
 		{
@@ -910,8 +910,8 @@ data:
   mesh:
     defaultConfig:
       configPath: /etc/istio/proxyv1 -> /etc/istio/proxyv2
-      proxyAdminPortA: 15000 ->
-      proxyAdminPortB: -> 15000
+      proxyAdminPortA: 15000 -> <empty> (REMOVED)
+      proxyAdminPortB: <empty> -> 15000 (ADDED)
 `,
 		},
 		{

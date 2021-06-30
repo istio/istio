@@ -22,7 +22,7 @@ import (
 	"text/tabwriter"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	"github.com/golang/protobuf/ptypes"
+	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
@@ -88,7 +88,7 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 }
 
 // PrintClusterDump prints the relevant clusters in the config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
+func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter, outputFormat string) error {
 	_, clusters, err := c.setupClusterConfigWriter()
 	if err != nil {
 		return err
@@ -102,6 +102,11 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	out, err := json.MarshalIndent(filteredClusters, "", "    ")
 	if err != nil {
 		return err
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
 	}
 	_, _ = fmt.Fprintln(c.Stdout, string(out))
 	return nil
@@ -130,7 +135,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 			clusterTyped := &cluster.Cluster{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			c.Cluster.TypeUrl = v3.ClusterType
-			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
+			err = c.Cluster.UnmarshalTo(clusterTyped)
 			if err != nil {
 				return nil, err
 			}
@@ -142,7 +147,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 			clusterTyped := &cluster.Cluster{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			c.Cluster.TypeUrl = v3.ClusterType
-			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
+			err = c.Cluster.UnmarshalTo(clusterTyped)
 			if err != nil {
 				return nil, err
 			}

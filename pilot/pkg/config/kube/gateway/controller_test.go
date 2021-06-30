@@ -34,6 +34,9 @@ var (
 	gatewayClassSpec = &svc.GatewayClassSpec{
 		Controller: ControllerName,
 	}
+	routeAll    = svc.RouteSelectAll
+	gatewayAll  = svc.GatewayAllowAll
+	routeAllow  = svc.GatewayAllowAll
 	gatewaySpec = &svc.GatewaySpec{
 		GatewayClassName: "gwclass",
 		Listeners: []svc.Listener{
@@ -41,15 +44,15 @@ var (
 				Port:     9009,
 				Protocol: "HTTP",
 				Routes: svc.RouteBindingSelector{
-					Namespaces: svc.RouteNamespaces{From: svc.RouteSelectAll},
-					Group:      gvk.HTTPRoute.Group,
+					Namespaces: &svc.RouteNamespaces{From: &routeAll},
+					Group:      StrPointer(gvk.HTTPRoute.Group),
 					Kind:       gvk.HTTPRoute.Kind,
 				},
 			},
 		},
 	}
 	httpRouteSpec = &svc.HTTPRouteSpec{
-		Gateways:  svc.RouteGateways{Allow: svc.GatewayAllowAll},
+		Gateways:  &svc.RouteGateways{Allow: &routeAllow},
 		Hostnames: []svc.Hostname{"test.cluster.local"},
 	}
 

@@ -15,7 +15,9 @@
 package bootstrap
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -24,11 +26,14 @@ import (
 	"strconv"
 	"strings"
 
-	md "cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 
+	"istio.io/api/annotation"
 	meshAPI "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/option"
@@ -49,69 +54,62 @@ const (
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 
+	rbacEnvoyStatsMatcherInclusionSuffix = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
+
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
 	// "component" suffix is for istio_build metric.
 	v2Prefixes = "reporter=,"
 	v2Suffix   = ",component"
+
+	// TODO: add this to istio/api repo.
+	extraTagsAnnotation = "sidecar.istio.io/extraStatTags"
 )
 
 // Config for creating a bootstrap file.
 type Config struct {
-	Node                string
-	Proxy               *meshAPI.ProxyConfig
-	PlatEnv             platform.Environment
-	PilotSubjectAltName []string
-	LocalEnv            []string
-	NodeIPs             []string
-	STSPort             int
-	ProxyViaAgent       bool
-	OutlierLogPath      string
-	PilotCertProvider   string
-	ProvCert            string
-	DiscoveryHost       string
+	*model.Node
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
 func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
-	// Fill in default config values.
-	if cfg.PlatEnv == nil {
-		cfg.PlatEnv = platform.Discover()
+	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
+
+	xdsType := "GRPC"
+	if features.DeltaXds.Get() {
+		xdsType = "DELTA_GRPC"
 	}
 
-	// Remove duplicates from the node IPs.
-	cfg.NodeIPs = removeDuplicates(cfg.NodeIPs)
-
 	opts = append(opts,
-		option.NodeID(cfg.Node),
-		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
-		option.ProxyViaAgent(cfg.ProxyViaAgent),
-		option.PilotCertProvider(cfg.PilotCertProvider),
-		option.OutlierLogPath(cfg.OutlierLogPath),
-		option.ProvCert(cfg.ProvCert),
-		option.DiscoveryHost(cfg.DiscoveryHost))
+		option.NodeID(cfg.ID),
+		option.NodeType(cfg.ID),
+		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
+		option.ProxyViaAgent(cfg.Metadata.ProxyViaAgent),
+		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.ProvCert(cfg.Metadata.ProvCert),
+		option.DiscoveryHost(discHost),
+		option.XdsType(xdsType))
 
-	if cfg.STSPort > 0 {
-		opts = append(opts,
-			option.STSEnabled(true),
-			option.STSPort(cfg.STSPort))
-		md := cfg.PlatEnv.Metadata()
-		if projectID, found := md[platform.GCPProject]; found {
-			opts = append(opts, option.GCPProjectID(projectID))
+	if cfg.Metadata.StsPort != "" {
+		stsPort, err := strconv.Atoi(cfg.Metadata.StsPort)
+		if err == nil && stsPort > 0 {
+			opts = append(opts,
+				option.STSEnabled(true),
+				option.STSPort(stsPort))
+			md := cfg.Metadata.PlatformMetadata
+			if projectID, found := md[platform.GCPProject]; found {
+				opts = append(opts, option.GCPProjectID(projectID))
+			}
 		}
 	}
 
 	// Support passing extra info from node environment as metadata
-	meta, rawMeta, err := getNodeMetaData(cfg.LocalEnv, cfg.PlatEnv, cfg.NodeIPs, cfg.STSPort, cfg.Proxy)
-	if err != nil {
-		return nil, err
-	}
-	opts = append(opts, getNodeMetadataOptions(meta, rawMeta, cfg.PlatEnv, cfg.Proxy)...)
+	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if isIPv6Proxy(cfg.NodeIPs) {
+	if isIPv6Proxy(cfg.Metadata.InstanceIPs) {
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
@@ -123,7 +121,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
 	}
 
-	proxyOpts, err := getProxyConfigOptions(cfg.Proxy, meta)
+	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -179,15 +177,21 @@ var DefaultStatTags = []string{
 	"response_flags",
 	"grpc_response_status",
 	"connection_security_policy",
-	"permissive_response_code",
-	"permissive_response_policyid",
 	"source_canonical_service",
 	"destination_canonical_service",
 	"source_canonical_revision",
 	"destination_canonical_revision",
 }
 
-func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
+func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
+	nodeIPs := meta.InstanceIPs
+	config := meta.ProxyConfig
+
+	tagAnno := meta.Annotations[extraTagsAnnotation]
+	prefixAnno := meta.Annotations[annotation.SidecarStatsInclusionPrefixes.Name]
+	RegexAnno := meta.Annotations[annotation.SidecarStatsInclusionRegexps.Name]
+	suffixAnno := meta.Annotations[annotation.SidecarStatsInclusionSuffixes.Name]
+
 	parseOption := func(metaOption string, required string, proxyConfigOption []string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
@@ -217,11 +221,12 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 			extraStatTags = append(extraStatTags, tag)
 		}
 	}
-	for _, tag := range strings.Split(meta.ExtraStatTags, ",") {
+	for _, tag := range strings.Split(tagAnno, ",") {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)
 		}
 	}
+	extraStatTags = removeDuplicates(extraStatTags)
 
 	var proxyConfigPrefixes, proxyConfigSuffixes, proxyConfigRegexps []string
 	if config.ProxyStatsMatcher != nil {
@@ -231,10 +236,11 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 	}
 
 	return []option.Instance{
-		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes,
+		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "", proxyConfigSuffixes)),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "", proxyConfigRegexps)),
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(suffixAnno,
+			rbacEnvoyStatsMatcherInclusionSuffix, proxyConfigSuffixes)),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, "", proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
 }
@@ -243,36 +249,45 @@ func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
 }
 
-func getNodeMetadataOptions(meta *model.BootstrapNodeMetadata, rawMeta map[string]interface{},
-	platEnv platform.Environment, config *meshAPI.ProxyConfig) []option.Instance {
+func getNodeMetadataOptions(node *model.Node) []option.Instance {
 	// Add locality options.
-	opts := getLocalityOptions(meta, platEnv)
+	opts := getLocalityOptions(node.Locality)
 
-	opts = append(opts, getStatsOptions(meta, meta.InstanceIPs, config)...)
+	opts = append(opts, getStatsOptions(node.Metadata)...)
 
-	opts = append(opts, option.NodeMetadata(meta, rawMeta))
+	opts = append(opts, option.NodeMetadata(node.Metadata, node.RawMetadata))
 	return opts
 }
 
-func getLocalityOptions(meta *model.BootstrapNodeMetadata, platEnv platform.Environment) []option.Instance {
-	var l *core.Locality
-	if meta.Labels[model.LocalityLabel] == "" {
-		l = platEnv.Locality()
-		// The locality string was not set, try to get locality from platform
-	} else {
-		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
-		l = util.ConvertLocality(localityString)
-	}
-
+func getLocalityOptions(l *core.Locality) []option.Instance {
 	return []option.Instance{option.Region(l.Region), option.Zone(l.Zone), option.SubZone(l.SubZone)}
 }
 
-func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
+func getServiceCluster(metadata *model.BootstrapNodeMetadata) string {
+	serviceCluster := metadata.ProxyConfig.ServiceCluster
+
+	// Update the default value to something more informative.
+	if serviceCluster == "" || serviceCluster == "istio-proxy" {
+		if app, ok := metadata.Labels["app"]; ok {
+			serviceCluster = app + "." + metadata.Namespace
+		} else if metadata.WorkloadName != "" {
+			serviceCluster = metadata.WorkloadName + "." + metadata.Namespace
+		} else if metadata.Namespace != "" {
+			serviceCluster = "istio-proxy." + metadata.Namespace
+		}
+	}
+
+	return serviceCluster
+}
+
+func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Instance, error) {
+	config := metadata.ProxyConfig
+
 	// Add a few misc options.
 	opts := make([]option.Instance, 0)
 
 	opts = append(opts, option.ProxyConfig(config),
-		option.Cluster(config.ServiceCluster),
+		option.Cluster(getServiceCluster(metadata)),
 		option.PilotGRPCAddress(config.DiscoveryAddress),
 		option.DiscoveryAddress(config.DiscoveryAddress),
 		option.StatsdAddress(config.StatsdUdpAddress))
@@ -301,10 +316,9 @@ func getProxyConfigOptions(config *meshAPI.ProxyConfig, metadata *model.Bootstra
 		case *meshAPI.Tracing_Datadog_:
 			opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
 		case *meshAPI.Tracing_Stackdriver_:
-			var projectID string
-			var err error
-			if projectID, err = md.ProjectID(); err != nil {
-				return nil, fmt.Errorf("unable to process Stackdriver tracer: %v", err)
+			projectID, projFound := metadata.PlatformMetadata[platform.GCPProject]
+			if !projFound {
+				return nil, errors.New("unable to process Stackdriver tracer: missing GCP Project")
 			}
 
 			opts = append(opts, option.StackDriverEnabled(true),
@@ -429,20 +443,34 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 	}
 }
 
-// getNodeMetaData function uses an environment variable contract
+// MetadataOptions for constructing node metadata.
+type MetadataOptions struct {
+	Envs                []string
+	Platform            platform.Environment
+	InstanceIPs         []string
+	StsPort             int
+	ID                  string
+	ProxyConfig         *meshAPI.ProxyConfig
+	ProxyViaAgent       bool
+	PilotSubjectAltName []string
+	OutlierLogPath      string
+	ProvCert            string
+	annotationFilePath  string
+}
+
+// GetNodeMetaData function uses an environment variable contract
 // ISTIO_METAJSON_* env variables contain json_string in the value.
 // 					The name of variable is ignored.
 // ISTIO_META_* env variables are passed thru
-func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string, stsPort int,
-	pc *meshAPI.ProxyConfig) (*model.BootstrapNodeMetadata, map[string]interface{}, error) {
+func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta := &model.BootstrapNodeMetadata{}
 	untypedMeta := map[string]interface{}{}
 
-	extractMetadata(envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaPrefix, func(m map[string]interface{}, key string, val string) {
 		m[key] = val
 	}, untypedMeta)
 
-	extractMetadata(envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
+	extractMetadata(options.Envs, IstioMetaJSONPrefix, func(m map[string]interface{}, key string, val string) {
 		err := json.Unmarshal([]byte(val), &m)
 		if err != nil {
 			log.Warnf("Env variable %s [%s] failed json unmarshal: %v", key, val, err)
@@ -451,26 +479,26 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	j, err := json.Marshal(untypedMeta)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err := json.Unmarshal(j, meta); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	extractAttributesMetadata(envs, plat, meta)
+	extractAttributesMetadata(options.Envs, options.Platform, meta)
 
 	// Support multiple network interfaces, removing duplicates.
-	meta.InstanceIPs = nodeIPs
+	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
 	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
-	if stsPort != 0 {
-		meta.StsPort = strconv.Itoa(stsPort)
+	if options.StsPort != 0 {
+		meta.StsPort = strconv.Itoa(options.StsPort)
 	}
 
-	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
+	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
 	// Add all instance labels with lower precedence than pod labels
-	extractInstanceLabels(plat, meta)
+	extractInstanceLabels(options.Platform, meta)
 
 	// Add all pod labels found from filesystem
 	// These are typically volume mounted by the downward API
@@ -490,7 +518,100 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 		}
 	}
 
-	return meta, untypedMeta, nil
+	// Add all pod annotations found from filesystem
+	// These are typically volume mounted by the downward API
+	annos, err := ReadPodAnnotations(options.annotationFilePath)
+	if err == nil {
+		if meta.Annotations == nil {
+			meta.Annotations = map[string]string{}
+		}
+		for k, v := range annos {
+			meta.Annotations[k] = v
+		}
+	} else {
+		if os.IsNotExist(err) {
+			log.Debugf("failed to read pod annotations: %v", err)
+		} else {
+			log.Warnf("failed to read pod annotations: %v", err)
+		}
+	}
+
+	var l *core.Locality
+	if meta.Labels[model.LocalityLabel] == "" && options.Platform != nil {
+		// The locality string was not set, try to get locality from platform
+		l = options.Platform.Locality()
+	} else {
+		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		l = util.ConvertLocality(localityString)
+	}
+
+	meta.ProxyViaAgent = options.ProxyViaAgent
+	meta.PilotSubjectAltName = options.PilotSubjectAltName
+	meta.OutlierLogPath = options.OutlierLogPath
+	meta.ProvCert = options.ProvCert
+
+	return &model.Node{
+		ID:          options.ID,
+		Metadata:    meta,
+		RawMetadata: untypedMeta,
+		Locality:    l,
+	}, nil
+}
+
+// ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.
+func ConvertNodeToXDSNode(node *model.Node) *core.Node {
+	// First pass translates typed metadata
+	js, err := json.Marshal(node.Metadata)
+	if err != nil {
+		log.Warnf("Failed to marshal node metadata to JSON %#v: %v", node.Metadata, err)
+	}
+	pbst := &structpb.Struct{}
+	if err = jsonpb.UnmarshalString(string(js), pbst); err != nil {
+		log.Warnf("Failed to unmarshal node metadata from JSON %#v: %v", node.Metadata, err)
+	}
+	// Second pass translates untyped metadata for "unknown" fields
+	for k, v := range node.RawMetadata {
+		if _, f := pbst.Fields[k]; !f {
+			fjs, err := json.Marshal(v)
+			if err != nil {
+				log.Warnf("Failed to marshal field metadata to JSON %#v: %v", k, err)
+			}
+			pbv := &structpb.Value{}
+			if err = jsonpb.UnmarshalString(string(fjs), pbv); err != nil {
+				log.Warnf("Failed to unmarshal field metadata from JSON %#v: %v", k, err)
+			}
+			pbst.Fields[k] = pbv
+		}
+	}
+	return &core.Node{
+		Id:       node.ID,
+		Cluster:  getServiceCluster(node.Metadata),
+		Locality: node.Locality,
+		Metadata: pbst,
+	}
+}
+
+// ConvertXDSNodeToNode parses Istio node descriptor from an Envoy node descriptor, using only typed metadata.
+func ConvertXDSNodeToNode(node *core.Node) *model.Node {
+	buf := &bytes.Buffer{}
+	err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, node.Metadata)
+	if err != nil {
+		log.Warnf("Failed to marshal node metadata to JSON %q: %v", node.Metadata, err)
+	}
+	metadata := &model.BootstrapNodeMetadata{}
+	err = json.Unmarshal(buf.Bytes(), metadata)
+	if err != nil {
+		log.Warnf("Failed to unmarshal node metadata from JSON %q: %v", node.Metadata, err)
+	}
+	if metadata.ProxyConfig == nil {
+		metadata.ProxyConfig = &model.NodeMetaProxyConfig{}
+	}
+	metadata.ProxyConfig.ServiceCluster = node.Cluster
+	return &model.Node{
+		ID:       node.Id,
+		Locality: node.Locality,
+		Metadata: metadata,
+	}
 }
 
 // Extracts instance labels for the platform into model.NodeMetadata.Labels
@@ -510,6 +631,17 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 
 func readPodLabels() (map[string]string, error) {
 	b, err := ioutil.ReadFile(constants.PodInfoLabelsPath)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownwardAPI(string(b))
+}
+
+func ReadPodAnnotations(path string) (map[string]string, error) {
+	if path == "" {
+		path = constants.PodInfoAnnotationsPath
+	}
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

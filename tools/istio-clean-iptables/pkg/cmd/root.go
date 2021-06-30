@@ -51,10 +51,11 @@ var rootCmd = &cobra.Command{
 
 func constructConfig() *config.Config {
 	cfg := &config.Config{
-		DryRun:      viper.GetBool(constants.DryRun),
-		ProxyUID:    viper.GetString(constants.ProxyUID),
-		ProxyGID:    viper.GetString(constants.ProxyGID),
-		RedirectDNS: viper.GetBool(constants.RedirectDNS),
+		DryRun:        viper.GetBool(constants.DryRun),
+		ProxyUID:      viper.GetString(constants.ProxyUID),
+		ProxyGID:      viper.GetString(constants.ProxyGID),
+		RedirectDNS:   viper.GetBool(constants.RedirectDNS),
+		CaptureAllDNS: viper.GetBool(constants.CaptureAllDNS),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.

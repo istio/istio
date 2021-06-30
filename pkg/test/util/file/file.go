@@ -15,7 +15,12 @@
 package file
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
+
+	"github.com/mitchellh/go-homedir"
 
 	"istio.io/istio/pkg/test"
 )
@@ -48,4 +53,22 @@ func AsString(filename string) (string, error) {
 func AsStringOrFail(t test.Failer, filename string) string {
 	t.Helper()
 	return string(AsBytesOrFail(t, filename))
+}
+
+// NormalizePath expands the homedir (~) and returns an error if the file doesn't exist.
+func NormalizePath(originalPath string) (string, error) {
+	// trim leading/trailing spaces from the path and if it uses the homedir ~, expand it.
+	var err error
+	out := strings.TrimSpace(originalPath)
+	out, err = homedir.Expand(out)
+	if err != nil {
+		return "", err
+	}
+
+	// Verify that the file exists.
+	if _, err := os.Stat(out); os.IsNotExist(err) {
+		return "", fmt.Errorf("failed normalizing file %s: %v", originalPath, err)
+	}
+
+	return out, nil
 }

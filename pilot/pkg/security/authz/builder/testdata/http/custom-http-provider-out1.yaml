@@ -1,0 +1,33 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  shadowRules:
+    action: DENY
+    policies:
+      istio-ext-authz-ns[foo]-policy[httpbin-1]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /httpbin1
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      istio-ext-authz-ns[foo]-policy[httpbin-2]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /httpbin2
+        principals:
+        - andIds:
+            ids:
+            - any: true
+  shadowRulesStatPrefix: istio_ext_authz_

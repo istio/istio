@@ -31,12 +31,12 @@ type Multicluster struct {
 	m                     sync.Mutex // protects remoteKubeControllers
 	secretController      *secretcontroller.Controller
 	localCluster          string
-	stop                  chan struct{}
+	stop                  <-chan struct{}
 }
 
 var _ secrets.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(client kube.Client, localCluster, secretNamespace string, stop chan struct{}) *Multicluster {
+func NewMulticluster(client kube.Client, localCluster, secretNamespace string, stop <-chan struct{}) *Multicluster {
 	m := &Multicluster{
 		remoteKubeControllers: map[string]*SecretsController{},
 		localCluster:          localCluster,
@@ -45,8 +45,8 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string, s
 	// Add the local cluster
 	m.addMemberCluster(client, localCluster)
 	sc := secretcontroller.StartSecretController(client,
-		func(c kube.Client, k string) error { m.addMemberCluster(c, k); return nil },
-		func(c kube.Client, k string) error { m.updateMemberCluster(c, k); return nil },
+		func(k string, c *secretcontroller.Cluster) error { m.addMemberCluster(c.Client, k); return nil },
+		func(k string, c *secretcontroller.Cluster) error { m.updateMemberCluster(c.Client, k); return nil },
 		func(k string) error { m.deleteMemberCluster(k); return nil },
 		secretNamespace,
 		time.Millisecond*100,
@@ -55,13 +55,16 @@ func NewMulticluster(client kube.Client, localCluster, secretNamespace string, s
 	return m
 }
 
+func (m *Multicluster) HasSynced() bool {
+	return m.secretController.HasSynced()
+}
+
 func (m *Multicluster) addMemberCluster(clients kube.Client, key string) {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", key)
 	sc := NewSecretsController(clients, key)
 	m.m.Lock()
 	m.remoteKubeControllers[key] = sc
 	m.m.Unlock()
-	clients.RunAndWait(m.stop)
 }
 
 func (m *Multicluster) updateMemberCluster(clients kube.Client, key string) {

@@ -17,6 +17,7 @@ package opentelemetry
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"strings"
 
 	"istio.io/istio/pkg/test/env"
@@ -167,7 +168,12 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 		return nil, err
 	}
 
-	ingressDomain := fmt.Sprintf("%s.nip.io", c.IngressAddr.IP.String())
+	isIP := net.ParseIP(c.IngressAddr).String() != "<nil>"
+	ingressDomain := c.IngressAddr
+	if isIP {
+		ingressDomain = fmt.Sprintf("%s.nip.io", c.IngressAddr)
+	}
+
 	err = installServiceEntry(ctx, istioCfg.TelemetryNamespace, ingressDomain)
 	if err != nil {
 		return nil, err

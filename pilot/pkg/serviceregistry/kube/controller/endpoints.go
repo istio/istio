@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
 )
 
 type endpointsController struct {
@@ -42,7 +41,7 @@ func newEndpointsController(c *Controller, informer filter.FilteredSharedIndexIn
 			informer: informer,
 		},
 	}
-	registerHandlers(informer, c.queue, "Endpoints", out.onEvent, endpointsEqual)
+	c.registerHandlers(informer, "Endpoints", out.onEvent, endpointsEqual)
 	return out
 }
 

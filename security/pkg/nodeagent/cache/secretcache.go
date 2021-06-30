@@ -83,7 +83,7 @@ type SecretManagerClient struct {
 	caClient security.Client
 
 	// configOptions includes all configurable params for the cache.
-	configOptions security.Options
+	configOptions *security.Options
 
 	// callback function to invoke when detecting secret change.
 	notifyCallback func(resourceName string)
@@ -162,7 +162,7 @@ type FileCert struct {
 }
 
 // NewSecretManagerClient creates a new SecretManagerClient.
-func NewSecretManagerClient(caClient security.Client, options security.Options) (*SecretManagerClient, error) {
+func NewSecretManagerClient(caClient security.Client, options *security.Options) (*SecretManagerClient, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -711,5 +711,5 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 }
 
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
-	return append(sc.getConfigTrustBundle(), rootCert...)
+	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
 }

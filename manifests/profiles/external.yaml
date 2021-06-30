@@ -1,0 +1,22 @@
+# The external profile is used to configure a mesh using an external control plane.
+# Only the injector mutating webhook configuration is installed.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    base:
+      enabled: false
+    pilot:
+      enabled: false
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+    istiodRemote:
+      enabled: true
+  values:
+    telemetry:
+      enabled: false
+    pilot:
+      configMap: false
+    global:
+      omitSidecarInjectorConfigMap: true

@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 // A stateful IstioEndpoint builder with metadata used to build IstioEndpoint
@@ -48,7 +47,7 @@ type EndpointBuilder struct {
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, wn, namespace, hostname, subdomain := "", "", "", "", "", ""
+	locality, sa, namespace, hostname, subdomain := "", "", "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
@@ -64,9 +63,6 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		}
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
-	if dm != nil {
-		wn = dm.Name
-	}
 
 	return &EndpointBuilder{
 		controller:     c,
@@ -77,7 +73,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 			ClusterID: c.Cluster(),
 		},
 		tlsMode:      kube.PodTLSMode(pod),
-		workloadName: wn,
+		workloadName: dm.Name,
 		namespace:    namespace,
 		hostname:     hostname,
 		subDomain:    subdomain,
@@ -178,9 +174,4 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) string {
 
 	// Fallback to legacy fromRegistry setting, all endpoints from this cluster are on that network.
 	return b.controller.defaultNetwork()
-}
-
-// TODO(lambdai): Make it true everywhere.
-func (b *EndpointBuilder) supportsH2Tunnel() bool {
-	return false
 }

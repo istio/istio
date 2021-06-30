@@ -70,10 +70,10 @@ root-key.pem:
 ##<namespace>-certs: generate intermediate certificates and sign certificates for a virtual machine connected to the namespace `<namespace> using serviceAccount `$SERVICE_ACCOUNT` using self signed root certs.
 .PHONY: %-certs
 
-%-certs: %/workload-cert-chain.pem root-cert.pem
+%-certs: %/ca-cert.pem %/workload-cert-chain.pem root-cert.pem
 	@echo "done"
 
-%/workload-cert-chain.pem: root-cert.pem %/ca-cert.pem %/workload-cert.pem
+%/workload-cert-chain.pem: %/workload-cert.pem %/ca-cert.pem root-cert.pem
 	@echo "generating $@"
 	@cat $^ > $@
 	@echo "Intermediate and workload certs stored in $(dir $<)"

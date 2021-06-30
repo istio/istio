@@ -19,17 +19,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
-)
 
-const (
-	defaultRetryBackoff = 50 * time.Millisecond
+	"github.com/cenkalti/backoff"
 )
 
 // HTTPFetcher fetches remote wasm module with HTTP get.
 type HTTPFetcher struct {
 	defaultClient *http.Client
-	// TODO(bianpengyuan): make this exponential backoff.
-	retryBackoff time.Duration
 }
 
 // NewHTTPFetcher create a new HTTP remote wasm module fetcher.
@@ -38,7 +34,6 @@ func NewHTTPFetcher() *HTTPFetcher {
 		defaultClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-		retryBackoff: defaultRetryBackoff,
 	}
 }
 
@@ -51,6 +46,8 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 		}
 	}
 	attempts := 0
+
+	b := backoff.NewExponentialBackOff()
 	var lastError error
 	for attempts < 5 {
 		attempts++
@@ -58,7 +55,7 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 		if err != nil {
 			lastError = err
 			wasmLog.Debugf("wasm module download request failed: %v", err)
-			time.Sleep(f.retryBackoff)
+			time.Sleep(b.NextBackOff())
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
@@ -71,9 +68,11 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 			body, _ := ioutil.ReadAll(resp.Body)
 			wasmLog.Debugf("wasm module download failed: status code %v, body %v", resp.StatusCode, string(body))
 			resp.Body.Close()
-			time.Sleep(f.retryBackoff)
+			time.Sleep(b.NextBackOff())
 			continue
 		}
+		resp.Body.Close()
+		break
 	}
 	return nil, fmt.Errorf("wasm module download failed, last error: %v", lastError)
 }

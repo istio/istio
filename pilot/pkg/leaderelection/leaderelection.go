@@ -29,8 +29,9 @@ import (
 
 // Various locks used throughout the code
 const (
-	NamespaceController  = "istio-namespace-controller-election"
-	ValidationController = "istio-validation-controller-election"
+	NamespaceController     = "istio-namespace-controller-election"
+	ValidationController    = "istio-validation-controller-election"
+	ServiceExportController = "istio-serviceexport-controller-election"
 	// This holds the legacy name to not conflict with older control plane deployments which are just
 	// doing the ingress syncing.
 	IngressController = "istio-leader"

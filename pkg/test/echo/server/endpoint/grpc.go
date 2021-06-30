@@ -184,7 +184,6 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
 		Dialer:  h.Dialer,
-		TLSCert: h.TLSCert,
 	})
 	if err != nil {
 		return nil, err

@@ -1,0 +1,35 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-1
+  namespace: foo
+spec:
+  action: CUSTOM
+  provider:
+    name: default
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - to:
+        - operation:
+            paths: ["/httpbin1"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-2
+  namespace: foo
+spec:
+  action: CUSTOM
+  provider:
+    name: default
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - to:
+        - operation:
+            paths: ["/httpbin2"]

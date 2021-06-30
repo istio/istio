@@ -1,0 +1,101 @@
+name: envoy.filters.network.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
+  shadowRules:
+    action: DENY
+    policies:
+      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[1]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - directRemoteIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[2]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 80
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - directRemoteIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[3]:
+        permissions:
+        - andRules:
+            rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[4]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 80
+        principals:
+        - andIds:
+            ids:
+            - any: true
+      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[5]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 80
+            - notRule:
+                orRules:
+                  rules:
+                  - destinationPort: 8000
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - remoteIp:
+                    addressPrefix: 172.18.4.0
+                    prefixLen: 22
+            - notId:
+                orIds:
+                  ids:
+                  - remoteIp:
+                      addressPrefix: 192.168.244.139
+                      prefixLen: 32
+            - orIds:
+                ids:
+                - directRemoteIp:
+                    addressPrefix: 1.2.3.4
+                    prefixLen: 32
+            - notId:
+                orIds:
+                  ids:
+                  - directRemoteIp:
+                      addressPrefix: 9.0.0.1
+                      prefixLen: 32
+  shadowRulesStatPrefix: istio_ext_authz_
+  statPrefix: tcp.

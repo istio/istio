@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -106,7 +105,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 			fep := c.collectWorkloadInstanceEndpoints(svc)
 			endpoints = append(endpoints, fep...)
 		} else {
-			log.Infof("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated", svcName, ns)
+			log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated", svcName, ns)
 		}
 	}
 

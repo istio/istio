@@ -24,7 +24,7 @@ import (
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/ptypes"
+	"sigs.k8s.io/yaml"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
@@ -138,7 +138,7 @@ func renderConfig(configPath string) string {
 }
 
 // PrintRouteDump prints the relevant routes in the config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
+func (c *ConfigWriter) PrintRouteDump(filter RouteFilter, outputFormat string) error {
 	_, routes, err := c.setupRouteConfigWriter()
 	if err != nil {
 		return err
@@ -152,6 +152,11 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 	out, err := json.MarshalIndent(filteredRoutes, "", "    ")
 	if err != nil {
 		return err
+	}
+	if outputFormat == "yaml" {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintln(c.Stdout, string(out))
 	return nil
@@ -180,7 +185,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}
@@ -192,7 +197,7 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 			routeTyped := &route.RouteConfiguration{}
 			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
 			r.RouteConfig.TypeUrl = v3.RouteType
-			err = ptypes.UnmarshalAny(r.RouteConfig, routeTyped)
+			err = r.RouteConfig.UnmarshalTo(routeTyped)
 			if err != nil {
 				return nil, err
 			}

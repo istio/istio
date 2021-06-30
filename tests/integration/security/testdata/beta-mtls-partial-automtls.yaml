@@ -1,7 +1,7 @@
 # No DR is added for this test. enableAutoMtls is expected on by default.
 # Workload-level PeerAuthentication will expectedly cause trouble to connect to the corresponding service
-apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: "default"
   annotations:
@@ -10,8 +10,8 @@ spec:
   mtls:
     mode: STRICT
 ---
-apiVersion: "security.istio.io/v1beta1"
-kind: "PeerAuthentication"
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
 metadata:
   name: "per-port"
   annotations:

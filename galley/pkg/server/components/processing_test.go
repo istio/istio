@@ -22,16 +22,14 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic/fake"
 
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/processing"
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/server/settings"
-	"istio.io/istio/galley/pkg/testing/mock"
 	"istio.io/istio/pkg/config/event"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
@@ -41,8 +39,9 @@ func TestProcessing_StartErrors(t *testing.T) {
 loop:
 	for i := 0; ; i++ {
 		resetPatchTable()
-		mk := mock.NewKube()
-		newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
+		newInterfaces = func(string) (kube.Interfaces, error) {
+			return kube.NewInterfacesFromClient(kubelib.NewFakeClient()), nil
+		}
 
 		e := fmt.Errorf("err%d", i)
 
@@ -89,11 +88,9 @@ func TestProcessing_Basic(t *testing.T) {
 	resetPatchTable()
 	defer resetPatchTable()
 
-	mk := mock.NewKube()
-	cl := fake.NewSimpleDynamicClient(k8sRuntime.NewScheme())
-
-	mk.AddResponse(cl, nil)
-	newInterfaces = func(string) (kube.Interfaces, error) { return mk, nil }
+	newInterfaces = func(string) (kube.Interfaces, error) {
+		return kube.NewInterfacesFromClient(kubelib.NewFakeClient()), nil
+	}
 	meshcfgNewFS = func(path string) (event.Source, error) { return mesh.NewInmemoryMeshCfg(), nil }
 
 	args := settings.DefaultArgs()

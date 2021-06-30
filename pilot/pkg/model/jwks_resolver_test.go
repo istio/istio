@@ -29,7 +29,7 @@ import (
 const testRetryInterval = time.Millisecond * 10
 
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -76,7 +76,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 }
 
 func TestGetPublicKey(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -117,7 +117,7 @@ func TestGetPublicKey(t *testing.T) {
 }
 
 func TestGetPublicKeyReorderedKey(t *testing.T) {
-	r := newJwksResolver(JwtPubKeyEvictionDuration, testRetryInterval*20, testRetryInterval*10, testRetryInterval)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, testRetryInterval*20, testRetryInterval*10, testRetryInterval)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -232,7 +232,7 @@ func TestGetPublicKeyUsingTLSWithoutCABundles(t *testing.T) {
 }
 
 func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
-	r := newJwksResolver(
+	r := NewJwksResolver(
 		100*time.Millisecond, /*EvictionDuration*/
 		2*time.Millisecond,   /*RefreshInterval*/
 		2*time.Millisecond,   /*RefreshIntervalOnFailure*/
@@ -260,7 +260,7 @@ func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 }
 
 func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
-	r := newJwksResolver(
+	r := NewJwksResolver(
 		100*time.Millisecond, /*EvictionDuration*/
 		10*time.Millisecond,  /*RefreshInterval*/
 		10*time.Millisecond,  /*RefreshIntervalOnFailure*/
@@ -313,7 +313,7 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 }
 
 func TestJwtPubKeyLastRefreshedTime(t *testing.T) {
-	r := newJwksResolver(
+	r := NewJwksResolver(
 		JwtPubKeyEvictionDuration,
 		2*time.Millisecond, /*RefreshInterval*/
 		2*time.Millisecond, /*RefreshIntervalOnFailure*/
@@ -333,7 +333,7 @@ func TestJwtPubKeyLastRefreshedTime(t *testing.T) {
 }
 
 func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
-	r := newJwksResolver(
+	r := NewJwksResolver(
 		JwtPubKeyEvictionDuration,
 		time.Second, /*RefreshInterval*/
 		time.Second, /*RefreshIntervalOnFailure*/
@@ -357,7 +357,7 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 func TestJwtRefreshIntervalExponentialBackoff(t *testing.T) {
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
-	r := newJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
 
 	ms := startMockServer(t)
 	defer ms.Stop()
@@ -385,7 +385,7 @@ func TestJwtRefreshIntervalExponentialBackoff(t *testing.T) {
 func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
-	r := newJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
 
 	ms := startMockServer(t)
 	defer ms.Stop()
@@ -424,7 +424,7 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 func TestJwtRefreshIntervalRecoverFromFail(t *testing.T) {
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
-	r := newJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
 
 	ms := startMockServer(t)
 	defer ms.Stop()
@@ -465,7 +465,8 @@ func getCounterValue(counterName string, t *testing.T) float64 {
 func TestJwtPubKeyMetric(t *testing.T) {
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
-	r := newJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
+	defer r.Close()
 
 	ms := startMockServer(t)
 	defer ms.Stop()

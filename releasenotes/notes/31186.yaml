@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: environments
+issue:
+  - 31186
+releaseNotes:
+  - |
+    **Fixed** Improved output of istioctl YAML diff commands.

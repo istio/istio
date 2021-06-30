@@ -1,6 +1,6 @@
 # Enforce access control based on mTLS identities.
 
-# The following policy enables mTLS for workload b.
+# The following policy enables mTLS for workload.
 
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
@@ -10,35 +10,35 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: b
+      app: {{ .dst }}
   mtls:
     mode: STRICT
 ---
-apiVersion: "networking.istio.io/v1alpha3"
-kind: "DestinationRule"
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
 metadata:
   name: "mtls"
   namespace: "{{ .Namespace }}"
 spec:
-  host: "b.{{ .Namespace }}.svc.cluster.local"
+  host: "{{ .dst }}.{{ .Namespace }}.svc.cluster.local"
   trafficPolicy:
     tls:
       mode: ISTIO_MUTUAL
 ---
 
-# The following policy enables authorization on workload b:
+# The following policy enables authorization on workload:
 # - Allow workloads of service account a in the same namespace to access path /principal-a
 # - Allow workloads in namespace-2 to access path /namespace-2
 
-apiVersion: "security.istio.io/v1beta1"
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-b
+  name: policy-{{ .dst }}
   namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      "app": "b"
+      "app": "{{ .dst }}"
   rules:
   - to:
     - operation:

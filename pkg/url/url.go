@@ -33,6 +33,9 @@ var (
 	// BaseURL for istio.io
 	BaseURL = "https://istio.io/"
 
+	// CanaryUpgradeURL is documentation for performing canary upgrades.
+	CanaryUpgradeURL = fmt.Sprintf("%s%s", DocsURL, "setup/upgrade/canary/")
+
 	// DocsVersion is a documentation version for istio.io
 	// This will build version as v1.6, v1.7, v1.8
 	DocsVersion = fmt.Sprintf("%s%s", "v", baseVersion)

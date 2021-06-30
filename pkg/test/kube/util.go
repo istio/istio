@@ -95,6 +95,10 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]kubeApiCore.Pod, error) {
 		return nil, err
 	}
 
+	if len(fetched) == 0 {
+		return nil, fmt.Errorf("no pods fetched")
+	}
+
 	for i, p := range fetched {
 		msg := "Ready"
 		if e := istioKube.CheckPodReadyOrComplete(&p); e != nil {

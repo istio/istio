@@ -39,8 +39,8 @@ func TestOptions(t *testing.T) {
 		{
 			testName: "proxy config",
 			key:      "config",
-			option:   option.ProxyConfig(&meshAPI.ProxyConfig{DiscoveryAddress: "fake"}),
-			expected: &meshAPI.ProxyConfig{DiscoveryAddress: "fake"},
+			option:   option.ProxyConfig(&model.NodeMetaProxyConfig{DiscoveryAddress: "fake"}),
+			expected: &model.NodeMetaProxyConfig{DiscoveryAddress: "fake"},
 		},
 		{
 			testName: "pilotSAN",
@@ -632,18 +632,6 @@ func TestOptions(t *testing.T) {
 			key:      "inclusionRegexps",
 			option:   option.EnvoyStatsMatcherInclusionRegexp([]string{"fake"}),
 			expected: []string{"fake"},
-		},
-		{
-			testName: "pilot_cert_provider kubernetes",
-			key:      "pilot_cert_provider",
-			option:   option.PilotCertProvider("kubernetes"),
-			expected: "kubernetes",
-		},
-		{
-			testName: "pilot_cert_provider istiod",
-			key:      "pilot_cert_provider",
-			option:   option.PilotCertProvider("istiod"),
-			expected: "istiod",
 		},
 		{
 			testName: "sts enabled",

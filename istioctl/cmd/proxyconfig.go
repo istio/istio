@@ -37,6 +37,7 @@ import (
 
 const (
 	jsonOutput    = "json"
+	yamlOutput    = "yaml"
 	summaryOutput = "short"
 )
 
@@ -333,15 +334,15 @@ func clusterConfigCmd() *cobra.Command {
 			switch outputFormat {
 			case summaryOutput:
 				return configWriter.PrintClusterSummary(filter)
-			case jsonOutput:
-				return configWriter.PrintClusterDump(filter)
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintClusterDump(filter, outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
 	}
 
-	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	clusterConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	clusterConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
 	clusterConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
 	clusterConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
@@ -380,24 +381,31 @@ func allConfigCmd() *cobra.Command {
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			switch outputFormat {
-			case jsonOutput:
+			case jsonOutput, yamlOutput:
+				var dump []byte
+				var err error
 				if len(args) == 1 {
 					podName, podNamespace, err := getPodName(args[0])
 					if err != nil {
 						return err
 					}
-					dump, err := extractConfigDump(podName, podNamespace)
+					dump, err = extractConfigDump(podName, podNamespace)
 					if err != nil {
 						return err
 					}
-					fmt.Fprintln(c.OutOrStdout(), string(dump))
 				} else {
-					dump, err := readFile(configDumpFile)
+					dump, err = readFile(configDumpFile)
 					if err != nil {
 						return err
 					}
-					fmt.Fprintln(c.OutOrStdout(), string(dump))
 				}
+				if outputFormat == yamlOutput {
+					if dump, err = yaml.JSONToYAML(dump); err != nil {
+						return err
+					}
+				}
+				fmt.Fprintln(c.OutOrStdout(), string(dump))
+
 			case summaryOutput:
 				var configWriter *configdump.ConfigWriter
 				if len(args) == 1 {
@@ -441,9 +449,9 @@ func allConfigCmd() *cobra.Command {
 		},
 	}
 
-	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"Envoy config dump JSON file")
+		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 
 	// cluster
@@ -516,15 +524,15 @@ func listenerConfigCmd() *cobra.Command {
 			switch outputFormat {
 			case summaryOutput:
 				return configWriter.PrintListenerSummary(filter)
-			case jsonOutput:
-				return configWriter.PrintListenerDump(filter)
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintListenerDump(filter, outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
 	}
 
-	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	listenerConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
@@ -722,15 +730,15 @@ func routeConfigCmd() *cobra.Command {
 			switch outputFormat {
 			case summaryOutput:
 				return configWriter.PrintRouteSummary(filter)
-			case jsonOutput:
-				return configWriter.PrintRouteDump(filter)
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintRouteDump(filter, outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
 	}
 
-	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 	routeConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	routeConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
@@ -797,15 +805,15 @@ func endpointConfigCmd() *cobra.Command {
 			switch outputFormat {
 			case summaryOutput:
 				return configWriter.PrintEndpointsSummary(filter)
-			case jsonOutput:
-				return configWriter.PrintEndpoints(filter)
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintEndpoints(filter, outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
 	}
 
-	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	endpointConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	endpointConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter endpoints by address field")
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
@@ -852,10 +860,19 @@ func bootstrapConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return configWriter.PrintBootstrapDump()
+			switch outputFormat {
+			case yamlOutput:
+				return configWriter.PrintBootstrapDump(outputFormat)
+			default:
+				return configWriter.PrintBootstrapDump(jsonOutput)
+				// TODO: cobra default value of global flag is passed instead of local flag
+				// i.e short is passed instead of json as declared below
+				// return fmt.Errorf("output format %q not supported", outputFormat)
+			}
 		},
 	}
 
+	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml")
 	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -900,15 +917,15 @@ func secretConfigCmd() *cobra.Command {
 			switch outputFormat {
 			case summaryOutput:
 				return configWriter.PrintSecretSummary()
-			case jsonOutput:
-				return configWriter.PrintSecretDump()
+			case jsonOutput, yamlOutput:
+				return configWriter.PrintSecretDump(outputFormat)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
 			}
 		},
 	}
 
-	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 	secretConfigCmd.Long += "\n\n" + ExperimentalMsg
@@ -925,7 +942,7 @@ func proxyConfig() *cobra.Command {
 		Aliases: []string{"pc"},
 	}
 
-	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|short")
+	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 
 	configCmd.AddCommand(clusterConfigCmd())
 	configCmd.AddCommand(allConfigCmd())

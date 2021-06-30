@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 
@@ -34,9 +33,9 @@ import (
 
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
-	"istio.io/pkg/filewatcher"
 )
 
 var (
@@ -148,74 +147,37 @@ type fakeController struct {
 
 	configStore cache.Store
 
-	caChangedCh chan bool
+	injectedMu sync.Mutex
 
-	injectedMu       sync.Mutex
-	injectedCABundle []byte
-
-	fakeWatcher *filewatcher.FakeWatcher
 	*fake.Clientset
 	istioFakeClient *istiofake.Clientset
-	reconcileDoneCh chan struct{}
 	client          kube.Client
 }
 
 const (
 	namespace = "istio-system"
 	istiod    = "istiod"
-	caPath    = "fakeCAPath"
 )
 
 func createTestController(t *testing.T) *fakeController {
 	fakeClient := kube.NewFakeClient()
+	watcher := &keycertbundle.Watcher{}
 	o := Options{
 		WatchedNamespace:  namespace,
-		CAPath:            caPath,
 		WebhookConfigName: istiod,
 		ServiceName:       istiod,
+		CABundleWatcher:   watcher,
 	}
-
-	caChanged := make(chan bool, 10)
-	changed := func(path string, added bool) {
-		switch path {
-		case o.CAPath:
-			caChanged <- added
-		}
-	}
-
-	newFileWatcher, fakeWatcher := filewatcher.NewFakeWatcher(changed)
+	watcher.SetAndNotify(nil, nil, caBundle0)
 
 	fc := &fakeController{
-		caChangedCh:      caChanged,
-		injectedCABundle: caBundle0,
-		fakeWatcher:      fakeWatcher,
-		client:           fakeClient,
-		Clientset:        fakeClient.Kube().(*fake.Clientset),
-		istioFakeClient:  fakeClient.Istio().(*istiofake.Clientset),
-		reconcileDoneCh:  make(chan struct{}, 100),
-	}
-
-	readFile := func(filename string) ([]byte, error) {
-		fc.injectedMu.Lock()
-		defer fc.injectedMu.Unlock()
-
-		switch filename {
-		case o.CAPath:
-			return fc.injectedCABundle, nil
-		}
-		return nil, os.ErrNotExist
-	}
-
-	reconcileDone := func() {
-		select {
-		case fc.reconcileDoneCh <- struct{}{}:
-		default:
-			t.Fatal("reconcile completion channel is stuck")
-		}
+		client:          fakeClient,
+		Clientset:       fakeClient.Kube().(*fake.Clientset),
+		istioFakeClient: fakeClient.Istio().(*istiofake.Clientset),
 	}
 
 	var err error
-	fc.Controller, err = newController(o, fakeClient, newFileWatcher, readFile, reconcileDone)
+	fc.Controller, err = newController(o, fakeClient)
 	if err != nil {
 		t.Fatalf("failed to create test controller: %v", err)
 	}
@@ -234,7 +196,7 @@ func reconcileHelper(t *testing.T, c *fakeController) {
 	t.Helper()
 
 	c.ClearActions()
-	if err := c.reconcileRequest(&reconcileRequest{"test"}); err != nil {
+	if _, err := c.reconcileRequest(&reconcileRequest{"test"}); err != nil {
 		t.Fatalf("unexpected reconciliation error: %v", err)
 	}
 }
@@ -296,7 +258,7 @@ func TestCABundleChange(t *testing.T) {
 
 	// verify the config updates after injecting a cafile change
 	c.injectedMu.Lock()
-	c.injectedCABundle = caBundle1
+	c.o.CABundleWatcher.SetAndNotify(nil, nil, caBundle1)
 	c.injectedMu.Unlock()
 
 	webhookConfigAfterCAUpdate := webhookConfigWithCABundleFail.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)

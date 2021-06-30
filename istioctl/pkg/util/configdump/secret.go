@@ -16,7 +16,6 @@ package configdump
 
 import (
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/ptypes"
 )
 
 // GetSecretsConfigDump retrieves a secret dump from a config dump wrapper
@@ -26,7 +25,7 @@ func (w *Wrapper) GetSecretConfigDump() (*adminapi.SecretsConfigDump, error) {
 		return nil, err
 	}
 	secretDump := &adminapi.SecretsConfigDump{}
-	err = ptypes.UnmarshalAny(secretDumpAny, secretDump)
+	err = secretDumpAny.UnmarshalTo(secretDump)
 	if err != nil {
 		return nil, err
 	}

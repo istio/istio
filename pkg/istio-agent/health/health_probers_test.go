@@ -69,7 +69,7 @@ func TestHttpProber(t *testing.T) {
 					Port:   port,
 					Host:   "127.0.0.1",
 					Scheme: "http",
-				})
+				}, false)
 
 			if tt.statusCode == -1 {
 				server.Close()

@@ -77,7 +77,7 @@ func (c *Controller) DeleteRegistry(clusterID string, providerID serviceregistry
 	}
 	index, ok := c.getRegistryIndex(clusterID, providerID)
 	if !ok {
-		log.Warnf("Registry is not found in the registries list, nothing to delete")
+		log.Warnf("Registry %s is not found in the registries list, nothing to delete", clusterID)
 		return
 	}
 	c.registries = append(c.registries[:index], c.registries[index+1:]...)

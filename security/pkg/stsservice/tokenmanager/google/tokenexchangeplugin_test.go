@@ -150,7 +150,7 @@ func setUpTest(t *testing.T, setup testSetUp) (*Plugin, *mock.AuthorizationServe
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
 	originalFederatedTokenEndpoint := federatedTokenEndpoint
-	federatedTokenEndpoint = ms.URL + "/v1/identitybindingtoken"
+	federatedTokenEndpoint = ms.URL + "/v1/token"
 	originalAccessTokenEndpoint := accessTokenEndpoint
 	accessTokenEndpoint = ms.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	return tm, ms, originalFederatedTokenEndpoint, originalAccessTokenEndpoint

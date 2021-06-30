@@ -1,0 +1,15 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-audit
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .dst }}"
+  action: AUDIT
+  rules:
+  - to:
+    - operation:
+        paths: ["/audit"]
+---

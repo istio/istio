@@ -3,9 +3,12 @@
 
 package istio_networking_nds_v1
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	math "math"
+
+	proto "github.com/golang/protobuf/proto"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -16,7 +19,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 // Table of hostnames and their IPs to br used for DNS resolution at the agent
 // Sent by istiod to istio agents via xds
@@ -33,16 +36,17 @@ func (m *NameTable) Reset()         { *m = NameTable{} }
 func (m *NameTable) String() string { return proto.CompactTextString(m) }
 func (*NameTable) ProtoMessage()    {}
 func (*NameTable) Descriptor() ([]byte, []int) {
-	return fileDescriptor_nds_e4011d50349a6001, []int{0}
+	return fileDescriptor_3cd1956996ab4e55, []int{0}
 }
+
 func (m *NameTable) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NameTable.Unmarshal(m, b)
 }
 func (m *NameTable) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NameTable.Marshal(b, m, deterministic)
 }
-func (dst *NameTable) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NameTable.Merge(dst, src)
+func (m *NameTable) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NameTable.Merge(m, src)
 }
 func (m *NameTable) XXX_Size() int {
 	return xxx_messageInfo_NameTable.Size(m)
@@ -76,16 +80,17 @@ func (m *NameTable_NameInfo) Reset()         { *m = NameTable_NameInfo{} }
 func (m *NameTable_NameInfo) String() string { return proto.CompactTextString(m) }
 func (*NameTable_NameInfo) ProtoMessage()    {}
 func (*NameTable_NameInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_nds_e4011d50349a6001, []int{0, 0}
+	return fileDescriptor_3cd1956996ab4e55, []int{0, 0}
 }
+
 func (m *NameTable_NameInfo) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NameTable_NameInfo.Unmarshal(m, b)
 }
 func (m *NameTable_NameInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NameTable_NameInfo.Marshal(b, m, deterministic)
 }
-func (dst *NameTable_NameInfo) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NameTable_NameInfo.Merge(dst, src)
+func (m *NameTable_NameInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NameTable_NameInfo.Merge(m, src)
 }
 func (m *NameTable_NameInfo) XXX_Size() int {
 	return xxx_messageInfo_NameTable_NameInfo.Size(m)
@@ -130,9 +135,11 @@ func init() {
 	proto.RegisterType((*NameTable_NameInfo)(nil), "istio.networking.nds.v1.NameTable.NameInfo")
 }
 
-func init() { proto.RegisterFile("nds.proto", fileDescriptor_nds_e4011d50349a6001) }
+func init() {
+	proto.RegisterFile("nds.proto", fileDescriptor_3cd1956996ab4e55)
+}
 
-var fileDescriptor_nds_e4011d50349a6001 = []byte{
+var fileDescriptor_3cd1956996ab4e55 = []byte{
 	// 229 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcc, 0x4b, 0x29, 0xd6,
 	0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0xcf, 0x2c, 0x2e, 0xc9, 0xcc, 0xd7, 0xcb, 0x4b, 0x2d,

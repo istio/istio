@@ -1,0 +1,6 @@
+name: envoy.filters.network.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
+  rules: {}
+  shadowRulesStatPrefix: istio_dry_run_allow_
+  statPrefix: tcp.

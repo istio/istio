@@ -137,7 +137,7 @@ func builtinProfileToFilename(name string) string {
 }
 
 func LoadValues(profileName string, chartsDir string) (string, error) {
-	path := filepath.Join(profilesRoot, builtinProfileToFilename(profileName))
+	path := strings.Join([]string{profilesRoot, builtinProfileToFilename(profileName)}, "/")
 	by, err := fs.ReadFile(manifests.BuiltinOrDir(chartsDir), path)
 	if err != nil {
 		return "", err
@@ -163,9 +163,9 @@ func readProfiles(chartsDir string) (map[string]bool, error) {
 
 // stripPrefix removes the the given prefix from prefix.
 func stripPrefix(path, prefix string) string {
-	pl := len(strings.Split(prefix, string(filepath.Separator)))
-	pv := strings.Split(path, string(filepath.Separator))
-	return strings.Join(pv[pl:], string(filepath.Separator))
+	pl := len(strings.Split(prefix, "/"))
+	pv := strings.Split(path, "/")
+	return strings.Join(pv[pl:], "/")
 }
 
 // list all the profiles.

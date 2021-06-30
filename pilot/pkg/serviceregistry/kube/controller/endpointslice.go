@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
 )
 
 type endpointSliceController struct {
@@ -50,7 +49,7 @@ func newEndpointSliceController(c *Controller, informer filter.FilteredSharedInd
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer, c.queue, "EndpointSlice", out.onEvent, nil)
+	c.registerHandlers(informer, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 

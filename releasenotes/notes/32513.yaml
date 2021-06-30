@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 32513
+releaseNotes:
+  - |
+    **Added** `--dry-run` flag for `istioctl x uninstall`.

@@ -19,6 +19,7 @@ tools/vagrant/.vagrant/
 *.pyc
 # Vm setup generated files
 cluster.env
+sidecar.env
 kubedns
 # pilot
 pilot/pkg/kube/config
@@ -54,3 +55,7 @@ etc/
 var/
 # Go compiled tests
 *.test
+# MacOS extended attributes
+._*
+# MacOS Desktop Services Store
+.DS_Store

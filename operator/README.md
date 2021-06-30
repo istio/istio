@@ -392,6 +392,15 @@ spec:
             value: "60m" # OVERRIDDEN
           - path: spec.template.spec.containers.[name:discovery].ports.[containerPort:8080].containerPort
             value: 8090 # OVERRIDDEN
+          - path: 'spec.template.spec.volumes[100]' #push to the list
+            value:
+              configMap:
+                name: my-config-map
+              name: my-volume-name
+          - path: 'spec.template.spec.containers[0].volumeMounts[100]'
+            value:
+              mountPath: /mnt/path1
+              name: my-volume-name
         - kind: Service
           name: istio-pilot
           patches:

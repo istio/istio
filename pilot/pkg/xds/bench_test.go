@@ -28,7 +28,6 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -45,7 +44,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 // ConfigInput defines inputs passed to the test config templates
@@ -104,11 +103,11 @@ var testCases = []ConfigInput{
 }
 
 func disableLogging() {
-	for _, s := range log.Scopes() {
+	for _, s := range istiolog.Scopes() {
 		if s.Name() == benchmarkScope.Name() {
 			continue
 		}
-		s.SetOutputLevel(log.NoneLevel)
+		s.SetOutputLevel(istiolog.NoneLevel)
 	}
 }
 
@@ -159,7 +158,7 @@ func TestValidateTelemetry(t *testing.T) {
 	}
 	for _, r := range c {
 		cls := &cluster.Cluster{}
-		if err := ptypes.UnmarshalAny(r, cls); err != nil {
+		if err := r.GetResource().UnmarshalTo(cls); err != nil {
 			t.Fatal(err)
 		}
 		for _, ff := range cls.Filters {
@@ -306,7 +305,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.LedgerVersion)
 			}
-			logDebug(b, response.GetResources())
+			logDebug(b, model.AnyToUnnamedResources(response.GetResources()))
 		})
 	}
 }
@@ -328,7 +327,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.10.0",
+			IstioVersion: "1.11.0",
 		},
 		ConfigNamespace: "default",
 	}
@@ -405,7 +404,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 
 var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
-var benchmarkScope = log.RegisterScope("benchmark", "", 0)
+var benchmarkScope = istiolog.RegisterScope("benchmark", "", 0)
 
 // Add additional debug info for a test
 func logDebug(b *testing.B, m model.Resources) {
@@ -424,7 +423,7 @@ func logDebug(b *testing.B, m model.Resources) {
 	}
 	bytes := 0
 	for _, r := range m {
-		bytes += len(r.Value)
+		bytes += len(r.GetResource().Value)
 	}
 	b.ReportMetric(float64(bytes)/1000, "kb/msg")
 	b.ReportMetric(float64(len(m)), "resources/msg")

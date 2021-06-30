@@ -1,0 +1,24 @@
+name: envoy.filters.network.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin-deny]-rule[1]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - destinationPort: 80
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        googleRe2: {}
+                        regex: .*/ns/ns-1/.*
+  shadowRulesStatPrefix: istio_dry_run_allow_
+  statPrefix: tcp.

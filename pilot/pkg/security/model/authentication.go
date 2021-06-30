@@ -19,7 +19,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -71,6 +71,9 @@ var SDSAdsConfig = &core.ConfigSource{
 	ConfigSourceSpecifier: &core.ConfigSource_Ads{
 		Ads: &core.AggregatedConfigSource{},
 	},
+	// We intentionally do *not* set InitialFetchTimeout to 0s here, as this is used for
+	// credentialName SDS which may refer to secrets which do not exist. We do not want to block the
+	// entire listener/cluster in these cases.
 	ResourceApiVersion: core.ApiVersion_V3,
 }
 
@@ -110,7 +113,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	legacyRootSDSConfig = &tls.SdsSecretConfig{
@@ -130,7 +133,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	defaultSDSConfig = &tls.SdsSecretConfig{
@@ -151,7 +154,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 	rootSDSConfig = &tls.SdsSecretConfig{
@@ -172,7 +175,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			InitialFetchTimeout: durationpb.New(time.Second * 0),
 		},
 	}
 )
@@ -251,7 +254,7 @@ func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 
 // ApplyToCommonTLSContext completes the commonTlsContext
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
-	subjectAltNames []string, trustDomainAliases []string) {
+	subjectAltNames []string, trustDomainAliases []string, validateClient bool) {
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
@@ -269,11 +272,13 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	}
 
 	// configure server listeners with SDS.
-	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-			DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
-		},
+	if validateClient {
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
+			},
+		}
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), proxy),

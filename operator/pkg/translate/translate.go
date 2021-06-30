@@ -682,7 +682,7 @@ func MergeK8sObject(base *object.K8sObject, overlayNode interface{}, path util.P
 		return nil, err
 	}
 
-	return newObj, nil
+	return newObj.ResolveK8sConflict(), nil
 }
 
 // createPatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.

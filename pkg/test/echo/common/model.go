@@ -26,6 +26,8 @@ type TLSSettings struct {
 	// This needed for integration tests, as we are connecting using a port-forward (127.0.0.1), so
 	// any DNS certs will not validate.
 	Hostname string
+	// If set to true, the cert will be provisioned by proxy, and extra cert volume will be mounted.
+	ProxyProvision bool
 }
 
 // Port represents a network port where a service is listening for

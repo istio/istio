@@ -23,13 +23,14 @@ import (
 )
 
 func TestMergeGateways(t *testing.T) {
-	gwHTTPFoo := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway")
-	gwHTTPbar := makeConfig("bar1", "not-default", "bar.foo.com", "bname1", "http", 7, "ingressgateway")
-	gwHTTP2Wildcard := makeConfig("foo5", "not-default", "*", "name5", "http2", 8, "ingressgateway")
-	gwHTTPWildcard := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway")
-	gwTCPWildcard := makeConfig("foo4", "not-default-2", "*", "name4", "tcp", 8, "ingressgateway")
+	gwHTTPFoo := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", "")
+	gwHTTPbar := makeConfig("bar1", "not-default", "bar.foo.com", "bname1", "http", 7, "ingressgateway", "")
+	gwHTTPlocalbar := makeConfig("lcoalbar1", "not-default", "localbar.foo.com", "bname1", "http", 7, "ingressgateway", "127.0.0.1")
+	gwHTTP2Wildcard := makeConfig("foo5", "not-default", "*", "name5", "http2", 8, "ingressgateway", "")
+	gwHTTPWildcard := makeConfig("foo3", "not-default", "*", "name3", "http", 8, "ingressgateway", "")
+	gwTCPWildcard := makeConfig("foo4", "not-default-2", "*", "name4", "tcp", 8, "ingressgateway", "")
 
-	gwHTTPWildcardAlternate := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2")
+	gwHTTPWildcardAlternate := makeConfig("foo2", "not-default", "*", "name2", "http", 7, "ingressgateway2", "")
 
 	// TODO(ramaraochavali): Add more test cases here.
 	tests := []struct {
@@ -54,6 +55,14 @@ func TestMergeGateways(t *testing.T) {
 			1,
 			2,
 			map[string]int{"http.7": 2},
+			2,
+		},
+		{
+			"two servers on the same port with different bind",
+			[]config.Config{gwHTTPbar, gwHTTPlocalbar},
+			2,
+			2,
+			map[string]int{"http.7": 1, "http.7.127.0.0.1": 1},
 			2,
 		},
 		{
@@ -135,7 +144,7 @@ func TestMergeGateways(t *testing.T) {
 	}
 }
 
-func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string) config.Config {
+func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string, bind string) config.Config {
 	c := config.Config{
 		Meta: config.Meta{
 			Name:      name,
@@ -147,6 +156,7 @@ func makeConfig(name, namespace, host, portName, portProtocol string, portNumber
 				{
 					Hosts: []string{host},
 					Port:  &networking.Port{Name: portName, Number: portNumber, Protocol: portProtocol},
+					Bind:  bind,
 				},
 			},
 		},

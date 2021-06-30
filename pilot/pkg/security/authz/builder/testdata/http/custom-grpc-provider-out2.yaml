@@ -1,0 +1,22 @@
+name: envoy.filters.http.ext_authz
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+  failureModeAllow: true
+  filterEnabledMetadata:
+    filter: envoy.filters.http.rbac
+    path:
+    - key: istio_ext_authz_shadow_effective_policy_id
+    value:
+      stringMatch:
+        prefix: istio-ext-authz
+  grpcService:
+    envoyGrpc:
+      authority: outbound_.9000_._.my-custom-ext-authz.foo.svc.cluster.local
+      clusterName: outbound|9000||my-custom-ext-authz.foo.svc.cluster.local
+    timeout: 0.002s
+  statusOnError:
+    code: Forbidden
+  transportApiVersion: V3
+  withRequestBody:
+    allowPartialMessage: true
+    maxRequestBytes: 4096

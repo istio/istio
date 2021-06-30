@@ -101,3 +101,6 @@ allowlisted_modules:
 
 # MIT: https://github.com/kubernetes-sigs/yaml/blob/master/LICENSE
 - sigs.k8s.io/yaml
+
+# https://github.com/go-errors/errors/blob/master/LICENSE.MIT
+- github.com/go-errors/errors

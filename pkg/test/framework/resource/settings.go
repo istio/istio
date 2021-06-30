@@ -81,12 +81,13 @@ type Settings struct {
 	// Skip VM related parts for all the tests.
 	SkipVM bool
 
-	// IstioVersions maps the Istio versions that are available to each cluster to their corresponding revisions.
-	// In the future these versions should be automatically deployed to each primary cluster, but for now,
-	// this flag must be used with --istio.test.kube.deploy=false with the versions pre-installed.
-	// The map should be passed in as comma-separated values, such as "rev-a=1.7.3,rev-b=1.8.2,rev-c=1.9.0", and the test framework will
+	// Revisions maps the Istio revisions that are available to each cluster to their corresponding versions.
+	// This flag must be used with --istio.test.kube.deploy=false with the versions pre-installed.
+	// This flag should be passed in as comma-separated values, such as "rev-a=1.7.3,rev-b=1.8.2,rev-c=1.9.0", and the test framework will
 	// spin up pods pointing to these revisions for each echo instance and skip tests accordingly.
-	IstioVersions RevVerMap
+	// To configure it so that an Istio revision is on the latest version simply list the revision name without the version (i.e. "rev-a,rev-b")
+	// If using this flag with --istio.test.revision, this flag will take precedence.
+	Revisions RevVerMap
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -131,6 +132,6 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
 	result += fmt.Sprintf("SkipVM:            %v\n", s.SkipVM)
-	result += fmt.Sprintf("IstioVersions:     %v\n", s.IstioVersions)
+	result += fmt.Sprintf("Revisions:         %v\n", s.Revisions.String())
 	return result
 }

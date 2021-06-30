@@ -32,7 +32,7 @@ import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	protobuf "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -208,7 +208,7 @@ func buildHTTPMxFilter() *hcm.HttpFilter {
 		},
 	}
 
-	typed, err := ptypes.MarshalAny(httpMxConfigProto)
+	typed, err := anypb.New(httpMxConfigProto)
 	if err != nil {
 		return nil
 	}

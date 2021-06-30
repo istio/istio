@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -68,14 +68,8 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 			rc := configgen.buildGatewayHTTPRouteConfig(node, push, routeName)
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
-			} else {
-				rc = &route.RouteConfiguration{
-					Name:             routeName,
-					VirtualHosts:     []*route.VirtualHost{},
-					ValidateClusters: proto.BoolFalse,
-				}
+				routeConfigurations = append(routeConfigurations, rc)
 			}
-			routeConfigurations = append(routeConfigurations, rc)
 		}
 	}
 	return routeConfigurations
@@ -136,7 +130,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	if err != nil {
 		// we have a port whose name is http_proxy or unix:///foo/bar
 		// check for both.
-		if routeName != RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+		if routeName != model.RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
 			// TODO: This is potentially one place where envoyFilter ADD operation can be helpful if the
 			// user wants to ship a custom RDS. But at this point, the match semantics are murky. We have no
 			// object to match upon. This needs more thought. For now, we will continue to return nil for
@@ -535,7 +529,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (string, stri
 func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
-		notimeout := ptypes.DurationProto(0)
+		notimeout := durationpb.New(0)
 
 		// no need to check for nil value as the previous if check has checked
 		if node.SidecarScope.OutboundTrafficPolicy.EgressProxy != nil {
@@ -548,8 +542,10 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 		routeAction := &route.RouteAction{
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: egressCluster},
 			// Disable timeout instead of assuming some defaults.
-			Timeout:           notimeout,
-			MaxStreamDuration: &route.RouteAction_MaxStreamDuration{MaxStreamDuration: notimeout},
+			Timeout: notimeout,
+			// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+			// nolint: staticcheck
+			MaxGrpcTimeout: notimeout,
 		}
 
 		return &route.VirtualHost{

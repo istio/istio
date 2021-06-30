@@ -164,16 +164,17 @@ func CheckPodReady(pod *kubeApiCore.Pod) error {
 }
 
 // GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
-func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta) {
+func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeMeta) {
 	if pod == nil {
-		return nil, nil
+		return metav1.ObjectMeta{}, metav1.TypeMeta{}
 	}
 	// try to capture more useful namespace/name info for deployments, etc.
 	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
-	deployMeta := pod.ObjectMeta.DeepCopy()
-	deployMeta.Namespace = pod.ObjectMeta.Namespace
+	deployMeta := pod.ObjectMeta
+	deployMeta.ManagedFields = nil
+	deployMeta.OwnerReferences = nil
 
-	typeMetadata := &metav1.TypeMeta{
+	typeMetadata := metav1.TypeMeta{
 		Kind:       "Pod",
 		APIVersion: "v1",
 	}

@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )
 
@@ -42,7 +42,7 @@ func (al *AuthzLogger) AppendError(err error) {
 
 func (al *AuthzLogger) Report(in *plugin.InputParams) {
 	if al.errMsg != nil {
-		al.errMsg.ErrorFormat = util.MultiErrorFormat()
+		al.errMsg.ErrorFormat = istiomultierror.MultiErrorFormat()
 		authzLog.Errorf("Processed authorization policy for %s, %s", in.Node.ID, al.errMsg)
 	}
 	if authzLog.DebugEnabled() && len(al.debugMsg) != 0 {

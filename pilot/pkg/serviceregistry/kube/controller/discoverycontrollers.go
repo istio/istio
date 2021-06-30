@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
 )
 
 // initialize handlers for discovery selection scoping

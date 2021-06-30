@@ -30,6 +30,7 @@ import (
 
 	// force registraton of factory func
 	_ "istio.io/istio/pkg/test/framework/components/echo/staticvm"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -43,9 +44,10 @@ func NewBuilder(ctx resource.Context, clusters ...cluster.Cluster) echo.Builder 
 		clusters = cluster.Clusters{ctx.Clusters().Default()}
 	}
 	return builder{
-		ctx:     ctx,
-		configs: map[cluster.Kind][]echo.Config{},
-		refs:    map[cluster.Kind][]*echo.Instance{},
+		ctx:        ctx,
+		configs:    map[cluster.Kind][]echo.Config{},
+		refs:       map[cluster.Kind][]*echo.Instance{},
+		namespaces: map[string]namespace.Instance{},
 	}.WithClusters(clusters...)
 }
 
@@ -62,7 +64,9 @@ type builder struct {
 	// The length of each refs slice should match the length of the corresponding cluster slice.
 	// Only the first per-cluster entry for a given config should have a non-nil ref.
 	refs map[cluster.Kind][]*echo.Instance
-
+	// namespaces caches namespaces by their prefix; used for converting Static namespace from configs into actual
+	// namesapces
+	namespaces map[string]namespace.Instance
 	// errs contains a multierror for failed validation during With calls
 	errs error
 }
@@ -84,6 +88,9 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 		b.errs = multierror.Append(b.errs, err)
 		return b
 	}
+
+	// cache the namespace, so manually added echo.Configs can be a part of it
+	b.namespaces[cfg.Namespace.Prefix()] = cfg.Namespace
 
 	targetClusters := b.clusters
 	if cfg.Cluster != nil {
@@ -131,6 +138,11 @@ func (b builder) WithClusters(clusters ...cluster.Cluster) echo.Builder {
 }
 
 func (b builder) Build() (out echo.Instances, err error) {
+	return build(b)
+}
+
+// build inner allows assigning to b (assignment to receiver would be ineffective)
+func build(b builder) (out echo.Instances, err error) {
 	scopes.Framework.Info("=== BEGIN: Deploy echo instances ===")
 	defer func() {
 		if err != nil {
@@ -138,6 +150,15 @@ func (b builder) Build() (out echo.Instances, err error) {
 			scopes.Framework.Error(err)
 		}
 	}()
+
+	// load additional configs
+	for _, cfg := range *additionalConfigs {
+		// swap the namespace.Static for a namespace.kube
+		b, cfg.Namespace = b.getOrCreateNamespace(cfg.Namespace.Prefix())
+		// register the extra config
+		b = b.WithConfig(cfg).(builder)
+	}
+
 	// bail early if there were issues during the configuration stage
 	if b.errs != nil {
 		return nil, b.errs
@@ -152,6 +173,19 @@ func (b builder) Build() (out echo.Instances, err error) {
 
 	scopes.Framework.Info("=== DONE: Deploy echo instances ===")
 	return
+}
+
+func (b builder) getOrCreateNamespace(prefix string) (builder, namespace.Instance) {
+	ns, ok := b.namespaces[prefix]
+	if ok {
+		return b, ns
+	}
+	ns, err := namespace.New(b.ctx, namespace.Config{Prefix: prefix, Inject: true})
+	if err != nil {
+		b.errs = multierror.Append(b.errs, err)
+	}
+	b.namespaces[prefix] = ns
+	return b, ns
 }
 
 // deployServices deploys the kubernetes Service to all clusters. Multicluster meshes should have "sameness"

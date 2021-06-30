@@ -65,7 +65,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			epNetwork := istioMetadata(lbEp, "network")
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
-			if epNetwork == b.network || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
+			if model.IsSameNetwork(b.network, epNetwork) || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
 				// Copy on write.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 				clonedLbEp.LoadBalancingWeight = &wrappers.UInt32Value{
@@ -76,8 +76,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				if !b.canViewNetwork(epNetwork) {
 					continue
 				}
-				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
-					// dont allow cross-network endpoints for uninjected traffic
+				// cross-network traffic relies on mTLS to be enabled for SNI routing
+				// TODO BTS may allow us to work around this
+				if b.mtlsChecker.isMtlsDisabled(lbEp) {
 					continue
 				}
 

@@ -239,6 +239,12 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	sc := NewMulticluster(localClient, "local", "", stop)
 	sc.addMemberCluster(remoteClient, "remote")
 	sc.addMemberCluster(otherRemoteClient, "other")
+
+	// normally the remote secrets controller would start these
+	localClient.RunAndWait(stop)
+	remoteClient.RunAndWait(stop)
+	otherRemoteClient.RunAndWait(stop)
+
 	cases := []struct {
 		name      string
 		namespace string

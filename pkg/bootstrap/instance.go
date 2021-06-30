@@ -24,7 +24,7 @@ import (
 	"strings"
 	"text/template"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -89,8 +89,8 @@ func toJSON(i interface{}) string {
 	return string(ba)
 }
 
-// getEffectiveTemplatePath gets the template file that should be used for bootstrap
-func getEffectiveTemplatePath(pc *meshAPI.ProxyConfig) string {
+// GetEffectiveTemplatePath gets the template file that should be used for bootstrap
+func GetEffectiveTemplatePath(pc *model.NodeMetaProxyConfig) string {
 	var templateFilePath string
 	switch {
 	case pc.CustomConfigFile != "":
@@ -109,13 +109,13 @@ func getEffectiveTemplatePath(pc *meshAPI.ProxyConfig) string {
 
 func (i *instance) CreateFileForEpoch(epoch int) (string, error) {
 	// Create the output file.
-	if err := os.MkdirAll(i.Proxy.ConfigPath, 0700); err != nil {
+	if err := os.MkdirAll(i.Metadata.ProxyConfig.ConfigPath, 0o700); err != nil {
 		return "", err
 	}
 
-	templateFile := getEffectiveTemplatePath(i.Proxy)
+	templateFile := GetEffectiveTemplatePath(i.Metadata.ProxyConfig)
 
-	outputFilePath := configFile(i.Proxy.ConfigPath, templateFile, epoch)
+	outputFilePath := configFile(i.Metadata.ProxyConfig.ConfigPath, templateFile, epoch)
 	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
 		return "", err

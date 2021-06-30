@@ -1,0 +1,20 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-deny
+  namespace: foo
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            requestPrincipals: ["id-1"]
+      to:
+        - operation:
+            methods: ["GET"]
+    - from:
+        - source:
+            namespaces: ["ns-1"]
+      to:
+        - operation:
+            ports: ["80"]

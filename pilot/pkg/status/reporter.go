@@ -34,6 +34,11 @@ import (
 	"istio.io/pkg/ledger"
 )
 
+func GenStatusReporterMapKey(conID string, distributionType xds.EventType) string {
+	key := conID + "~" + distributionType
+	return key
+}
+
 func NewIstioContext(stop <-chan struct{}) context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -190,6 +195,11 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 	var toDelete []Resource
 	for _, item := range completedResources {
 		// TODO: handle cache miss
+		// if cache miss, need to skip current loop, otherwise is will cause errors like
+		// invalid memory address or nil pointer dereference
+		if _, ok := r.inProgressResources[item.ToModelKey()]; !ok {
+			continue
+		}
 		total := r.inProgressResources[item.ToModelKey()].completedIterations + 1
 		if int64(total) > (time.Minute.Milliseconds() / r.UpdateInterval.Milliseconds()) {
 			// remove from inProgressResources
@@ -271,7 +281,7 @@ type distributionEvent struct {
 }
 
 func (r *Reporter) QueryLastNonce(conID string, distributionType xds.EventType) (noncePrefix string) {
-	key := conID + distributionType
+	key := GenStatusReporterMapKey(conID, distributionType)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.status[key]
@@ -306,7 +316,7 @@ func (r *Reporter) readFromEventQueue() {
 func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := conID + distributionType // TODO: delimit?
+	key := GenStatusReporterMapKey(conID, distributionType)
 	r.deleteKeyFromReverseMap(key)
 	var version string
 	if len(nonce) > 12 {
@@ -340,7 +350,7 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, xdsType := range types {
-		key := conID + xdsType // TODO: delimit?
+		key := GenStatusReporterMapKey(conID, xdsType)
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}

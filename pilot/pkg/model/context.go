@@ -82,13 +82,8 @@ type Environment struct {
 
 	// TrustBundle: List of Mesh TrustAnchors
 	TrustBundle *trustbundle.TrustBundle
-}
 
-func (e *Environment) GetDomainSuffix() string {
-	if len(e.DomainSuffix) > 0 {
-		return e.DomainSuffix
-	}
-	return constants.DefaultKubernetesDomain
+	clusterLocalServices ClusterLocalProvider
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -146,6 +141,21 @@ func (e *Environment) Version() string {
 	return ""
 }
 
+// Init initializes the Environment for use.
+func (e *Environment) Init() {
+	// Use a default DomainSuffix, if none was provided.
+	if len(e.DomainSuffix) == 0 {
+		e.DomainSuffix = constants.DefaultKubernetesDomain
+	}
+
+	// Create the cluster-local service registry.
+	e.clusterLocalServices = NewClusterLocalProvider(e)
+}
+
+func (e *Environment) ClusterLocal() ClusterLocalProvider {
+	return e.clusterLocalServices
+}
+
 func (e *Environment) GetLedger() ledger.Ledger {
 	return e.ledger
 }
@@ -155,11 +165,33 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 }
 
 // Request is an alias for array of marshaled resources.
-type Resources = []*any.Any
+type Resources = []*discovery.Resource
+
+func AnyToUnnamedResources(r []*any.Any) Resources {
+	a := make(Resources, 0, len(r))
+	for _, rr := range r {
+		a = append(a, &discovery.Resource{Resource: rr})
+	}
+	return a
+}
+
+func ResourcesToAny(r Resources) []*any.Any {
+	a := make([]*any.Any, 0, len(r))
+	for _, rr := range r {
+		a = append(a, rr.Resource)
+	}
+	return a
+}
 
 // XdsUpdates include information about the subset of updated resources.
 // See for example EDS incremental updates.
 type XdsUpdates = map[ConfigKey]struct{}
+
+// GeneratorMetadata has information about generator it self that processors like ads/delta can use.
+type GeneratorMetadata struct {
+	// LogsDetails indicates whether the generator logs details during the generation.
+	LogsDetails bool
+}
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
@@ -169,6 +201,16 @@ type XdsUpdates = map[ConfigKey]struct{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
+	Metadata() *GeneratorMetadata
+}
+
+// BaseGenerator is the base generator.
+type BaseGenerator struct{}
+
+var baseMetadata = &GeneratorMetadata{false}
+
+func (bg *BaseGenerator) Metadata() *GeneratorMetadata {
+	return baseMetadata
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -248,6 +290,9 @@ type Proxy struct {
 
 	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
 	WatchedResources map[string]*WatchedResource
+
+	// XdsNode is the xDS node identifier
+	XdsNode *core.Node
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -356,7 +401,7 @@ func (l *PodPortList) UnmarshalJSON(data []byte) error {
 	var pl []PodPort
 	pls, err := strconv.Unquote(string(data))
 	if err != nil {
-		return nil
+		return err
 	}
 	if err := json.Unmarshal([]byte(pls), &pl); err != nil {
 		return err
@@ -403,6 +448,18 @@ func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	return gogojsonpb.Unmarshal(bytes.NewReader(data), pc)
 }
 
+// Node is a typed version of Envoy node with metadata.
+type Node struct {
+	// ID of the Envoy node
+	ID string
+	// Metadata is the typed node metadata
+	Metadata *BootstrapNodeMetadata
+	// RawMetadata is the untyped node metadata
+	RawMetadata map[string]interface{}
+	// Locality from Envoy bootstrap
+	Locality *core.Locality
+}
+
 // BootstrapNodeMetadata is a superset of NodeMetadata, intended to model the entirety of the node metadata
 // we configure in the Envoy bootstrap. This is split out from NodeMetadata to explicitly segment the parameters
 // that are consumed by Pilot from the parameters used only as part of the bootstrap. Fields used by bootstrap only
@@ -421,17 +478,23 @@ type BootstrapNodeMetadata struct {
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
 
-	// PlatformMetadata contains any platform specific metadata
-	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
+	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
+	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
 
-	StatsInclusionPrefixes string `json:"sidecar.istio.io/statsInclusionPrefixes,omitempty"`
-	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
-	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
-	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
+	// PilotSAN is the list of subject alternate names for the xDS server.
+	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
 
-	// StsPort specifies the port of security token exchange server (STS).
-	// Used by envoy filters
-	StsPort string `json:"STS_PORT,omitempty"`
+	// OutlierLogPath is the cluster manager outlier event log path.
+	OutlierLogPath string `json:"OUTLIER_LOG_PATH,omitempty"`
+
+	// ProvCertDir is the directory containing pre-provisioned certs.
+	ProvCert string `json:"PROV_CERT,omitempty"`
+
+	// AppContainers is the list of containers in the pod.
+	AppContainers string `json:"APP_CONTAINERS,omitempty"`
+
+	// IstioProxySHA is the SHA of the proxy version.
+	IstioProxySHA string `json:"ISTIO_PROXY_SHA,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
@@ -451,6 +514,9 @@ type NodeMetadata struct {
 
 	// Labels specifies the set of workload instance (ex: k8s pod) labels associated with this node.
 	Labels map[string]string `json:"LABELS,omitempty"`
+
+	// Labels specifies the set of workload instance (ex: k8s pod) annotations associated with this node.
+	Annotations map[string]string `json:"ANNOTATIONS,omitempty"`
 
 	// InstanceIPs is the set of IPs attached to this proxy
 	InstanceIPs StringList `json:"INSTANCE_IPS,omitempty"`
@@ -527,6 +593,13 @@ type NodeMetadata struct {
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
 
+	// PlatformMetadata contains any platform specific metadata
+	PlatformMetadata map[string]string `json:"PLATFORM_METADATA,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
+	StsPort string `json:"STS_PORT,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
@@ -540,6 +613,38 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
 	}
 	return def
+}
+
+// UnnamedNetwork is the default network that proxies in the mesh
+// get when they don't request a specific network view.
+const UnnamedNetwork = ""
+
+// GetNetworkView returns the networks that the proxy requested.
+// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
+// endpoints corresponding to the networks that the proxy wants to see.
+// If not set, we assume that the proxy wants to see endpoints in any network.
+func (node *Proxy) GetNetworkView() map[string]bool {
+	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+		return nil
+	}
+
+	nmap := make(map[string]bool)
+	for _, n := range node.Metadata.RequestedNetworkView {
+		nmap[n] = true
+	}
+	nmap[UnnamedNetwork] = true
+
+	return nmap
+}
+
+// InNetwork returns true if the proxy is on the given network, or if either
+// the proxy's network or the given network is unspecified ("").
+func (node *Proxy) InNetwork(network string) bool {
+	return node == nil || IsSameNetwork(network, node.Metadata.Network)
+}
+
+func IsSameNetwork(a, b string) bool {
+	return a == UnnamedNetwork || b == UnnamedNetwork || a == b
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
@@ -768,28 +873,6 @@ func (node *Proxy) SupportsIPv4() bool {
 // SupportsIPv6 returns true if proxy supports IPv6 addresses.
 func (node *Proxy) SupportsIPv6() bool {
 	return node.ipv6Support
-}
-
-// UnnamedNetwork is the default network that proxies in the mesh
-// get when they don't request a specific network view.
-const UnnamedNetwork = ""
-
-// GetNetworkView returns the networks that the proxy requested.
-// When sending EDS/CDS-with-dns-endpoints, Pilot will only send
-// endpoints corresponding to the networks that the proxy wants to see.
-// If not set, we assume that the proxy wants to see endpoints in any network.
-func GetNetworkView(node *Proxy) map[string]bool {
-	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
-		return nil
-	}
-
-	nmap := make(map[string]bool)
-	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[n] = true
-	}
-	nmap[UnnamedNetwork] = true
-
-	return nmap
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.

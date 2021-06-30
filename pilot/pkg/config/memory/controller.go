@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -52,6 +53,10 @@ func NewSyncController(cs model.ConfigStore) model.ConfigStoreCache {
 
 func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(config.Config, config.Config, model.Event)) {
 	c.monitor.AppendEventHandler(kind, f)
+}
+
+func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+	return nil
 }
 
 // Memory implementation is always synchronized with cache

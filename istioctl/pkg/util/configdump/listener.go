@@ -19,7 +19,6 @@ import (
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	"github.com/golang/protobuf/ptypes"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
@@ -47,12 +46,12 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 	}
 	sort.Slice(dal, func(i, j int) bool {
 		l := &listener.Listener{}
-		err = ptypes.UnmarshalAny(dal[i].ActiveState.Listener, l)
+		err = dal[i].ActiveState.Listener.UnmarshalTo(l)
 		if err != nil {
 			return false
 		}
 		name := l.Name
-		err = ptypes.UnmarshalAny(dal[j].ActiveState.Listener, l)
+		err = dal[j].ActiveState.Listener.UnmarshalTo(l)
 		if err != nil {
 			return false
 		}
@@ -75,7 +74,7 @@ func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error)
 		return nil, err
 	}
 	listenerDump := &adminapi.ListenersConfigDump{}
-	err = ptypes.UnmarshalAny(listenerDumpAny, listenerDump)
+	err = listenerDumpAny.UnmarshalTo(listenerDump)
 	if err != nil {
 		return nil, err
 	}

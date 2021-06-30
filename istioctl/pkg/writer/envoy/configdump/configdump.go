@@ -20,6 +20,7 @@ import (
 	"io"
 
 	"github.com/golang/protobuf/jsonpb"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
@@ -45,7 +46,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 }
 
 // PrintBootstrapDump prints just the bootstrap config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintBootstrapDump() error {
+func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 	if c.configDump == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}
@@ -54,14 +55,23 @@ func (c *ConfigWriter) PrintBootstrapDump() error {
 		return err
 	}
 	jsonm := &jsonpb.Marshaler{Indent: "    "}
-	if err := jsonm.Marshal(c.Stdout, bootstrapDump); err != nil {
+	out, err := jsonm.MarshalToString(bootstrapDump)
+	if err != nil {
 		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
 	}
+	if outputFormat == "yaml" {
+		outbyte, err := yaml.JSONToYAML([]byte(out))
+		if err != nil {
+			return err
+		}
+		out = string(outbyte)
+	}
+	fmt.Fprintln(c.Stdout, out)
 	return nil
 }
 
 // PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintSecretDump() error {
+func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
 	if c.configDump == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}
@@ -70,9 +80,18 @@ func (c *ConfigWriter) PrintSecretDump() error {
 		return fmt.Errorf("sidecar doesn't support secrets: %v", err)
 	}
 	jsonm := &jsonpb.Marshaler{Indent: "    "}
-	if err := jsonm.Marshal(c.Stdout, secretDump); err != nil {
+	out, err := jsonm.MarshalToString(secretDump)
+	if err != nil {
 		return fmt.Errorf("unable to marshal secrets in Envoy config dump")
 	}
+	if outputFormat == "yaml" {
+		outbyte, err := yaml.JSONToYAML([]byte(out))
+		if err != nil {
+			return err
+		}
+		out = string(outbyte)
+	}
+	fmt.Fprintln(c.Stdout, out)
 	return nil
 }
 

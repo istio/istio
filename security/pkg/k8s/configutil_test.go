@@ -18,14 +18,19 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/informers"
+	informerv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -124,7 +129,6 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			data:              testData,
 			meta:              metav1.ObjectMeta{Namespace: namespaceName, Name: configMapName},
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, namespaceName, configMapName),
 				ktesting.NewCreateAction(gvr, namespaceName, createConfigMap(namespaceName,
 					configMapName, testData)),
 			},
@@ -136,7 +140,6 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			existingConfigMap: createConfigMap(namespaceName, configMapName, map[string]string{}),
 			data:              testData,
 			expectedActions: []ktesting.Action{
-				ktesting.NewGetAction(gvr, namespaceName, configMapName),
 				ktesting.NewUpdateAction(gvr, namespaceName, createConfigMap(namespaceName, configMapName, testData)),
 			},
 			expectedErr: "",
@@ -166,13 +169,17 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			} else {
 				client = tc.client
 			}
+			lister := createFakeLister(client)
 			if tc.existingConfigMap != nil {
 				if _, err := client.CoreV1().ConfigMaps(tc.meta.Namespace).Create(context.TODO(), tc.existingConfigMap, metav1.CreateOptions{}); err != nil {
 					t.Errorf("failed to create configmap %v", err)
 				}
+				if err := lister.Informer().GetIndexer().Add(tc.existingConfigMap); err != nil {
+					t.Errorf("failed to add configmap to informer %v", err)
+				}
 			}
 			client.ClearActions()
-			err := InsertDataToConfigMap(client.CoreV1(), tc.meta, tc.data)
+			err := InsertDataToConfigMap(client.CoreV1(), lister.Lister(), tc.meta, tc.data)
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}
@@ -189,6 +196,8 @@ func TestInsertDataToConfigMap(t *testing.T) {
 
 func createConfigMapDisabledClient() *fake.Clientset {
 	client := &fake.Clientset{}
+	fakeWatch := watch.NewFake()
+	client.AddWatchReactor("configmaps", ktesting.DefaultWatchReactor(fakeWatch, nil))
 	client.AddReactor("get", "configmaps", func(action ktesting.Action) (bool, runtime.Object, error) {
 		return true, &v1.ConfigMap{}, errors.NewNotFound(v1.Resource("configmaps"), configMapName)
 	})
@@ -211,7 +220,7 @@ func createConfigMap(namespace, configName string, data map[string]string) *v1.C
 
 func checkActions(actual, expected []ktesting.Action) error {
 	if len(actual) != len(expected) {
-		return fmt.Errorf("unexpected number of actions, want %d but got %d", len(expected), len(actual))
+		return fmt.Errorf("unexpected number of actions, want %d but got %d, %v", len(expected), len(actual), actual)
 	}
 
 	for i, action := range actual {
@@ -224,4 +233,14 @@ func checkActions(actual, expected []ktesting.Action) error {
 	}
 
 	return nil
+}
+
+func createFakeLister(kubeClient *fake.Clientset) informerv1.ConfigMapInformer {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Second)
+	configmapInformer := informerFactory.Core().V1().ConfigMaps().Informer()
+	go configmapInformer.Run(ctx.Done())
+	cache.WaitForCacheSync(ctx.Done(), configmapInformer.HasSynced)
+	return informerFactory.Core().V1().ConfigMaps()
 }

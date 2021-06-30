@@ -15,6 +15,8 @@
 package xds
 
 import (
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
@@ -22,6 +24,7 @@ import (
 )
 
 type RdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
@@ -64,7 +67,10 @@ func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	rawRoutes := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, push, w.ResourceNames)
 	resources := model.Resources{}
 	for _, c := range rawRoutes {
-		resources = append(resources, util.MessageToAny(c))
+		resources = append(resources, &discovery.Resource{
+			Name:     c.Name,
+			Resource: util.MessageToAny(c),
+		})
 	}
 	return resources, nil
 }

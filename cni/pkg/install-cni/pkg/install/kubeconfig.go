@@ -15,6 +15,7 @@
 package install
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/pkg/file"
+	"istio.io/pkg/log"
 )
 
 const kubeconfigTemplate = `# Kubeconfig file for Istio CNI plugin.
@@ -75,12 +77,12 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepat
 	}
 
 	protocol := cfg.K8sServiceProtocol
-	if len(protocol) == 0 {
+	if protocol == "" {
 		protocol = "https"
 	}
 
 	caFile := cfg.KubeCAFile
-	if len(caFile) == 0 {
+	if caFile == "" {
 		caFile = constants.ServiceAccountPath + "/ca.crt"
 	}
 
@@ -108,40 +110,23 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepat
 		TLSConfig:                 tlsConfig,
 	}
 
-	var tmpFile *os.File
-	tmpFile, err = ioutil.TempFile(cfg.MountedCNINetDir, cfg.KubeconfigFilename+".tmp.")
-	if err != nil {
-		return
-	}
-	defer func() {
-		if file.Exists(tmpFile.Name()) {
-			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
-				if err != nil {
-					err = errors.Wrap(err, rmErr.Error())
-				} else {
-					err = rmErr
-				}
-			}
-		}
-	}()
-
-	if err = os.Chmod(tmpFile.Name(), os.FileMode(cfg.KubeconfigMode)); err != nil {
-		return
+	var kcbb bytes.Buffer
+	if err := tpl.Execute(&kcbb, fields); err != nil {
+		return "", err
 	}
 
-	if err = tpl.Execute(tmpFile, fields); err != nil {
-		if closeErr := tmpFile.Close(); closeErr != nil {
-			err = errors.Wrap(err, closeErr.Error())
-		}
-		return
+	var kcbbToPrint bytes.Buffer
+	fields.ServiceAccountToken = "<redacted>"
+	if !cfg.SkipTLSVerify {
+		fields.TLSConfig = fmt.Sprintf("certificate-authority-data: <CA cert from %s>", caFile)
 	}
-
-	if err = tmpFile.Close(); err != nil {
-		return
+	if err := tpl.Execute(&kcbbToPrint, fields); err != nil {
+		return "", err
 	}
 
 	kubeconfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-	if err = os.Rename(tmpFile.Name(), kubeconfigFilepath); err != nil {
+	log.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kcbbToPrint.String())
+	if err = file.AtomicWrite(kubeconfigFilepath, kcbb.Bytes(), os.FileMode(cfg.KubeconfigMode)); err != nil {
 		return "", err
 	}
 

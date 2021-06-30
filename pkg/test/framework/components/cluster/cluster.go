@@ -81,6 +81,13 @@ func (c Clusters) Primaries(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
+// Exclude returns all clusters not given as input.
+func (c Clusters) Exclude(excluded ...Cluster) Clusters {
+	return c.filterClusters(func(cc Cluster) bool {
+		return true
+	}, exclude(excluded...))
+}
+
 // Configs returns the subset that are config clusters.
 func (c Clusters) Configs(excluded ...Cluster) Clusters {
 	return c.filterClusters(func(cc Cluster) bool {
@@ -159,7 +166,11 @@ type Cluster interface {
 
 	// MinKubeVersion returns true if the cluster is at least the version specified,
 	// false otherwise
-	MinKubeVersion(major, minor int) bool
+	MinKubeVersion(minor uint) bool
+
+	// MaxKubeVersion returns true if the cluster is at most the version specified,
+	// false otherwise
+	MaxKubeVersion(minor uint) bool
 
 	// IsPrimary returns true if this is a primary cluster, containing an instance
 	// of the Istio control plane.

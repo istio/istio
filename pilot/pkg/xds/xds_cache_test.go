@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
 
@@ -31,16 +32,16 @@ import (
 )
 
 var (
-	any1 = &any.Any{TypeUrl: "foo"}
-	any2 = &any.Any{TypeUrl: "bar"}
+	any1 = &discovery.Resource{Resource: &any.Any{TypeUrl: "foo"}}
+	any2 = &discovery.Resource{Resource: &any.Any{TypeUrl: "bar"}}
 )
 
 // TestXdsCacheToken is a regression test to ensure that we do not write
 func TestXdsCacheToken(t *testing.T) {
 	c := model.NewXdsCache()
 	n := atomic.NewInt32(0)
-	mkv := func(n int32) *any.Any {
-		return &any.Any{TypeUrl: fmt.Sprint(n)}
+	mkv := func(n int32) *discovery.Resource {
+		return &discovery.Resource{Resource: &any.Any{TypeUrl: fmt.Sprint(n)}}
 	}
 	k := EndpointBuilder{clusterName: "key", service: &model.Service{Hostname: "foo.com"}}
 	work := func() {
@@ -58,17 +59,17 @@ func TestXdsCacheToken(t *testing.T) {
 		}
 		retry.UntilOrFail(t, func() bool {
 			val, _, f := c.Get(k)
-			return f && val.TypeUrl == fmt.Sprint(n)
+			return f && val.Resource.TypeUrl == fmt.Sprint(n)
 		})
 		n.Inc()
 		c.ClearAll()
 		for i := 0; i < 5; i++ {
 			val, _, f := c.Get(k)
 			if f {
-				t.Log("found unexpected write", val.TypeUrl)
+				t.Log("found unexpected write", val.Resource.TypeUrl)
 			}
-			if f && val.TypeUrl != fmt.Sprint(n) {
-				t.Fatalf("got bad write: %v", val.TypeUrl)
+			if f && val.Resource.TypeUrl != fmt.Sprint(n) {
+				t.Fatalf("got bad write: %v", val.Resource.TypeUrl)
 			}
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(20)))
 		}
@@ -84,7 +85,7 @@ func TestXdsCache(t *testing.T) {
 		clusterName: "outbound|2||foo.com",
 		service:     &model.Service{Hostname: "foo.com"},
 	}
-	addWithToken := func(c model.XdsCache, entry model.XdsCacheEntry, value *any.Any) {
+	addWithToken := func(c model.XdsCache, entry model.XdsCacheEntry, value *discovery.Resource) {
 		_, tok, _ := c.Get(entry)
 		c.Add(entry, tok, value)
 	}
@@ -166,6 +167,23 @@ func TestXdsCache(t *testing.T) {
 		addWithToken(c, ep2, any2)
 
 		c.ClearAll()
+		if len(c.Keys()) != 0 {
+			t.Fatalf("expected no keys, got: %v", c.Keys())
+		}
+		if _, _, f := c.Get(ep1); f {
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+		}
+		if _, _, f := c.Get(ep2); f {
+			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
+		}
+	})
+
+	t.Run("dependent type clears all", func(t *testing.T) {
+		c := model.NewLenientXdsCache()
+		addWithToken(c, ep1, any1)
+		addWithToken(c, ep2, any2)
+
+		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.PeerAuthentication}: {}})
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}

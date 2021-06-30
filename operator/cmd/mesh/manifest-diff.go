@@ -71,7 +71,10 @@ func manifestDiffCmd(rootArgs *rootArgs, diffArgs *manifestDiffArgs) *cobra.Comm
 	cmd := &cobra.Command{
 		Use:   "diff <file|dir> <file|dir>",
 		Short: "Compare manifests and generate diff",
-		Long:  "The diff subcommand compares manifests from two files or directories.",
+		Long: "The diff subcommand compares manifests from two files or directories. The output is a list of\n" +
+			"changed paths with the value changes shown as OLD-VALUE -> NEW-VALUE.\n" +
+			"List order changes are shown as [OLD-INDEX->NEW-INDEX], with ? used where a list item is added or\n" +
+			"removed.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return fmt.Errorf("diff requires two files or directories")

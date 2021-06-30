@@ -22,8 +22,8 @@ import (
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	gogoTypes "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
@@ -71,7 +71,7 @@ func TestRetryWithAllFieldsSet(t *testing.T) {
 	policy := retry.ConvertPolicy(route.Retries)
 	g.Expect(policy).To(Not(BeNil()))
 	g.Expect(policy.RetryOn).To(Equal("some,fake,conditions"))
-	g.Expect(policy.PerTryTimeout).To(Equal(ptypes.DurationProto(time.Second * 3)))
+	g.Expect(policy.PerTryTimeout).To(Equal(durationpb.New(time.Second * 3)))
 	g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
 	g.Expect(policy.RetriableStatusCodes).To(Equal(make([]uint32, 0)))
 	g.Expect(policy.RetryPriority).To(BeNil())

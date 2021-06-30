@@ -23,7 +23,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/pkg/log"
 )
 
 // namedRangerEntry for holding network's CIDR and name
@@ -143,6 +142,7 @@ func (c *Controller) reloadNetworkGateways() {
 	for _, svc := range c.servicesMap {
 		if c.extractGatewaysInner(svc) {
 			gwsChanged = true
+			break
 		}
 	}
 	if gwsChanged {

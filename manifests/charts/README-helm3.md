@@ -53,12 +53,14 @@ helm install -n istio-egress-canary istio-egress-canary manifests/charts/gateway
     --set revision=canary
 ```
 
-- 'istio-cni' installs the CNI plugin. This should be installed after the 'base' chart and prior to `istiod`. Need to add `--set istio_cni.enabled=true` to the `istiod` install to enable its usage.
+This is an optional step. [More details](install-OpenShift.md)
+
+- `istio-cni` installs the CNI plugin. This should be installed after the `base` chart and prior to `istiod`. Need to add `--set istio_cni.enabled=true` to the `istiod` install to enable its usage.
 
 ```console
-helm install istio-cni -n istio-system manifests/charts/istio-cni
+helm install istio-cni -n kube-system manifests/charts/istio-cni
 ```
 
 ## Namespaces
 
-One of the changes in Helm v3 is that the namespace is no longer created on the fly when installing a chart. This means that the namespace being used needs to be created prior to installing the charts if it does not exist already. If the default `istio-system` namespace if not being used then you need to add the setting `--set global.istioNamespace=<namespace>` to the installs, to match the control plane namespace.
+One of the changes in Helm v3 is that the namespace is no longer created on the fly when installing a chart. This means that the namespace being used needs to be created prior to installing the charts if it does not exist already. If the default `istio-system` namespace is not being used then you need to add the setting `--set global.istioNamespace=<namespace>` to the installs, to match the control plane namespace.

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 const (
@@ -209,18 +210,18 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 	if err != nil {
 		return nil, err
 	}
-	var aggErr error
+	aggErr := istiomultierror.New()
 	for _, w := range workloads {
 		out, err := common.ForwardEcho(c.cfg.Service, w.(*workload).Client, &opts, retry, retryOptions...)
 		if err != nil {
-			aggErr = multierror.Append(err, aggErr)
+			aggErr = multierror.Append(aggErr, err)
 			continue
 		}
 		for _, r := range out {
 			resps = append(resps, r)
 		}
 	}
-	if aggErr != nil {
+	if aggErr.ErrorOrNil() != nil {
 		return nil, aggErr
 	}
 

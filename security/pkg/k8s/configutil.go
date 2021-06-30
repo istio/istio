@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
@@ -30,8 +31,8 @@ import (
 // value: the value of the data to insert.
 // configName: the name of the configmap.
 // dataName: the name of the data in the configmap.
-func InsertDataToConfigMap(client corev1.ConfigMapsGetter, meta metav1.ObjectMeta, data map[string]string) error {
-	configmap, err := client.ConfigMaps(meta.Namespace).Get(context.TODO(), meta.Name, metav1.GetOptions{})
+func InsertDataToConfigMap(client corev1.ConfigMapsGetter, lister listerv1.ConfigMapLister, meta metav1.ObjectMeta, data map[string]string) error {
+	configmap, err := lister.ConfigMaps(meta.Namespace).Get(meta.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("error when getting configmap %v: %v", meta.Name, err)
 	}

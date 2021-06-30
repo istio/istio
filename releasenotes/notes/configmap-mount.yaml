@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 31410
+releaseNotes:
+- |
+  **Improved** configmaps to be read directly rather than from volume mounts. This improves the speed
+  of updates, and ensures that for external Istiod installations the configmaps are read from the config cluster.

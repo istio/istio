@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 31517
+releaseNotes:
+  - |
+    **Fixed** an issue that creates an IOP under `istio-system` when installing Istio in another namespace.

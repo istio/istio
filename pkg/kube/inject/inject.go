@@ -31,7 +31,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/batch/v2alpha1"
+	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -86,8 +86,8 @@ const (
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta       *metav1.TypeMeta
-	DeploymentMeta *metav1.ObjectMeta
+	TypeMeta       metav1.TypeMeta
+	DeploymentMeta metav1.ObjectMeta
 	ObjectMeta     metav1.ObjectMeta
 	Spec           corev1.PodSpec
 	ProxyConfig    *meshconfig.ProxyConfig
@@ -100,6 +100,10 @@ type (
 	Template  *corev1.Pod
 	Templates map[string]string
 )
+
+type Injector interface {
+	Inject(pod *corev1.Pod) ([]byte, error)
+}
 
 // Config specifies the sidecar injection configuration This includes
 // the sidecar template and cluster-side injection policy. It is used
@@ -482,7 +486,8 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
 // nolint: lll
-func IntoResourceFile(sidecarTemplate Templates, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
+func IntoResourceFile(injector Injector, sidecarTemplate Templates,
+	valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -500,7 +505,7 @@ func IntoResourceFile(sidecarTemplate Templates, valuesConfig string, revision s
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -542,13 +547,14 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
-func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
+func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig string,
+	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 
-	var deploymentMetadata *metav1.ObjectMeta
+	var deploymentMetadata metav1.ObjectMeta
 	var metadata *metav1.ObjectMeta
 	var podSpec *corev1.PodSpec
-	var typeMeta *metav1.TypeMeta
+	var typeMeta metav1.TypeMeta
 
 	// Handle Lists
 	if list, ok := out.(*corev1.List); ok {
@@ -563,7 +569,7 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 				return nil, err
 			}
 
-			r, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -578,31 +584,31 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
 	switch v := out.(type) {
-	case *v2alpha1.CronJob:
+	case *batch.CronJob:
 		job := v
-		typeMeta = &job.TypeMeta
+		typeMeta = job.TypeMeta
 		metadata = &job.Spec.JobTemplate.ObjectMeta
-		deploymentMetadata = &job.ObjectMeta
+		deploymentMetadata = job.ObjectMeta
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
-		typeMeta = &pod.TypeMeta
+		typeMeta = pod.TypeMeta
 		metadata = &pod.ObjectMeta
-		deploymentMetadata = &pod.ObjectMeta
+		deploymentMetadata = pod.ObjectMeta
 		podSpec = &pod.Spec
 	case *appsv1.Deployment: // Added to be explicit about the most expected case
 		deploy := v
-		typeMeta = &deploy.TypeMeta
-		deploymentMetadata = &deploy.ObjectMeta
+		typeMeta = deploy.TypeMeta
+		deploymentMetadata = deploy.ObjectMeta
 		metadata = &deploy.Spec.Template.ObjectMeta
 		podSpec = &deploy.Spec.Template.Spec
 	default:
 		// `in` is a pointer to an Object. Dereference it.
 		outValue := reflect.ValueOf(out).Elem()
 
-		typeMeta = outValue.FieldByName("TypeMeta").Addr().Interface().(*metav1.TypeMeta)
+		typeMeta = outValue.FieldByName("TypeMeta").Interface().(metav1.TypeMeta)
 
-		deploymentMetadata = outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
+		deploymentMetadata = outValue.FieldByName("ObjectMeta").Interface().(metav1.ObjectMeta)
 
 		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
 		// `Template` is defined as a pointer in some older API
@@ -649,24 +655,35 @@ func IntoObject(sidecarTemplate Templates, valuesConfig string, revision string,
 		ObjectMeta: *metadata,
 		Spec:       *podSpec,
 	}
-	if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
-		warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
-		return out, nil
+
+	var patchBytes []byte
+	var err error
+	if injector != nil {
+		patchBytes, err = injector.Inject(pod)
 	}
-	params := InjectionParameters{
-		pod:        pod,
-		deployMeta: deploymentMetadata,
-		typeMeta:   typeMeta,
-		// Todo replace with some template resolver abstraction
-		templates:           sidecarTemplate,
-		defaultTemplate:     []string{SidecarTemplateName},
-		meshConfig:          meshconfig,
-		valuesConfig:        valuesConfig,
-		revision:            revision,
-		proxyEnvs:           map[string]string{},
-		injectedAnnotations: nil,
+	if err != nil {
+		return nil, err
 	}
-	patchBytes, err := injectPod(params)
+	if patchBytes == nil {
+		if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
+			return out, nil
+		}
+		params := InjectionParameters{
+			pod:        pod,
+			deployMeta: deploymentMetadata,
+			typeMeta:   typeMeta,
+			// Todo replace with some template resolver abstraction
+			templates:           sidecarTemplate,
+			defaultTemplate:     []string{SidecarTemplateName},
+			meshConfig:          meshconfig,
+			valuesConfig:        valuesConfig,
+			revision:            revision,
+			proxyEnvs:           map[string]string{},
+			injectedAnnotations: nil,
+		}
+		patchBytes, err = injectPod(params)
+	}
 	if err != nil {
 		return nil, err
 	}

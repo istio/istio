@@ -113,7 +113,7 @@ func setupSDS(t *testing.T) *TestServer {
 		ResourceName: ca2.RootCertReqResourceName,
 	})
 
-	opts := ca2.Options{
+	opts := &ca2.Options{
 		WorkloadUDSPath: fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	server, err := NewServer(opts, st)

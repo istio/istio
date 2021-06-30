@@ -162,6 +162,7 @@ type ADSC struct {
 
 	// Updates includes the type of the last update received from the server.
 	Updates     chan string
+	errChan     chan error
 	XDSUpdates  chan *discovery.DiscoveryResponse
 	VersionInfo map[string]string
 
@@ -203,6 +204,15 @@ type ResponseHandler interface {
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 
+func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
+	adsc, err := New(discoveryAddr, opts)
+	if err != nil {
+		return nil, err
+	}
+	adsc.cfg.BackoffPolicy = backoffPolicy
+	return adsc, err
+}
+
 // New creates a new ADSC, maintaining a connection to an XDS server.
 // Will:
 // - get certificate using the Secret provider, if CertRequired
@@ -228,6 +238,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
+		errChan:     make(chan error, 10),
 	}
 
 	if opts.Namespace == "" {
@@ -378,7 +389,9 @@ func (a *ADSC) Run() error {
 	}
 	// by default, we assume 1 goroutine decrements the waitgroup (go a.handleRecv()).
 	// for synchronizing when the goroutine finishes reading from the gRPC stream.
+
 	a.RecvWg.Add(1)
+
 	go a.handleRecv()
 	return nil
 }
@@ -421,6 +434,7 @@ func (a *ADSC) handleRecv() {
 		if err != nil {
 			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
+			a.errChan <- err
 			// if 'reconnect' enabled - schedule a new Run
 			if a.cfg.BackoffPolicy != nil {
 				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
@@ -429,6 +443,7 @@ func (a *ADSC) handleRecv() {
 				a.WaitClear()
 				a.Updates <- ""
 				a.XDSUpdates <- nil
+				close(a.errChan)
 			}
 			return
 		}
@@ -457,7 +472,7 @@ func (a *ADSC) handleRecv() {
 				if err != nil {
 					continue
 				}
-				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
+				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0o644)
 				if err != nil {
 					continue
 				}
@@ -645,7 +660,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_tcp.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_lds_tcp.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -653,7 +668,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_http.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_lds_http.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -661,7 +676,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_rds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_rds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -669,7 +684,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_ecds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_ecds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -677,7 +692,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_cds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_cds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -685,7 +700,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0644)
+	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -759,6 +774,11 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 		a.sendNodeMeta = false
 	}
 	req.ResponseNonce = time.Now().String()
+	if adscLog.DebugEnabled() {
+		jsonm := &jsonpb.Marshaler{}
+		strReq, _ := jsonm.MarshalToString(req)
+		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
+	}
 	return a.stream.Send(req)
 }
 
@@ -928,6 +948,11 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*disc
 
 		case <-t.C:
 			return nil, fmt.Errorf("timeout, still waiting for updates: %v", typeURL)
+		case err, ok := <-a.errChan:
+			if ok {
+				return nil, err
+			}
+			return nil, fmt.Errorf("connection closed")
 		}
 	}
 }
@@ -1146,7 +1171,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 				continue
 			}
 			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
-				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0644)
+				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0o644)
 			if err != nil {
 				adscLog.Warnf("Error writing received MCP config to local file %v", err)
 			}

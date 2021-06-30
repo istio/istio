@@ -85,7 +85,7 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 			if tt.callPrime {
 				cw.Prime(cd)
 			}
-			err := cw.PrintBootstrapDump()
+			err := cw.PrintBootstrapDump("json")
 			if tt.wantOutputFile != "" {
 				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
 			}

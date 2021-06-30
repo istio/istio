@@ -43,7 +43,7 @@ type Config struct {
 
 // New returns a new instance of "istioctl".
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
-	return newKube(ctx, cfg), nil
+	return newKube(ctx, cfg)
 }
 
 // NewOrFail returns a new instance of "istioctl".

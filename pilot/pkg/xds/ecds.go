@@ -15,6 +15,8 @@
 package xds
 
 import (
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -22,6 +24,7 @@ import (
 
 // EcdsGenerator generates ECDS configuration.
 type EcdsGenerator struct {
+	model.BaseGenerator
 	Server *DiscoveryServer
 }
 
@@ -60,7 +63,10 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 
 	resources := make(model.Resources, 0, len(ec))
 	for _, c := range ec {
-		resources = append(resources, util.MessageToAny(c))
+		resources = append(resources, &discovery.Resource{
+			Name:     c.Name,
+			Resource: util.MessageToAny(c),
+		})
 	}
 	return resources, nil
 }

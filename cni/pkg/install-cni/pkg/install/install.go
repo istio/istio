@@ -51,7 +51,9 @@ func NewInstaller(cfg *config.Config, isReady *atomic.Value) *Installer {
 // If an invalid configuration is detected, the installation process will restart to restore a valid state.
 func (in *Installer) Run(ctx context.Context) (err error) {
 	for {
-		if err = copyBinaries(in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
+		if err = copyBinaries(
+			in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
+			in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
 			return
 		}
 
@@ -125,15 +127,18 @@ func (in *Installer) Cleanup() error {
 		}
 	}
 
-	log.Info("Removing existing binaries")
-	if istioCNIBin := filepath.Join(constants.HostCNIBinDir, "istio-cni"); file.Exists(istioCNIBin) {
-		if err := os.Remove(istioCNIBin); err != nil {
-			return err
+	for _, targetDir := range in.cfg.CNIBinTargetDirs {
+		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
+			log.Infof("Removing binary: %s", istioCNIBin)
+			if err := os.Remove(istioCNIBin); err != nil {
+				return err
+			}
 		}
-	}
-	if istioIptablesBin := filepath.Join(constants.HostCNIBinDir, "istio-iptables"); file.Exists(istioIptablesBin) {
-		if err := os.Remove(istioIptablesBin); err != nil {
-			return err
+		if istioIptablesBin := filepath.Join(targetDir, "istio-iptables"); file.Exists(istioIptablesBin) {
+			log.Infof("Removing binary: %s", istioIptablesBin)
+			if err := os.Remove(istioIptablesBin); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

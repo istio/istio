@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/schema/snapshots"
 )
 
@@ -48,6 +49,7 @@ type Args struct { // nolint:maligned
 
 	// MeshConfigFile is the path for mesh config
 	MeshConfigFile string
+	MeshSource     event.Source
 
 	// DNS Domain suffix to use while constructing Ingress based resources.
 	DomainSuffix string

@@ -36,7 +36,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -67,9 +67,6 @@ const (
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
 	InboundPassthroughClusterIpv4 = "InboundPassthroughClusterIpv4"
 	InboundPassthroughClusterIpv6 = "InboundPassthroughClusterIpv6"
-	// 6 is the magical number for inbound: 15006, 127.0.0.6, ::6
-	InboundPassthroughBindIpv4 = "127.0.0.6"
-	InboundPassthroughBindIpv6 = "::6"
 
 	// SniClusterFilter is the name of the sni_cluster envoy filter
 	SniClusterFilter = "envoy.filters.network.sni_cluster"
@@ -254,7 +251,7 @@ func GogoDurationToDuration(d *types.Duration) *duration.Duration {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 		return nil
 	}
-	return ptypes.DurationProto(dur)
+	return durationpb.New(dur)
 }
 
 // SortVirtualHosts sorts a slice of virtual hosts by name.
@@ -444,9 +441,11 @@ func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
+	// nolint: staticcheck
 	var x ptypes.DynamicAny
 
 	// First get an object of type used by this message
+	// nolint: staticcheck
 	if err = ptypes.UnmarshalAny(a, &x); err != nil {
 		return nil, err
 	}
@@ -462,6 +461,7 @@ func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) 
 	proto.Merge(x.Message, temp)
 	var retVal *any.Any
 	// Convert the merged proto back to any
+	// nolint: staticcheck
 	if retVal, err = ptypes.MarshalAny(x.Message); err != nil {
 		return nil, err
 	}
@@ -474,14 +474,17 @@ func MergeAnyWithStruct(a *any.Any, pbStruct *pstruct.Struct) (*any.Any, error) 
 func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
+	// nolint: staticcheck
 	var dstX, srcX ptypes.DynamicAny
 
 	// get an object of type used by this message
+	// nolint: staticcheck
 	if err = ptypes.UnmarshalAny(dst, &dstX); err != nil {
 		return nil, err
 	}
 
 	// get an object of type used by this message
+	// nolint: staticcheck
 	if err = ptypes.UnmarshalAny(src, &srcX); err != nil {
 		return nil, err
 	}
@@ -490,6 +493,7 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 	proto.Merge(dstX.Message, srcX.Message)
 	var retVal *any.Any
 	// Convert the merged proto back to dst
+	// nolint: staticcheck
 	if retVal, err = ptypes.MarshalAny(dstX.Message); err != nil {
 		return nil, err
 	}
@@ -499,7 +503,7 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterID string, labels labels.Instance) *core.Metadata {
-	if network == "" && tlsMode == model.DisabledTLSModeLabel && !shouldAddTelemetryLabel(workloadname) {
+	if network == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
 		return nil
 	}
 
@@ -511,7 +515,7 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}})
 	}
 
-	if tlsMode != "" {
+	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
 		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{
 				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
@@ -523,8 +527,8 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
-	// workload-name;namespace;canonical-service-name;canonical-service-revision.
-	if shouldAddTelemetryLabel(workloadname) {
+	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
+	if features.EndpointTelemetryLabel {
 		var sb strings.Builder
 		sb.WriteString(workloadname)
 		sb.WriteString(";")
@@ -553,10 +557,6 @@ func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Val
 	}
 
 	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
-}
-
-func shouldAddTelemetryLabel(workloadName string) bool {
-	return features.EndpointTelemetryLabel && (workloadName != "")
 }
 
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
@@ -673,25 +673,6 @@ func toIPNet(c *core.CidrRange) (*net.IPNet, error) {
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
 func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) http_conn.HttpConnectionManager_ForwardClientCertDetails {
 	return http_conn.HttpConnectionManager_ForwardClientCertDetails(c - 1)
-}
-
-// MultiErrorFormat provides a format for multierrors. This matches the default format, but if there
-// is only one error we will not expand to multiple lines.
-func MultiErrorFormat() multierror.ErrorFormatFunc {
-	return func(es []error) string {
-		if len(es) == 1 {
-			return es[0].Error()
-		}
-
-		points := make([]string, len(es))
-		for i, err := range es {
-			points[i] = fmt.Sprintf("* %s", err)
-		}
-
-		return fmt.Sprintf(
-			"%d errors occurred:\n\t%s\n\n",
-			len(es), strings.Join(points, "\n\t"))
-	}
 }
 
 // ByteCount returns a human readable byte format

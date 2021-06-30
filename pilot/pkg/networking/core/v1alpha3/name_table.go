@@ -18,6 +18,7 @@ import (
 	"net"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -78,20 +79,9 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
-					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
-						// We take only cluster-local endpoints. While this seems contradictory to
-						// our logic other parts of the code, where cross-cluster is the default.
-						// However, this only impacts the DNS response. If we were to send all
-						// endpoints, cross network routing would break, as we do passthrough LB and
-						// don't go through the network gateway. While we could, hypothetically, send
-						// "network-local" endpoints, this would still make enabling DNS give vastly
-						// different load balancing than without, so its probably best to filter.
-						// This ends up matching the behavior of Kubernetes DNS.
-						continue
-					}
-					// TODO: should we skip the node's own IP like we do in listener?
-					addressList = append(addressList, instance.Endpoint.Address)
-					if instance.Endpoint.SubDomain != "" {
+					sameNetwork := node.InNetwork(instance.Endpoint.Network)
+					// Add individual addresses even for cross cluster.
+					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
 						parts := strings.SplitN(string(svc.Hostname), ".", 2)
@@ -107,9 +97,28 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 							Namespace: svc.Attributes.Namespace,
 							Shortname: shortName,
 						}
-						out.Table[host] = nameInfo
+						if _, f := out.Table[host]; !f || instance.Endpoint.Locality.ClusterID == node.Metadata.ClusterID {
+							// We may have the same pod in two clusters (ie mysql-0 deployed in both places).
+							// We can only return a single IP for these queries. We should prefer the local cluster,
+							// so if the entry already exists only overwrite it if the instance is in our own cluster.
+							out.Table[host] = nameInfo
+						}
 					}
 
+					skipForMulticluster := !features.MulticlusterHeadlessEnabled && instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID
+					if skipForMulticluster || !sameNetwork {
+						// We take only cluster-local endpoints. While this seems contradictory to
+						// our logic other parts of the code, where cross-cluster is the default.
+						// However, this only impacts the DNS response. If we were to send all
+						// endpoints, cross network routing would break, as we do passthrough LB and
+						// don't go through the network gateway. While we could, hypothetically, send
+						// "network-local" endpoints, this would still make enabling DNS give vastly
+						// different load balancing than without, so its probably best to filter.
+						// This ends up matching the behavior of Kubernetes DNS.
+						continue
+					}
+					// TODO: should we skip the node's own IP like we do in listener?
+					addressList = append(addressList, instance.Endpoint.Address)
 				}
 			}
 

@@ -73,8 +73,8 @@ func TestCNIReachability(t *testing.T) {
 						if apps.HeadlessNaked.Contains(src) || apps.HeadlessNaked.Contains(opts.Target) {
 							return false
 						}
-						// Exclude calls to the headless TCP port.
-						if apps.Headless.Contains(opts.Target) && opts.PortName == "tcp" {
+						// Exclude calls to the headless TCP port, or headless multicluster.
+						if apps.Headless.Contains(opts.Target) && (opts.PortName == "tcp" || t.Clusters().IsMulticluster()) {
 							return false
 						}
 						return true

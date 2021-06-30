@@ -7,6 +7,13 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM gcr.io/istio-release/base:${BASE_VERSION} as default
 
+# The following section is used as base image if BASE_DISTRIBUTION=distroless
+FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
+
+# This will build the final image based on either default or distroless from above
+# hadolint ignore=DL3006
+FROM ${BASE_DISTRIBUTION}
+
 LABEL description="Istio CNI plugin installer."
 
 COPY istio-cni /opt/cni/bin/
@@ -14,10 +21,10 @@ COPY istio-iptables /opt/cni/bin/
 COPY install-cni /usr/local/bin/
 
 # Copy over the Repair binary
-COPY istio-cni-repair /opt/cni/bin/
+COPY istio-cni-repair /opt/local/bin/
 
 # Copy over the Taint binary
-COPY istio-cni-taint /opt/cni/bin/
+COPY istio-cni-taint /opt/local/bin/
 
 ENV PATH=$PATH:/opt/cni/bin
 WORKDIR /opt/cni/bin

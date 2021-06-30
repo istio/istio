@@ -44,7 +44,7 @@ func ApplyNamespace(yamlText, ns string) (string, error) {
 func MustApplyNamespace(t test.Failer, yamlText, ns string) string {
 	y, err := ApplyNamespace(yamlText, ns)
 	if err != nil {
-		t.Fatalf("ApplyNamespace: %v", err)
+		t.Fatalf("ApplyNamespace: %v for text %v", err, yamlText)
 	}
 	return y
 }

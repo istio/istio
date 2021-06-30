@@ -21,7 +21,7 @@
 //
 // * By port-forward existing pilot:
 // ```bash
-// kubectl port-forward $(kubectl get pod -l app=istiod -o jsonpath={.items[0].metadata.name} -n istio-system) -n istio-system 15010
+// kubectl port-forward $(kubectl get pod -l app=istiod -o jsonpath='{.items[0].metadata.name}' -n istio-system) -n istio-system 15010
 // ```
 // * Or run local pilot using the same k8s config.
 // ```bash
@@ -233,7 +233,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 		return nil, "", err
 	}
 	for _, pod := range pods.Items {
-		if app, ok := pod.ObjectMeta.Labels["istio"]; ok && app == "pilot" {
+		if app, ok := pod.ObjectMeta.Labels["app"]; ok && app == "istiod" {
 			podName = pod.Name
 		}
 	}
@@ -270,7 +270,7 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 func main() {
 	kubeConfig := flag.String("kubeconfig", "~/.kube/config", "path to the kubeconfig file. Default is ~/.kube/config")
 	pilotURL := flag.String("pilot", "", "pilot address. Will try port forward if not provided.")
-	configType := flag.String("type", "lds", "lds, cds, or eds. Default lds.")
+	configType := flag.String("type", "lds", "lds, cds, rds or eds. Default lds.")
 	proxyType := flag.String("proxytype", "", "sidecar, ingress, router.")
 	proxyTag := flag.String("proxytag", "", "Pod name or app label or istio label to identify the proxy.")
 	resources := flag.String("res", "", "Resource(s) to get config for. LDS/CDS should leave it empty.")

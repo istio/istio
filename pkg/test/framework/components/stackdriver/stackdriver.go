@@ -19,9 +19,10 @@ import (
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
+	md "istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -30,10 +31,9 @@ type Instance interface {
 	Address() string
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
-	ListTimeSeries() ([]*monitoringpb.TimeSeries, error)
-	ListLogEntries(LogType) ([]*loggingpb.LogEntry, error)
-	ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error)
-	ListTraces() ([]*cloudtracepb.Trace, error)
+	ListTimeSeries(namespace string) ([]*monitoringpb.TimeSeries, error)
+	ListLogEntries(lt LogType, namespace string) ([]*loggingpb.LogEntry, error)
+	ListTraces(namespace string) ([]*cloudtracepb.Trace, error)
 }
 
 type Config struct {
@@ -43,11 +43,14 @@ type Config struct {
 
 // New returns a new instance of stackdriver.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
+	if UseRealStackdriver() {
+		return newRealStackdriver(ctx, c)
+	}
 	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new Stackdriver instance or fails test.
-func NewOrFail(t test.Failer, ctx resource.Context, c Config) Instance {
+func NewOrFail(t test.Failer, ctx resource.Context, c Config, realSD bool) Instance {
 	t.Helper()
 	i, err := New(ctx, c)
 	if err != nil {
@@ -55,4 +58,10 @@ func NewOrFail(t test.Failer, ctx resource.Context, c Config) Instance {
 	}
 
 	return i
+}
+
+func UseRealStackdriver() bool {
+	// Use real stackdriver only if the test intends to AND the test is running on GCP.
+	// Currently real stackdriver only works if the test runs on GCP.
+	return framework.UseRealStackdriver && md.IsGCP()
 }

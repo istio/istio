@@ -26,6 +26,7 @@ import (
 
 	// imported to trigger registration
 	_ "istio.io/istio/pkg/test/framework/components/cluster/staticvm"
+	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -60,8 +61,8 @@ func (a factory) Build() (cluster.Clusters, error) {
 
 	allClusters := make(cluster.Map)
 	var clusters cluster.Clusters
-	for i, config := range a.configs {
-		c, err := buildCluster(config, allClusters)
+	for i, cfg := range a.configs {
+		c, err := buildCluster(cfg, allClusters)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed building cluster from config %d: %v", i, err))
 			continue
@@ -86,11 +87,11 @@ func (a factory) Build() (cluster.Clusters, error) {
 			errs = multierror.Append(errs, fmt.Errorf("primary %s for %s is of kind %s, primaries must be Kubernetes", primary.Name(), c.Name(), primary.Kind()))
 			continue
 		}
-		if config, ok := allClusters[c.ConfigName()]; !ok {
+		if cfg, ok := allClusters[c.ConfigName()]; !ok {
 			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is not in the topology", c.ConfigName(), c.Name()))
 			continue
-		} else if !validPrimaryOrConfig(config) {
-			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is of kind %s, primaries must be Kubernetes", config.Name(), c.Name(), config.Kind()))
+		} else if !validPrimaryOrConfig(cfg) {
+			errs = multierror.Append(errs, fmt.Errorf("config %s for %s is of kind %s, primaries must be Kubernetes", cfg.Name(), c.Name(), cfg.Kind()))
 			continue
 		}
 	}
@@ -136,7 +137,7 @@ func validConfig(cfg cluster.Config) (cluster.Config, error) {
 		cfg.ConfigClusterName = cfg.PrimaryClusterName
 	}
 	if cfg.Meta == nil {
-		cfg.Meta = cluster.ConfigMeta{}
+		cfg.Meta = config.Map{}
 	}
 	return cfg, nil
 }

@@ -21,6 +21,7 @@ import (
 
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/util/file"
 )
 
 const (
@@ -39,6 +40,11 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 	}
 
 	kubeconfigPath := cfg.Meta.String(kubeconfigMetaKey)
+	kubeconfigPath, err = file.NormalizePath(kubeconfigPath)
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := buildClient(kubeconfigPath)
 	if err != nil {
 		return nil, err

@@ -201,7 +201,7 @@ func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
 }
 
 // AddMeshConfigUpdate : Update trustAnchor configurations from meshConfig
-func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
+func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) error {
 	var err error
 	if cfg != nil {
 		certs := []string{}
@@ -221,10 +221,12 @@ func (tb *TrustBundle) AddMeshConfigUpdate(cfg *meshconfig.MeshConfig) {
 		})
 		if err != nil {
 			trustBundleLog.Errorf("failed to update meshConfig PEM trustAnchors: %v", err)
+			return err
 		}
 
 		tb.updateRemoteEndpoint(endpoints)
 	}
+	return nil
 }
 
 func (tb *TrustBundle) fetchRemoteTrustAnchors() {

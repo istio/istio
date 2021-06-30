@@ -17,7 +17,15 @@
 # This script runs go tests in a package, but each test is run individually. This helps
 # isolate tests that are improperly depending on global state modification of other tests
 
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+ROOT=$(dirname "$WD")
+
 set -ex
+
+# shellcheck source=prow/lib.sh
+source "${ROOT}/prow/lib.sh"
+buildx-create
 
 HUBS="${HUBS:?specify a space seperated list of hubs}"
 TAG="${TAG:?specify a tag}"

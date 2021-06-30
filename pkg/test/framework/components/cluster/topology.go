@@ -17,7 +17,8 @@ package cluster
 import (
 	"bytes"
 	"fmt"
-	"strconv"
+
+	"istio.io/istio/pkg/kube"
 )
 
 // Map can be given as a shared reference to multiple Topology/Cluster implemetations
@@ -59,12 +60,25 @@ func (c Topology) Name() string {
 	return c.ClusterName
 }
 
+// knownClusterNames maintains a well-known set of cluster names. These will always be used with
+// StableNames if encountered.
+var knownClusterNames = map[string]struct{}{
+	"primary":               {},
+	"remote":                {},
+	"cross-network-primary": {},
+}
+
 // StableName provides a name used for testcase names. Deterministic, so testgrid
 // can be consistent when the underlying cluster names are dynamic.
 func (c Topology) StableName() string {
 	var prefix string
 	switch c.Kind() {
 	case Kubernetes:
+		// If its a known cluster name, use that directly.
+		// This will not be dynamic, and allows 1:1 correlation of cluster name and test name for simplicity.
+		if _, f := knownClusterNames[c.Name()]; f {
+			return c.Name()
+		}
 		if c.IsPrimary() {
 			if c.IsConfig() {
 				prefix = "primary"
@@ -137,27 +151,20 @@ func (c Topology) WithConfig(configClusterName string) Topology {
 	return c
 }
 
-func (c Topology) MinKubeVersion(major, minor int) bool {
+func (c Topology) MinKubeVersion(minor uint) bool {
 	cluster := c.AllClusters[c.ClusterName]
 	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
-		return c.Primary().MinKubeVersion(major, minor)
+		return c.Primary().MinKubeVersion(minor)
 	}
-	ver, err := cluster.GetKubernetesVersion()
-	if err != nil {
-		return true
+	return kube.IsAtLeastVersion(cluster, minor)
+}
+
+func (c Topology) MaxKubeVersion(minor uint) bool {
+	cluster := c.AllClusters[c.ClusterName]
+	if cluster.Kind() != Kubernetes && cluster.Kind() != Fake {
+		return c.Primary().MaxKubeVersion(minor)
 	}
-	serverMajor, err := strconv.Atoi(ver.Major)
-	if err != nil {
-		return true
-	}
-	serverMinor, err := strconv.Atoi(ver.Minor)
-	if err != nil {
-		return true
-	}
-	if serverMajor > major {
-		return true
-	}
-	return serverMajor >= major && serverMinor >= minor
+	return kube.IsLessThanVersion(cluster, minor+1)
 }
 
 func (c Topology) String() string {

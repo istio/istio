@@ -15,26 +15,22 @@
 package mock
 
 import (
-	"crypto"
-	"crypto/x509"
-	"time"
-
+	"istio.io/istio/security/pkg/pki/ca"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/istio/security/pkg/pki/util/mock"
 )
 
 // FakeCA is a mock of CertificateAuthority.
 type FakeCA struct {
 	SignedCert    []byte
 	SignErr       *caerror.Error
-	KeyCertBundle util.KeyCertBundle
+	KeyCertBundle *util.KeyCertBundle
 	ReceivedIDs   []string
 }
 
 // Sign returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert.
-func (ca *FakeCA) Sign(csr []byte, identities []string, lifetime time.Duration, forCA bool) ([]byte, error) {
-	ca.ReceivedIDs = identities
+func (ca *FakeCA) Sign(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
+	ca.ReceivedIDs = certOpts.SubjectIDs
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}
@@ -42,7 +38,7 @@ func (ca *FakeCA) Sign(csr []byte, identities []string, lifetime time.Duration, 
 }
 
 // SignWithCertChain returns the SignErr if SignErr is not nil, otherwise, it returns SignedCert and the cert chain.
-func (ca *FakeCA) SignWithCertChain(csr []byte, identities []string, lifetime time.Duration, forCA bool) ([]byte, error) {
+func (ca *FakeCA) SignWithCertChain(csr []byte, certOpts ca.CertOpts) ([]byte, error) {
 	if ca.SignErr != nil {
 		return nil, ca.SignErr
 	}
@@ -55,15 +51,9 @@ func (ca *FakeCA) SignWithCertChain(csr []byte, identities []string, lifetime ti
 
 // GetCAKeyCertBundle returns KeyCertBundle if KeyCertBundle is not nil, otherwise, it returns an empty
 // FakeKeyCertBundle.
-func (ca *FakeCA) GetCAKeyCertBundle() util.KeyCertBundle {
+func (ca *FakeCA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	if ca.KeyCertBundle == nil {
-		priv := crypto.PrivateKey("foo")
-		return &mock.FakeKeyCertBundle{
-			Cert:           &x509.Certificate{},
-			PrivKey:        &priv,
-			CertChainBytes: []byte("fake"),
-			RootCertBytes:  []byte("fake"),
-		}
+		return util.NewKeyCertBundleFromPem([]byte{}, []byte("foo"), []byte("fake"), []byte("fake"))
 	}
 	return ca.KeyCertBundle
 }

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 31297
+releaseNotes:
+- |
+  **Fixed** an issue causing simple TLS traffic to ports not exposed by a Service to be rejected by servers when in `PERMISSIVE` mTLS mode.

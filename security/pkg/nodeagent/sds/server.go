@@ -41,7 +41,7 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options security.Options, workloadSecretCache security.SecretManager) (*Server, error) {
+func NewServer(options *security.Options, workloadSecretCache security.SecretManager) (*Server, error) {
 	s := &Server{}
 	s.workloadSds = newSDSService(workloadSecretCache, options)
 	s.initWorkloadSdsService(options)
@@ -78,7 +78,7 @@ func (s *Server) Stop() {
 	}
 }
 
-func (s *Server) initWorkloadSdsService(options security.Options) {
+func (s *Server) initWorkloadSdsService(options *security.Options) {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 
@@ -95,16 +95,16 @@ func (s *Server) initWorkloadSdsService(options security.Options) {
 		for i := 0; i < maxRetryTimes; i++ {
 			serverOk := true
 			setUpUdsOK := true
-			if s.grpcWorkloadListener != nil {
-				if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
-					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
-					serverOk = false
-				}
-			}
 			if s.grpcWorkloadListener == nil {
 				if s.grpcWorkloadListener, err = uds.NewListener(options.WorkloadUDSPath); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
 					setUpUdsOK = false
+				}
+			}
+			if s.grpcWorkloadListener != nil {
+				if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
+					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
+					serverOk = false
 				}
 			}
 			if serverOk && setUpUdsOK {

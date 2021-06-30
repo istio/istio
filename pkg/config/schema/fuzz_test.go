@@ -32,9 +32,11 @@ import (
 	authentication "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
+	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -92,6 +94,7 @@ func init() {
 	clientnetworkingalpha.AddToScheme(scheme)
 	clientnetworkingbeta.AddToScheme(scheme)
 	clientsecurity.AddToScheme(scheme)
+	clienttelemetry.AddToScheme(scheme)
 }
 
 func createFuzzer() *fuzz.Fuzzer {
@@ -184,6 +187,9 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		},
 		func(t *security.AuthorizationPolicy, c fuzz.Continue) {
 			*t = security.AuthorizationPolicy{}
+		},
+		func(t *telemetry.Tracing, c fuzz.Continue) {
+			*t = telemetry.Tracing{}
 		},
 	}
 }
