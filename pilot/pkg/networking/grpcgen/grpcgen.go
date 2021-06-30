@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
+	istiolog "istio.io/pkg/log"
 )
 
 // Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
@@ -36,9 +37,7 @@ import (
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
 
-// TransportSocket proto message has a `name` field which is expected to be set
-// to this value by the management server.
-const transportSocketName = "envoy.transport_sockets.tls"
+var log = istiolog.RegisterScope("grpcgen", "xDS Generator for Proxyless gRPC", 0)
 
 type GrpcConfigGenerator struct {
 }
@@ -64,4 +63,3 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 
 	return nil, model.DefaultXdsLogDetails, nil
 }
-

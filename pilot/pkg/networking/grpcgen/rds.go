@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/pkg/log"
 )
 
 // BuildHTTPRoutes supports per-VIP routes, as used by GRPC.
