@@ -165,7 +165,14 @@ func (b *clusterBuilder) applyPolicy(c *clusterv3.Cluster, trafficPolicy *networ
 }
 
 func (b *clusterBuilder) applyLoadBalancing(c *clusterv3.Cluster, policy *networking.TrafficPolicy) {
-	// TODO implement me
+	switch policy.LoadBalancer.GetSimple() {
+	case networking.LoadBalancerSettings_ROUND_ROBIN:
+	// ok
+	default:
+		log.Warnf("cannot apply LbPolicy %s to %s", policy.LoadBalancer.GetSimple(), b.node.ID)
+	}
+
+	// TODO https://github.com/grpc/proposal/blob/master/A42-xds-ring-hash-lb-policy.md
 }
 
 func (b *clusterBuilder) applyTLS(c *clusterv3.Cluster, policy *networking.TrafficPolicy) {
