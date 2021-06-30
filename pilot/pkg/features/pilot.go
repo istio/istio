@@ -222,11 +222,17 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
-	EnableMCSServiceExport = env.RegisterBoolVar(
-		"PILOT_ENABLE_MCS_SERVICEEXPORT",
+	EnableMCSAutoExport = env.RegisterBoolVar(
+		"ENABLE_MCS_AUTOEXPORT",
 		false,
-		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
+		"If enabled, istiod will automatically generate MCS ServiceExport objects for each "+
+			"service in each cluster. Services defined to be cluster-local in MeshConfig are excluded.",
 	).Get()
+
+	EnableMCSServiceDiscovery = env.RegisterBoolVar("ENABLE_MCS_SERVICE_DISCOVERY", false,
+		"If enabled, istiod will enable Kubernetes MCS service discovery mode. In this mode, service endpoints "+
+			"in a cluster will only discoverable within the same cluster unless explicitly exported "+
+			"(via the ServiceExport CR).").Get()
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
@@ -321,6 +327,9 @@ var (
 
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.").Get()
+
+	ValidationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", "istio-istio-system",
+		"Name of the validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.").Get()
 
 	SpiffeBundleEndpoints = env.RegisterStringVar("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
@@ -438,7 +447,7 @@ var (
 
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request").Get()
+			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
 	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
 		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",

@@ -26,7 +26,7 @@ import (
 )
 
 func TestProfileDump(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/profile-dump")
+	testDataDir := filepath.Join(operatorRootDir, "cmd/mesh/testdata/profile-dump")
 	tests := []struct {
 		desc       string
 		configPath string
@@ -85,7 +85,7 @@ func runProfileDump(profilePath, configPath string, chartSource chartSourceType,
 }
 
 func TestProfileDumpFlags(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/profile-dump")
+	testDataDir := filepath.Join(operatorRootDir, "cmd/mesh/testdata/profile-dump")
 	tests := []struct {
 		desc       string
 		configPath string

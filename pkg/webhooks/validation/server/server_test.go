@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,7 +92,6 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 
 	return wh, func() {
 		cleanup()
-		wh.Stop()
 	}
 }
 
@@ -253,39 +251,13 @@ func makeTestReview(t *testing.T, valid bool, apiVersion string) []byte {
 	return reviewJSON
 }
 
-func TestServe_Basic(t *testing.T) {
-	ready := make(chan struct{})
-	readyHook = func() {
-		ready <- struct{}{}
-	}
-	defer func() { readyHook = func() {} }()
-
-	wh, cleanup := createTestWebhook(t)
-	defer cleanup()
-
-	stop := make(chan struct{})
-	defer func() {
-		close(stop)
-	}()
-
-	go wh.Run(stop)
-
-	select {
-	case <-ready:
-		wh.Stop()
-	case <-time.After(10 * time.Second):
-		t.Fatal("The webhook serve cannot be started in 10 seconds")
-	}
-}
-
 func TestServe(t *testing.T) {
-	wh, cleanup := createTestWebhook(t)
+	_, cleanup := createTestWebhook(t)
 	defer cleanup()
 	stop := make(chan struct{})
 	defer func() {
 		close(stop)
 	}()
-	go wh.Run(stop)
 
 	validReview := makeTestReview(t, true, "v1beta1")
 	validReviewV1 := makeTestReview(t, true, "v1")

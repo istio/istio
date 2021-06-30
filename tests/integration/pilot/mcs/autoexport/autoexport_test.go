@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mcs
+package autoexport
 
 import (
 	"context"
@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireMinVersion(17).
 		Setup(func(ctx resource.Context) error {
-			crd, err := ioutil.ReadFile("../testdata/mcs-serviceexport-crd.yaml")
+			crd, err := ioutil.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func TestMain(m *testing.M) {
 values:
   pilot:
     env:
-      PILOT_ENABLE_MCS_SERVICEEXPORT: "true"`
+      ENABLE_MCS_AUTOEXPORT: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
 			// Create a new namespace in each cluster.
@@ -90,9 +90,9 @@ values:
 		Run()
 }
 
-func TestServiceExports(t *testing.T) {
+func TestAutoExport(t *testing.T) {
 	framework.NewTest(t).
-		Features("traffic.mcs.serviceexport").
+		Features("traffic.mcs.autoexport").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			// Verify that ServiceExport is created automatically for services.

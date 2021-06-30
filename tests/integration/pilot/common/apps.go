@@ -36,7 +36,8 @@ type EchoDeployments struct {
 	ExternalNamespace namespace.Instance
 
 	// Ingressgateway instance
-	Ingress ingress.Instance
+	Ingress   ingress.Instance
+	Ingresses ingress.Instances
 
 	// Standard echo app to be used by tests
 	PodA echo.Instances
@@ -118,6 +119,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	apps.Ingress = i.IngressFor(t.Clusters().Default())
+	apps.Ingresses = i.Ingresses()
 
 	// Headless services don't work with targetPort, set to same port
 	headlessPorts := make([]echo.Port, len(common.EchoPorts))
@@ -227,7 +229,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					{
 						Annotations: map[echo.Annotation]*echo.AnnotationValue{
 							echo.SidecarInjectTemplates: {
-								Value: "grpc",
+								Value: "grpc-agent",
 							},
 						},
 					},

@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -313,7 +314,7 @@ func TestController_GetPodLocality(t *testing.T) {
 }
 
 func TestGetProxyServiceInstances(t *testing.T) {
-	clusterID := "fakeCluster"
+	clusterID := cluster.ID("fakeCluster")
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
@@ -408,7 +409,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
+					ClusterVIPs:     map[cluster.ID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -425,7 +426,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						label.SecurityTlsMode.Name: "mutual",
 						NodeRegionLabelGA:          "r",
 						NodeZoneLabelGA:            "z",
-						label.TopologyCluster.Name: clusterID,
+						label.TopologyCluster.Name: clusterID.String(),
 					},
 					ServiceAccount:  "account",
 					Address:         "1.1.1.1",
@@ -442,6 +443,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			if len(metaServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(metaServices))
 			}
+			// Remove the discoverability function so that it's ignored by DeepEqual.
+			clearDiscoverabilityPolicy(metaServices[0].Endpoint)
 			if !reflect.DeepEqual(expected, metaServices[0]) {
 				t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
 			}
@@ -477,7 +480,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
+					ClusterVIPs:     map[cluster.ID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -501,7 +504,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						NodeRegionLabelGA:          "region1",
 						NodeZoneLabelGA:            "zone1",
 						label.TopologySubzone.Name: "subzone1",
-						label.TopologyCluster.Name: clusterID,
+						label.TopologyCluster.Name: clusterID.String(),
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
@@ -512,6 +515,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			if len(podServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
+			clearDiscoverabilityPolicy(podServices[0].Endpoint)
 			if !reflect.DeepEqual(expected, podServices[0]) {
 				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
 			}
@@ -542,7 +546,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
-					ClusterVIPs:     map[string]string{clusterID: "10.0.0.1"},
+					ClusterVIPs:     map[cluster.ID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
 						ServiceRegistry: string(serviceregistry.Kubernetes),
@@ -566,7 +570,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						"istio-locality":           "region.zone",
 						NodeRegionLabelGA:          "region",
 						NodeZoneLabelGA:            "zone",
-						label.TopologyCluster.Name: clusterID,
+						label.TopologyCluster.Name: clusterID.String(),
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
@@ -577,6 +581,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			if len(podServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
+			clearDiscoverabilityPolicy(podServices[0].Endpoint)
 			if !reflect.DeepEqual(expected, podServices[0]) {
 				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
 			}
@@ -1815,8 +1820,9 @@ func TestEndpointUpdate(t *testing.T) {
 			if ev == nil {
 				t.Fatalf("Timeout xds push")
 			}
-			if ev.ID != string(kube.ServiceHostname("svc1", "nsa", controller.domainSuffix)) {
-				t.Errorf("Expect service %s updated, but got %s", kube.ServiceHostname("svc1", "nsa", controller.domainSuffix), ev.ID)
+			if ev.ID != string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix)) {
+				t.Errorf("Expect service %s updated, but got %s",
+					kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix), ev.ID)
 			}
 		})
 	}
@@ -2100,5 +2106,11 @@ func TestKubeEndpointsControllerOnEvent(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func clearDiscoverabilityPolicy(ep *model.IstioEndpoint) {
+	if ep != nil {
+		ep.DiscoverabilityPolicy = nil
 	}
 }

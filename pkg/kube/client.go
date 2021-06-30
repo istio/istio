@@ -83,8 +83,6 @@ import (
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
-	discoveryContainer  = "discovery"
-	pilotDiscoveryPath  = "/usr/local/bin/pilot-discovery"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -150,7 +148,7 @@ type ExtendedClient interface {
 	Revision() string
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
-	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, body []byte) ([]byte, error)
+	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
 	// AllDiscoveryDo makes an http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
@@ -163,6 +161,9 @@ type ExtendedClient interface {
 
 	// GetIstioPods retrieves the pod objects for Istio deployments
 	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
+
+	// PodExecCommands takes a list of commands and the pod data to run the commands in the specified pod.
+	PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error)
 
 	// PodExec takes a command and the pod data to run the command in the specified pod.
 	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
@@ -460,6 +461,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.gatewayapiInformer.Start(stop)
+	c.mcsapisInformers.Start(stop)
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
@@ -469,6 +471,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		fastWaitForCacheSyncDynamic(stop, c.metadataInformer)
 		fastWaitForCacheSync(stop, c.istioInformer)
 		fastWaitForCacheSync(stop, c.gatewayapiInformer)
+		fastWaitForCacheSync(stop, c.mcsapisInformers)
 		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
 			select {
 			case <-stop:
@@ -486,6 +489,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.metadataInformer.WaitForCacheSync(stop)
 		c.istioInformer.WaitForCacheSync(stop)
 		c.gatewayapiInformer.WaitForCacheSync(stop)
+		c.mcsapisInformers.WaitForCacheSync(stop)
 	}
 }
 
@@ -563,7 +567,7 @@ func (c *client) Revision() string {
 	return c.revision
 }
 
-func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
+func (c *client) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout, stderr string, err error) {
 	defer func() {
 		if err != nil {
 			if len(stderr) > 0 {
@@ -575,7 +579,6 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 		}
 	}()
 
-	commandFields := strings.Fields(command)
 	req := c.restClient.Post().
 		Resource("pods").
 		Name(podName).
@@ -584,7 +587,7 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 		Param("container", container).
 		VersionedParams(&v1.PodExecOptions{
 			Container: container,
-			Command:   commandFields,
+			Command:   commands,
 			Stdin:     false,
 			Stdout:    true,
 			Stderr:    true,
@@ -611,6 +614,11 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
 	return
+}
+
+func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
+	commandFields := strings.Fields(command)
+	return c.PodExecCommands(podName, podNamespace, container, commandFields)
 }
 
 func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container string, previousLog bool) (string, error) {
@@ -646,21 +654,9 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.CoreV1().Pods(istiod.Namespace).ProxyGet("", istiod.Name, "15014", path, nil).DoRaw(ctx)
+		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
 		if err != nil {
-			execRes, execErr := c.extractExecResult(istiod.Name, istiod.Namespace, discoveryContainer,
-				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
-			if execErr != nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s.%s: %v", istiod.Name, istiod.Namespace, err),
-					execErr,
-				)
-				continue
-			}
-			if len(execRes) > 0 {
-				result[istiod.Name] = []byte(execRes)
-			}
-			continue
+			return nil, err
 		}
 		if len(res) > 0 {
 			result[istiod.Name] = res
@@ -673,12 +669,16 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	return nil, errs
 }
 
-func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
+func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
+	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
+}
+
+func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	formatError := func(err error) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, 15000)
+	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, port)
 	if err != nil {
 		return nil, err
 	}

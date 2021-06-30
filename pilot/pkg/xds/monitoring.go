@@ -118,6 +118,12 @@ var (
 	ldsSendErrPushes = pushes.With(typeTag.Value("lds_senderr"))
 	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
 
+	pushContextInitTime = monitoring.NewDistribution(
+		"pilot_pushcontext_init_seconds",
+		"Total time in seconds Pilot takes to init pushContext.",
+		[]float64{.01, .1, 0.5, 1, 3, 5},
+	)
+
 	pushTime = monitoring.NewDistribution(
 		"pilot_xds_push_time",
 		"Total time in seconds Pilot takes to push lds, rds, cds and eds.",

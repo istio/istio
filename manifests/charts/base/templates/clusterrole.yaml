@@ -154,6 +154,9 @@ rules:
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
     verbs: ["create"]
+  - apiGroups: ["multicluster.x-k8s.io"]
+    resources: ["serviceexports"]
+    verbs: ["get", "watch", "list"]
 {{- if or .Values.global.externalIstiod }}
   - apiGroups: [""]
     resources: ["configmaps"]

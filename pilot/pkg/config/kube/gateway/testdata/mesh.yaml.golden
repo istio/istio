@@ -11,7 +11,7 @@ spec:
   - hosts:
     - '*.example.com'
     port:
-      name: http-80-gateway-gateway-istio-system
+      name: 0-gateway-gateway-istio-system
       number: 80
       protocol: HTTP
 ---

@@ -52,6 +52,14 @@ data:
       gateway: |
 {{ .Files.Get "files/gateway-injection-template.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "grpc-simple") }}
+      grpc-simple: |
+{{ .Files.Get "files/grpc-simple.yaml" | trim | indent 8 }}
+{{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "grpc-agent") }}
+      grpc-agent: |
+{{ .Files.Get "files/grpc-agent.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}

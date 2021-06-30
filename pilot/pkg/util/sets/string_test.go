@@ -70,6 +70,27 @@ func TestDifference(t *testing.T) {
 	}
 }
 
+func TestIntersection(t *testing.T) {
+	elements := []string{"a", "b", "d"}
+	s1 := NewSet(elements...)
+
+	elements2 := []string{"a", "b", "c"}
+	s2 := NewSet(elements2...)
+
+	d := s1.Intersection(s2)
+
+	if len(d) != 2 {
+		t.Errorf("Expected len=2: %d", len(d))
+	}
+
+	if _, exist := d["a"]; !exist {
+		t.Errorf("a is not in %v", d)
+	}
+	if _, exist := d["b"]; !exist {
+		t.Errorf("b is not in %v", d)
+	}
+}
+
 func TestSupersetOf(t *testing.T) {
 	elements := []string{"a", "b", "c", "d"}
 	s1 := NewSet(elements...)

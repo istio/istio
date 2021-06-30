@@ -32,7 +32,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -51,6 +53,7 @@ func TestConvertResources(t *testing.T) {
 		"mesh",
 		"invalid",
 		"multi-gateway",
+		"delegated",
 	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
@@ -72,7 +75,7 @@ func TestConvertResources(t *testing.T) {
 				Attributes: model.ServiceAttributes{
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
-					ClusterExternalAddresses: map[string][]string{
+					ClusterExternalAddresses: map[cluster.ID][]string{
 						"Kubernetes": {"1.2.3.4"},
 					},
 				},
@@ -173,7 +176,9 @@ func splitOutput(configs []config.Config) OutputResources {
 
 func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
+	namespaces := sets.NewSet()
 	for _, c := range configs {
+		namespaces.Insert(c.Namespace)
 		switch c.GroupVersionKind {
 		case gvk.GatewayClass:
 			out.GatewayClass = append(out.GatewayClass, c)
@@ -187,6 +192,12 @@ func splitInput(configs []config.Config) *KubernetesResources {
 			out.TLSRoute = append(out.TLSRoute, c)
 		case gvk.BackendPolicy:
 			out.BackendPolicy = append(out.BackendPolicy, c)
+		}
+	}
+	out.Namespaces = map[string]*corev1.Namespace{}
+	for ns := range namespaces {
+		out.Namespaces[ns] = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: ns},
 		}
 	}
 	out.Domain = "domain.suffix"

@@ -31,8 +31,8 @@ import (
 var wasmLog = log.RegisterScope("wasm", "", 0)
 
 const (
-	// DefaultWasmModulePurgeInteval is the default interval for periodic stale Wasm module clean up.
-	DefaultWasmModulePurgeInteval = 10 * time.Minute
+	// DefaultWasmModulePurgeInterval is the default interval for periodic stale Wasm module clean up.
+	DefaultWasmModulePurgeInterval = 10 * time.Minute
 
 	// DefaultWasmModuleExpiry is the default duration for least recently touched Wasm module to become stale.
 	DefaultWasmModuleExpiry = 24 * time.Hour

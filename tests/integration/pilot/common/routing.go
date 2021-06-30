@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -650,6 +652,30 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 	return cases
 }
 
+// destinationRuleCases contains tests some specific DestinationRule tests.
+func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
+	var cases []TrafficTestCase
+	client := apps.PodA
+	destination := apps.PodC[0]
+	cases = append(cases,
+		// Validates the config is generated correctly when only idletimeout is specified in DR.
+		TrafficTestCase{
+			name:   "only idletimeout specified in DR",
+			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
+			call:   client[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:    destination,
+				PortName:  "http",
+				Count:     1,
+				HTTP2:     true,
+				Validator: echo.ExpectOK(),
+			},
+			minIstioVersion: "1.10.0",
+		},
+	)
+	return cases
+}
+
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
 func trafficLoopCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
@@ -1159,6 +1185,124 @@ spec:
 
 	return cases
 }
+
+// consistentHashCases tests destination rule's consistent hashing mechanism
+func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, c := range apps.PodA {
+		c := c
+
+		// First setup a service selecting a few services. This is needed to ensure we can load balance across many pods.
+		svcName := "consistent-hash"
+		if nw := c.Config().Cluster.NetworkName(); nw != "" {
+			svcName += "-" + nw
+		}
+		svc := tmpl.MustEvaluate(`apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Service}}
+spec:
+  ports:
+  - name: http
+    port: {{.Port}}
+    targetPort: {{.TargetPort}}
+  selector:
+    test.istio.io/class: standard
+    {{- if .Network }}
+    topology.istio.io/network: {{.Network}}
+	{{- end }}
+`, map[string]interface{}{
+			"Service":    svcName,
+			"Network":    c.Config().Cluster.NetworkName(),
+			"Port":       FindPortByName("http").ServicePort,
+			"TargetPort": FindPortByName("http").InstancePort,
+		})
+
+		destRule := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        {{. | indent 8}}
+`, svcName, svcName)
+		// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
+		// and could be broken by having only 1 pod so its good to have this check in place
+		cases = append(cases, TrafficTestCase{
+			name:   "no consistent",
+			config: svc,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Count:   10,
+				Address: svcName,
+				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, rerr error) error {
+						err := ConsistentHostValidator.Validate(responses, rerr)
+						if err == nil {
+							return fmt.Errorf("expected inconsistent hash, but it was consistent")
+						}
+						return nil
+					}),
+				),
+			},
+		})
+		headers := http.Header{}
+		headers.Add("x-some-header", "baz")
+		callOpts := echo.CallOptions{
+			Count:   10,
+			Address: svcName,
+			Path:    "/?some-query-param=bar",
+			Headers: headers,
+			Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+			Validator: echo.And(
+				echo.ExpectOK(),
+				ConsistentHostValidator,
+			),
+		}
+		// Setup tests for various forms of the API
+		// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
+		// But its pretty hard to test that, so for now just ensure we hit the same one.
+		cases = append(cases, TrafficTestCase{
+			name:   "source ip",
+			config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+			call:   c.CallWithRetryOrFail,
+			opts:   callOpts,
+		}, TrafficTestCase{
+			name:   "query param",
+			config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
+			call:   c.CallWithRetryOrFail,
+			opts:   callOpts,
+		}, TrafficTestCase{
+			name:   "http header",
+			config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
+			call:   c.CallWithRetryOrFail,
+			opts:   callOpts,
+		})
+	}
+
+	return cases
+}
+
+var ConsistentHostValidator echo.Validator = echo.ValidatorFunc(func(responses echoclient.ParsedResponses, _ error) error {
+	hostnames := make([]string, len(responses))
+	_ = responses.Check(func(i int, response *echoclient.ParsedResponse) error {
+		hostnames[i] = response.Hostname
+		return nil
+	})
+	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
+	unique := sets.NewSet(hostnames...).SortedList()
+	if len(unique) != 1 {
+		return fmt.Errorf("excepted only one destination, got: %v", unique)
+	}
+	return nil
+})
 
 func flatten(clients ...[]echo.Instance) []echo.Instance {
 	instances := []echo.Instance{}
@@ -1743,6 +1887,23 @@ spec:
     connectionPool:
       http:
         useClientProtocol: true
+---
+`, name, app)
+}
+
+func idletimeoutDestinationRule(name, app string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      http:
+        idleTimeout: 100s
 ---
 `, name, app)
 }

@@ -11,14 +11,14 @@ spec:
   - hosts:
     - '*'
     port:
-      name: tls-34000-gateway-gateway-istio-system
+      name: 0-gateway-gateway-istio-system
       number: 34000
       protocol: TLS
     tls: {}
   - hosts:
     - domain.example
     port:
-      name: https-34000-gateway-gateway-istio-system
+      name: 1-gateway-gateway-istio-system
       number: 34000
       protocol: HTTPS
     tls:

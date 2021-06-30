@@ -103,7 +103,7 @@ func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
 	}
 	if err := h.DeleteChart(helmtest.IstiodReleaseName, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
+		return fmt.Errorf("failed to delete %s release", helmtest.IstiodReleaseName)
 	}
 	if err := h.DeleteChart(helmtest.BaseReleaseName, helmtest.IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s release", helmtest.BaseReleaseName)
@@ -122,7 +122,7 @@ func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 func deleteIstioRevision(h *helm.Helm, revision string) error {
 	scopes.Framework.Infof("cleaning up canary resources")
 	if err := h.DeleteChart(helmtest.IstiodReleaseName+revision, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete %s release", helmtest.IngressReleaseName)
+		return fmt.Errorf("failed to delete %s release", helmtest.IstiodReleaseName+revision)
 	}
 
 	return nil

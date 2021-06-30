@@ -133,9 +133,12 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	if ia.cfg.IsIPv6 {
 		localHostAddr = localHostIPv6
 	}
-	envoyProbe := &ready.Probe{
-		AdminPort:     uint16(ia.proxyConfig.ProxyAdminPort),
-		LocalHostAddr: localHostAddr,
+	var envoyProbe ready.Prober
+	if !ia.cfg.DisableEnvoy {
+		envoyProbe = &ready.Probe{
+			AdminPort:     uint16(ia.proxyConfig.ProxyAdminPort),
+			LocalHostAddr: localHostAddr,
+		}
 	}
 	proxy := &XdsProxy{
 		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
@@ -145,7 +148,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:     ia.cfg.XDSHeaders,
 		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
 		proxyAddresses: ia.cfg.ProxyIPAddresses,
 	}
 

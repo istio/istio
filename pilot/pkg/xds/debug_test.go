@@ -34,13 +34,13 @@ func TestSyncz(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS()
 
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.EndpointType,
 			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
 		})
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.RouteType,
 			ResourceNames: []string{"80", "8080"},
 		})
@@ -52,13 +52,13 @@ func TestSyncz(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS()
 
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.EndpointType,
 			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
 		})
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.RouteType,
 			ResourceNames: []string{"80", "8080"},
 		})
@@ -156,9 +156,9 @@ func TestConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			ads := s.ConnectADS()
-			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
-			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
-			ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 				TypeUrl:       v3.RouteType,
 				ResourceNames: []string{"80", "8080"},
 			})
