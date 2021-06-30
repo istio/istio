@@ -340,6 +340,7 @@ func (e *endpointSliceCache) Update(hostname host.Name, slice string, endpoints 
 		e.endpointByKey[key] = ep
 	}
 	e.endpointKeysByServiceAndSlice[hostname][slice] = keys
+	log.Errorf("adiprerepa: endpoints for hostname %+v: %+v", hostname, e.endpointKeysByServiceAndSlice[hostname])
 }
 
 func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
@@ -355,6 +356,7 @@ func (e *endpointSliceCache) Delete(hostname host.Name, slice string) {
 	if len(e.endpointKeysByServiceAndSlice[hostname]) == 0 {
 		delete(e.endpointKeysByServiceAndSlice, hostname)
 	}
+	log.Errorf("adiprerepa: endpoints AFTER DELETE: %+v", e.endpointKeysByServiceAndSlice[hostname])
 }
 
 func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
