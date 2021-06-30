@@ -16,6 +16,7 @@ package constants
 
 // Command line arguments
 const (
+	// Install
 	MountedCNINetDir     = "mounted-cni-net-dir"
 	CNINetDir            = "cni-net-dir"
 	CNIConfName          = "cni-conf-name"
@@ -29,6 +30,21 @@ const (
 	SkipTLSVerify        = "skip-tls-verify"
 	SkipCNIBinaries      = "skip-cni-binaries"
 	UpdateCNIBinaries    = "update-cni-binaries"
+
+	// Repair
+	RepairEnabled            = "repair-enabled"
+	RepairDeletePods         = "repair-delete-pods"
+	RepairLabelPods          = "repair-label-pods"
+	RepairRunAsDaemon        = "repair-run-as-daemon"
+	RepairLabelKey           = "repair-broken-pod-label-key"
+	RepairLabelValue         = "repair-broken-pod-label-value"
+	RepairNodeName           = "repair-node-name"
+	RepairSidecarAnnotation  = "repair-sidecar-annotation"
+	RepairInitContainerName  = "repair-init-container-name"
+	RepairInitTerminationMsg = "repair-init-container-termination-message"
+	RepairInitExitCode       = "repair-init-container-exit-code"
+	RepairLabelSelectors     = "repair-label-selectors"
+	RepairFieldSelectors     = "repair-field-selectors"
 )
 
 // Internal constants
@@ -43,4 +59,5 @@ var (
 	LivenessEndpoint  = "/healthz"
 	ReadinessEndpoint = "/readyz"
 	Port              = "8000"
+	MonitoringPort    = "15014"
 )

@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
+	"istio.io/istio/cni/pkg/constants"
 )
 
 func TestServer(t *testing.T) {
