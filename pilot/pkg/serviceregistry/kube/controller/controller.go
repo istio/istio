@@ -417,8 +417,13 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.servicesMap, svcConv.Hostname)
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+		_, isNetworkGateway := c.networkGateways[svcConv.Hostname]
 		delete(c.networkGateways, svcConv.Hostname)
 		c.Unlock()
+		if isNetworkGateway {
+			// networks are different, we need to update all eds endpoints
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		}
 	default:
 		needsFullPush := false
 		// First, process nodePort gateway service, whose externalIPs specified
