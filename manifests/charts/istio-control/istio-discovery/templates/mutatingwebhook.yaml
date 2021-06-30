@@ -21,6 +21,7 @@ a unique prefix to each. */}}
     apiVersions: ["v1"]
     resources: ["pods"]
   failurePolicy: Fail
+  reinvocationPolicy: IfNeeded
   admissionReviewVersions: ["v1beta1", "v1"]
 {{- end }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
