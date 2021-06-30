@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -136,9 +137,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(len(routes)).To(gomega.Equal(2))
-		g.Expect(routes[0].Name).To(gomega.Equal("route.non-catch-all"))
-		g.Expect(routes[1].Name).To(gomega.Equal("route.catch-all"))
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].Name).To(gomega.Equal("route.catch-all"))
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
@@ -156,9 +156,19 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllMultiPrefixRoute, serviceRegistry, 8080, gatewayNames)
 		xdstest.ValidateRoutes(t, routes)
-
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].Name).To(gomega.Equal(".catch-all"))
+	})
+
+	t.Run("for virtual service with multi catch all route", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithMultiCatchAllRoute, serviceRegistry, 8080, gatewayNames)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].Name).To(gomega.Equal(".catch-all"))
 	})
 
 	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
@@ -879,9 +889,6 @@ var virtualServiceWithCatchAllMultiPrefixRoute = config.Config{
 								Prefix: "/",
 							},
 						},
-						SourceLabels: map[string]string{
-							"matchingNoSrc": "xxx",
-						},
 					},
 					{
 						Name: "specific match",
@@ -951,6 +958,57 @@ var virtualServiceWithCatchAllRouteWeightedDestination = config.Config{
 							Subset: "v1",
 						},
 						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithMultiCatchAllRoute = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{"*"},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "match-header",
+						Headers: map[string]*networking.StringMatch{
+							"version": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "v1",
+								},
+							},
+						},
+					},
+					{
+						Name: "catch-all",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{
+								Prefix: "/",
+							},
+						},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.com",
+						},
+					},
+				},
+			},
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "bar.com",
+						},
 					},
 				},
 			},
