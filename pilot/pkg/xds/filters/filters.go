@@ -152,12 +152,16 @@ var (
 )
 
 func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
+	routerCfg := &router.Router{}
+
+	if ctx != nil {
+		routerCfg.StartChildSpan = ctx.StartChildSpan
+	}
+
 	return &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(&router.Router{
-				StartChildSpan: ctx.StartChildSpan,
-			}),
+			TypedConfig: util.MessageToAny(routerCfg),
 		},
 	}
 }

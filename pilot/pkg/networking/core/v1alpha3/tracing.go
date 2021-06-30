@@ -46,19 +46,20 @@ import (
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = extensionproviders.LookupCluster
 
-func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager, rfCtx *xdsfilters.RouterFilterContext) {
+func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
 	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy.ConfigNamespace, labels.Collection{opts.proxy.Metadata.Labels})
-	configureTracingFromSpec(spec, opts, hcm, rfCtx)
+	return configureTracingFromSpec(spec, opts, hcm)
 }
 
-func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager, rfCtx *xdsfilters.RouterFilterContext) {
+func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
 	meshCfg := opts.push.Mesh
 	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
+	routerFilterCtx := &xdsfilters.RouterFilterContext{}
 
 	if len(spec.GetTracing()) == 0 {
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
-			return
+			return routerFilterCtx
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
@@ -67,7 +68,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
-		return
+		return routerFilterCtx
 	}
 
 	if len(spec.Tracing) > 1 {
@@ -77,7 +78,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	tracingCfg := spec.Tracing[0]
 
 	if tracingCfg.DisableSpanReporting.GetValue() {
-		return
+		return routerFilterCtx
 	}
 
 	// provider config
@@ -90,12 +91,13 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	providerConfigured := false
 	for _, p := range meshCfg.ExtensionProviders {
 		if strings.EqualFold(p.Name, providerName) {
-			tcfg, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, p, rfCtx)
+			tcfg, rfCtx, err := configureFromProviderConfig(opts.push, opts.proxy.Metadata, p)
 			if err != nil {
 				log.Warnf("Not able to configure requested tracing provider %q: %v", p.Name, err)
 				continue
 			}
 			hcm.Tracing = tcfg
+			routerFilterCtx = rfCtx
 			providerConfigured = true
 			break
 		}
@@ -117,19 +119,25 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	if hcm.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 		hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 	}
+
+	return routerFilterCtx
 }
 
 // TODO: follow-on work to enable bootstrapping of clusters for $(HOST_IP):PORT addresses.
 
 func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
-	providerCfg *meshconfig.MeshConfig_ExtensionProvider, rfCtx *xdsfilters.RouterFilterContext) (*hpb.HttpConnectionManager_Tracing, error) {
+	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
+	tracing := &hpb.HttpConnectionManager_Tracing{}
+	rfCtx := &xdsfilters.RouterFilterContext{}
+	var err error
+
 	switch provider := providerCfg.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Zipkin.Service, provider.Zipkin.Port, provider.Zipkin.MaxTagLength, zipkinConfigGen)
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Datadog.Service, provider.Datadog.Port, provider.Datadog.MaxTagLength, datadogConfigGen)
+		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Datadog.Service, provider.Datadog.Port, provider.Datadog.MaxTagLength, datadogConfigGen)
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
+		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Lightstep.Service, provider.Lightstep.Port, provider.Lightstep.MaxTagLength,
 			func(clusterName string) (*anypb.Any, error) {
 				lc := &tracingcfg.LightstepConfig{
 					CollectorCluster: clusterName,
@@ -139,7 +147,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-		return buildHCMTracingOpenCensus(providerCfg.Name, provider.Opencensus.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Opencensus.MaxTagLength, func() (*anypb.Any, error) {
 			oc := &tracingcfg.OpenCensusConfig{
 				OcagentAddress:         fmt.Sprintf("%s:%d", provider.Opencensus.Service, provider.Opencensus.Port),
 				OcagentExporterEnabled: true,
@@ -151,24 +159,25 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 		})
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-		rfCtx.StartChildSpan = true
-
-		return buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service, provider.Skywalking.Port, 0, func(clusterName string) (*anypb.Any, error) {
-			s := &tracingcfg.SkyWalkingConfig{
-				GrpcService: &envoy_config_core_v3.GrpcService{
-					TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
-							ClusterName: clusterName,
+		tracing, err = buildHCMTracing(pushCtx, providerCfg.Name, provider.Skywalking.Service,
+			provider.Skywalking.Port, 0, func(clusterName string) (*anypb.Any, error) {
+				s := &tracingcfg.SkyWalkingConfig{
+					GrpcService: &envoy_config_core_v3.GrpcService{
+						TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+								ClusterName: clusterName,
+							},
 						},
 					},
-				},
-			}
+				}
 
-			return anypb.New(s)
-		})
+				return anypb.New(s)
+			})
+
+		rfCtx.StartChildSpan = true
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
-		return buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
+		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
 			proj, ok := meta.PlatformMetadata[platform.GCPProject]
 			if !ok {
 				proj, ok = meta.PlatformMetadata[platform.GCPProjectNumber]
@@ -240,7 +249,8 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 			return anypb.New(sd)
 		})
 	}
-	return &hpb.HttpConnectionManager_Tracing{}, nil
+
+	return tracing, rfCtx, err
 }
 
 type typedConfigGenFromClusterFn func(clusterName string) (*anypb.Any, error)

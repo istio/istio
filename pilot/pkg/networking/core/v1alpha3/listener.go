@@ -1290,8 +1290,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager)
 
-	rfCtx := &xdsfilters.RouterFilterContext{}
-	configureTracing(listenerOpts, connectionManager, rfCtx)
+	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
 
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
@@ -1309,7 +1308,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		filters = append(filters, xdsfilters.Alpn)
 	}
 
-	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.BuildRouterFilter(rfCtx))
+	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
 

@@ -113,12 +113,11 @@ func TestConfigureTracing(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(tt *testing.T) {
 			hcm := &hpb.HttpConnectionManager{}
-			wantRfCtx := &xdsfilters.RouterFilterContext{}
-			configureTracingFromSpec(tc.inSpec, tc.opts, hcm, wantRfCtx)
+			gotRfCtx := configureTracingFromSpec(tc.inSpec, tc.opts, hcm)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Errorf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
-			if diff := cmp.Diff(wantRfCtx, tc.wantRfCtx); diff != "" {
+			if diff := cmp.Diff(gotRfCtx, tc.wantRfCtx); diff != "" {
 				t.Errorf("got filter modifier context is unexpected diff (-want +got):\n%s", diff)
 			}
 		})
