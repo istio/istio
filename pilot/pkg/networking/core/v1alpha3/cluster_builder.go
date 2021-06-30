@@ -167,7 +167,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
 	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config) []*cluster.Cluster {
-	destinationRule := castDestinationRule(destRule)
+	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
@@ -1058,9 +1058,9 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 	return mc.cluster
 }
 
-// castDestinationRule returns the destination rule enclosed by the config, if not null.
+// CastDestinationRule returns the destination rule enclosed by the config, if not null.
 // Otherwise, return nil.
-func castDestinationRule(config *config.Config) *networking.DestinationRule {
+func CastDestinationRule(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}

@@ -96,6 +96,20 @@ func TestGRPC(t *testing.T) {
 		},
 	})
 
+	store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "mtls",
+			Namespace:        "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "istiod.istio-system.svc.cluster.local",
+			TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
+				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+			}},
+		},
+	})
+
 	env := ds.DiscoveryServer.Env
 	env.Init()
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
