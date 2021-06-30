@@ -585,8 +585,10 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 // sidecarScope object. Selection is based on labels at the moment.
 func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
+	vsMap := map[string]struct{}{}
 	for _, c := range virtualServices {
 		configNamespace := c.Namespace
+		vsName := c.Name
 		rule := c.Spec.(*networking.VirtualService)
 
 		// Selection algorithm:
@@ -602,20 +604,17 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
 			for _, importedHost := range importedHosts {
 				// Check if the hostnames match per usual hostname matching rules
-				hostFound := false
+				if _, ok := vsMap[vsName]; ok {
+					break
+				}
 				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts while the user might be importing only a single host
-					// so we need to generate a new VirtualService with just the matched host
+					// VirtualServices can have many hosts, so we need to avoid appending
+					// duplicated virtualservices to slice importedVirtualServices
 					if importedHost.Matches(host.Name(h)) {
-						newVSConfig := newVSConfigHostsSetting(c, h)
-						importedVirtualServices = append(importedVirtualServices, newVSConfig)
-						hostFound = true
+						importedVirtualServices = append(importedVirtualServices, c)
+						vsMap[vsName] = struct{}{}
 						break
 					}
-				}
-
-				if hostFound {
-					break
 				}
 			}
 		}
@@ -624,20 +623,17 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
 			for _, importedHost := range importedHosts {
 				// Check if the hostnames match per usual hostname matching rules
-				hostFound := false
+				if _, ok := vsMap[vsName]; ok {
+					break
+				}
 				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts while the user might be importing only a single host
-					// so we need to generate a new VirtualService with just the matched host
+					// VirtualServices can have many hosts, so we need to avoid appending
+					// duplicated virtualservices to slice importedVirtualServices
 					if importedHost.Matches(host.Name(h)) {
-						newVSConfig := newVSConfigHostsSetting(c, h)
-						importedVirtualServices = append(importedVirtualServices, newVSConfig)
-						hostFound = true
+						importedVirtualServices = append(importedVirtualServices, c)
+						vsMap[vsName] = struct{}{}
 						break
 					}
-				}
-
-				if hostFound {
-					break
 				}
 			}
 		}
@@ -722,14 +718,4 @@ func needsPortMatch(ilw *IstioEgressListenerWrapper) bool {
 	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
 	return ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
 		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
-}
-
-// newConfigHostsSetting clone vs config based on origin, then setting new vs config's hosts.
-func newVSConfigHostsSetting(origin config.Config, hosts string) config.Config {
-	newVSConfig := origin.DeepCopy()
-	newVirtualService := newVSConfig.Spec.(*networking.VirtualService)
-	newVirtualService.Hosts = []string{hosts}
-	newVSConfig.Spec = config.Spec(newVirtualService)
-
-	return newVSConfig
 }
