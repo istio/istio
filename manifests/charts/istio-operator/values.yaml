@@ -27,3 +27,5 @@ operator:
       cpu: 50m
       memory: 128Mi
 
+# Additional labels to apply on the pod level for monitoring and logging configuration.
+operatorLabels: {}
