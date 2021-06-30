@@ -54,7 +54,16 @@ import (
 // to this value by the management server.
 const transportSocketName = "envoy.transport_sockets.tls"
 
-type GrpcConfigGenerator struct{}
+type GrpcConfigGenerator struct {
+}
+
+func clusterKey(hostname string, port int) string {
+	return subsetClusterKey("", hostname, port)
+}
+
+func subsetClusterKey(subset, hostname string, port int) string {
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, subset, host.Name(hostname), port)
+}
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
 	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
@@ -120,7 +129,7 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 									Ads: &core.AggregatedConfigSource{},
 								},
 							},
-							RouteConfigName: hp,
+							RouteConfigName: clusterKey(shost, p.Port),
 						},
 					},
 				}
@@ -187,7 +196,7 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 		}
 
 		rc := &cluster.Cluster{
-			Name:                 n,
+			Name:                 clusterKey(hn, porti),
 			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 			EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 				ServiceName: "outbound|" + portn + "||" + hn,
@@ -220,16 +229,12 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 	// Currently this mode is only used by GRPC, to extract Cluster for the default
 	// route.
 	for _, n := range routeNames {
-		hn, portn, err := net.SplitHostPort(n)
-		if err != nil {
-			log.Warn("Failed to parse ", n, " ", err)
+		_, _, hostname, port := model.ParseSubsetKey(n)
+		if hostname == "" || port == 0 {
+			log.Warn("Failed to parse ", n)
 			continue
 		}
-		port, err := strconv.Atoi(portn)
-		if err != nil {
-			log.Warn("Failed to parse port ", n, " ", err)
-			continue
-		}
+		hn := string(hostname)
 		el := node.SidecarScope.GetEgressListenerForRDS(port, "")
 		// TODO: use VirtualServices instead !
 		// Currently gRPC doesn't support matching the path.
@@ -243,7 +248,7 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 					VirtualHosts: []*route.VirtualHost{
 						{
 							Name:    hn,
-							Domains: []string{hn, n},
+							Domains: []string{hn, net.JoinHostPort(hn, strconv.Itoa(port))},
 
 							Routes: []*route.Route{
 								{
