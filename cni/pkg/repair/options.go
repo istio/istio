@@ -31,48 +31,50 @@ type controllerOptions struct {
 	Enabled       bool     `json:"enabled"`
 }
 
-// Parse command line options
-func parseFlags() (filters *Filters, options *controllerOptions) {
-	// Parse command line flags
+func init() {
 	// Filter Options
-	pflag.String("node-name", "", "The name of the managed node (will manage all nodes if unset)")
+	pflag.String("repair-node-name", "", "The name of the managed node (will manage all nodes if unset)")
 	pflag.String(
-		"sidecar-annotation",
+		"repair-sidecar-annotation",
 		"sidecar.istio.io/status",
 		"An annotation key that indicates this pod contains an istio sidecar. All pods without this annotation will be ignored."+
 			"The value of the annotation is ignored.")
 	pflag.String(
-		"init-container-name",
+		"repair-init-container-name",
 		"istio-validation",
 		"The name of the istio init container (will crash-loop if CNI is not configured for the pod)")
 	pflag.String(
-		"init-container-termination-message",
+		"repair-init-container-termination-message",
 		"",
 		"The expected termination message for the init container when crash-looping because of CNI misconfiguration")
 	pflag.Int(
-		"init-container-exit-code",
+		"repair-init-container-exit-code",
 		constants.ValidationErrorCode,
 		"Expected exit code for the init container when crash-looping because of CNI misconfiguration")
 
-	pflag.String("label-selectors", "", "A set of label selectors in label=value format that will be added to the pod list filters")
-	pflag.String("field-selectors", "", "A set of field selectors in label=value format that will be added to the pod list filters")
+	pflag.String("repair-label-selectors", "", "A set of label selectors in label=value format that will be added to the pod list filters")
+	pflag.String("repair-field-selectors", "", "A set of field selectors in label=value format that will be added to the pod list filters")
 
 	// Repair Options
-	pflag.Bool("enabled", true, "Whether enable race condition repair or not.")
-	pflag.Bool("delete-pods", false, "Controller will delete pods")
-	pflag.Bool("label-pods", false, "Controller will label pods")
-	pflag.Bool("run-as-daemon", false, "Controller will run in a loop")
+	pflag.Bool("repair-enabled", true, "Whether enable race condition repair or not.")
+	pflag.Bool("repair-delete-pods", false, "Controller will delete pods")
+	pflag.Bool("repair-label-pods", false, "Controller will label pods")
+	pflag.Bool("repair-run-as-daemon", false, "Controller will run in a loop")
 	pflag.String(
-		"broken-pod-label-key",
+		"repair-broken-pod-label-key",
 		"cni.istio.io/uninitialized",
 		"The key portion of the label which will be set by the reconciler if --label-pods is true")
 	pflag.String(
-		"broken-pod-label-value",
+		"repair-broken-pod-label-value",
 		"true",
 		"The value portion of the label which will be set by the reconciler if --label-pods is true")
 
-	pflag.Bool("help", false, "Print usage information")
+	pflag.Bool("repair-help", false, "Print usage information")
+}
 
+// Parse command line options
+func parseFlags() (filters *Filters, options *controllerOptions) {
+	// Parse command line flags
 	pflag.Parse()
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
 		log.Fatalf("Error parsing command line args: %+v", err)
@@ -83,29 +85,28 @@ func parseFlags() (filters *Filters, options *controllerOptions) {
 		os.Exit(0)
 	}
 
-	viper.SetEnvPrefix("REPAIR")
 	viper.AutomaticEnv()
 	// Pull runtime args into structs
 	filters = &Filters{
-		InitContainerName:               viper.GetString("init-container-name"),
-		InitContainerTerminationMessage: viper.GetString("init-container-termination-message"),
-		InitContainerExitCode:           viper.GetInt("init-container-exit-code"),
-		SidecarAnnotation:               viper.GetString("sidecar-annotation"),
-		FieldSelectors:                  viper.GetString("field-selectors"),
-		LabelSelectors:                  viper.GetString("label-selectors"),
+		InitContainerName:               viper.GetString("repair-init-container-name"),
+		InitContainerTerminationMessage: viper.GetString("repair-init-container-termination-message"),
+		InitContainerExitCode:           viper.GetInt("repair-init-container-exit-code"),
+		SidecarAnnotation:               viper.GetString("repair-sidecar-annotation"),
+		FieldSelectors:                  viper.GetString("repair-field-selectors"),
+		LabelSelectors:                  viper.GetString("repair-label-selectors"),
 	}
 	options = &controllerOptions{
-		Enabled:     viper.GetBool("enabled"),
-		RunAsDaemon: viper.GetBool("run-as-daemon"),
+		Enabled:     viper.GetBool("repair-enabled"),
+		RunAsDaemon: viper.GetBool("repair-run-as-daemon"),
 		RepairOptions: &Options{
-			DeletePods:    viper.GetBool("delete-pods"),
-			LabelPods:     viper.GetBool("label-pods"),
-			PodLabelKey:   viper.GetString("broken-pod-label-key"),
-			PodLabelValue: viper.GetString("broken-pod-label-value"),
+			DeletePods:    viper.GetBool("repair-delete-pods"),
+			LabelPods:     viper.GetBool("repair-label-pods"),
+			PodLabelKey:   viper.GetString("repair-broken-pod-label-key"),
+			PodLabelValue: viper.GetString("repair-broken-pod-label-value"),
 		},
 	}
 
-	if nodeName := viper.GetString("node-name"); nodeName != "" {
+	if nodeName := viper.GetString("repair-node-name"); nodeName != "" {
 		filters.FieldSelectors = fmt.Sprintf("%s=%s,%s", "spec.nodeName", nodeName, filters.FieldSelectors)
 	}
 
