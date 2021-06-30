@@ -40,7 +40,7 @@ type kubeEndpointsController interface {
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
-	forgetEndpoint(endpoint interface{})
+	forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint
 	getServiceInfo(ep interface{}) (host.Name, string, string)
 }
 
@@ -91,7 +91,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, ns)
 	var endpoints []*model.IstioEndpoint
 	if event == model.EventDelete {
-		epc.forgetEndpoint(ep)
+		endpoints = epc.forgetEndpoint(ep)
 	} else {
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
