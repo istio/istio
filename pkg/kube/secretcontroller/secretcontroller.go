@@ -240,7 +240,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 		log.Error("Failed to sync secret controller cache")
 		return
 	}
-	log.Infof("Secret controller cache synced in %v", time.Since(t0))
+	log.Info("Secret controller cache synced in ", time.Since(t0))
 	// all secret events before this signal must be processed before we're marked "ready"
 	c.queue.Add(initialSyncSignal)
 	if features.RemoteClusterTimeout != 0 {
