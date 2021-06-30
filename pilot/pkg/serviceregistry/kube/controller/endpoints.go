@@ -181,7 +181,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
 }
 
-func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint {
 	ep := endpoint.(*v1.Endpoints)
 	key := kube.KeyFunc(ep.Name, ep.Namespace)
 	for _, ss := range ep.Subsets {
@@ -189,6 +189,7 @@ func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
 			e.c.pods.endpointDeleted(key, ea.IP)
 		}
 	}
+	return make([]*model.IstioEndpoint, 0)
 }
 
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {

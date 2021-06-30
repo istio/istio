@@ -993,18 +993,14 @@ func TestSameIPEndpointSlicing(t *testing.T) {
 	createEndpointSlice(t, s.KubeClient(), "slice2", "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{"1.2.3.4"})
 	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
 
+	// delete slice 1, it should still exist
 	s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice1", metav1.DeleteOptions{})
 	xdsUpdater.Wait("eds")
-	es2, err := s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Get(context.TODO(), "slice2", metav1.GetOptions{})
-	if err != nil {
-		t.Errorf("got error when getting slice2: %v", err)
-	}
-	t.Logf(es2.String())
-	//expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
-	//s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice2", metav1.DeleteOptions{})
-	//expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"1.2.3.4:80"})
+	s.KubeClient().DiscoveryV1beta1().EndpointSlices(namespace).Delete(context.TODO(), "slice2", metav1.DeleteOptions{})
+	xdsUpdater.Wait("eds")
+	expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil)
 }
-
 
 type ServiceInstanceResponse struct {
 	Hostname   host.Name
