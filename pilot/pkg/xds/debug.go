@@ -555,7 +555,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
+	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext(), &model.WatchedResource{})
 
 	for _, cs := range clusters {
 		cluster, err := anypb.New(cs)

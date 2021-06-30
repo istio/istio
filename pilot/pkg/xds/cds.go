@@ -76,7 +76,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	if !cdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)
+	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push, w)
 	resources := model.Resources{}
 	for _, c := range rawClusters {
 		resources = append(resources, &discovery.Resource{

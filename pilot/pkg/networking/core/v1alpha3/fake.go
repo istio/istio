@@ -236,7 +236,7 @@ func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 }
 
 func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
-	return f.ConfigGen.BuildClusters(p, f.PushContext())
+	return f.ConfigGen.BuildClusters(p, f.PushContext(), &model.WatchedResource{})
 }
 
 func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
