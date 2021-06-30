@@ -490,10 +490,6 @@ func BuildLbEndpointMetadata(network network.ID, tlsMode, workloadname, namespac
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
 
-	if network != "" {
-		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network.String()}})
-	}
-
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
 		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{
