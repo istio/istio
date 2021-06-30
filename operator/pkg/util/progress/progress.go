@@ -116,11 +116,15 @@ func (p *Log) reportProgress(component string) func() {
 		defer p.mu.Unlock()
 		cmp := p.components[component]
 		// The component has completed
-		if cmp.finished || cmp.err != "" {
-			if cmp.finished {
+		cmp.mu.Lock()
+		finished := cmp.finished
+		cmpErr := cmp.err
+		cmp.mu.Unlock()
+		if finished || cmpErr != "" {
+			if finished {
 				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} %s installed`, cliName), true)
 			} else {
-				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmp.err), true)
+				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmpErr), true)
 			}
 			// Close the bar out, outputting a new line
 			delete(p.components, component)
@@ -195,8 +199,8 @@ func (p *ManifestLog) ReportError(err string) {
 		return
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.err = err
+	p.mu.Unlock()
 	p.report()
 }
 
@@ -205,8 +209,8 @@ func (p *ManifestLog) ReportFinished() {
 		return
 	}
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.finished = true
+	p.mu.Unlock()
 	p.report()
 }
 
