@@ -15,9 +15,6 @@
 package grpcgen
 
 import (
-	"net"
-	"strconv"
-
 	"github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -25,7 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/pkg/log"
 )
 
@@ -36,50 +32,22 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	// gRPC doesn't currently support any of the APIs - returning just the expected EDS result.
 	// Since the code is relatively strict - we'll add info as needed.
 	for _, n := range names {
-		hn, portn, err := net.SplitHostPort(n)
-		if err != nil {
-			log.Warn("Failed to parse ", n, " ", err)
-			continue
-		}
-
-		porti, err := strconv.Atoi(portn)
-		if err != nil {
-			log.Warn("Failed to parse ", n, " ", err)
+		_, _, hn, porti := model.ParseSubsetKey(n)
+		if hn == "" || porti == 0 {
+			log.Warn("failed to parse subset key ", n)
 			continue
 		}
 
 		// SANS associated with this host name.
 		// TODO: apply DestinationRules, etc
-		sans := push.ServiceAccounts[host.Name(hn)][porti]
+		sans := push.ServiceAccounts[hn][porti]
 
-		// Assumes 'default' name, and credentials/tls/certprovider/pemfile
-
-		tlsC := &envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{
-			CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
-				TlsCertificateCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
-					InstanceName:    "default",
-					CertificateName: "default",
-				},
-
-				ValidationContextType: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
-						ValidationContextCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
-							InstanceName:    "default",
-							CertificateName: "ROOTCA",
-						},
-						DefaultValidationContext: &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{
-							MatchSubjectAltNames: util.StringToExactMatch(sans),
-						},
-					},
-				},
-			},
-		}
-
+		tls := buildTLSContext(sans)
 		rc := &envoy_config_cluster_v3.Cluster{
-			Name:                 clusterKey(hn, porti),
+			Name:                 n,
 			ClusterDiscoveryType: &envoy_config_cluster_v3.Cluster_Type{Type: envoy_config_cluster_v3.Cluster_EDS},
 			EdsClusterConfig: &envoy_config_cluster_v3.Cluster_EdsClusterConfig{
-				ServiceName: "outbound|" + portn + "||" + hn,
+				ServiceName: n,
 				EdsConfig: &envoy_config_core_v3.ConfigSource{
 					ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
 						Ads: &envoy_config_core_v3.AggregatedConfigSource{},
@@ -88,7 +56,7 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 			},
 			TransportSocket: &envoy_config_core_v3.TransportSocket{
 				Name:       transportSocketName,
-				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsC)},
+				ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tls)},
 			},
 		}
 		// see grpc/xds/internal/client/xds.go securityConfigFromCluster
@@ -100,3 +68,26 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	return resp
 }
 
+// buildTLSContext creates a TLS context that assumes 'default' name, and credentials/tls/certprovider/pemfile
+func buildTLSContext(sans []string) *envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext {
+	return &envoy_extensions_transport_sockets_tls_v3.UpstreamTlsContext{
+		CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+			TlsCertificateCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
+				InstanceName:    "default",
+				CertificateName: "default",
+			},
+
+			ValidationContextType: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CombinedCertificateValidationContext{
+					ValidationContextCertificateProviderInstance: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext_CertificateProviderInstance{
+						InstanceName:    "default",
+						CertificateName: "ROOTCA",
+					},
+					DefaultValidationContext: &envoy_extensions_transport_sockets_tls_v3.CertificateValidationContext{
+						MatchSubjectAltNames: util.StringToExactMatch(sans),
+					},
+				},
+			},
+		},
+	}
+}
