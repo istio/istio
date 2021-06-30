@@ -92,20 +92,20 @@ func TestSplitHorizonEds(t *testing.T) {
 			want: expectedResults{
 				weights: map[string]uint32{
 					// 1 local endpoint
-					"10.1.0.1": 4,
+					"10.1.0.1": 2,
 
 					// 2 endopints on network 2, go through single gateway.
-					"159.122.219.2": 8,
+					"159.122.219.2": 4,
 
 					// 3 endpoints on network 3, weights split across 2 gateways.
-					"159.122.219.3": 6,
-					"179.114.119.3": 6,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
 
 					// no gateway defined for network 4 - treat as directly reachable.
-					"10.4.0.1": 4,
-					"10.4.0.2": 4,
-					"10.4.0.3": 4,
-					"10.4.0.4": 4,
+					"10.4.0.1": 2,
+					"10.4.0.2": 2,
+					"10.4.0.3": 2,
+					"10.4.0.4": 2,
 				},
 			},
 		},
@@ -117,21 +117,21 @@ func TestSplitHorizonEds(t *testing.T) {
 			want: expectedResults{
 				weights: map[string]uint32{
 					// 2 local endpoints
-					"10.2.0.1": 4,
-					"10.2.0.2": 4,
+					"10.2.0.1": 2,
+					"10.2.0.2": 2,
 
 					// 1 endpoint on network 1, accessed via gateway.
-					"159.122.219.1": 4,
+					"159.122.219.1": 2,
 
 					// 3 endpoints on network 3, weights split across 2 gateways.
-					"159.122.219.3": 6,
-					"179.114.119.3": 6,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
 
 					// no gateway defined for network 4 - treat as directly reachable.
-					"10.4.0.1": 4,
-					"10.4.0.2": 4,
-					"10.4.0.3": 4,
-					"10.4.0.4": 4,
+					"10.4.0.1": 2,
+					"10.4.0.2": 2,
+					"10.4.0.3": 2,
+					"10.4.0.4": 2,
 				},
 			},
 		},
@@ -143,21 +143,21 @@ func TestSplitHorizonEds(t *testing.T) {
 			want: expectedResults{
 				weights: map[string]uint32{
 					// 3 local endpoints.
-					"10.3.0.1": 4,
-					"10.3.0.2": 4,
-					"10.3.0.3": 4,
+					"10.3.0.1": 2,
+					"10.3.0.2": 2,
+					"10.3.0.3": 2,
 
 					// 1 endpoint on network 1, accessed via gateway.
-					"159.122.219.1": 4,
+					"159.122.219.1": 2,
 
 					// 2 endpoint on network 2, accessed via gateway.
-					"159.122.219.2": 8,
+					"159.122.219.2": 4,
 
 					// no gateway defined for network 4 - treat as directly reachable.
-					"10.4.0.1": 4,
-					"10.4.0.2": 4,
-					"10.4.0.3": 4,
-					"10.4.0.4": 4,
+					"10.4.0.1": 2,
+					"10.4.0.2": 2,
+					"10.4.0.3": 2,
+					"10.4.0.4": 2,
 				},
 			},
 		},
@@ -169,20 +169,20 @@ func TestSplitHorizonEds(t *testing.T) {
 			want: expectedResults{
 				weights: map[string]uint32{
 					// 4 local endpoints.
-					"10.4.0.1": 4,
-					"10.4.0.2": 4,
-					"10.4.0.3": 4,
-					"10.4.0.4": 4,
+					"10.4.0.1": 2,
+					"10.4.0.2": 2,
+					"10.4.0.3": 2,
+					"10.4.0.4": 2,
 
 					// 1 endpoint on network 1, accessed via gateway.
-					"159.122.219.1": 4,
+					"159.122.219.1": 2,
 
 					// 2 endpoint on network 2, accessed via gateway.
-					"159.122.219.2": 8,
+					"159.122.219.2": 4,
 
 					// 3 endpoints on network 3, weights split across 2 gateways.
-					"159.122.219.3": 6,
-					"179.114.119.3": 6,
+					"159.122.219.3": 3,
+					"179.114.119.3": 3,
 				},
 			},
 		},

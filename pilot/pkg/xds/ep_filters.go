@@ -29,10 +29,6 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
-const (
-	endpointLBWeightScaleFactor = uint32(4)
-)
-
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
@@ -47,6 +43,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// A new array of endpoints to be returned that will have both local and
 	// remote gateways (if any)
 	filtered := make([]*LocLbEndpointsAndOptions, 0)
+
+	// Scale all weights by the maximum number of gateways that might appear for a network.
+	// This will allow us to more easily spread traffic to the endpoint across multiple
+	// network gateways, increasing reliability of the endpoint.
+	scaleFactor := b.push.NetworkManager().GetMaxGatewaysPerNetwork()
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -65,11 +66,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 
 		// Process all of the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
-			// Copy the endpoint in order to expand the load balancing weight. This will allow
-			// us to more easily spread traffic to the endpoint across multiple network gateways, increasing
-			// reliability of the endpoint. When multiplying, be careful to avoid overflow - clipping the
+			// Copy the endpoint in order to expand the load balancing weight.
+			// When multiplying, be careful to avoid overflow - clipping the
 			// result at the maximum value for uint32.
-			weight := b.scaleEndpointLBWeight(lbEp, endpointLBWeightScaleFactor)
+			weight := b.scaleEndpointLBWeight(lbEp, scaleFactor)
 			lbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
 			lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 				Value: weight,
@@ -166,6 +166,16 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	return filtered
 }
 
+// selectNetworkGateways chooses the gateways that best match the network and cluster. If there is
+// no match for the network+cluster, then all gateways matching the network are returned. Preferring
+// gateways that match against cluster has the following advantages:
+//
+//   1. Potentially reducing extra latency incurred when the gateway and endpoint reside in different
+//      clusters.
+//
+//   2. Enables Kubernetes MCS use cases, where endpoints for a service might be exported in one
+//      cluster but not another within the same network. By targeting the gateway for the cluster
+//      where the exported endpoints reside, we ensure that we only send traffic to exported endpoints.
 func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []*model.NetworkGateway {
 	// Get the gateways for this network+cluster combination.
 	gws := b.push.NetworkManager().GatewaysForNetworkAndCluster(nw, c)
@@ -224,23 +234,6 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAnd
 	}
 
 	return filtered
-}
-
-// TODO: remove this, filtering should be done before generating the config, and
-// network metadata should not be included in output. A node only receives endpoints
-// in the same network as itself - so passing an network meta, with exactly
-// same value that the node itself had, on each endpoint is a bit absurd.
-
-// Checks whether there is an istio metadata string value for the provided key
-// within the endpoint metadata. If exists, it will return the value.
-func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
-	if ep.Metadata != nil &&
-		ep.Metadata.FilterMetadata[util.IstioMetadataKey] != nil &&
-		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields != nil &&
-		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key] != nil {
-		return ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key].GetStringValue()
-	}
-	return ""
 }
 
 func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {

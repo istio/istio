@@ -63,16 +63,16 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 2 local endpoints on network1
-					{address: "10.0.0.1", weight: 4},
-					{address: "10.0.0.2", weight: 4},
+					{address: "10.0.0.1", weight: 2},
+					{address: "10.0.0.2", weight: 2},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 4},
+					{address: "2.2.2.2", weight: 2},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 8},
+					{address: "2.2.2.20", weight: 4},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 4},
+					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 24,
+				weight: 12,
 			},
 		},
 	},
@@ -83,16 +83,16 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 2 local endpoints on network1
-					{address: "10.0.0.1", weight: 4},
-					{address: "10.0.0.2", weight: 4},
+					{address: "10.0.0.1", weight: 2},
+					{address: "10.0.0.2", weight: 2},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 4},
+					{address: "2.2.2.2", weight: 2},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 8},
+					{address: "2.2.2.20", weight: 4},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 4},
+					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 24,
+				weight: 12,
 			},
 		},
 	},
@@ -103,15 +103,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 4},
-					{address: "20.0.0.2", weight: 4},
-					{address: "20.0.0.3", weight: 4},
+					{address: "20.0.0.1", weight: 2},
+					{address: "20.0.0.2", weight: 2},
+					{address: "20.0.0.3", weight: 2},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 8},
+					{address: "1.1.1.1", weight: 4},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 4},
+					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 24,
+				weight: 12,
 			},
 		},
 	},
@@ -122,15 +122,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 4},
-					{address: "20.0.0.2", weight: 4},
-					{address: "20.0.0.3", weight: 4},
+					{address: "20.0.0.1", weight: 2},
+					{address: "20.0.0.2", weight: 2},
+					{address: "20.0.0.3", weight: 2},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 8},
+					{address: "1.1.1.1", weight: 4},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 4},
+					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 24,
+				weight: 12,
 			},
 		},
 	},
@@ -141,15 +141,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 2 endpoint on network2 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 8},
+					{address: "1.1.1.1", weight: 4},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 4},
+					{address: "2.2.2.2", weight: 2},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 8},
+					{address: "2.2.2.20", weight: 4},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 4},
+					{address: "40.0.0.1", weight: 2},
 				},
-				weight: 24,
+				weight: 12,
 			},
 		},
 	},
@@ -160,15 +160,15 @@ var networkFiltered = []networkFilterCase{
 			{
 				lbEps: []LbEpInfo{
 					// 1 local endpoint on network4
-					{address: "40.0.0.1", weight: 4},
+					{address: "40.0.0.1", weight: 2},
 					// 2 endpoint on network2 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 8},
+					{address: "1.1.1.1", weight: 4},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 4},
+					{address: "2.2.2.2", weight: 2},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 8},
+					{address: "2.2.2.20", weight: 4},
 				},
-				weight: 24,
+				weight: 12,
 			},
 		},
 	},
@@ -192,12 +192,12 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 2 local endpoints on network1
-						{address: "10.0.0.1", weight: 4},
-						{address: "10.0.0.2", weight: 4},
+						{address: "10.0.0.1", weight: 2},
+						{address: "10.0.0.2", weight: 2},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 12,
+					weight: 6,
 				},
 			},
 		},
@@ -208,12 +208,12 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 2 local endpoints on network1
-						{address: "10.0.0.1", weight: 4},
-						{address: "10.0.0.2", weight: 4},
+						{address: "10.0.0.1", weight: 2},
+						{address: "10.0.0.2", weight: 2},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 12,
+					weight: 6,
 				},
 			},
 		},
@@ -224,13 +224,13 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 4},
-						{address: "20.0.0.2", weight: 4},
-						{address: "20.0.0.3", weight: 4},
+						{address: "20.0.0.1", weight: 2},
+						{address: "20.0.0.2", weight: 2},
+						{address: "20.0.0.3", weight: 2},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 16,
+					weight: 8,
 				},
 			},
 		},
@@ -241,13 +241,13 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 4},
-						{address: "20.0.0.2", weight: 4},
-						{address: "20.0.0.3", weight: 4},
+						{address: "20.0.0.1", weight: 2},
+						{address: "20.0.0.2", weight: 2},
+						{address: "20.0.0.3", weight: 2},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 16,
+					weight: 8,
 				},
 			},
 		},
@@ -258,9 +258,9 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 4,
+					weight: 2,
 				},
 			},
 		},
@@ -271,9 +271,9 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 				{
 					lbEps: []LbEpInfo{
 						// 1 local endpoint on network4
-						{address: "40.0.0.1", weight: 4},
+						{address: "40.0.0.1", weight: 2},
 					},
-					weight: 4,
+					weight: 2,
 				},
 			},
 		},
