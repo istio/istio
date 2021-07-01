@@ -38,7 +38,7 @@ type Instance struct {
 }
 
 // New creates a new echo client.Instance that is connected to the given server address.
-func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
+func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.DialOption) (*Instance, error) {
 	// Connect to the GRPC (command) endpoint of 'this' app.
 	// TODO: make use of common.ConnectionTimeout once it increases
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -70,6 +70,7 @@ func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 		}
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cfg))
 	}
+	dialOptions = append(dialOptions, extraDialOpts...)
 	conn, err := grpc.DialContext(ctx, address, dialOptions...)
 	if err != nil {
 		return nil, err
