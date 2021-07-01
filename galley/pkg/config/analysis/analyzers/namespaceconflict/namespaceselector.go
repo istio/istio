@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package namespaceconflict
+package namespaceConflict
 
 import (
 	"fmt"
@@ -35,24 +35,24 @@ type Analyzer struct{}
 var _ analysis.Analyzer = &Analyzer{}
 
 var (
-	peerauthcollection    = collections.IstioSecurityV1Beta1Peerauthentications.Name()
-	requestauthcollection = collections.IstioSecurityV1Beta1Requestauthentications.Name()
+	peerAuthCollection    = collections.IstioSecurityV1Beta1Peerauthentications.Name()
+	requestAuthCollection = collections.IstioSecurityV1Beta1Requestauthentications.Name()
 )
 
 func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "namespaceconflict.Analyzer",
+		Name:        "namespaceConflict.Analyzer",
 		Description: "Checks conditions related to conflicting namespace level resources",
 		Inputs: collection.Names{
-			peerauthcollection,
-			requestauthcollection,
+			peerAuthCollection,
+			requestAuthCollection,
 		},
 	}
 }
 
 func (a *Analyzer) Analyze(c analysis.Context) {
 	// Analyze collections.IstioSecurityV1Beta1Peerauthentications
-	c.ForEach(peerauthcollection, func(r *resource.Instance) bool {
+	c.ForEach(peerAuthCollection, func(r *resource.Instance) bool {
 		x := r.Message.(*v1beta1.PeerAuthentication)
 		if x.GetSelector() != nil {
 			// If the resource has workloads associated with it, analyze for conflicts with selector
@@ -65,7 +65,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	})
 
 	// Analyze collections.IstioSecurityV1Beta1Requestauthentications
-	c.ForEach(requestauthcollection, func(r *resource.Instance) bool {
+	c.ForEach(requestAuthCollection, func(r *resource.Instance) bool {
 		x := r.Message.(*v1beta1.RequestAuthentication)
 		if x.GetSelector() != nil {
 			// If the resource has workloads associated with it, analyze for conflicts with selector
@@ -91,7 +91,7 @@ func (a *Analyzer) analyzeNamespaceWideConflicts(r *resource.Instance, c analysi
 		case *v1beta1.PeerAuthentication:
 			// Throw a Peer Authentication conflict
 			// x := r.Message.(*v1beta1.PeerAuthentication)
-			m := msg.NewNamespaceResourceConflict(r, peerauthcollection.String(),
+			m := msg.NewNamespaceResourceConflict(r, peerAuthCollection.String(),
 				string(xNS), fmt.Sprintf("(ALL) Namespace: %v", xNS),
 				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Peerauthentications.Name(), m)
@@ -99,7 +99,7 @@ func (a *Analyzer) analyzeNamespaceWideConflicts(r *resource.Instance, c analysi
 		case *v1beta1.RequestAuthentication:
 			// Throw an Authorization Policy conflict
 			// x := r.Message.(*v1beta1.RequestAuthentication)
-			m := msg.NewNamespaceResourceConflict(r, requestauthcollection.String(),
+			m := msg.NewNamespaceResourceConflict(r, requestAuthCollection.String(),
 				string(xNS), fmt.Sprintf("(ALL) Namespace: %v", xNS),
 				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Requestauthentications.Name(), m)
@@ -118,7 +118,7 @@ func (a *Analyzer) findMatchingNamespace(r *resource.Instance, c analysis.Contex
 	case *v1beta1.PeerAuthentication:
 		xName := r.Metadata.FullName.String()
 		xNS := r.Metadata.FullName.Namespace
-		c.ForEach(peerauthcollection, func(r1 *resource.Instance) bool {
+		c.ForEach(peerAuthCollection, func(r1 *resource.Instance) bool {
 			y := r1.Message.(*v1beta1.PeerAuthentication)
 			yName := r1.Metadata.FullName.String()
 			yNS := r1.Metadata.FullName.Namespace
@@ -132,7 +132,7 @@ func (a *Analyzer) findMatchingNamespace(r *resource.Instance, c analysis.Contex
 	case *v1beta1.RequestAuthentication:
 		xName := r.Metadata.FullName.String()
 		xNS := r.Metadata.FullName.Namespace
-		c.ForEach(requestauthcollection, func(r1 *resource.Instance) bool {
+		c.ForEach(requestAuthCollection, func(r1 *resource.Instance) bool {
 			y := r1.Message.(*v1beta1.RequestAuthentication)
 			yName := r1.Metadata.FullName.String()
 			yNS := r1.Metadata.FullName.Namespace
@@ -165,7 +165,7 @@ func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c anal
 		case *v1beta1.PeerAuthentication:
 			// Throw a Peer Authentication conflict
 			x := r.Message.(*v1beta1.PeerAuthentication)
-			m := msg.NewNamespaceResourceConflict(r, peerauthcollection.String(),
+			m := msg.NewNamespaceResourceConflict(r, peerAuthCollection.String(),
 				string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(),
 				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Peerauthentications.Name(), m)
@@ -173,13 +173,13 @@ func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c anal
 		case *v1beta1.RequestAuthentication:
 			// Throw an Authorization Policy conflict
 			x := r.Message.(*v1beta1.RequestAuthentication)
-			m := msg.NewNamespaceResourceConflict(r, requestauthcollection.String(),
+			m := msg.NewNamespaceResourceConflict(r, requestAuthCollection.String(),
 				string(xNS), k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String(),
 				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Requestauthentications.Name(), m)
 			return
 		default:
-			fmt.Printf("I don't know about type %T!\n", v)
+			fmt.Printf("Incorrect collection iterated: %T.\n", v)
 		}
 	}
 }
@@ -195,7 +195,7 @@ func (a *Analyzer) findMatchingSelectors(r *resource.Instance, c analysis.Contex
 		xName := r.Metadata.FullName.String()
 		xNS := r.Metadata.FullName.Namespace
 		xSelector := k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String()
-		c.ForEach(peerauthcollection, func(r1 *resource.Instance) bool {
+		c.ForEach(peerAuthCollection, func(r1 *resource.Instance) bool {
 			y := r1.Message.(*v1beta1.PeerAuthentication)
 			yName := r1.Metadata.FullName.String()
 			yNS := r1.Metadata.FullName.Namespace
@@ -214,7 +214,7 @@ func (a *Analyzer) findMatchingSelectors(r *resource.Instance, c analysis.Contex
 		xName := r.Metadata.FullName.String()
 		xNS := r.Metadata.FullName.Namespace
 		xSelector := k8s_labels.SelectorFromSet(x.GetSelector().MatchLabels).String()
-		c.ForEach(requestauthcollection, func(r1 *resource.Instance) bool {
+		c.ForEach(requestAuthCollection, func(r1 *resource.Instance) bool {
 			y := r1.Message.(*v1beta1.RequestAuthentication)
 			yName := r1.Metadata.FullName.String()
 			yNS := r1.Metadata.FullName.Namespace
@@ -230,7 +230,7 @@ func (a *Analyzer) findMatchingSelectors(r *resource.Instance, c analysis.Contex
 		})
 
 	default:
-		fmt.Printf("I don't know about type %T!\n", v)
+		fmt.Printf("Incorrect collection iterated: %T.\n", v)
 	}
 
 	return matches

@@ -5,4 +5,4 @@ issue:
 - 30626
 releaseNotes:
 - |
-  **Added** Adding a namespace level analyzer, currently works with Peer Authentication, Request Authentication and Authorization Policies of v1beta1.
+  **Added** a namespace level analyzer for `PeerAuthentication` and `RequestAuthentication`.
