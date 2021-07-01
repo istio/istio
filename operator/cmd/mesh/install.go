@@ -190,8 +190,8 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	// Make this revision the default if none exists
 	if !validatorExists(kubeClient) {
-		installerScope.Error("Making this installation the default for injection and validation.")
-		rev := iArgs.revision
+		l.LogAndPrint("Making this installation the default for injection and validation.")
+		rev := iop.Spec.Revision
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
