@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package plugin
 
 import (
 	"fmt"
@@ -113,7 +113,7 @@ func NewMockInterceptRuleMgr() InterceptRuleMgr {
 	return singletonMockInterceptRuleMgr
 }
 
-func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
+func mocknewK8sClient(conf Config) (*kubernetes.Clientset, error) {
 	var cs kubernetes.Clientset
 
 	getKubePodInfoCalled = true
@@ -185,7 +185,7 @@ func testCmdAddWithStdinData(t *testing.T, stdinData string) {
 	args := testSetArgs(stdinData)
 
 	result, _, err := testutils.CmdAddWithResult(
-		sandboxDirectory, ifname, []byte(stdinData), func() error { return cmdAdd(args) })
+		sandboxDirectory, ifname, []byte(stdinData), func() error { return CmdAdd(args) })
 	if err != nil {
 		t.Fatalf("failed with error: %v", err)
 	}
@@ -416,7 +416,7 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
 	args := testSetArgs(cniConf)
 
-	err := cmdAdd(args)
+	err := CmdAdd(args)
 	if err != nil {
 		if !strings.Contains(err.Error(), "unknown args [\"K8S_POD_NAMESPACE_InvalidKeyword") {
 			t.Fatalf(`expected substring "unknown args ["K8S_POD_NAMESPACE_InvalidKeyword, got: %v`, err)
@@ -427,7 +427,7 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 }
 
 func TestCmdAddInvalidVersion(t *testing.T) {
-	testCmdInvalidVersion(t, cmdAdd)
+	testCmdInvalidVersion(t, CmdAdd)
 }
 
 func TestCmdAddNoPrevResult(t *testing.T) {
