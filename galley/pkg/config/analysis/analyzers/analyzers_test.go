@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/namespaceconflict"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/namespaceConflict"
 	schemaValidation "istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
@@ -188,7 +188,7 @@ var testGrid = []testCase{
 	{
 		name:       "PeerAuthentication namespace conflicts",
 		inputFiles: []string{"testdata/namespaceconflict-peerauth-conflicts.yaml"},
-		analyzer:   &namespaceconflict.Analyzer{},
+		analyzer:   &namespaceConflict.Analyzer{},
 		expected: []message{
 			{msg.NamespaceResourceConflict, "PeerAuthentication defaultconfig.default"},
 			{msg.NamespaceResourceConflict, "PeerAuthentication defaultconfig2.default"},
@@ -199,7 +199,7 @@ var testGrid = []testCase{
 	{
 		name:       "RequestAuthentication namespace conflicts",
 		inputFiles: []string{"testdata/namespaceconflict-reqauth-conflicts.yaml"},
-		analyzer:   &namespaceconflict.Analyzer{},
+		analyzer:   &namespaceConflict.Analyzer{},
 		expected: []message{
 			{msg.NamespaceResourceConflict, "RequestAuthentication defaultconfig.default"},
 			{msg.NamespaceResourceConflict, "RequestAuthentication defaultconfig2.default"},

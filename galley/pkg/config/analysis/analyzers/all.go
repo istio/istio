@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/namespaceconflict"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/namespaceConflict"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/service"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/serviceentry"
@@ -61,7 +61,7 @@ func All() []analysis.Analyzer {
 		&destinationrule.CaCertificateAnalyzer{},
 		&serviceentry.ProtocolAdressesAnalyzer{},
 		&webhook.Analyzer{},
-		&namespaceconflict.Analyzer{},
+		&namespaceConflict.Analyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)
