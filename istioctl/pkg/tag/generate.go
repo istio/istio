@@ -2,6 +2,7 @@ package tag
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/base64"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -27,8 +29,8 @@ const (
 	istioValidationWebhookSuffix = "validation.istio.io"
 )
 
-// TagWebhookConfig holds config needed to render a tag webhook.
-type TagWebhookConfig struct {
+// tagWebhookConfig holds config needed to render a tag webhook.
+type tagWebhookConfig struct {
 	Tag            string
 	Revision       string
 	URL            string
@@ -36,11 +38,91 @@ type TagWebhookConfig struct {
 	IstioNamespace string
 }
 
+// GenerateOptions is the group of options needed to generate a tag webhook.
+type GenerateOptions struct {
+	// Tag is the name of the revision tag to generate.
+	Tag string
+	// Revision is the revision to associate the revision tag with.
+	Revision string
+	// WebhookName is an override for the mutating webhook name.
+	WebhookName string
+	// ManifestsPath specifies where the manifests to render the mutatingwebhook can be found.
+	// TODO(Monkeyanator) once we stop using Helm templating remove this.
+	ManifestsPath string
+	// Generate determines whether we should just generate the webhooks without applying. This
+	// applying is not done here but we are looser with checks when doing generate.
+	Generate bool
+	// Overwrite removes analysis checks around existing webhooks.
+	Overwrite bool
+}
+
 //go:embed templates/validatingwebhook.yaml
 var validatingWebhookTemplate string
 
-// GenerateValidatingWebhook renders a validating webhook configuration from the given TagWebhookConfig.
-func GenerateValidatingWebhook(config *TagWebhookConfig) (string, error) {
+// Generate generates the manifests for a revision tag pointed the given revision.
+func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOptions) (string, error) {
+	// abort if there exists a revision with the target tag name
+	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
+	if err != nil {
+		return "", err
+	}
+	if !opts.Generate && !opts.Overwrite && len(revWebhookCollisions) > 0 {
+		return "", fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
+	}
+
+	// find canonical revision webhook to base our tag webhook off of
+	revWebhooks, err := GetWebhooksWithRevision(ctx, client, opts.Revision)
+	if err != nil {
+		return "", err
+	}
+	if len(revWebhooks) == 0 {
+		return "", fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", opts.Revision)
+	}
+	if len(revWebhooks) > 1 {
+		return "", fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
+	}
+
+	whs, err := GetWebhooksWithTag(ctx, client, opts.Tag)
+	if err != nil {
+		return "", err
+	}
+	if len(whs) > 0 && !opts.Overwrite {
+		return "", fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
+	}
+
+	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag)
+	if err != nil {
+		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
+	}
+	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts.WebhookName, opts.ManifestsPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create tag webhook: %w", err)
+	}
+
+	// If we're creating the "default" revision tag we must generate the validating webhook.
+	if opts.Tag == DefaultRevisionName {
+		whs, err := GetValidatingWebhooksWithRevision(context.Background(), client, opts.Revision)
+		if err != nil {
+			return "", err
+		}
+		validatingWhConfig, err := tagWebhookConfigFromValidatingWebhook(whs[0], opts.Tag)
+		if err != nil {
+			return "", fmt.Errorf("failed to create validating webhook config: %w", err)
+		}
+		vwhYAML, err := generateValidatingWebhook(validatingWhConfig)
+		if err != nil {
+			return "", fmt.Errorf("failed to create validating webhook: %w", err)
+		}
+		tagWhYAML = fmt.Sprintf(`%s
+---
+%s`, tagWhYAML, vwhYAML)
+	}
+
+	return tagWhYAML, nil
+}
+
+// generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
+func generateValidatingWebhook(config *tagWebhookConfig) (string, error) {
 	modified := *config
 	modified.CABundle = base64.StdEncoding.EncodeToString([]byte(config.CABundle))
 	tmpl, err := template.New("vwh").Parse(validatingWebhookTemplate)
@@ -56,8 +138,8 @@ func GenerateValidatingWebhook(config *TagWebhookConfig) (string, error) {
 	return buf.String(), nil
 }
 
-// GenerateMutatingWebhook renders a mutating webhook configuration from the given TagWebhookConfig.
-func GenerateMutatingWebhook(config *TagWebhookConfig, webhookName, chartPath string) (string, error) {
+// generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
+func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string) (string, error) {
 	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace)
 
 	if err := r.Run(); err != nil {
@@ -117,8 +199,8 @@ istiodRemote:
 	return whBuf.String(), nil
 }
 
-// TagWebhookConfigFromCanonicalWebhook parses configuration needed to create tag webhook from existing revision webhook.
-func TagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tagName string) (*TagWebhookConfig, error) {
+// tagWebhookConfigFromCanonicalWebhook parses configuration needed to create tag webhook from existing revision webhook.
+func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfiguration, tagName string) (*tagWebhookConfig, error) {
 	rev, err := GetWebhookRevision(wh)
 	if err != nil {
 		return nil, err
@@ -147,7 +229,7 @@ func TagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook")
 	}
 
-	return &TagWebhookConfig{
+	return &tagWebhookConfig{
 		Tag:            tagName,
 		Revision:       rev,
 		URL:            injectionURL,
@@ -156,8 +238,8 @@ func TagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	}, nil
 }
 
-// TagWebhookConfigFromCanonicalValidatingWebhook parses configuration needed for validating webhook configuration.
-func TagWebhookConfigFromValidatingWebhook(wh admit_v1.ValidatingWebhookConfiguration, tagName string) (*TagWebhookConfig, error) {
+// tagWebhookConfigFromValidatingWebhook parses configuration needed for validating webhook configuration.
+func tagWebhookConfigFromValidatingWebhook(wh admit_v1.ValidatingWebhookConfiguration, tagName string) (*tagWebhookConfig, error) {
 	rev, ok := wh.ObjectMeta.Labels[label.IoIstioRev.Name]
 	if !ok {
 		return nil, fmt.Errorf("could not extract revision from webhook")
@@ -186,7 +268,7 @@ func TagWebhookConfigFromValidatingWebhook(wh admit_v1.ValidatingWebhookConfigur
 		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook")
 	}
 
-	return &TagWebhookConfig{
+	return &tagWebhookConfig{
 		Tag:            tagName,
 		Revision:       rev,
 		URL:            injectionURL,
