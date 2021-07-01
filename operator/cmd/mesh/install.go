@@ -205,10 +205,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		l.LogAndPrint("Making this installation the default for injection and validation.")
 		rev := iArgs.revision
 		if rev == "" {
-			rev = "default"
+			rev = revtag.DefaultRevisionName
 		}
 		o := &revtag.GenerateOptions{
-			Tag:       "default",
+			Tag:       revtag.DefaultRevisionName,
 			Revision:  iArgs.revision,
 			Overwrite: true,
 		}
