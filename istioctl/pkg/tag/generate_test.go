@@ -97,12 +97,12 @@ var (
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
-	config := &TagWebhookConfig{
+	config := &tagWebhookConfig{
 		Tag:      "default",
 		Revision: "orange",
 		CABundle: "",
 	}
-	GenerateValidatingWebhook(config)
+	generateValidatingWebhook(config)
 }
 
 func TestGenerateMutatingWebhook(t *testing.T) {
@@ -157,11 +157,11 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 	deserializer := codecFactory.UniversalDeserializer()
 
 	for _, tc := range tcs {
-		webhookConfig, err := TagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName)
+		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName)
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
-		webhookYAML, err := GenerateMutatingWebhook(webhookConfig, "", filepath.Join(env.IstioSrc, "manifests"))
+		webhookYAML, err := generateMutatingWebhook(webhookConfig, "", filepath.Join(env.IstioSrc, "manifests"))
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}

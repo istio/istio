@@ -257,64 +257,20 @@ revision tag before removing using the "istioctl x revision tag list" command.
 
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revision string, generate bool, w, stderr io.Writer) error {
-	// abort if there exists a revision with the target tag name
-	revWebhookCollisions, err := tag.GetWebhooksWithRevision(ctx, kubeClient, tagName)
+	opts := &tag.GenerateOptions{
+		Tag:           tagName,
+		Revision:      revision,
+		WebhookName:   webhookName,
+		ManifestsPath: manifestsPath,
+		Generate:      generate,
+		Overwrite:     overwrite,
+	}
+	tagWhYAML, err := tag.Generate(ctx, kubeClient, opts)
 	if err != nil {
 		return err
 	}
-	if !generate && !overwrite && len(revWebhookCollisions) > 0 {
-		return fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", tagName)
-	}
 
-	// find canonical revision webhook to base our tag webhook off of
-	revWebhooks, err := tag.GetWebhooksWithRevision(ctx, kubeClient, revision)
-	if err != nil {
-		return err
-	}
-	if len(revWebhooks) == 0 {
-		return fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", revision)
-	}
-	if len(revWebhooks) > 1 {
-		return fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", revision)
-	}
-
-	whs, err := tag.GetWebhooksWithTag(ctx, kubeClient, tagName)
-	if err != nil {
-		return err
-	}
-	if len(whs) > 0 && !overwrite {
-		return fmt.Errorf("revision tag %q already exists, and --overwrite is false", tagName)
-	}
-
-	tagWhConfig, err := tag.TagWebhookConfigFromCanonicalWebhook(revWebhooks[0], tagName)
-	if err != nil {
-		return fmt.Errorf("failed to create tag webhook config: %w", err)
-	}
-	tagWhYAML, err := tag.GenerateMutatingWebhook(tagWhConfig, webhookName, manifestsPath)
-	if err != nil {
-		return fmt.Errorf("failed to create tag webhook: %w", err)
-	}
-
-	// If we're creating the "default" revision tag we must generate the validating webhook.
-	if tagName == tag.DefaultRevisionName {
-		whs, err := tag.GetValidatingWebhooksWithRevision(ctx, kubeClient, revision)
-		if err != nil {
-			return err
-		}
-		validatingWhConfig, err := tag.TagWebhookConfigFromValidatingWebhook(whs[0], tagName)
-		if err != nil {
-			return fmt.Errorf("failed to create validating webhook config: %w", err)
-		}
-		vwhYAML, err := tag.GenerateValidatingWebhook(validatingWhConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create validating webhook: %w", err)
-		}
-		tagWhYAML = fmt.Sprintf(`%s
----
-%s`, tagWhYAML, vwhYAML)
-	}
-
-	// Check the newly generated webhook does not conflict with existing ones
+	// Check the newly generated webhook does not conflict with existing ones.
 	resName := webhookName
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
