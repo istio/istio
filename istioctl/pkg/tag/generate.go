@@ -67,7 +67,8 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	if err != nil {
 		return "", err
 	}
-	if !opts.Generate && !opts.Overwrite && len(revWebhookCollisions) > 0 {
+	if !opts.Generate && !opts.Overwrite &&
+		len(revWebhookCollisions) > 0 && opts.Tag != DefaultRevisionName {
 		return "", fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
 	}
 
