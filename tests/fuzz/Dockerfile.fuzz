@@ -19,6 +19,6 @@ RUN go get -u github.com/dvyukov/go-fuzz/go-fuzz \
     github.com/dvyukov/go-fuzz/go-fuzz-dep \
     github.com/dvyukov/go-fuzz/go-fuzz-build
 
-RUN git clone https://github.com/istio/istio /istio
+COPY . /istio
 WORKDIR /istio
 
