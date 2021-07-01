@@ -31,6 +31,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/pkg/log"
+	istioversion "istio.io/pkg/version"
 )
 
 var (
@@ -276,18 +277,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	return types.PrintResult(result, conf.CNIVersion)
 }
 
-func cmdGet(args *skel.CmdArgs) error {
-	log.Info("cmdGet not implemented")
-	// TODO: implement
-	return fmt.Errorf("not implemented")
-}
-
-// cmdDel is called for DELETE requests
-func cmdDel(args *skel.CmdArgs) error {
-	// nothing to cleanup for istio-cni
-	return nil
-}
-
 func main() {
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
@@ -295,5 +284,5 @@ func main() {
 		os.Exit(1)
 	}
 	// TODO: implement plugin version
-	skel.PluginMain(cmdAdd, cmdGet, cmdDel, version.All, "istio-cni")
+	skel.PluginMain(cmdAdd, nil, nil, version.All, fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
 }

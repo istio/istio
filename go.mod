@@ -26,7 +26,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e
 	github.com/cncf/xds/go v0.0.0-20210323124008-b88cc788a63e
-	github.com/containernetworking/cni v0.7.0-alpha1
+	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.7.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
