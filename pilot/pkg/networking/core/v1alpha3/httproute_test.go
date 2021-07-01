@@ -346,8 +346,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": "PassthroughCluster",
 				// From the service, go to the service
 				"test.default.svc.cluster.local:80": "outbound|80||test.default.svc.cluster.local",
-				// From the VS, go to VS destination
-				"test.default:80": "outbound|80||test.default",
+				"test.default:80":                   "outbound|80||test.default",
 			},
 		},
 		{
@@ -697,6 +696,22 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec6 := &networking.VirtualService{
+		Hosts:    []string{"match-no-service"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "non-exist-service",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -736,6 +751,14 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec5,
+	}
+	virtualService6 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec6,
 	}
 
 	// With the config above, RDS should return a valid route for the following route names
@@ -822,6 +845,24 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
 				},
+				"allow_any": {
+					"*": true,
+				},
+			},
+			registryOnly: false,
+		},
+
+		{
+			name:                  "sidecar config with allow any and virtual service includes non existing service",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: []*config.Config{&virtualService6},
+			expectedHosts: map[string]map[string]bool{
+				// does not include `match-no-service`
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"match-no-service.not-default:80": {"match-no-service.not-default": true, "match-no-service.not-default:80": true},
 				"allow_any": {
 					"*": true,
 				},
@@ -1109,9 +1150,6 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				},
 				"test.com:8080": {
 					"test.com:8080": true, "8.8.8.8:8080": true,
-				},
-				"test-svc.testns.svc.cluster.local:80": {
-					"test-svc.testns.svc.cluster.local": true, "test-svc.testns.svc.cluster.local:80": true,
 				},
 				"block_all": {
 					"*": true,
