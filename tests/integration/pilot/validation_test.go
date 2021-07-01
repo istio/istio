@@ -19,7 +19,6 @@ import (
 	"path"
 	"strings"
 	"testing"
-	"time"
 
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
