@@ -54,10 +54,10 @@ type Kubernetes struct {
 	CNIBinDir            string   `json:"cni_bin_dir"`
 }
 
-// PluginConf is whatever you expect your configuration json to be. This is whatever
+// Config is whatever you expect your configuration json to be. This is whatever
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
-type PluginConf struct {
+type Config struct {
 	types.NetConf           // You may wish to not nest this type
 	RuntimeConfig *struct { // SampleConfig map[string]interface{} `json:"sample"`
 	} `json:"runtimeConfig"`
@@ -88,8 +88,8 @@ type K8sArgs struct {
 }
 
 // parseConfig parses the supplied configuration (and prevResult) from stdin.
-func parseConfig(stdin []byte) (*PluginConf, error) {
-	conf := PluginConf{}
+func parseConfig(stdin []byte) (*Config, error) {
+	conf := Config{}
 
 	if err := json.Unmarshal(stdin, &conf); err != nil {
 		return nil, fmt.Errorf("failed to parse network configuration: %v", err)

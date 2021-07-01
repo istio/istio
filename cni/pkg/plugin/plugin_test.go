@@ -113,7 +113,7 @@ func NewMockInterceptRuleMgr() InterceptRuleMgr {
 	return singletonMockInterceptRuleMgr
 }
 
-func mocknewK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
+func mocknewK8sClient(conf Config) (*kubernetes.Clientset, error) {
 	var cs kubernetes.Clientset
 
 	getKubePodInfoCalled = true

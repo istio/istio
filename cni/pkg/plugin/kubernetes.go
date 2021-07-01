@@ -43,7 +43,7 @@ type PodInfo struct {
 }
 
 // newK8sClient returns a Kubernetes client
-func newK8sClient(conf PluginConf) (*kubernetes.Clientset, error) {
+func newK8sClient(conf Config) (*kubernetes.Clientset, error) {
 	// Some config can be passed in a kubeconfig file
 	kubeconfig := conf.Kubernetes.Kubeconfig
 
