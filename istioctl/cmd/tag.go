@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"text/tabwriter"
 
@@ -299,7 +298,7 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 		return nil
 	}
 
-	if err := applyYAML(kubeClient, tagWhYAML, "istio-system"); err != nil {
+	if err := tag.Create(kubeClient, tagWhYAML); err != nil {
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
 	fmt.Fprintf(w, tagCreatedStr, tagName, revision, tagName)
@@ -410,34 +409,6 @@ func buildDeleteTagConfirmation(tag string, taggedNamespaces []string) string {
 	sb.WriteString("\nProceed with operation? [y/N]")
 
 	return sb.String()
-}
-
-// applyYAML taken from remote_secret.go
-func applyYAML(client kube.ExtendedClient, yamlContent, ns string) error {
-	yamlFile, err := writeToTempFile(yamlContent)
-	if err != nil {
-		return fmt.Errorf("failed creating manifest file: %w", err)
-	}
-
-	// Apply the YAML to the cluster.
-	if err := client.ApplyYAMLFiles(ns, yamlFile); err != nil {
-		return fmt.Errorf("failed applying manifest %s: %v", yamlFile, err)
-	}
-	return nil
-}
-
-// writeToTempFile taken from remote_secret.go
-func writeToTempFile(content string) (string, error) {
-	outFile, err := ioutil.TempFile("", "revision-tag-manifest-*")
-	if err != nil {
-		return "", fmt.Errorf("failed creating temp file for manifest: %w", err)
-	}
-	defer func() { _ = outFile.Close() }()
-
-	if _, err := outFile.Write([]byte(content)); err != nil {
-		return "", fmt.Errorf("failed writing manifest file: %w", err)
-	}
-	return outFile.Name(), nil
 }
 
 // confirm waits for a user to confirm with the supplied message.
