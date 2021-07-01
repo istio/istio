@@ -97,12 +97,6 @@ var (
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
-	config := &tagWebhookConfig{
-		Tag:      "default",
-		Revision: "orange",
-		CABundle: "",
-	}
-	generateValidatingWebhook(config)
 }
 
 func TestGenerateMutatingWebhook(t *testing.T) {

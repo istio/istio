@@ -24,12 +24,15 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -197,6 +200,21 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
 	}
+	// Make this revision the default if none exists
+	if !validatorExists(kubeClient) {
+		l.LogAndPrint("Making this installation the default for injection and validation.")
+		rev := iArgs.revision
+		if rev == "" {
+			rev = "default"
+		}
+		o := &revtag.GenerateOptions{
+			Tag:       "default",
+			Revision:  iArgs.revision,
+			Overwrite: true,
+		}
+		tagManifests, _ := revtag.Generate(context.Background(), kubeClient, o)
+		revtag.Create(kubeClient, tagManifests)
+	}
 
 	return nil
 }
@@ -350,4 +368,12 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+}
+
+func validatorExists(client kube.ExtendedClient) bool {
+	// Neither the default validator nor the previous validator from base should exist
+	// for us to make this the default revision.
+	admit := client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	_, err := admit.Get(context.Background(), "istio-default-validator", metav1.GetOptions{})
+	return !kerrors.IsNotFound(err)
 }
