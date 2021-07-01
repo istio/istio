@@ -156,6 +156,11 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	}
 
 	status := h.processRecursive(manifestMap)
+	if status.Status == v1alpha1.InstallStatus_ERROR && !h.opts.Force {
+		h.opts.ProgressLog.SetState(progress.StatePrunePartialInstall)
+		err  := h.Prune(h.manifests, true)
+		return status, err
+	}
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
 	pruneErr := h.Prune(manifestMap, false)

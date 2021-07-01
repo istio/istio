@@ -33,6 +33,7 @@ const (
 	StatePruning
 	StateComplete
 	StateUninstallComplete
+	StatePrunePartialInstall
 )
 
 // Log records the progress of an installation
@@ -146,6 +147,9 @@ func (p *Log) SetState(state InstallState) {
 		p.bar.Write()
 	case StateUninstallComplete:
 		p.bar.SetTemplateString(`{{ green "✔" }} Uninstall complete`)
+		p.bar.Write()
+	case StatePrunePartialInstall:
+		p.bar.SetTemplateString(inProgress + `Pruning partially installed objects due to installation errors`)
 		p.bar.Write()
 	}
 }

@@ -108,9 +108,11 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 			if objList[0].Kind == name.MutatingWebhookConfigurationStr {
 				err := h.analyzeWebhooks(objList)
 				if err != nil {
-					scope.Error(err)
-					errs = util.AppendErr(errs, err)
-					continue
+					if !h.opts.Force {
+						errs = util.AppendErr(errs, err)
+						continue
+					}
+					scope.Error("invalid webhook configs; continuing because of --force")
 				}
 			}
 		}
@@ -270,15 +272,15 @@ func (h *HelmReconciler) analyzeWebhooks(whs object.K8sObjects) error {
 
 	globalI, ok := h.iop.Spec.Values["global"]
 	if !ok {
-		return fmt.Errorf("")
+		return fmt.Errorf("failed to get global values")
 	}
 	global, ok := globalI.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("")
+		return fmt.Errorf("failed to get global values")
 	}
 	istioNamespace, ok := global["istioNamespace"].(string)
 	if !ok {
-		return fmt.Errorf("")
+		return fmt.Errorf("failed to get istioNamespace")
 	}
 	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
 		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioNamespace), nil, true, 30*time.Second)
