@@ -420,11 +420,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 				},
 			},
 			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: 1,
+				Value: instance.Endpoint.GetLoadBalancingWeight(),
 			},
-		}
-		if instance.Endpoint.LbWeight > 0 {
-			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
 		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
 			instance.Endpoint.Namespace, instance.Endpoint.Locality.ClusterID, instance.Endpoint.Labels)

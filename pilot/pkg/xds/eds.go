@@ -315,11 +315,9 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	// If networks are set (by default they aren't) apply the Split Horizon
-	// EDS filter on the endpoints
-	if b.push.NetworkManager().IsMultiNetworkEnabled() {
-		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
-	}
+	// Apply the Split Horizon EDS filter, if applicable.
+	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
+
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
 		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
