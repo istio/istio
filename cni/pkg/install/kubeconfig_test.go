@@ -23,8 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
+	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 )
@@ -91,7 +91,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 				}
 			}()
 
-			cfg := &config.Config{
+			cfg := &config.InstallConfig{
 				MountedCNINetDir:   tempDir,
 				KubeconfigFilename: c.kubeconfigFilename,
 				KubeconfigMode:     c.kubeconfigMode,

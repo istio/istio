@@ -23,11 +23,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
-	"istio.io/istio/cni/pkg/install-cni/pkg/install"
+	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/install"
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
+	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
 )
 
@@ -43,16 +44,17 @@ var rootCmd = &cobra.Command{
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
-		log.Infof("install cni with configuration: \n%+v", cfg)
+		log.Infof("CNI install configuration: \n%+v", cfg.InstallConfig)
+		log.Infof("CNI race repair configuration: \n%+v", cfg.RepairConfig)
 
 		// Start metrics server
-		monitoring.SetupMonitoring(":15014", "/metrics", ctx.Done())
+		monitoring.SetupMonitoring(":"+constants.MonitoringPort, "/metrics", ctx.Done())
 
 		isReady := install.StartServer()
 
-		installer := install.NewInstaller(cfg, isReady)
+		installer := install.NewInstaller(&cfg.InstallConfig, isReady)
 
-		repair.StartRepair(ctx)
+		repair.StartRepair(ctx, &cfg.RepairConfig)
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -97,6 +99,30 @@ func init() {
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
 	registerStringArrayParameter(constants.SkipCNIBinaries, []string{}, "Binaries that should not be installed")
+
+	// Repair
+	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
+	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods")
+	registerBooleanParameter(constants.RepairLabelPods, false, "Controller will label pods")
+	registerBooleanParameter(constants.RepairRunAsDaemon, false, "Controller will run in a loop")
+	registerStringParameter(constants.RepairLabelKey, "cni.istio.io/uninitialized",
+		"The key portion of the label which will be set by the reconciler if --label-pods is true")
+	registerStringParameter(constants.RepairLabelValue, "true",
+		"The value portion of the label which will be set by the reconciler if --label-pods is true")
+	registerStringParameter(constants.RepairNodeName, "", "The name of the managed node (will manage all nodes if unset)")
+	registerStringParameter(constants.RepairSidecarAnnotation, "sidecar.istio.io/status",
+		"An annotation key that indicates this pod contains an istio sidecar. All pods without this annotation will be ignored."+
+			"The value of the annotation is ignored.")
+	registerStringParameter(constants.RepairInitContainerName, "istio-validation",
+		"The name of the istio init container (will crash-loop if CNI is not configured for the pod)")
+	registerStringParameter(constants.RepairInitTerminationMsg, "",
+		"The expected termination message for the init container when crash-looping because of CNI misconfiguration")
+	registerIntegerParameter(constants.RepairInitExitCode, iptables.ValidationErrorCode,
+		"Expected exit code for the init container when crash-looping because of CNI misconfiguration")
+	registerStringParameter(constants.RepairLabelSelectors, "",
+		"A set of label selectors in label=value format that will be added to the pod list filters")
+	registerStringParameter(constants.RepairFieldSelectors, "",
+		"A set of field selectors in label=value format that will be added to the pod list filters")
 }
 
 func registerStringParameter(name, value, usage string) {
@@ -127,7 +153,7 @@ func bindViper(name string) {
 }
 
 func constructConfig() (*config.Config, error) {
-	cfg := &config.Config{
+	installCfg := config.InstallConfig{
 		CNINetDir:        viper.GetString(constants.CNINetDir),
 		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
 		CNIConfName:      viper.GetString(constants.CNIConfName),
@@ -152,13 +178,29 @@ func constructConfig() (*config.Config, error) {
 		SkipCNIBinaries:   viper.GetStringSlice(constants.SkipCNIBinaries),
 	}
 
-	if len(cfg.K8sNodeName) == 0 {
+	if len(installCfg.K8sNodeName) == 0 {
 		var err error
-		cfg.K8sNodeName, err = os.Hostname()
+		installCfg.K8sNodeName, err = os.Hostname()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return cfg, nil
+	repairCfg := config.RepairConfig{
+		Enabled:            viper.GetBool(constants.RepairEnabled),
+		DeletePods:         viper.GetBool(constants.RepairDeletePods),
+		LabelPods:          viper.GetBool(constants.RepairLabelPods),
+		RunAsDaemon:        viper.GetBool(constants.RepairRunAsDaemon),
+		LabelKey:           viper.GetString(constants.RepairLabelKey),
+		LabelValue:         viper.GetString(constants.RepairLabelValue),
+		NodeName:           viper.GetString(constants.RepairNodeName),
+		SidecarAnnotation:  viper.GetString(constants.RepairSidecarAnnotation),
+		InitContainerName:  viper.GetString(constants.RepairInitContainerName),
+		InitTerminationMsg: viper.GetString(constants.RepairInitTerminationMsg),
+		InitExitCode:       viper.GetInt(constants.RepairInitExitCode),
+		LabelSelectors:     viper.GetString(constants.RepairLabelSelectors),
+		FieldSelectors:     viper.GetString(constants.RepairFieldSelectors),
+	}
+
+	return &config.Config{InstallConfig: installCfg, RepairConfig: repairCfg}, nil
 }

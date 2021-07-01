@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/config"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 )
@@ -471,7 +471,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		cfgFile := config.Config{
+		cfgFile := config.InstallConfig{
 			CNIConfName:          c.specifiedConfName,
 			ChainedCNIPlugin:     c.chainedCNIPlugin,
 			CNINetworkConfigFile: cniNetworkConfigFile,
@@ -479,14 +479,14 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			KubeconfigFilename:   kubeconfigFilename,
 		}
 
-		cfg := config.Config{
+		cfg := config.InstallConfig{
 			CNIConfName:        c.specifiedConfName,
 			ChainedCNIPlugin:   c.chainedCNIPlugin,
 			CNINetworkConfig:   cniNetworkConfig,
 			LogLevel:           "debug",
 			KubeconfigFilename: kubeconfigFilename,
 		}
-		test := func(cfg config.Config) func(t *testing.T) {
+		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {
 				// Create temp directory for files
 				tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))

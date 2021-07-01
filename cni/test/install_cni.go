@@ -28,9 +28,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"istio.io/istio/cni/pkg/install-cni/cmd"
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/cni/pkg/cmd"
+	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"

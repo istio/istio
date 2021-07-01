@@ -24,15 +24,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
 )
 
 type Installer struct {
-	cfg                *config.Config
+	cfg                *config.InstallConfig
 	isReady            *atomic.Value
 	saToken            string
 	kubeconfigFilepath string
@@ -40,7 +40,7 @@ type Installer struct {
 }
 
 // NewInstaller returns an instance of Installer with the given config
-func NewInstaller(cfg *config.Config, isReady *atomic.Value) *Installer {
+func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
 		cfg:     cfg,
 		isReady: isReady,
@@ -161,7 +161,7 @@ func readServiceAccountToken() (string, error) {
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepath string, isReady *atomic.Value) error {
+func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, isReady *atomic.Value) error {
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
 	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.MountedCNINetDir)
@@ -199,7 +199,7 @@ func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepat
 }
 
 // checkInstall returns an error if an invalid CNI configuration is detected
-func checkInstall(cfg *config.Config, cniConfigFilepath string) error {
+func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 	defaultCNIConfigFilename, err := getDefaultCNINetwork(cfg.MountedCNINetDir)
 	if err != nil {
 		return err

@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/config"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 )
@@ -113,7 +113,7 @@ func TestCheckInstall(t *testing.T) {
 				}
 			}
 
-			cfg := &config.Config{
+			cfg := &config.InstallConfig{
 				MountedCNINetDir: tempDir,
 				CNIConfName:      c.cniConfName,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
@@ -164,7 +164,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Initialize parameters
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			cfg := &config.Config{
+			cfg := &config.InstallConfig{
 				MountedCNINetDir: tempDir,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
 			}
@@ -216,7 +216,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Listen to sleepCheckInstall return value
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
-			go func(ctx context.Context, cfg *config.Config, cniConfigFilepath string, isReady *atomic.Value) {
+			go func(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, isReady *atomic.Value) {
 				errChan <- sleepCheckInstall(ctx, cfg, cniConfigFilepath, isReady)
 			}(ctx, cfg, cniConfigFilepath, isReady)
 
@@ -322,7 +322,7 @@ func TestCleanup(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cfg := &config.Config{
+			cfg := &config.InstallConfig{
 				MountedCNINetDir: cniNetDir,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
 				CNIBinTargetDirs: []string{cniBinDir},
