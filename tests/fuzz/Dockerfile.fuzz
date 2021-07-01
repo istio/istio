@@ -13,12 +13,20 @@
 
 FROM golang:1.15
 
-RUN apt-get update && apt-get install -y clang
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+    clang && \
+    apt-get clean && \
+    rm -rf  /var/log/*log \
+    /var/lib/apt/lists/* \
+    /var/log/apt/* \
+    /var/lib/dpkg/*-old \
+    /var/cache/debconf/*-old
 
 RUN go get -u github.com/dvyukov/go-fuzz/go-fuzz \
     github.com/dvyukov/go-fuzz/go-fuzz-dep \
     github.com/dvyukov/go-fuzz/go-fuzz-build
 
-RUN git clone https://github.com/istio/istio /istio
+COPY . /istio
 WORKDIR /istio
 
