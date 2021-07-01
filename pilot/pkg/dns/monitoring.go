@@ -18,13 +18,6 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
-func init() {
-	monitoring.MustRegister(requests)
-	monitoring.MustRegister(upstreamRequests)
-	monitoring.MustRegister(failures)
-	monitoring.MustRegister(requestDuration)
-}
-
 var (
 	requests = monitoring.NewSum(
 		"dns_requests_total",
@@ -47,3 +40,10 @@ var (
 		[]float64{1, 3, 5, 10, 25, 50},
 	)
 )
+
+func registerStats() {
+	monitoring.MustRegister(requests)
+	monitoring.MustRegister(upstreamRequests)
+	monitoring.MustRegister(failures)
+	monitoring.MustRegister(requestDuration)
+}
