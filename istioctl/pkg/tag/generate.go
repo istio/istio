@@ -17,6 +17,7 @@ package tag
 import (
 	"bytes"
 	"context"
+	// Needed to embed webhook templates.
 	_ "embed"
 	"encoding/base64"
 	"fmt"
