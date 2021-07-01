@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/resource"
 	istioConfigSchema "istio.io/istio/pkg/config/schema"
 	"strings"
@@ -270,20 +271,8 @@ func (h *HelmReconciler) analyzeWebhooks(whs object.K8sObjects) error {
 		return nil
 	}
 
-	globalI, ok := h.iop.Spec.Values["global"]
-	if !ok {
-		return fmt.Errorf("failed to get global values")
-	}
-	global, ok := globalI.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("failed to get global values")
-	}
-	istioNamespace, ok := global["istioNamespace"].(string)
-	if !ok {
-		return fmt.Errorf("failed to get istioNamespace")
-	}
 	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
-		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioNamespace), nil, true, 30*time.Second)
+		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(v1alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
 	var localWebhookYAMLReaders []local.ReaderSource
 	for _, wh := range whYAMLs {
 		whReaderSource := local.ReaderSource{
