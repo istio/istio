@@ -1,8 +1,11 @@
 package grpcgen_test
 
 import (
+	"context"
 	"fmt"
 	"google.golang.org/grpc"
+	"istio.io/istio/pkg/test/echo/proto"
+	"math"
 	"net"
 	"testing"
 
@@ -20,7 +23,7 @@ import (
 )
 
 var (
-	grpcEchoHost = "127.0.0.1"
+	grpcEchoHostFmt = "127.0.0.%s"
 )
 
 type echoCfg struct {
@@ -49,11 +52,13 @@ type configGenTest struct {
 func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
 	cgt := &configGenTest{T: t}
 	port := 14058
-	for _, s := range servers {
+	for i, s := range servers {
+		// TODO this breaks without extra ifonfig aliases on OSX, and probably elsewhere
+		host := fmt.Sprintf("127.0.0.%d", i+1)
 		ep, err := endpoint.New(endpoint.Config{
 			IsServerReady: func() bool { return true },
 			Port:          &common.Port{Name: "grpc", Port: port, Protocol: protocol.GRPC},
-			ListenerIP:    grpcEchoHost,
+			ListenerIP:    host,
 			Version:       s.version,
 		})
 		if err != nil {
@@ -63,7 +68,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			t.Fatal(err)
 		}
 		cgt.endpoints = append(cgt.endpoints, ep)
-		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, port))
+		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, port))
 		port++
 	}
 
@@ -74,7 +79,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 	return cgt
 }
 
-func makeWE(s echoCfg, port int) config.Config {
+func makeWE(s echoCfg, host string, port int) config.Config {
 	ns := "default"
 	if s.namespace != "" {
 		ns = s.namespace
@@ -90,7 +95,7 @@ func makeWE(s echoCfg, port int) config.Config {
 			},
 		},
 		Spec: &networking.WorkloadEntry{
-			Address: grpcEchoHost,
+			Address: host,
 			Ports:   map[string]uint32{"grpc": uint32(port)},
 		},
 	}
@@ -124,10 +129,11 @@ spec:
     port: 7070
 `,
 		ConfigString: `
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: echo-dr
+  namespace: default
 spec:
   host: echo-app.default.svc.cluster.local
   subsets:
@@ -138,10 +144,11 @@ spec:
       labels:
         version: v2
 ---
-apiVersion: networking.istio.io/v1beta1
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: echo-vs
+  namespace: default
 spec:
   hosts:
   - echo-app.default.svc.cluster.local
@@ -158,5 +165,29 @@ spec:
 
 `,
 	}, echoCfg{version: "v1"}, echoCfg{version: "v2"})
-	_ = tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+	cw := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+
+	distribution := map[string]int{}
+
+	for i := 0; i < 100; i++ {
+		res, err := cw.Echo(context.Background(), &proto.EchoRequest{Message: "needle"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		distribution[res.Version]++
+	}
+
+	if err := expectAlmost(distribution["v1"], 20); err != nil {
+		t.Fatal(err)
+	}
+	if err := expectAlmost(distribution["v2"], 80); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func expectAlmost(got, want int) error {
+	if math.Abs(float64(want-got)) > 10 {
+		return fmt.Errorf("expected ~%d but got %d", want, got)
+	}
+	return nil
 }

@@ -91,6 +91,14 @@ func (c *Instance) Close() error {
 	return nil
 }
 
+func (c *Instance) Echo(ctx context.Context, request *proto.EchoRequest) (*ParsedResponse, error)  {
+	resp, err := c.client.Echo(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return parseResponse(resp.Message), nil
+}
+
 // ForwardEcho sends the given forward request and parses the response for easier processing. Only fails if the request fails.
 func (c *Instance) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (ParsedResponses, error) {
 	// Forward a request from 'this' service to the destination service.
