@@ -515,8 +515,8 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
 			toN:           len(split),
-			sourceFilters: []echotest.Filter{noHeadless, noNaked},
-			targetFilters: []echotest.Filter{noHeadless, noExternal},
+			sourceFilters: []echotest.Filter{noHeadless, noNaked, noProxyless},
+			targetFilters: []echotest.Filter{noHeadless, noExternal, noProxyless},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
@@ -575,12 +575,6 @@ spec:
 						}
 						return nil
 					}))
-			},
-			setupOpts: func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions) {
-				// TODO force this globally in echotest?
-				if src, ok := src.(echo.Instance); ok && src.Config().IsProxylessGRPC() {
-					opts.PortName = "grpc"
-				}
 			},
 			opts: echo.CallOptions{
 				PortName: "http",
