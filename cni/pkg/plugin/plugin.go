@@ -38,7 +38,6 @@ var (
 	sidecarStatusKey    = annotation.SidecarStatus.Name
 
 	interceptRuleMgrType   = defInterceptRuleMgrType
-	loggingOptions         = log.DefaultOptions()
 	podRetrievalMaxRetries = 30
 	podRetrievalInterval   = 1 * time.Second
 )
