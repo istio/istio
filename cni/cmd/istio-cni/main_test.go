@@ -165,8 +165,8 @@ func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
 
 	err := f(args)
 	if err != nil {
-		if !strings.Contains(err.Error(), "could not convert result to current version") {
-			t.Fatalf("expected substring error 'could not convert result to current version', got: %v", err)
+		if !strings.Contains(err.Error(), "cannot convert: no valid IP addresses") {
+			t.Fatalf("expected substring error 'cannot convert: no valid IP addresses', got: %v", err)
 		}
 	} else {
 		t.Fatalf("expected failed CNI version, got: no error")
