@@ -188,6 +188,28 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
+	// Make this revision the default if none exists
+	if !validatorExists(kubeClient) {
+		installerScope.Error("Making this installation the default for injection and validation.")
+		rev := iArgs.revision
+		if rev == "" {
+			rev = revtag.DefaultRevisionName
+		}
+		o := &revtag.GenerateOptions{
+			Tag:       revtag.DefaultRevisionName,
+			Revision:  rev,
+			Overwrite: true,
+		}
+		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o)
+		if err != nil {
+			return err
+		}
+		err = revtag.Create(kubeClient, tagManifests)
+		if err != nil {
+			return err
+		}
+	}
+
 	if iArgs.verify {
 		if rootArgs.dryRun {
 			l.LogAndPrint("Control plane health check is not applicable in dry-run mode")
@@ -199,21 +221,6 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		if err := installationVerifier.Verify(); err != nil {
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
-	}
-	// Make this revision the default if none exists
-	if !validatorExists(kubeClient) {
-		l.LogAndPrint("Making this installation the default for injection and validation.")
-		rev := iArgs.revision
-		if rev == "" {
-			rev = revtag.DefaultRevisionName
-		}
-		o := &revtag.GenerateOptions{
-			Tag:       revtag.DefaultRevisionName,
-			Revision:  iArgs.revision,
-			Overwrite: true,
-		}
-		tagManifests, _ := revtag.Generate(context.Background(), kubeClient, o)
-		revtag.Create(kubeClient, tagManifests)
 	}
 
 	return nil
