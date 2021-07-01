@@ -282,6 +282,9 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 type gatewaySet map[model.NetworkGateway]struct{}
 
 func (s gatewaySet) equals(other gatewaySet) bool {
+	if len(s) != len(other) {
+		return false
+	}
 	return reflect.DeepEqual(s, other)
 }
 
@@ -291,7 +294,7 @@ func (s gatewaySet) add(gw model.NetworkGateway) {
 
 func (s gatewaySet) addAll(other gatewaySet) {
 	for gw := range other {
-		s[gw] = struct{}{}
+		s.add(gw)
 	}
 }
 

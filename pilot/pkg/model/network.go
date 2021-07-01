@@ -82,20 +82,36 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		}
 	}
 
+	// Calculate the upper-bound on the number of gateways per network.
+	var maxGatewaysPerNetwork int
+	for _, gws := range byNetwork {
+		if len(gws) > maxGatewaysPerNetwork {
+			maxGatewaysPerNetwork = len(gws)
+		}
+	}
+
 	return &NetworkManager{
-		byNetwork:           byNetwork,
-		byNetworkAndCluster: byNetworkAndCluster,
+		maxGatewaysPerNetwork: uint32(maxGatewaysPerNetwork),
+		byNetwork:             byNetwork,
+		byNetworkAndCluster:   byNetworkAndCluster,
 	}
 }
 
 // NetworkManager provides gateway details for accessing remote networks.
 type NetworkManager struct {
-	byNetwork           map[network.ID][]*NetworkGateway
-	byNetworkAndCluster map[networkAndCluster][]*NetworkGateway
+	maxGatewaysPerNetwork uint32
+	byNetwork             map[network.ID][]*NetworkGateway
+	byNetworkAndCluster   map[networkAndCluster][]*NetworkGateway
 }
 
 func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
 	return len(mgr.byNetwork) > 0
+}
+
+// GetMaxGatewaysPerNetwork returns an upper bound on the number of gateways there
+// could be for any one network.
+func (mgr *NetworkManager) GetMaxGatewaysPerNetwork() uint32 {
+	return mgr.maxGatewaysPerNetwork
 }
 
 func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
