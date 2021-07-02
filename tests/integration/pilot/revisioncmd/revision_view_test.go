@@ -255,16 +255,6 @@ func getDescriptionForRevision(istioCtl istioctl.Instance, revision string) (*cm
 }
 
 func verifyRevisionOutput(t framework.TestContext, descr *cmd.RevisionDescription, rev string) {
-	expectedTagSet := map[string]bool{}
-	actualTagSet := map[string]bool{}
-	for _, mwh := range descr.Webhooks {
-		if mwh.Tag != "" {
-			actualTagSet[mwh.Tag] = true
-		}
-	}
-	if !setsMatch(expectedTagSet, actualTagSet) {
-		t.Fatalf("tag sets don't match for %s. Expected: %v, Actual:%v", rev, expectedTagSet, actualTagSet)
-	}
 	expectedComponents, ok := expectedComponentsPerRevision[rev]
 	if !ok {
 		t.Fatalf("unexpected error. Could not find expected components for %s", rev)
