@@ -229,7 +229,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-{{- if .ProxylessGRPC }}
+{{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
         - name: GRPC_GO_LOG_VERBOSITY_LEVEL
