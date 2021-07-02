@@ -22,9 +22,7 @@ import (
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 )
 
-var (
-	grpcEchoHostFmt = "127.0.0.%s"
-)
+const grpcEchoPort = 14058
 
 type echoCfg struct {
 	version   string
@@ -51,13 +49,12 @@ type configGenTest struct {
 //        grpc: {generated portnum}
 func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
 	cgt := &configGenTest{T: t}
-	port := 14058
 	for i, s := range servers {
 		// TODO this breaks without extra ifonfig aliases on OSX, and probably elsewhere
 		host := fmt.Sprintf("127.0.0.%d", i+1)
 		ep, err := endpoint.New(endpoint.Config{
 			IsServerReady: func() bool { return true },
-			Port:          &common.Port{Name: "grpc", Port: port, Protocol: protocol.GRPC},
+			Port:          &common.Port{Name: "grpc", Port: grpcEchoPort, Protocol: protocol.GRPC},
 			ListenerIP:    host,
 			Version:       s.version,
 		})
@@ -68,8 +65,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 			t.Fatal(err)
 		}
 		cgt.endpoints = append(cgt.endpoints, ep)
-		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, port))
-		port++
+		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, grpcEchoPort))
 	}
 
 	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
