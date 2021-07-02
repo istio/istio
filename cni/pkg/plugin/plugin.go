@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -122,7 +123,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	// a proper error to the runtime.
 	defer func() {
 		if e := recover(); e != nil {
-			msg := fmt.Sprintf("istio-cni panicked during cmdAdd: %v", e)
+			msg := fmt.Sprintf("istio-cni panicked during cmdAdd: %v\n%v", e, string(debug.Stack()))
 			if err != nil {
 				// If we're recovering and there was also an error, then we need to
 				// present both.
@@ -272,4 +273,12 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		result = conf.PrevResult
 	}
 	return types.PrintResult(result, conf.CNIVersion)
+}
+
+func CmdCheck(args *skel.CmdArgs) (err error) {
+	return nil
+}
+
+func CmdDelete(args *skel.CmdArgs) (err error) {
+	return nil
 }
