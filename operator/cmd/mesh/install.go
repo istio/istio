@@ -24,8 +24,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -189,7 +187,8 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 
 	// Make this revision the default if none exists
-	if !validatorExists(kubeClient) {
+	exists, _ := revtag.DefaultRevisionExists(context.Background(), kubeClient)
+	if !exists {
 		l.LogAndPrint("Making this installation the default for injection and validation.")
 		rev := iop.Spec.Revision
 		if rev == "" {
@@ -375,12 +374,4 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
 	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
-}
-
-func validatorExists(client kube.ExtendedClient) bool {
-	// Neither the default validator nor the previous validator from base should exist
-	// for us to make this the default revision.
-	admit := client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
-	_, err := admit.Get(context.Background(), "istio-default-validator", metav1.GetOptions{})
-	return !kerrors.IsNotFound(err)
 }

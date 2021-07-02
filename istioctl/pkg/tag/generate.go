@@ -117,17 +117,16 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		return "", fmt.Errorf("failed to create tag webhook: %w", err)
 	}
 
-	// If we're creating the "default" revision tag we must generate the validating webhook.
 	if opts.Tag == DefaultRevisionName {
-		whs, err := GetValidatingWebhooksWithRevision(context.Background(), client, opts.Revision)
+		// deactivate other istio-injection=enabled injectors if using default revisions.
+		err := DeactivateIstioInjectionWebhook(ctx, client)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 		}
-		validatingWhConfig, err := tagWebhookConfigFromValidatingWebhook(whs[0], opts.Tag)
-		if err != nil {
-			return "", fmt.Errorf("failed to create validating webhook config: %w", err)
-		}
-		vwhYAML, err := generateValidatingWebhook(validatingWhConfig)
+		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
+		// to ease complexity when pointing default to revision without per-revision validating webhook,
+		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
+		vwhYAML, err := generateValidatingWebhook(tagWhConfig)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
