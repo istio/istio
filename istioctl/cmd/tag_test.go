@@ -34,37 +34,34 @@ import (
 
 const istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 
-var (
-	revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "istio-sidecar-injector-revision",
-			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
-		},
-		Webhooks: []admit_v1.MutatingWebhook{
-			{
-				Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
-					Service: &admit_v1.ServiceReference{
-						Namespace: "default",
-						Name:      "istiod-revision",
-					},
-					CABundle: []byte("ca"),
+var revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:   "istio-sidecar-injector-revision",
+		Labels: map[string]string{label.IoIstioRev.Name: "revision"},
+	},
+	Webhooks: []admit_v1.MutatingWebhook{
+		{
+			Name: fmt.Sprintf("namespace.%s", istioInjectionWebhookSuffix),
+			ClientConfig: admit_v1.WebhookClientConfig{
+				Service: &admit_v1.ServiceReference{
+					Namespace: "default",
+					Name:      "istiod-revision",
 				},
-			},
-			{
-				Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
-				ClientConfig: admit_v1.WebhookClientConfig{
-					Service: &admit_v1.ServiceReference{
-						Namespace: "default",
-						Name:      "istiod-revision",
-					},
-					CABundle: []byte("ca"),
-				},
+				CABundle: []byte("ca"),
 			},
 		},
-	}
-	remoteInjectionURL = "random.injection.url.com"
-)
+		{
+			Name: fmt.Sprintf("object.%s", istioInjectionWebhookSuffix),
+			ClientConfig: admit_v1.WebhookClientConfig{
+				Service: &admit_v1.ServiceReference{
+					Namespace: "default",
+					Name:      "istiod-revision",
+				},
+				CABundle: []byte("ca"),
+			},
+		},
+	},
+}
 
 func TestTagList(t *testing.T) {
 	tcs := []struct {
