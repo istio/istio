@@ -138,7 +138,7 @@ func addFlags(c *cobra.Command) {
 	c.PersistentFlags().DurationVar(&serverArgs.ShutdownDuration, "shutdownDuration", 10*time.Second,
 		"Duration the discovery server needs to terminate gracefully")
 	c.PersistentFlags().DurationVar(&serverArgs.StatusReporterOptions.UpdateInterval, "updateInterval", 500*time.Millisecond,
-		"Interval duration the reporter updates status")
+		"The interval that status reporter updates status")
 
 	// RegistryOptions Controller options
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.FileDir, "configDir", "",
