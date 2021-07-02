@@ -44,6 +44,20 @@ func getClientCertFn(config *Config) func(requestInfo *tls.CertificateRequestInf
 			return &clientCert, nil
 		}
 	}
+	if config.XDSCertPath != "" && config.XDSKeyPath != "" {
+		return func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			clientCert, err := tls.LoadX509KeyPair(config.XDSCertPath, config.XDSKeyPath)
+			if err != nil {
+				return nil, err
+			}
+			return &clientCert, nil
+		}
+	}
+	if config.XDSClientCert != nil {
+		return func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return config.XDSClientCert, nil
+		}
+	}
 
 	return nil
 }

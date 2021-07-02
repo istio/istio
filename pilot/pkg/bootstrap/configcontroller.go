@@ -15,11 +15,13 @@
 package bootstrap
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
@@ -198,12 +200,19 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			}
 			s.ConfigStores = append(s.ConfigStores, configController)
 		case XDS:
-			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
+			adscConfig := &adsc.Config{
 				Meta: model.NodeMetadata{
 					Generator: "api",
 				}.ToStruct(),
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
-			})
+			}
+
+			err := s.loadTLSConfig(adscConfig, configSource.TlsSettings)
+			if err != nil {
+				return fmt.Errorf("MCP: failed to initialize TLS for %s: %v", configSource.Address, err)
+			}
+			xdsMCP, err := adsc.New(srcAddress.Host, adscConfig)
+
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
@@ -232,6 +241,31 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 		default:
 			log.Warnf("Ignoring unsupported config source: %v", configSource.Address)
 		}
+	}
+	return nil
+}
+
+func (s *Server) loadTLSConfig(config *adsc.Config, tls *networking.ClientTLSSettings) error {
+	if tls == nil {
+		return nil
+	}
+	switch tls.GetMode() {
+	case networking.ClientTLSSettings_MUTUAL:
+		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
+			return errors.New("client certificate and private key must not be empty")
+		}
+		config.XDSCertPath = tls.ClientCertificate
+		config.XDSKeyPath = tls.PrivateKey
+		config.XDSRootCAFile = tls.CaCertificates
+		if len(tls.SubjectAltNames) > 0 {
+			config.XDSSAN = tls.SubjectAltNames[0]
+		}
+	case networking.ClientTLSSettings_ISTIO_MUTUAL:
+		config.RootCert = s.CA.GetCAKeyCertBundle().GetRootCertPem()
+		config.XDSClientCert = s.istiodCert
+	case networking.ClientTLSSettings_SIMPLE:
+		// who is upstream
+	case networking.ClientTLSSettings_DISABLE:
 	}
 	return nil
 }

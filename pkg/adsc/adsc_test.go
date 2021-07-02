@@ -15,12 +15,16 @@
 package adsc
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"path"
 	"sync"
 	"testing"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -31,6 +35,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	mcp "istio.io/api/mcp/v1alpha1"
@@ -38,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test/env"
 )
 
 type testAdscRunServer struct{}
@@ -118,6 +124,165 @@ func TestADSC_Run(t *testing.T) {
 			}
 			tt.inAdsc.url = l.Addr().String()
 			xds := grpc.NewServer()
+			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
+			go func() {
+				err = xds.Serve(l)
+				if err != nil {
+					log.Println(err)
+				}
+			}()
+			defer xds.GracefulStop()
+			if err != nil {
+				t.Errorf("Could not start serving ads server %v", err)
+				return
+			}
+
+			if err := tt.inAdsc.Dial(); err != nil {
+				t.Errorf("Dial error: %v", err)
+				return
+			}
+			if err := tt.inAdsc.Run(); err != nil {
+				t.Errorf("ADSC: failed running %v", err)
+				return
+			}
+			tt.inAdsc.RecvWg.Wait()
+			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
+				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)
+			}
+		})
+	}
+}
+
+func TestADSC_TLS_Run(t *testing.T) {
+	certDir := path.Join(env.IstioSrc, "tests/testdata/certs/pilot")
+	certificatePath := path.Join(env.IstioSrc, "tests/testdata/certs/pilot", "cert-chain.pem")
+	privateKeyPath := path.Join(env.IstioSrc, "tests/testdata/certs/pilot", "key.pem")
+	cert, _ := tls.LoadX509KeyPair(certificatePath, privateKeyPath)
+
+	rootCACertPath := path.Join(env.IstioSrc, "tests/testdata/certs/pilot", "root-cert.pem")
+	rootCABytes, _ := ioutil.ReadFile(rootCACertPath)
+	rootCACert := x509.NewCertPool()
+	rootCACert.AppendCertsFromPEM(rootCABytes)
+
+	tests := []struct {
+		desc                 string
+		inAdsc               *ADSC
+		streamHandler        func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
+		expectedADSResources *ADSC
+	}{
+		{
+			desc: "tls-certpath",
+			inAdsc: &ADSC{
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
+				Updates:    make(chan string),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
+				RecvWg:     sync.WaitGroup{},
+				cfg: &Config{
+					XDSCertPath:   certificatePath,
+					XDSKeyPath:    privateKeyPath,
+					XDSRootCAFile: rootCACertPath,
+					XDSSAN:        "istiod.istio-system",
+				},
+			},
+			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+				return nil
+			},
+			expectedADSResources: &ADSC{
+				Received: map[string]*xdsapi.DiscoveryResponse{},
+			},
+		},
+		{
+			desc: "tls-certdir",
+			inAdsc: &ADSC{
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
+				Updates:    make(chan string),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
+				RecvWg:     sync.WaitGroup{},
+				cfg: &Config{
+					CertDir: certDir,
+					XDSSAN:  "istiod.istio-system",
+				},
+			},
+			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+				return nil
+			},
+			expectedADSResources: &ADSC{
+				Received: map[string]*xdsapi.DiscoveryResponse{},
+			},
+		},
+		{
+			desc: "tls-cert",
+			inAdsc: &ADSC{
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
+				Updates:    make(chan string),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
+				RecvWg:     sync.WaitGroup{},
+				cfg: &Config{
+					XDSRootCAFile: rootCACertPath,
+					XDSClientCert: &cert,
+					XDSSAN:        "istiod.istio-system",
+				},
+			},
+			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+				return nil
+			},
+			expectedADSResources: &ADSC{
+				Received: map[string]*xdsapi.DiscoveryResponse{},
+			},
+		},
+		{
+			desc: "tls-stream-2-unnamed-resources",
+			inAdsc: &ADSC{
+				Received:   make(map[string]*xdsapi.DiscoveryResponse),
+				Updates:    make(chan string),
+				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
+				RecvWg:     sync.WaitGroup{},
+				cfg: &Config{
+					XDSRootCAFile: rootCACertPath,
+					XDSClientCert: &cert,
+					XDSSAN:        "istiod.istio-system",
+				},
+				VersionInfo: map[string]string{},
+			},
+			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+				_ = stream.Send(&xdsapi.DiscoveryResponse{
+					TypeUrl: "foo",
+				})
+				_ = stream.Send(&xdsapi.DiscoveryResponse{
+					TypeUrl: "bar",
+				})
+				return nil
+			},
+			expectedADSResources: &ADSC{
+				Received: map[string]*xdsapi.DiscoveryResponse{
+					"foo": {
+						TypeUrl: "foo",
+					},
+					"bar": {
+						TypeUrl: "bar",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			StreamHandler = tt.streamHandler
+			l, err := net.Listen("tcp", ":0")
+			if err != nil {
+				t.Errorf("Unable to listen with tcp err %v", err)
+				return
+			}
+			tt.inAdsc.url = l.Addr().String()
+			xds := grpc.NewServer(
+				grpc.ConnectionTimeout(time.Hour),
+				grpc.Creds(credentials.NewTLS(&tls.Config{
+					Certificates: []tls.Certificate{cert},
+					ClientAuth:   tls.VerifyClientCertIfGiven,
+					ClientCAs:    rootCACert,
+				})),
+			)
 			xdsapi.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
 				err = xds.Serve(l)

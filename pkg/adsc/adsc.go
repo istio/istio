@@ -76,7 +76,7 @@ type Config struct {
 	IP string
 
 	// CertDir is the directory where mTLS certs are configured.
-	// If CertDir and Secret are empty, an insecure connection will be used.
+	// If CertDir, Secret, XDSClientCert or XDSCertPath are all empty, an insecure connection will be used.
 	// TODO: implement SecretManager for cert dir
 	CertDir string
 
@@ -93,6 +93,19 @@ type Config struct {
 	// XDSRootCAFile explicitly set the root CA to be used for the XDS connection.
 	// Mirrors Envoy file.
 	XDSRootCAFile string
+
+	// XDSClientCert is mTLS cert for XDS tlsconfig
+	// If CertDir, Secret, XDSClientCert or XDSCertPath are all empty, an insecure connection will be used.
+	XDSClientCert *tls.Certificate
+
+	// XDSCertPath is the path where mTLS client certificate exist.
+	// If XDSCertPath not empty, XDSKeyPath should not be empty.
+	// If CertDir, Secret, XDSClientCert or XDSCertPath are all empty, an insecure connection will be used.
+	XDSCertPath string
+
+	// XDSKeyPath is the path where mTLS client private key exist.
+	// It is required when XDSCertPath not empty
+	XDSKeyPath string
 
 	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
 	// XDSRootCAFile
@@ -272,8 +285,7 @@ func (a *ADSC) Dial() error {
 
 	var err error
 	grpcDialOptions := opts.GrpcOpts
-	// If we need MTLS - CertDir or Secrets provider is set.
-	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
+	if a.needConfigTLS() {
 		tlsCfg, err := a.tlsConfig()
 		if err != nil {
 			return err
@@ -284,7 +296,7 @@ func (a *ADSC) Dial() error {
 
 	if len(grpcDialOptions) == 0 {
 		// Only disable transport security if the user didn't supply custom dial options
-		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
+		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure(), grpc.WithTimeout(time.Hour))
 	}
 
 	a.conn, err = grpc.Dial(a.url, grpcDialOptions...)
@@ -314,6 +326,14 @@ func getPrivateIPIfAvailable() net.IP {
 	return net.IPv4zero
 }
 
+func (a *ADSC) needConfigTLS() bool {
+	opts := a.cfg
+	return len(opts.CertDir) > 0 ||
+		opts.SecretManager != nil ||
+		opts.XDSClientCert != nil ||
+		(opts.XDSCertPath != "" && opts.XDSKeyPath != "")
+}
+
 func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var clientCerts []tls.Certificate
 	var serverCABytes []byte
@@ -336,9 +356,6 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes = rootCA.RootCert
 	} else if a.cfg.CertDir != "" {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.CertDir + "/root-cert.pem")
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	serverCAs := x509.NewCertPool()
