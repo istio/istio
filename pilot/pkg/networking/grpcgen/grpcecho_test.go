@@ -126,6 +126,7 @@ spec:
     app: echo
   ports:
   - name: grpc
+    targetPort: grpc
     port: 7070
 `,
 		ConfigString: `
