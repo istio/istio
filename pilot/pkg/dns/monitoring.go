@@ -30,14 +30,14 @@ var (
 	)
 
 	failures = monitoring.NewSum(
-		"dns_total_upstream_failures",
+		"dns_upstream_failures_total",
 		"Total number of DNS requests forwarded to upstream.",
 	)
 
 	requestDuration = monitoring.NewDistribution(
-		"dns_upstream_request_time_ms",
-		"Total time in milliseconds Istio takes to get DNS response from upstream.",
-		[]float64{1, 3, 5, 10, 25, 50},
+		"dns_upstream_request_time",
+		"Total time in seconds Istio takes to get DNS response from upstream.",
+		[]float64{.01, .1, 0.5, 1, 3, 5},
 	)
 )
 
