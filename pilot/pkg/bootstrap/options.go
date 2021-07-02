@@ -51,19 +51,20 @@ type RegistryOptions struct {
 
 // PilotArgs provides all of the configuration parameters for the Pilot discovery service.
 type PilotArgs struct {
-	ServerOptions      DiscoveryServerOptions
-	InjectionOptions   InjectionOptions
-	PodName            string
-	Namespace          string
-	Revision           string
-	MeshConfigFile     string
-	NetworksConfigFile string
-	RegistryOptions    RegistryOptions
-	CtrlZOptions       *ctrlz.Options
-	Plugins            []string
-	KeepaliveOptions   *keepalive.Options
-	ShutdownDuration   time.Duration
-	JwtRule            string
+	ServerOptions         DiscoveryServerOptions
+	InjectionOptions      InjectionOptions
+	StatusReporterOptions StatusReporterOptions
+	PodName               string
+	Namespace             string
+	Revision              string
+	MeshConfigFile        string
+	NetworksConfigFile    string
+	RegistryOptions       RegistryOptions
+	CtrlZOptions          *ctrlz.Options
+	Plugins               []string
+	KeepaliveOptions      *keepalive.Options
+	ShutdownDuration      time.Duration
+	JwtRule               string
 }
 
 // DiscoveryServerOptions contains options for create a new discovery server instance.
@@ -100,6 +101,10 @@ type DiscoveryServerOptions struct {
 type InjectionOptions struct {
 	// Directory of injection related config files.
 	InjectionDirectory string
+}
+
+type StatusReporterOptions struct {
+	UpdateInterval time.Duration
 }
 
 // Optional TLS parameters for Istiod server.
