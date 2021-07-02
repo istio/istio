@@ -37,6 +37,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -98,6 +99,12 @@ type Cluster struct {
 	SyncTimeout *atomic.Bool
 }
 
+// secretEvent captures the event details of secret changes.
+type secretEvent struct {
+	event model.Event
+	key   string
+}
+
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
 func (r *Cluster) Run() {
@@ -139,17 +146,6 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 		return nil
 	}
 	return c.remoteClusters[secretKey][clusterID]
-}
-
-// Get existing clusters registered for the given secret
-func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
-	c.RLock()
-	defer c.RUnlock()
-	out := make([]*Cluster, 0, len(c.remoteClusters[secretKey]))
-	for _, cluster := range c.remoteClusters[secretKey] {
-		out = append(out, cluster)
-	}
-	return out
 }
 
 func (c *ClusterStore) Len() int {
@@ -198,9 +194,9 @@ func NewController(
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
-			log.Infof("Processing add: %s", key)
 			if err == nil {
-				queue.Add(key)
+				log.Infof("Processing add: %s", key)
+				queue.Add(secretEvent{event: model.EventAdd, key: key})
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -209,16 +205,16 @@ func NewController(
 			}
 
 			key, err := cache.MetaNamespaceKeyFunc(newObj)
-			log.Infof("Processing update: %s", key)
 			if err == nil {
-				queue.Add(key)
+				log.Infof("Processing update: %s", key)
+				queue.Add(secretEvent{event: model.EventUpdate, key: key})
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			log.Infof("Processing delete: %s", key)
 			if err == nil {
-				queue.Add(key)
+				log.Infof("Processing delete: %s", key)
+				queue.Add(secretEvent{event: model.EventDelete, key: key})
 			}
 		},
 	})
@@ -242,7 +238,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 	log.Infof("Secret controller cache synced in %v", time.Since(t0))
 	// all secret events before this signal must be processed before we're marked "ready"
-	c.queue.Add(initialSyncSignal)
+	c.queue.Add(secretEvent{event: model.EventAdd, key: initialSyncSignal})
 	if features.RemoteClusterTimeout != 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			c.remoteSyncTimeout.Store(true)
@@ -319,42 +315,52 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) processNextItem() bool {
-	key, quit := c.queue.Get()
+	event, quit := c.queue.Get()
+	log.Infof("secret controller got event %s from queue for secret %s", event.(secretEvent).event, event.(secretEvent).key)
 	if quit {
+		log.Info("secret controller queue is shutting down, so returning")
 		return false
 	}
-	defer c.queue.Done(key)
+	defer c.queue.Done(event)
 
-	err := c.processItem(key.(string))
+	err := c.processItem(event.(secretEvent))
 	if err == nil {
+		log.Debugf("secret controller finished processing event %s for secret %s", event.(secretEvent).event, event.(secretEvent).key)
 		// No error, reset the ratelimit counters
-		c.queue.Forget(key)
-	} else if c.queue.NumRequeues(key) < maxRetries {
-		log.Errorf("Error processing %s (will retry): %v", key, err)
-		c.queue.AddRateLimited(key)
+		c.queue.Forget(event)
+	} else if c.queue.NumRequeues(event) < maxRetries {
+		log.Errorf("Error processing %s (will retry): %v", event, err)
+		c.queue.AddRateLimited(event)
 	} else {
-		log.Errorf("Error processing %s (giving up): %v", key, err)
-		c.queue.Forget(key)
+		log.Errorf("Error processing %s (giving up): %v", event, err)
+		c.queue.Forget(event)
 	}
 
 	return true
 }
 
-func (c *Controller) processItem(key string) error {
-	if key == initialSyncSignal {
+func (c *Controller) processItem(se secretEvent) error {
+	if se.key == initialSyncSignal {
+		log.Info("secret controller initial sync done")
 		c.initialSync.Store(true)
 		return nil
 	}
-
-	obj, exists, err := c.informer.GetIndexer().GetByKey(key)
-	if err != nil {
-		return fmt.Errorf("error fetching object %s error: %v", key, err)
-	}
-
-	if exists {
-		c.addSecret(key, obj.(*corev1.Secret))
+	log.Debugf("processing secret event %s for secret %s", se.event.String(), se.key)
+	if se.event == model.EventAdd || se.event == model.EventUpdate {
+		obj, exists, err := c.informer.GetIndexer().GetByKey(se.key)
+		if err != nil {
+			return fmt.Errorf("error fetching object %s error: %v", se.key, err)
+		}
+		// For add and update events, we expect secret in informer cache.
+		// we should requeue the event for later processing.
+		if !exists {
+			log.Infof("secret %s does not exist in informer cache, requeuing it", se.key)
+			c.queue.Add(se)
+		}
+		log.Debugf("secret key %s exists in informer, adding/updating it", se.key)
+		c.addSecret(se.key, obj.(*corev1.Secret))
 	} else {
-		c.deleteSecret(key)
+		c.deleteSecret(se.key)
 	}
 
 	return nil
@@ -403,12 +409,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 
 func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	// First delete clusters
-	existingClusters := c.cs.GetExistingClustersFor(secretKey)
-	for _, existingCluster := range existingClusters {
-		if _, ok := s.Data[existingCluster.clusterID]; !ok {
-			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.clusterID))
-		}
-	}
+	c.deleteSecret(secretKey)
 
 	for clusterID, kubeConfig := range s.Data {
 		action, callback := "Adding", c.addCallback
@@ -418,7 +419,7 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 			// TODO： warning
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				log.Infof("%s cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
+				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
 				continue
 			}
 		}
@@ -434,6 +435,7 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
 			continue
 		}
+		log.Infof("finished callback for %s and starting to sync", clusterID)
 		go remoteCluster.Run()
 	}
 
@@ -456,20 +458,4 @@ func (c *Controller) deleteSecret(secretKey string) {
 		close(cluster.Stop)
 		delete(c.cs.remoteClusters, secretKey)
 	}
-}
-
-func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID) {
-	c.cs.Lock()
-	defer func() {
-		c.cs.Unlock()
-		log.Infof("Number of remote clusters: %d", c.cs.Len())
-	}()
-	log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
-	err := c.removeCallback(clusterID)
-	if err != nil {
-		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
-			clusterID, secretKey, err)
-	}
-	close(c.cs.remoteClusters[secretKey][clusterID].Stop)
-	delete(c.cs.remoteClusters[secretKey], clusterID)
 }

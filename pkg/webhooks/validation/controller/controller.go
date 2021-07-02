@@ -241,14 +241,16 @@ func newController(
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	defer c.queue.ShutDown()
+	go func() {
+		<-stop
+		c.queue.ShutDown()
+	}()
 	go c.webhookInformer.Run(stop)
 	if !cache.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
 		return
 	}
 	go c.startCaBundleWatcher(stop)
 	go c.runWorker()
-	<-stop
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
