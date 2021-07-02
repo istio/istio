@@ -19,8 +19,9 @@ import (
 	"strconv"
 	"strings"
 
-	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
+
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
