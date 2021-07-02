@@ -17,9 +17,11 @@ package tag
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -110,4 +112,60 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhook
 		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
 	}
 	return result
+}
+
+var neverMatch = &metav1.LabelSelector{
+	MatchLabels: map[string]string{
+		"istio.io/deactivated": "never-match",
+	},
+}
+
+// DefaultRevisionExists checks whether there is an existing default revision, either implicit by virtue of having a
+// previous non-revisioned installation or an explicit default tag. Should be used in installer when deciding whether
+// to make an installation the default.
+func DefaultRevisionExists(ctx context.Context, client kubernetes.Interface) (bool, error) {
+	tagWhs, err := GetWebhooksWithTag(ctx, client, DefaultRevisionName)
+	if err != nil {
+		return false, err
+	}
+	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
+	if err != nil {
+		return false, err
+	}
+	return len(tagWhs) > 0 || len(whs) > 0, nil
+}
+
+// DeactivateIstioInjectionWebhook deactivates the istio-injection webhook from the given MutatingWebhookConfiguration if exists.
+// used rather than just deleting the webhook since we want to keep it around after changing the default so user can later
+// switch back to it. This is a hack but it is meant to cover a corner case where a user wants to migrate from a non-revisioned
+// old version and then later decides to switch back to the old revision again.
+func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) error {
+	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
+	if kerrors.IsNotFound(err) {
+		// no revision with default, no action required.
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if len(whs) == 0 || len(whs) > 1 {
+		return fmt.Errorf("expected a single webhook for default revision")
+	}
+	webhook := whs[0]
+	for i := range webhook.Webhooks {
+		wh := &webhook.Webhooks[i]
+		if !strings.HasPrefix(wh.Name, "rev") {
+			// this is an abomination, but if this isn't a per-revision webhook, we want to make it ineffectual
+			// without deleting it. Add a nonsense match.
+			wh.Name = "never-match.sidecar-injector.istio.io"
+			wh.NamespaceSelector = neverMatch
+		}
+	}
+	_, err = admit.Update(ctx, &webhook, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
