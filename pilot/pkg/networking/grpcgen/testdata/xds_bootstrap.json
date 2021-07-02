@@ -1,7 +1,7 @@
 {
   "xds_servers": [
     {
-      "server_uri": "localhost:14057",
+      "server_uri": "localhost:15010",
       "channel_creds": [{"type": "insecure"}],
       "server_features" : ["xds_v3"]
     }
