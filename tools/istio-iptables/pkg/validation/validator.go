@@ -85,7 +85,7 @@ func (validator *Validator) Run() error {
 		if err == nil {
 			log.Info("Validation passed")
 		} else {
-			log.Errorf("Validation failed:" + err.Error())
+			log.Errorf("Validation failed: %v", err)
 		}
 		return err
 	}
@@ -105,7 +105,7 @@ func genListenerAddress(ip net.IP, ports []string) []string {
 }
 
 func NewValidator(config *config.Config, hostIP net.IP) *Validator {
-	log.Info("in new validator: " + hostIP.String())
+	log.Infof("in new validator: %v", hostIP.String())
 	// It's tricky here:
 	// Connect to 127.0.0.6 will redirect to 127.0.0.1
 	// Connect to ::6       will redirect to ::1
@@ -138,12 +138,12 @@ func restoreOriginalAddress(l net.Listener, config *Config, c chan<- ReturnCode)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			log.Errorf("Listener failed to accept connection: %v", err.Error())
+			log.Errorf("Listener failed to accept connection: %v", err)
 			continue
 		}
 		_, port, err := GetOriginalDestination(conn)
 		if err != nil {
-			log.Errorf("Error getting original dst: %v" + err.Error())
+			log.Errorf("Error getting original dst: %v", err)
 			conn.Close()
 			continue
 		}
@@ -173,7 +173,7 @@ func (s *Service) Run() error {
 
 		l, err := config.Listen(context.Background(), "tcp", addr) // bind to the address:port
 		if err != nil {
-			log.Errorf("Error on listening: %v", err.Error())
+			log.Errorf("Error on listening: %v", err)
 			continue
 		}
 
@@ -208,7 +208,7 @@ func (c *Client) Run() error {
 	}
 	conn, err := net.DialTCP("tcp", laddr, raddr)
 	if err != nil {
-		log.Errorf("Error connecting to %s: %s\n", serverOriginalAddress, err.Error())
+		log.Errorf("Error connecting to %s: %v", serverOriginalAddress, err)
 		return err
 	}
 	conn.Close()

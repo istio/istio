@@ -88,8 +88,8 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	// See sockaddr_in6 and sockaddr_in
 	dport = ntohs(addr.Addr.Port)
 
-	log.Infof("Local addr %s\n", conn.LocalAddr())
-	log.Infof("Original addr %s:%d\n", ip, dport)
+	log.Infof("Local addr %s", conn.LocalAddr())
+	log.Infof("Original addr %s: %d", ip, dport)
 	return
 }
 
@@ -98,11 +98,11 @@ func reuseAddr(network, address string, conn syscall.RawConn) error {
 	return conn.Control(func(descriptor uintptr) {
 		err := unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
 		if err != nil {
-			log.Errorf("Fail to set fd %d SO_REUSEADDR with error %v\n", descriptor, err)
+			log.Errorf("Fail to set fd %d SO_REUSEADDR with error %v", descriptor, err)
 		}
 		err = unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 		if err != nil {
-			log.Errorf("Fail to set fd %d SO_REUSEPORT with error %v\n", descriptor, err)
+			log.Errorf("Fail to set fd %d SO_REUSEPORT with error %v", descriptor, err)
 		}
 	})
 }
