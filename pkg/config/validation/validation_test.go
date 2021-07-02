@@ -5580,6 +5580,46 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false},
+		{"sidecar egress only one wildcarded", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/*",
+						"test/a.com",
+					},
+				},
+			},
+		}, false},
+		{"sidecar egress wildcarded ns", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/b.com",
+						"test/a.com",
+					},
+				},
+			},
+		}, true},
+		{"sidecar egress duplicated with wildcarded same namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"test/*",
+						"test/a.com",
+					},
+				},
+			},
+		}, false},
+		{"sidecar egress duplicated with wildcarded same namespace .", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"./*",
+						"bar/a.com",
+					},
+				},
+			},
+		}, false},
 	}
 
 	for _, tt := range tests {

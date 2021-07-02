@@ -1003,13 +1003,13 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		portMap = make(map[uint32]struct{})
 		udsMap := make(map[string]struct{})
 		catchAllEgressListenerFound := false
-		for index, i := range rule.Egress {
-			if i == nil {
+		for index, egress := range rule.Egress {
+			if egress == nil {
 				errs = appendErrors(errs, errors.New("egress listener may not be null"))
 				continue
 			}
 			// there can be only one catch all egress listener with empty port, and it should be the last listener.
-			if i.Port == nil {
+			if egress.Port == nil {
 				if !catchAllEgressListenerFound {
 					if index == len(rule.Egress)-1 {
 						catchAllEgressListenerFound = true
@@ -1021,30 +1021,62 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					continue
 				}
 			} else {
-				bind := i.GetBind()
-				captureMode := i.GetCaptureMode()
-				errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
+				bind := egress.GetBind()
+				captureMode := egress.GetCaptureMode()
+				errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(egress.Port, bind, captureMode))
 
-				if i.Port.Number == 0 {
+				if egress.Port.Number == 0 {
 					if _, found := udsMap[bind]; found {
 						errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[i.Port.Number]; found {
+					if _, found := portMap[egress.Port.Number]; found {
 						errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[i.Port.Number] = struct{}{}
+					portMap[egress.Port.Number] = struct{}{}
 				}
 			}
 
 			// validate that the hosts field is a slash separated value
 			// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
-			if len(i.Hosts) == 0 {
+			if len(egress.Hosts) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
 			} else {
-				for _, hostname := range i.Hosts {
+				nssSvcs := map[string]map[string]bool{}
+				for _, hostname := range egress.Hosts {
+					parts := strings.SplitN(hostname, "/", 2)
+					if len(parts) == 2 {
+						ns := parts[0]
+						svc := parts[1]
+						if ns == "." {
+							ns = cfg.Namespace
+						}
+						if _, ok := nssSvcs[ns]; !ok {
+							nssSvcs[ns] = map[string]bool{}
+						}
+
+						// test/a
+						// test/a
+						// test/*
+						if svc != "*" {
+							if _, ok := nssSvcs[ns][svc]; ok || nssSvcs[ns]["*"] {
+								// already exists
+								errs = appendErrors(errs, fmt.Errorf("duplicated egress host: %s", hostname))
+							}
+						} else {
+							if len(nssSvcs[ns]) != 0 {
+								errs = appendErrors(errs, fmt.Errorf("duplicated egress host: %s", hostname))
+							}
+						}
+						nssSvcs[ns][svc] = true
+					}
 					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+				}
+				// */*
+				// test/a
+				if nssSvcs["*"]["*"] && len(nssSvcs) != 1 {
+					errs = appendErrors(errs, fmt.Errorf("`*/*` host select all resources, no other hosts can be added"))
 				}
 			}
 
