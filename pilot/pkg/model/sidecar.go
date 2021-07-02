@@ -659,10 +659,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 			if svc := matchingService(importedHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
-		}
-
-		// Check if there is an import of form */host or */*
-		if wnsFound {
+		} else if wnsFound { // Check if there is an import of form */host or */*
 			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 			}

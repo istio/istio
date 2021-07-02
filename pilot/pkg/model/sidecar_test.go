@@ -1389,6 +1389,13 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			expected:      []*Service{},
 			namespace:     "a",
 		},
+		{
+			name:          "multiple hosts selected same service",
+			listenerHosts: map[string][]host.Name{"a": {wildcardService}, "*": {wildcardService}},
+			services:      []*Service{serviceA8000},
+			expected:      []*Service{serviceA8000},
+			namespace:     "a",
+		},
 	}
 
 	for _, tt := range tests {
