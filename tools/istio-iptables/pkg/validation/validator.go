@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/pkg/log"
 )
 
 var istioLocalIPv6 = net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6}
@@ -82,9 +83,9 @@ func (validator *Validator) Run() error {
 		return fmt.Errorf("validation timeout")
 	case err := <-sError:
 		if err == nil {
-			fmt.Println("validation passed")
+			log.Info("Validation passed")
 		} else {
-			fmt.Println("validation failed:" + err.Error())
+			log.Errorf("Validation failed:" + err.Error())
 		}
 		return err
 	}
@@ -104,7 +105,7 @@ func genListenerAddress(ip net.IP, ports []string) []string {
 }
 
 func NewValidator(config *config.Config, hostIP net.IP) *Validator {
-	fmt.Println("in new validator: " + hostIP.String())
+	log.Info("in new validator: " + hostIP.String())
 	// It's tricky here:
 	// Connect to 127.0.0.6 will redirect to 127.0.0.1
 	// Connect to ::6       will redirect to ::1
@@ -137,12 +138,12 @@ func restoreOriginalAddress(l net.Listener, config *Config, c chan<- ReturnCode)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error accepting: ", err.Error())
+			log.Errorf("Listener failed to accept connection: %v", err.Error())
 			continue
 		}
 		_, port, err := GetOriginalDestination(conn)
 		if err != nil {
-			fmt.Println("Error getting original dst: " + err.Error())
+			log.Errorf("Error getting original dst: %v" + err.Error())
 			conn.Close()
 			continue
 		}
@@ -167,12 +168,12 @@ func (s *Service) Run() error {
 	c := make(chan ReturnCode, 2)
 	hasAtLeastOneListener := false
 	for _, addr := range s.Config.ServerListenAddress {
-		fmt.Println("Listening on " + addr)
+		log.Infof("Listening on %v", addr)
 		config := &net.ListenConfig{Control: reuseAddr}
 
 		l, err := config.Listen(context.Background(), "tcp", addr) // bind to the address:port
 		if err != nil {
-			fmt.Println("Error on listening:", err.Error())
+			log.Errorf("Error on listening: %v", err.Error())
 			continue
 		}
 
@@ -207,7 +208,7 @@ func (c *Client) Run() error {
 	}
 	conn, err := net.DialTCP("tcp", laddr, raddr)
 	if err != nil {
-		fmt.Printf("Error connecting to %s: %s\n", serverOriginalAddress, err.Error())
+		log.Errorf("Error connecting to %s: %s\n", serverOriginalAddress, err.Error())
 		return err
 	}
 	conn.Close()
