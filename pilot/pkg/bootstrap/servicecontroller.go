@@ -120,6 +120,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	})
 
 	s.multicluster = mc
+	s.XDSServer.MulticlusterController = mc
 	return
 }
 

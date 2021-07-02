@@ -84,7 +84,7 @@ type Controller struct {
 
 // Cluster defines cluster struct
 type Cluster struct {
-	clusterID     string
+	ClusterID     string
 	kubeConfigSha [sha256.Size]byte
 
 	// Client for accessing the cluster.
@@ -107,6 +107,10 @@ func (r *Cluster) Run() {
 
 func (r *Cluster) HasSynced() bool {
 	return r.initialSync.Load() || r.SyncTimeout.Load()
+}
+
+func (r *Cluster) SyncDidTimeout() bool {
+	return r.SyncTimeout.Load() && !r.HasSynced()
 }
 
 // ClusterStore is a collection of clusters
@@ -141,7 +145,25 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 	return c.remoteClusters[secretKey][clusterID]
 }
 
-// Get existing clusters registered for the given secret
+// All returns a copy of the current remote clusters.
+func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
+	if c == nil {
+		return nil
+	}
+	c.RLock()
+	defer c.RUnlock()
+	out := make(map[string]map[cluster.ID]*Cluster, len(c.remoteClusters))
+	for secret, clusters := range c.remoteClusters {
+		out[secret] = make(map[cluster.ID]*Cluster, len(clusters))
+		for cid, c := range clusters {
+			outCluster := *c
+			out[secret][cid] = &outCluster
+		}
+	}
+	return out
+}
+
+// GetExistingClustersFor the given secret
 func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
 	c.RLock()
 	defer c.RUnlock()
@@ -274,7 +296,7 @@ func (c *Controller) hasSynced() bool {
 	for _, clusterMap := range c.cs.remoteClusters {
 		for _, cluster := range clusterMap {
 			if !cluster.HasSynced() {
-				log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.clusterID)
+				log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.ClusterID)
 				return false
 			}
 		}
@@ -298,6 +320,13 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	return synced
+}
+
+func (c *Controller) Clusters() map[string]map[cluster.ID]*Cluster {
+	if c == nil {
+		return nil
+	}
+	return c.cs.All()
 }
 
 // StartSecretController creates the secret controller.
@@ -399,7 +428,7 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 		return nil, err
 	}
 	return &Cluster{
-		clusterID: clusterID,
+		ClusterID: clusterID,
 		Client:    clients,
 		// access outside this package should only be reading
 		Stop: make(chan struct{}),
@@ -414,8 +443,8 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
-		if _, ok := s.Data[existingCluster.clusterID]; !ok {
-			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.clusterID))
+		if _, ok := s.Data[existingCluster.ClusterID]; !ok {
+			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.ClusterID))
 		}
 	}
 

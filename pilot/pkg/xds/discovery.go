@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"strconv"
 	"sync"
 	"time"
@@ -144,7 +145,11 @@ type DiscoveryServer struct {
 	Cache model.XdsCache
 
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
-	JwtKeyResolver *model.JwksResolver
+	JwtKeyResolver         *model.JwksResolver
+
+	// MulticlusterController is referenced to allow getting debug info
+	// TODO use secretcontroller here instead after https://github.com/istio/istio/issues/33669
+	MulticlusterController *controller.Multicluster
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
