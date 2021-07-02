@@ -36,5 +36,6 @@ func main() {
 		os.Exit(1)
 	}
 	// TODO: implement plugin version
-	skel.PluginMain(plugin.CmdAdd, nil, nil, version.All, fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
+	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
+		fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
 }
