@@ -58,8 +58,6 @@ spec:
         host: {{.VirtualServiceHost}}
         port:
           number: {{.Port}}
-	retries:
-	  retryRemoteLocalities: true
 {{- if .MatchScheme }}
     match:
     - scheme:
