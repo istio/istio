@@ -25,16 +25,16 @@ type StdoutStubDependencies struct{}
 
 // RunOrFail runs a command and panics, if it fails
 func (s *StdoutStubDependencies) RunOrFail(cmd string, args ...string) {
-	log.Infof("%s %s\n", cmd, strings.Join(args, " "))
+	log.Infof("%s %s", cmd, strings.Join(args, " "))
 }
 
 // Run runs a command
 func (s *StdoutStubDependencies) Run(cmd string, args ...string) error {
-	log.Infof("%s %s\n", cmd, strings.Join(args, " "))
+	log.Infof("%s %s", cmd, strings.Join(args, " "))
 	return nil
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
-	log.Infof("%s %s\n", cmd, strings.Join(args, " "))
+	log.Infof("%s %s", cmd, strings.Join(args, " "))
 }
