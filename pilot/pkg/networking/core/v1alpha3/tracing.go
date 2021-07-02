@@ -81,7 +81,11 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	}
 
 	// provider config
-	providerName := meshCfg.GetDefaultProviders().GetTracing()
+	var providerName string
+	if len(meshCfg.GetDefaultProviders().GetTracing()) > 0 {
+		// only one provider is currently supported, safe to take first
+		providerName = meshCfg.GetDefaultProviders().GetTracing()[0]
+	}
 	if len(tracingCfg.Providers) > 0 {
 		// only one provider is currently supported, safe to take first
 		providerName = tracingCfg.Providers[0].Name
