@@ -1268,7 +1268,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			[]*Service{
 				{
 					Hostname: "foo.svc.cluster.local",
-					Ports: port7443,
+					Ports:    port7443,
 				},
 				{
 					Hostname: "baz.svc.cluster.local",
