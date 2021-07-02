@@ -67,6 +67,12 @@ var (
 			TypedConfig: util.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
+	Router = &hcm.HttpFilter{
+		Name: wellknown.Router,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&router.Router{}),
+		},
+	}
 	GrpcWeb = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -152,16 +158,16 @@ var (
 )
 
 func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
-	routerCfg := &router.Router{}
-
-	if ctx != nil {
-		routerCfg.StartChildSpan = ctx.StartChildSpan
+	if ctx == nil {
+		return Router
 	}
 
 	return &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: util.MessageToAny(routerCfg),
+			TypedConfig: util.MessageToAny(&router.Router{
+				StartChildSpan: ctx.StartChildSpan,
+			}),
 		},
 	}
 }

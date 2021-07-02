@@ -54,12 +54,11 @@ func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *x
 func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
 	meshCfg := opts.push.Mesh
 	proxyCfg := opts.proxy.Metadata.ProxyConfigOrDefault(opts.push.Mesh.DefaultConfig)
-	routerFilterCtx := &xdsfilters.RouterFilterContext{}
 
 	if len(spec.GetTracing()) == 0 {
 		if !meshCfg.EnableTracing {
 			log.Debug("No valid tracing configuration found")
-			return routerFilterCtx
+			return nil
 		}
 		// use the prior configuration bits of sampling and custom tags
 		hcm.Tracing = &hpb.HttpConnectionManager_Tracing{}
@@ -68,7 +67,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			hcm.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
-		return routerFilterCtx
+		return nil
 	}
 
 	if len(spec.Tracing) > 1 {
@@ -78,7 +77,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 	tracingCfg := spec.Tracing[0]
 
 	if tracingCfg.DisableSpanReporting.GetValue() {
-		return routerFilterCtx
+		return nil
 	}
 
 	// provider config
@@ -88,6 +87,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 		providerName = tracingCfg.Providers[0].Name
 	}
 
+	var routerFilterCtx *xdsfilters.RouterFilterContext
 	providerConfigured := false
 	for _, p := range meshCfg.ExtensionProviders {
 		if strings.EqualFold(p.Name, providerName) {
@@ -128,7 +128,7 @@ func configureTracingFromSpec(spec *telemetrypb.Telemetry, opts buildListenerOpt
 func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMetadata,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider) (*hpb.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
 	tracing := &hpb.HttpConnectionManager_Tracing{}
-	rfCtx := &xdsfilters.RouterFilterContext{}
+	var rfCtx *xdsfilters.RouterFilterContext
 	var err error
 
 	switch provider := providerCfg.Provider.(type) {
@@ -174,7 +174,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, meta *model.NodeMet
 				return anypb.New(s)
 			})
 
-		rfCtx.StartChildSpan = true
+		rfCtx = &xdsfilters.RouterFilterContext{
+			StartChildSpan: true,
+		}
 
 	case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 		tracing, err = buildHCMTracingOpenCensus(providerCfg.Name, provider.Stackdriver.MaxTagLength, func() (*anypb.Any, error) {
