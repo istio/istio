@@ -3,4 +3,4 @@ kind: feature
 area: traffic-management
 releaseNotes:
   - |
-    **Added** a flag setting `updateInterval` in pilot and its default value is 500ms.
+    **Added** a flag setting `updateInterval` that is the interval duration when reporter updates status and its default value is 500ms.
