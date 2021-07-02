@@ -21,7 +21,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -142,14 +141,14 @@ func DefaultRevisionExists(ctx context.Context, client kubernetes.Interface) (bo
 func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) error {
 	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
-	if kerrors.IsNotFound(err) {
-		// no revision with default, no action required.
-		return nil
-	}
 	if err != nil {
 		return err
 	}
-	if len(whs) == 0 || len(whs) > 1 {
+	if len(whs) == 0 {
+		// no revision with default, no action required.
+		return nil
+	}
+	if len(whs) > 1 {
 		return fmt.Errorf("expected a single webhook for default revision")
 	}
 	webhook := whs[0]
