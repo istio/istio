@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
-	"istio.io/api/label"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/pkg/kube"
 )
@@ -40,10 +39,9 @@ const (
 	IstioTagLabel       = "istio.io/tag"
 	DefaultRevisionName = "default"
 
-	pilotDiscoveryChart          = "istio-control/istio-discovery"
-	revisionTagTemplateName      = "revision-tags.yaml"
-	istioInjectionWebhookSuffix  = "sidecar-injector.istio.io"
-	istioValidationWebhookSuffix = "validation.istio.io"
+	pilotDiscoveryChart         = "istio-control/istio-discovery"
+	revisionTagTemplateName     = "revision-tags.yaml"
+	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -240,45 +238,6 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	found := false
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
-			found = true
-			caBundle = string(w.ClientConfig.CABundle)
-			if w.ClientConfig.URL != nil {
-				injectionURL = *w.ClientConfig.URL
-			} else {
-				injectionURL = ""
-			}
-			break
-		}
-	}
-	if !found {
-		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook")
-	}
-
-	return &tagWebhookConfig{
-		Tag:            tagName,
-		Revision:       rev,
-		URL:            injectionURL,
-		CABundle:       caBundle,
-		IstioNamespace: "istio-system",
-	}, nil
-}
-
-// tagWebhookConfigFromValidatingWebhook parses configuration needed for validating webhook configuration.
-func tagWebhookConfigFromValidatingWebhook(wh admit_v1.ValidatingWebhookConfiguration, tagName string) (*tagWebhookConfig, error) {
-	rev, ok := wh.ObjectMeta.Labels[label.IoIstioRev.Name]
-	if !ok {
-		return nil, fmt.Errorf("could not extract revision from webhook")
-	}
-	// if the revision is "default", render templates with an empty revision
-	if rev == DefaultRevisionName {
-		rev = ""
-	}
-
-	var injectionURL string
-	var caBundle string
-	found := false
-	for _, w := range wh.Webhooks {
-		if strings.HasSuffix(w.Name, istioValidationWebhookSuffix) {
 			found = true
 			caBundle = string(w.ClientConfig.CABundle)
 			if w.ClientConfig.URL != nil {
