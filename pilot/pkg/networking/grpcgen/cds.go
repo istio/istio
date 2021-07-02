@@ -24,15 +24,17 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 )
 
 // BuildClusters handles a gRPC CDS request, used with the 'ApiListener' style of requests.
 // The main difference is that the request includes Resources to filter.
 func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
+	filter := newClusterFilter(names)
 	var clusters = make([]*clusterv3.Cluster, 0, len(names))
-	for _, defaultClusterName := range names {
-		builder, err := newClusterBuilder(node, push, defaultClusterName)
+	for defaultClusterName, subsetFilter := range filter {
+		builder, err := newClusterBuilder(node, push, defaultClusterName, subsetFilter)
 		if err != nil {
 			log.Warn(err)
 			continue
@@ -50,6 +52,21 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	return resp
 }
 
+// newClusterFilter builds a filtering map to determine which clusters need to be built.
+// gRPC will usually request each subset individually, regardless of if a previous response included it.
+func newClusterFilter(names []string) map[string]sets.Set {
+	filter := map[string]sets.Set{}
+	for _, name := range names {
+		dir, _, hn, p := model.ParseSubsetKey(name)
+		defaultKey := model.BuildSubsetKey(dir, "", hn, p)
+		if _, ok := filter[defaultKey]; !ok {
+			filter[defaultKey] = sets.NewSet()
+		}
+		filter[defaultKey].Insert(name)
+	}
+	return filter
+}
+
 // clusterBuilder is responsible for building a single default and subset clusters for a service
 // TODO re-use the v1alpha3.ClusterBuilder:
 // Most of the logic is similar, I think we can just share the code if we expose:
@@ -63,26 +80,21 @@ type clusterBuilder struct {
 	node *model.Proxy
 
 	// guaranteed to be set in init
-	name           string
-	defaultCluster *clusterv3.Cluster
-	hostname       host.Name
-	portNum        int
+	defaultClusterName   string
+	requestedClusterName string
+	hostname             host.Name
+	portNum              int
 
 	// may not be set
-	svc  *model.Service
-	port *model.Port
+	svc    *model.Service
+	port   *model.Port
+	filter sets.Set
 }
 
-func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultClusterName string) (*clusterBuilder, error) {
+func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultClusterName string, filter sets.Set) (*clusterBuilder, error) {
 	_, _, hostname, portNum := model.ParseSubsetKey(defaultClusterName)
 	if hostname == "" || portNum == 0 {
 		return nil, fmt.Errorf("failed parsing subset key: %s", defaultClusterName)
-	}
-
-	defaultCluster := edsCluster(defaultClusterName)
-	if defaultCluster == nil {
-		// should never happen
-		return nil, fmt.Errorf("failed building default cluster %s", defaultClusterName)
 	}
 
 	// try to resolve the service and port
@@ -99,20 +111,40 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 	}
 
 	return &clusterBuilder{
-		node:           node,
-		push:           push,
-		hostname:       hostname,
-		portNum:        portNum,
-		defaultCluster: defaultCluster,
-		svc:            svc,
-		port:           port,
+		node: node,
+		push: push,
+
+		defaultClusterName: defaultClusterName,
+		hostname:           hostname,
+		portNum:            portNum,
+		filter:             filter,
+
+		svc:  svc,
+		port: port,
 	}, nil
 }
 
+// subsetFilter returns the requestedClusterName if it isn't the default cluster
+// for subset clusters, gRPC may request them individually
+func (b *clusterBuilder) subsetFilter() string {
+	if b.defaultClusterName == b.requestedClusterName {
+		return ""
+	}
+	return b.requestedClusterName
+}
+
 func (b *clusterBuilder) build() []*clusterv3.Cluster {
-	subsetClusters := b.applyDestinationRule()
+	var defaultCluster *clusterv3.Cluster
+	if b.filter.Contains(b.defaultClusterName) {
+		defaultCluster = edsCluster(b.defaultClusterName)
+	}
+
+	subsetClusters := b.applyDestinationRule(defaultCluster)
 	out := make([]*clusterv3.Cluster, 0, 1+len(subsetClusters))
-	return append(append(out, b.defaultCluster), subsetClusters...)
+	if defaultCluster != nil {
+		out = append(out, defaultCluster)
+	}
+	return append(out, subsetClusters...)
 }
 
 // edsCluster creates a simple cluster to read endpoints from ads/eds.
@@ -133,8 +165,8 @@ func edsCluster(name string) *clusterv3.Cluster {
 
 // applyDestinationRule mutates the default cluster to reflect traffic policies, and returns a set of additional
 // subset clusters if specified by a destination rule
-func (b *clusterBuilder) applyDestinationRule() (subsetClusters []*clusterv3.Cluster) {
-	if b.svc != nil || b.port != nil {
+func (b *clusterBuilder) applyDestinationRule(defaultCluster *clusterv3.Cluster) (subsetClusters []*clusterv3.Cluster) {
+	if b.svc == nil || b.port == nil {
 		return nil
 	}
 
@@ -143,22 +175,32 @@ func (b *clusterBuilder) applyDestinationRule() (subsetClusters []*clusterv3.Clu
 	trafficPolicy := v1alpha3.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, b.port)
 
 	// setup default cluster
-	b.applyPolicy(b.defaultCluster, trafficPolicy)
+	b.applyPolicy(defaultCluster, trafficPolicy)
 
 	// subset clusters
 	if len(destinationRule.Subsets) > 0 {
 		subsetClusters = make([]*clusterv3.Cluster, 0, len(destinationRule.Subsets))
 		for _, subset := range destinationRule.Subsets {
-			c := edsCluster(subsetClusterKey(subset.Name, string(b.hostname), b.portNum))
+			subsetKey := subsetClusterKey(subset.Name, string(b.hostname), b.portNum)
+			if !b.filter.Contains(subsetKey) {
+				continue
+			}
+			c := edsCluster(subsetKey)
 			trafficPolicy := v1alpha3.MergeTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
 			b.applyPolicy(c, trafficPolicy)
+			subsetClusters = append(subsetClusters, c)
 		}
 	}
 
 	return
 }
 
+// applyPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.
 func (b *clusterBuilder) applyPolicy(c *clusterv3.Cluster, trafficPolicy *networking.TrafficPolicy) {
+	// cluster can be nil if it wasn't requested
+	if c == nil || trafficPolicy == nil {
+		return
+	}
 	b.applyTLS(c, trafficPolicy)
 	b.applyLoadBalancing(c, trafficPolicy)
 	// TODO status or log when unsupported features are included
