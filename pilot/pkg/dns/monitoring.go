@@ -35,9 +35,9 @@ var (
 	)
 
 	requestDuration = monitoring.NewDistribution(
-		"dns_upstream_request_time",
+		"dns_upstream_request_duration_seconds",
 		"Total time in seconds Istio takes to get DNS response from upstream.",
-		[]float64{.01, .1, 0.5, 1, 3, 5},
+		[]float64{.005, .001, 0.01, 0.1, 1, 5},
 	)
 )
 
