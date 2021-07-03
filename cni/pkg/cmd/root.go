@@ -38,7 +38,6 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
 
-		// TODO(bianpengyuan) consolidate repair config with install config.
 		// TODO(bianpengyuan) add log scope for install & repair.
 		var cfg *config.Config
 		if cfg, err = constructConfig(); err != nil {
@@ -48,7 +47,7 @@ var rootCmd = &cobra.Command{
 		log.Infof("CNI race repair configuration: \n%+v", cfg.RepairConfig)
 
 		// Start metrics server
-		monitoring.SetupMonitoring(":"+constants.MonitoringPort, "/metrics", ctx.Done())
+		monitoring.SetupMonitoring(cfg.InstallConfig.MonitoringPort, "/metrics", ctx.Done())
 
 		isReady := install.StartServer()
 
@@ -99,6 +98,7 @@ func init() {
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
 	registerStringArrayParameter(constants.SkipCNIBinaries, []string{}, "Binaries that should not be installed")
+	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve metrics")
 
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
@@ -176,6 +176,7 @@ func constructConfig() (*config.Config, error) {
 		CNIBinTargetDirs:  []string{constants.HostCNIBinDir, constants.SecondaryBinDir},
 		UpdateCNIBinaries: viper.GetBool(constants.UpdateCNIBinaries),
 		SkipCNIBinaries:   viper.GetStringSlice(constants.SkipCNIBinaries),
+		MonitoringPort:    viper.GetInt(constants.MonitoringPort),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {

@@ -30,6 +30,7 @@ const (
 	SkipTLSVerify        = "skip-tls-verify"
 	SkipCNIBinaries      = "skip-cni-binaries"
 	UpdateCNIBinaries    = "update-cni-binaries"
+	MonitoringPort       = "monitoring-port"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"
@@ -59,5 +60,4 @@ var (
 	LivenessEndpoint  = "/healthz"
 	ReadinessEndpoint = "/readyz"
 	Port              = "8000"
-	MonitoringPort    = "15014"
 )

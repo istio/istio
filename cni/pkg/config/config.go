@@ -69,6 +69,9 @@ type InstallConfig struct {
 
 	// The names of binaries to skip when copying
 	SkipCNIBinaries []string
+
+	// The HTTP port for monitoring
+	MonitoringPort int
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -126,6 +129,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
 	b.WriteString("UpdateCNIBinaries: " + fmt.Sprint(c.UpdateCNIBinaries) + "\n")
 	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
+	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
 	return b.String()
 }
 
