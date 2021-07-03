@@ -40,6 +40,10 @@ const (
 	// for integration tests
 	IntegrationTestDefaultsIOP = "tests/integration/iop-integration-test-defaults.yaml"
 
+	// IntegrationTestDefaultsIOPWithQUIC is the path of the default IstioOperator spec to
+	// use for integration tests involving QUIC
+	IntegrationTestDefaultsIOPWithQUIC = "tests/integration/iop-integration-test-defaults-with-quic.yaml"
+
 	// IntegrationTestRemoteDefaultsIOP is the path of the default IstioOperator spec to use
 	// on remote clusters for integration tests
 	IntegrationTestRemoteDefaultsIOP = "tests/integration/iop-remote-integration-test-defaults.yaml"

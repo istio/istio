@@ -529,6 +529,9 @@ var (
 		true,
 		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
 	).Get()
+
+	EnableQUICListeners = env.RegisterBoolVar("PILOT_ENABLE_QUIC_LISTENERS", false,
+		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

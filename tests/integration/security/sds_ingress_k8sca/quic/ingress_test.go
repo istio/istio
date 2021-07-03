@@ -1,6 +1,4 @@
-//go:build integ
 // +build integ
-
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +13,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package sdsingressk8sca
+package quic
 
 import (
 	"testing"
@@ -58,26 +56,43 @@ values:
     pilotCertProvider: kubernetes
 `
 	cfg.DeployEastWestGW = false
+	cfg.PrimaryClusterIOPFile = istio.IntegrationTestDefaultsIOPWithQUIC
 }
 
-func TestMtlsGatewaysK8sca(t *testing.T) {
+func TestTlsGatewaysK8scaWithQUIC(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.mtls.gateway").
+		Features("security.ingress.quic.sds-k8sca.tls").
 		Run(func(t framework.TestContext) {
+			for _, cluster := range t.Clusters() {
+				if !cluster.MinKubeVersion(20) {
+					t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.21")
+				}
+			}
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				util.RunTestMultiMtlsGateways(t, inst, apps)
+				util.RunTestMultiTLSGateways(t, inst, apps)
+			})
+			t.NewSubTest("quic").Run(func(t framework.TestContext) {
+				util.RunTestMultiQUICGateways(t, inst, util.TLS, apps)
 			})
 		})
 }
 
-func TestTlsGatewaysK8sca(t *testing.T) {
+func TestMtlsGatewaysK8scaWithQUIC(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.tls.gateway.K8sca").
+		Features("security.ingress.quic.sds-k8sca.mtls").
 		Run(func(t framework.TestContext) {
+			for _, cluster := range t.Clusters() {
+				if !cluster.MinKubeVersion(20) {
+					t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.21")
+				}
+			}
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				util.RunTestMultiTLSGateways(t, inst, apps)
+				util.RunTestMultiMtlsGateways(t, inst, apps)
+			})
+			t.NewSubTest("quic").Run(func(t framework.TestContext) {
+				util.RunTestMultiQUICGateways(t, inst, util.Mtls, apps)
 			})
 		})
 }

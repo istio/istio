@@ -322,7 +322,9 @@ func TestTlsGateways(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.tls.gateway.valid-secret").
 		Run(func(t framework.TestContext) {
-			ingressutil.RunTestMultiTLSGateways(t, inst, apps)
+			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
+				ingressutil.RunTestMultiTLSGateways(t, inst, apps)
+			})
 		})
 }
 
@@ -334,7 +336,9 @@ func TestMtlsGateways(t *testing.T) {
 		NewTest(t).
 		Features("security.ingress.mtls.gateway").
 		Run(func(t framework.TestContext) {
-			ingressutil.RunTestMultiMtlsGateways(t, inst, apps)
+			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
+				ingressutil.RunTestMultiMtlsGateways(t, inst, apps)
+			})
 		})
 }
 
@@ -367,7 +371,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
 						//  Need a more accurate way to verify the request failures.
 						// https://github.com/istio/istio/issues/16998
-						ErrorMessage: "",
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -383,8 +387,8 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "",
+						ResponseCode:                 0,
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -400,8 +404,8 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "",
+						ResponseCode:                 0,
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -416,8 +420,8 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret4.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "",
+						ResponseCode:                 0,
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -432,8 +436,8 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret5.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "",
+						ResponseCode:                 0,
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -463,8 +467,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 							ingressutil.CreateIngressKubeSecret(t, c.secretName, ingressutil.TLS,
 								c.ingressGatewayCredential, false)
 
-							ingressutil.SendRequestOrFail(t, ing, c.hostName, c.secretName, c.callType, c.tlsContext,
-								c.expectedResponse)
+							ingressutil.SendRequestOrFail(t, ing, c.hostName, c.secretName, c.callType, c.tlsContext, c.expectedResponse)
 						})
 					})
 			}
@@ -501,7 +504,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
 						//  Need a more accurate way to verify the request failures.
 						// https://github.com/istio/istio/issues/16998
-						ErrorMessage: "",
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.Mtls,
 					tlsContext: ingressutil.TLSContext{
@@ -519,8 +522,8 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "",
+						ResponseCode:                 0,
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.Mtls,
 					tlsContext: ingressutil.TLSContext{
@@ -539,8 +542,8 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						ResponseCode: 0,
-						ErrorMessage: "",
+						ResponseCode:                 0,
+						SkipErrorMessageVerification: true,
 					},
 					callType: ingressutil.Mtls,
 					tlsContext: ingressutil.TLSContext{
@@ -572,8 +575,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 							ingressutil.CreateIngressKubeSecret(t, c.secretName, ingressutil.Mtls,
 								c.ingressGatewayCredential, false)
 
-							ingressutil.SendRequestOrFail(t, ing, c.hostName, c.secretName, c.callType, c.tlsContext,
-								c.expectedResponse)
+							ingressutil.SendRequestOrFail(t, ing, c.hostName, c.secretName, c.callType, c.tlsContext, c.expectedResponse)
 						})
 					})
 			}
