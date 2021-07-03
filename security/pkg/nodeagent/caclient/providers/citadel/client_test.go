@@ -356,3 +356,46 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 		})
 	}
 }
+
+func TestCertExpired(t *testing.T) {
+	s := grpc.NewServer()
+	defer s.Stop()
+	lis, err := net.Listen("tcp", mockServerAddress)
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	go func() {
+		pb.RegisterIstioCertificateServiceServer(s, &mockTokenCAServer{Certs: []string{}})
+		if err := s.Serve(lis); err != nil {
+			t.Logf("failed to serve: %v", err)
+		}
+	}()
+
+	opts := &security.Options{CAEndpoint: lis.Addr().String(), ClusterID: "Kubernetes", CredFetcher: plugin.CreateMockPlugin(validToken)}
+	cli, err := NewCitadelClient(opts, false, nil)
+
+	testCases := map[string]struct {
+		filepath string
+		expected bool
+	} {
+		"Expired Cert": {
+			filepath: "testdata/expired-cert",
+			expected: true,
+		},
+		"Not Expired Cert" : {
+			filepath: "testdata/notexpired-cert",
+			expected: true,
+		},
+	}
+	for id, tc := range testCases {
+		t.Run(id, func(t *testing.T) {
+			certExpired, err := cli.isCertExpired(tc.filepath)
+			if err != nil {
+				t.Fatalf("failed to check the cert")
+			}
+			if certExpired != tc.expected {
+				t.Errorf("isCertExpired: get %v, want %v", certExpired, tc.expected)
+			}
+		})
+	}
+}
