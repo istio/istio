@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -74,7 +75,7 @@ func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...stri
 	return externalCommand.Run()
 }
 
-func (r *RealDependencies) executeXTables(cmd string, redirectStdout bool, args ...string) error {
+func (r *RealDependencies) executeXTables(cmd string, redirectStdout bool, args ...string) (err error) {
 	log.Infof("%s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	externalCommand.Stdout = os.Stdout
@@ -85,7 +86,27 @@ func (r *RealDependencies) executeXTables(cmd string, redirectStdout bool, args 
 		externalCommand.Stderr = &stderr
 	}
 
-	err := externalCommand.Run()
+	for i := 0; i < 10; i++ {
+		stderr.Reset()
+		err = externalCommand.Run()
+		exitCode, ok := getExitCode(err)
+		if !ok {
+			// cannot get exit code. consider this as non-retriable.
+			break
+		}
+
+		if !isXTablesLockError(stderr, exitCode) {
+			// Command succeeded, or failed not because of xtables lock.
+			break
+		}
+
+		// If command failed because xtables was locked, try the command again.
+		// Note we retry invoking iptables command explicitly instead of using the `-w` option of iptables,
+		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
+		time.Sleep(100 * time.Millisecond)
+		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
+	}
+
 	// TODO Check naming and redirection logic
 	if err != nil && !redirectStdout {
 		stderrStr := stderr.String()
@@ -121,6 +142,37 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 	}
 
 	return stderr
+}
+
+func isXTablesLockError(stderr bytes.Buffer, exitcode int) bool {
+	// xtables lock acquire failure maps to resource problem exit code.
+	// https://git.netfilter.org/iptables/tree/iptables/iptables.c?h=v1.6.0#n1769
+	if exitcode != int(XTablesResourceProblem) {
+		return false
+	}
+
+	// check stderr output and see if there is `xtables lock` in it.
+	// https://git.netfilter.org/iptables/tree/iptables/iptables.c?h=v1.6.0#n1763
+	if strings.Contains(stderr.String(), "xtables lock") {
+		return true
+	}
+
+	return false
+}
+
+func getExitCode(err error) (int, bool) {
+	if err == nil {
+		return 0, false
+	}
+
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		// Not common, but can happen if file not found error, etc
+		return 0, false
+	}
+
+	exitcode := ee.ExitCode()
+	return exitcode, true
 }
 
 // RunOrFail runs a command and exits with an error message, if it fails
