@@ -148,6 +148,17 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 	return c.remoteClusters[secretKey][clusterID]
 }
 
+// Get existing clusters registered for the given secret
+func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
+	c.RLock()
+	defer c.RUnlock()
+	out := make([]*Cluster, 0, len(c.remoteClusters[secretKey]))
+	for _, cluster := range c.remoteClusters[secretKey] {
+		out = append(out, cluster)
+	}
+	return out
+}
+
 func (c *ClusterStore) Len() int {
 	c.Lock()
 	defer c.Unlock()
@@ -349,7 +360,7 @@ func (c *Controller) processItem(se secretEvent) error {
 		c.initialSync.Store(true)
 		return nil
 	}
-	log.Debugf("processing secret event %s for secret %s", se.event.String(), se.key)
+	log.Infof("processing secret event %s for secret %s", se.event.String(), se.key)
 	if se.event == model.EventAdd || se.event == model.EventUpdate {
 		obj, exists, err := c.informer.GetIndexer().GetByKey(se.key)
 		if err != nil {
@@ -413,7 +424,12 @@ func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*
 
 func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	// First delete clusters
-	c.deleteSecret(secretKey)
+	existingClusters := c.cs.GetExistingClustersFor(secretKey)
+	for _, existingCluster := range existingClusters {
+		if _, ok := s.Data[existingCluster.clusterID]; !ok {
+			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.clusterID))
+		}
+	}
 
 	for clusterID, kubeConfig := range s.Data {
 		action, callback := "Adding", c.addCallback
@@ -462,4 +478,20 @@ func (c *Controller) deleteSecret(secretKey string) {
 		close(cluster.Stop)
 		delete(c.cs.remoteClusters, secretKey)
 	}
+}
+
+func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID) {
+	c.cs.Lock()
+	defer func() {
+		c.cs.Unlock()
+		log.Infof("Number of remote clusters: %d", c.cs.Len())
+	}()
+	log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
+	err := c.removeCallback(clusterID)
+	if err != nil {
+		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
+			clusterID, secretKey, err)
+	}
+	close(c.cs.remoteClusters[secretKey][clusterID].Stop)
+	delete(c.cs.remoteClusters[secretKey], clusterID)
 }
