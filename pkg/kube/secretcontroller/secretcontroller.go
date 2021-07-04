@@ -281,7 +281,11 @@ func (c *Controller) hasSynced() bool {
 
 func (c *Controller) HasSynced() bool {
 	synced := c.hasSynced()
-	if !synced && c.remoteSyncTimeout.Load() {
+	if synced {
+		log.Info("all remote clusters have been synced")
+		return true
+	}
+	if c.remoteSyncTimeout.Load() {
 		c.once.Do(func() {
 			log.Errorf("remote clusters failed to sync after %v", features.RemoteClusterTimeout)
 			timeouts.Increment()
@@ -316,11 +320,11 @@ func (c *Controller) runWorker() {
 
 func (c *Controller) processNextItem() bool {
 	event, quit := c.queue.Get()
-	log.Infof("secret controller got event %s from queue for secret %s", event.(secretEvent).event, event.(secretEvent).key)
 	if quit {
 		log.Info("secret controller queue is shutting down, so returning")
 		return false
 	}
+	log.Infof("secret controller got event %s from queue for secret %s", event.(secretEvent).event, event.(secretEvent).key)
 	defer c.queue.Done(event)
 
 	err := c.processItem(event.(secretEvent))
