@@ -120,6 +120,8 @@ func virtualServiceCases(skipVM bool) []TrafficTestCase {
 	})
 	var cases []TrafficTestCase
 	cases = append(cases,
+		// Retry conditions have been added to just validate that config is correct.
+		// Retries are not specifically tested.
 		TrafficTestCase{
 			name: "added header",
 			config: `
@@ -134,6 +136,11 @@ spec:
   - route:
     - destination:
         host: {{ .dstSvc }}
+	retries:
+      attempts: 3
+      perTryTimeout: 2s
+	  retryOn: gateway-error,connect-failure,refused-stream
+	  retryRemoteLocalities: true
     headers:
       request:
         add:
