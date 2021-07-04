@@ -695,7 +695,7 @@ func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgre
 	matchPort := needsPortMatch(ilw)
 	for _, importedHost := range importedHosts {
 		// Check if the hostnames match per usual hostname matching rules
-		if importedHost.Matches(service.Hostname) {
+		if service.Hostname.SubsetOf(importedHost) {
 			if matchPort {
 				return serviceMatchingListenerPort(service, ilw)
 			}
