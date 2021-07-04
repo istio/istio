@@ -192,7 +192,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	// Test - Verify that the remote controller has been removed.
 	verifyControllers(t, mc, 1, "delete remote controller")
 
-	// Delete the first mulicluster secret.
+	// Delete the second mulicluster secret.
 	err = deleteMultiClusterSecret(clientset, "test-secret-2")
 	if err != nil {
 		t.Fatalf("Unexpected error on secret delete: %v", err)
