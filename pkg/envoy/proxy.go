@@ -124,6 +124,13 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.ParentShutdownDuration) / time.Second)),
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
+		// Reduce default flush interval from 10s to 1s. The access log buffer size is 64k and each log is ~256 bytes
+		// This means access logs will be written once we have ~250 requests, or ever 1s, which ever comes first.
+		// Reducing this to 1s optimizes for UX while retaining performance.
+		// At low QPS access logs are unlikely a bottleneck, and these users will now see logs after 1s rather than 10s.
+		// At high QPS (>250 QPS) we will log the same amount as we will log due to exceeding buffer size, rather
+		// than the flush interval.
+		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 	}
 	if e.ProxyConfig.LogAsJSON {
