@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/monitoring"
 )
@@ -58,106 +59,81 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		})
 	}
 
-	type fields struct {
-		Filters *Filters
-		Options *Options
-	}
 	type args struct {
 		pod v1.Pod
 	}
 	tests := []struct {
 		name   string
-		fields fields
+		config config.RepairConfig
 		args   args
 		want   bool
 	}{
 		{
 			"Testing OK pod with only ExitCode check",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{pod: workingPod},
 			false,
 		},
 		{
 			"Testing working pod (that previously died) with only ExitCode check",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{pod: workingPodDiedPreviously},
 			false,
 		},
 		{
 			"Testing broken pod (in waiting state) with only ExitCode check",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{pod: brokenPodWaiting},
 			true,
 		},
 		{
 			"Testing broken pod (in terminating state) with only ExitCode check",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{pod: brokenPodTerminating},
 			true,
 		},
 		{
 			"Testing broken pod with wrong ExitCode",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 55,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      55,
 			},
 			args{pod: brokenPodWaiting},
 			false,
 		},
 		{
 			"Testing broken pod with no annotation (should be ignored)",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{pod: brokenPodNoAnnotation},
 			false,
 		},
 		{
 			"Check termination message match false",
-			fields{
-				&Filters{
-					SidecarAnnotation:               "sidecar.istio.io/status",
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerTerminationMessage: "Termination Message",
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation:  "sidecar.istio.io/status",
+				InitContainerName:  constants.ValidationContainerName,
+				InitTerminationMsg: "Termination Message",
 			},
 			args{
 				pod: *makeDetectPod(
@@ -169,13 +145,10 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		},
 		{
 			"Check termination message match true",
-			fields{
-				&Filters{
-					SidecarAnnotation:               "sidecar.istio.io/status",
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerTerminationMessage: "Termination Message",
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation:  "sidecar.istio.io/status",
+				InitContainerName:  constants.ValidationContainerName,
+				InitTerminationMsg: "Termination Message",
 			},
 			args{
 				pod: *makeDetectPod(
@@ -187,13 +160,10 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		},
 		{
 			"Check termination message match true for trailing and leading space",
-			fields{
-				&Filters{
-					SidecarAnnotation:               "sidecar.istio.io/status",
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerTerminationMessage: "            Termination Message",
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation:  "sidecar.istio.io/status",
+				InitContainerName:  constants.ValidationContainerName,
+				InitTerminationMsg: "            Termination Message",
 			},
 			args{
 				pod: *makeDetectPod(
@@ -205,13 +175,10 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		},
 		{
 			"Check termination code match false",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{
 				pod: *makeDetectPod(
@@ -223,13 +190,10 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		},
 		{
 			"Check termination code match true",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{
 				pod: *makeDetectPod(
@@ -241,13 +205,10 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 		},
 		{
 			"Check badly formatted pod",
-			fields{
-				&Filters{
-					SidecarAnnotation:     "sidecar.istio.io/status",
-					InitContainerName:     constants.ValidationContainerName,
-					InitContainerExitCode: 126,
-				},
-				&Options{},
+			config.RepairConfig{
+				SidecarAnnotation: "sidecar.istio.io/status",
+				InitContainerName: constants.ValidationContainerName,
+				InitExitCode:      126,
 			},
 			args{
 				pod: *makePod(makePodArgs{
@@ -262,9 +223,8 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bpr := brokenPodReconciler{
-				client:  fake.NewSimpleClientset(),
-				Filters: tt.fields.Filters,
-				Options: tt.fields.Options,
+				client: fake.NewSimpleClientset(),
+				cfg:    &tt.config,
 			}
 			if got := bpr.detectPod(tt.args.pod); got != tt.want {
 				t.Errorf("detectPod() = %v, want %v", got, tt.want)
@@ -279,9 +239,8 @@ func TestBrokenPodReconciler_detectPod(t *testing.T) {
 //  so we need to add that ourselves to complete the test.
 func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 	type fields struct {
-		client  kubernetes.Interface
-		Filters *Filters
-		Options *Options
+		client kubernetes.Interface
+		config config.RepairConfig
 	}
 	tests := []struct {
 		name     string
@@ -292,13 +251,12 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 			name: "No broken pods",
 			fields: fields{
 				client: fake.NewSimpleClientset(&workingPodDiedPreviously, &workingPod),
-				Filters: &Filters{
-					SidecarAnnotation:               "sidecar.istio.io/status",
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerTerminationMessage: "Died for some reason",
-					InitContainerExitCode:           126,
+				config: config.RepairConfig{
+					SidecarAnnotation:  "sidecar.istio.io/status",
+					InitContainerName:  constants.ValidationContainerName,
+					InitTerminationMsg: "Died for some reason",
+					InitExitCode:       126,
 				},
-				Options: &Options{},
 			},
 			wantList: v1.PodList{Items: []v1.Pod{}},
 		},
@@ -306,13 +264,12 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 			name: "With broken pods (including one with bad annotation)",
 			fields: fields{
 				client: fake.NewSimpleClientset(&workingPodDiedPreviously, &workingPod, &brokenPodWaiting, &brokenPodNoAnnotation, &brokenPodTerminating),
-				Filters: &Filters{
-					SidecarAnnotation:               "sidecar.istio.io/status",
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerTerminationMessage: "Died for some reason",
-					InitContainerExitCode:           126,
+				config: config.RepairConfig{
+					SidecarAnnotation:  "sidecar.istio.io/status",
+					InitContainerName:  constants.ValidationContainerName,
+					InitTerminationMsg: "Died for some reason",
+					InitExitCode:       126,
 				},
-				Options: &Options{},
 			},
 			wantList: v1.PodList{Items: []v1.Pod{brokenPodTerminating, brokenPodWaiting}},
 		},
@@ -320,14 +277,13 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 			name: "With Label Selector",
 			fields: fields{
 				client: fake.NewSimpleClientset(&workingPodDiedPreviously, &workingPod, &brokenPodWaiting, &brokenPodNoAnnotation, &brokenPodTerminating),
-				Filters: &Filters{
-					SidecarAnnotation:               "sidecar.istio.io/status",
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerTerminationMessage: "Died for some reason",
-					InitContainerExitCode:           126,
-					LabelSelectors:                  "testlabel=true",
+				config: config.RepairConfig{
+					SidecarAnnotation:  "sidecar.istio.io/status",
+					InitContainerName:  constants.ValidationContainerName,
+					InitTerminationMsg: "Died for some reason",
+					InitExitCode:       126,
+					LabelSelectors:     "testlabel=true",
 				},
-				Options: &Options{},
 			},
 			wantList: v1.PodList{Items: []v1.Pod{brokenPodTerminating}},
 		},
@@ -335,14 +291,13 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 			name: "With alternate sidecar annotation",
 			fields: fields{
 				client: fake.NewSimpleClientset(&workingPodDiedPreviously, &workingPod, &brokenPodWaiting, &brokenPodNoAnnotation, &brokenPodTerminating),
-				Filters: &Filters{
-					SidecarAnnotation:               "some.other.sidecar/annotation",
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerTerminationMessage: "Died for some reason",
-					InitContainerExitCode:           126,
-					LabelSelectors:                  "testlabel=true",
+				config: config.RepairConfig{
+					SidecarAnnotation:  "some.other.sidecar/annotation",
+					InitContainerName:  constants.ValidationContainerName,
+					InitTerminationMsg: "Died for some reason",
+					InitExitCode:       126,
+					LabelSelectors:     "testlabel=true",
 				},
-				Options: &Options{},
 			},
 			wantList: v1.PodList{Items: []v1.Pod{}},
 		},
@@ -350,9 +305,8 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bpr := brokenPodReconciler{
-				client:  tt.fields.client,
-				Filters: tt.fields.Filters,
-				Options: tt.fields.Options,
+				client: tt.fields.client,
+				cfg:    &tt.fields.config,
 			}
 			gotList, err := bpr.ListBrokenPods()
 			if err != nil {
@@ -371,15 +325,13 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 // Testing constructor
 func TestNewBrokenPodReconciler(t *testing.T) {
 	var (
-		client  = fake.NewSimpleClientset()
-		filter  = Filters{}
-		options = Options{}
+		client = fake.NewSimpleClientset()
+		cfg    = config.RepairConfig{}
 	)
 
 	type args struct {
-		client  kubernetes.Interface
-		filters *Filters
-		options *Options
+		client kubernetes.Interface
+		config config.RepairConfig
 	}
 	tests := []struct {
 		name    string
@@ -389,20 +341,18 @@ func TestNewBrokenPodReconciler(t *testing.T) {
 		{
 			name: "Constructor test",
 			args: args{
-				client:  client,
-				filters: &filter,
-				options: &options,
+				client: client,
+				config: cfg,
 			},
 			wantBpr: brokenPodReconciler{
-				client:  client,
-				Filters: &filter,
-				Options: &options,
+				client: client,
+				cfg:    &cfg,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotBpr := newBrokenPodReconciler(tt.args.client, tt.args.filters, tt.args.options)
+			gotBpr := newBrokenPodReconciler(tt.args.client, &tt.args.config)
 			if !reflect.DeepEqual(gotBpr, tt.wantBpr) {
 				t.Errorf("newBrokenPodReconciler() = %v, want %v", gotBpr, tt.wantBpr)
 			}
@@ -434,9 +384,8 @@ func makePodLabelMap(pods []v1.Pod) (podmap map[string]string) {
 
 func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 	type fields struct {
-		client  kubernetes.Interface
-		Filters *Filters
-		Options *Options
+		client kubernetes.Interface
+		config config.RepairConfig
 	}
 	tests := []struct {
 		name       string
@@ -450,12 +399,13 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			name: "No broken pods",
 			fields: fields{
 				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously),
-				Filters: &Filters{
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerExitCode:           126,
-					InitContainerTerminationMessage: "Died for some reason",
+				config: config.RepairConfig{
+					InitContainerName:  constants.ValidationContainerName,
+					InitExitCode:       126,
+					InitTerminationMsg: "Died for some reason",
+					LabelKey:           "testkey",
+					LabelValue:         "testval",
 				},
-				Options: &Options{PodLabelKey: "testkey", PodLabelValue: "testval"},
 			},
 			wantLabels: map[string]string{"WorkingPod": "", "WorkingPodDiedPreviously": ""},
 			wantErr:    false,
@@ -465,12 +415,13 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			name: "With broken pods",
 			fields: fields{
 				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodWaiting),
-				Filters: &Filters{
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerExitCode:           126,
-					InitContainerTerminationMessage: "Died for some reason",
+				config: config.RepairConfig{
+					InitContainerName:  constants.ValidationContainerName,
+					InitExitCode:       126,
+					InitTerminationMsg: "Died for some reason",
+					LabelKey:           "testkey",
+					LabelValue:         "testval",
 				},
-				Options: &Options{PodLabelKey: "testkey", PodLabelValue: "testval"},
 			},
 			wantLabels: map[string]string{"WorkingPod": "", "WorkingPodDiedPreviously": "", "BrokenPodWaiting": "testkey=testval"},
 			wantErr:    false,
@@ -481,12 +432,13 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 			name: "With already labeled pod",
 			fields: fields{
 				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodTerminating),
-				Filters: &Filters{
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerExitCode:           126,
-					InitContainerTerminationMessage: "Died for some reason",
+				config: config.RepairConfig{
+					InitContainerName:  constants.ValidationContainerName,
+					InitExitCode:       126,
+					InitTerminationMsg: "Died for some reason",
+					LabelKey:           "testlabel",
+					LabelValue:         "true",
 				},
-				Options: &Options{PodLabelKey: "testlabel", PodLabelValue: "true"},
 			},
 			wantLabels: map[string]string{"WorkingPod": "", "WorkingPodDiedPreviously": "", "BrokenPodTerminating": "testlabel=true"},
 			wantErr:    false,
@@ -498,9 +450,8 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			exp := initStats(tt.name)
 			bpr := brokenPodReconciler{
-				client:  tt.fields.client,
-				Filters: tt.fields.Filters,
-				Options: tt.fields.Options,
+				client: tt.fields.client,
+				cfg:    &tt.fields.config,
 			}
 			if err := bpr.LabelBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("LabelBrokenPods() error = %v, wantErr %v", err, tt.wantErr)
@@ -523,9 +474,8 @@ func TestBrokenPodReconciler_labelBrokenPods(t *testing.T) {
 
 func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 	type fields struct {
-		client  kubernetes.Interface
-		Filters *Filters
-		Options *Options
+		client kubernetes.Interface
+		config config.RepairConfig
 	}
 	tests := []struct {
 		name      string
@@ -539,12 +489,11 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 			name: "No broken pods",
 			fields: fields{
 				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously),
-				Filters: &Filters{
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerExitCode:           126,
-					InitContainerTerminationMessage: "Died for some reason",
+				config: config.RepairConfig{
+					InitContainerName:  constants.ValidationContainerName,
+					InitExitCode:       126,
+					InitTerminationMsg: "Died for some reason",
 				},
-				Options: &Options{},
 			},
 			wantPods:  []v1.Pod{workingPod, workingPodDiedPreviously},
 			wantErr:   false,
@@ -554,12 +503,11 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 			name: "With broken pods",
 			fields: fields{
 				client: labelBrokenPodsClientset(workingPod, workingPodDiedPreviously, brokenPodWaiting),
-				Filters: &Filters{
-					InitContainerName:               constants.ValidationContainerName,
-					InitContainerExitCode:           126,
-					InitContainerTerminationMessage: "Died for some reason",
+				config: config.RepairConfig{
+					InitContainerName:  constants.ValidationContainerName,
+					InitExitCode:       126,
+					InitTerminationMsg: "Died for some reason",
 				},
-				Options: &Options{},
 			},
 			wantPods:  []v1.Pod{workingPod, workingPodDiedPreviously},
 			wantErr:   false,
@@ -571,9 +519,8 @@ func TestBrokenPodReconciler_deleteBrokenPods(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			exp := initStats(tt.name)
 			bpr := brokenPodReconciler{
-				client:  tt.fields.client,
-				Filters: tt.fields.Filters,
-				Options: tt.fields.Options,
+				client: tt.fields.client,
+				cfg:    &tt.fields.config,
 			}
 			if err := bpr.DeleteBrokenPods(); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteBrokenPods() error = %v, wantErr %v", err, tt.wantErr)

@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/log"
 )
 
 // XTablesExittype is the exit type of xtables commands.
@@ -63,7 +64,7 @@ var XTablesCmds = sets.NewSet(
 type RealDependencies struct{}
 
 func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...string) error {
-	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
+	log.Infof("%s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	externalCommand.Stdout = os.Stdout
 	// TODO Check naming and redirection logic
@@ -74,7 +75,7 @@ func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...stri
 }
 
 func (r *RealDependencies) executeXTables(cmd string, redirectStdout bool, args ...string) error {
-	fmt.Printf("%s %s\n", cmd, strings.Join(args, " "))
+	log.Infof("%s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	externalCommand.Stdout = os.Stdout
 
@@ -131,7 +132,7 @@ func (r *RealDependencies) RunOrFail(cmd string, args ...string) {
 		err = r.execute(cmd, false, args...)
 	}
 	if err != nil {
-		fmt.Printf("Failed to execute: %s %s, %v\n", cmd, strings.Join(args, " "), err)
+		log.Errorf("Failed to execute: %s %s, %v", cmd, strings.Join(args, " "), err)
 		os.Exit(-1)
 	}
 }

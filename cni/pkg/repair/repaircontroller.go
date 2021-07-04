@@ -54,12 +54,12 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 				fieldSelectors []string
 			)
 
-			for _, ls := range []string{options.LabelSelector, reconciler.Filters.LabelSelectors} {
+			for _, ls := range []string{options.LabelSelector, reconciler.cfg.LabelSelectors} {
 				if ls != "" {
 					labelSelectors = append(labelSelectors, ls)
 				}
 			}
-			for _, fs := range []string{options.FieldSelector, reconciler.Filters.FieldSelectors} {
+			for _, fs := range []string{options.FieldSelector, reconciler.cfg.FieldSelectors} {
 				if fs != "" {
 					fieldSelectors = append(fieldSelectors, fs)
 				}

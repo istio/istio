@@ -19,8 +19,13 @@ import (
 	"strings"
 )
 
-// Config struct defines the Istio CNI installation options
 type Config struct {
+	InstallConfig InstallConfig
+	RepairConfig  RepairConfig
+}
+
+// InstallConfig struct defines the Istio CNI installation options
+type InstallConfig struct {
 	// Location of the CNI config files in the host's filesystem
 	CNINetDir string
 	// Location of the CNI config files in the container's filesystem (mount location of the CNINetDir)
@@ -66,7 +71,41 @@ type Config struct {
 	SkipCNIBinaries []string
 }
 
-func (c *Config) String() string {
+// RepairConfig struct defines the Istio CNI race repair configuration
+type RepairConfig struct {
+	// Whether to enable CNI race repair
+	Enabled bool
+
+	// Whether to run CNI as a DaemonSet (i.e. continuously via k8s watch),
+	// or just one-off
+	RunAsDaemon bool
+
+	// The node name that the CNI DaemonSet runs on
+	NodeName string
+
+	// Key and value for broken pod label
+	LabelKey   string
+	LabelValue string
+
+	// Whether to fix race condition by delete broken pods
+	DeletePods bool
+
+	// Whether to label broken pods
+	LabelPods bool
+
+	// Filters for race repair, including name of sidecar annotation, name of init container,
+	// init container termination message and exit code.
+	SidecarAnnotation  string
+	InitContainerName  string
+	InitTerminationMsg string
+	InitExitCode       int
+
+	// Label and field selectors to select pods managed by race repair.
+	LabelSelectors string
+	FieldSelectors string
+}
+
+func (c InstallConfig) String() string {
 	var b strings.Builder
 	b.WriteString("CNINetDir: " + c.CNINetDir + "\n")
 	b.WriteString("MountedCNINetDir: " + c.MountedCNINetDir + "\n")
@@ -87,5 +126,23 @@ func (c *Config) String() string {
 	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
 	b.WriteString("UpdateCNIBinaries: " + fmt.Sprint(c.UpdateCNIBinaries) + "\n")
 	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
+	return b.String()
+}
+
+func (c RepairConfig) String() string {
+	var b strings.Builder
+	b.WriteString("Enabled: " + fmt.Sprint(c.Enabled) + "\n")
+	b.WriteString("RunAsDaemon: " + fmt.Sprint(c.RunAsDaemon) + "\n")
+	b.WriteString("NodeName: " + c.NodeName + "\n")
+	b.WriteString("LabelKey: " + c.LabelKey + "\n")
+	b.WriteString("LabelValue: " + c.LabelValue + "\n")
+	b.WriteString("DeletePods: " + fmt.Sprint(c.DeletePods) + "\n")
+	b.WriteString("LabelPods: " + fmt.Sprint(c.LabelPods) + "\n")
+	b.WriteString("SidecarAnnotation: " + c.SidecarAnnotation + "\n")
+	b.WriteString("InitContainerName: " + c.InitContainerName + "\n")
+	b.WriteString("InitTerminationMsg: " + c.InitTerminationMsg + "\n")
+	b.WriteString("InitExitCode: " + fmt.Sprint(c.InitExitCode) + "\n")
+	b.WriteString("LabelSelectors: " + c.LabelSelectors + "\n")
+	b.WriteString("FieldSelectors: " + c.FieldSelectors + "\n")
 	return b.String()
 }

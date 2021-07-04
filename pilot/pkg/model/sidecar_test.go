@@ -787,6 +787,25 @@ var (
 
 	services18 = []*Service{
 		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "*",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "*",
+			},
+		},
+	}
+
+	services19 = []*Service{
+		{
 			Hostname: "en.wikipedia.org",
 			Attributes: ServiceAttributes{
 				Name:      "en.wikipedia.org",
@@ -811,6 +830,25 @@ var (
 			},
 			Spec: &networking.VirtualService{
 				Hosts: []string{"virtualbar"},
+				Http: []*networking.HTTPRoute{
+					{
+						Mirror: &networking.Destination{Host: "foo.svc.cluster.local"},
+						Route:  []*networking.HTTPRouteDestination{{Destination: &networking.Destination{Host: "baz.svc.cluster.local"}}},
+					},
+				},
+			},
+		},
+	}
+
+	virtualServices2 = []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"virtualbar", "*"},
 				Http: []*networking.HTTPRoute{
 					{
 						Mirror: &networking.Destination{Host: "foo.svc.cluster.local"},
@@ -1252,6 +1290,54 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
+			"virtual-service-2-match-service",
+			configs11,
+			services18,
+			virtualServices2,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
+			"virtual-service-2-match-service-and-domain",
+			configs12,
+			services18,
+			virtualServices2,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
+			"virtual-service-2-match-all-services",
+			configs15,
+			services18,
+			virtualServices2,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
 			"sidecar-scope-with-illegal-host",
 			configs13,
 			services14,
@@ -1266,7 +1352,7 @@ func TestCreateSidecarScope(t *testing.T) {
 		{
 			"sidecar-scope-with-specific-host",
 			configs16,
-			services18,
+			services19,
 			nil,
 			[]*Service{
 				{
@@ -1277,7 +1363,7 @@ func TestCreateSidecarScope(t *testing.T) {
 		{
 			"sidecar-scope-with-wildcard-host",
 			configs17,
-			services18,
+			services19,
 			nil,
 			[]*Service{
 				{
@@ -1457,6 +1543,13 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			listenerHosts: map[string][]host.Name{"b": {wildcardService}},
 			services:      []*Service{serviceA8000},
 			expected:      []*Service{},
+			namespace:     "a",
+		},
+		{
+			name:          "multiple hosts selected same service",
+			listenerHosts: map[string][]host.Name{"a": {wildcardService}, "*": {wildcardService}},
+			services:      []*Service{serviceA8000},
+			expected:      []*Service{serviceA8000},
 			namespace:     "a",
 		},
 	}

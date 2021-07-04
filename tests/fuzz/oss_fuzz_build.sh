@@ -20,3 +20,8 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation fuzz_config_val
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseMeshNetworks fuzz_parse_mesh_networks
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateMeshConfig fuzz_validate_mesh_config
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
+
+
+# Create seed corpora:
+zip "${OUT}"/fuzz_analyzer_seed_corpus.zip "${SRC}"/istio/galley/pkg/config/analysis/analyzers/testdata/*.yaml

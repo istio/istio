@@ -74,7 +74,10 @@ func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 	return KubeJWTAuthenticatorType
 }
 
-const DefaultKubernetesAudience = "kubernetes.default.svc"
+var defaultAllowedKubernetesAudiences = map[string]bool{
+	"kubernetes.default.svc":               true,
+	"kubernetes.default.svc.cluster.local": true,
+}
 
 func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
 	targetJWT, err := security.ExtractRequestToken(req)
@@ -112,18 +115,18 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	// tolerate the unbound tokens.
 	if !util.IsK8SUnbound(targetJWT) || security.Require3PToken.Get() {
 		aud = security.TokenAudiences
-		if tokenAud, _ := util.ExtractJwtAud(targetJWT); len(tokenAud) == 1 && tokenAud[0] == DefaultKubernetesAudience {
+		if tokenAud, _ := util.ExtractJwtAud(targetJWT); len(tokenAud) == 1 && defaultAllowedKubernetesAudiences[tokenAud[0]] {
 			if a.jwtPolicy == jwt.PolicyFirstParty && !security.Require3PToken.Get() {
 				// For backwards compatibility, if first-party-jwt is used and they don't require 3p, allow it but warn
 				// This is intended to support first-party-jwt on Kubernetes 1.21+, where BoundServiceAccountTokenVolume
-				// became default and started setting an audience to DefaultKubernetesAudience.
+				// became default and started setting an audience to one of defaultAllowedKubernetesAudiences.
 				// Users should disable first-party-jwt, but we don't want to break them on upgrade
 				log.Warnf("Insecure first-party-jwt option used to validate token; use third-party-jwt")
 				aud = nil
 			} else {
-				log.Warnf("Received token with aud %q, but expected %q. BoundServiceAccountTokenVolume, "+
+				log.Warnf("Received token with aud %q, but expected one of %q. BoundServiceAccountTokenVolume, "+
 					"default in Kubernetes 1.21+, is not compatible with first-party-jwt",
-					DefaultKubernetesAudience, aud)
+					defaultAllowedKubernetesAudiences, aud)
 			}
 		}
 		// TODO: check the audience from token, no need to call

@@ -634,30 +634,45 @@ func (c *Controller) informersSynced() bool {
 func (c *Controller) SyncAll() error {
 	c.beginSync.Store(true)
 	var err *multierror.Error
+	err = multierror.Append(err, c.syncSystemNamespace())
+	err = multierror.Append(err, c.syncNodes())
+	err = multierror.Append(err, c.syncServices())
+	err = multierror.Append(err, c.syncPods())
+	err = multierror.Append(err, c.syncEndpoints())
 
+	return multierror.Flatten(err.ErrorOrNil())
+}
+
+func (c *Controller) syncSystemNamespace() error {
+	var err error
 	if c.nsLister != nil {
 		sysNs, _ := c.nsLister.Get(c.opts.SystemNamespace)
+		log.Debugf("initializing systemNamespace:%s", c.opts.SystemNamespace)
 		if sysNs != nil {
-			err = multierror.Append(err, c.onSystemNamespaceEvent(sysNs, model.EventAdd))
+			err = c.onSystemNamespaceEvent(sysNs, model.EventAdd)
 		}
 	}
+	return err
+}
 
+func (c *Controller) syncNodes() error {
+	var err *multierror.Error
 	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
+	return err.ErrorOrNil()
+}
 
+func (c *Controller) syncServices() error {
+	var err *multierror.Error
 	services := c.serviceInformer.GetIndexer().List()
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
 	}
-
-	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.syncEndpoints())
-
-	return multierror.Flatten(err.ErrorOrNil())
+	return err.ErrorOrNil()
 }
 
 func (c *Controller) syncPods() error {
