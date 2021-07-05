@@ -281,7 +281,7 @@ func BuildHTTPRoutesForVirtualService(
 			if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
 				tmp = append(tmp, r)
 				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
-				// As an optimization, we can just top sending any more routes here.
+				// As an optimization, we can just drop sending any more routes here.
 				if isCatchAllMatch(match) {
 					// only add the catch all route
 					out = append(out, r)
