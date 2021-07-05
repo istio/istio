@@ -366,10 +366,10 @@ func (c *Controller) processItem(se secretEvent) error {
 		return fmt.Errorf("error fetching object %s error: %v", se.key, err)
 	}
 	if exists {
-		log.Debugf("secret %s exists in informer, processing it", se.key)
+		log.Debugf("secret %s exists in informer cache, processing it", se.key)
 		c.addSecret(se.key, obj.(*corev1.Secret))
 	} else {
-		log.Debugf("secret %s does not exiss in informer, deleting it", se.key)
+		log.Debugf("secret %s does not exist in informer cache, deleting it", se.key)
 		c.deleteSecret(se.key)
 	}
 
