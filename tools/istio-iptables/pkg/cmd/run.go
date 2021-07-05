@@ -864,9 +864,9 @@ func (iptConfigurator *IptablesConfigurator) executeCommands() {
 		output, _ := iptConfigurator.ext.CmdOutput(constants.IPTABLESSAVE, "-t", constants.NAT)
 
 		// Skip execution of iptables-restore if it has already run before
-		// This ensures safe re-execution of init-containers
+		// This ensures safe re-execution of init containers
 		if strings.Contains(output, "ISTIO") {
-			fmt.Printf("ISTIO chain(s) already exist in the %s table of the %s", constants.NAT, constants.IPTABLES)
+			log.Infof("ISTIO chain(s) already exist in the %s table of the %s", constants.NAT, constants.IPTABLES)
 		} else {
 			// Execute iptables-restore
 			err := iptConfigurator.executeIptablesRestoreCommand(true)
@@ -879,9 +879,9 @@ func (iptConfigurator *IptablesConfigurator) executeCommands() {
 		// Get the standard output of the ip6tables-save command
 		output, _ = iptConfigurator.ext.CmdOutput(constants.IP6TABLESSAVE, "-t", constants.NAT)
 
-		// Skip execution of iptables6-restore for the same reason as IPv4 above
+		// Skip execution of ip6tables-restore for the same reason as IPv4 above
 		if strings.Contains(output, "ISTIO") && iptConfigurator.cfg.EnableInboundIPv6 {
-			fmt.Printf("ISTIO chain(s) already exist in the %s table of the %s", constants.NAT, constants.IP6TABLES)
+			log.Infof("ISTIO chain(s) already exist in the %s table of the %s", constants.NAT, constants.IP6TABLES)
 		} else {
 			// Execute ip6tables-restore
 			err := iptConfigurator.executeIptablesRestoreCommand(false)
