@@ -17,7 +17,6 @@ package bootstrap
 import (
 	"fmt"
 	"net/url"
-	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
@@ -287,7 +286,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.statusReporter = &status.Reporter{
-		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
+		UpdateInterval: features.UpdateInterval,
 		PodName:        args.PodName,
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {
