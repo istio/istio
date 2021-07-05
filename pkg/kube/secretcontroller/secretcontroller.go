@@ -367,10 +367,9 @@ func (c *Controller) processItem(se secretEvent) error {
 			return fmt.Errorf("error fetching object %s error: %v", se.key, err)
 		}
 		// For add and update events, we expect secret in informer cache.
-		// we should requeue the event for later processing.
+		// If it is not there it might be the case of it getting deleted and we are processing add/update event now.
 		if !exists {
-			log.Infof("secret %s does not exist in informer cache, requeuing it", se.key)
-			c.queue.Add(se)
+			log.Debugf("secret %s does not exist in informer cache, might have been deleted?", se.key)
 		}
 		log.Debugf("secret key %s exists in informer, adding/updating it", se.key)
 		c.addSecret(se.key, obj.(*corev1.Secret))

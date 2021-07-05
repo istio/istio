@@ -306,20 +306,6 @@ func TestCABundleChange(t *testing.T) {
 	_ = c.configStore.Update(webhookConfigAfterCAUpdate)
 }
 
-func TestMultipleControllers(t *testing.T) {
-	c1 := createTestController(t)
-	c2 := createTestController(t)
-	stop := make(chan struct{})
-	running := false
-	c1.Run(stop)
-	c2.Run(stop)
-	running = true
-	if !running {
-		t.Error("Both controllers are not running")
-	}
-	stop <- struct{}{}
-}
-
 func TestLoadCaCertPem(t *testing.T) {
 	cases := []struct {
 		name      string
