@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package namespaceConflict
+package namespaceconflict
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ var (
 
 func (a *Analyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "namespaceConflict.Analyzer",
+		Name:        "namespaceconflict.Analyzer",
 		Description: "Checks conditions related to conflicting namespace level resources",
 		Inputs: collection.Names{
 			peerAuthCollection,
