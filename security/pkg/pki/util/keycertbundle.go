@@ -204,6 +204,35 @@ func (b *KeyCertBundle) CertOptions() (*CertOptions, error) {
 	return opts, nil
 }
 
+// UpdateVerifiedKeyCertBundleFromFile Verifies and updates KeyCertBundle with new certs
+func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) error {
+	certBytes, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return err
+	}
+	privKeyBytes, err := ioutil.ReadFile(privKeyFile)
+	if err != nil {
+		return err
+	}
+	certChainBytes := []byte{}
+	if len(certChainFile) != 0 {
+		if certChainBytes, err = ioutil.ReadFile(certChainFile); err != nil {
+			return err
+		}
+	}
+	rootCertBytes, err := ioutil.ReadFile(rootCertFile)
+	if err != nil {
+		return err
+	}
+
+	err = b.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ExtractRootCertExpiryTimestamp returns the unix timestamp when the root becomes expires.
 func (b *KeyCertBundle) ExtractRootCertExpiryTimestamp() (float64, error) {
 	return extractCertExpiryTimestamp("root cert", b.GetRootCertPem())

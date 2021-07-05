@@ -486,6 +486,12 @@ var (
 	// New behavior (true): we create listener 0.0.0.0_8080 and route http.8080. This has no conflicts; routes are 1:1 with listener.
 	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
 		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
+
+	AutoReloadPluginCerts = env.RegisterBoolVar(
+		"PILOT_AUTO_RELOAD_PLUGIN_CERTS",
+		false,
+		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
+			"Istiod picks newly added intermediate plug-in CA certs and updates it").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
