@@ -361,19 +361,15 @@ func (c *Controller) processItem(se secretEvent) error {
 		return nil
 	}
 	log.Infof("processing secret event %s for secret %s", se.event.String(), se.key)
-	if se.event == model.EventAdd || se.event == model.EventUpdate {
-		obj, exists, err := c.informer.GetIndexer().GetByKey(se.key)
-		if err != nil {
-			return fmt.Errorf("error fetching object %s error: %v", se.key, err)
-		}
-		// For add and update events, we expect secret in informer cache.
-		// If it is not there it might be the case of it getting deleted and we are processing add/update event now.
-		if !exists {
-			log.Debugf("secret %s does not exist in informer cache, might have been deleted?", se.key)
-		}
-		log.Debugf("secret key %s exists in informer, adding/updating it", se.key)
+	obj, exists, err := c.informer.GetIndexer().GetByKey(se.key)
+	if err != nil {
+		return fmt.Errorf("error fetching object %s error: %v", se.key, err)
+	}
+	if exists {
+		log.Debugf("secret %s exists in informer, processing it", se.key)
 		c.addSecret(se.key, obj.(*corev1.Secret))
 	} else {
+		log.Debugf("secret %s does not exiss in informer, deleting it", se.key)
 		c.deleteSecret(se.key)
 	}
 
