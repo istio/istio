@@ -23,5 +23,5 @@ const (
 	// Kubernetes is a service registry backed by k8s API server
 	Kubernetes ProviderID = "Kubernetes"
 	// External is a service registry for externally provided ServiceEntries
-	External = "External"
+	External ProviderID = "External"
 )

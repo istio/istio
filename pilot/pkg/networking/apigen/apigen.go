@@ -142,7 +142,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		svcs := push.Services(proxy)
 		for _, s := range svcs {
 			// Ignore services that are result of conversion from ServiceEntry.
-			if s.Attributes.ServiceRegistry == serviceregistry.External {
+			if s.Attributes.ServiceRegistry == string(serviceregistry.External) {
 				continue
 			}
 			c := serviceentry.ServiceToServiceEntry(s)

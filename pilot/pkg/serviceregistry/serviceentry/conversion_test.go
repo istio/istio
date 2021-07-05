@@ -426,7 +426,7 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		Resolution:      resolution,
 		ServiceAccounts: serviceAccounts,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: serviceregistry.External,
+			ServiceRegistry: string(serviceregistry.External),
 			Name:            string(hostname),
 			Namespace:       configNamespace,
 		},

@@ -401,11 +401,11 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 
 	extSvc := buildServiceWithPort("example1.com", 9999, protocol.TCP, tnow)
 	extSvc.Resolution = model.Passthrough
-	extSvc.Attributes.ServiceRegistry = serviceregistry.External
+	extSvc.Attributes.ServiceRegistry = string(serviceregistry.External)
 
 	extSvcSelector := buildServiceWithPort("example2.com", 9999, protocol.TCP, tnow)
 	extSvcSelector.Resolution = model.Passthrough
-	extSvcSelector.Attributes.ServiceRegistry = serviceregistry.External
+	extSvcSelector.Attributes.ServiceRegistry = string(serviceregistry.External)
 	extSvcSelector.Attributes.LabelSelectors = map[string]string{"foo": "bar"}
 
 	tests := []struct {
