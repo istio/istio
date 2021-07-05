@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"istio.io/api/annotation"
@@ -368,26 +367,6 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 	if err := postProcessPod(mergedPod, *injectedPodData, req); err != nil {
 		return nil, fmt.Errorf("failed to process pod: %v", err)
 	}
-
-	for i, container := range req.pod.Spec.Containers {
-		if container.ReadinessProbe.Handler.TCPSocket != nil {
-			// What to do on multiple ports?
-			podPort := container.Ports[0].ContainerPort
-			mergedPod.Spec.Containers[i].ReadinessProbe = &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: fmt.Sprintf("/check/%d", podPort),
-						Port: intstr.IntOrString{
-							IntVal: 6666,
-						},
-					},
-				},
-			}
-		}
-	}
-
-	// Dirty Hack for local spike
-	mergedPod.Spec.Containers[1].Image = "docker.io/modulo11/proxyv2:modulo11"
 
 	patch, err := createPatch(mergedPod, originalPodSpec)
 	if err != nil {

@@ -18,10 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -92,23 +89,6 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 			log.Infof("Version %s", version.Info.String())
-
-			go func() {
-				log.Info("Initializing port check ...")
-				http.HandleFunc("/check/", func(w http.ResponseWriter, r *http.Request) {
-					// Hack, maybe use proper regex + length check?
-					port, _ := strconv.Atoi(strings.TrimPrefix(r.URL.Path, "/check/"))
-					conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-					if err != nil {
-						w.WriteHeader(404)
-					} else {
-						w.WriteHeader(200)
-						conn.Close()
-					}
-				})
-
-				http.ListenAndServe(":6666", nil)
-			}()
 
 			proxy, err := initProxy(args)
 			if err != nil {

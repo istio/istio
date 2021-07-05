@@ -18,6 +18,7 @@ package inject
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/gogo/protobuf/types"
@@ -61,9 +62,17 @@ func FindContainer(name string, containers []corev1.Container) *corev1.Container
 
 // convertAppProber returns an overwritten `Probe` for pilot agent to take over.
 func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
-	if probe == nil || probe.HTTPGet == nil {
-		return nil
+	if probe != nil && probe.HTTPGet != nil {
+		return convertAppProberHTTPGet(probe, newURL, statusPort)
+	} else if probe != nil && probe.TCPSocket != nil {
+		return convertAppProberTCPSocket(probe, newURL, statusPort)
 	}
+
+	return nil
+}
+
+// convertAppProberHTTPGet returns an overwritten `Probe` (HttpGet) for pilot agent to take over.
+func convertAppProberHTTPGet(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
 	p := probe.DeepCopy()
 	// Change the application container prober config.
 	p.HTTPGet.Port = intstr.FromInt(statusPort)
@@ -74,6 +83,18 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	if p.HTTPGet.Scheme == corev1.URISchemeHTTPS {
 		p.HTTPGet.Scheme = corev1.URISchemeHTTP
 	}
+	return p
+}
+
+// convertAppProberTCPSocket returns an overwritten `Probe` (TcpSocket) for pilot agent to take over.
+func convertAppProberTCPSocket(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
+	p := probe.DeepCopy()
+	// the sidecar intercepts all tcp connections, so we change it to a special HTTP probe
+	p.HTTPGet = &corev1.HTTPGetAction{}
+	p.HTTPGet.Port = intstr.FromInt(statusPort)
+	// the path contains the original port of the application
+	p.HTTPGet.Path = fmt.Sprintf("/tcp-probe/%d", p.TCPSocket.Port.IntValue())
+	p.TCPSocket = nil
 	return p
 }
 
