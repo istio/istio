@@ -389,7 +389,7 @@ func TestProxyStatus(t *testing.T) {
 				d := t.TempDir()
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
-				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
+				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				err = ioutil.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -446,7 +446,7 @@ func TestXdsProxyStatus(t *testing.T) {
 				d := t.TempDir()
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
-				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump", nil)
+				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				err = ioutil.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -526,7 +526,7 @@ func TestKubeInject(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			var output string
-			args := []string{"kube-inject", "-f", "testdata/hello.yaml", "--revision=" + t.Settings().Revision}
+			args := []string{"kube-inject", "-f", "testdata/hello.yaml", "--revision=" + t.Settings().Revisions.Default()}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			if !strings.Contains(output, "istio-proxy") {
 				t.Fatal("istio-proxy has not been injected")

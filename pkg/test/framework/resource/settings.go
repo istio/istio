@@ -74,12 +74,18 @@ type Settings struct {
 	// on the known environment names.
 	EnvironmentFactory EnvironmentFactory
 
+	// Deprecated: prefer to use `--istio.test.revisions=<revision name>`.
 	// The revision label on a namespace for injection webhook.
 	// If set to XXX, all the namespaces created with istio-injection=enabled will be replaced with istio.io/rev=XXX.
 	Revision string
 
 	// Skip VM related parts for all the tests.
 	SkipVM bool
+
+	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
+	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
+	// on different control plane versions.
+	Compatibility bool
 
 	// Revisions maps the Istio revisions that are available to each cluster to their corresponding versions.
 	// This flag must be used with --istio.test.kube.deploy=false with the versions pre-installed.
@@ -132,6 +138,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	result += fmt.Sprintf("Revision:          %v\n", s.Revision)
 	result += fmt.Sprintf("SkipVM:            %v\n", s.SkipVM)
+	result += fmt.Sprintf("Compatibility:     %v\n", s.Compatibility)
 	result += fmt.Sprintf("Revisions:         %v\n", s.Revisions.String())
 	return result
 }

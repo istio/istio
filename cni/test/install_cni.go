@@ -28,9 +28,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"istio.io/istio/cni/pkg/install-cni/cmd"
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/cni/pkg/cmd"
+	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
@@ -41,7 +41,7 @@ const (
 	cniConfSubDir    = "/testdata/pre/"
 	k8sSvcAcctSubDir = "/testdata/k8s_svcacct/"
 
-	defaultFileMode = 0644
+	defaultFileMode = 0o644
 
 	cniConfName          = "CNI_CONF_NAME"
 	chainedCNIPluginName = "CHAINED_CNI_PLUGIN"
@@ -147,7 +147,7 @@ func rmCNIConfig(cniConfigFilepath string, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 }

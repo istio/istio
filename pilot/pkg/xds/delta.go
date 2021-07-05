@@ -490,7 +490,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		debug := ""
 		if log.DebugEnabled() {
 			// Add additional information to logs when debug mode enabled.
-			debug = " nonce:" + resp.Nonce + " version:%" + resp.SystemVersionInfo
+			debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
 		}
 		log.Infof("%s: %s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, con.proxy.ID, len(res),
 			util.ByteCount(ResourceSize(res)), info, debug)

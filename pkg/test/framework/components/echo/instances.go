@@ -154,6 +154,13 @@ func IsHeadless() Matcher {
 	}
 }
 
+// IsProxylessGRPC matches instances that are Pods with a SidecarInjectTemplate annotation equal to grpc.
+func IsProxylessGRPC() Matcher {
+	return func(i Instance) bool {
+		return i.Config().IsProxylessGRPC()
+	}
+}
+
 // Match filters instances that matcher the given Matcher
 func (i Instances) Match(matches Matcher) Instances {
 	out := make(Instances, 0)

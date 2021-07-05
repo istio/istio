@@ -22,8 +22,10 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/kube"
@@ -51,7 +53,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 	}
 }
 
-func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *model.Service {
+func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
 	addr, external := constants.UnspecifiedIP, ""
 	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != coreV1.ClusterIPNone {
 		addr = svc.Spec.ClusterIP
@@ -105,7 +107,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		MeshExternal:    meshExternal,
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
-		ClusterVIPs:     map[string]string{clusterID: addr},
+		ClusterVIPs:     map[cluster.ID]string{clusterID: addr},
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: string(serviceregistry.Kubernetes),
 			Name:            svc.Name,
@@ -128,7 +130,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		for _, p := range svc.Spec.Ports {
 			portMap[uint32(p.Port)] = uint32(p.NodePort)
 		}
-		istioService.Attributes.ClusterExternalPorts = map[string]map[uint32]uint32{clusterID: portMap}
+		istioService.Attributes.ClusterExternalPorts = map[cluster.ID]map[uint32]uint32{clusterID: portMap}
 		// address mappings will be done elsewhere
 	case coreV1.ServiceTypeLoadBalancer:
 		if len(svc.Status.LoadBalancer.Ingress) > 0 {
@@ -146,14 +148,14 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 				}
 			}
 			if len(lbAddrs) > 0 {
-				istioService.Attributes.ClusterExternalAddresses = map[string][]string{clusterID: lbAddrs}
+				istioService.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{clusterID: lbAddrs}
 			}
 		}
 	}
 
 	for _, extIP := range svc.Spec.ExternalIPs {
 		if istioService.Attributes.ClusterExternalAddresses == nil {
-			istioService.Attributes.ClusterExternalAddresses = map[string][]string{}
+			istioService.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{}
 		}
 		istioService.Attributes.ClusterExternalAddresses[clusterID] = append(istioService.Attributes.ClusterExternalAddresses[clusterID], extIP)
 	}
@@ -166,15 +168,23 @@ func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
+
+	discoverabilityPolicy := model.AlwaysDiscoverable
+	if features.EnableMCSServiceDiscovery {
+		// MCS spec does not allow export of external name services.
+		// See https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#exporting-services.
+		discoverabilityPolicy = model.DiscoverableFromSameCluster
+	}
 	for _, portEntry := range svc.Ports {
 		out = append(out, &model.ServiceInstance{
 			Service:     svc,
 			ServicePort: portEntry,
 			Endpoint: &model.IstioEndpoint{
-				Address:         k8sSvc.Spec.ExternalName,
-				EndpointPort:    uint32(portEntry.Port),
-				ServicePortName: portEntry.Name,
-				Labels:          k8sSvc.Labels,
+				Address:               k8sSvc.Spec.ExternalName,
+				EndpointPort:          uint32(portEntry.Port),
+				ServicePortName:       portEntry.Name,
+				Labels:                k8sSvc.Labels,
+				DiscoverabilityPolicy: discoverabilityPolicy,
 			},
 		})
 	}

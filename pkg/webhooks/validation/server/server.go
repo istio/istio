@@ -120,23 +120,6 @@ func New(o Options) (*Webhook, error) {
 	return wh, nil
 }
 
-// Stop the server
-func (wh *Webhook) Stop() {
-}
-
-var readyHook = func() {}
-
-// Run implements the webhook server
-func (wh *Webhook) Run(stopCh <-chan struct{}) {
-	defer func() {
-		wh.Stop()
-	}()
-
-	if readyHook != nil {
-		readyHook()
-	}
-}
-
 func toAdmissionResponse(err error) *kube.AdmissionResponse {
 	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }

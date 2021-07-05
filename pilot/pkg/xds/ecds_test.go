@@ -30,7 +30,7 @@ func TestECDS(t *testing.T) {
 
 	ads := s.ConnectADS().WithType(v3.ExtensionConfigurationType)
 	wantExtensionConfigName := "extension-config"
-	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		Node: &corev3.Node{
 			Id: ads.ID,
 		},

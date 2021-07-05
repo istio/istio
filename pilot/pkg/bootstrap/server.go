@@ -56,6 +56,7 @@ import (
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -110,11 +111,10 @@ type readinessProbe func() (bool, error)
 type Server struct {
 	XDSServer *xds.DiscoveryServer
 
-	clusterID   string
+	clusterID   cluster.ID
 	environment *model.Environment
 
-	kubeRestConfig *rest.Config
-	kubeClient     kubelib.Client
+	kubeClient kubelib.Client
 
 	multicluster      *kubecontroller.Multicluster
 	secretsController *kubesecrets.Multicluster
@@ -171,6 +171,12 @@ type Server struct {
 	// duration used for graceful shutdown.
 	shutdownDuration time.Duration
 
+	// internalStop is closed when the server is shutdown. This should be avoided as much as possible, in
+	// favor of AddStartFunc. This is only required if we *must* start something outside of this process.
+	// For example, everything depends on mesh config, so we use it there rather than trying to sequence everything
+	// in AddStartFunc
+	internalStop chan struct{}
+
 	statusReporter *status.Reporter
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreCache
@@ -199,6 +205,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		workloadTrustBundle:     tb.NewTrustBundle(nil),
 		server:                  server.New(),
 		shutdownDuration:        args.ShutdownDuration,
+		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 	}
 	// Apply custom initialization functions.
@@ -215,6 +222,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	} else {
 		args.RegistryOptions.KubeOptions.EndpointMode = kubecontroller.EndpointsOnly
 	}
+
+	args.RegistryOptions.KubeOptions.EnableMCSServiceDiscovery = features.EnableMCSServiceDiscovery
 
 	prometheus.EnableHandlingTimeHistogram()
 
@@ -322,7 +331,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// The k8s JWT authenticator requires the multicluster registry to be initialized,
 	// so we build it later.
 	authenticators = append(authenticators,
-		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, features.JwtPolicy.Get()))
+		kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, features.JwtPolicy))
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
@@ -368,11 +377,11 @@ func initOIDC(args *PilotArgs, trustDomain string) (security.Authenticator, erro
 	return jwtAuthn, nil
 }
 
-func getClusterID(args *PilotArgs) string {
+func getClusterID(args *PilotArgs) cluster.ID {
 	clusterID := args.RegistryOptions.KubeOptions.ClusterID
 	if clusterID == "" {
 		if hasKubeRegistry(args.RegistryOptions.Registries) {
-			clusterID = string(serviceregistry.Kubernetes)
+			clusterID = cluster.ID(serviceregistry.Kubernetes)
 		}
 	}
 	return clusterID
@@ -532,6 +541,10 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 // This is determined by the presence of a kube registry, which
 // uses in-context k8s, or a config source of type k8s.
 func (s *Server) initKubeClient(args *PilotArgs) error {
+	if s.kubeClient != nil {
+		// Already initialized by startup arguments
+		return nil
+	}
 	hasK8SConfigStore := false
 	if args.RegistryOptions.FileDir == "" {
 		// If file dir is set - config controller will just use file.
@@ -554,9 +567,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	}
 
 	if hasK8SConfigStore || hasKubeRegistry(args.RegistryOptions.Registries) {
-		var err error
 		// Used by validation
-		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
+		kubeRestConfig, err := kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
 			config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
 			config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
 		})
@@ -564,7 +576,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(kubeRestConfig))
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}
@@ -650,6 +662,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 func (s *Server) waitForShutdown(stop <-chan struct{}) {
 	go func() {
 		<-stop
+		close(s.internalStop)
 		s.fileWatcher.Close()
 
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
@@ -792,23 +805,34 @@ func (s *Server) addTerminatingStartFunc(fn server.Component) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
+	start := time.Now()
+	log.Info("Waiting for caches to be synced")
 	if !cache.WaitForCacheSync(stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
+	log.Infof("All controller caches have been synced up in %v", time.Since(start))
+
 	// At this point, we know that all update events of the initial state-of-the-world have been
-	// received. Capture how many updates there are
-	expected := s.XDSServer.InboundUpdates.Load()
-	// Now, we wait to ensure we have committed at least this many updates. This avoids a race
+	// received. We wait to ensure we have committed at least this many updates. This avoids a race
 	// condition where we are marked ready prior to updating the push context, leading to incomplete
 	// pushes.
-	if !cache.WaitForCacheSync(stop, func() bool {
-		return s.XDSServer.CommittedUpdates.Load() >= expected
-	}) {
+	expected := s.XDSServer.InboundUpdates.Load()
+	if !cache.WaitForCacheSync(stop, func() bool { return s.pushContextReady(expected) }) {
 		log.Errorf("Failed waiting for push context initialization")
 		return false
 	}
 
+	return true
+}
+
+// pushContextReady indicates whether pushcontext has processed all inbound config updates.
+func (s *Server) pushContextReady(expected int64) bool {
+	committed := s.XDSServer.CommittedUpdates.Load()
+	if committed < expected {
+		log.Debugf("Waiting for pushcontext to process inbound updates, inbound: %v, committed : %v", expected, committed)
+		return false
+	}
 	return true
 }
 
@@ -915,17 +939,17 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 			return nil
 		}
 		err = s.initIstiodCertLoader()
-	} else if features.PilotCertProvider.Get() == constants.CertProviderNone {
+	} else if features.PilotCertProvider == constants.CertProviderNone {
 		return nil
-	} else if s.EnableCA() && features.PilotCertProvider.Get() == constants.CertProviderIstiod {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
-		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+	} else if s.EnableCA() && features.PilotCertProvider == constants.CertProviderIstiod {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost, args.Namespace)
 		if err == nil {
 			err = s.initIstiodCertLoader()
 		}
-	} else if features.PilotCertProvider.Get() == constants.CertProviderKubernetes {
-		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost.Get())
-		err = s.initDNSCerts(host, features.IstiodServiceCustomHost.Get(), args.Namespace)
+	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
+		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
+		err = s.initDNSCerts(host, features.IstiodServiceCustomHost, args.Namespace)
 		if err == nil {
 			err = s.initIstiodCertLoader()
 		}
@@ -1065,11 +1089,11 @@ func (s *Server) fetchCARoot() map[string]string {
 	}
 
 	// For Kubernetes CA, we don't distribute it; it is mounted in all pods by Kubernetes.
-	if features.PilotCertProvider.Get() == constants.CertProviderKubernetes {
+	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		return nil
 	}
 	// For no CA we don't distribute it either, as there is no cert
-	if features.PilotCertProvider.Get() == constants.CertProviderNone {
+	if features.PilotCertProvider == constants.CertProviderNone {
 		return nil
 	}
 
@@ -1119,7 +1143,7 @@ func (s *Server) addIstioCAToTrustBundle(args *PilotArgs) error {
 func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	var err error
 
-	if !features.MultiRootMesh.Get() {
+	if !features.MultiRootMesh {
 		return nil
 	}
 

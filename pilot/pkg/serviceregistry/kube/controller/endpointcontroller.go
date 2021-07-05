@@ -40,7 +40,7 @@ type kubeEndpointsController interface {
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
-	forgetEndpoint(endpoint interface{})
+	forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint
 	getServiceInfo(ep interface{}) (host.Name, string, string)
 }
 
@@ -67,8 +67,8 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
-				hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
-				c.xdsUpdater.ConfigUpdate(&model.PushRequest{
+				hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					Full: true,
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -91,7 +91,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, ns)
 	var endpoints []*model.IstioEndpoint
 	if event == model.EventDelete {
-		epc.forgetEndpoint(ep)
+		endpoints = epc.forgetEndpoint(ep)
 	} else {
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
@@ -109,7 +109,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		}
 	}
 
-	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, endpoints)
+	c.opts.XDSUpdater.EDSUpdate(string(c.Cluster()), string(host), ns, endpoints)
 }
 
 // getPod fetches a pod by name or IP address.
@@ -138,8 +138,8 @@ func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, ho
 	// This might happen because PodCache is eventually consistent.
 	log.Debugf("Endpoint without pod %s %s.%s", ip, ep.Name, ep.Namespace)
 	endpointsWithNoPods.Increment()
-	if c.metrics != nil {
-		c.metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
+	if c.opts.Metrics != nil {
+		c.opts.Metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
 	}
 	// Tell pod cache we want to queue the endpoint event when this pod arrives.
 	epkey := kube.KeyFunc(ep.Name, ep.Namespace)

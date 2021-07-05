@@ -20,9 +20,6 @@ COPY istio-cni /opt/cni/bin/
 COPY istio-iptables /opt/cni/bin/
 COPY install-cni /usr/local/bin/
 
-# Copy over the Repair binary
-COPY istio-cni-repair /opt/local/bin/
-
 # Copy over the Taint binary
 COPY istio-cni-taint /opt/local/bin/
 

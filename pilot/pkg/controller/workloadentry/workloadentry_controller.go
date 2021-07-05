@@ -550,7 +550,7 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 	}
 	p := []string{proxy.Metadata.AutoRegisterGroup, proxy.IPAddresses[0]}
 	if proxy.Metadata.Network != "" {
-		p = append(p, proxy.Metadata.Network)
+		p = append(p, string(proxy.Metadata.Network))
 	}
 
 	name := strings.Join(p, "-")
@@ -617,7 +617,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	}
 
 	if proxy.Metadata.Network != "" {
-		entry.Network = proxy.Metadata.Network
+		entry.Network = string(proxy.Metadata.Network)
 	}
 	if proxy.Locality != nil {
 		entry.Locality = util.LocalityToString(proxy.Locality)
@@ -663,5 +663,5 @@ func (c *Controller) handleErr(err error, key interface{}) {
 }
 
 func makeProxyKey(proxy *model.Proxy) string {
-	return proxy.Metadata.Network + proxy.IPAddresses[0]
+	return string(proxy.Metadata.Network) + proxy.IPAddresses[0]
 }

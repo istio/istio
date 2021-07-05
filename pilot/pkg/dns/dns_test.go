@@ -403,6 +403,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	}
 	go tcp.ListenAndServe()
 	<-up
+	t.Cleanup(func() { tcp.Shutdown() })
 	t.Cleanup(func() { server.Shutdown() })
 	tcp.Addr = server.PacketConn.LocalAddr().String()
 	return server.Addr

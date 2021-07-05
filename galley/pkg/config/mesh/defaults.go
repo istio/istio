@@ -22,8 +22,6 @@ import (
 // DefaultMeshConfig returns a default meshconfig.
 func DefaultMeshConfig() *v1alpha1.MeshConfig {
 	meshconfig := mesh.DefaultMeshConfig()
-	meshconfig.IngressClass = "istio"
-	meshconfig.IngressControllerMode = v1alpha1.MeshConfig_STRICT
 	return &meshconfig
 }
 

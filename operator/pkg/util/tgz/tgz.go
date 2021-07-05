@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -87,10 +88,19 @@ func Extract(gzipStream io.Reader, destination string) error {
 		dest := filepath.Join(destination, header.Name)
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(dest, 0755); err != nil {
-				return fmt.Errorf("mkdir: %v", err)
+			if _, err := os.Stat(dest); err != nil {
+				if err := os.Mkdir(dest, 0o755); err != nil {
+					return fmt.Errorf("mkdir: %v", err)
+				}
 			}
 		case tar.TypeReg:
+			// Create containing folder if not present
+			dir := path.Dir(dest)
+			if _, err := os.Stat(dir); err != nil {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					return err
+				}
+			}
 			outFile, err := os.Create(dest)
 			if err != nil {
 				return fmt.Errorf("create: %v", err)

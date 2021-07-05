@@ -61,6 +61,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--parent-shutdown-time-s", "60",
 		"--local-address-ip-version", "v4",
 		"--bootstrap-version", "3",
+		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart",
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n\t%v",
 		"-l", "trace",
@@ -73,4 +74,28 @@ func TestEnvoyArgs(t *testing.T) {
 	}
 }
 
-// TestEnvoyRun is no longer used - we are now using v2 bootstrap API.
+func TestSplitComponentLog(t *testing.T) {
+	cases := []struct {
+		input      string
+		log        string
+		components []string
+	}{
+		{"info", "info", nil},
+		// A bit odd, but istio logging behaves this way so might as well be consistent
+		{"info,warn", "warn", nil},
+		{"info,misc:warn", "info", []string{"misc:warn"}},
+		{"misc:warn,info", "info", []string{"misc:warn"}},
+		{"misc:warn,info,upstream:debug", "info", []string{"misc:warn", "upstream:debug"}},
+	}
+	for _, tt := range cases {
+		t.Run(tt.input, func(t *testing.T) {
+			l, c := splitComponentLog(tt.input)
+			if l != tt.log {
+				t.Errorf("expected log level %v, got %v", tt.log, l)
+			}
+			if !reflect.DeepEqual(c, tt.components) {
+				t.Errorf("expected component log level %v, got %v", tt.components, c)
+			}
+		})
+	}
+}

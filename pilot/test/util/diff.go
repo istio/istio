@@ -72,7 +72,7 @@ func CompareYAML(filename string, t *testing.T) {
 	goldenFile := filename + ".golden"
 	if Refresh() {
 		t.Logf("Refreshing golden file for %s", filename)
-		if err = ioutil.WriteFile(goldenFile, content, 0644); err != nil {
+		if err = ioutil.WriteFile(goldenFile, content, 0o644); err != nil {
 			t.Errorf(err.Error())
 		}
 	}
@@ -110,7 +110,7 @@ func StripVersion(yaml []byte) []byte {
 func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
-		if err := file.AtomicWrite(goldenFile, content, os.FileMode(0644)); err != nil {
+		if err := file.AtomicWrite(goldenFile, content, os.FileMode(0o644)); err != nil {
 			t.Errorf(err.Error())
 		}
 	}

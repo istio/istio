@@ -20,7 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"istio.io/istio/cni/pkg/install-cni/cmd"
+	"istio.io/istio/cni/pkg/cmd"
 	"istio.io/pkg/log"
 )
 

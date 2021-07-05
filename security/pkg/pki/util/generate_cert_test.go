@@ -75,7 +75,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 
 	rsaCaCertPem, rsaCaPrivPem, err := GenCertKeyFromOptions(rsaCaCertOptions)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// Options to generate a CA cert with EC.
@@ -95,7 +95,7 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 
 	ecCaCertPem, ecCaPrivPem, err := GenCertKeyFromOptions(ecCaCertOptions)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	fields := &VerifyFields{
@@ -108,31 +108,31 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 		Host:        host,
 	}
 	if VerifyCertificate(rsaCaPrivPem, rsaCaCertPem, rsaCaCertPem, fields) != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if VerifyCertificate(ecCaPrivPem, ecCaCertPem, ecCaCertPem, fields) != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	rsaCaCert, err := ParsePemEncodedCertificate(rsaCaCertPem)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	ecCaCert, err := ParsePemEncodedCertificate(ecCaCertPem)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	rsaCaPriv, err := ParsePemEncodedKey(rsaCaPrivPem)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	ecCaPriv, err := ParsePemEncodedKey(rsaCaPrivPem)
+	ecCaPriv, err := ParsePemEncodedKey(ecCaPrivPem)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	notBefore := now.Add(-5 * time.Minute)
@@ -560,7 +560,11 @@ func TestGenCertKeyFromOptions(t *testing.T) {
 
 			for _, host := range strings.Split(certOptions.Host, ",") {
 				c.verifyFields.Host = host
-				if err := VerifyCertificate(privPem, certPem, rsaCaCertPem, c.verifyFields); err != nil {
+				root := rsaCaCertPem
+				if c.certOptions.ECSigAlg != "" {
+					root = ecCaCertPem
+				}
+				if err := VerifyCertificate(privPem, certPem, root, c.verifyFields); err != nil {
 					t.Errorf("[%s] cert verification error: %v", id, err)
 				}
 			}

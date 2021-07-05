@@ -1,0 +1,28 @@
+{
+  "configs": [
+    {
+      "@type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
+      "bootstrap": {
+        "node": {
+          "metadata": {
+            "ISTIO_PROXY_SHA": "istio-proxy:436f365a8007cd8a13a9f1321e7cce94bcc8883e",
+            "ISTIO_VERSION": "1.10.0"
+          },
+          "userAgentBuildVersion": {
+            "version": {
+              "majorNumber": 1,
+              "minorNumber": 18,
+              "patch": 3
+            },
+            "metadata": {
+              "build.type": "RELEASE",
+              "revision.sha": "436f365a8007cd8a13a9f1321e7cce94bcc8883e",
+              "revision.status": "Clean",
+              "ssl.version": "BoringSSL"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -55,9 +55,9 @@ read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
     -e IN_BUILD_CONTAINER=1 \
     -e TZ="${TIMEZONE:-$TZ}" \
-    --mount "type=bind,source=${MOUNT_SOURCE},destination=/work,consistency=cached" \
-    --mount "type=volume,source=go,destination=/go,consistency=cached" \
-    --mount "type=volume,source=gocache,destination=/gocache,consistency=cached" \
-    --mount "type=volume,source=cache,destination=/home/.cache,consistency=cached" \
+    --mount "type=bind,source=${MOUNT_SOURCE},destination=/work" \
+    --mount "type=volume,source=go,destination=/go" \
+    --mount "type=volume,source=gocache,destination=/gocache" \
+    --mount "type=volume,source=cache,destination=/home/.cache" \
     ${CONDITIONAL_HOST_MOUNTS} \
     -w "${MOUNT_DEST}" "${IMG}" "$@"

@@ -111,7 +111,7 @@ func EnvoyGet(client kube.ExtendedClient, namespace, pod, url string, dryRun boo
 	task := fmt.Sprintf("ProxyGet %s/%s:%s", namespace, pod, url)
 	addRunningTask(task)
 	defer removeRunningTask(task)
-	out, err := client.EnvoyDo(context.TODO(), pod, namespace, "GET", url, nil)
+	out, err := client.EnvoyDo(context.TODO(), pod, namespace, "GET", url)
 	return string(out), err
 }
 

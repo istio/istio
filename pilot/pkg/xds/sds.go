@@ -42,10 +42,11 @@ type SecretResource struct {
 	Name         string
 	Namespace    string
 	ResourceName string
+	Cluster      string
 }
 
 func (sr SecretResource) Key() string {
-	return "sds://" + sr.ResourceName
+	return "sds://" + sr.Type + "/" + sr.Name + "/" + sr.Namespace + "/" + sr.Cluster
 }
 
 // DependentTypes is not needed; we know exactly which configs impact SDS, so we can scope at DependentConfigs level
@@ -63,7 +64,7 @@ func (sr SecretResource) Cacheable() bool {
 
 var _ model.XdsCacheEntry = SecretResource{}
 
-func parseResourceName(resource, defaultNamespace string) (SecretResource, error) {
+func parseResourceName(resource, defaultNamespace, cluster string) (SecretResource, error) {
 	sep := "/"
 	if strings.HasPrefix(resource, authnmodel.KubernetesSecretTypeURI) {
 		res := strings.TrimPrefix(resource, authnmodel.KubernetesSecretTypeURI)
@@ -74,7 +75,7 @@ func parseResourceName(resource, defaultNamespace string) (SecretResource, error
 			namespace = split[0]
 			name = split[1]
 		}
-		return SecretResource{Type: authnmodel.KubernetesSecretType, Name: name, Namespace: namespace, ResourceName: resource}, nil
+		return SecretResource{Type: authnmodel.KubernetesSecretType, Name: name, Namespace: namespace, ResourceName: resource, Cluster: cluster}, nil
 	}
 	return SecretResource{}, fmt.Errorf("unknown resource type: %v", resource)
 }
@@ -126,7 +127,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	results := model.Resources{}
 	cached, regenerated := 0, 0
 	for _, resource := range w.ResourceNames {
-		sr, err := parseResourceName(resource, proxy.ConfigNamespace)
+		sr, err := parseResourceName(resource, proxy.ConfigNamespace, string(proxy.Metadata.ClusterID))
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("error parsing resource name: %v", err)

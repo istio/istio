@@ -46,19 +46,39 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		return nil, err
 	}
 
-	if s.FailOnDeprecation && s.NoCleanup {
-		return nil,
-			fmt.Errorf("checking for deprecation occurs at cleanup level, thus flags -istio.test.nocleanup and" +
-				" -istio.test.deprecation_failure must not be used at the same time")
-	}
-
-	if s.Revision != "" && s.Revisions != nil {
-		return nil,
-			fmt.Errorf("cannot use --istio.test.revision and --istio.test.revisions at the same time," +
-				" --istio.test.revisions will take precedence and --istio.test.revision will be ignored")
+	if err = validate(s); err != nil {
+		return nil, err
 	}
 
 	return s, nil
+}
+
+// validate checks that user has not passed invalid flag combinations to test framework.
+func validate(s *Settings) error {
+	if s.FailOnDeprecation && s.NoCleanup {
+		return fmt.Errorf("checking for deprecation occurs at cleanup level, thus flags -istio.test.nocleanup and" +
+			" -istio.test.deprecation_failure must not be used at the same time")
+	}
+
+	if s.Revision != "" {
+		if s.Revisions != nil {
+			return fmt.Errorf("cannot use --istio.test.revision and --istio.test.revisions at the same time," +
+				" --istio.test.revisions will take precedence and --istio.test.revision will be ignored")
+		}
+		// use Revision as the sole revision in RevVerMap
+		s.Revisions = RevVerMap{
+			s.Revision: "",
+		}
+	} else if s.Revisions != nil {
+		// TODO(Monkeyanator) remove once existing jobs are migrated to use compatibility flag.
+		s.Compatibility = true
+	}
+
+	if s.Revisions == nil && s.Compatibility {
+		return fmt.Errorf("cannot use --istio.test.compatibility without setting --istio.test.revisions")
+	}
+
+	return nil
 }
 
 // init registers the command-line flags that we can exposed for "go test".
@@ -95,6 +115,9 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
 		"Skip VM related parts in all tests.")
+
+	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
+		"Transparently deploy echo instances pointing to each revision set in `Revisions`")
 
 	flag.Var(&settingsFromCommandLine.Revisions, "istio.test.revisions", "Istio CP revisions available to the test framework and their corresponding versions.")
 }

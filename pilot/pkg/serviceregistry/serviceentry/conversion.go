@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -142,8 +143,6 @@ func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
 
-	out := make([]*model.Service, 0)
-
 	var resolution model.Resolution
 	switch serviceEntry.Resolution {
 	case networking.ServiceEntry_NONE:
@@ -193,9 +192,8 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
-	out = append(out, buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)...)
-	return out
+	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
 func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
@@ -253,7 +251,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Address:         addr,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
-			Network:         endpoint.Network,
+			Network:         network.ID(endpoint.Network),
 			Locality: model.Locality{
 				Label: endpoint.Locality,
 			},
@@ -394,7 +392,7 @@ func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadIn
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			// Not setting ports here as its done by k8s controller
-			Network: we.Network,
+			Network: network.ID(we.Network),
 			Locality: model.Locality{
 				Label: we.Locality,
 			},

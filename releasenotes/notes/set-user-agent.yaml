@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 28231
+
+releaseNotes:
+- |
+  **Fixed** user-agent in all istio binaries to include version.
+  **Added** --vklog option to enable verbose logging in client-go.

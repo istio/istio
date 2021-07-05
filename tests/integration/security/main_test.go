@@ -75,7 +75,12 @@ meshConfig:
       service: %q
       port: 8000
       pathPrefix: "/check"
-      includeHeadersInCheck: ["x-ext-authz"]
+      headersToUpstreamOnAllow: ["x-ext-authz-*"]
+      headersToDownstreamOnDeny: ["x-ext-authz-*"]
+      includeRequestHeadersInCheck: ["x-ext-authz"]
+      includeAdditionalHeadersInCheck:
+        x-ext-authz-additional-header-new: additional-header-new-value
+        x-ext-authz-additional-header-override: additional-header-override-value
   - name: "ext-authz-grpc"
     envoyExtAuthzGrpc:
       service: %q
@@ -85,7 +90,12 @@ meshConfig:
       service: ext-authz-http.local
       port: 8000
       pathPrefix: "/check"
-      includeHeadersInCheck: ["x-ext-authz"]
+      headersToUpstreamOnAllow: ["x-ext-authz-*"]
+      headersToDownstreamOnDeny: ["x-ext-authz-*"]
+      includeRequestHeadersInCheck: ["x-ext-authz"]
+      includeAdditionalHeadersInCheck:
+        x-ext-authz-additional-header-new: additional-header-new-value
+        x-ext-authz-additional-header-override: additional-header-override-value
   - name: "ext-authz-grpc-local"
     envoyExtAuthzGrpc:
       service: ext-authz-grpc.local

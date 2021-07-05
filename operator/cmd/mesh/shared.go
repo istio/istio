@@ -24,12 +24,9 @@ import (
 	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -39,6 +36,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -123,7 +121,7 @@ func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernete
 		}
 		return testRestConfig, testK8Interface, nil
 	}
-	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
+	restConfig, err := kube.DefaultRestConfig(kubeconfig, kubeContext)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -133,48 +131,6 @@ func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernete
 	}
 
 	return restConfig, clientset, nil
-}
-
-func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {
-	config, err := BuildClientConfig(kubeconfig, kubeContext)
-	if err != nil {
-		return nil, err
-	}
-	config.APIPath = "/api"
-	config.GroupVersion = &v1.SchemeGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-	return config, nil
-}
-
-// BuildClientConfig is a helper function that builds client config from a kubeconfig filepath.
-// It overrides the current context with the one provided (empty to use default).
-//
-// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
-// difference that it loads default configs if not running in-cluster.
-func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
-	if kubeconfig != "" {
-		info, err := os.Stat(kubeconfig)
-		if err != nil || info.Size() == 0 {
-			// If the specified kubeconfig doesn't exists / empty file / any other error
-			// from file stat, fall back to default
-			kubeconfig = ""
-		}
-	}
-
-	// Config loading rules:
-	// 1. kubeconfig if it not empty string
-	// 2. In cluster config if running in-cluster
-	// 3. Config(s) in KUBECONFIG environment variable
-	// 4. Use $HOME/.kube/config
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
-	loadingRules.ExplicitPath = kubeconfig
-	configOverrides := &clientcmd.ConfigOverrides{
-		ClusterDefaults: clientcmd.ClusterDefaults,
-		CurrentContext:  context,
-	}
-
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
 }
 
 // applyOptions contains the startup options for applying the manifest.

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 33737
+releaseNotes:
+  - |
+    **Fixed** a bug where retryRemoteLocalities configuration is rejected by Envoy.

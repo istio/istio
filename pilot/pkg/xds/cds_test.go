@@ -23,5 +23,5 @@ import (
 func TestCDS(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
-	ads.RequestResponseAck(nil)
+	ads.RequestResponseAck(t, nil)
 }

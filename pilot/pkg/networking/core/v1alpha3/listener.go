@@ -1224,24 +1224,6 @@ type buildListenerOpts struct {
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,
 	httpFilters []*hcm.HttpFilter) *hcm.HttpConnectionManager {
-	filters := make([]*hcm.HttpFilter, len(httpFilters))
-	copy(filters, httpFilters)
-
-	if httpOpts.addGRPCWebFilter {
-		filters = append(filters, xdsfilters.GrpcWeb)
-	}
-
-	if listenerOpts.port != nil && listenerOpts.port.Protocol.IsGRPC() {
-		filters = append(filters, xdsfilters.GrpcStats)
-	}
-
-	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if listenerOpts.class == ListenerClassSidecarOutbound {
-		filters = append(filters, xdsfilters.Alpn)
-	}
-
-	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.Router)
-
 	if httpOpts.connectionManager == nil {
 		httpOpts.connectionManager = &hcm.HttpConnectionManager{}
 	}
@@ -1249,7 +1231,6 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	connectionManager := httpOpts.connectionManager
 	connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
-	connectionManager.HttpFilters = filters
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.DelayedCloseTimeout = features.DelayedCloseTimeout
 
@@ -1307,9 +1288,29 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
-	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager, listenerOpts.proxy)
+	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager)
 
-	configureTracing(listenerOpts, connectionManager)
+	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
+
+	filters := make([]*hcm.HttpFilter, len(httpFilters))
+	copy(filters, httpFilters)
+
+	if httpOpts.addGRPCWebFilter {
+		filters = append(filters, xdsfilters.GrpcWeb)
+	}
+
+	if listenerOpts.port != nil && listenerOpts.port.Protocol.IsGRPC() {
+		filters = append(filters, xdsfilters.GrpcStats)
+	}
+
+	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
+	if listenerOpts.class == ListenerClassSidecarOutbound {
+		filters = append(filters, xdsfilters.Alpn)
+	}
+
+	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.BuildRouterFilter(routerFilterCtx))
+
+	connectionManager.HttpFilters = filters
 
 	return connectionManager
 }
@@ -1423,7 +1424,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		DeprecatedV1:     deprecatedV1,
 	}
 
-	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener, opts.proxy)
+	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener)
 
 	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)

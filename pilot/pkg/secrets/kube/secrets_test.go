@@ -26,6 +26,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pilot/pkg/util/sets"
+	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -91,7 +92,11 @@ func TestSecretsController(t *testing.T) {
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewSecretsController(client, "")
-	client.RunAndWait(make(chan struct{}))
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	client.RunAndWait(stop)
 	cases := []struct {
 		name      string
 		namespace string
@@ -157,7 +162,7 @@ func TestForCluster(t *testing.T) {
 	sc.addMemberCluster(remoteClient, "remote")
 	sc.addMemberCluster(remoteClient, "remote2")
 	cases := []struct {
-		cluster string
+		cluster cluster2.ID
 		allowed bool
 	}{
 		{"local", true},
@@ -166,7 +171,7 @@ func TestForCluster(t *testing.T) {
 		{"invalid", false},
 	}
 	for _, tt := range cases {
-		t.Run(tt.cluster, func(t *testing.T) {
+		t.Run(string(tt.cluster), func(t *testing.T) {
 			_, err := sc.ForCluster(tt.cluster)
 			if (err == nil) != tt.allowed {
 				t.Fatalf("expected allowed=%v, got err=%v", tt.allowed, err)
@@ -187,7 +192,7 @@ func TestAuthorize(t *testing.T) {
 	cases := []struct {
 		sa      string
 		ns      string
-		cluster string
+		cluster cluster2.ID
 		allowed bool
 	}{
 		{"sa-denied", "ns-local", "local", false},
@@ -248,7 +253,7 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 	cases := []struct {
 		name      string
 		namespace string
-		cluster   string
+		cluster   cluster2.ID
 		cert      string
 		key       string
 		caCert    string

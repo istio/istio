@@ -100,6 +100,49 @@ func TestMergeVirtualServices(t *testing.T) {
 		},
 	}
 
+	defaultVs := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "default-vs",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.org"},
+			Gateways: []string{"gateway"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Exact{Exact: "/login"},
+							},
+						},
+					},
+					Delegate: &networking.Delegate{
+						Name: "productpage-vs",
+					},
+				},
+				{
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "example.org",
+								Port: &networking.PortSelector{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	oneRoot := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -126,73 +169,78 @@ func TestMergeVirtualServices(t *testing.T) {
 		},
 	}
 
-	delegateVs := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
-			Name:             "productpage-vs",
-			Namespace:        "default",
-		},
-		Spec: &networking.VirtualService{
-			Hosts:    []string{},
-			Gateways: []string{"gateway"},
-			ExportTo: []string{"istio-system"},
-			Http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v1"},
-							},
-						},
-					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
+	createDelegateVs := func(name, namespace string, exportTo []string) config.Config {
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             name,
+				Namespace:        namespace,
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{},
+				Gateways: []string{"gateway"},
+				ExportTo: exportTo,
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v1"},
 								},
-								Subset: "v1",
 							},
 						},
-					},
-				},
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
-							},
-						},
-					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "productpage.org",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+									Subset: "v1",
 								},
-								Subset: "v2",
 							},
 						},
 					},
-				},
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
 								},
-								Subset: "v3",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "productpage.org",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+									Subset: "v2",
+								},
+							},
+						},
+					},
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "productpage.org",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+									Subset: "v3",
+								},
 							},
 						},
 					},
 				},
 			},
-		},
+		}
 	}
+
+	delegateVs := createDelegateVs("productpage-vs", "default", []string{"istio-system"})
+	delegateVsExportedToAll := createDelegateVs("productpage-vs", "default", []string{})
 
 	delegateVsNotExported := config.Config{
 		Meta: config.Meta{
@@ -298,6 +346,10 @@ func TestMergeVirtualServices(t *testing.T) {
 			},
 		},
 	}
+
+	mergedVsInDefault := mergedVs.DeepCopy()
+	mergedVsInDefault.Name = "default-vs"
+	mergedVsInDefault.Namespace = "default"
 
 	// invalid delegate, match condition conflicts with root
 	delegateVs2 := config.Config{
@@ -605,6 +657,11 @@ func TestMergeVirtualServices(t *testing.T) {
 			name:                    "multiple routes delegate to one",
 			virtualServices:         []config.Config{multiRoutes.DeepCopy(), singleDelegate},
 			expectedVirtualServices: []config.Config{mergedVs3},
+		},
+		{
+			name:                    "root not specify delegate namespace",
+			virtualServices:         []config.Config{defaultVs.DeepCopy(), delegateVsExportedToAll},
+			expectedVirtualServices: []config.Config{mergedVsInDefault},
 		},
 		{
 			name:                    "delegate not exported to root vs namespace",

@@ -18,12 +18,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
 
 	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 	"istio.io/pkg/version"
 )
 
@@ -34,6 +36,18 @@ type monitor struct {
 const (
 	metricsPath = "/metrics"
 	versionPath = "/version"
+)
+
+var (
+	serverStart = time.Now()
+
+	uptime = monitoring.NewDerivedGauge( // nolint: deadcode, varcheck
+		"istiod_uptime_seconds",
+		"Current istiod server uptime in seconds",
+		func() float64 {
+			return time.Since(serverStart).Seconds()
+		},
+	)
 )
 
 func addMonitor(mux *http.ServeMux) error {

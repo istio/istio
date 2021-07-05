@@ -27,6 +27,16 @@ const (
 	StatusFalse = "False"
 )
 
+// InvertStatus returns the opposite of the provided status. If an invalid status is passed in, False is returned
+func InvertStatus(status metav1.ConditionStatus) metav1.ConditionStatus {
+	switch status {
+	case StatusFalse:
+		return StatusTrue
+	default:
+		return StatusFalse
+	}
+}
+
 // WrappedStatus provides a wrapper around a status message that keeps track of whether or not any
 // changes have been made. This allows users to declarative write status, without worrying about
 // tracking changes. When read to commit (typically to Kubernetes), any messages with Dirty=false can

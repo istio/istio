@@ -1,0 +1,121 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: non-method-get
+spec:
+  hosts:
+  - sample.baz.svc.cluster.local
+  http:
+  - name: "send product to sample.foo"
+    match:
+    - uri:
+        prefix: "/api/v1/product"
+    - uri:
+        prefix: "/api/v1/products"
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: uri-with-prefix-exact 
+spec:
+  hosts:
+  - sample.baz.svc.cluster.local
+  http:
+  - name: "send product to sample.foo"
+    match:
+    - uri:
+        prefix: "/"
+    - uri:
+        exact: "/"
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: overlapping-in-single-match
+spec:
+  hosts:
+  - sample.baz.svc.cluster.local
+  http:
+  - name: "send product to sample.foo"
+    match:
+    - uri:
+        prefix: "/api/v1/product"
+      method:
+        exact: GET
+    - uri:
+        prefix: "/api/v1/products"
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: overlapping-in-two-matches
+spec:
+  hosts:
+  - sample.baz.svc.cluster.local
+  http:
+  - name: "send product to sample.foo"
+    match:
+    - uri:
+        prefix: "/api/v1/product"
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+  - name: "send products to sample.bar"
+    match:
+    - uri:
+        prefix: "/api/v1/products"
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sample.bar.svc.cluster.local
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: overlapping-mathes-with-different-methods
+spec:
+  hosts:
+  - sample.baz.svc.cluster.local
+  http:
+  - name: "send product to sample.foo"
+    match:
+    - uri:
+        prefix: "/api/v1/prod"
+      method:
+        exact: GET
+    route:
+    - destination:
+        host: sample.foo.svc.cluster.local
+  - name: "send products to sample.bar"
+    match:
+    - uri:
+        prefix: "/api/v1/product"
+      method:
+        exact: GET
+    - uri:
+        prefix: "/api/v1/products"
+      method:
+        exact: POST
+    route:
+    - destination:
+        host: sample.bar.svc.cluster.local
+        subset: v1

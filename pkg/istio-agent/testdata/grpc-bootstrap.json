@@ -1,0 +1,34 @@
+{
+  "xds_servers": [
+    {
+      "server_uri": "unix:///etc/istio/XDS",
+      "channel_creds": [
+        {
+          "type": "insecure"
+        }
+      ],
+      "server_features": [
+        "xds_v3"
+      ]
+    }
+  ],
+  "node": {
+    "id": "sidecar~127.0.0.1~pod1.fake-namespace~fake-namespace.svc.cluster.local",
+    "metadata": {},
+    "locality": {},
+    "UserAgentVersionType": null
+  },
+  "certificate_providers": {
+    "default": {
+      "name": "file_watcher",
+      "config": {
+        "certificate_file": "/cert/path/cert-chain.pem",
+        "private_key_file": "/cert/path/key.pem",
+        "ca_certificate_file": "/cert/path/root-cert.pem",
+        "refresh_interval": {
+          "seconds": 900
+        }
+      }
+    }
+  }
+}

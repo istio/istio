@@ -112,15 +112,15 @@ type TLSOptions struct {
 }
 
 var (
-	PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
-	podNameVar      = env.RegisterStringVar("POD_NAME", "", "")
-	jwtRuleVar      = env.RegisterStringVar("JWT_RULE", "",
-		"The JWT rule used by istiod authentication")
+	PodNamespace = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "").Get()
+	PodName      = env.RegisterStringVar("POD_NAME", "", "").Get()
+	JwtRule      = env.RegisterStringVar("JWT_RULE", "",
+		"The JWT rule used by istiod authentication").Get()
 )
 
-// RevisionVar is the value of the Istio control plane revision, e.g. "canary",
+// Revision is the value of the Istio control plane revision, e.g. "canary",
 // and is the value used by the "istio.io/rev" label.
-var RevisionVar = env.RegisterStringVar("REVISION", "", "")
+var Revision = env.RegisterStringVar("REVISION", "", "").Get()
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
@@ -146,10 +146,10 @@ func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {
 
 // Apply default value to PilotArgs
 func (p *PilotArgs) applyDefaults() {
-	p.Namespace = PodNamespaceVar.Get()
-	p.PodName = podNameVar.Get()
-	p.Revision = RevisionVar.Get()
-	p.JwtRule = jwtRuleVar.Get()
+	p.Namespace = PodNamespace
+	p.PodName = PodName
+	p.Revision = Revision
+	p.JwtRule = JwtRule
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.RegistryOptions.DistributionCacheRetention = features.DistributionHistoryRetention

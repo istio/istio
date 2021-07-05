@@ -23,6 +23,7 @@ import (
 func TestInstance(t *testing.T) {
 	a := labels.Instance{"app": "a"}
 	a1 := labels.Instance{"app": "a", "prod": "env"}
+	a2 := labels.Instance{"app": "b", "prod": "env"}
 
 	if !labels.Instance(nil).SubsetOf(a) {
 		t.Errorf("nil.SubsetOf({a}) => Got false")
@@ -34,6 +35,14 @@ func TestInstance(t *testing.T) {
 
 	if a1.SubsetOf(a) {
 		t.Errorf("%v.SubsetOf(%v) => Got true", a1, a)
+	}
+
+	if !a.SubsetOf(a1) {
+		t.Errorf("%v.SubsetOf(%v) => Got false", a, a1)
+	}
+
+	if a.SubsetOf(a2) {
+		t.Errorf("%v.SubsetOf(%v) => Got true", a, a2)
 	}
 }
 

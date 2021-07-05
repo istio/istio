@@ -28,17 +28,16 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	ca2 "istio.io/istio/pkg/security"
-	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
 
 var (
-	fakeRootCert         = []byte{00}
-	fakeCertificateChain = []byte{01}
-	fakePrivateKey       = []byte{02}
+	fakeRootCert         = []byte{0o0}
+	fakeCertificateChain = []byte{0o1}
+	fakePrivateKey       = []byte{0o2}
 
-	fakePushCertificateChain = []byte{03}
-	fakePushPrivateKey       = []byte{04}
+	fakePushCertificateChain = []byte{0o3}
+	fakePushPrivateKey       = []byte{0o4}
 	pushSecret               = &ca2.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
@@ -47,10 +46,6 @@ var (
 	testResourceName = "default"
 	rootResourceName = "ROOTCA"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 type TestServer struct {
 	t       *testing.T
@@ -143,38 +138,38 @@ func TestSDS(t *testing.T) {
 		// In reality Envoy doesn't do this, but it *could* per XDS spec
 		s := setupSDS(t)
 		c := s.Connect()
-		resp := s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
-		c.ExpectNoResponse()
-		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{
+		resp := s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		c.ExpectNoResponse(t)
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			ResourceNames: []string{testResourceName, rootResourceName},
 			ResponseNonce: resp.Nonce,
 		}), expectCert, expectRoot)
-		c.ExpectNoResponse()
+		c.ExpectNoResponse(t)
 	})
 	t.Run("multiplexed root first", func(t *testing.T) {
 		s := setupSDS(t)
 		c := s.Connect()
-		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
-		c.ExpectNoResponse()
-		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
-		c.ExpectNoResponse()
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
+		c.ExpectNoResponse(t)
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		c.ExpectNoResponse(t)
 	})
 	t.Run("multiplexed multiple single", func(t *testing.T) {
 		s := setupSDS(t)
 		c := s.Connect()
-		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
-		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
-		c.ExpectNoResponse()
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
+		c.ExpectNoResponse(t)
 	})
 	t.Run("parallel", func(t *testing.T) {
 		s := setupSDS(t)
 		cert := s.Connect()
 		root := s.Connect()
 
-		s.Verify(cert.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
-		s.Verify(root.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
-		cert.ExpectNoResponse()
-		root.ExpectNoResponse()
+		s.Verify(cert.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		s.Verify(root.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
+		cert.ExpectNoResponse(t)
+		root.ExpectNoResponse(t)
 	})
 	t.Run("unknown", func(t *testing.T) {
 		s := setupSDS(t)
@@ -182,8 +177,8 @@ func TestSDS(t *testing.T) {
 		cert := s.Connect()
 
 		// When we connect, we get get an error
-		cert.Request(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
-		if err := cert.ExpectError(); !strings.Contains(fmt.Sprint(err), "failed to generate secret") {
+		cert.Request(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		if err := cert.ExpectError(t); !strings.Contains(fmt.Sprint(err), "failed to generate secret") {
 			t.Fatalf("didn't get expected error; got %v", err)
 		}
 		cert.Cleanup()
@@ -191,7 +186,7 @@ func TestSDS(t *testing.T) {
 		s.UpdateSecret(testResourceName, pushSecret)
 		// If the secret is added later, new connections will succeed
 		cert = s.Connect()
-		s.Verify(cert.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), Expectation{
+		s.Verify(cert.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), Expectation{
 			ResourceName: testResourceName,
 			CertChain:    fakePushCertificateChain,
 			Key:          fakePushPrivateKey,
@@ -201,54 +196,54 @@ func TestSDS(t *testing.T) {
 		s := setupSDS(t)
 		cert := s.Connect()
 
-		s.Verify(cert.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		s.Verify(cert.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
 
 		// Remove secret and trigger push. This simulates CA outage. We should get an error, which
 		// would force the client to retry
 		s.UpdateSecret(testResourceName, nil)
-		if err := cert.ExpectError(); !strings.Contains(fmt.Sprint(err), "failed to generate secret") {
+		if err := cert.ExpectError(t); !strings.Contains(fmt.Sprint(err), "failed to generate secret") {
 			t.Fatalf("didn't get expected error; got %v", err)
 		}
 	})
 	t.Run("serial", func(t *testing.T) {
 		s := setupSDS(t)
 		cert := s.Connect()
-		s.Verify(cert.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
-		cert.ExpectNoResponse()
+		s.Verify(cert.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		cert.ExpectNoResponse(t)
 
 		root := s.Connect()
-		s.Verify(root.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
-		root.ExpectNoResponse()
-		cert.ExpectNoResponse()
+		s.Verify(root.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
+		root.ExpectNoResponse(t)
+		cert.ExpectNoResponse(t)
 	})
 	t.Run("push cert", func(t *testing.T) {
 		s := setupSDS(t)
 		cert := s.Connect()
 		root := s.Connect()
-		s.Verify(cert.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
-		s.Verify(root.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
-		cert.ExpectNoResponse()
-		root.ExpectNoResponse()
+		s.Verify(cert.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		s.Verify(root.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{rootResourceName}}), expectRoot)
+		cert.ExpectNoResponse(t)
+		root.ExpectNoResponse(t)
 
 		s.UpdateSecret(testResourceName, pushSecret)
-		s.Verify(cert.ExpectResponse(), Expectation{
+		s.Verify(cert.ExpectResponse(t), Expectation{
 			ResourceName: testResourceName,
 			CertChain:    fakePushCertificateChain,
 			Key:          fakePushPrivateKey,
 		})
 		// No need to push a new root if just the cert changes
-		root.ExpectNoResponse()
+		root.ExpectNoResponse(t)
 	})
 	t.Run("reconnect", func(t *testing.T) {
 		s := setupSDS(t)
 		c := s.Connect()
-		res := s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		res := s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
 		// Close out the connection
 		c.Cleanup()
 
 		// Reconnect with the same resources
 		c = s.Connect()
-		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			ResourceNames: []string{testResourceName},
 			ResponseNonce: res.Nonce,
 			VersionInfo:   res.VersionInfo,
@@ -257,10 +252,10 @@ func TestSDS(t *testing.T) {
 	t.Run("concurrent reconnect", func(t *testing.T) {
 		s := setupSDS(t)
 		c := s.Connect()
-		res := s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		res := s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
 		// Reconnect with the same resources, without closing the original connection
 		c = s.Connect()
-		s.Verify(c.RequestResponseAck(&discovery.DiscoveryRequest{
+		s.Verify(c.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			ResourceNames: []string{testResourceName},
 			ResponseNonce: res.Nonce,
 			VersionInfo:   res.VersionInfo,
@@ -268,26 +263,26 @@ func TestSDS(t *testing.T) {
 	})
 	t.Run("concurrent connections", func(t *testing.T) {
 		s := setupSDS(t)
-		s.Verify(s.Connect().RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
-		s.Verify(s.Connect().RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		s.Verify(s.Connect().RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
+		s.Verify(s.Connect().RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}}), expectCert)
 	})
 	t.Run("unsubscribe", func(t *testing.T) {
 		s := setupSDS(t)
 		c := s.Connect()
-		res := c.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		res := c.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
 		s.Verify(res, expectCert)
-		c.Request(&discovery.DiscoveryRequest{
+		c.Request(t, &discovery.DiscoveryRequest{
 			ResourceNames: nil,
 			ResponseNonce: res.Nonce,
 			VersionInfo:   res.VersionInfo,
 		})
-		c.ExpectNoResponse()
+		c.ExpectNoResponse(t)
 	})
 	t.Run("nack", func(t *testing.T) {
 		s := setupSDS(t)
 		c := s.Connect()
-		c.RequestResponseNack(&discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
-		c.ExpectNoResponse()
+		c.RequestResponseNack(t, &discovery.DiscoveryRequest{ResourceNames: []string{testResourceName}})
+		c.ExpectNoResponse(t)
 	})
 }
 

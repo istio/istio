@@ -148,20 +148,24 @@ func mergeVirtualServicesIfNeeded(
 		for _, route := range rootVs.Http {
 			// it is root vs with delegate
 			if delegate := route.Delegate; delegate != nil {
-				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: delegate.Name, Namespace: delegate.Namespace}
+				delegateNamespace := delegate.Namespace
+				if delegateNamespace == "" {
+					delegateNamespace = root.Namespace
+				}
+				delegateConfigKey := ConfigKey{Kind: gvk.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
 				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
-				delegateVS, ok := delegatesMap[key(delegate.Name, delegate.Namespace)]
+				delegateVS, ok := delegatesMap[key(delegate.Name, delegateNamespace)]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
-						delegate.Namespace, delegate.Name, root.Namespace, root.Name)
+						delegateNamespace, delegate.Name, root.Namespace, root.Name)
 					// delegate not found, ignore only the current HTTP route
 					continue
 				}
 				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[key(delegate.Name, delegate.Namespace)]
+				exportTo := delegatesExportToMap[key(delegate.Name, delegateNamespace)]
 				if !exportTo[visibility.Public] && !exportTo[visibility.Instance(root.Namespace)] {
 					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
-						delegate.Namespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
+						delegateNamespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict

@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -48,6 +49,22 @@ type Config struct {
 	IstioVersion          string
 }
 
+func (c Config) String() string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Ports:                 %v\n", c.Ports))
+	b.WriteString(fmt.Sprintf("BindIPPortsMap:        %v\n", c.BindIPPortsMap))
+	b.WriteString(fmt.Sprintf("BindLocalhostPortsMap: %v\n", c.BindLocalhostPortsMap))
+	b.WriteString(fmt.Sprintf("Metrics:               %v\n", c.Metrics))
+	b.WriteString(fmt.Sprintf("TLSCert:               %v\n", c.TLSCert))
+	b.WriteString(fmt.Sprintf("TLSKey:                %v\n", c.TLSKey))
+	b.WriteString(fmt.Sprintf("Version:               %v\n", c.Version))
+	b.WriteString(fmt.Sprintf("UDSServer:             %v\n", c.UDSServer))
+	b.WriteString(fmt.Sprintf("Cluster:               %v\n", c.Cluster))
+	b.WriteString(fmt.Sprintf("IstioVersion:          %v\n", c.IstioVersion))
+
+	return b.String()
+}
+
 var _ io.Closer = &Instance{}
 
 // Instance of the Echo server.
@@ -61,6 +78,7 @@ type Instance struct {
 
 // New creates a new server instance.
 func New(config Config) *Instance {
+	log.Infof("Creating Server with config:\n%s", config)
 	config.Dialer = config.Dialer.FillInDefaults()
 
 	return &Instance{

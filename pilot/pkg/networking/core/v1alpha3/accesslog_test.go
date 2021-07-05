@@ -24,82 +24,58 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestListenerAccessLog(t *testing.T) {
-	version18 := &model.IstioVersion{Major: 1, Minor: 8}
-	version19 := &model.IstioVersion{Major: 1, Minor: 9}
-	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormat)
-	ge19FormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormatIstio19)
+	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormatIstio)
 
 	for _, tc := range []struct {
-		name         string
-		encoding     meshconfig.MeshConfig_AccessLogEncoding
-		proxyVersion *model.IstioVersion
-		format       string
-		wantFormat   string
+		name       string
+		encoding   meshconfig.MeshConfig_AccessLogEncoding
+		format     string
+		wantFormat string
 	}{
 		{
-			name:         "valid json object",
-			encoding:     meshconfig.MeshConfig_JSON,
-			proxyVersion: version18,
-			format:       `{"foo": "bar"}`,
-			wantFormat:   `{"foo":"bar"}`,
+			name:       "valid json object",
+			encoding:   meshconfig.MeshConfig_JSON,
+			format:     `{"foo": "bar"}`,
+			wantFormat: `{"foo":"bar"}`,
 		},
 		{
-			name:         "valid nested json object",
-			encoding:     meshconfig.MeshConfig_JSON,
-			proxyVersion: version18,
-			format:       `{"foo": {"bar": "ha"}}`,
-			wantFormat:   `{"foo":{"bar":"ha"}}`,
+			name:       "valid nested json object",
+			encoding:   meshconfig.MeshConfig_JSON,
+			format:     `{"foo": {"bar": "ha"}}`,
+			wantFormat: `{"foo":{"bar":"ha"}}`,
 		},
 		{
-			name:         "invalid json object",
-			encoding:     meshconfig.MeshConfig_JSON,
-			proxyVersion: version18,
-			format:       `foo`,
-			wantFormat:   defaultFormatJSON,
+			name:       "invalid json object",
+			encoding:   meshconfig.MeshConfig_JSON,
+			format:     `foo`,
+			wantFormat: defaultFormatJSON,
 		},
 		{
-			name:         "incorrect json type",
-			encoding:     meshconfig.MeshConfig_JSON,
-			proxyVersion: version18,
-			format:       `[]`,
-			wantFormat:   defaultFormatJSON,
+			name:       "incorrect json type",
+			encoding:   meshconfig.MeshConfig_JSON,
+			format:     `[]`,
+			wantFormat: defaultFormatJSON,
 		},
 		{
-			name:         "incorrect json type",
-			encoding:     meshconfig.MeshConfig_JSON,
-			proxyVersion: version18,
-			format:       `"{}"`,
-			wantFormat:   defaultFormatJSON,
+			name:       "incorrect json type",
+			encoding:   meshconfig.MeshConfig_JSON,
+			format:     `"{}"`,
+			wantFormat: defaultFormatJSON,
 		},
 		{
-			name:         "default json format",
-			encoding:     meshconfig.MeshConfig_JSON,
-			proxyVersion: version18,
-			wantFormat:   defaultFormatJSON,
+			name:       "default json format",
+			encoding:   meshconfig.MeshConfig_JSON,
+			wantFormat: defaultFormatJSON,
 		},
 		{
-			name:         "default json format proxy 1.9",
-			encoding:     meshconfig.MeshConfig_JSON,
-			proxyVersion: version19,
-			wantFormat:   ge19FormatJSON,
-		},
-		{
-			name:         "default text format",
-			encoding:     meshconfig.MeshConfig_TEXT,
-			proxyVersion: version18,
-			wantFormat:   EnvoyTextLogFormat,
-		},
-		{
-			name:         "default text format proxy 1.9",
-			encoding:     meshconfig.MeshConfig_TEXT,
-			proxyVersion: version19,
-			wantFormat:   EnvoyTextLogFormatIstio19,
+			name:       "default text format",
+			encoding:   meshconfig.MeshConfig_TEXT,
+			wantFormat: EnvoyTextLogFormat,
 		},
 	} {
 		tc := tc
@@ -114,7 +90,7 @@ func TestListenerAccessLog(t *testing.T) {
 			accessLogBuilder.reset()
 
 			// Validate that access log filter uses the new format.
-			listeners := buildAllListeners(&fakePlugin{}, env, tc.proxyVersion)
+			listeners := buildAllListeners(&fakePlugin{}, env)
 			for _, l := range listeners {
 				if l.AccessLog[0].Filter == nil {
 					t.Fatal("expected filter config in listener access log configuration")

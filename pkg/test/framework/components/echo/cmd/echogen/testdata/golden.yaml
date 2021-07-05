@@ -64,6 +64,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         app: a
+        test.istio.io/class: standard
         version: v1
     spec:
       containers:

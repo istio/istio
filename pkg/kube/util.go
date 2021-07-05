@@ -17,6 +17,7 @@ package kube
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	istioversion "istio.io/pkg/version"
 )
 
 // BuildClientConfig builds a client rest config from a kubeconfig filepath and context.
@@ -38,7 +41,11 @@ import (
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
 func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
-	return BuildClientCmd(kubeconfig, context).ClientConfig()
+	c, err := BuildClientCmd(kubeconfig, context).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	return SetRestDefaults(c), nil
 }
 
 // BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
@@ -46,7 +53,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
-func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
+func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.ConfigOverrides)) clientcmd.ClientConfig {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -67,6 +74,10 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 	configOverrides := &clientcmd.ConfigOverrides{
 		ClusterDefaults: clientcmd.ClusterDefaults,
 		CurrentContext:  context,
+	}
+
+	for _, fn := range overrides {
+		fn(configOverrides)
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
@@ -100,7 +111,25 @@ func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Confi
 	return config, nil
 }
 
+// adjustCommand returns the last component of the
+// OS-specific command path for use in User-Agent.
+func adjustCommand(p string) string {
+	// Unlikely, but better than returning "".
+	if len(p) == 0 {
+		return "unknown"
+	}
+	return filepath.Base(p)
+}
+
+// IstioUserAgent returns the user agent string based on the command being used.
+// example: pilot-discovery/1.9.5 or istioctl/1.10.0
+// This is a specialized version of rest.DefaultKubernetesUserAgent()
+func IstioUserAgent() string {
+	return adjustCommand(os.Args[0]) + "/" + istioversion.Info.Version
+}
+
 // SetRestDefaults is a helper function that sets default values for the given rest.Config.
+// This function is idempotent.
 func SetRestDefaults(config *rest.Config) *rest.Config {
 	if config.GroupVersion == nil || config.GroupVersion.Empty() {
 		config.GroupVersion = &kubeApiCore.SchemeGroupVersion
@@ -122,8 +151,9 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	}
 	if len(config.UserAgent) == 0 {
-		config.UserAgent = rest.DefaultKubernetesUserAgent()
+		config.UserAgent = IstioUserAgent()
 	}
+
 	return config
 }
 

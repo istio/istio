@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"k8s.io/client-go/kubernetes/fake"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -39,6 +40,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
@@ -272,10 +274,25 @@ func BenchmarkSecretGeneration(b *testing.B) {
 	}
 }
 
+func createGateways(n int) map[string]*meshconfig.Network {
+	out := make(map[string]*meshconfig.Network, n)
+	for i := 0; i < n; i++ {
+		out[fmt.Sprintf("network-%d", i)] = &meshconfig.Network{
+			Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+				Gw:   &meshconfig.Network_IstioNetworkGateway_Address{Address: fmt.Sprintf("35.0.0.%d", i)},
+				Port: 15443,
+			}},
+		}
+	}
+	return out
+}
+
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
 func BenchmarkEndpointGeneration(b *testing.B) {
 	disableLogging()
+
+	const numNetworks = 4
 	tests := []struct {
 		endpoints int
 		services  int
@@ -290,7 +307,10 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
 			s := NewFakeDiscoveryServer(b, FakeOptions{
-				Configs: createEndpoints(tt.endpoints, tt.services),
+				Configs: createEndpoints(tt.endpoints, tt.services, numNetworks),
+				NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
+					Networks: createGateways(numNetworks),
+				}),
 			})
 			proxy := &model.Proxy{
 				Type:            model.SidecarProxy,
@@ -435,12 +455,15 @@ func logDebug(b *testing.B, m model.Resources) {
 	b.StartTimer()
 }
 
-func createEndpoints(numEndpoints int, numServices int) []config.Config {
+func createEndpoints(numEndpoints, numServices, numNetworks int) []config.Config {
 	result := make([]config.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
 		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
-			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
+			endpoints = append(endpoints, &networking.WorkloadEntry{
+				Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256),
+				Network: fmt.Sprintf("network-%d", e%numNetworks),
+			})
 		}
 		result = append(result, config.Config{
 			Meta: config.Meta{

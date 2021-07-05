@@ -14,6 +14,8 @@
 
 package secrets
 
+import "istio.io/istio/pkg/cluster"
+
 type Controller interface {
 	GetKeyAndCert(name, namespace string) (key []byte, cert []byte)
 	GetCaCert(name, namespace string) (cert []byte)
@@ -22,5 +24,5 @@ type Controller interface {
 }
 
 type MulticlusterController interface {
-	ForCluster(cluster string) (Controller, error)
+	ForCluster(cluster cluster.ID) (Controller, error)
 }

@@ -70,7 +70,7 @@ spec:
         name: httpbin
         ports:
         - containerPort: 80
-      - image: docker.io/istio/ext-authz:0.5
+      - image: gcr.io/istio-testing/ext-authz:0.7
         imagePullPolicy: IfNotPresent
         name: ext-authz
         ports:

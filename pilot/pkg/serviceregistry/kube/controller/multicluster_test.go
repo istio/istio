@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
-	pkgtest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -70,11 +70,11 @@ func deleteMultiClusterSecret(k8s kube.Client) error {
 
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
 	t.Helper()
-	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+	retry.UntilOrFail(t, func() bool {
 		m.m.Lock()
 		defer m.m.Unlock()
 		return len(m.remoteKubeControllers) == expectedControllerCount
-	})
+	}, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
 func Test_KubeSecretController(t *testing.T) {

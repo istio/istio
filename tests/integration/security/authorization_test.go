@@ -1367,7 +1367,8 @@ func TestAuthorization_Custom(t *testing.T) {
 				With(&x, echoConfig("x", false)).
 				BuildOrFail(t)
 
-			newTestCase := func(from, target echo.Instance, path, port string, header string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
+			newTestCase := func(from, target echo.Instance, path, port string, header string, expectAllowed bool,
+				expectHTTPResponse []rbacUtil.ExpectContains, scheme scheme.Instance) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
 						From: from,
@@ -1378,42 +1379,74 @@ func TestAuthorization_Custom(t *testing.T) {
 							Path:     path,
 						},
 					},
-					Headers:       map[string]string{"x-ext-authz": header},
-					ExpectAllowed: expectAllowed,
+					Headers: map[string]string{
+						"x-ext-authz":                            header,
+						"x-ext-authz-additional-header-override": "should-be-override",
+					},
+					ExpectAllowed:      expectAllowed,
+					ExpectHTTPResponse: expectHTTPResponse,
 				}
 			}
+			expectHTTPResponse := []rbacUtil.ExpectContains{
+				{
+					// For ext authz HTTP server, we expect the check request to include the override value because it
+					// is configued in the ext-authz filter side.
+					Key:       "X-Ext-Authz-Check-Received",
+					Values:    []string{"additional-header-new-value", "additional-header-override-value"},
+					NotValues: []string{"should-be-override"},
+				},
+				{
+					Key:       "X-Ext-Authz-Additional-Header-Override",
+					Values:    []string{"additional-header-override-value"},
+					NotValues: []string{"should-be-override"},
+				},
+			}
+			expectGRPCResponse := []rbacUtil.ExpectContains{
+				{
+					// For ext authz gRPC server, we expect the check request to include the original override value
+					// because the override is not configurable in the ext-authz filter side.
+					Key:    "X-Ext-Authz-Check-Received",
+					Values: []string{"should-be-override"},
+				},
+				{
+					Key:       "X-Ext-Authz-Additional-Header-Override",
+					Values:    []string{"grpc-additional-header-override-value"},
+					NotValues: []string{"should-be-override"},
+				},
+			}
+
 			// Path "/custom" is protected by ext-authz service and is accessible with the header `x-ext-authz: allow`.
 			// Path "/health" is not protected and is accessible to public.
 			cases := []rbacUtil.TestCase{
 				// workload b is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, b, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, b, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload c is using an ext-authz service in its own pod of gRPC API.
-				newTestCase(x, c, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, c, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload d is using an local ext-authz service in the same pod as the application of HTTP API.
-				newTestCase(x, d, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, d, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload e is using an local ext-authz service in the same pod as the application of gRPC API.
-				newTestCase(x, e, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, e, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload f is using an ext-authz service in its own pod of TCP API.
-				newTestCase(a, f, "", "tcp-8092", "", true, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8092", "", false, scheme.TCP),
-				newTestCase(a, f, "", "tcp-8093", "", true, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8093", "", true, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8092", "", true, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8092", "", false, nil, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8093", "", true, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8093", "", true, nil, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -1421,10 +1454,10 @@ func TestAuthorization_Custom(t *testing.T) {
 			ingr := ist.IngressFor(t.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
 				// workload g is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, g, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, g, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "deny", true, nil, scheme.HTTP),
 			}
 			for _, tc := range ingressCases {
 				name := fmt.Sprintf("%s->%s:%s%s[%t]",

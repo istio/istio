@@ -4,5 +4,4 @@ egressGateways[0].enabled=false
 egressGateways[0].name="istio-egressgateway"
 ingressGateways[0].enabled=true
 ingressGateways[0].name="istio-ingressgateway"
-istiodRemote.enabled=false
 pilot.enabled=false

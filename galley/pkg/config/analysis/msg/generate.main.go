@@ -27,8 +27,10 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-const codeRegex = `^IST\d\d\d\d$`
-const nameRegex = `^[[:upper:]]\w*$`
+const (
+	codeRegex = `^IST\d\d\d\d$`
+	nameRegex = `^[[:upper:]]\w*$`
+)
 
 // Utility for generating messages.gen.go. Called from gen.go
 func main() {
@@ -176,6 +178,7 @@ type message struct {
 	Level       string `json:"level"`
 	Description string `json:"description"`
 	Template    string `json:"template"`
+	Url         string `json:"url"`
 	Args        []arg  `json:"args"`
 }
 

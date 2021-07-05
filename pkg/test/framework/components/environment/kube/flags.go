@@ -166,7 +166,7 @@ func parseClusterTopology(topology string) (clusterTopology, error) {
 	}
 	out := make(clusterTopology)
 
-	values := strings.Split(configTopology, ",")
+	values := strings.Split(topology, ",")
 	for _, v := range values {
 		parts := strings.Split(v, ":")
 		if len(parts) != 2 {

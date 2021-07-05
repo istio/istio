@@ -105,9 +105,13 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // will not be modified.
 func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	mc := proto.Clone(&meshConfig).(*meshconfig.MeshConfig)
+
+	origMetadata := meshConfig.DefaultConfig.ProxyMetadata
 	if err := gogoprotomarshal.ApplyYAML(yaml, mc.DefaultConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
+	newMetadata := mc.DefaultConfig.ProxyMetadata
+	mc.DefaultConfig.ProxyMetadata = mergeMap(origMetadata, newMetadata)
 	return mc, nil
 }
 
@@ -149,10 +153,16 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 		return nil, multierror.Prefix(err, "failed to extract proxy config")
 	}
 	if pc != "" {
+		origMetadata := defaultConfig.DefaultConfig.ProxyMetadata
 		// Apply proxy config yaml on to the merged mesh config. This gives us "merge" semantics for proxy config
 		if err := gogoprotomarshal.ApplyYAML(pc, defaultConfig.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
+		newMetadata := defaultConfig.DefaultConfig.ProxyMetadata
+		// we do a deep merge on proxy metadata to allow mesh-wide proxy config settings while still allowing
+		// additional pod-level options.
+		// For users that want to unset an option, they can set the key explicitly to ""
+		defaultConfig.DefaultConfig.ProxyMetadata = mergeMap(origMetadata, newMetadata)
 	}
 
 	if err := validation.ValidateMeshConfig(&defaultConfig); err != nil {
@@ -160,6 +170,19 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 	}
 
 	return &defaultConfig, nil
+}
+
+func mergeMap(original map[string]string, merger map[string]string) map[string]string {
+	if original == nil && merger == nil {
+		return nil
+	}
+	if original == nil {
+		original = map[string]string{}
+	}
+	for k, v := range merger {
+		original[k] = v
+	}
+	return original
 }
 
 // ApplyMeshConfigDefaults returns a new MeshConfig decoded from the

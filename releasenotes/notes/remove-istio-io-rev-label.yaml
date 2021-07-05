@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 33447
+releaseNotes:
+  - |
+    **Removed** the `istio.io/rev` label injected on pods and replaced it with the `istio.io/injectedBy` label.

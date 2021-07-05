@@ -205,7 +205,6 @@ docker.operator: $(ISTIO_OUT_LINUX)/operator
 # CNI
 docker.install-cni: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
-docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-repair
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
 docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint

@@ -271,6 +271,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		t.Fatalf("failed to get SystemCertPool: %v", err)
 	}
 	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
 
 	// Mock response from TLS Spiffe Server
 	validHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

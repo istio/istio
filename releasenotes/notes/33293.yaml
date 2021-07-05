@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 33293
+releaseNotes:
+  - |
+    **Fixed** a bug where secret files are not watched once they are removed and added back.

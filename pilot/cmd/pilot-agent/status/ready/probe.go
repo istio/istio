@@ -32,6 +32,8 @@ type Probe struct {
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
 	atleastOnceReady bool
 	Context          context.Context
+	// NoEnvoy so we only check config status
+	NoEnvoy bool
 }
 
 type Prober interface {
@@ -52,6 +54,10 @@ func (p *Probe) Check() error {
 
 // checkConfigStatus checks to make sure initial configs have been received from Pilot.
 func (p *Probe) checkConfigStatus() error {
+	if p.NoEnvoy {
+		// TODO some way to verify XDS proxy -> control plane works
+		return nil
+	}
 	if p.receivedFirstUpdate {
 		return nil
 	}
@@ -73,6 +79,9 @@ func (p *Probe) checkConfigStatus() error {
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
+	if p.NoEnvoy {
+		return nil
+	}
 	if p.Context == nil {
 		return p.checkEnvoyReadiness()
 	}

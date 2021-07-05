@@ -82,7 +82,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					envoyDump, err = readConfigFile(configDumpFile)
 				} else {
 					path := "config_dump"
-					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
 				}
 				if err != nil {
 					return err
@@ -193,7 +193,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return err
 				}
 				path := "config_dump"
-				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
 				if err != nil {
 					return fmt.Errorf("could not contact sidecar: %w", err)
 				}

@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
+	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
@@ -110,6 +111,8 @@ type Options struct {
 	EnvoyPrometheusPort int
 	Context             context.Context
 	FetchDNS            func() *nds.NameTable
+	NoEnvoy             bool
+	GRPCBootstrap       string
 }
 
 // Server provides an endpoint for handling status probes.
@@ -148,11 +151,19 @@ func NewServer(config Options) (*Server, error) {
 		localhost = localHostIPv6
 	}
 	probes := make([]ready.Prober, 0)
-	probes = append(probes, &ready.Probe{
-		LocalHostAddr: localhost,
-		AdminPort:     config.AdminPort,
-		Context:       config.Context,
-	})
+	if !config.NoEnvoy {
+		probes = append(probes, &ready.Probe{
+			LocalHostAddr: localhost,
+			AdminPort:     config.AdminPort,
+			Context:       config.Context,
+			NoEnvoy:       config.NoEnvoy,
+		})
+	}
+
+	if config.GRPCBootstrap != "" {
+		probes = append(probes, grpcready.NewProbe(config.GRPCBootstrap))
+	}
+
 	probes = append(probes, config.Probes...)
 	s := &Server{
 		statusPort:            config.StatusPort,
@@ -201,7 +212,7 @@ func NewServer(config Options) (*Server, error) {
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
 		if !appProberPattern.Match([]byte(path)) {
-			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
+			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern %v`, appProberPattern)
 		}
 		if prober.HTTPGet == nil {
 			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
@@ -529,8 +540,6 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("app prober config does not exists for %v", path)))
 		return
 	}
-	// get the http client must exist because
-	httpClient := s.appProbeClient[path]
 
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
@@ -571,6 +580,9 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
+
+	// get the http client must exist because
+	httpClient := s.appProbeClient[path]
 
 	// Send the request.
 	response, err := httpClient.Do(appReq)

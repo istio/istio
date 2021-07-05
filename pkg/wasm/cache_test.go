@@ -24,13 +24,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"istio.io/istio/tests/util/leak"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func TestWasmCache(t *testing.T) {
 	var tsNumRequest int
@@ -57,7 +51,7 @@ func TestWasmCache(t *testing.T) {
 			name:                 "cache miss",
 			initialCachedModules: map[cacheKey]cacheEntry{},
 			fetchURL:             ts.URL,
-			purgeInterval:        DefaultWasmModulePurgeInteval,
+			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			checksum:             dataCheckSum,
 			wantFileName:         fmt.Sprintf("%x.wasm", dataCheckSum),
@@ -69,7 +63,7 @@ func TestWasmCache(t *testing.T) {
 				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", sha256.Sum256([]byte("cachehit\n")))}: {modulePath: "test.wasm"},
 			},
 			fetchURL:         ts.URL,
-			purgeInterval:    DefaultWasmModulePurgeInteval,
+			purgeInterval:    DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry: DefaultWasmModuleExpiry,
 			checksum:         sha256.Sum256([]byte("cachehit\n")),
 			wantFileName:     "test.wasm",
@@ -79,7 +73,7 @@ func TestWasmCache(t *testing.T) {
 			name:                 "invalid scheme",
 			initialCachedModules: map[cacheKey]cacheEntry{},
 			fetchURL:             "oci://abc",
-			purgeInterval:        DefaultWasmModulePurgeInteval,
+			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			checksum:             dataCheckSum,
 			wantFileName:         fmt.Sprintf("%x.wasm", dataCheckSum),
@@ -90,7 +84,7 @@ func TestWasmCache(t *testing.T) {
 			name:                 "download failure",
 			initialCachedModules: map[cacheKey]cacheEntry{},
 			fetchURL:             "https://dummyurl",
-			purgeInterval:        DefaultWasmModulePurgeInteval,
+			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			wantErrorMsgPrefix:   "wasm module download failed, last error: Get \"https://dummyurl\"",
 			wantServerReqNum:     0,
@@ -100,7 +94,7 @@ func TestWasmCache(t *testing.T) {
 			name:                 "wrong checksum",
 			initialCachedModules: map[cacheKey]cacheEntry{},
 			fetchURL:             ts.URL,
-			purgeInterval:        DefaultWasmModulePurgeInteval,
+			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			checksum:             sha256.Sum256([]byte("wrongchecksum\n")),
 			wantErrorMsgPrefix:   fmt.Sprintf("module downloaded from %v has checksum %x, which does not match", ts.URL, dataCheckSum),
@@ -114,7 +108,7 @@ func TestWasmCache(t *testing.T) {
 				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", dataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", dataCheckSum)},
 			},
 			fetchURL:           ts.URL + "/different-url",
-			purgeInterval:      DefaultWasmModulePurgeInteval,
+			purgeInterval:      DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:   DefaultWasmModuleExpiry,
 			checksum:           dataCheckSum,
 			wantErrorMsgPrefix: fmt.Sprintf("module downloaded from %v/different-url has checksum", ts.URL),
@@ -145,7 +139,7 @@ func TestWasmCache(t *testing.T) {
 			cache.mux.Lock()
 			for k, m := range c.initialCachedModules {
 				filePath := filepath.Join(tmpDir, m.modulePath)
-				err := ioutil.WriteFile(filePath, []byte("data/\n"), 0644)
+				err := ioutil.WriteFile(filePath, []byte("data/\n"), 0o644)
 				if err != nil {
 					t.Fatalf("failed to write initial wasm module file %v", err)
 				}
@@ -191,7 +185,7 @@ func TestWasmCache(t *testing.T) {
 
 func TestWasmCacheMissChecksum(t *testing.T) {
 	tmpDir := t.TempDir()
-	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInteval, DefaultWasmModuleExpiry)
+	cache := NewLocalFileCache(tmpDir, DefaultWasmModulePurgeInterval, DefaultWasmModuleExpiry)
 	defer close(cache.stopChan)
 
 	gotNumRequest := 0

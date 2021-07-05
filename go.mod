@@ -18,6 +18,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 require (
 	cloud.google.com/go v0.82.0
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20210626112853-139b25a67133
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aws/aws-sdk-go v1.38.51
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -25,7 +26,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e
 	github.com/cncf/xds/go v0.0.0-20210323124008-b88cc788a63e
-	github.com/containernetworking/cni v0.7.0-alpha1
+	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.7.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
@@ -51,9 +52,8 @@ require (
 	github.com/kr/pretty v0.2.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.0
-	github.com/lucas-clemente/quic-go v0.21.0
+	github.com/lucas-clemente/quic-go v0.21.1
 	github.com/mattn/go-isatty v0.0.13
-	github.com/mholt/archiver/v3 v3.5.0
 	github.com/miekg/dns v1.1.42
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -65,7 +65,6 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.25.0
 	github.com/ryanuber/go-glob v1.0.0
-	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
@@ -84,22 +83,23 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.47.0
 	google.golang.org/genproto v0.0.0-20210517163617-5e0236093d7a
-	google.golang.org/grpc v1.38.0
+	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.6.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210601145914-9a4239731e79
-	istio.io/client-go v0.0.0-20210601151459-89ee09f12704
-	istio.io/gogo-genproto v0.0.0-20210528151221-bb0f9b7849f3
-	istio.io/pkg v0.0.0-20210528151021-2059ed14a0e6
+	istio.io/api v0.0.0-20210702170716-527b9df3805f
+	istio.io/client-go v0.0.0-20210702172148-29e5a0d6d84e
+	istio.io/gogo-genproto v0.0.0-20210702140656-ccf714d90369
+	istio.io/pkg v0.0.0-20210702140656-1615cfceaeae
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.0
 	k8s.io/apimachinery v0.21.1
 	k8s.io/cli-runtime v0.21.1
 	k8s.io/client-go v0.21.1
+	k8s.io/klog/v2 v2.8.0
 	k8s.io/kube-openapi v0.0.0-20210527164424-3c818078ee3d
 	k8s.io/kubectl v0.21.1
 	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b

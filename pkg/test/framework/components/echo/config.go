@@ -17,6 +17,7 @@ package echo
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/copystructure"
@@ -185,6 +186,11 @@ func (c Config) IsStatefulSet() bool {
 
 func (c Config) IsNaked() bool {
 	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && !c.Subsets[0].Annotations.GetBool(SidecarInject)
+}
+
+func (c Config) IsProxylessGRPC() bool {
+	// TODO make these check if any subset has a matching annotation
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.HasPrefix(c.Subsets[0].Annotations.Get(SidecarInjectTemplates), "grpc-")
 }
 
 func (c Config) IsTProxy() bool {

@@ -162,7 +162,7 @@ func main() {
 	}
 
 	fmt.Printf("Writing to output file %s\n", filePath)
-	if err := ioutil.WriteFile(filePath, []byte(strings.Join(out, "\n")), 0644); err != nil {
+	if err := ioutil.WriteFile(filePath, []byte(strings.Join(out, "\n")), 0o644); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

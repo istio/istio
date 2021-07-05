@@ -83,7 +83,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
-		outboundPatcher.incrementFilterMetrics()
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
@@ -91,7 +90,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
-		inboundPatcher.incrementFilterMetrics()
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		clusters = append(clusters, configgen.buildOutboundClusters(cb, patcher)...)
@@ -101,7 +99,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
-		patcher.incrementFilterMetrics()
 	}
 
 	return cb.normalizeClusters(clusters)
@@ -147,9 +144,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 }
 
 type clusterPatcher struct {
-	efw            *model.EnvoyFilterWrapper
-	pctx           networking.EnvoyFilter_PatchContext
-	patchesApplied int
+	efw  *model.EnvoyFilterWrapper
+	pctx networking.EnvoyFilter_PatchContext
 }
 
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
@@ -157,16 +153,10 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 		return append(l, clusters...)
 	}
 	var pc *cluster.Cluster
-	applied := false
 	for _, c := range clusters {
 		if envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
-			pc, applied = envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts)
+			pc = envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts)
 			l = append(l, pc)
-		} else {
-			applied = true // Remove patch is applied.
-		}
-		if applied {
-			p.patchesApplied++
 		}
 	}
 	return l
@@ -174,16 +164,6 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 
 func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
 	return envoyfilter.InsertedClusters(p.pctx, p.efw)
-}
-
-func (p clusterPatcher) incrementFilterMetrics() {
-	if p.efw != nil {
-		if len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) != p.patchesApplied {
-			envoyfilter.RecordEnvoyFilterMetric(p.efw.Key(), envoyfilter.Cluster, false,
-				float64(len(p.efw.Patches[networking.EnvoyFilter_CLUSTER])-p.patchesApplied))
-		}
-		envoyfilter.RecordEnvoyFilterMetric(p.efw.Key(), envoyfilter.Cluster, true, float64(p.patchesApplied))
-	}
 }
 
 func (p clusterPatcher) hasPatches() bool {
@@ -413,9 +393,23 @@ func buildAutoMtlsSettings(
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
-		// Update TLS settings for ISTIO_MUTUAL.
-		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI.
-		// user specified SNIs in the istio mtls settings are useful when routing via gateways.
+		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
+			return tls, userSupplied
+		}
+		// For backward compatibility, use metadata certs if provided.
+		if hasMetadataCerts(proxy.Metadata) {
+			// When building Mutual TLS settings, we should always user supplied SubjectAltNames and SNI
+			// in destination rule. The Service Accounts and auto computed SNI should only be used for
+			// ISTIO_MUTUAL.
+			return buildMutualTLS(tls.SubjectAltNames, tls.Sni, proxy), userSupplied
+		}
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return tls, userSupplied
+		}
+		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
+		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
+		// are useful when routing via gateways. Use Service Acccounts if Subject Alt names
+		// are not specified in TLS settings.
 		sniToUse := tls.Sni
 		if len(sniToUse) == 0 {
 			sniToUse = sni
@@ -424,16 +418,6 @@ func buildAutoMtlsSettings(
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
-
-		// For backward compatibility, use metadata certs if provided.
-		if proxy.Metadata.TLSClientRootCert != "" {
-			return buildMutualTLS(subjectAltNamesToUse, sniToUse, proxy), userSupplied
-		}
-
-		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return tls, userSupplied
-		}
-
 		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
 	}
 
@@ -442,12 +426,16 @@ func buildAutoMtlsSettings(
 	}
 
 	// For backward compatibility, use metadata certs if provided.
-	if proxy.Metadata.TLSClientRootCert != "" {
+	if hasMetadataCerts(proxy.Metadata) {
 		return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
 	}
 
 	// Build settings for auto MTLS.
 	return buildIstioMutualTLS(serviceAccounts, sni), autoDetected
+}
+
+func hasMetadataCerts(m *model.NodeMetadata) bool {
+	return m.TLSClientRootCert != "" || m.TLSServerRootCert != ""
 }
 
 // buildMutualTLS returns a `TLSSettings` for MUTUAL mode.

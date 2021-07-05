@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
 	gogoTypes "github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"

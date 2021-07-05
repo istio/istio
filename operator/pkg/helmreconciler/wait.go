@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -279,18 +278,19 @@ func daemonsetsReady(daemonsets []*appsv1.DaemonSet) (bool, []string) {
 			notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 		}
 		if ds.Spec.UpdateStrategy.Type == appsv1.RollingUpdateDaemonSetStrategyType {
-			maxUnavailable, err := intstr.GetValueFromIntOrPercent(
-				ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable,
-				int(ds.Status.DesiredNumberScheduled),
-				true)
-			if err != nil {
-				// set max unavailable to the number of desired replicas if the value is invalid
-				maxUnavailable = int(ds.Status.DesiredNumberScheduled)
-			}
-			expectedReady := int(ds.Status.DesiredNumberScheduled) - maxUnavailable
-			if !(int(ds.Status.NumberReady) >= expectedReady) {
+			if ds.Status.DesiredNumberScheduled <= 0 {
+				// If DesiredNumberScheduled less then or equal 0, there some cases:
+				// 1) daemenset is just created
+				// 2) daemonset desired no pod
+				// 3) somebody changed it manually
+				// All the case is not a ready signal
+				scope.Infof("DaemonSet is not ready: %s/%s. Initializing, no pods is running",
+					ds.Namespace, ds.Name)
+				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
+			} else if ds.Status.NumberReady < ds.Status.DesiredNumberScheduled {
+				// Make sure every node has a ready pod
 				scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods are ready",
-					ds.Namespace, ds.Name, ds.Status.NumberReady, expectedReady)
+					ds.Namespace, ds.Name, ds.Status.NumberReady, ds.Status.UpdatedNumberScheduled)
 				notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 			}
 		}

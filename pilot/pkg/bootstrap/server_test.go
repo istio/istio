@@ -129,7 +129,11 @@ func TestNewServerCertInit(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			os.Setenv("PILOT_CERT_PROVIDER", c.certProvider)
+			originalCert, originalCA := features.PilotCertProvider, features.EnableCAServer
+			features.PilotCertProvider, features.EnableCAServer = c.certProvider, c.enableCA
+			t.Cleanup(func() {
+				features.PilotCertProvider, features.EnableCAServer = originalCert, originalCA
+			})
 			features.EnableCAServer = c.enableCA
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
@@ -157,8 +161,6 @@ func TestNewServerCertInit(t *testing.T) {
 			defer func() {
 				close(stop)
 				s.WaitUntilCompletion()
-				features.EnableCAServer = true
-				os.Setenv("PILOT_CERT_PROVIDER", constants.CertProviderIstiod)
 			}()
 
 			if c.expNewCert {

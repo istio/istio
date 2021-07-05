@@ -21,7 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/api/label"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -124,11 +123,18 @@ func TestRevisionTags(t *testing.T) {
 						t.Fatalf("error fetching pods: %v", err)
 					}
 
-					injectedRevision := pods[0].GetLabels()[label.IoIstioRev.Name]
-					if injectedRevision != tc.revision {
-						t.Fatalf("expected revision tag %q, got %q", tc.revision, injectedRevision)
-					}
+					verifyRevision(t, istioCtl, pods[0].Name, revTagNs.Name(), tc.revision)
 				})
 			}
 		})
+}
+
+func verifyRevision(t framework.TestContext, i istioctl.Instance, podName, podNamespace, revision string) {
+	t.Helper()
+	pcArgs := []string{"pc", "bootstrap", podName, "-n", podNamespace}
+	bootstrapConfig, _ := i.InvokeOrFail(t, pcArgs)
+	expected := fmt.Sprintf("\"discoveryAddress\": \"istiod-%s.istio-system.svc:15012\"", revision)
+	if !strings.Contains(bootstrapConfig, expected) {
+		t.Errorf("expected revision %q in bootstrap config, did not find", revision)
+	}
 }

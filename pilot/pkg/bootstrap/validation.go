@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
@@ -33,17 +34,12 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Mux:          s.httpsMux,
 	}
-	whServer, err := server.New(params)
+	_, err := server.New(params)
 	if err != nil {
 		return err
 	}
 
-	s.addStartFunc(func(stop <-chan struct{}) error {
-		whServer.Run(stop)
-		return nil
-	})
-
-	if s.kubeClient != nil {
+	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("Starting validation controller")
 			go controller.NewValidatingWebhookController(

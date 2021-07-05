@@ -46,6 +46,8 @@ type EnvoyFilterConfigPatchWrapper struct {
 	// regex match, but as an optimization we can reduce this to a prefix match for common cases.
 	// If this is set, ProxyVersionRegex is ignored.
 	ProxyPrefixMatch string
+	Name             string
+	Namespace        string
 }
 
 // wellKnownVersions defines a mapping of well known regex matches to prefix matches
@@ -83,6 +85,8 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 			continue
 		}
 		cpw := &EnvoyFilterConfigPatchWrapper{
+			Name:      local.Name,
+			Namespace: local.Namespace,
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
@@ -165,4 +169,11 @@ func (efw *EnvoyFilterWrapper) Key() string {
 		return ""
 	}
 	return efw.Namespace + "/" + efw.Name
+}
+
+func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
+	if cpw == nil {
+		return ""
+	}
+	return cpw.Namespace + "/" + cpw.Name
 }

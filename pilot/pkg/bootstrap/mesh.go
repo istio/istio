@@ -66,7 +66,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 		if err == nil {
 			if multiWatch {
 				kubemesh.AddUserMeshConfig(
-					s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig)
+					s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
 			} else {
 				// Normal install no longer uses this mode - testing and special installs still use this.
 				log.Warnf("Using local mesh config file %s, in cluster configs ignored", args.MeshConfigFile)
@@ -88,11 +88,10 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
 	s.environment.Watcher = kubemesh.NewConfigMapWatcher(
-		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch)
+		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch, s.internalStop)
 
 	if multiWatch {
-		kubemesh.AddUserMeshConfig(
-			s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig)
+		kubemesh.AddUserMeshConfig(s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
 	}
 }
 

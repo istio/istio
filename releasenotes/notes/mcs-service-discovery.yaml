@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 29384
+releaseNotes:
+  - |
+    **Added** experimental support for controlling service endpoint discoverability with Kubernetes Multi-Cluster
+    Services (MCS). This feature is off by default, but can be enabled by setting the
+    `ENABLE_MCS_SERVICE_DISCOVERY` flag in Istio. When enabled, Istio will make service endpoints
+    only discoverable from within the same cluster by default. To make the service endpoints within a cluster
+    discoverable throughout the mesh, a `ServiceExport` CR must be created within the same cluster as the service
+    endpoints. this process can be automated by enabling the Istio flag `ENABLE_MCS_AUTOEXPORT`. With this enabled,
+    Istio will automatically create `ServiceExport` in all clusters for each service.
+

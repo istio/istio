@@ -296,7 +296,7 @@ func checkPreconditions(params InjectionParameters) {
 	}
 }
 
-func getInjectionStatus(podSpec corev1.PodSpec) string {
+func getInjectionStatus(podSpec corev1.PodSpec, revision string) string {
 	stat := &SidecarInjectionStatus{}
 	for _, c := range podSpec.InitContainers {
 		stat.InitContainers = append(stat.InitContainers, c.Name)
@@ -310,6 +310,12 @@ func getInjectionStatus(podSpec corev1.PodSpec) string {
 	for _, c := range podSpec.ImagePullSecrets {
 		stat.ImagePullSecrets = append(stat.ImagePullSecrets, c.Name)
 	}
+	// Rather than setting istio.io/rev label on injected pods include them here in status annotation.
+	// This keeps us from overwriting the istio.io/rev label when using revision tags (i.e. istio.io/rev=<tag>).
+	if revision == "" {
+		revision = "default"
+	}
+	stat.Revision = revision
 	statusAnnotationValue, err := json.Marshal(stat)
 	if err != nil {
 		return "{}"
@@ -545,7 +551,7 @@ func applyMetadata(pod *corev1.Pod, injectedPodData corev1.Pod, req InjectionPar
 		pod.Labels[label.TopologyNetwork.Name] = nw
 	}
 	// Add all additional injected annotations. These are overridden if needed
-	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec)
+	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodData.Spec, req.revision)
 
 	// Deprecated; should be set directly in the template instead
 	for k, v := range req.injectedAnnotations {
@@ -722,7 +728,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	wh.mu.RLock()
-	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, pod.ObjectMeta) {
+	if !injectRequired(IgnoredNamespaces, wh.Config, &pod.Spec, pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
 		wh.mu.RUnlock()

@@ -181,8 +181,7 @@ func Analyze() *cobra.Command {
 			// If we're using kube, use that as a base source.
 			if useKube {
 				// Set up the kube client
-				config := kube.BuildClientCmd(kubeconfig, configContext)
-				restConfig, err := config.ClientConfig()
+				restConfig, err := kube.DefaultRestConfig(kubeconfig, configContext)
 				if err != nil {
 					return err
 				}

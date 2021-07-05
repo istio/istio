@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var settings = &image.Settings{
+var imgSettings = &image.Settings{
 	Hub:             "testing.hub",
 	Tag:             "latest",
 	PullPolicy:      "Always",
@@ -36,10 +36,11 @@ var settings = &image.Settings{
 
 func TestDeploymentYAML(t *testing.T) {
 	testCase := []struct {
-		name         string
-		wantFilePath string
-		config       echo.Config
-		revVerMap    resource.RevVerMap
+		name          string
+		wantFilePath  string
+		config        echo.Config
+		revVerMap     resource.RevVerMap
+		compatibility bool
 	}{
 		{
 			name:         "basic",
@@ -154,6 +155,7 @@ func TestDeploymentYAML(t *testing.T) {
 				"rev-a": resource.IstioVersion("1.8.2"),
 				"rev-b": resource.IstioVersion("1.9.0"),
 			},
+			compatibility: true,
 		},
 	}
 	for _, tc := range testCase {
@@ -172,11 +174,15 @@ func TestDeploymentYAML(t *testing.T) {
 			if !config.Parsed() {
 				config.Parse()
 			}
+			settings := &resource.Settings{
+				Revisions:     tc.revVerMap,
+				Compatibility: tc.compatibility,
+			}
 			serviceYAML, err := GenerateService(tc.config)
 			if err != nil {
 				t.Errorf("failed to generate service %v", err)
 			}
-			deploymentYAML, err := GenerateDeployment(tc.config, settings, tc.revVerMap)
+			deploymentYAML, err := GenerateDeployment(tc.config, imgSettings, settings)
 			if err != nil {
 				t.Errorf("failed to generate deployment %v", err)
 			}

@@ -19,22 +19,26 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 )
 
+// nolint
 func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.ServiceInstance {
 	instances := make(map[int][]*model.ServiceInstance)
 	for _, port := range service.Ports {
 		instances[port.Port] = makeInstances(proxy, service, port.Port, port.Port)
 		instances[port.Port][0].Endpoint.HostName = hostname
 		instances[port.Port][0].Endpoint.SubDomain = subdomain
-
+		instances[port.Port][0].Endpoint.Network = proxy.Metadata.Network
+		instances[port.Port][0].Endpoint.Locality.ClusterID = proxy.Metadata.ClusterID
 	}
 	return instances
 }
@@ -43,6 +47,18 @@ func TestNameTable(t *testing.T) {
 	proxy := &model.Proxy{
 		IPAddresses: []string{"9.9.9.9"},
 		Metadata:    &model.NodeMetadata{},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "testns.svc.cluster.local",
+	}
+	nw1proxy := &model.Proxy{
+		IPAddresses: []string{"9.9.9.9"},
+		Metadata:    &model.NodeMetadata{Network: "nw1"},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "testns.svc.cluster.local",
+	}
+	cl1proxy := &model.Proxy{
+		IPAddresses: []string{"9.9.9.9"},
+		Metadata:    &model.NodeMetadata{ClusterID: "cl1"},
 		Type:        model.SidecarProxy,
 		DNSDomain:   "testns.svc.cluster.local",
 	}
@@ -55,7 +71,19 @@ func TestNameTable(t *testing.T) {
 	}
 	pod2 := &model.Proxy{
 		IPAddresses: []string{"9.6.7.8"},
-		Metadata:    &model.NodeMetadata{},
+		Metadata:    &model.NodeMetadata{Network: "nw2", ClusterID: "cl2"},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "testns.svc.cluster.local",
+	}
+	pod3 := &model.Proxy{
+		IPAddresses: []string{"19.6.7.8"},
+		Metadata:    &model.NodeMetadata{Network: "nw1"},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "testns.svc.cluster.local",
+	}
+	pod4 := &model.Proxy{
+		IPAddresses: []string{"9.16.7.8"},
+		Metadata:    &model.NodeMetadata{ClusterID: "cl1"},
 		Type:        model.SidecarProxy,
 		DNSDomain:   "testns.svc.cluster.local",
 	}
@@ -63,7 +91,7 @@ func TestNameTable(t *testing.T) {
 	headlessService := &model.Service{
 		Hostname:    host.Name("headless-svc.testns.svc.cluster.local"),
 		Address:     constants.UnspecifiedIP,
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[cluster.ID]string),
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -80,7 +108,7 @@ func TestNameTable(t *testing.T) {
 	wildcardService := &model.Service{
 		Hostname:    host.Name("*.testns.svc.cluster.local"),
 		Address:     "172.10.10.10",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -104,7 +132,7 @@ func TestNameTable(t *testing.T) {
 	cidrService := &model.Service{
 		Hostname:    host.Name("*.testns.svc.cluster.local"),
 		Address:     "172.217.0.0/16",
-		ClusterVIPs: make(map[string]string),
+		ClusterVIPs: make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -131,6 +159,10 @@ func TestNameTable(t *testing.T) {
 		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc"))
 	push.AddServiceInstances(headlessService,
 		makeServiceInstances(pod2, headlessService, "pod2", "headless-svc"))
+	push.AddServiceInstances(headlessService,
+		makeServiceInstances(pod3, headlessService, "pod3", "headless-svc"))
+	push.AddServiceInstances(headlessService,
+		makeServiceInstances(pod4, headlessService, "pod4", "headless-svc"))
 
 	wpush := model.NewPushContext()
 	wpush.AddPublicServices([]*model.Service{wildcardService})
@@ -139,10 +171,11 @@ func TestNameTable(t *testing.T) {
 	wpush.AddPublicServices([]*model.Service{cidrService})
 
 	cases := []struct {
-		name              string
-		proxy             *model.Proxy
-		push              *model.PushContext
-		expectedNameTable *nds.NameTable
+		name                       string
+		proxy                      *model.Proxy
+		push                       *model.PushContext
+		enableMultiClusterHeadless bool
+		expectedNameTable          *nds.NameTable
 	}{
 		{
 			name:  "headless service pods",
@@ -162,8 +195,132 @@ func TestNameTable(t *testing.T) {
 						Shortname: "pod2.headless-svc",
 						Namespace: "testns",
 					},
+					"pod3.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"19.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod3.headless-svc",
+						Namespace: "testns",
+					},
+					"pod4.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod4.headless-svc",
+						Namespace: "testns",
+					},
 					"headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"1.2.3.4", "9.6.7.8"},
+						Ips:       []string{"1.2.3.4", "9.6.7.8", "19.6.7.8", "9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "headless-svc",
+						Namespace: "testns",
+					},
+				},
+			},
+		},
+		{
+			name:  "headless service pods with network isolation",
+			proxy: nw1proxy,
+			push:  push,
+			expectedNameTable: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{
+					"pod1.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4"},
+						Registry:  "Kubernetes",
+						Shortname: "pod1.headless-svc",
+						Namespace: "testns",
+					},
+					"pod3.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"19.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod3.headless-svc",
+						Namespace: "testns",
+					},
+					"pod4.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod4.headless-svc",
+						Namespace: "testns",
+					},
+					"headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4", "19.6.7.8", "9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "headless-svc",
+						Namespace: "testns",
+					},
+				},
+			},
+		},
+		{
+			name:  "multi cluster headless service pods",
+			proxy: cl1proxy,
+			push:  push,
+			expectedNameTable: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{
+					"pod1.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4"},
+						Registry:  "Kubernetes",
+						Shortname: "pod1.headless-svc",
+						Namespace: "testns",
+					},
+					"pod2.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod2.headless-svc",
+						Namespace: "testns",
+					},
+					"pod3.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"19.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod3.headless-svc",
+						Namespace: "testns",
+					},
+					"pod4.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod4.headless-svc",
+						Namespace: "testns",
+					},
+					"headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4", "19.6.7.8", "9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "headless-svc",
+						Namespace: "testns",
+					},
+				},
+			},
+		},
+		{
+			name:                       "multi cluster headless service pods with multi cluster enabled",
+			proxy:                      cl1proxy,
+			push:                       push,
+			enableMultiClusterHeadless: true,
+			expectedNameTable: &nds.NameTable{
+				Table: map[string]*nds.NameTable_NameInfo{
+					"pod1.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4"},
+						Registry:  "Kubernetes",
+						Shortname: "pod1.headless-svc",
+						Namespace: "testns",
+					},
+					"pod2.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod2.headless-svc",
+						Namespace: "testns",
+					},
+					"pod3.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"19.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod3.headless-svc",
+						Namespace: "testns",
+					},
+					"pod4.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod4.headless-svc",
+						Namespace: "testns",
+					},
+					"headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4", "9.6.7.8", "19.6.7.8", "9.16.7.8"},
 						Registry:  "Kubernetes",
 						Shortname: "headless-svc",
 						Namespace: "testns",
@@ -197,6 +354,9 @@ func TestNameTable(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			dvalue := features.MulticlusterHeadlessEnabled
+			features.MulticlusterHeadlessEnabled = tt.enableMultiClusterHeadless
+			defer func() { features.MulticlusterHeadlessEnabled = dvalue }()
 			configgen := core.NewConfigGenerator(nil, model.DisabledCache{})
 			if diff := cmp.Diff(configgen.BuildNameTable(tt.proxy, tt.push), tt.expectedNameTable); diff != "" {
 				t.Fatalf("got diff: %v", diff)

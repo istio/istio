@@ -698,8 +698,9 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			efw := tt.args.push.EnvoyFilters(tt.args.proxy)
 			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
-				tt.args.push, tt.args.routeConfiguration)
+				efw, tt.args.routeConfiguration)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyRouteConfigurationPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
