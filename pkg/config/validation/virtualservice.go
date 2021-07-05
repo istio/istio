@@ -136,7 +136,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 	if routeType == IndependentRoute {
 		for _, match := range http.Match {
 			if match != nil {
-				if isCatchAllMatch(match) && len(http.Match) > 1 {
+				if IsCatchAllMatch(match) && len(http.Match) > 1 {
 					errs = appendValidation(errs, WrapWarning(fmt.Errorf("http match request %s is catchall but there are other matches specified", match.Name)))
 				}
 				for name, header := range match.Headers {
@@ -280,8 +280,8 @@ func isAuthorityHeader(headerKey string) bool {
 	return strings.EqualFold(headerKey, ":authority") || strings.EqualFold(headerKey, "host")
 }
 
-// isCatchAllMatch returns true if HTTPMatchRequest is a catchall match otherwise false.
-func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
+// IsCatchAllMatch returns true if HTTPMatchRequest is a catchall match otherwise false.
+func IsCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 	catchall := false
 	if m.Uri != nil {
 		// A Match is catch all if and only if it has no match set
