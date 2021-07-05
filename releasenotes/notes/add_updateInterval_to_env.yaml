@@ -3,4 +3,4 @@ kind: feature
 area: traffic-management
 releaseNotes:
 - |
-  **Added** a environment variable `PILOT_STATUS_UPDATE_INTERVAL` that is the interval to update the XDS distribution status and its default value is 500ms.
+  **Added** a environment variable `PILOT_STATUS_UPDATE_INTERVAL` that is the interval to update the XDS distribution status and its default is 500ms.
