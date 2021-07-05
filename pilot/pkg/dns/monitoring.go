@@ -15,7 +15,9 @@
 package dns
 
 import (
+	"github.com/miekg/dns"
 	"istio.io/pkg/monitoring"
+	"strconv"
 )
 
 var (
@@ -34,10 +36,24 @@ var (
 		"Total number of DNS requests forwarded to upstream.",
 	)
 
-	requestDuration = monitoring.NewDistribution(
+	upstreamRequestDuration = monitoring.NewDistribution(
 		"dns_upstream_request_time_ms",
 		"Total time in milliseconds Istio takes to get DNS response from upstream.",
 		[]float64{1, 3, 5, 10, 25, 50},
+	)
+
+	requestDuration = monitoring.NewDistribution(
+		"dns_request_time_ms",
+		"Total time in milliseconds Istio takes to serve DNS response.",
+		[]float64{1, 3, 5, 10, 25, 50},
+	)
+
+	rcodeLabel = monitoring.MustCreateLabel("rcode")
+
+	responses = monitoring.NewSum(
+		"dns_responses_total",
+		"Total number of DNS responses.",
+		monitoring.WithLabels(rcodeLabel),
 	)
 )
 
@@ -45,5 +61,14 @@ func registerStats() {
 	monitoring.MustRegister(requests)
 	monitoring.MustRegister(upstreamRequests)
 	monitoring.MustRegister(failures)
-	monitoring.MustRegister(requestDuration)
+	monitoring.MustRegister(upstreamRequestDuration)
+}
+
+func rcodeToLabelValue(rcode int) monitoring.LabelValue {
+	name, found := dns.RcodeToString[rcode]
+	if found {
+		return rcodeLabel.Value(name)
+	} else {
+		return rcodeLabel.Value(strconv.Itoa(rcode))
+	}
 }

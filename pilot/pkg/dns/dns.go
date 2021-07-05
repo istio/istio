@@ -167,6 +167,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 // ServerDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	requests.Increment()
+	start := time.Now()
 	var response *dns.Msg
 	log := log.WithLabels("protocol", proxy.protocol, "edns", req.IsEdns0() != nil)
 	if log.DebugEnabled() {
@@ -179,6 +180,8 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		response = new(dns.Msg)
 		response.SetReply(req)
 		response.Rcode = dns.RcodeServerFailure
+		requestDuration.Record(float64(time.Since(start).Milliseconds()))
+		responses.With(rcodeToLabelValue(response.Rcode)).Increment()
 		_ = w.WriteMsg(response)
 		return
 	}
@@ -190,6 +193,8 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		response = new(dns.Msg)
 		response.SetReply(req)
 		response.Rcode = dns.RcodeServerFailure
+		requestDuration.Record(float64(time.Since(start).Milliseconds()))
+		responses.With(rcodeToLabelValue(response.Rcode)).Increment()
 		_ = w.WriteMsg(response)
 		return
 	}
@@ -218,17 +223,18 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
 	} else {
 		upstreamRequests.Increment()
-		start := time.Now()
 		// We did not find the host in our internal cache. Query upstream and return the response as is.
 		log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
 		response = h.queryUpstream(proxy.upstreamClient, req, log)
-		requestDuration.Record(float64(time.Since(start).Milliseconds()))
+		upstreamRequestDuration.Record(float64(time.Since(start).Milliseconds()))
 		log.Debugf("upstream response for hostname %q : %v", hostname, response)
 	}
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
 	response.Truncate(size(proxy.protocol, req))
+	requestDuration.Record(float64(time.Since(start).Milliseconds()))
+	responses.With(rcodeToLabelValue(response.Rcode)).Increment()
 	_ = w.WriteMsg(response)
 }
 
