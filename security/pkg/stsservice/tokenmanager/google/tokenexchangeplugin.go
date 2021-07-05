@@ -228,22 +228,13 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 	}
 	req.Header.Set("Content-Type", contentType)
 	if pluginLog.DebugEnabled() {
-		dQuery := map[string]string{
-			"audience":           aud,
-			"grantType":          parameters.GrantType,
-			"requestedTokenType": tokenType,
-			"subjectTokenType":   parameters.SubjectTokenType,
-			"subjectToken":       "redacted",
-			"scope":              reqScope,
-		}
-		dJSONQuery, _ := json.Marshal(dQuery)
+		query["subjectToken"] = "redacted"
+		dJSONQuery, _ := json.Marshal(query)
 		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
 		dReq.Header.Set("Content-Type", contentType)
 
-		if pluginLog.DebugEnabled() {
-			reqDump, _ := httputil.DumpRequest(dReq, true)
-			pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
-		}
+		reqDump, _ := httputil.DumpRequest(dReq, true)
+		pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
 	} else {
 		pluginLog.Infof("Prepared federated token request for aud %q", aud)
 	}
