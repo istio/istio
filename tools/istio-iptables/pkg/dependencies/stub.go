@@ -38,3 +38,9 @@ func (s *StdoutStubDependencies) Run(cmd string, args ...string) error {
 func (s *StdoutStubDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
 	log.Infof("%s %s", cmd, strings.Join(args, " "))
 }
+
+// CmdOutput runs a command and returns its standard output
+func (s *StdoutStubDependencies) CmdOutput(cmd string, args ...string) (string, error) {
+	log.Infof("%s %s", cmd, strings.Join(args, " "))
+	return "", nil
+}

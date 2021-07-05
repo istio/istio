@@ -169,3 +169,9 @@ func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
 		_ = r.execute(cmd, true, args...)
 	}
 }
+
+// CmdOutput runs a command and returns its standard output
+func (r *RealDependencies) CmdOutput(cmd string, args ...string) (string, error) {
+	output, err := exec.Command(cmd, args...).Output()
+	return string(output), err
+}
