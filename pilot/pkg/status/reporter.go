@@ -87,10 +87,6 @@ func (r *Reporter) Init(ledger ledger.Ledger, stop <-chan struct{}) {
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
-	// default UpdateInterval
-	if r.UpdateInterval == 0 {
-		r.UpdateInterval = 500 * time.Millisecond
-	}
 	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string]map[string]struct{})
