@@ -12,31 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package filters
 
-import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
-
-	"istio.io/istio/cni/pkg/cmd"
-	"istio.io/pkg/log"
-)
-
-func main() {
-	// Create context that cancels on termination signal
-	ctx, cancel := context.WithCancel(context.Background())
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func(sigChan chan os.Signal, cancel context.CancelFunc) {
-		sig := <-sigChan
-		log.Infof("Exit signal received: %s", sig)
-		cancel()
-	}(sigChan, cancel)
-
-	rootCmd := cmd.GetCommand()
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		os.Exit(1)
-	}
+type RouterFilterContext struct {
+	StartChildSpan bool
 }

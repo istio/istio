@@ -18,7 +18,7 @@ import (
 	"net/http"
 	"sync/atomic"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
+	"istio.io/istio/cni/pkg/constants"
 )
 
 // StartServer initializes and starts a web server that exposes liveness and readiness endpoints at port 8000.

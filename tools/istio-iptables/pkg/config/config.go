@@ -16,7 +16,6 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"istio.io/pkg/log"
@@ -62,26 +61,26 @@ func (c *Config) String() string {
 }
 
 func (c *Config) Print() {
-	fmt.Println("Variables:")
-	fmt.Println("----------")
-	fmt.Printf("PROXY_PORT=%s\n", c.ProxyPort)
-	fmt.Printf("PROXY_INBOUND_CAPTURE_PORT=%s\n", c.InboundCapturePort)
-	fmt.Printf("PROXY_TUNNEL_PORT=%s\n", c.InboundTunnelPort)
-	fmt.Printf("PROXY_UID=%s\n", c.ProxyUID)
-	fmt.Printf("PROXY_GID=%s\n", c.ProxyGID)
-	fmt.Printf("INBOUND_INTERCEPTION_MODE=%s\n", c.InboundInterceptionMode)
-	fmt.Printf("INBOUND_TPROXY_MARK=%s\n", c.InboundTProxyMark)
-	fmt.Printf("INBOUND_TPROXY_ROUTE_TABLE=%s\n", c.InboundTProxyRouteTable)
-	fmt.Printf("INBOUND_PORTS_INCLUDE=%s\n", c.InboundPortsInclude)
-	fmt.Printf("INBOUND_PORTS_EXCLUDE=%s\n", c.InboundPortsExclude)
-	fmt.Printf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", c.OutboundIPRangesInclude)
-	fmt.Printf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude)
-	fmt.Printf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude)
-	fmt.Printf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude)
-	fmt.Printf("KUBEVIRT_INTERFACES=%s\n", c.KubevirtInterfaces)
-	fmt.Printf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6)
-	fmt.Printf("DNS_CAPTURE=%t\n", c.RedirectDNS)
-	fmt.Printf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS)
-	fmt.Printf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6)
-	fmt.Println("")
+	log.Info("Variables:")
+	log.Info("----------")
+	log.Infof("PROXY_PORT=%s", c.ProxyPort)
+	log.Infof("PROXY_INBOUND_CAPTURE_PORT=%s", c.InboundCapturePort)
+	log.Infof("PROXY_TUNNEL_PORT=%s", c.InboundTunnelPort)
+	log.Infof("PROXY_UID=%s", c.ProxyUID)
+	log.Infof("PROXY_GID=%s", c.ProxyGID)
+	log.Infof("INBOUND_INTERCEPTION_MODE=%s", c.InboundInterceptionMode)
+	log.Infof("INBOUND_TPROXY_MARK=%s", c.InboundTProxyMark)
+	log.Infof("INBOUND_TPROXY_ROUTE_TABLE=%s", c.InboundTProxyRouteTable)
+	log.Infof("INBOUND_PORTS_INCLUDE=%s", c.InboundPortsInclude)
+	log.Infof("INBOUND_PORTS_EXCLUDE=%s", c.InboundPortsExclude)
+	log.Infof("OUTBOUND_IP_RANGES_INCLUDE=%s", c.OutboundIPRangesInclude)
+	log.Infof("OUTBOUND_IP_RANGES_EXCLUDE=%s", c.OutboundIPRangesExclude)
+	log.Infof("OUTBOUND_PORTS_INCLUDE=%s", c.OutboundPortsInclude)
+	log.Infof("OUTBOUND_PORTS_EXCLUDE=%s", c.OutboundPortsExclude)
+	log.Infof("KUBEVIRT_INTERFACES=%s", c.KubevirtInterfaces)
+	log.Infof("ENABLE_INBOUND_IPV6=%t", c.EnableInboundIPv6)
+	log.Infof("DNS_CAPTURE=%t", c.RedirectDNS)
+	log.Infof("CAPTURE_ALL_DNS=%t", c.CaptureAllDNS)
+	log.Infof("DNS_SERVERS=%s,%s", c.DNSServersV4, c.DNSServersV6)
+	log.Info("")
 }

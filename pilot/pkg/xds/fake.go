@@ -80,6 +80,9 @@ type FakeOptions struct {
 	// Time to debounce
 	// By default, set to 0s to speed up tests
 	DebounceTime time.Duration
+
+	// EnableFakeXDSUpdater will use a XDSUpdater that can be used to watch events
+	EnableFakeXDSUpdater bool
 }
 
 type FakeDiscoveryServer struct {
@@ -89,6 +92,7 @@ type FakeDiscoveryServer struct {
 	Listener     *bufconn.Listener
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
+	XdsUpdater   model.XDSUpdater
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -136,6 +140,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			})
 		})
 	}
+	var xdsUpdater model.XDSUpdater = s
+	if opts.EnableFakeXDSUpdater {
+		evChan := make(chan FakeXdsEvent, 1000)
+		xdsUpdater = &FakeXdsUpdater{
+			Events:   evChan,
+			Delegate: s,
+		}
+	}
 	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)
 		if opts.KubeClientModifier != nil {
@@ -146,7 +158,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Client:          client,
 			ClusterID:       k8sCluster,
 			DomainSuffix:    "cluster.local",
-			XDSUpdater:      s,
+			XDSUpdater:      xdsUpdater,
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
 			// we wait for the aggregate to sync
@@ -281,6 +293,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigGenTest: cg,
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
+		XdsUpdater:    xdsUpdater,
 	}
 
 	return fake
@@ -406,4 +419,79 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 	}
 
 	return objects
+}
+
+type FakeXdsEvent struct {
+	Kind      string
+	Host      string
+	Namespace string
+	Endpoints int
+	PushReq   *model.PushRequest
+}
+
+type FakeXdsUpdater struct {
+	// Events tracks notifications received by the updater
+	Events   chan FakeXdsEvent
+	Delegate model.XDSUpdater
+}
+
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
+func (fx *FakeXdsUpdater) EDSUpdate(s, hostname string, namespace string, entry []*model.IstioEndpoint) {
+	fx.Events <- FakeXdsEvent{Kind: "eds", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
+	if fx.Delegate != nil {
+		fx.Delegate.EDSUpdate(s, hostname, namespace, entry)
+	}
+}
+
+func (fx *FakeXdsUpdater) EDSCacheUpdate(s, hostname string, namespace string, entry []*model.IstioEndpoint) {
+	fx.Events <- FakeXdsEvent{Kind: "edscache", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
+	if fx.Delegate != nil {
+		fx.Delegate.EDSCacheUpdate(s, hostname, namespace, entry)
+	}
+}
+
+func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
+	fx.Events <- FakeXdsEvent{Kind: "xds", PushReq: req}
+	if fx.Delegate != nil {
+		fx.Delegate.ConfigUpdate(req)
+	}
+}
+
+func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
+	if fx.Delegate != nil {
+		fx.Delegate.ProxyUpdate(c, p)
+	}
+}
+
+func (fx *FakeXdsUpdater) SvcUpdate(s, hostname string, namespace string, e model.Event) {
+	fx.Events <- FakeXdsEvent{Kind: "svcupdate", Host: hostname, Namespace: namespace}
+	if fx.Delegate != nil {
+		fx.Delegate.SvcUpdate(s, hostname, namespace, e)
+	}
+}
+
+func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
+	t.Helper()
+	got := fx.Wait(types...)
+	if got == nil {
+		t.Fatal("missing event")
+	}
+	return got
+}
+
+func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
+	for {
+		select {
+		case e := <-fx.Events:
+			for _, et := range types {
+				if e.Kind == et {
+					return &e
+				}
+			}
+			continue
+		case <-time.After(1 * time.Second):
+			return nil
+		}
+	}
 }

@@ -154,13 +154,9 @@ func deployEchos(t resource.Context) error {
 	}
 	testNS = ns.Name()
 
-	// TODO(https://github.com/istio/istio/issues/33526)
-	// To avoid a multi-network bug with MCS, we'll only deploy our workloads on the same network
-	clusters := findClustersOnTheSameNetwork(t)
-
 	// Create echo instances in each cluster.
 	echos, err = echoboot.NewBuilder(t).
-		WithClusters(clusters...).
+		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
 			Service:   serviceA,
 			Namespace: ns,
@@ -172,18 +168,6 @@ func deployEchos(t resource.Context) error {
 			Ports:     common.EchoPorts,
 		}).Build()
 	return err
-}
-
-func findClustersOnTheSameNetwork(t resource.Context) cluster.Clusters {
-	networkMap := t.Clusters().ByNetwork()
-	var out cluster.Clusters
-	// Pick the network with the most clusters.
-	for _, clusters := range networkMap {
-		if len(clusters) > len(out) {
-			out = clusters
-		}
-	}
-	return out
 }
 
 func sendTrafficBetweenAllClusters(

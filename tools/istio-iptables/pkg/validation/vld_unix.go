@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/log"
 )
 
 // Recover the original address from redirect socket. Supposed to work for tcp over ipv4 and ipv6.
@@ -66,7 +67,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 				unix.IPPROTO_IP,
 				constants.SoOriginalDst)
 		if err != nil {
-			fmt.Println("error ipv4 getsockopt")
+			log.Errorf("Error ipv4 getsockopt: %v", err)
 			return
 		}
 		// See struct sockaddr_in
@@ -78,7 +79,7 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 			constants.SoOriginalDst)
 
 		if err != nil {
-			fmt.Println("error ipv6 getsockopt")
+			log.Errorf("Error to ipv6 getsockopt: %v", err)
 			return
 		}
 		// See struct sockaddr_in6
@@ -87,8 +88,8 @@ func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err erro
 	// See sockaddr_in6 and sockaddr_in
 	dport = ntohs(addr.Addr.Port)
 
-	fmt.Printf("local addr %s\n", conn.LocalAddr())
-	fmt.Printf("original addr %s:%d\n", ip, dport)
+	log.Infof("Local addr %s", conn.LocalAddr())
+	log.Infof("Original addr %s: %d", ip, dport)
 	return
 }
 
@@ -97,11 +98,11 @@ func reuseAddr(network, address string, conn syscall.RawConn) error {
 	return conn.Control(func(descriptor uintptr) {
 		err := unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
 		if err != nil {
-			fmt.Printf("fail to set fd %d SO_REUSEADDR with error %v\n", descriptor, err)
+			log.Errorf("Fail to set fd %d SO_REUSEADDR with error %v", descriptor, err)
 		}
 		err = unix.SetsockoptInt(int(descriptor), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 		if err != nil {
-			fmt.Printf("fail to set fd %d SO_REUSEPORT with error %v\n", descriptor, err)
+			log.Errorf("Fail to set fd %d SO_REUSEPORT with error %v", descriptor, err)
 		}
 	})
 }

@@ -26,7 +26,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e
 	github.com/cncf/xds/go v0.0.0-20210323124008-b88cc788a63e
-	github.com/containernetworking/cni v0.7.0-alpha1
+	github.com/containernetworking/cni v0.8.1
 	github.com/containernetworking/plugins v0.7.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
@@ -90,10 +90,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.6.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210630020755-4cf3c6594295
-	istio.io/client-go v0.0.0-20210629171146-722c7ea95e6d
-	istio.io/gogo-genproto v0.0.0-20210621193247-e3a6cd9a4a01
-	istio.io/pkg v0.0.0-20210629234124-a07f3feea30b
+	istio.io/api v0.0.0-20210702170716-527b9df3805f
+	istio.io/client-go v0.0.0-20210702172148-29e5a0d6d84e
+	istio.io/gogo-genproto v0.0.0-20210702140656-ccf714d90369
+	istio.io/pkg v0.0.0-20210702140656-1615cfceaeae
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.0
 	k8s.io/apimachinery v0.21.1
