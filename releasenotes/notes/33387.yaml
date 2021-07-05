@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 33387
+releaseNotes:
+  - |
+    **Fixed** a bug where wildcard hosts are incorrectly added when sidecar specifies specific host only.
