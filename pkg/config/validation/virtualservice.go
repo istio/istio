@@ -132,24 +132,27 @@ func validateAuthorityRewrite(rewrite *networking.HTTPRewrite, headers *networki
 	return nil
 }
 
-func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRouteType) (errs error) {
+func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRouteType) (errs Validation) {
 	if routeType == IndependentRoute {
 		for _, match := range http.Match {
 			if match != nil {
+				if isCatchAllMatch(match) && len(http.Match) > 1 {
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("http match request %s is catchall but there are other matches specified", match.Name)))
+				}
 				for name, header := range match.Headers {
 					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+						errs = appendValidation(errs, fmt.Errorf("header match %v cannot be null", name))
 					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-					errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
+					errs = appendValidation(errs, ValidateHTTPHeaderName(name))
+					errs = appendValidation(errs, validateStringMatchRegexp(header, "headers"))
 				}
 
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
-				errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+				errs = appendValidation(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+				errs = appendValidation(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+				errs = appendValidation(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+				errs = appendValidation(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
 				for _, qp := range match.GetQueryParams() {
-					errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+					errs = appendValidation(errs, validateStringMatchRegexp(qp, "queryParams"))
 				}
 			}
 		}
@@ -157,45 +160,44 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 		for _, match := range http.Match {
 			if match != nil {
 				if containRegexMatch(match.Uri) {
-					errs = appendErrors(errs, errors.New("url match does not support regex match for delegating"))
+					errs = appendValidation(errs, errors.New("url match does not support regex match for delegating"))
 				}
 				if containRegexMatch(match.Scheme) {
-					errs = appendErrors(errs, errors.New("scheme match does not support regex match for delegating"))
+					errs = appendValidation(errs, errors.New("scheme match does not support regex match for delegating"))
 				}
 				if containRegexMatch(match.Method) {
-					errs = appendErrors(errs, errors.New("method match does not support regex match for delegating"))
+					errs = appendValidation(errs, errors.New("method match does not support regex match for delegating"))
 				}
 				if containRegexMatch(match.Authority) {
-					errs = appendErrors(errs, errors.New("authority match does not support regex match for delegating"))
+					errs = appendValidation(errs, errors.New("authority match does not support regex match for delegating"))
 				}
 
 				for name, header := range match.Headers {
 					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
+						errs = appendValidation(errs, fmt.Errorf("header match %v cannot be null", name))
 					}
 					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("header match %v does not support regex match for delegating", name))
+						errs = appendValidation(errs, fmt.Errorf("header match %v does not support regex match for delegating", name))
 					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+					errs = appendValidation(errs, ValidateHTTPHeaderName(name))
 				}
 				for name, param := range match.QueryParams {
 					if param == nil {
-						errs = appendErrors(errs, fmt.Errorf("query param match %v cannot be null", name))
+						errs = appendValidation(errs, fmt.Errorf("query param match %v cannot be null", name))
 					}
 					if containRegexMatch(param) {
-						errs = appendErrors(errs, fmt.Errorf("query param match %v does not support regex match for delegating", name))
+						errs = appendValidation(errs, fmt.Errorf("query param match %v does not support regex match for delegating", name))
 					}
 				}
 				for name, header := range match.WithoutHeaders {
 					if header == nil {
-						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
+						errs = appendValidation(errs, fmt.Errorf("withoutHeaders match %v cannot be null", name))
 					}
 					if containRegexMatch(header) {
-						errs = appendErrors(errs, fmt.Errorf("withoutHeaders match %v does not support regex match for delegating", name))
+						errs = appendValidation(errs, fmt.Errorf("withoutHeaders match %v does not support regex match for delegating", name))
 					}
-					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+					errs = appendValidation(errs, ValidateHTTPHeaderName(name))
 				}
-
 			}
 		}
 	}
@@ -203,13 +205,13 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 	for _, match := range http.Match {
 		if match != nil {
 			if match.Port != 0 {
-				errs = appendErrors(errs, ValidatePort(int(match.Port)))
+				errs = appendValidation(errs, ValidatePort(int(match.Port)))
 			}
-			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
-			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendValidation(errs, labels.Instance(match.SourceLabels).Validate())
+			errs = appendValidation(errs, validateGatewayNames(match.Gateways))
 			if match.SourceNamespace != "" {
 				if !labels.IsDNS1123Label(match.SourceNamespace) {
-					errs = appendErrors(errs, fmt.Errorf("sourceNamespace match %s is invalid", match.SourceNamespace))
+					errs = appendValidation(errs, fmt.Errorf("sourceNamespace match %s is invalid", match.SourceNamespace))
 				}
 			}
 		}
@@ -276,4 +278,33 @@ func isInternalHeader(headerKey string) bool {
 // isAuthorityHeader returns true if a header refers to the authority header
 func isAuthorityHeader(headerKey string) bool {
 	return strings.EqualFold(headerKey, ":authority") || strings.EqualFold(headerKey, "host")
+}
+
+// isCatchAllMatch returns true if HTTPMatchRequest is a catchall match otherwise false.
+func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
+	catchall := false
+	if m.Uri != nil {
+		// A Match is catch all if and only if it has no match set
+		// and URI has a prefix / or regex *.
+		switch m := m.Uri.MatchType.(type) {
+		case *networking.StringMatch_Prefix:
+			catchall = m.Prefix == "/"
+		case *networking.StringMatch_Regex:
+			catchall = m.Regex == "*"
+		}
+	} else {
+		catchall = true
+	}
+
+	return catchall &&
+		len(m.Headers) == 0 &&
+		len(m.QueryParams) == 0 &&
+		len(m.SourceLabels) == 0 &&
+		len(m.WithoutHeaders) == 0 &&
+		len(m.Gateways) == 0 &&
+		m.Method == nil &&
+		m.Scheme == nil &&
+		m.Port == 0 &&
+		m.Authority == nil &&
+		m.SourceNamespace == ""
 }
