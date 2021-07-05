@@ -262,6 +262,7 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
+	mux.HandleFunc("/tcp-probe/", s.handleTcpProbe)
 
 	// Add the handler for pprof.
 	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
@@ -552,6 +553,23 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
 	notifyExit()
+}
+
+func (s *Server) handleTcpProbe(w http.ResponseWriter, req *http.Request) {
+	portStr := strings.TrimPrefix(req.URL.Path, "/tcp-probe/")
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Errorf("could not parse port number when handling %s", req.URL.Path)
+	}
+
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		w.WriteHeader(404)
+	} else {
+		w.WriteHeader(200)
+		conn.Close()
+	}
 }
 
 func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
