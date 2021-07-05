@@ -959,7 +959,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.DisableCAServer() {
+	if tlsOptions.CaCertFile == "" && features.SpiffeBundleEndpoints == "" && !s.isDisableCa() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1051,7 +1051,7 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
 		}
-		if !s.DisableCAServer() {
+		if !s.isDisableCa() {
 			if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
 				return fmt.Errorf("failed to create CA: %v", err)
 			}
@@ -1084,7 +1084,7 @@ func (s *Server) startCA(caOpts *caOptions) {
 }
 
 func (s *Server) fetchCARoot() map[string]string {
-	if s.DisableCAServer() {
+	if s.isDisableCa() {
 		return map[string]string{
 			constants.CACertNamespaceConfigMapDataName: string(s.RA.GetCAKeyCertBundle().GetRootCertPem()),
 		}
@@ -1198,9 +1198,9 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	return nil
 }
 
-// DisableCAServer returns whether CA functionality is disabled in istiod.
+// isDisableCa returns whether CA functionality is disabled in istiod.
 // It return true only if istiod certs is signed by Kubernetes and
 // workload certs are signed by external CA
-func (s *Server) DisableCAServer() bool {
+func (s *Server) isDisableCa() bool {
 	return features.PilotCertProvider == constants.CertProviderKubernetes && s.RA != nil
 }
