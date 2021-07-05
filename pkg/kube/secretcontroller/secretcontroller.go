@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
@@ -97,12 +96,6 @@ type Cluster struct {
 	initialSync *atomic.Bool
 	// SyncTimeout is marked after features.RemoteClusterTimeout
 	SyncTimeout *atomic.Bool
-}
-
-// secretEvent captures the event details of secret changes.
-type secretEvent struct {
-	event model.Event
-	key   string
 }
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
@@ -207,7 +200,7 @@ func NewController(
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err == nil {
 				log.Infof("Processing add: %s", key)
-				queue.Add(secretEvent{event: model.EventAdd, key: key})
+				queue.Add(key)
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -218,14 +211,14 @@ func NewController(
 			key, err := cache.MetaNamespaceKeyFunc(newObj)
 			if err == nil {
 				log.Infof("Processing update: %s", key)
-				queue.Add(secretEvent{event: model.EventUpdate, key: key})
+				queue.Add(key)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err == nil {
 				log.Infof("Processing delete: %s", key)
-				queue.Add(secretEvent{event: model.EventDelete, key: key})
+				queue.Add(key)
 			}
 		},
 	})
@@ -249,7 +242,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	}
 	log.Infof("Secret controller cache synced in %v", time.Since(t0))
 	// all secret events before this signal must be processed before we're marked "ready"
-	c.queue.Add(secretEvent{event: model.EventAdd, key: initialSyncSignal})
+	c.queue.Add(initialSyncSignal)
 	if features.RemoteClusterTimeout != 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			c.remoteSyncTimeout.Store(true)
@@ -330,47 +323,47 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) processNextItem() bool {
-	event, quit := c.queue.Get()
+	key, quit := c.queue.Get()
 	if quit {
 		log.Info("secret controller queue is shutting down, so returning")
 		return false
 	}
-	log.Infof("secret controller got event %s from queue for secret %s", event.(secretEvent).event, event.(secretEvent).key)
-	defer c.queue.Done(event)
+	log.Infof("secret controller got event from queue for secret %s", key)
+	defer c.queue.Done(key)
 
-	err := c.processItem(event.(secretEvent))
+	err := c.processItem(key.(string))
 	if err == nil {
-		log.Debugf("secret controller finished processing event %s for secret %s", event.(secretEvent).event, event.(secretEvent).key)
+		log.Debugf("secret controller finished processing secret %s", key)
 		// No error, reset the ratelimit counters
-		c.queue.Forget(event)
-	} else if c.queue.NumRequeues(event) < maxRetries {
-		log.Errorf("Error processing %s (will retry): %v", event, err)
-		c.queue.AddRateLimited(event)
+		c.queue.Forget(key)
+	} else if c.queue.NumRequeues(key) < maxRetries {
+		log.Errorf("Error processing %s (will retry): %v", key, err)
+		c.queue.AddRateLimited(key)
 	} else {
-		log.Errorf("Error processing %s (giving up): %v", event, err)
-		c.queue.Forget(event)
+		log.Errorf("Error processing %s (giving up): %v", key, err)
+		c.queue.Forget(key)
 	}
 
 	return true
 }
 
-func (c *Controller) processItem(se secretEvent) error {
-	if se.key == initialSyncSignal {
+func (c *Controller) processItem(key string) error {
+	if key == initialSyncSignal {
 		log.Info("secret controller initial sync done")
 		c.initialSync.Store(true)
 		return nil
 	}
-	log.Infof("processing secret event %s for secret %s", se.event.String(), se.key)
-	obj, exists, err := c.informer.GetIndexer().GetByKey(se.key)
+	log.Infof("processing secret event for secret %s", key)
+	obj, exists, err := c.informer.GetIndexer().GetByKey(key)
 	if err != nil {
-		return fmt.Errorf("error fetching object %s error: %v", se.key, err)
+		return fmt.Errorf("error fetching object %s error: %v", key, err)
 	}
 	if exists {
-		log.Debugf("secret %s exists in informer cache, processing it", se.key)
-		c.addSecret(se.key, obj.(*corev1.Secret))
+		log.Debugf("secret %s exists in informer cache, processing it", key)
+		c.addSecret(key, obj.(*corev1.Secret))
 	} else {
-		log.Debugf("secret %s does not exist in informer cache, deleting it", se.key)
-		c.deleteSecret(se.key)
+		log.Debugf("secret %s does not exist in informer cache, deleting it", key)
+		c.deleteSecret(key)
 	}
 
 	return nil
