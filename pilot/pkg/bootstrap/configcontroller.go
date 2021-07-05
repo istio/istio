@@ -286,7 +286,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.statusReporter = &status.Reporter{
-		UpdateInterval: features.UpdateInterval,
+		UpdateInterval: features.StatusUpdateInterval,
 		PodName:        args.PodName,
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {

@@ -247,7 +247,7 @@ var (
 		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
 	).Get()
 
-	UpdateInterval = env.RegisterDurationVar(
+	StatusUpdateInterval = env.RegisterDurationVar(
 		"PILOT_STATUS_UPDATE_INTERVAL",
 		500*time.Millisecond,
 		"Interval to update the XDS distribution status.",
