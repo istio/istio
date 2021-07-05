@@ -959,7 +959,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	if tlsOptions.CaCertFile == "" && features.SpiffeBundleEndpoints == "" && !s.isDisableCa() {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isDisableCa() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
