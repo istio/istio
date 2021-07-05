@@ -136,11 +136,11 @@ spec:
   - route:
     - destination:
         host: {{ .dstSvc }}
-	retries:
+    retries:
       attempts: 3
       perTryTimeout: 2s
-	  retryOn: gateway-error,connect-failure,refused-stream
-	  retryRemoteLocalities: true
+      retryOn: gateway-error,connect-failure,refused-stream
+      retryRemoteLocalities: true
     headers:
       request:
         add:
