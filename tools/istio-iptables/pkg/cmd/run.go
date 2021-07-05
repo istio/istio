@@ -118,20 +118,18 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 
 func (iptConfigurator *IptablesConfigurator) logConfig() {
 	// Dump out our environment for debugging purposes.
-	log.Info("Environment:")
-	log.Info("------------")
-	log.Infof("ENVOY_PORT=%s", os.Getenv("ENVOY_PORT"))
-	log.Infof("INBOUND_CAPTURE_PORT=%s", os.Getenv("INBOUND_CAPTURE_PORT"))
-	log.Infof("ISTIO_INBOUND_INTERCEPTION_MODE=%s", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE"))
-	log.Infof("ISTIO_INBOUND_TPROXY_MARK=%s", os.Getenv("ISTIO_INBOUND_TPROXY_MARK"))
-	log.Infof("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE"))
-	log.Infof("ISTIO_INBOUND_PORTS=%s", os.Getenv("ISTIO_INBOUND_PORTS"))
-	log.Infof("ISTIO_OUTBOUND_PORTS=%s", os.Getenv("ISTIO_OUTBOUND_PORTS"))
-	log.Infof("ISTIO_LOCAL_EXCLUDE_PORTS=%s", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS"))
-	log.Infof("ISTIO_SERVICE_CIDR=%s", os.Getenv("ISTIO_SERVICE_CIDR"))
-	log.Infof("ISTIO_SERVICE_EXCLUDE_CIDR=%s", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR"))
-	log.Infof("ISTIO_META_DNS_CAPTURE=%s", os.Getenv("ISTIO_META_DNS_CAPTURE"))
-	log.Info("")
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("ENVOY_PORT=%s\n", os.Getenv("ENVOY_PORT")))
+	b.WriteString(fmt.Sprintf("INBOUND_CAPTURE_PORT=%s\n", os.Getenv("INBOUND_CAPTURE_PORT")))
+	b.WriteString(fmt.Sprintf("ISTIO_INBOUND_INTERCEPTION_MODE=%s\n", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")))
+	b.WriteString(fmt.Sprintf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE")))
+	b.WriteString(fmt.Sprintf("ISTIO_INBOUND_PORTS=%s\n", os.Getenv("ISTIO_INBOUND_PORTS")))
+	b.WriteString(fmt.Sprintf("ISTIO_OUTBOUND_PORTS=%s\n", os.Getenv("ISTIO_OUTBOUND_PORTS")))
+	b.WriteString(fmt.Sprintf("ISTIO_LOCAL_EXCLUDE_PORTS=%s\n", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")))
+	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR")))
+	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
+	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s", os.Getenv("ISTIO_META_DNS_CAPTURE")))
+	log.Infof("Istio iptables environment:\n%s", b.String())
 	iptConfigurator.cfg.Print()
 }
 
@@ -815,7 +813,7 @@ func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
 
 func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
 	defer f.Close()
-	log.Infof("Writing following contents to rules file: %v\n%v", f.Name(), contents)
+	log.Infof("Writing following contents to rules file: %v\n%v", f.Name(), strings.TrimSpace(contents))
 	writer := bufio.NewWriter(f)
 	_, err := writer.WriteString(contents)
 	if err != nil {
