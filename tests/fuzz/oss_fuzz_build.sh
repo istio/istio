@@ -21,6 +21,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseMeshNetworks fuzz_parse_mes
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateMeshConfig fuzz_validate_mesh_config
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzXds fuzz_xds
 
 
 # Create seed corpora:
