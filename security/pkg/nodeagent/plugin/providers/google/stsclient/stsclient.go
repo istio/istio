@@ -74,7 +74,10 @@ func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomai
 }
 
 func retryable(code int) bool {
-	return code >= 500 && !(code == 501 || code == 505 || code == 511)
+	return code >= http.StatusInternalServerError &&
+		!(code == http.StatusNotImplemented ||
+			code == http.StatusHTTPVersionNotSupported ||
+			code == http.StatusNetworkAuthenticationRequired)
 }
 
 func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte, error) {
