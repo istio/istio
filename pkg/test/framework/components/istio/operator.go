@@ -222,6 +222,10 @@ func (i *operatorComponent) Close() error {
 					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 					err = multierror.Append(err, e)
 				}
+				if e := c.AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
 				return
 			})
 		}
