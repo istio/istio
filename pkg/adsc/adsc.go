@@ -15,6 +15,7 @@
 package adsc
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -203,6 +204,17 @@ type ResponseHandler interface {
 }
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
+
+// ConvertProtoMessageToJSON help to implement the conversion from Proto message to Json
+func ConvertProtoMessageToJSON(obj proto.Message) ([]byte, error) {
+	var bResponse bytes.Buffer
+	jsonm := &jsonpb.Marshaler{Indent: "  "}
+	if err := jsonm.Marshal(&bResponse, obj); err != nil {
+		return []byte(""), err
+	}
+	arrBResponse := bResponse.Bytes()
+	return arrBResponse, nil
+}
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -467,8 +479,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				// TODO: use jsonpb
-				strResponse, err := json.MarshalIndent(m, "  ", "  ")
+				strResponse, err := ConvertProtoMessageToJSON(m)
 				if err != nil {
 					continue
 				}
