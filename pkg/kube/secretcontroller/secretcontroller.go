@@ -198,8 +198,8 @@ func NewController(
 	secretsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
-			log.Infof("Processing add: %s", key)
 			if err == nil {
+				log.Infof("Processing add: %s", key)
 				queue.Add(key)
 			}
 		},
@@ -209,15 +209,15 @@ func NewController(
 			}
 
 			key, err := cache.MetaNamespaceKeyFunc(newObj)
-			log.Infof("Processing update: %s", key)
 			if err == nil {
+				log.Infof("Processing update: %s", key)
 				queue.Add(key)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-			log.Infof("Processing delete: %s", key)
 			if err == nil {
+				log.Infof("Processing delete: %s", key)
 				queue.Add(key)
 			}
 		},
@@ -285,7 +285,11 @@ func (c *Controller) hasSynced() bool {
 
 func (c *Controller) HasSynced() bool {
 	synced := c.hasSynced()
-	if !synced && c.remoteSyncTimeout.Load() {
+	if synced {
+		log.Info("all remote clusters have been synced")
+		return true
+	}
+	if c.remoteSyncTimeout.Load() {
 		c.once.Do(func() {
 			log.Errorf("remote clusters failed to sync after %v", features.RemoteClusterTimeout)
 			timeouts.Increment()
@@ -321,12 +325,15 @@ func (c *Controller) runWorker() {
 func (c *Controller) processNextItem() bool {
 	key, quit := c.queue.Get()
 	if quit {
+		log.Info("secret controller queue is shutting down, so returning")
 		return false
 	}
+	log.Infof("secret controller got event from queue for secret %s", key)
 	defer c.queue.Done(key)
 
 	err := c.processItem(key.(string))
 	if err == nil {
+		log.Debugf("secret controller finished processing secret %s", key)
 		// No error, reset the ratelimit counters
 		c.queue.Forget(key)
 	} else if c.queue.NumRequeues(key) < maxRetries {
@@ -342,18 +349,20 @@ func (c *Controller) processNextItem() bool {
 
 func (c *Controller) processItem(key string) error {
 	if key == initialSyncSignal {
+		log.Info("secret controller initial sync done")
 		c.initialSync.Store(true)
 		return nil
 	}
-
+	log.Infof("processing secret event for secret %s", key)
 	obj, exists, err := c.informer.GetIndexer().GetByKey(key)
 	if err != nil {
 		return fmt.Errorf("error fetching object %s error: %v", key, err)
 	}
-
 	if exists {
+		log.Debugf("secret %s exists in informer cache, processing it", key)
 		c.addSecret(key, obj.(*corev1.Secret))
 	} else {
+		log.Debugf("secret %s does not exist in informer cache, deleting it", key)
 		c.deleteSecret(key)
 	}
 
@@ -418,7 +427,7 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 			// TODO： warning
 			kubeConfigSha := sha256.Sum256(kubeConfig)
 			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
-				log.Infof("%s cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
+				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
 				continue
 			}
 		}
@@ -434,6 +443,7 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
 			continue
 		}
+		log.Infof("finished callback for %s and starting to sync", clusterID)
 		go remoteCluster.Run()
 	}
 
