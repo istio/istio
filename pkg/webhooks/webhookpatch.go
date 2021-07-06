@@ -15,7 +15,6 @@
 package webhooks
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -30,7 +29,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/webhooks/util"
+
 	"istio.io/pkg/log"
 )
 
@@ -46,27 +48,31 @@ type WebhookCertPatcher struct {
 	// revision to patch webhooks for
 	revision    string
 	webhookName string
-	caCertPem   []byte
 
 	queue queue.Instance
+
+	// File path to the x509 certificate bundle used by the webhook server
+	// and patched into the webhook config.
+	CABundleWatcher *keycertbundle.Watcher
 }
 
 // Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 	go w.queue.Run(stopChan)
 	go w.runWebhookController(stopChan)
+	go w.startCaBundleWatcher(stopChan)
 }
 
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubernetes.Interface,
-	revision, webhookName string, caBundle []byte) (*WebhookCertPatcher, error) {
+	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) (*WebhookCertPatcher, error) {
 	return &WebhookCertPatcher{
-		client:      client,
-		revision:    revision,
-		webhookName: webhookName,
-		caCertPem:   caBundle,
-		queue:       queue.NewQueue(time.Second * 2),
+		client:          client,
+		revision:        revision,
+		webhookName:     webhookName,
+		CABundleWatcher: caBundleWatcher,
+		queue:           queue.NewQueue(time.Second * 2),
 	}, nil
 }
 
@@ -101,8 +107,8 @@ func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 
 func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1.MutatingWebhookConfiguration) {
 	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
-		for i, wh := range newConfig.Webhooks {
-			if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+		for _, wh := range newConfig.Webhooks {
+			if strings.HasSuffix(wh.Name, w.webhookName) {
 				w.queue.Push(func() error {
 					return w.webhookPatchTask(newConfig.Name)
 				})
@@ -113,8 +119,8 @@ func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1.Mutat
 }
 
 func (w *WebhookCertPatcher) addWebhookHandler(config *v1.MutatingWebhookConfiguration) {
-	for i, wh := range config.Webhooks {
-		if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(config.Webhooks[i].ClientConfig.CABundle, w.caCertPem) {
+	for _, wh := range config.Webhooks {
+		if strings.HasSuffix(wh.Name, w.webhookName) {
 			log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
 			w.queue.Push(func() error {
 				return w.webhookPatchTask(config.Name)
@@ -154,9 +160,14 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	}
 
 	found := false
+	caCertPem, err := util.LoadCABundle(w.CABundleWatcher)
+	if err != nil {
+		log.Errorf("Failed to load CA bundle: %v", err)
+		return err
+	}
 	for i, wh := range config.Webhooks {
 		if strings.HasSuffix(wh.Name, w.webhookName) {
-			config.Webhooks[i].ClientConfig.CABundle = w.caCertPem
+			config.Webhooks[i].ClientConfig.CABundle = caCertPem
 			found = true
 		}
 	}
@@ -166,4 +177,28 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 
 	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
 	return err
+}
+
+// startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
+func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
+	watchCh := w.CABundleWatcher.AddWatcher()
+	options := metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)}
+	whcList, _ := w.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), options)
+	var whcNameList []string
+	for _, whc := range whcList.Items {
+		whcNameList = append(whcNameList, whc.Name)
+	}
+	for {
+		select {
+		case <-watchCh:
+			for _, whcName := range whcNameList {
+				log.Debugf("updating caBundle for webhook %q", whcName)
+				w.queue.Push(func() error {
+					return w.webhookPatchTask(whcName)
+				})
+			}
+		case <-stop:
+			return
+		}
+	}
 }
