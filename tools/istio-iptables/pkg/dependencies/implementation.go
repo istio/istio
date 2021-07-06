@@ -64,26 +64,37 @@ var XTablesCmds = sets.NewSet(
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct{}
 
-func (r *RealDependencies) execute(cmd string, redirectStdout bool, args ...string) error {
-	log.Infof("%s %s", cmd, strings.Join(args, " "))
+func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
+	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
-	externalCommand.Stdout = os.Stdout
-	// TODO Check naming and redirection logic
-	if !redirectStdout {
-		externalCommand.Stderr = os.Stderr
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	externalCommand.Stdout = stdout
+	externalCommand.Stderr = stderr
+
+	if len(stdout.String()) != 0 {
+		log.Infof("Command output: \n%v", stdout.String())
 	}
+
+	if !ignoreErrors && len(stderr.Bytes()) != 0 {
+		log.Errorf("Command error output: \n%v", stderr.String())
+	}
+
 	return externalCommand.Run()
 }
 
-func (r *RealDependencies) executeXTables(cmd string, redirectStdout bool, args ...string) (err error) {
-	log.Infof("%s %s", cmd, strings.Join(args, " "))
+func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) (err error) {
+	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
-	externalCommand.Stdout = os.Stdout
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	externalCommand.Stdout = stdout
+	externalCommand.Stderr = stderr
 
-	var stderr bytes.Buffer
-	// TODO Check naming and redirection logic
-	if !redirectStdout {
-		externalCommand.Stderr = &stderr
+	err := externalCommand.Run()
+
+	if len(stdout.String()) != 0 {
+		log.Infof("Command output: \n%v", stdout.String())
 	}
 
 	for i := 0; i < 10; i++ {
@@ -108,14 +119,13 @@ func (r *RealDependencies) executeXTables(cmd string, redirectStdout bool, args 
 	}
 
 	// TODO Check naming and redirection logic
-	if err != nil && !redirectStdout {
+	if (err != nil || len(stderr.String()) != 0) && !ignoreErrors {
 		stderrStr := stderr.String()
 
 		// Transform to xtables-specific error messages with more useful and actionable hints.
 		stderrStr = transformToXTablesErrorMessage(stderrStr, err)
 
-		// Print stderr to os.Stderr by default.
-		fmt.Fprintln(os.Stderr, stderrStr)
+		log.Errorf("Command error output: %v", stderrStr)
 	}
 
 	return err
@@ -138,7 +148,12 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 		// `Try 'iptables -h' or 'iptables --help' for more information.`
 		// Reusing the `error hints` and optional `try help information` parts of the original stderr to form
 		// an error message with explicit xtables error information.
-		return fmt.Sprintf("%v: %v", errtypeStr, strings.Trim(strings.SplitN(stderr, ":", 2)[1], " "))
+		errStrParts := strings.SplitN(stderr, ":", 2)
+		errStr := stderr
+		if len(errStrParts) > 1 {
+			errStr = errStrParts[1]
+		}
+		return fmt.Sprintf("%v: %v", errtypeStr, strings.TrimSpace(errStr))
 	}
 
 	return stderr
