@@ -91,16 +91,10 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	externalCommand.Stdout = stdout
 	externalCommand.Stderr = stderr
 
-	err = externalCommand.Run()
-
-	if len(stdout.String()) != 0 {
-		log.Infof("Command output: \n%v", stdout.String())
-	}
-
 	for i := 0; i < 10; i++ {
 		stderr.Reset()
 		err = externalCommand.Run()
-		exitCode, ok := getExitCode(err)
+		exitCode, ok := exitCode(err)
 		if !ok {
 			// cannot get exit code. consider this as non-retriable.
 			break
@@ -116,6 +110,10 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
 		time.Sleep(100 * time.Millisecond)
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
+	}
+
+	if len(stdout.String()) != 0 {
+		log.Infof("Command output: \n%v", stdout.String())
 	}
 
 	// TODO Check naming and redirection logic
@@ -175,7 +173,7 @@ func isXTablesLockError(stderr *bytes.Buffer, exitcode int) bool {
 	return false
 }
 
-func getExitCode(err error) (int, bool) {
+func exitCode(err error) (int, bool) {
 	if err == nil {
 		return 0, false
 	}
