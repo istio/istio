@@ -128,10 +128,9 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
-			pod := c.getPod(ea.IP, &ep.ObjectMeta, ea.TargetRef)
-			if pod != nil {
-				podLabels = pod.Labels
+			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
+			if pod == nil && expectedPod {
+				continue
 			}
 
 			// check that one of the input labels is a subset of the labels

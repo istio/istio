@@ -238,10 +238,9 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
-				pod := c.getPod(a, &metav1.ObjectMeta{Name: slice.Labels[discovery.LabelServiceName], Namespace: slice.Namespace}, e.TargetRef)
-				if pod != nil {
-					podLabels = pod.Labels
+				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
+				if pod == nil && expectedPod {
+					continue
 				}
 
 				// check that one of the input labels is a subset of the labels
