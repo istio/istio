@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/test/xdstest"
 	cluster2 "istio.io/istio/pkg/cluster"
@@ -122,10 +123,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	for _, instance := range opts.Instances {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
-	msd.ClusterID = string(serviceregistry.Mock)
+	msd.ClusterID = string(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
-		ClusterID:        cluster2.ID(serviceregistry.Mock),
-		ProviderID:       serviceregistry.Mock,
+		ClusterID:        cluster2.ID(provider.Mock),
+		ProviderID:       provider.Mock,
 		ServiceDiscovery: msd,
 		Controller:       msd.Controller,
 	})

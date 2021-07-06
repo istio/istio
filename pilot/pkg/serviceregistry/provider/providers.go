@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serviceregistry
+package provider
 
-// ProviderID defines underlying platform supporting service registry
-type ProviderID string
+// ID defines underlying platform supporting service registry
+type ID string
 
 const (
 	// Mock is a service registry that contains 2 hard-coded test services
-	Mock ProviderID = "Mock"
+	Mock ID = "Mock"
 	// Kubernetes is a service registry backed by k8s API server
-	Kubernetes ProviderID = "Kubernetes"
+	Kubernetes ID = "Kubernetes"
 	// External is a service registry for externally provided ServiceEntries
-	External ProviderID = "External"
+	External ID = "External"
 )

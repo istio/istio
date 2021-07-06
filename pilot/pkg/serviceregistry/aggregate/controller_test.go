@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -63,13 +64,13 @@ func buildMockController() *Controller {
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter1"),
+		ProviderID:       provider.ID("mockAdapter1"),
 		ServiceDiscovery: discovery1,
 		Controller:       &mock.Controller{},
 	}
 
 	registry2 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.ProviderID("mockAdapter2"),
+		ProviderID:       provider.ID("mockAdapter2"),
 		ServiceDiscovery: discovery2,
 		Controller:       &mock.Controller{},
 	}
@@ -94,14 +95,14 @@ func buildMockControllerForMultiCluster() *Controller {
 		}, 2)
 
 	registry1 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.Kubernetes,
+		ProviderID:       provider.Kubernetes,
 		ClusterID:        "cluster-1",
 		ServiceDiscovery: discovery1,
 		Controller:       &mock.Controller{},
 	}
 
 	registry2 := serviceregistry.Simple{
-		ProviderID:       serviceregistry.Kubernetes,
+		ProviderID:       provider.Kubernetes,
 		ClusterID:        "cluster-2",
 		ServiceDiscovery: discovery2,
 		Controller:       &mock.Controller{},
@@ -464,10 +465,10 @@ func TestGetDeleteRegistry(t *testing.T) {
 }
 
 func TestSkipSearchingRegistryForProxy(t *testing.T) {
-	cluster1 := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.Kubernetes}
-	cluster2 := serviceregistry.Simple{ClusterID: "cluster-2", ProviderID: serviceregistry.Kubernetes}
+	cluster1 := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: provider.Kubernetes}
+	cluster2 := serviceregistry.Simple{ClusterID: "cluster-2", ProviderID: provider.Kubernetes}
 	// external registries may eventually be associated with a cluster
-	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: serviceregistry.External}
+	external := serviceregistry.Simple{ClusterID: "cluster-1", ProviderID: provider.External}
 
 	cases := []struct {
 		nodeClusterID cluster.ID

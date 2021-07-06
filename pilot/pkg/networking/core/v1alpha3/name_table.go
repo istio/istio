@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	nds "istio.io/istio/pilot/pkg/proto"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -47,7 +47,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		if svcAddress == constants.UnspecifiedIP {
 			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
 			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
-			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					sameNetwork := node.InNetwork(instance.Endpoint.Network)
@@ -65,7 +65,7 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 						host := shortName + "." + parts[1] // Add cluster domain.
 						nameInfo := &nds.NameTable_NameInfo{
 							Ips:       address,
-							Registry:  svc.Attributes.ServiceRegistry,
+							Registry:  string(svc.Attributes.ServiceRegistry),
 							Namespace: svc.Attributes.Namespace,
 							Shortname: shortName,
 						}
@@ -111,9 +111,9 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 
 		nameInfo := &nds.NameTable_NameInfo{
 			Ips:      addressList,
-			Registry: svc.Attributes.ServiceRegistry,
+			Registry: string(svc.Attributes.ServiceRegistry),
 		}
-		if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+		if svc.Attributes.ServiceRegistry == provider.Kubernetes {
 			// The agent will take care of resolving a, a.ns, a.ns.svc, etc.
 			// No need to provide a DNS entry for each variant.
 			nameInfo.Namespace = svc.Attributes.Namespace

@@ -24,6 +24,7 @@ import (
 	"github.com/miekg/dns"
 
 	nds "istio.io/istio/pilot/pkg/proto"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/pkg/log"
 )
@@ -147,7 +148,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 		// if its a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
 		// shortname+. is only for hosts in current namespace
 		var altHosts map[string]struct{}
-		if ni.Registry == "Kubernetes" {
+		if ni.Registry == string(provider.Kubernetes) {
 			altHosts = generateAltHosts(host, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
 			altHosts = map[string]struct{}{host + ".": {}}

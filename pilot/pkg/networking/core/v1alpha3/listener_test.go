@@ -46,8 +46,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
@@ -392,20 +392,20 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
+	svc.Attributes.ServiceRegistry = provider.Kubernetes
 	services := []*model.Service{svc}
 
 	autoSvc := buildServiceWithPort("test.com", 9999, protocol.Unsupported, tnow)
 	autoSvc.Resolution = model.Passthrough
-	autoSvc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
+	autoSvc.Attributes.ServiceRegistry = provider.Kubernetes
 
 	extSvc := buildServiceWithPort("example1.com", 9999, protocol.TCP, tnow)
 	extSvc.Resolution = model.Passthrough
-	extSvc.Attributes.ServiceRegistry = string(serviceregistry.External)
+	extSvc.Attributes.ServiceRegistry = provider.External
 
 	extSvcSelector := buildServiceWithPort("example2.com", 9999, protocol.TCP, tnow)
 	extSvcSelector.Resolution = model.Passthrough
-	extSvcSelector.Attributes.ServiceRegistry = string(serviceregistry.External)
+	extSvcSelector.Attributes.ServiceRegistry = provider.External
 	extSvcSelector.Attributes.LabelSelectors = map[string]string{"foo": "bar"}
 
 	tests := []struct {
