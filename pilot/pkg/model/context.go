@@ -477,7 +477,7 @@ type BootstrapNodeMetadata struct {
 	Owner string `json:"OWNER,omitempty"`
 
 	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
-	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
+	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,string,omitempty"`
 
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`

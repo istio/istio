@@ -622,3 +622,16 @@ func TestGlobalUnicastIP(t *testing.T) {
 		})
 	}
 }
+func TestBootstrapNodeMetadata(t *testing.T) {
+	t.Run("UnmarshalJSON", func(t *testing.T) {
+		var bnm model.BootstrapNodeMetadata
+		sampleJSON := `{"PROXY_VIA_AGENT":"true"}`
+		err := bnm.UnmarshalJSON([]byte(sampleJSON))
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if bnm.ProxyViaAgent != true {
+			t.Errorf("got %v, want %v", bnm.ProxyViaAgent, true)
+		}
+	})
+}
