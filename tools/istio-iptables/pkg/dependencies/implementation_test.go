@@ -54,7 +54,7 @@ func TestIsXTablesLockError(t *testing.T) {
 	for _, tt := range xtableError {
 		t.Run(tt.name, func(t *testing.T) {
 			bs := bytes.NewBufferString(tt.errMsg)
-			if got, want := isXTablesLockError(*bs, int(tt.errCode)), tt.want; got != want {
+			if got, want := isXTablesLockError(bs, int(tt.errCode)), tt.want; got != want {
 				t.Errorf("xtables lock error got %v, want %v", got, want)
 			}
 		})

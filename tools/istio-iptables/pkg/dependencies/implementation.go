@@ -91,7 +91,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	externalCommand.Stdout = stdout
 	externalCommand.Stderr = stderr
 
-	err := externalCommand.Run()
+	err = externalCommand.Run()
 
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
@@ -159,7 +159,7 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 	return stderr
 }
 
-func isXTablesLockError(stderr bytes.Buffer, exitcode int) bool {
+func isXTablesLockError(stderr *bytes.Buffer, exitcode int) bool {
 	// xtables lock acquire failure maps to resource problem exit code.
 	// https://git.netfilter.org/iptables/tree/iptables/iptables.c?h=v1.6.0#n1769
 	if exitcode != int(XTablesResourceProblem) {
