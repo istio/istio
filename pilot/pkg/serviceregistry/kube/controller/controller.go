@@ -750,7 +750,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	}
 
 	// NodeName is set by the scheduler after the pod is created
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
 	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
 		if pod.Spec.NodeName != "" {
