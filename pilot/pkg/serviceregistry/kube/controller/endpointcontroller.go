@@ -122,7 +122,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 // Note: this is only used by endpoints and endpointslice controller
 func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (*v1.Pod, bool) {
 	var expectPod bool
-	pod := c.getPod(ip, ep, targetRef)
+	pod := c.getPod(ip, ep.Namespace, targetRef)
 	if targetRef != nil && targetRef.Kind == "Pod" {
 		expectPod = true
 		if pod == nil {
@@ -150,7 +150,7 @@ func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, ho
 // A pod may be missing (nil) for two reasons:
 // * It is an endpoint without an associated Pod.
 // * It is an endpoint with an associate Pod, but its not found.
-func (c *Controller) getPod(ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference) *v1.Pod {
+func (c *Controller) getPod(ip string, namespace string, targetRef *v1.ObjectReference) *v1.Pod {
 	if targetRef != nil && targetRef.Kind == "Pod" {
 		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
 		pod := c.pods.getPodByKey(key)
@@ -163,7 +163,7 @@ func (c *Controller) getPod(ip string, ep *metav1.ObjectMeta, targetRef *v1.Obje
 	pod := c.pods.getPodByIP(ip)
 	if pod != nil {
 		// This prevents selecting a pod in another different namespace
-		if pod.Namespace != ep.Namespace {
+		if pod.Namespace != namespace {
 			pod = nil
 		}
 	}
