@@ -15,9 +15,11 @@
 package dns
 
 import (
-	"github.com/miekg/dns"
-	"istio.io/pkg/monitoring"
 	"strconv"
+
+	"github.com/miekg/dns"
+
+	"istio.io/pkg/monitoring"
 )
 
 var (
@@ -62,13 +64,14 @@ func registerStats() {
 	monitoring.MustRegister(upstreamRequests)
 	monitoring.MustRegister(failures)
 	monitoring.MustRegister(upstreamRequestDuration)
+	monitoring.MustRegister(requestDuration)
+	monitoring.MustRegister(responses)
 }
 
 func rcodeToLabelValue(rcode int) monitoring.LabelValue {
 	name, found := dns.RcodeToString[rcode]
 	if found {
 		return rcodeLabel.Value(name)
-	} else {
-		return rcodeLabel.Value(strconv.Itoa(rcode))
 	}
+	return rcodeLabel.Value(strconv.Itoa(rcode))
 }

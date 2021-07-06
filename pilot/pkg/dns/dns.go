@@ -176,12 +176,15 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	}
 	log.Debugf("request %v", req)
 
+	defer func() {
+		requestDuration.Record(float64(time.Since(start).Milliseconds()))
+		responses.With(rcodeToLabelValue(response.Rcode)).Increment()
+	}()
+
 	if len(req.Question) == 0 {
 		response = new(dns.Msg)
 		response.SetReply(req)
 		response.Rcode = dns.RcodeServerFailure
-		requestDuration.Record(float64(time.Since(start).Milliseconds()))
-		responses.With(rcodeToLabelValue(response.Rcode)).Increment()
 		_ = w.WriteMsg(response)
 		return
 	}
@@ -193,8 +196,6 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		response = new(dns.Msg)
 		response.SetReply(req)
 		response.Rcode = dns.RcodeServerFailure
-		requestDuration.Record(float64(time.Since(start).Milliseconds()))
-		responses.With(rcodeToLabelValue(response.Rcode)).Increment()
 		_ = w.WriteMsg(response)
 		return
 	}
@@ -233,8 +234,6 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
 	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
 	response.Truncate(size(proxy.protocol, req))
-	requestDuration.Record(float64(time.Since(start).Milliseconds()))
-	responses.With(rcodeToLabelValue(response.Rcode)).Increment()
 	_ = w.WriteMsg(response)
 }
 
