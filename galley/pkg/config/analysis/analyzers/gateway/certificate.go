@@ -19,6 +19,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -40,7 +41,7 @@ func (*CertificateAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (gateway *CertificateAnalyzer) Analyze(context analysis.Context) {
-	scopeGatewayToNamespace := getScopeGatewayToNamespace(context)
+	scopeGatewayToNamespace := getScopeGatewayToNamespace()
 
 	context.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(resource *resource.Instance) bool {
 		gateway.analyzeDuplicateCertificate(resource, context, scopeGatewayToNamespace)
@@ -102,8 +103,10 @@ func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1alpha3.ServerTLSSettin
 	return false
 }
 
-func getScopeGatewayToNamespace(context analysis.Context) bool {
-	// todo, get PILOT_SCOPE_GATEWAY_TO_NAMESPACE environment variable
+func getScopeGatewayToNamespace() bool {
+	if features.ScopeGatewayToNamespace {
+		return true
+	}
 	return false
 }
 
