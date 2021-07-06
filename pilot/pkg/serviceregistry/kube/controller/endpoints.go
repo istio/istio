@@ -132,7 +132,9 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 			if pod == nil && expectedPod {
 				continue
 			}
-
+			if pod != nil {
+				podLabels = pod.Labels
+			}
 			// check that one of the input labels is a subset of the labels
 			if !labelsList.HasSubsetOf(podLabels) {
 				continue
