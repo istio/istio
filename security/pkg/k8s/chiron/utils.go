@@ -75,7 +75,7 @@ func getRandomCsrName(secretName, namespace string) string {
 // 1. Generate a CSR
 // 2. Call SignCSRK8sCA to finish rest of the flow
 func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, dnsName,
-	secretName, secretNamespace, caFilePath string) ([]byte, []byte, []byte, error) {
+	secretName, secretNamespace, caFilePath string, signerName string) ([]byte, []byte, []byte, error) {
 	// 1. Generate a CSR
 	options := util.CertOptions{
 		Host:       dnsName,
@@ -98,6 +98,9 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 			cert.UsageServerAuth,
 			cert.UsageClientAuth,
 		},
+	}
+	if signerName != "" {
+		csrSpec.SignerName = &signerName
 	}
 
 	certChain, caCert, err := SignCSRK8s(certClient,
@@ -337,6 +340,7 @@ func readSignedCertificate(certClient certclient.CertificateSigningRequestInterf
 		}
 		return nil, nil, fmt.Errorf("failed to append CA certificate")
 	}
+
 	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
 	if err != nil {
 		log.Errorf("failed to parse the certificate: %v", err)
