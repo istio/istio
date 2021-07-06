@@ -104,10 +104,7 @@ func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1alpha3.ServerTLSSettin
 }
 
 func getScopeGatewayToNamespace() bool {
-	if features.ScopeGatewayToNamespace {
-		return true
-	}
-	return false
+	return features.ScopeGatewayToNamespace
 }
 
 // get all gateways that is superset of the selector
