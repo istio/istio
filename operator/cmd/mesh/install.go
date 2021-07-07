@@ -191,9 +191,9 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	//if err != nil {
 	//	return err
 	//}
-	if !exists {
+	rev := iop.Spec.Revision
+	if !exists || rev == "" {
 		installerScope.Errorf("Making this installation the default for injection and validation.")
-		rev := iop.Spec.Revision
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
