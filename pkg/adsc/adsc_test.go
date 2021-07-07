@@ -178,50 +178,261 @@ func TestADSC_Save(t *testing.T) {
 			desc: "populated",
 			err:  nil,
 			expectedJSON: map[string]string{
-				"_lds_tcp": `{
-    "listener-1": {
-      "name": "bar",
-      "ListenerSpecifier": null
-    },
-    "listener-2": {
-      "name": "mar",
-      "ListenerSpecifier": null
-    }
-  }`,
-				"_lds_http": `{
-    "http-list-1": {
-      "name": "bar",
-      "ListenerSpecifier": null
-    },
-    "http-list-2": {
-      "name": "mar",
-      "ListenerSpecifier": null
-    }
-  }`,
-				"_rds": `{
-    "route-1": {
-      "name": "mar"
-    }
-  }`,
-				"_eds": `{
-    "load-assignment-1": {
-      "cluster_name": "foo"
-    }
-  }`,
-				"_ecds": `{
-    "eds-cluster-1": {
-      "name": "test",
-      "ClusterDiscoveryType": null,
-      "LbConfig": null
-    }
-  }`,
-				"_cds": `{
-    "cluster-1": {
-      "name": "foo",
-      "ClusterDiscoveryType": null,
-      "LbConfig": null
-    }
-  }`,
+				"_lds_tcp": `{"listener-1":{
+  "name": "bar",
+  "address": null,
+  "stat_prefix": "",
+  "filter_chains": [
+  ],
+  "use_original_dst": null,
+  "default_filter_chain": null,
+  "per_connection_buffer_limit_bytes": null,
+  "metadata": null,
+  "deprecated_v1": null,
+  "drain_type": 0,
+  "listener_filters": [
+  ],
+  "listener_filters_timeout": null,
+  "continue_on_listener_filters_timeout": false,
+  "transparent": null,
+  "freebind": null,
+  "socket_options": [
+  ],
+  "tcp_fast_open_queue_length": null,
+  "traffic_direction": 0,
+  "udp_listener_config": null,
+  "api_listener": null,
+  "connection_balance_config": null,
+  "reuse_port": false,
+  "access_log": [
+  ],
+  "tcp_backlog_size": null,
+  "bind_to_port": null
+},"listener-2":{
+  "name": "mar",
+  "address": null,
+  "stat_prefix": "",
+  "filter_chains": [
+  ],
+  "use_original_dst": null,
+  "default_filter_chain": null,
+  "per_connection_buffer_limit_bytes": null,
+  "metadata": null,
+  "deprecated_v1": null,
+  "drain_type": 0,
+  "listener_filters": [
+  ],
+  "listener_filters_timeout": null,
+  "continue_on_listener_filters_timeout": false,
+  "transparent": null,
+  "freebind": null,
+  "socket_options": [
+  ],
+  "tcp_fast_open_queue_length": null,
+  "traffic_direction": 0,
+  "udp_listener_config": null,
+  "api_listener": null,
+  "connection_balance_config": null,
+  "reuse_port": false,
+  "access_log": [
+  ],
+  "tcp_backlog_size": null,
+  "bind_to_port": null
+}}`,
+				"_lds_http": `{"http-list-1":{
+  "name": "bar",
+  "address": null,
+  "stat_prefix": "",
+  "filter_chains": [
+  ],
+  "use_original_dst": null,
+  "default_filter_chain": null,
+  "per_connection_buffer_limit_bytes": null,
+  "metadata": null,
+  "deprecated_v1": null,
+  "drain_type": 0,
+  "listener_filters": [
+  ],
+  "listener_filters_timeout": null,
+  "continue_on_listener_filters_timeout": false,
+  "transparent": null,
+  "freebind": null,
+  "socket_options": [
+  ],
+  "tcp_fast_open_queue_length": null,
+  "traffic_direction": 0,
+  "udp_listener_config": null,
+  "api_listener": null,
+  "connection_balance_config": null,
+  "reuse_port": false,
+  "access_log": [
+  ],
+  "tcp_backlog_size": null,
+  "bind_to_port": null
+},"http-list-2":{
+  "name": "mar",
+  "address": null,
+  "stat_prefix": "",
+  "filter_chains": [
+  ],
+  "use_original_dst": null,
+  "default_filter_chain": null,
+  "per_connection_buffer_limit_bytes": null,
+  "metadata": null,
+  "deprecated_v1": null,
+  "drain_type": 0,
+  "listener_filters": [
+  ],
+  "listener_filters_timeout": null,
+  "continue_on_listener_filters_timeout": false,
+  "transparent": null,
+  "freebind": null,
+  "socket_options": [
+  ],
+  "tcp_fast_open_queue_length": null,
+  "traffic_direction": 0,
+  "udp_listener_config": null,
+  "api_listener": null,
+  "connection_balance_config": null,
+  "reuse_port": false,
+  "access_log": [
+  ],
+  "tcp_backlog_size": null,
+  "bind_to_port": null
+}}`,
+				"_rds": `{"route-1":{
+  "name": "mar",
+  "virtual_hosts": [
+  ],
+  "vhds": null,
+  "internal_only_headers": [
+  ],
+  "response_headers_to_add": [
+  ],
+  "response_headers_to_remove": [
+  ],
+  "request_headers_to_add": [
+  ],
+  "request_headers_to_remove": [
+  ],
+  "most_specific_header_mutations_wins": false,
+  "validate_clusters": null,
+  "max_direct_response_body_size_bytes": null
+}}`,
+				"_eds": `{"load-assignment-1":{
+  "cluster_name": "foo",
+  "endpoints": [
+  ],
+  "named_endpoints": {
+  },
+  "policy": null
+}}`,
+				"_ecds": `{"eds-cluster-1":{
+  "transport_socket_matches": [
+  ],
+  "name": "test",
+  "alt_stat_name": "",
+  "eds_cluster_config": null,
+  "connect_timeout": null,
+  "per_connection_buffer_limit_bytes": null,
+  "lb_policy": 0,
+  "load_assignment": null,
+  "health_checks": [
+  ],
+  "max_requests_per_connection": null,
+  "circuit_breakers": null,
+  "upstream_http_protocol_options": null,
+  "common_http_protocol_options": null,
+  "http_protocol_options": null,
+  "http2_protocol_options": null,
+  "typed_extension_protocol_options": {
+  },
+  "dns_refresh_rate": null,
+  "dns_failure_refresh_rate": null,
+  "respect_dns_ttl": false,
+  "dns_lookup_family": 0,
+  "dns_resolvers": [
+  ],
+  "use_tcp_for_dns_lookups": false,
+  "outlier_detection": null,
+  "cleanup_interval": null,
+  "upstream_bind_config": null,
+  "lb_subset_config": null,
+  "common_lb_config": null,
+  "transport_socket": null,
+  "metadata": null,
+  "protocol_selection": 0,
+  "upstream_connection_options": null,
+  "close_connections_on_host_health_failure": false,
+  "ignore_health_on_host_removal": false,
+  "filters": [
+  ],
+  "load_balancing_policy": null,
+  "lrs_server": null,
+  "track_timeout_budgets": false,
+  "upstream_config": null,
+  "track_cluster_stats": null,
+  "preconnect_policy": null,
+  "connection_pool_per_downstream_connection": false,
+  "hidden_envoy_deprecated_hosts": [
+  ],
+  "hidden_envoy_deprecated_tls_context": null,
+  "hidden_envoy_deprecated_extension_protocol_options": {
+  }
+}}`,
+				"_cds": `{"cluster-1":{
+  "transport_socket_matches": [
+  ],
+  "name": "foo",
+  "alt_stat_name": "",
+  "eds_cluster_config": null,
+  "connect_timeout": null,
+  "per_connection_buffer_limit_bytes": null,
+  "lb_policy": 0,
+  "load_assignment": null,
+  "health_checks": [
+  ],
+  "max_requests_per_connection": null,
+  "circuit_breakers": null,
+  "upstream_http_protocol_options": null,
+  "common_http_protocol_options": null,
+  "http_protocol_options": null,
+  "http2_protocol_options": null,
+  "typed_extension_protocol_options": {
+  },
+  "dns_refresh_rate": null,
+  "dns_failure_refresh_rate": null,
+  "respect_dns_ttl": false,
+  "dns_lookup_family": 0,
+  "dns_resolvers": [
+  ],
+  "use_tcp_for_dns_lookups": false,
+  "outlier_detection": null,
+  "cleanup_interval": null,
+  "upstream_bind_config": null,
+  "lb_subset_config": null,
+  "common_lb_config": null,
+  "transport_socket": null,
+  "metadata": null,
+  "protocol_selection": 0,
+  "upstream_connection_options": null,
+  "close_connections_on_host_health_failure": false,
+  "ignore_health_on_host_removal": false,
+  "filters": [
+  ],
+  "load_balancing_policy": null,
+  "lrs_server": null,
+  "track_timeout_budgets": false,
+  "upstream_config": null,
+  "track_cluster_stats": null,
+  "preconnect_policy": null,
+  "connection_pool_per_downstream_connection": false,
+  "hidden_envoy_deprecated_hosts": [
+  ],
+  "hidden_envoy_deprecated_tls_context": null,
+  "hidden_envoy_deprecated_extension_protocol_options": {
+  }
+}}`,
 			},
 			adsc: &ADSC{
 				tcpListeners: map[string]*listener.Listener{
@@ -271,7 +482,7 @@ func TestADSC_Save(t *testing.T) {
 				t.Errorf("AdscSave() => %v expected err %v", err, tt.err)
 			}
 			if ldsTCP := readFile(base+"_lds_tcp.json", t); ldsTCP != tt.expectedJSON["_lds_tcp"] {
-				t.Errorf("AdscSave() => %s expected ldsTcp %s\n%v", ldsTCP, tt.expectedJSON["_lds_tcp"], cmp.Diff(ldsTCP, tt.expectedJSON["_lds_tcp"]))
+				t.Errorf("AdscSave() => %s expected ldsTcp %s\n aaa \n%v", ldsTCP, tt.expectedJSON["_lds_tcp"], cmp.Diff(ldsTCP, tt.expectedJSON["_lds_tcp"]))
 			}
 			if ldsHTTP := readFile(base+"_lds_http.json", t); ldsHTTP != tt.expectedJSON["_lds_http"] {
 				t.Errorf("AdscSave() => %s expected ldsHttp %s", ldsHTTP, tt.expectedJSON["_lds_http"])

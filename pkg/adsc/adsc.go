@@ -15,7 +15,6 @@
 package adsc
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -23,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -205,15 +205,14 @@ type ResponseHandler interface {
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 
-// ConvertProtoMessageToJSON help to implement the conversion from Proto message to Json
-func ConvertProtoMessageToJSON(obj proto.Message) ([]byte, error) {
-	var bResponse bytes.Buffer
-	jsonm := &jsonpb.Marshaler{Indent: "  "}
-	if err := jsonm.Marshal(&bResponse, obj); err != nil {
-		return []byte(""), err
+// ConvertProtoMessageToString help to implement the conversion from Proto message to string
+func ConvertProtoMessageToString(obj proto.Message) (string, error) {
+	jsonm := &jsonpb.Marshaler{EnumsAsInts: true, EmitDefaults: true, OrigName: true, Indent: "  "}
+	strResponse, err := jsonm.MarshalToString(obj)
+	if err != nil {
+		return "", err
 	}
-	arrBResponse := bResponse.Bytes()
-	return arrBResponse, nil
+	return strResponse, nil
 }
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
@@ -479,11 +478,11 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := ConvertProtoMessageToJSON(m)
+				strResponse, err := ConvertProtoMessageToString(m)
 				if err != nil {
 					continue
 				}
-				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0o644)
+				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", []byte(strResponse), 0o644)
 				if err != nil {
 					continue
 				}
@@ -640,8 +639,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		case wellknown.MySQLProxy:
 			// ignore for now
 		default:
-			tm := &jsonpb.Marshaler{Indent: "  "}
-			adscLog.Infof(tm.MarshalToString(l))
+			adscLog.Infof(ConvertProtoMessageToString(l))
 		}
 	}
 
@@ -668,51 +666,150 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 func (a *ADSC) Save(base string) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	strResponse, err := json.MarshalIndent(a.tcpListeners, "  ", "  ")
+
+	// guarrante the persistence order for each element in tcpListeners
+	var sortTCPListeners []string
+	for key := range a.tcpListeners {
+		sortTCPListeners = append(sortTCPListeners, key)
+	}
+	sort.Strings(sortTCPListeners)
+	var sliceTCPListeners []string
+	for _, element := range sortTCPListeners {
+		strSer, serr := ConvertProtoMessageToString(a.tcpListeners[element])
+		if serr != nil {
+			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
+			continue
+		}
+		sliceItem := "\"" + element + "\":" + strSer
+		sliceTCPListeners = append(sliceTCPListeners, sliceItem)
+	}
+	jsonResponse := "{" + strings.Join(sliceTCPListeners, ",") + "}"
+	err := ioutil.WriteFile(base+"_lds_tcp.json", []byte(jsonResponse), 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_tcp.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in httpListeners
+	var sortHTTPListeners []string
+	for key := range a.httpListeners {
+		sortHTTPListeners = append(sortHTTPListeners, key)
+	}
+	sort.Strings(sortHTTPListeners)
+	var sliceHTTPListeners []string
+	for _, element := range sortHTTPListeners {
+		strSer, serr := ConvertProtoMessageToString(a.httpListeners[element])
+		if serr != nil {
+			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
+			continue
+		}
+		sliceItem := "\"" + element + "\":" + strSer
+		sliceHTTPListeners = append(sliceHTTPListeners, sliceItem)
+	}
+	jsonResponse = "{" + strings.Join(sliceHTTPListeners, ",") + "}"
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.httpListeners, "  ", "  ")
+	err = ioutil.WriteFile(base+"_lds_http.json", []byte(jsonResponse), 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_http.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in routes
+	var sortRoutes []string
+	for key := range a.routes {
+		sortRoutes = append(sortRoutes, key)
+	}
+	sort.Strings(sortRoutes)
+	var sliceRoutes []string
+	for _, element := range sortRoutes {
+		strSer, serr := ConvertProtoMessageToString(a.routes[element])
+		if serr != nil {
+			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
+			continue
+		}
+		sliceItem := "\"" + element + "\":" + strSer
+		sliceRoutes = append(sliceRoutes, sliceItem)
+	}
+	jsonResponse = "{" + strings.Join(sliceRoutes, ",") + "}"
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.routes, "  ", "  ")
+	err = ioutil.WriteFile(base+"_rds.json", []byte(jsonResponse), 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_rds.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in edsClusters
+	var sortEdsClusters []string
+	for key := range a.edsClusters {
+		sortEdsClusters = append(sortEdsClusters, key)
+	}
+	sort.Strings(sortEdsClusters)
+	var sliceEdsClusters []string
+	for _, element := range sortEdsClusters {
+		strSer, serr := ConvertProtoMessageToString(a.edsClusters[element])
+		if serr != nil {
+			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
+			continue
+		}
+		sliceItem := "\"" + element + "\":" + strSer
+		sliceEdsClusters = append(sliceEdsClusters, sliceItem)
+	}
+	jsonResponse = "{" + strings.Join(sliceEdsClusters, ",") + "}"
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.edsClusters, "  ", "  ")
+	err = ioutil.WriteFile(base+"_ecds.json", []byte(jsonResponse), 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_ecds.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in clusters
+	var sortClusters []string
+	for key := range a.clusters {
+		sortClusters = append(sortClusters, key)
+	}
+	sort.Strings(sortClusters)
+	var sliceClusters []string
+	for _, element := range sortClusters {
+		strSer, serr := ConvertProtoMessageToString(a.clusters[element])
+		if serr != nil {
+			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
+			continue
+		}
+		sliceItem := "\"" + element + "\":" + strSer
+		sliceClusters = append(sliceClusters, sliceItem)
+	}
+	jsonResponse = "{" + strings.Join(sliceClusters, ",") + "}"
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.clusters, "  ", "  ")
+	err = ioutil.WriteFile(base+"_cds.json", []byte(jsonResponse), 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_cds.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in eds
+	var sortEds []string
+	for key := range a.eds {
+		sortEds = append(sortEds, key)
+	}
+	sort.Strings(sortEds)
+	var sliceEds []string
+	for _, element := range sortEds {
+		strSer, serr := ConvertProtoMessageToString(a.eds[element])
+		if serr != nil {
+			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
+			continue
+		}
+		sliceItem := "\"" + element + "\":" + strSer
+		sliceEds = append(sliceEds, sliceItem)
+	}
+	jsonResponse = "{" + strings.Join(sliceEds, ",") + "}"
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.eds, "  ", "  ")
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0o644)
+	err = ioutil.WriteFile(base+"_eds.json", []byte(jsonResponse), 0o644)
 	if err != nil {
 		return err
 	}
@@ -787,8 +884,7 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 	}
 	req.ResponseNonce = time.Now().String()
 	if adscLog.DebugEnabled() {
-		jsonm := &jsonpb.Marshaler{}
-		strReq, _ := jsonm.MarshalToString(req)
+		strReq, _ := ConvertProtoMessageToString(req)
 		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
 	}
 	return a.stream.Send(req)
