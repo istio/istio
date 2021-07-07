@@ -5,4 +5,4 @@ issue:
   - 33857
 releaseNotes:
   - |
-    **Fixed** istioctl install display error with default file.
+    **Fixed** a message format bug for `istioctl install` command with the default file setting.
