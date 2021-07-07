@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -68,7 +69,7 @@ func (c *Controller) AddRegistry(registry serviceregistry.Instance) {
 }
 
 // DeleteRegistry deletes specified registry from the aggregated controller
-func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID serviceregistry.ProviderID) {
+func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
@@ -98,7 +99,7 @@ func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	return out
 }
 
-func (c *Controller) getRegistryIndex(clusterID cluster.ID, provider serviceregistry.ProviderID) (int, bool) {
+func (c *Controller) getRegistryIndex(clusterID cluster.ID, provider provider.ID) (int, bool) {
 	for i, r := range c.registries {
 		if r.Cluster().Equals(clusterID) && r.Provider() == provider {
 			return i, true
@@ -123,7 +124,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			continue
 		}
 
-		if r.Provider() != serviceregistry.Kubernetes {
+		if r.Provider() != provider.Kubernetes {
 			services = append(services, svcs...)
 		} else {
 			for _, s := range svcs {
@@ -159,7 +160,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		if service == nil {
 			continue
 		}
-		if r.Provider() != serviceregistry.Kubernetes {
+		if r.Provider() != provider.Kubernetes {
 			return service, nil
 		}
 		if out == nil {
@@ -212,7 +213,7 @@ func nodeClusterID(node *model.Proxy) cluster.ID {
 func skipSearchingRegistryForProxy(nodeClusterID cluster.ID, r serviceregistry.Instance) bool {
 	// Always search non-kube (usually serviceentry) registry.
 	// Check every registry if cluster ID isn't specified.
-	if r.Provider() != serviceregistry.Kubernetes || nodeClusterID == "" {
+	if r.Provider() != provider.Kubernetes || nodeClusterID == "" {
 		return false
 	}
 

@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -1751,7 +1751,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				mutable:         newTestCluster(),
 				proxy:           &model.Proxy{},
 				serviceAccounts: []string{"se-san.com"},
-				serviceRegistry: string(serviceregistry.External),
+				serviceRegistry: provider.External,
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_SIMPLE,

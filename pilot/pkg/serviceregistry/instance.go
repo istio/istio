@@ -16,6 +16,7 @@ package serviceregistry
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 )
 
@@ -26,7 +27,7 @@ type Instance interface {
 	model.ServiceDiscovery
 
 	// Provider backing this service registry (i.e. Kubernetes etc.)
-	Provider() ProviderID
+	Provider() provider.ID
 
 	// Cluster for which the service registry applies. Only needed for multicluster systems.
 	Cluster() cluster.ID
@@ -36,14 +37,14 @@ var _ Instance = &Simple{}
 
 // Simple Instance implementation, where fields are set individually.
 type Simple struct {
-	ProviderID ProviderID
+	ProviderID provider.ID
 	ClusterID  cluster.ID
 
 	model.Controller
 	model.ServiceDiscovery
 }
 
-func (r Simple) Provider() ProviderID {
+func (r Simple) Provider() provider.ID {
 	return r.ProviderID
 }
 

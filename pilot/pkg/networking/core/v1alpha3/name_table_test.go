@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	nds "istio.io/istio/pilot/pkg/proto"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -101,7 +101,7 @@ func TestNameTable(t *testing.T) {
 		Attributes: model.ServiceAttributes{
 			Name:            "headless-svc",
 			Namespace:       "testns",
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 
@@ -125,7 +125,7 @@ func TestNameTable(t *testing.T) {
 		Attributes: model.ServiceAttributes{
 			Name:            "wildcard-svc",
 			Namespace:       "testns",
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 
@@ -149,7 +149,7 @@ func TestNameTable(t *testing.T) {
 		Attributes: model.ServiceAttributes{
 			Name:            "cidr-svc",
 			Namespace:       "testns",
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -465,8 +466,8 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	s.edsUpdate(instances, true)
 }
 
-func (s *ServiceEntryStore) Provider() serviceregistry.ProviderID {
-	return serviceregistry.External
+func (s *ServiceEntryStore) Provider() provider.ID {
+	return provider.External
 }
 
 func (s *ServiceEntryStore) Cluster() cluster.ID {

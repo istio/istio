@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -122,7 +122,7 @@ func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 // AddService adds an in-memory service.
 func (sd *ServiceDiscovery) AddService(name host.Name, svc *model.Service) {
 	sd.mutex.Lock()
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Mock)
+	svc.Attributes.ServiceRegistry = provider.Mock
 	sd.services[name] = svc
 	sd.mutex.Unlock()
 	// TODO: notify listeners
