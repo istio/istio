@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/spf13/viper"
 
 	"istio.io/istio/cni/pkg/cmd"
 	"istio.io/istio/cni/pkg/constants"
@@ -269,6 +270,9 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 		preConfFile = resultFileName
 	}
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
+
+	// disable monitoring
+	viper.Set(constants.MonitoringPort, 0)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
