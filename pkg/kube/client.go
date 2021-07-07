@@ -573,9 +573,10 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 			if len(stderr) > 0 {
 				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s",
 					podName, podNamespace, container, err, stderr)
+			} else {
+				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v",
+					podName, podNamespace, container, err)
 			}
-			err = fmt.Errorf("error exec'ing into %s/%s %s container: %v",
-				podName, podNamespace, container, err)
 		}
 	}()
 
