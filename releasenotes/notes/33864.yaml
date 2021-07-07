@@ -5,4 +5,4 @@ issue:
   - 33857
 releaseNotes:
   - |
-    **Fixed** a message format bug for `istioctl install` command with the default file setting.
+    **Fixed** an issue where the `default` profile name was missing in the `istioctl install` confirmation prompt message.
