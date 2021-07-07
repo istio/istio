@@ -36,7 +36,7 @@ function gen_ca {
 
 function gen_cli {
     SUFFIX=$1
-    openssl req -out cli$SUFFIX.csr -newkey rsa:2048 -nodes -keyout "cli$SUFFIX.key" \
+    openssl req -out "cli$SUFFIX.csr" -newkey rsa:2048 -nodes -keyout "cli$SUFFIX.key" \
         -subj "/CN=TEST_CLI${SUFFIX}_001/O=Client test org${SUFFIX}"
     openssl x509 -req -days 30 -CA "ca$SUFFIX.crt" -CAkey "ca$SUFFIX.key" -set_serial 1 \
         -in "cli$SUFFIX.csr" -out "cli$SUFFIX.crt"
@@ -123,7 +123,7 @@ done
 # Both/All CAs in a bundle:
 cat caCLI?.crt > caCLIall.crt
 
-ls -l *.crt
+ls -l -- *.crt
 
 add_ingress 1
 
@@ -141,7 +141,7 @@ wait_for_propagation
 
 # This is the "hostname" style of LBs (e.g AWS)
 INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-INGRESS_IP=$(nslookup $INGRESS_HOST | awk '/^Address:/ {print $2}'|tail -1)
+INGRESS_IP=$(nslookup "$INGRESS_HOST" | awk '/^Address:/ {print $2}'|tail -1)
 
 echo "Ingress served by $INGRESS_HOST ($INGRESS_IP)"
 
@@ -149,13 +149,12 @@ function singleCall {
   SUFFIX=$1
 #  fortio curl is easier with resolve but regular curl is more standard.
 #  fortio curl -resolve $INGRESS_HOST -cert cliCLI$SUFFIX.crt -key cliCLI$SUFFIX.key -cacert caSRV.crt  https://$HOST/fortio/debug/
-  curl -v --resolve "$HOST:443:$INGRESS_IP" --cert cliCLI$SUFFIX.crt --key cliCLI$SUFFIX.key --cacert caSRV.crt  https://$HOST/fortio/debug/
+  curl -v --resolve "$HOST:443:$INGRESS_IP" --cert "cliCLI$SUFFIX.crt" --key "cliCLI$SUFFIX.key" --cacert caSRV.crt  "https://$HOST/fortio/debug/"
 }
 
 function check2fail {
   set +e
-  singleCall 2
-  if [ $? -eq 0 ]
+  if singleCall 2
   then
     echo "** call using cli cert/ca 2 should have failed"
     exit 1
@@ -170,7 +169,7 @@ wait_for_propagation
 
 # Start fortio test during the changes of CA, on cli1 should not get any errors:
 RES_FILE=fortio_ca_test.json
-fortio load -json $RES_FILE -jitter -c 2 -qps 10 -t 0 -resolve $INGRESS_HOST -cert cliCLI1.crt -key cliCLI1.key -cacert caSRV.crt  https://$HOST/fortio/debug/ &
+fortio load -json $RES_FILE -jitter -c 2 -qps 10 -t 0 -resolve "$INGRESS_HOST" -cert cliCLI1.crt -key cliCLI1.key -cacert caSRV.crt  "https://$HOST/fortio/debug/" &
 FORTIO_PID=$!
 
 # Should succeed
@@ -200,7 +199,7 @@ wait
 TOTAL_REQUESTS=$(jq .DurationHistogram.Count < $RES_FILE)
 OK_REQUESTS=$(jq .RetCodes.\"200\" < $RES_FILE)
 
-if [[ $TOTAL_REQUESTS != $OK_REQUESTS ]]
+if [[ "$TOTAL_REQUESTS" != "$OK_REQUESTS" ]]
 then
   echo "Errors found $TOTAL_REQUESTS != $OK_REQUESTS"
   jq .RetCodes < $RES_FILE
