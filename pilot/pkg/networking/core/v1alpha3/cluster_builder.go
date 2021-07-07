@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -780,7 +780,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
-		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -820,7 +820,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
-		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {

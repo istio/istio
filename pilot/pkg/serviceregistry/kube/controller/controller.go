@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
@@ -355,8 +356,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	return c
 }
 
-func (c *Controller) Provider() serviceregistry.ProviderID {
-	return serviceregistry.Kubernetes
+func (c *Controller) Provider() provider.ID {
+	return provider.Kubernetes
 }
 
 func (c *Controller) Cluster() cluster.ID {
@@ -815,7 +816,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	c.RUnlock()
 
 	// Only select internal Kubernetes services with selectors
-	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != provider.Kubernetes ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB || svc.Attributes.LabelSelectors == nil {
 		return nil
 	}

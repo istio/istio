@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -42,9 +43,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	)
 	serviceControllers.AddRegistry(s.serviceEntryStore)
 
-	registered := make(map[serviceregistry.ProviderID]bool)
+	registered := make(map[provider.ID]bool)
 	for _, r := range args.RegistryOptions.Registries {
-		serviceRegistry := serviceregistry.ProviderID(r)
+		serviceRegistry := provider.ID(r)
 		if _, exists := registered[serviceRegistry]; exists {
 			log.Warnf("%s registry specified multiple times.", r)
 			continue
@@ -52,11 +53,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		registered[serviceRegistry] = true
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
-		case serviceregistry.Kubernetes:
+		case provider.Kubernetes:
 			if err := s.initKubeRegistry(args); err != nil {
 				return err
 			}
-		case serviceregistry.Mock:
+		case provider.Mock:
 			s.initMockRegistry()
 		default:
 			return fmt.Errorf("service registry %s is not supported", r)
@@ -127,7 +128,7 @@ func (s *Server) initMockRegistry() {
 	discovery := mock.NewDiscovery(map[host.Name]*model.Service{}, 2)
 
 	registry := serviceregistry.Simple{
-		ProviderID:       serviceregistry.Mock,
+		ProviderID:       provider.Mock,
 		ServiceDiscovery: discovery,
 		Controller:       &mock.Controller{},
 	}

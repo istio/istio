@@ -29,8 +29,8 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -305,7 +305,7 @@ func (m *Multicluster) UpdateMemberCluster(clusterID cluster.ID, rc *secretcontr
 func (m *Multicluster) DeleteMemberCluster(clusterID cluster.ID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
-	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)
+	m.serviceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
@@ -315,7 +315,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID cluster.ID) error {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	if kc.workloadEntryStore != nil {
-		m.serviceController.DeleteRegistry(clusterID, serviceregistry.External)
+		m.serviceController.DeleteRegistry(clusterID, provider.External)
 	}
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
