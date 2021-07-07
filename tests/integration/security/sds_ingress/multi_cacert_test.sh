@@ -1,14 +1,30 @@
 #! /bin/bash
+# Copyright Istio Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Generates test CAs and matching test client certs and confirm you can add/remove CAs without error to
 # traffic to existing ones
 #
 # Related to
 # https://istio.io/latest/docs/tasks/traffic-management/ingress/secure-ingress/#configure-a-mutual-tls-ingress-gateway
 
+# This assumes/has been tested on AWS EKS cluster with fortio 1.17 on client and server (as echo debug server)
+
 set -ex
 
-# In Envoy custom log format: %DOWNSTREAM_PEER_SUBJECT% should show the ESN
-# (to compare with X-Serial-Number)
+# In Envoy custom log format: %DOWNSTREAM_PEER_SUBJECT% should show the CN of the client cert
+# Certs are also forward in http headers
 
 HOST=testca1.istio.io
 
@@ -104,7 +120,6 @@ cat caCLI?.crt > caCLIall.crt
 ls -l *.crt
 
 add_ingress 1
-#add_ingress 2
 
 function bothCA {
   kubectl create -n istio-system secret generic test1-credential-cacert \
@@ -119,6 +134,7 @@ function only1CA {
 # Give it a second
 sleep 5
 
+# This is the "hostname" style of LBs (e.g AWS)
 INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 INGRESS_IP=$(nslookup $INGRESS_HOST | awk '/^Address:/ {print $2}'|tail -1)
 
@@ -145,6 +161,8 @@ function check2fail {
 }
 
 # We start with only 1 CA:
+# Experimentally it takes less than 10s for SDS changes to propagate to envoy at the ingress,
+# from changing the configmap/secret
 sleep 5
 
 # Start fortio test during the changes of CA, on cli1 should not get any errors:
