@@ -278,15 +278,13 @@ func setTag(ctx context.Context, kubeClient kube.ExtendedClient, tagName, revisi
 		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
 		// warning; when actually applying we will also confirm to ensure the user does not see the
 		// warning *after* it has applied
-		if skipConfirmation {
+		if !skipConfirmation {
 			_, _ = stderr.Write([]byte(err.Error()))
 			if !generate {
 				if !confirm("Apply anyways? [y/N]", w) {
 					return nil
 				}
 			}
-		} else {
-			return err
 		}
 	}
 
