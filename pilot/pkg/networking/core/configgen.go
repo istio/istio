@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
-	nds "istio.io/istio/pilot/pkg/proto"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
@@ -41,7 +41,7 @@ type ConfigGenerator interface {
 	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*route.RouteConfiguration
 
 	// BuildNameTable returns list of hostnames and the associated IPs
-	BuildNameTable(node *model.Proxy, push *model.PushContext) *nds.NameTable
+	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 
 	// BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names. This is the ECDS output.
 	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dns
+package client
 
 import (
 	"net"
@@ -23,15 +23,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/miekg/dns"
 
-	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/pkg/log"
 )
 
 var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
 
-// Holds configurations for the DNS downstreamUDPServer in Istio Agent
+// LocalDNSServer holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
 	lookupTable atomic.Value
@@ -52,7 +52,7 @@ type LocalDNSServer struct {
 	proxyDomainParts []string
 }
 
-// Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
+// LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
 type LookupTable struct {
 	// This table will be first looked up to see if the host is something that we got a Nametable entry for
 	// (i.e. came from istiod's service registry). If it is, then we will be able to confidently return
@@ -135,23 +135,23 @@ func (h *LocalDNSServer) StartDNS() {
 	go h.tcpDNSProxy.start()
 }
 
-func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
+func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	lookupTable := &LookupTable{
 		allHosts: map[string]struct{}{},
 		name4:    map[string][]dns.RR{},
 		name6:    map[string][]dns.RR{},
 		cname:    map[string][]dns.RR{},
 	}
-	for host, ni := range nt.Table {
+	for hostname, ni := range nt.Table {
 		// Given a host
 		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
 		// if its a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
 		// shortname+. is only for hosts in current namespace
 		var altHosts map[string]struct{}
 		if ni.Registry == string(provider.Kubernetes) {
-			altHosts = generateAltHosts(host, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
+			altHosts = generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
 		} else {
-			altHosts = map[string]struct{}{host + ".": {}}
+			altHosts = map[string]struct{}{hostname + ".": {}}
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
 		if len(ipv6) == 0 && len(ipv4) == 0 {
@@ -165,7 +165,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
-// ServerDNS is the implementation of DNS interface
+// ServeDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	requests.Increment()
 	var response *dns.Msg
@@ -238,12 +238,12 @@ func (h *LocalDNSServer) IsReady() bool {
 	return h.lookupTable.Load() != nil
 }
 
-func (h *LocalDNSServer) NameTable() *nds.NameTable {
+func (h *LocalDNSServer) NameTable() *dnsProto.NameTable {
 	lt := h.nameTable.Load()
 	if lt == nil {
 		return nil
 	}
-	return lt.(*nds.NameTable)
+	return lt.(*dnsProto.NameTable)
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
@@ -262,10 +262,10 @@ func roundRobinResponse(res *dns.Msg) {
 }
 
 func roundRobin(in []dns.RR) []dns.RR {
-	cname := []dns.RR{}
-	address := []dns.RR{}
-	mx := []dns.RR{}
-	rest := []dns.RR{}
+	cname := make([]dns.RR, 0)
+	address := make([]dns.RR, 0)
+	mx := make([]dns.RR, 0)
+	rest := make([]dns.RR, 0)
 	for _, r := range in {
 		switch r.Header().Rrtype {
 		case dns.TypeCNAME:
@@ -350,7 +350,7 @@ func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 	return
 }
 
-func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNamespace, proxyDomain string,
+func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, proxyNamespace, proxyDomain string,
 	proxyDomainParts []string) map[string]struct{} {
 	out := make(map[string]struct{})
 	out[hostname+"."] = struct{}{}
