@@ -158,8 +158,22 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableServiceApis {
-		s.environment.GatewayAPIController = gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayController, s.kubeClient.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("Starting gateway status writer")
+					gwc.SetStatusWrite(true)
+					<-leaderStop
+					log.Infof("Stoppping gateway status writer")
+					gwc.SetStatusWrite(false)
+				}).
+				Run(stop)
+			return nil
+		})
 	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {
