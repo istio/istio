@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/webhooks/util"
-
 	"istio.io/pkg/log"
 )
 
