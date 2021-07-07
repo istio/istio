@@ -858,9 +858,9 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			})
 
 			destRule := push.DestinationRule(proxy, service)
-			destinationRule := castDestinationRuleOrDefault(destRule)
+			destinationRule := castDestinationRule(destRule)
 			// Do the same, but for each subset
-			for _, subset := range destinationRule.Subsets {
+			for _, subset := range destinationRule.GetSubsets() {
 				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 				subsetStatPrefix := subsetClusterName
 				// If stat name is configured, build the stat prefix from configured pattern.

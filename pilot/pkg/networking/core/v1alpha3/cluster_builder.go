@@ -45,8 +45,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-var defaultDestinationRule = networking.DestinationRule{}
-
 var istioMtlsTransportSocketMatch = &structpb.Struct{
 	Fields: map[string]*structpb.Value{
 		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
@@ -163,10 +161,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
 	proxyNetworkView map[network.ID]bool) []*cluster.Cluster {
 	destRule := cb.push.DestinationRule(cb.proxy, service)
-	destinationRule := castDestinationRuleOrDefault(destRule)
-
+	destinationRule := castDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
-	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
+	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:        cb.push.Mesh,
 		mutable:     mc,
@@ -196,7 +193,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
-	for _, subset := range destinationRule.Subsets {
+	for _, subset := range destinationRule.GetSubsets() {
 		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyNetworkView)
 		if subsetCluster != nil {
 			subsetClusters = append(subsetClusters, subsetCluster)
@@ -955,14 +952,14 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 	return mc.cluster
 }
 
-// castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
-// Otherwise, return default (empty) DR.
-func castDestinationRuleOrDefault(config *config.Config) *networking.DestinationRule {
+// castDestinationRule returns the destination rule enclosed by the config, if not null.
+// Otherwise, return nil.
+func castDestinationRule(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}
 
-	return &defaultDestinationRule
+	return nil
 }
 
 // maybeApplyEdsConfig applies EdsClusterConfig on the passed in cluster if it is an EDS type of cluster.
