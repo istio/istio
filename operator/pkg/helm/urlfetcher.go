@@ -85,6 +85,7 @@ func (f *URLFetcher) Fetch() error {
 	if err != nil {
 		return err
 	}
+	defer reader.Close()
 
 	return tgz.Extract(reader, f.destDirRoot)
 }
