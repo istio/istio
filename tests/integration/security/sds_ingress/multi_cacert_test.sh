@@ -31,15 +31,15 @@ HOST=testca1.istio.io
 function gen_ca {
     SUFFIX=$1
     openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 \
-        -subj "/O=TestCA${SUFFIX}_o/CN=TestCA${SUFFIX}_cn" -keyout ca$SUFFIX.key -out ca$SUFFIX.crt
+        -subj "/O=TestCA${SUFFIX}_o/CN=TestCA${SUFFIX}_cn" -keyout "ca$SUFFIX.key" -out "ca$SUFFIX.crt"
 }
 
 function gen_cli {
     SUFFIX=$1
-    openssl req -out cli$SUFFIX.csr -newkey rsa:2048 -nodes -keyout cli$SUFFIX.key \
+    openssl req -out cli$SUFFIX.csr -newkey rsa:2048 -nodes -keyout "cli$SUFFIX.key" \
         -subj "/CN=TEST_CLI${SUFFIX}_001/O=Client test org${SUFFIX}"
-    openssl x509 -req -days 30 -CA ca$SUFFIX.crt -CAkey ca$SUFFIX.key -set_serial 1 \
-        -in cli$SUFFIX.csr -out cli$SUFFIX.crt
+    openssl x509 -req -days 30 -CA "ca$SUFFIX.crt" -CAkey "ca$SUFFIX.key" -set_serial 1 \
+        -in "cli$SUFFIX.csr" -out "cli$SUFFIX.crt"
 }
 
 # different CA for server - single cert
@@ -50,10 +50,10 @@ function gen_server {
         -subj "/CN=$HOST/O=Server test organization" \
         -reqexts SAN \
         -config <(cat /etc/ssl/openssl.cnf \
-            <(printf "\n[SAN]\nsubjectAltName=DNS:$HOST"))
+            <(printf "\n[SAN]\nsubjectAltName=DNS:%s" "$HOST"))
     openssl x509 -req -days 90 -CA caSRV.crt -CAkey caSRV.key -set_serial 0 \
         -in srv.csr -out srv.crt \
-        -extfile <(printf "subjectAltName=DNS:$HOST\n")
+        -extfile <(printf "subjectAltName=DNS:%s\n" "$HOST")
 }
 
 
@@ -101,6 +101,12 @@ spec:
 _EOF_
 }
 
+# Experimentally it takes less than 10s for SDS changes to propagate to envoy at the ingress,
+# from changing the configmap/secret
+function wait_for_propagation {
+  sleep 10
+}
+
 gen_server
 
 for suffix in 1 2 ; do
@@ -131,8 +137,7 @@ function only1CA {
     --from-file=ca.crt=caCLI1.crt --dry-run=client -o yaml | kubectl apply -f -
 }
 
-# Give it a second
-sleep 5
+wait_for_propagation
 
 # This is the "hostname" style of LBs (e.g AWS)
 INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
@@ -161,9 +166,7 @@ function check2fail {
 }
 
 # We start with only 1 CA:
-# Experimentally it takes less than 10s for SDS changes to propagate to envoy at the ingress,
-# from changing the configmap/secret
-sleep 5
+wait_for_propagation
 
 # Start fortio test during the changes of CA, on cli1 should not get any errors:
 RES_FILE=fortio_ca_test.json
@@ -176,7 +179,7 @@ singleCall 1
 check2fail
 
 # We switch to 2 CAs:
-bothCA ; sleep 10
+bothCA ; wait_for_propagation
 
 # 1 should still work
 singleCall 1
@@ -185,13 +188,14 @@ singleCall 2
 
 # Back to only 1 CA:
 
-only1CA ; sleep 10
+only1CA ; wait_for_propagation
 # 1 should still work
 singleCall 1
 # 2 should fail again
 check2fail
 
 kill -int $FORTIO_PID
+wait
 
 TOTAL_REQUESTS=$(jq .DurationHistogram.Count < $RES_FILE)
 OK_REQUESTS=$(jq .RetCodes.\"200\" < $RES_FILE)
