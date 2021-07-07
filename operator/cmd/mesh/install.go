@@ -349,5 +349,12 @@ func getProfileNSAndEnabledComponents(iop *v1alpha12.IstioOperator) (string, str
 	if configuredNamespace := v1alpha12.Namespace(iop.Spec); configuredNamespace != "" {
 		return iop.Spec.Profile, configuredNamespace, enabledComponents, nil
 	}
-	return iop.Spec.Profile, name.IstioDefaultNamespace, enabledComponents, nil
+	return renderWithDefault(iop.Spec.Profile, "default"), name.IstioDefaultNamespace, enabledComponents, nil
+}
+
+func renderWithDefault(s, def string) string {
+	if s != "" {
+		return s
+	}
+	return def
 }
