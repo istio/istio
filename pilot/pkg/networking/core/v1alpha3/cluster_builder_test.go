@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
@@ -848,6 +849,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	cases := []struct {
 		name      string
 		mesh      meshconfig.MeshConfig
+		labels    labels.Collection
 		instances []*model.ServiceInstance
 		expected  []*endpoint.LocalityLbEndpoints
 	}{
@@ -1073,6 +1075,129 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "subset cluster endpoints with labels",
+			mesh: testMesh(),
+			labels: []labels.Instance{
+				{"version": "v1"},
+			},
+			instances: []*model.ServiceInstance{
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.1",
+						EndpointPort: 10001,
+						WorkloadName: "workload-1",
+						Namespace:    "namespace-1",
+						Labels: map[string]string{
+							"version": "v1",
+							"app":     "example",
+						},
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "nw-0",
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.2",
+						EndpointPort: 10001,
+						WorkloadName: "workload-2",
+						Namespace:    "namespace-2",
+						Labels: map[string]string{
+							"version": "v2",
+							"app":     "example",
+						},
+						Locality: model.Locality{
+							ClusterID: "cluster-2",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "nw-1",
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.3",
+						EndpointPort: 10001,
+						WorkloadName: "workload-3",
+						Namespace:    "namespace-3",
+						Labels: map[string]string{
+							"version": "v3",
+							"app":     "example",
+						},
+						Locality: model.Locality{
+							ClusterID: "cluster-3",
+							Label:     "region2/zone1/subzone1",
+						},
+						LbWeight: 40,
+						Network:  "",
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.4",
+						EndpointPort: 10001,
+						WorkloadName: "workload-1",
+						Namespace:    "namespace-1",
+						Labels: map[string]string{
+							"version": "v4",
+							"app":     "example",
+						},
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "filtered-out",
+					},
+				},
+			},
+			expected: []*endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 30,
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "192.168.1.1",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: util.BuildLbEndpointMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	sortEndpoints := func(endpoints []*endpoint.LocalityLbEndpoints) {
@@ -1101,7 +1226,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				"nw-1":               true,
 				identifier.Undefined: true,
 			}
-			actual := cb.buildLocalityLbEndpoints(nv, service, 8080, nil)
+			actual := cb.buildLocalityLbEndpoints(nv, service, 8080, tt.labels)
 			sortEndpoints(actual)
 			if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)
