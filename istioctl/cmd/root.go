@@ -211,6 +211,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
 	rootCmd.AddCommand(adminCmd())
+	rootCmd.AddCommand(tagCommand())
 	experimentalCmd.AddCommand(injectorCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
