@@ -85,14 +85,14 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 
 func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) (err error) {
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
-	externalCommand := exec.Command(cmd, args...)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	externalCommand.Stdout = stdout
-	externalCommand.Stderr = stderr
 
+	var stdout, stderr *bytes.Buffer
 	for i := 0; i < 10; i++ {
-		stderr.Reset()
+		externalCommand := exec.Command(cmd, args...)
+		stdout = &bytes.Buffer{}
+		stderr = &bytes.Buffer{}
+		externalCommand.Stdout = stdout
+		externalCommand.Stderr = stderr
 		err = externalCommand.Run()
 		exitCode, ok := exitCode(err)
 		if !ok {
