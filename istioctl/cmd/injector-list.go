@@ -156,17 +156,24 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 	outputCount := 0
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
+	revInjectEnabled := map[string]bool{}
 	for _, namespace := range namespaces {
 		if hideFromOutput(resource.Namespace(namespace.Name)) {
 			continue
 		}
 
 		revision := getInjectedRevision(&namespace, hooks)
-		injectPolicy, err := getInjectPolicyFromConfigMap(revision)
-		if err != nil {
-			return err
+		injectEnabled := false
+		if policy, ok := revInjectEnabled[revision]; !ok {
+			injectPolicy, err := getInjectPolicyFromConfigMap(revision)
+			if err != nil {
+				return err
+			}
+			injectEnabled = injectPolicy == "enabled"
+			revInjectEnabled[revision] = injectEnabled
+		} else {
+			injectEnabled = policy
 		}
-		injectEnabled := injectPolicy == "enabled"
 		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision, injectEnabled)
 		if len(podCount) == 0 {
 			// This namespace has no pods, but we wish to display it if new pods will be auto-injected
