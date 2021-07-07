@@ -646,7 +646,7 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
 		// Use a plugin
-		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint, caclient.NewCATokenProvider(a.secOpts))
+		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint, caclient.NewCATokenProvider(a.secOpts), nil)
 		if err != nil {
 			return nil, err
 		}

@@ -135,6 +135,10 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(creds), nil
 }
 
+func (cl *googleCAClient) GetRootCertBundle() ([]string, error) {
+	return []string{}, nil
+}
+
 func parseZone(clusterURL string) string {
 	// for Hub IDNS, the input is https://gkehub.googleapis.com/projects/HUB_PROJECT_ID/locations/global/memberships/MEMBERSHIP_ID which is global
 	if strings.HasPrefix(clusterURL, hubIDPPrefix) {
