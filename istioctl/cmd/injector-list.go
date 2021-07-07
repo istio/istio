@@ -28,6 +28,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	api_pkg_labels "k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -127,6 +128,29 @@ func getNamespaces(ctx context.Context, client kube.ExtendedClient) ([]v1.Namesp
 	return nslist.Items, nil
 }
 
+func getInjectPolicyFromConfigMap(revision string) (string, error) {
+	if revision == "default" {
+		revision = ""
+	}
+	valuesConfig, err := getValuesFromConfigMap(kubeconfig, revision)
+	if err != nil {
+		return "", err
+	}
+	var values struct {
+		SidecarInjectorWebhook struct {
+			Global struct {
+				Proxy struct {
+					AutoInject string `json:"autoInject"`
+				} `json:"proxy"`
+			} `json:"global"`
+		} `json:"sidecarInjectorWebhook"`
+	}
+	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
+		return "", fmt.Errorf("failed to parse values config: %v [%v]", err, valuesConfig)
+	}
+	return values.SidecarInjectorWebhook.Global.Proxy.AutoInject, nil
+}
+
 func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.MutatingWebhookConfiguration,
 	allPods map[resource.Namespace][]v1.Pod) error {
 	outputCount := 0
@@ -138,7 +162,12 @@ func printNS(writer io.Writer, namespaces []v1.Namespace, hooks []admit_v1.Mutat
 		}
 
 		revision := getInjectedRevision(&namespace, hooks)
-		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision)
+		injectPolicy, err := getInjectPolicyFromConfigMap(revision)
+		if err != nil {
+			return err
+		}
+		injectEnabled := injectPolicy == "enabled"
+		podCount := podCountByRevision(allPods[resource.Namespace(namespace.Name)], revision, injectEnabled)
 		if len(podCount) == 0 {
 			// This namespace has no pods, but we wish to display it if new pods will be auto-injected
 			if revision != "" {
@@ -280,7 +309,7 @@ func getInjectedImages(ctx context.Context, client kube.ExtendedClient) (map[str
 }
 
 // podCountByRevision() returns a map of revision->pods, with "<non-Istio>" as the dummy "revision" for uninjected pods
-func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revisionCount {
+func podCountByRevision(pods []v1.Pod, expectedRevision string, injectEnabled bool) map[string]revisionCount {
 	retval := map[string]revisionCount{}
 	for _, pod := range pods {
 		revision := pod.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
@@ -290,10 +319,19 @@ func podCountByRevision(pods []v1.Pod, expectedRevision string) map[string]revis
 		}
 		counts := retval[revisionLabel]
 		counts.pods++
-		if injectionDisabled(&pod) {
+		podDisabled := injectionDisabled(&pod)
+		podEnabled := injectionEnabled(&pod)
+		switch {
+		case podDisabled:
 			counts.disabled++
-		} else if revision != expectedRevision {
-			counts.needsRestart++
+		case !injectEnabled && !podEnabled:
+			// policy disabled and pod not enabled
+			counts.disabled++
+		default:
+			// pod should be injected
+			if revision != expectedRevision {
+				counts.needsRestart++
+			}
 		}
 		retval[revisionLabel] = counts
 	}
@@ -307,6 +345,11 @@ func hideFromOutput(ns resource.Namespace) bool {
 func injectionDisabled(pod *v1.Pod) bool {
 	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
 	return strings.EqualFold(inject, "false")
+}
+
+func injectionEnabled(pod *v1.Pod) bool {
+	inject := pod.ObjectMeta.GetAnnotations()[annotation.SidecarInject.Name]
+	return strings.EqualFold(inject, "true")
 }
 
 func renderCounts(injectedRevision string, counts revisionCount) string {
