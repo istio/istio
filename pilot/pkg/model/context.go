@@ -272,10 +272,10 @@ type Proxy struct {
 	VerifiedIdentity *spiffe.Identity
 
 	// Indicates whether proxy supports IPv6 addresses
-	ipv6Support bool
+	ipv6 bool
 
 	// Indicates whether proxy supports IPv4 addresses
-	ipv4Support bool
+	ipv4 bool
 
 	// GlobalUnicastIP stores the global unicast IP if available, otherwise nil
 	GlobalUnicastIP string
@@ -840,21 +840,21 @@ func (node *Proxy) DiscoverIPVersions() {
 			node.GlobalUnicastIP = addr.String()
 		}
 		if addr.To4() != nil {
-			node.ipv4Support = true
+			node.ipv4 = true
 		} else {
-			node.ipv6Support = true
+			node.ipv6 = true
 		}
 	}
 }
 
 // SupportsIPv4 returns true if proxy supports IPv4 addresses.
 func (node *Proxy) SupportsIPv4() bool {
-	return node.ipv4Support
+	return node.ipv4
 }
 
 // SupportsIPv6 returns true if proxy supports IPv6 addresses.
 func (node *Proxy) SupportsIPv6() bool {
-	return node.ipv6Support
+	return node.ipv6
 }
 
 // ParseMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
