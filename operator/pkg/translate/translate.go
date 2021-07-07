@@ -171,9 +171,11 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	if err != nil {
 		return "", err
 	}
-	scope.Debugf("Manifest contains the following objects:")
-	for _, o := range objects {
-		scope.Debugf("%s", o.HashNameKind())
+	if scope.DebugEnabled() {
+		scope.Debugf("Manifest contains the following objects:")
+		for _, o := range objects {
+			scope.Debugf("%s", o.HashNameKind())
+		}
 	}
 	// om is a map of kind:name string to Object ptr.
 	om := objects.ToNameKindMap()
