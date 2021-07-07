@@ -39,7 +39,6 @@ import (
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
 )
 
@@ -47,7 +46,7 @@ import (
 var clusterLookupFn = extensionproviders.LookupCluster
 
 func configureTracing(opts buildListenerOpts, hcm *hpb.HttpConnectionManager) *xdsfilters.RouterFilterContext {
-	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy.ConfigNamespace, labels.Collection{opts.proxy.Metadata.Labels})
+	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy)
 	return configureTracingFromSpec(spec, opts, hcm)
 }
 

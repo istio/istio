@@ -25,7 +25,6 @@ import (
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -223,7 +222,7 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			telemetries := createTestTelemetries(v.configs, tt)
-			got := telemetries.EffectiveTelemetry(v.ns, []labels.Instance{v.workloadLabels})
+			got := telemetries.EffectiveTelemetry(&Proxy{ConfigNamespace: v.ns, Metadata: &NodeMetadata{Labels: v.workloadLabels}})
 			if diff := cmp.Diff(v.want, got, protocmp.Transform()); diff != "" {
 				tt.Errorf("EffectiveTelemetry(%s, %v) returned unexpected diff (-want +got):\n%s", v.ns, v.workloadLabels, diff)
 			}
