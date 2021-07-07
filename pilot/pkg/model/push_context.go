@@ -1921,16 +1921,30 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 	return MTLSPermissive
 }
 
-// ServiceInstancesByPort returns the cached instances by port if it exists, otherwise queries the discovery and returns.
+// ServiceInstancesByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
-	// Use cached version of instances by port when labels are empty. If there are labels,
-	// we will have to make actual call and filter instances by pod labels.
 	if len(labels) == 0 {
 		if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
 			return instances
 		}
 	}
-	return nil
+
+	out := []*ServiceInstance{}
+	if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
+		// Use cached version of instances by port when labels are empty.
+		if len(labels) == 0 {
+			return instances
+		}
+		// If there are labels,	we will filter instances by pod labels.
+		for _, instance := range instances {
+			// check that one of the input labels is a subset of the labels
+			if labels.HasSubsetOf(instance.Endpoint.Labels) {
+				out = append(out, instance)
+			}
+		}
+	}
+
+	return out
 }
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects
