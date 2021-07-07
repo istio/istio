@@ -41,10 +41,8 @@ func (*CertificateAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements analysis.Analyzer
 func (gateway *CertificateAnalyzer) Analyze(context analysis.Context) {
-	scopeGatewayToNamespace := getScopeGatewayToNamespace()
-
 	context.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(resource *resource.Instance) bool {
-		gateway.analyzeDuplicateCertificate(resource, context, scopeGatewayToNamespace)
+		gateway.analyzeDuplicateCertificate(resource, context, features.ScopeGatewayToNamespace)
 		return true
 	})
 }
@@ -101,10 +99,6 @@ func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1alpha3.ServerTLSSettin
 	}
 
 	return false
-}
-
-func getScopeGatewayToNamespace() bool {
-	return features.ScopeGatewayToNamespace
 }
 
 // get all gateways that is superset of the selector
