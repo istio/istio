@@ -187,7 +187,7 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 		case <-watchCh:
 			whcList, err := w.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), options)
 			if err != nil {
-				log.Debugf("failed to get mutatingWebhookConfigurations %s", err)
+				log.Errorf("failed to get mutatingWebhookConfigurations %s", err)
 				break
 			}
 			var whcNameList []string
