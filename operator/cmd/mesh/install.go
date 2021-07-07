@@ -189,7 +189,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	// Make this revision the default if none exists
 	exists, _ := revtag.DefaultRevisionExists(context.Background(), kubeClient)
 	if !exists {
-		l.LogAndPrint("Making this installation the default for injection and validation.")
+		installerScope.Errorf("Making this installation the default for injection and validation.")
 		rev := iop.Spec.Revision
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
@@ -207,6 +207,8 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		if err != nil {
 			return err
 		}
+	} else {
+		installerScope.Errorf("Detected existing default revision, not making this the default.")
 	}
 
 	if iArgs.verify {
