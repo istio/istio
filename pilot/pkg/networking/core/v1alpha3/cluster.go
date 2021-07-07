@@ -594,6 +594,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		out.SplitExternalLocalOriginErrors = true
 		if outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
 			out.ConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: outlier.ConsecutiveLocalOriginFailures.Value}
+			out.EnforcingConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: 100}
 		}
 		// SuccessRate based outlier detection should be disabled.
 		out.EnforcingLocalOriginSuccessRate = &wrappers.UInt32Value{Value: 0}
