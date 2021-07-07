@@ -183,14 +183,18 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 	watchCh := w.CABundleWatcher.AddWatcher()
 	options := metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)}
-	whcList, _ := w.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), options)
-	var whcNameList []string
-	for _, whc := range whcList.Items {
-		whcNameList = append(whcNameList, whc.Name)
-	}
 	for {
 		select {
 		case <-watchCh:
+			whcList, err := w.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), options)
+			if err != nil {
+				log.Debugf("failed to get mutatingWebhookConfigurations %s", err)
+				break
+			}
+			var whcNameList []string
+			for _, whc := range whcList.Items {
+				whcNameList = append(whcNameList, whc.Name)
+			}
 			for _, whcName := range whcNameList {
 				log.Debugf("updating caBundle for webhook %q", whcName)
 				w.queue.Push(func() error {
