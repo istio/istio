@@ -349,7 +349,7 @@ my_other_metric{} 0
 		},
 		{
 			name:         "plaintext accept header",
-			acceptHeader: (string)(expfmt.FmtText),
+			acceptHeader: string(expfmt.FmtText),
 		},
 		{
 			name:         "empty accept header",
@@ -407,7 +407,7 @@ my_other_metric{} 0
 			}
 
 			if format == expfmt.FmtOpenMetrics {
-				omParser := textparse.NewOpenMetricsParser([]byte(rec.Body.String()))
+				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
 				for {
 					_, err := omParser.Next()
 					if err == io.EOF {

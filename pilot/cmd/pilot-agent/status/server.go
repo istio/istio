@@ -412,7 +412,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("failed scraping application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
 		}
-		format = negotaiteMetricsFormat(contentType)
+		format = negotiateMetricsFormat(contentType)
 	}
 
 	if agent, err = scrapeAgentMetrics(); err != nil {
@@ -423,13 +423,13 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
-	if _, err := w.Write(envoy); err != nil {
-		log.Errorf("failed to write envoy metrics: %v", err)
-		metrics.EnvoyScrapeErrors.Increment()
-	}
 	if _, err := w.Write(agent); err != nil {
 		log.Errorf("failed to write agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
+	}
+	if _, err := w.Write(envoy); err != nil {
+		log.Errorf("failed to write envoy metrics: %v", err)
+		metrics.EnvoyScrapeErrors.Increment()
 	}
 	// App metrics must go last because if they are FmtOpenMetrics,
 	// they will have a trailing "# EOF" which terminates the full exposition
@@ -439,7 +439,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func negotaiteMetricsFormat(contentType string) expfmt.Format {
+func negotiateMetricsFormat(contentType string) expfmt.Format {
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err == nil && mediaType == expfmt.OpenMetricsType {
 		return expfmt.FmtOpenMetrics
