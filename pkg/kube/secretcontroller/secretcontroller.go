@@ -141,7 +141,7 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 	return c.remoteClusters[secretKey][clusterID]
 }
 
-// Get existing clusters registered for the given secret
+// GetExistingClustersFor return existing clusters registered for the given secret
 func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
 	c.RLock()
 	defer c.RUnlock()
@@ -369,7 +369,7 @@ func (c *Controller) processItem(key string) error {
 	return nil
 }
 
-// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overiden for testing only
+// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
 var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 	if len(kubeConfig) == 0 {
 		return nil, errors.New("kubeconfig is empty")
