@@ -171,7 +171,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *clusterv3.Cluster)
 	}
 
 	// resolve policy from context
-	destinationRule := v1alpha3.CastDestinationRuleOrDefault(b.push.DestinationRule(b.node, b.svc))
+	destinationRule := v1alpha3.CastDestinationRule(b.push.DestinationRule(b.node, b.svc))
 	trafficPolicy := v1alpha3.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, b.port)
 
 	// setup default cluster
