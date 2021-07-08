@@ -131,14 +131,7 @@ func DefaultRevisionExists(ctx context.Context, client kubernetes.Interface) (bo
 	if err != nil {
 		return false, err
 	}
-	sb := new(strings.Builder)
-	for _, wh := range tagWhs {
-		sb.WriteString(fmt.Sprintf("<WH WITH DEFAULT TAG>: %s | ", wh.Name))
-	}
-	for _, wh := range whs {
-		sb.WriteString(fmt.Sprintf("<WH WITH REVISION>: %s | ", wh.Name))
-	}
-	return len(tagWhs) > 0 || len(whs) > 0, fmt.Errorf(sb.String())
+	return len(tagWhs) > 0 || len(whs) > 0, nil
 }
 
 // DeactivateIstioInjectionWebhook deactivates the istio-injection webhook from the given MutatingWebhookConfiguration if exists.
