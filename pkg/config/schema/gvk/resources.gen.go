@@ -38,6 +38,7 @@ var (
 	TLSRoute = config.GroupVersionKind{Group: "networking.x-k8s.io", Version: "v1alpha1", Kind: "TLSRoute"}
 	Telemetry = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
 	VirtualService = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"}
+	WasmPlugin = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "WasmPlugin"}
 	WorkloadEntry = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadEntry"}
 	WorkloadGroup = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadGroup"}
 )

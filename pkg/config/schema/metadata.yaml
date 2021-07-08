@@ -20,6 +20,11 @@
 # The total set of collections, both Istio (i.e. MCP) and K8s (API Server/K8s).
 collections:
   ## Istio collections
+  - name: "istio/extensions/v1alpha1/wasmplugins"
+    kind: "WasmPlugin"
+    group: "extensions.istio.io"
+    pilot: true
+
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
     group: ""
@@ -160,6 +165,10 @@ collections:
     group: "networking.x-k8s.io"
 
   # Istio CRD collections
+  - name: "k8s/extensions.istio.io/v1alpha1/wasmplugins"
+    kind: WasmPlugin
+    group: "extensions.istio.io"
+
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
     kind: DestinationRule
     group: "networking.istio.io"
@@ -214,6 +223,7 @@ snapshots:
   - name: "default"
     strategy: debounce
     collections:
+      - "istio/extensions/v1alpha1/wasmplugins"
       - "istio/mesh/v1alpha1/MeshConfig"
       - "istio/networking/v1alpha3/destinationrules"
       - "istio/networking/v1alpha3/envoyfilters"
@@ -523,12 +533,23 @@ resources:
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
+  - kind: "WasmPlugin"
+    plural: "wasmplugins"
+    group: "extensions.istio.io"
+    version: "v1alpha1"
+    proto: "istio.extensions.v1alpha1.WasmPlugin"
+    protoPackage: "istio.io/api/extensions/v1alpha1"
+    description: ""
+    statusProto: "istio.meta.v1alpha1.IstioStatus"
+    statusProtoPackage: "istio.io/api/meta/v1alpha1"
+
 # Transform specific configurations
 transforms:
   - type: direct
     mapping:
       "k8s/apiextensions.k8s.io/v1/customresourcedefinitions": "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
       "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations": "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
+      "k8s/extensions.istio.io/v1alpha1/wasmplugins": "istio/extensions/v1alpha1/wasmplugins"
       "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
       "k8s/networking.istio.io/v1alpha3/envoyfilters": "istio/networking/v1alpha3/envoyfilters"
       "k8s/networking.istio.io/v1alpha3/gateways": "istio/networking/v1alpha3/gateways"

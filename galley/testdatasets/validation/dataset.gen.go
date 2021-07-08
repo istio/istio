@@ -1,5 +1,7 @@
 // Code generated for package validation by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// dataset/extensions-v1alpha1-WasmPlugin-invalid.yaml
+// dataset/extensions-v1alpha1-WasmPlugin-valid.yaml
 // dataset/networking-v1alpha3-DestinationRule-invalid.yaml
 // dataset/networking-v1alpha3-DestinationRule-valid.yaml
 // dataset/networking-v1alpha3-EnvoyFilter-invalid.yaml
@@ -86,6 +88,61 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _datasetExtensionsV1alpha1WasmpluginInvalidYaml = []byte(`apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: valid
+spec:
+  priority: asdsad
+`)
+
+func datasetExtensionsV1alpha1WasmpluginInvalidYamlBytes() ([]byte, error) {
+	return _datasetExtensionsV1alpha1WasmpluginInvalidYaml, nil
+}
+
+func datasetExtensionsV1alpha1WasmpluginInvalidYaml() (*asset, error) {
+	bytes, err := datasetExtensionsV1alpha1WasmpluginInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/extensions-v1alpha1-WasmPlugin-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetExtensionsV1alpha1WasmpluginValidYaml = []byte(`apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: valid
+spec:
+  selector:
+    labels:
+      istio: ingressgateway
+  url: oci://private-registry:5000/openid-connect/openid:latest
+  imagePullPolicy: IfNotPresent
+  imagePullSecret: private-registry-pull-secret
+  phase: AUTHN
+  pluginConfig:
+    openid_server: authn
+    openid_realm: ingress
+`)
+
+func datasetExtensionsV1alpha1WasmpluginValidYamlBytes() ([]byte, error) {
+	return _datasetExtensionsV1alpha1WasmpluginValidYaml, nil
+}
+
+func datasetExtensionsV1alpha1WasmpluginValidYaml() (*asset, error) {
+	bytes, err := datasetExtensionsV1alpha1WasmpluginValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/extensions-v1alpha1-WasmPlugin-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _datasetNetworkingV1alpha3DestinationruleInvalidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
@@ -1149,6 +1206,8 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"dataset/extensions-v1alpha1-WasmPlugin-invalid.yaml":            datasetExtensionsV1alpha1WasmpluginInvalidYaml,
+	"dataset/extensions-v1alpha1-WasmPlugin-valid.yaml":              datasetExtensionsV1alpha1WasmpluginValidYaml,
 	"dataset/networking-v1alpha3-DestinationRule-invalid.yaml":       datasetNetworkingV1alpha3DestinationruleInvalidYaml,
 	"dataset/networking-v1alpha3-DestinationRule-valid.yaml":         datasetNetworkingV1alpha3DestinationruleValidYaml,
 	"dataset/networking-v1alpha3-EnvoyFilter-invalid.yaml":           datasetNetworkingV1alpha3EnvoyfilterInvalidYaml,
@@ -1228,6 +1287,8 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"dataset": &bintree{nil, map[string]*bintree{
+		"extensions-v1alpha1-WasmPlugin-invalid.yaml":            &bintree{datasetExtensionsV1alpha1WasmpluginInvalidYaml, map[string]*bintree{}},
+		"extensions-v1alpha1-WasmPlugin-valid.yaml":              &bintree{datasetExtensionsV1alpha1WasmpluginValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-DestinationRule-invalid.yaml":       &bintree{datasetNetworkingV1alpha3DestinationruleInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-DestinationRule-valid.yaml":         &bintree{datasetNetworkingV1alpha3DestinationruleValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-EnvoyFilter-invalid.yaml":           &bintree{datasetNetworkingV1alpha3EnvoyfilterInvalidYaml, map[string]*bintree{}},

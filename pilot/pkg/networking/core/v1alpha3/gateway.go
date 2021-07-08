@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -196,6 +197,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
+		extension.AddWasmPluginsToMutableObjects(&mutable.MutableObjects, builder.push.WasmPlugins(builder.node), builder.node, builder.push)
 	}
 	listeners := make([]*listener.Listener, 0)
 	for _, ml := range mutableopts {

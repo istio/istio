@@ -37,6 +37,7 @@ import (
 	"k8s.io/kube-openapi/pkg/validation/validate"
 	serviceapis "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
+	clientextensions "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -196,6 +197,9 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 
 	// Set up default scheme
 	v.Scheme = runtime.NewScheme()
+	if err := clientextensions.AddToScheme(v.Scheme); err != nil {
+		return nil, err
+	}
 	if err := clientnetworkingalpha.AddToScheme(v.Scheme); err != nil {
 		return nil, err
 	}
