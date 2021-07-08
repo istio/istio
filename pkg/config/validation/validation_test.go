@@ -208,6 +208,279 @@ func TestValidateControlPlaneAuthPolicy(t *testing.T) {
 	}
 }
 
+func TestValidateIngressControllerMode(t *testing.T) {
+	cases := []struct {
+		name    string
+		mode    meshconfig.MeshConfig_IngressControllerMode
+		isValid bool
+	}{
+		{
+			name:    "invalid mode",
+			mode:    -1,
+			isValid: false,
+		},
+		{
+			name:    "valid mode",
+			mode:    0,
+			isValid: true,
+		},
+		{
+			name:    "valid mode",
+			mode:    1,
+			isValid: true,
+		},
+		{
+			name:    "valid mode",
+			mode:    2,
+			isValid: true,
+		},
+		{
+			name:    "valid mode",
+			mode:    3,
+			isValid: true,
+		},
+		{
+			name:    "invalid mode",
+			mode:    4,
+			isValid: false,
+		},
+		{
+			name:    "invalid mode",
+			mode:    100,
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := validateIngressControllerMode(c.mode); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
+	}
+}
+
+func TestValidateAccessLogEncoding(t *testing.T) {
+	cases := []struct {
+		name     string
+		encoding meshconfig.MeshConfig_AccessLogEncoding
+		isValid  bool
+	}{
+		{
+			name:     "invalid encoding",
+			encoding: -1,
+			isValid:  false,
+		},
+		{
+			name:     "valid encoding",
+			encoding: 0,
+			isValid:  true,
+		},
+		{
+			name:     "valid encoding",
+			encoding: 1,
+			isValid:  true,
+		},
+		{
+			name:     "invalid encoding",
+			encoding: 2,
+			isValid:  false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := validateAccessLogEncoding(c.encoding); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
+	}
+}
+
+func TestValidateOutboundTrafficPolicy(t *testing.T) {
+	cases := []struct {
+		name    string
+		policy  *meshconfig.MeshConfig_OutboundTrafficPolicy
+		isValid bool
+	}{
+		{
+			name: "invalid policy",
+			policy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: -1,
+			},
+			isValid: false,
+		},
+		{
+			name: "valid policy",
+			policy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: 0,
+			},
+			isValid: true,
+		},
+		{
+			name: "valid policy",
+			policy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: 1,
+			},
+			isValid: true,
+		},
+		{
+			name: "invalid policy",
+			policy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+				Mode: 2,
+			},
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := validateOutboundTrafficPolicy(c.policy); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
+	}
+}
+
+func TestValidateDefaultExportTo(t *testing.T) {
+	cases := []struct {
+		name    string
+		modes   []string
+		isValid bool
+	}{
+		{
+			name:    "invalid modes",
+			modes:   []string{"", " ", "/"},
+			isValid: false,
+		},
+		{
+			name:    "valid modes",
+			modes:   []string{"*", "~", "."},
+			isValid: true,
+		},
+		{
+			name:    "valid modes",
+			modes:   []string{"*"},
+			isValid: true,
+		},
+		{
+			name:    "valid modes",
+			modes:   []string{"ns"},
+			isValid: true,
+		},
+		{
+			name:    "valid modes",
+			modes:   []string{"*", "**"},
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := validateDefaultExportTo(c.modes); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
+	}
+}
+
+func TestValidateH2UpgradePolicy(t *testing.T) {
+	cases := []struct {
+		name    string
+		policy  meshconfig.MeshConfig_H2UpgradePolicy
+		isValid bool
+	}{
+		{
+			name:    "invalid modes",
+			policy:  -1,
+			isValid: false,
+		},
+		{
+			name:    "valid modes",
+			policy:  0,
+			isValid: true,
+		},
+		{
+			name:    "valid modes",
+			policy:  1,
+			isValid: true,
+		},
+		{
+			name:    "invalid modes",
+			policy:  2,
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := validateH2UpgradePolicy(c.policy); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
+	}
+}
+
+func TestValidatePathNormalization(t *testing.T) {
+	cases := []struct {
+		name    string
+		policy  *meshconfig.MeshConfig_ProxyPathNormalization
+		isValid bool
+	}{
+		{
+			name: "invalid policy",
+			policy: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: -1,
+			},
+			isValid: false,
+		},
+		{
+			name: "valid policy",
+			policy: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: 0,
+			},
+			isValid: true,
+		},
+		{
+			name: "valid policy",
+			policy: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: 1,
+			},
+			isValid: true,
+		},
+		{
+			name: "valid policy",
+			policy: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: 2,
+			},
+			isValid: true,
+		},
+		{
+			name: "valid policy",
+			policy: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: 3,
+			},
+			isValid: true,
+		},
+		{
+			name: "valid policy",
+			policy: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: 4,
+			},
+			isValid: true,
+		},
+		{
+			name: "invalid policy",
+			policy: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: 5,
+			},
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := validatePathNormalization(c.policy); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
+	}
+}
+
 func TestValidateProxyAddress(t *testing.T) {
 	addresses := map[string]bool{
 		"istio-pilot:80":        true,
@@ -419,7 +692,20 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		ProxyListenPort:    0,
+		ProxyListenPort:       0,
+		ProxyHttpPort:         -1,
+		IngressControllerMode: -1,
+		AccessLogEncoding:     -1,
+		OutboundTrafficPolicy: &meshconfig.MeshConfig_OutboundTrafficPolicy{
+			Mode: -1,
+		},
+		DefaultServiceExportTo:         []string{""},
+		DefaultVirtualServiceExportTo:  []string{""},
+		DefaultDestinationRuleExportTo: []string{""},
+		H2UpgradePolicy:                -1,
+		PathNormalization: &meshconfig.MeshConfig_ProxyPathNormalization{
+			Normalization: -1,
+		},
 		ConnectTimeout:     types.DurationProto(-1 * time.Second),
 		DefaultConfig:      &meshconfig.ProxyConfig{},
 		TrustDomain:        "",
@@ -443,6 +729,15 @@ func TestValidateMeshConfig(t *testing.T) {
 	} else {
 		wantErrors := []string{
 			"invalid proxy listen port",
+			"invalid proxy http port:",
+			"invalid ingress controller mode:",
+			"invalid access log encoding:",
+			"invalid outbound traffic policy:",
+			"invalid default service exportTo policy:",
+			"invalid default virtual service exportTo policy:",
+			"invalid default destination rule exportTo policy:",
+			"invalid H2 Upgrade policy:",
+			"invalid path normalization policy:",
 			"invalid connect timeout",
 			"invalid protocol detection timeout: duration: nil Duration",
 			"config path must be set",

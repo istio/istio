@@ -1474,6 +1474,44 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
 	}
 
+	if mesh.ProxyHttpPort != 0 {
+		if err := ValidatePort(int(mesh.ProxyHttpPort)); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy http port:"))
+		}
+	}
+
+	if err := validateIngressControllerMode(mesh.IngressControllerMode); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid ingress controller mode:"))
+	}
+
+	if err := validateAccessLogEncoding(mesh.AccessLogEncoding); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid access log encoding:"))
+	}
+
+	if err := validateOutboundTrafficPolicy(mesh.OutboundTrafficPolicy); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid outbound traffic policy:"))
+	}
+
+	if err := validateDefaultExportTo(mesh.DefaultServiceExportTo); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid default service exportTo policy:"))
+	}
+
+	if err := validateDefaultExportTo(mesh.DefaultVirtualServiceExportTo); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid default virtual service exportTo policy:"))
+	}
+
+	if err := validateDefaultExportTo(mesh.DefaultDestinationRuleExportTo); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid default destination rule exportTo policy:"))
+	}
+
+	if err := validateH2UpgradePolicy(mesh.H2UpgradePolicy); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid H2 Upgrade policy:"))
+	}
+
+	if err := validatePathNormalization(mesh.PathNormalization); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid path normalization policy:"))
+	}
+
 	if err := ValidateConnectTimeout(mesh.ConnectTimeout); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid connect timeout:"))
 	}
@@ -1505,6 +1543,67 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	return
+}
+
+func validateIngressControllerMode(mode meshconfig.MeshConfig_IngressControllerMode) error {
+	if mode == meshconfig.MeshConfig_UNSPECIFIED ||
+		mode == meshconfig.MeshConfig_OFF ||
+		mode == meshconfig.MeshConfig_DEFAULT ||
+		mode == meshconfig.MeshConfig_STRICT {
+		return nil
+	}
+	return fmt.Errorf("unrecognized ingress controller mode %q", mode)
+}
+
+func validateAccessLogEncoding(encoding meshconfig.MeshConfig_AccessLogEncoding) error {
+	if encoding == meshconfig.MeshConfig_TEXT || encoding == meshconfig.MeshConfig_JSON {
+		return nil
+	}
+	return fmt.Errorf("unrecognized access log encoding %q", encoding)
+}
+
+func validateOutboundTrafficPolicy(policy *meshconfig.MeshConfig_OutboundTrafficPolicy) error {
+	mode := policy.GetMode()
+	if mode == meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY ||
+		mode == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY {
+		return nil
+	}
+	return fmt.Errorf("unrecognized outbound traffic policy %q", mode)
+}
+
+// validate DefaultServiceExportTo/DefaultVirtualServiceExportTo/DefaultDestinationRuleExportTo
+func validateDefaultExportTo(modes []string) error {
+	for _, mode := range modes {
+		m := visibility.Instance(mode)
+		switch m {
+		case visibility.Public, visibility.Private, visibility.None:
+		default:
+			if !labels.IsDNS1123Label(string(m)) {
+				return fmt.Errorf("unrecognized default exportTo policy %q ,"+
+					"only .,*,~, or a valid DNS 1123 label is allowed as exportTo entry", mode)
+			}
+		}
+	}
+	return nil
+}
+
+func validateH2UpgradePolicy(policy meshconfig.MeshConfig_H2UpgradePolicy) error {
+	if policy == meshconfig.MeshConfig_DO_NOT_UPGRADE || policy == meshconfig.MeshConfig_UPGRADE {
+		return nil
+	}
+	return fmt.Errorf("unrecognized H2 upgrade policy %q", policy)
+}
+
+func validatePathNormalization(policy *meshconfig.MeshConfig_ProxyPathNormalization) error {
+	p := policy.GetNormalization()
+	if p == meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT ||
+		p == meshconfig.MeshConfig_ProxyPathNormalization_NONE ||
+		p == meshconfig.MeshConfig_ProxyPathNormalization_BASE ||
+		p == meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES ||
+		p == meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES {
+		return nil
+	}
+	return fmt.Errorf("unrecognized path normalization policy %q", p)
 }
 
 func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
