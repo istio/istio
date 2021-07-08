@@ -119,6 +119,10 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 			nameInfo.Namespace = svc.Attributes.Namespace
 			nameInfo.Shortname = svc.Attributes.Name
 		}
+
+		if ni, ok := out.Table[string(svc.Hostname)]; ok {
+			nameInfo.Ips = append(nameInfo.Ips, ni.Ips...)
+		}
 		out.Table[string(svc.Hostname)] = nameInfo
 	}
 	return out
