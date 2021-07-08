@@ -377,12 +377,12 @@ func TestCertExpired(t *testing.T) {
 	testCases := map[string]struct {
 		filepath string
 		expected bool
-	} {
+	}{
 		"Expired Cert": {
 			filepath: "testdata/expired-cert",
 			expected: true,
 		},
-		"Not Expired Cert" : {
+		"Not Expired Cert": {
 			filepath: "testdata/notexpired-cert",
 			expected: true,
 		},

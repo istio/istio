@@ -165,7 +165,7 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
-func (c *CitadelClient) isCertExpired(filepath string) (bool, error){
+func (c *CitadelClient) isCertExpired(filepath string) (bool, error) {
 	var err error
 	var certPEMBlock []byte
 	certPEMBlock, err = os.ReadFile(filepath)
@@ -181,7 +181,7 @@ func (c *CitadelClient) isCertExpired(filepath string) (bool, error){
 	if err != nil {
 		return true, fmt.Errorf("failed to parse the cert")
 	}
-	return x509Cert.NotAfter.Before(time.Now()),nil
+	return x509Cert.NotAfter.Before(time.Now()), nil
 }
 
 func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
