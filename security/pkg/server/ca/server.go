@@ -169,18 +169,10 @@ func extractCertSigner(ctx context.Context) string {
 	if !ok {
 		return ""
 	}
-	log.Infof("iris iris ok %s", ok)
-	for k, v := range md {
-		log.Infof("iris iris k %s", k)
-		log.Infof("iris iris v %s", v)
-	}
 	certSignerHeader, exists := md[security.CertSigner]
-	log.Infof("iris iris exists %s", exists)
 	if !exists {
 		return ""
 	}
-
-	log.Infof("iris iris certSignerHeader %s", certSignerHeader[0])
 	if len(certSignerHeader) == 1 {
 		return certSignerHeader[0]
 	}
