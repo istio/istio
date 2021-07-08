@@ -1013,7 +1013,7 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 // This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
 // as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
 func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, map[string]model.CacheToken, bool) {
-	destinationRule := castDestinationRule(clusterKey.destinationRule)
+	destinationRule := CastDestinationRule(clusterKey.destinationRule)
 	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
 	tokens := make(map[string]model.CacheToken, 1+len(destinationRule.GetSubsets()))
 	cachedCluster, tok, f := cb.cache.Get(&clusterKey)
