@@ -46,7 +46,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
-	nds "istio.io/istio/pilot/pkg/proto"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -110,7 +110,7 @@ type Options struct {
 	Probes              []ready.Prober
 	EnvoyPrometheusPort int
 	Context             context.Context
-	FetchDNS            func() *nds.NameTable
+	FetchDNS            func() *dnsProto.NameTable
 	NoEnvoy             bool
 	GRPCBootstrap       string
 }
@@ -126,7 +126,7 @@ type Server struct {
 	statusPort            uint16
 	lastProbeSuccessful   bool
 	envoyStatsPort        int
-	fetchDNS              func() *nds.NameTable
+	fetchDNS              func() *dnsProto.NameTable
 }
 
 func init() {

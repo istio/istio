@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dns
+package client
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ import (
 	"github.com/miekg/dns"
 	"go.uber.org/atomic"
 
-	nds "istio.io/istio/pilot/pkg/proto"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/test"
 )
 
@@ -232,7 +232,9 @@ func TestDNS(t *testing.T) {
 					defer func() { currentID.Store(0) }()
 				}
 				res, _, err := clients[i].Exchange(m, testAgentDNSAddr)
-				t.Log("size: ", len(res.Answer))
+				if res != nil {
+					t.Log("size: ", len(res.Answer))
+				}
 				if err != nil {
 					t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
 				} else {
@@ -329,7 +331,7 @@ func bench(t *testing.B, nameserver string, hostname string) {
 }
 
 var giantResponse = func() []dns.RR {
-	ips := []net.IP{}
+	ips := make([]net.IP, 0)
 	for i := 0; i < 64; i++ {
 		ips = append(ips, net.ParseIP(fmt.Sprintf("240.0.0.%d", i)).To4())
 	}
@@ -388,9 +390,9 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 		ReadTimeout:       time.Second,
 		WriteTimeout:      time.Second,
 	}
-	go server.ListenAndServe()
+	go func() { _ = server.ListenAndServe() }()
 	<-up
-	t.Cleanup(func() { server.Shutdown() })
+	t.Cleanup(func() { _ = server.Shutdown() })
 	server.Addr = server.PacketConn.LocalAddr().String()
 
 	// Setup TCP server on same port
@@ -401,10 +403,10 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 		Handler:           mux,
 		NotifyStartedFunc: func() { close(up) },
 	}
-	go tcp.ListenAndServe()
+	go func() { _ = tcp.ListenAndServe() }()
 	<-up
-	t.Cleanup(func() { tcp.Shutdown() })
-	t.Cleanup(func() { server.Shutdown() })
+	t.Cleanup(func() { _ = tcp.Shutdown() })
+	t.Cleanup(func() { _ = server.Shutdown() })
 	tcp.Addr = server.PacketConn.LocalAddr().String()
 	return server.Addr
 }
@@ -418,8 +420,8 @@ func initDNS(t test.Failer) *LocalDNSServer {
 	testAgentDNS.resolvConfServers = []string{srv}
 	testAgentDNS.StartDNS()
 	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
-	testAgentDNS.UpdateLookupTable(&nds.NameTable{
-		Table: map[string]*nds.NameTable_NameInfo{
+	testAgentDNS.UpdateLookupTable(&dnsProto.NameTable{
+		Table: map[string]*dnsProto.NameTable_NameInfo{
 			"www.google.com": {
 				Ips:      []string{"1.1.1.1"},
 				Registry: "External",

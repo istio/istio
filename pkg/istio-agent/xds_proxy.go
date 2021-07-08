@@ -50,9 +50,9 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
-	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -154,7 +154,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 
 	if ia.localDNSServer != nil {
 		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
-			var nt nds.NameTable
+			var nt dnsProto.NameTable
 			// nolint: staticcheck
 			if err := ptypes.UnmarshalAny(resp, &nt); err != nil {
 				log.Errorf("failed to unmarshall name table: %v", err)
