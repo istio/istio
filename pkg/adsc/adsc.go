@@ -203,11 +203,28 @@ type ResponseHandler interface {
 	HandleResponse(con *ADSC, response *discovery.DiscoveryResponse)
 }
 
+// jsonMarshalProtoWithName wraps a proto.Message with name so it can be marshaled with the standard encoding/json library
+type jsonMarshalProtoWithName struct {
+	Name    string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Message proto.Message
+}
+
+func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
+	strSer, serr := ConvertGolangProtoToJSONByGolangJSONPB(p.Message)
+	if serr != nil {
+		adscLog.Warnf("Error for marshaling [%s]: %v", p.Name, serr)
+		return []byte(""), serr
+	}
+	serialItem := []byte("{\"" + p.Name + "\":" + strSer + "}")
+	return serialItem, nil
+}
+
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 
-// ConvertProtoMessageToString help to implement the conversion from Proto message to string
-func ConvertProtoMessageToString(obj proto.Message) (string, error) {
-	jsonm := &jsonpb.Marshaler{EnumsAsInts: true, EmitDefaults: true, OrigName: true, Indent: "  "}
+// ConvertGolangProtoToJSONByGolangJSONPB help to implement the conversion from Proto message to string
+// Note: this conversion is just for golang protobuf by golang jsonpb
+func ConvertGolangProtoToJSONByGolangJSONPB(obj proto.Message) (string, error) {
+	jsonm := &jsonpb.Marshaler{Indent: "  "}
 	strResponse, err := jsonm.MarshalToString(obj)
 	if err != nil {
 		return "", err
@@ -478,7 +495,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				strResponse, err := ConvertProtoMessageToString(m)
+				strResponse, err := ConvertGolangProtoToJSONByGolangJSONPB(m)
 				if err != nil {
 					continue
 				}
@@ -639,7 +656,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		case wellknown.MySQLProxy:
 			// ignore for now
 		default:
-			adscLog.Infof(ConvertProtoMessageToString(l))
+			adscLog.Infof(ConvertGolangProtoToJSONByGolangJSONPB(l))
 		}
 	}
 
@@ -673,18 +690,16 @@ func (a *ADSC) Save(base string) error {
 		sortTCPListeners = append(sortTCPListeners, key)
 	}
 	sort.Strings(sortTCPListeners)
-	var sliceTCPListeners []string
+	arrTCPListenersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortTCPListeners))
 	for _, element := range sortTCPListeners {
-		strSer, serr := ConvertProtoMessageToString(a.tcpListeners[element])
-		if serr != nil {
-			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
-			continue
-		}
-		sliceItem := "\"" + element + "\":" + strSer
-		sliceTCPListeners = append(sliceTCPListeners, sliceItem)
+		sliceItem := &jsonMarshalProtoWithName{element, a.tcpListeners[element]}
+		arrTCPListenersJSONProto = append(arrTCPListenersJSONProto, *sliceItem)
 	}
-	jsonResponse := "{" + strings.Join(sliceTCPListeners, ",") + "}"
-	err := ioutil.WriteFile(base+"_lds_tcp.json", []byte(jsonResponse), 0o644)
+	byteJSONResponse, err := json.MarshalIndent(arrTCPListenersJSONProto, "", "  ")
+	if err != nil {
+		adscLog.Warnf("Error for marshaling TCPListeners: %v", err)
+	}
+	err = ioutil.WriteFile(base+"_lds_tcp.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -695,21 +710,16 @@ func (a *ADSC) Save(base string) error {
 		sortHTTPListeners = append(sortHTTPListeners, key)
 	}
 	sort.Strings(sortHTTPListeners)
-	var sliceHTTPListeners []string
+	arrHTTPListenersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortHTTPListeners))
 	for _, element := range sortHTTPListeners {
-		strSer, serr := ConvertProtoMessageToString(a.httpListeners[element])
-		if serr != nil {
-			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
-			continue
-		}
-		sliceItem := "\"" + element + "\":" + strSer
-		sliceHTTPListeners = append(sliceHTTPListeners, sliceItem)
+		sliceItem := &jsonMarshalProtoWithName{element, a.httpListeners[element]}
+		arrHTTPListenersJSONProto = append(arrHTTPListenersJSONProto, *sliceItem)
 	}
-	jsonResponse = "{" + strings.Join(sliceHTTPListeners, ",") + "}"
+	byteJSONResponse, err = json.MarshalIndent(arrHTTPListenersJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_http.json", []byte(jsonResponse), 0o644)
+	err = ioutil.WriteFile(base+"_lds_http.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -720,21 +730,16 @@ func (a *ADSC) Save(base string) error {
 		sortRoutes = append(sortRoutes, key)
 	}
 	sort.Strings(sortRoutes)
-	var sliceRoutes []string
+	arrRoutesJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortRoutes))
 	for _, element := range sortRoutes {
-		strSer, serr := ConvertProtoMessageToString(a.routes[element])
-		if serr != nil {
-			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
-			continue
-		}
-		sliceItem := "\"" + element + "\":" + strSer
-		sliceRoutes = append(sliceRoutes, sliceItem)
+		sliceItem := &jsonMarshalProtoWithName{element, a.routes[element]}
+		arrRoutesJSONProto = append(arrRoutesJSONProto, *sliceItem)
 	}
-	jsonResponse = "{" + strings.Join(sliceRoutes, ",") + "}"
+	byteJSONResponse, err = json.MarshalIndent(arrRoutesJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_rds.json", []byte(jsonResponse), 0o644)
+	err = ioutil.WriteFile(base+"_rds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -745,21 +750,16 @@ func (a *ADSC) Save(base string) error {
 		sortEdsClusters = append(sortEdsClusters, key)
 	}
 	sort.Strings(sortEdsClusters)
-	var sliceEdsClusters []string
+	arrEdsClustersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortEdsClusters))
 	for _, element := range sortEdsClusters {
-		strSer, serr := ConvertProtoMessageToString(a.edsClusters[element])
-		if serr != nil {
-			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
-			continue
-		}
-		sliceItem := "\"" + element + "\":" + strSer
-		sliceEdsClusters = append(sliceEdsClusters, sliceItem)
+		sliceItem := &jsonMarshalProtoWithName{element, a.edsClusters[element]}
+		arrEdsClustersJSONProto = append(arrEdsClustersJSONProto, *sliceItem)
 	}
-	jsonResponse = "{" + strings.Join(sliceEdsClusters, ",") + "}"
+	byteJSONResponse, err = json.MarshalIndent(arrEdsClustersJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_ecds.json", []byte(jsonResponse), 0o644)
+	err = ioutil.WriteFile(base+"_ecds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -770,21 +770,16 @@ func (a *ADSC) Save(base string) error {
 		sortClusters = append(sortClusters, key)
 	}
 	sort.Strings(sortClusters)
-	var sliceClusters []string
+	arrClustersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortClusters))
 	for _, element := range sortClusters {
-		strSer, serr := ConvertProtoMessageToString(a.clusters[element])
-		if serr != nil {
-			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
-			continue
-		}
-		sliceItem := "\"" + element + "\":" + strSer
-		sliceClusters = append(sliceClusters, sliceItem)
+		sliceItem := &jsonMarshalProtoWithName{element, a.clusters[element]}
+		arrClustersJSONProto = append(arrClustersJSONProto, *sliceItem)
 	}
-	jsonResponse = "{" + strings.Join(sliceClusters, ",") + "}"
+	byteJSONResponse, err = json.MarshalIndent(arrClustersJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_cds.json", []byte(jsonResponse), 0o644)
+	err = ioutil.WriteFile(base+"_cds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -795,21 +790,16 @@ func (a *ADSC) Save(base string) error {
 		sortEds = append(sortEds, key)
 	}
 	sort.Strings(sortEds)
-	var sliceEds []string
+	arrEdsJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortEds))
 	for _, element := range sortEds {
-		strSer, serr := ConvertProtoMessageToString(a.eds[element])
-		if serr != nil {
-			adscLog.Warnf("Error for marshaling [%s]: %v", element, serr)
-			continue
-		}
-		sliceItem := "\"" + element + "\":" + strSer
-		sliceEds = append(sliceEds, sliceItem)
+		sliceItem := &jsonMarshalProtoWithName{element, a.eds[element]}
+		arrEdsJSONProto = append(arrEdsJSONProto, *sliceItem)
 	}
-	jsonResponse = "{" + strings.Join(sliceEds, ",") + "}"
+	byteJSONResponse, err = json.MarshalIndent(arrEdsJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_eds.json", []byte(jsonResponse), 0o644)
+	err = ioutil.WriteFile(base+"_eds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -884,7 +874,7 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 	}
 	req.ResponseNonce = time.Now().String()
 	if adscLog.DebugEnabled() {
-		strReq, _ := ConvertProtoMessageToString(req)
+		strReq, _ := ConvertGolangProtoToJSONByGolangJSONPB(req)
 		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
 	}
 	return a.stream.Send(req)
