@@ -65,7 +65,7 @@ func NewRPCCredentials(kubeClient Client, tokenNamespace, tokenSA string,
 	}, nil
 }
 
-// GetRequestMetadata() fulfills the grpc/credentials.PerRPCCredentials interface
+// GetRequestMetadata fulfills the grpc/credentials.PerRPCCredentials interface
 func (its *tokenSupplier) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	its.mu.RLock()
 	token := its.Token
@@ -96,7 +96,7 @@ func (its *tokenSupplier) GetRequestMetadata(ctx context.Context, uri ...string)
 	}, nil
 }
 
-// RequireTransportSecurity() fulfills the grpc/credentials.PerRPCCredentials interface
+// RequireTransportSecurity fulfills the grpc/credentials.PerRPCCredentials interface
 func (its *tokenSupplier) RequireTransportSecurity() bool {
 	return false
 }
