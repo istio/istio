@@ -175,6 +175,10 @@ func validateExtensionProviderStackdriver(stackdriver *meshconfig.MeshConfig_Ext
 	return nil
 }
 
+func validateExtensionProviderEnvoyFileAccessLog(log *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) error {
+	return nil
+}
+
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 	definedProviders := map[string]struct{}{}
 	for _, c := range config.ExtensionProviders {
@@ -208,6 +212,8 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderMetricsPrometheus(provider.Prometheus))
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderStackdriver(provider.Stackdriver))
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyFileAccessLog(provider.EnvoyFileAccessLog))
 		default:
 			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v of type %T", provider, provider))
 		}
