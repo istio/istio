@@ -18,10 +18,8 @@ package dependencies
 type Dependencies interface {
 	// RunOrFail runs a command and panics, if it fails
 	RunOrFail(cmd string, args ...string)
-	// Run runs a command
-	Run(cmd string, args ...string) error
+	// Run runs a command, returns its standard output and error
+	Run(cmd string, args ...string) (string, error)
 	// RunQuietlyAndIgnore runs a command quietly and ignores errors
 	RunQuietlyAndIgnore(cmd string, args ...string)
-	// CmdOutput runs a command and returns its standard output
-	CmdOutput(cmd string, args ...string) (string, error)
 }

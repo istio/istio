@@ -63,13 +63,15 @@ var XTablesCmds = sets.NewSet(
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct{}
 
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
+func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) (string, error) {
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	externalCommand.Stdout = stdout
 	externalCommand.Stderr = stderr
+
+	err := externalCommand.Run()
 
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
@@ -79,10 +81,10 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 		log.Errorf("Command error output: \n%v", stderr.String())
 	}
 
-	return externalCommand.Run()
+	return stdout.String(), err
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
+func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) (string, error) {
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	stdout := &bytes.Buffer{}
@@ -106,7 +108,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		log.Errorf("Command error output: %v", stderrStr)
 	}
 
-	return err
+	return stdout.String(), err
 }
 
 // transformToXTablesErrorMessage returns an updated error message with explicit xtables error hints, if applicable.
@@ -141,9 +143,9 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 func (r *RealDependencies) RunOrFail(cmd string, args ...string) {
 	var err error
 	if XTablesCmds.Contains(cmd) {
-		err = r.executeXTables(cmd, false, args...)
+		_, err = r.executeXTables(cmd, false, args...)
 	} else {
-		err = r.execute(cmd, false, args...)
+		_, err = r.execute(cmd, false, args...)
 	}
 	if err != nil {
 		log.Errorf("Failed to execute: %s %s, %v", cmd, strings.Join(args, " "), err)
@@ -151,27 +153,21 @@ func (r *RealDependencies) RunOrFail(cmd string, args ...string) {
 	}
 }
 
-// Run runs a command
-func (r *RealDependencies) Run(cmd string, args ...string) (err error) {
+// Run runs a command, returns its standard output and error
+func (r *RealDependencies) Run(cmd string, args ...string) (stdout string, err error) {
 	if XTablesCmds.Contains(cmd) {
-		err = r.executeXTables(cmd, false, args...)
+		stdout, err = r.executeXTables(cmd, false, args...)
 	} else {
-		err = r.execute(cmd, false, args...)
+		stdout, err = r.execute(cmd, false, args...)
 	}
-	return err
+	return stdout, err
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
 	if XTablesCmds.Contains(cmd) {
-		_ = r.executeXTables(cmd, true, args...)
+		r.executeXTables(cmd, true, args...)
 	} else {
-		_ = r.execute(cmd, true, args...)
+		r.execute(cmd, true, args...)
 	}
-}
-
-// CmdOutput runs a command and returns its standard output
-func (r *RealDependencies) CmdOutput(cmd string, args ...string) (string, error) {
-	output, err := exec.Command(cmd, args...).Output()
-	return string(output), err
 }
