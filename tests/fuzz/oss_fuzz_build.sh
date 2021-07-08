@@ -23,6 +23,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateMeshConfig fuzz_validate
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzXds fuzz_xds
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzK8sObject fuzz_k8s_object
 
 
 # Create seed corpora:
