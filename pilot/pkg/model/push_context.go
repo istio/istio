@@ -1923,12 +1923,6 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 
 // ServiceInstancesByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
-	if len(labels) == 0 {
-		if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
-			return instances
-		}
-	}
-
 	out := []*ServiceInstance{}
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
 		// Use cached version of instances by port when labels are empty.
