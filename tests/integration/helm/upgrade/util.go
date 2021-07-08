@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/shell"
 	"os"
 	"path/filepath"
 
@@ -64,9 +65,18 @@ var previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
 func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string) {
+	execCmd := fmt.Sprintf(
+		"kubectl apply -n %v -f %v",
+		helmtest.IstioNamespace,
+		filepath.Join(helmtest.ChartPath, helmtest.BaseChart, helmtest.CRDsFolder))
+	_, err := shell.Execute(false, execCmd)
+	if err != nil {
+		ctx.Fatalf("couldn't run kubectl apply on crds folder: %v", err)
+	}
+
 	// Upgrade base chart
-	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ChartPath, helmtest.BaseChart),
-		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
+	err = h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ChartPath, helmtest.BaseChart),
+		helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout, "--skip-crds")
 	if err != nil {
 		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.BaseChart)
 	}
@@ -113,6 +123,14 @@ func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 	}
 	if err := kubetest.WaitForNamespaceDeletion(cs, helmtest.IstioNamespace, retry.Timeout(helmtest.RetryTimeOut)); err != nil {
 		return fmt.Errorf("wating for istio namespace to be deleted: %v", err)
+	}
+
+	// CRDs are not removed as part of the helm uninstall process
+	execCmd := fmt.Sprintf("kubectl delete -n %d -f %d", helmtest.IstioNamespace,
+		filepath.Join(helmtest.ChartPath, helmtest.BaseReleaseName, helmtest.CRDsFolder))
+	_, err := shell.Execute(false, execCmd)
+	if err != nil {
+		return fmt.Errorf("couldn't run kubectl delete -f on crds folder: %v", err)
 	}
 
 	return nil
