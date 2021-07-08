@@ -87,12 +87,7 @@ var expectedGrpcFailureMessages = sets.NewSet(
 )
 
 func containsExpectedMessage(msg string) bool {
-	for m := range expectedGrpcFailureMessages {
-		if strings.Contains(msg, m) {
-			return true
-		}
-	}
-	return false
+	return expectedGrpcFailureMessages.Contains(msg)
 }
 
 // IsExpectedGRPCError checks a gRPC error code and determines whether it is an expected error when
