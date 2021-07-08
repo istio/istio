@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"strings"
 	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -28,6 +29,8 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/log"
@@ -135,34 +138,91 @@ func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *
 	}
 }
 
-func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connectionManager *hcm.HttpConnectionManager) {
-	if mesh.AccessLogFile != "" {
-		connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
+func buildAccessLogFromTelemetry(mesh *meshconfig.MeshConfig, spec *telemetry.Telemetry, forListener bool) *accesslog.AccessLog {
+	// TODO support multiple
+	accessLogConfig := spec.AccessLogging[0]
+	if accessLogConfig.GetDisabled().GetValue() {
+		return nil
 	}
 
-	if mesh.EnableEnvoyAccessLogService {
-		connectionManager.AccessLog = append(connectionManager.AccessLog, b.httpGrpcAccessLog)
+	// provider config
+	var providerName string
+	if len(mesh.GetDefaultProviders().GetAccessLogging()) > 0 {
+		providerName = mesh.GetDefaultProviders().GetAccessLogging()[0]
+	}
+	if len(accessLogConfig.Providers) > 0 {
+		// only one provider is currently supported, safe to take first
+		providerName = accessLogConfig.Providers[0].Name
+	}
+
+	for _, p := range mesh.ExtensionProviders {
+		if strings.EqualFold(p.Name, providerName) {
+			switch prov := p.Provider.(type) {
+			case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
+				al := buildFileAccessLogHelper(prov.EnvoyFileAccessLog.Path, mesh)
+				if forListener {
+					al.Filter = addAccessLogFilter()
+				}
+				return al
+			default:
+				log.Debugf("unsupported access log provider %v: %T", providerName, prov)
+			}
+			break
+		}
+	}
+	return nil
+}
+
+func (b *AccessLogBuilder) setHTTPAccessLog(opts buildListenerOpts, connectionManager *hcm.HttpConnectionManager) {
+	mesh := opts.push.Mesh
+	spec := opts.push.Telemetry.EffectiveTelemetry(opts.proxy)
+
+	if len(spec.GetAccessLogging()) == 0 {
+		// No Telemetry API configured, fall back to legacy mesh config setting
+		if mesh.AccessLogFile != "" {
+			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
+		}
+
+		if mesh.EnableEnvoyAccessLogService {
+			connectionManager.AccessLog = append(connectionManager.AccessLog, b.httpGrpcAccessLog)
+		}
+		return
+	}
+
+	if al := buildAccessLogFromTelemetry(mesh, spec, false); al != nil {
+		connectionManager.AccessLog = append(connectionManager.AccessLog, al)
 	}
 }
 
-func (b *AccessLogBuilder) setListenerAccessLog(mesh *meshconfig.MeshConfig, listener *listener.Listener) {
+func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *model.Proxy, listener *listener.Listener) {
+	mesh := push.Mesh
+	spec := push.Telemetry.EffectiveTelemetry(proxy)
 	if mesh.DisableEnvoyListenerLog {
 		return
 	}
-	if mesh.AccessLogFile != "" {
-		listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
+
+	if len(spec.GetAccessLogging()) == 0 {
+		// No Telemetry API configured, fall back to legacy mesh config setting
+		if mesh.AccessLogFile != "" {
+			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
+		}
+
+		if mesh.EnableEnvoyAccessLogService {
+			// Setting it to TCP as the low level one.
+			listener.AccessLog = append(listener.AccessLog, b.tcpGrpcListenerAccessLog)
+		}
+		return
 	}
 
-	if mesh.EnableEnvoyAccessLogService {
-		// Setting it to TCP as the low level one.
-		listener.AccessLog = append(listener.AccessLog, b.tcpGrpcListenerAccessLog)
+	if al := buildAccessLogFromTelemetry(mesh, spec, true); al != nil {
+		listener.AccessLog = append(listener.AccessLog, al)
 	}
 }
 
-func buildFileAccessLogHelper(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+func buildFileAccessLogHelper(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	// We need to build access log. This is needed either on first access or when mesh config changes.
 	fl := &fileaccesslog.FileAccessLog{
-		Path: mesh.AccessLogFile,
+		Path: path,
 	}
 
 	switch mesh.AccessLogEncoding {
@@ -213,7 +273,7 @@ func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *acce
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := buildFileAccessLogHelper(mesh)
+	al := buildFileAccessLogHelper(mesh.AccessLogFile, mesh)
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -236,7 +296,7 @@ func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfi
 	}
 
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := buildFileAccessLogHelper(mesh)
+	lal := buildFileAccessLogHelper(mesh.AccessLogFile, mesh)
 	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 	// not get filter Access Logs like in cases like NR to upstream.
 	lal.Filter = addAccessLogFilter()
