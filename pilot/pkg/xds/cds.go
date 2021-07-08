@@ -15,10 +15,7 @@
 package xds
 
 import (
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -76,13 +73,6 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	if !cdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)
-	resources := model.Resources{}
-	for _, c := range rawClusters {
-		resources = append(resources, &discovery.Resource{
-			Name:     c.Name,
-			Resource: util.MessageToAny(c),
-		})
-	}
-	return resources, model.DefaultXdsLogDetails, nil
+	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, push)
+	return clusters, logs, nil
 }
