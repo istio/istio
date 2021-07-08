@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/shell"
 	"os"
 	"path/filepath"
 
@@ -123,6 +124,14 @@ func deleteIstio(cs cluster.Cluster, h *helm.Helm) error {
 	}
 	if err := kubetest.WaitForNamespaceDeletion(cs, helmtest.IstioNamespace, retry.Timeout(helmtest.RetryTimeOut)); err != nil {
 		return fmt.Errorf("wating for istio namespace to be deleted: %v", err)
+	}
+
+	// CRDs are not removed as part of the helm uninstall process
+	execCmd := fmt.Sprintf("kubectl delete -n %d -f %d", helmtest.IstioNamespace,
+		filepath.Join(helmtest.ChartPath, helmtest.BaseReleaseName, helmtest.CRDsFolder))
+	_, err := shell.Execute(false, execCmd)
+	if err != nil {
+		return fmt.Errorf("couldn't run kubectl delete -f on crds folder: %v", err)
 	}
 
 	return nil
