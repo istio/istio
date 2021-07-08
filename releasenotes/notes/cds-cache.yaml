@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 26732
+releaseNotes:
+- |
+  **Improved** the XDS configuration generation to cache Envoy clusters, substantially improving performance of the control plane in many cases
