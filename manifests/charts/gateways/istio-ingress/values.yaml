@@ -72,6 +72,10 @@ gateways:
     additionalContainers: []
     configVolumes: []
 
+    serviceAccount:
+      # Annotations to add to the service account
+      annotations: {}
+
     ### Advanced options ############
     env: {}
     nodeSelector: {}
