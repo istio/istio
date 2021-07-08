@@ -122,6 +122,7 @@ func shallowMerge(parent, child *tpb.Telemetry) *tpb.Telemetry {
 
 func shallowMergeTracing(parent, child *tpb.Telemetry) {
 	if len(parent.GetTracing()) == 0 {
+		parent.Tracing = child.Tracing
 		return
 	}
 	if len(child.GetTracing()) == 0 {
@@ -150,6 +151,7 @@ func shallowMergeTracing(parent, child *tpb.Telemetry) {
 
 func shallowMergeAccessLogs(parent *tpb.Telemetry, child *tpb.Telemetry) {
 	if len(parent.GetAccessLogging()) == 0 {
+		parent.AccessLogging = child.AccessLogging
 		return
 	}
 	if len(child.GetAccessLogging()) == 0 {

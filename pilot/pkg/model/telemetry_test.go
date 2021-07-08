@@ -31,6 +31,36 @@ import (
 )
 
 func TestTelemetries_EffectiveTelemetry(t *testing.T) {
+	rootAccessLogs := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "stdout",
+					},
+				},
+			},
+		},
+	}
+	barAccessLogs := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Disabled: &types.BoolValue{Value: true},
+			},
+		},
+	}
+	bazAccessLogs := &tpb.Telemetry{
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{
+					{
+						Name: "custom-provider",
+					},
+				},
+				Disabled: &types.BoolValue{Value: false},
+			},
+		},
+	}
 	rootTrace := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
@@ -212,6 +242,70 @@ func TestTelemetries_EffectiveTelemetry(t *testing.T) {
 									DefaultValue: "EMPTY",
 								},
 							}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "access logs disable",
+			ns:   "bar",
+			configs: []config.Config{
+				newTelemetry("root", "istio-system", rootAccessLogs),
+				newTelemetry("bar", "bar", barAccessLogs),
+			},
+			want: &tpb.Telemetry{
+				AccessLogging: []*tpb.AccessLogging{
+					{
+						Providers: []*tpb.ProviderRef{
+							{
+								Name: "stdout",
+							},
+						},
+						Disabled: &types.BoolValue{Value: true},
+					},
+				},
+			},
+		},
+		{
+			name: "access logs provider",
+			ns:   "baz",
+			configs: []config.Config{
+				newTelemetry("root", "istio-system", rootAccessLogs),
+				newTelemetry("baz", "baz", bazAccessLogs),
+			},
+			want: &tpb.Telemetry{
+				AccessLogging: []*tpb.AccessLogging{
+					{
+						Providers: []*tpb.ProviderRef{
+							{
+								Name: "custom-provider",
+							},
+						},
+						Disabled: &types.BoolValue{Value: false},
+					},
+				},
+			},
+		},
+		{
+			name: "access logs and tracing",
+			ns:   "bar",
+			configs: []config.Config{
+				newTelemetry("root-logs", "istio-system", rootAccessLogs),
+				newTelemetry("bar", "bar", barTrace),
+			},
+			want: &tpb.Telemetry{
+				Tracing: []*tpb.Tracing{
+					{
+						DisableSpanReporting: &types.BoolValue{Value: true},
+					},
+				},
+				AccessLogging: []*tpb.AccessLogging{
+					{
+						Providers: []*tpb.ProviderRef{
+							{
+								Name: "stdout",
+							},
 						},
 					},
 				},
