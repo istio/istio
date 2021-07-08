@@ -179,7 +179,7 @@ func (c *CitadelClient) isCertExpired(filepath string) (bool, error){
 	}
 	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
 	if err != nil {
-		return true, fmt.Errorf("failed to pass the cert")
+		return true, fmt.Errorf("failed to parse the cert")
 	}
 	return x509Cert.NotAfter.Before(time.Now()),nil
 }
