@@ -448,7 +448,7 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 }
 
 func processMetrics(metrics []byte) []byte {
-	return []byte(strings.ReplaceAll(string(metrics), "\n\n", "\n"))
+	return bytes.ReplaceAll(metrics, []byte("\n\n"), []byte("\n"))
 }
 
 func scrapeAgentMetrics() ([]byte, error) {
