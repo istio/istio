@@ -372,7 +372,7 @@ func TestCertExpired(t *testing.T) {
 	}()
 
 	opts := &security.Options{CAEndpoint: lis.Addr().String(), ClusterID: "Kubernetes", CredFetcher: plugin.CreateMockPlugin(validToken)}
-	cli, err := NewCitadelClient(opts, false, nil)
+	cli, _ := NewCitadelClient(opts, false, nil)
 
 	testCases := map[string]struct {
 		filepath string
