@@ -369,7 +369,7 @@ func (m *Multicluster) HasSynced() bool {
 	return m.secretController.HasSynced()
 }
 
-// TODO remove this and talk directly to top-level secretcontroller
+// TODO(stevenctl) remove this and talk directly to top-level secretcontroller
 func (m *Multicluster) Clusters() map[string]map[cluster.ID]*secretcontroller.Cluster {
 	if m.secretController == nil {
 		return nil
