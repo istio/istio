@@ -86,6 +86,7 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
 		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
 		{"FuzzInitContext", FuzzInitContext},
+		{"FuzzCompareDiff", FuzzCompareDiff},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
