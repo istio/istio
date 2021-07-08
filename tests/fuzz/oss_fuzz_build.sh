@@ -23,7 +23,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateMeshConfig fuzz_validate
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzXds fuzz_xds
-
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCompareDiff fuzz_compare_diff
 
 # Create seed corpora:
 zip "${OUT}"/fuzz_analyzer_seed_corpus.zip "${SRC}"/istio/galley/pkg/config/analysis/analyzers/testdata/*.yaml
