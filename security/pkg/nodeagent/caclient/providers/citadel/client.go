@@ -85,7 +85,11 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 	if err := c.reconnectIfNeeded(); err != nil {
 		return nil, err
 	}
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", c.opts.ClusterID))
+	metaKV := []string{"ClusterID", c.opts.ClusterID}
+	if c.opts.CertSigner != "" {
+		metaKV = append(metaKV, security.CertSigner, c.opts.CertSigner)
+	}
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs(metaKV...))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create certificate: %v", err)

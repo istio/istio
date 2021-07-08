@@ -49,7 +49,7 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile string) ([]byte, error) {
 	csrSpec := &cert.CertificateSigningRequestSpec{
-		SignerName: &r.raOpts.CaSigner,
+		SignerName: &r.raOpts.CertSigner,
 		Request:    csrPEM,
 		Groups:     []string{"system:authenticated"},
 		Usages: []cert.KeyUsage{
@@ -73,6 +73,12 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 		return nil, err
 	}
 	csrName := chiron.GenCsrName()
+	signerFromRA := r.raOpts.CaSigner
+	certSigner := certOpts.CertSigner
+	if certSigner == "" {
+		certSigner = signerFromRA
+	}
+	r.raOpts.CertSigner = certSigner
 	return r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile)
 }
 
