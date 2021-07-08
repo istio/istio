@@ -27,8 +27,9 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -1144,10 +1145,10 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		CreationTime: tnow,
 		Hostname:     host.Name(hostname),
 		Address:      ip,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Resolution:   model.DNSLB,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
 			ExportTo:        map[visibility.Instance]bool{v: true},
 		},

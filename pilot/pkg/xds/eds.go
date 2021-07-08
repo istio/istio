@@ -51,7 +51,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 	for _, svc := range push.Services(nil) {
 		for _, registry := range registries {
 			// skip the service in case this svc does not belong to the registry.
-			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
+			if svc.Attributes.ServiceRegistry != registry.Provider() {
 				continue
 			}
 			endpoints := make([]*model.IstioEndpoint, 0)
@@ -66,7 +66,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 			}
 
-			s.edsCacheUpdate(registry.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, endpoints)
+			s.edsCacheUpdate(string(registry.Cluster()), string(svc.Hostname), svc.Attributes.Namespace, endpoints)
 		}
 	}
 
@@ -114,24 +114,24 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 //
 // Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
-func (s *DiscoveryServer) EDSCacheUpdate(clusterID, serviceName string, namespace string,
+func (s *DiscoveryServer) EDSCacheUpdate(shard, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	s.edsCacheUpdate(clusterID, serviceName, namespace, istioEndpoints)
+	s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
 }
 
 // edsCacheUpdate updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether a full push
 // is needed or incremental push is sufficient.
-func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace string,
+func (s *DiscoveryServer) edsCacheUpdate(shard string, hostname string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) bool {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
-		s.deleteEndpointShards(clusterID, hostname, namespace)
+		s.deleteEndpointShards(shard, hostname, namespace)
 		log.Infof("Incremental push, service %s has no endpoints", hostname)
 		return false
 	}
@@ -146,7 +146,7 @@ func (s *DiscoveryServer) edsCacheUpdate(clusterID, hostname string, namespace s
 	}
 
 	ep.mutex.Lock()
-	ep.Shards[clusterID] = istioEndpoints
+	ep.Shards[shard] = istioEndpoints
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.
 	saUpdated := s.UpdateServiceAccount(ep, hostname)
 	// Clear the cache here. While it would likely be cleared later when we trigger a push, a race
@@ -198,14 +198,14 @@ func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string
 
 // deleteEndpointShards deletes matching endpoint shards from EndpointShardsByService map. This is called when
 // endpoints are deleted.
-func (s *DiscoveryServer) deleteEndpointShards(cluster, serviceName, namespace string) {
+func (s *DiscoveryServer) deleteEndpointShards(shard string, serviceName, namespace string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.EndpointShardsByService[serviceName] != nil &&
 		s.EndpointShardsByService[serviceName][namespace] != nil {
 		epShards := s.EndpointShardsByService[serviceName][namespace]
 		epShards.mutex.Lock()
-		delete(epShards.Shards, cluster)
+		delete(epShards.Shards, shard)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).
 		s.Cache.Clear(map[model.ConfigKey]struct{}{{
 			Kind:      gvk.ServiceEntry,
@@ -315,11 +315,9 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	// If networks are set (by default they aren't) apply the Split Horizon
-	// EDS filter on the endpoints
-	if b.push.NetworkGateways().IsMultiNetworkEnabled() {
-		llbOpts = b.EndpointsByNetworkFilter(llbOpts)
-	}
+	// Apply the Split Horizon EDS filter, if applicable.
+	llbOpts = b.EndpointsByNetworkFilter(llbOpts)
+
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
 		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the

@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/security"
@@ -90,9 +91,6 @@ type DiscoveryServer struct {
 	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
 
 	concurrentPushLimit chan struct{}
-	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
-	// shards.
-	mutex sync.RWMutex
 
 	// InboundUpdates describes the number of configuration updates the discovery server has received
 	InboundUpdates *atomic.Int64
@@ -103,13 +101,17 @@ type DiscoveryServer struct {
 	// the push context, which means that the next push to a proxy will receive this configuration.
 	CommittedUpdates *atomic.Int64
 
+	// mutex used for protecting shards.
+	mutex sync.RWMutex
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
 	EndpointShardsByService map[string]map[string]*EndpointShards
 
+	// pushChannel is the buffer used for debouncing.
+	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
 
-	// mutex used for config update scheduling (former cache update mutex)
+	// mutex used for protecting Environment.PushContext
 	updateMutex sync.RWMutex
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
@@ -264,7 +266,7 @@ func (s *DiscoveryServer) getNonK8sRegistries() []serviceregistry.Instance {
 	}
 
 	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes && registry.Provider() != serviceregistry.External {
+		if registry.Provider() != provider.Kubernetes && registry.Provider() != provider.External {
 			nonK8sRegistries = append(nonK8sRegistries, registry)
 		}
 	}
@@ -329,9 +331,9 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if err != nil {
 		return
 	}
-
 	initContextTime := time.Since(t0)
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+	pushContextInitTime.Record(initContextTime.Seconds())
 
 	versionMutex.Lock()
 	version = versionLocal

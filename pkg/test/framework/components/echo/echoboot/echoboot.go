@@ -187,7 +187,8 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 			return nil, err
 		}
 
-		// collect all the templates from this cluster
+		// take the intersection of the templates available from each revision in this cluster
+		intersection := sets.NewSet()
 		for _, item := range cms.Items {
 			if !strings.HasPrefix(item.Name, "istio-sidecar-injector") {
 				continue
@@ -197,10 +198,21 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 				return nil, fmt.Errorf("failed parsing injection cm in %s: %v", c.Name(), err)
 			}
 			if data.Templates != nil {
+				t := sets.NewSet()
 				for name := range data.Templates {
-					out[c.Name()].Insert(name)
+					t.Insert(name)
+				}
+				// either intersection has not been set or we intersect these templates
+				// with the currenet set.
+				if intersection.Empty() {
+					intersection = t
+				} else {
+					intersection = intersection.Intersection(t)
 				}
 			}
+		}
+		for name := range intersection {
+			out[c.Name()].Insert(name)
 		}
 	}
 

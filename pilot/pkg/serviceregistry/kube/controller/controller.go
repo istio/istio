@@ -37,12 +37,15 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -109,7 +112,7 @@ type Options struct {
 	DomainSuffix string
 
 	// ClusterID identifies the remote cluster in a multicluster env.
-	ClusterID string
+	ClusterID cluster.ID
 
 	// Metrics for capturing node-based metrics.
 	Metrics model.Metrics
@@ -188,8 +191,8 @@ type kubernetesNode struct {
 type controllerInterface interface {
 	getPodLocality(pod *v1.Pod) string
 	cidrRanger() cidranger.Ranger
-	defaultNetwork() string
-	Cluster() string
+	defaultNetwork() network.ID
+	Cluster() cluster.ID
 }
 
 var _ controllerInterface = &Controller{}
@@ -248,13 +251,13 @@ type Controller struct {
 	ranger cidranger.Ranger
 
 	// Network name for to be used when the meshNetworks for registry nor network label on pod is specified
-	network string
+	network network.ID
 	// Network name for the registry as specified by the MeshNetworks configmap
-	networkForRegistry string
+	networkForRegistry network.ID
 	// tracks which services on which ports should act as a gateway for networkForRegistry
 	registryServiceNameGateways map[host.Name]uint32
 	// gateways for each network, indexed by the service that runs them so we clean them up later
-	networkGateways map[host.Name]map[string][]*model.NetworkGateway
+	networkGateways map[host.Name]map[network.ID]gatewaySet
 
 	// informerInit is set to true once the controller is running successfully. This ensures we do not
 	// return HasSynced=true before we are running
@@ -279,7 +282,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
 		workloadInstancesIPsByName:  make(map[string]string),
 		registryServiceNameGateways: make(map[host.Name]uint32),
-		networkGateways:             make(map[host.Name]map[string][]*model.NetworkGateway),
+		networkGateways:             make(map[host.Name]map[network.ID]gatewaySet),
 		informerInit:                atomic.NewBool(false),
 		beginSync:                   atomic.NewBool(false),
 		initialSync:                 atomic.NewBool(false),
@@ -353,11 +356,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	return c
 }
 
-func (c *Controller) Provider() serviceregistry.ProviderID {
-	return serviceregistry.Kubernetes
+func (c *Controller) Provider() provider.ID {
+	return provider.Kubernetes
 }
 
-func (c *Controller) Cluster() string {
+func (c *Controller) Cluster() cluster.ID {
 	return c.opts.ClusterID
 }
 
@@ -368,13 +371,17 @@ func (c *Controller) discoverabilityPolicyForService(name types.NamespacedName) 
 	return model.DiscoverableFromSameCluster
 }
 
+func (c *Controller) ExportedServices() []string {
+	return c.exports.ExportedServices()
+}
+
 func (c *Controller) cidrRanger() cidranger.Ranger {
 	c.RLock()
 	defer c.RUnlock()
 	return c.ranger
 }
 
-func (c *Controller) defaultNetwork() string {
+func (c *Controller) defaultNetwork() network.ID {
 	c.RLock()
 	defer c.RUnlock()
 	if c.networkForRegistry != "" {
@@ -390,7 +397,7 @@ func (c *Controller) Cleanup() error {
 	}
 	for _, s := range svcs {
 		name := kube.ServiceHostname(s.Name, s.Namespace, c.opts.DomainSuffix)
-		c.opts.XDSUpdater.SvcUpdate(c.Cluster(), string(name), s.Namespace, model.EventDelete)
+		c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(name), s.Namespace, model.EventDelete)
 	}
 	return nil
 }
@@ -411,8 +418,13 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.servicesMap, svcConv.Hostname)
 		delete(c.nodeSelectorsForServices, svcConv.Hostname)
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
+		_, isNetworkGateway := c.networkGateways[svcConv.Hostname]
 		delete(c.networkGateways, svcConv.Hostname)
 		c.Unlock()
+		if isNetworkGateway {
+			// networks are different, we need to update all eds endpoints
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		}
 	default:
 		needsFullPush := false
 		// First, process nodePort gateway service, whose externalIPs specified
@@ -450,11 +462,11 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	if event == model.EventAdd || event == model.EventUpdate {
 		endpoints := c.buildEndpointsForService(svcConv)
 		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(c.Cluster(), string(svcConv.Hostname), svc.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSCacheUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, endpoints)
 		}
 	}
 
-	c.opts.XDSUpdater.SvcUpdate(c.Cluster(), string(svcConv.Hostname), svc.Namespace, event)
+	c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -623,30 +635,45 @@ func (c *Controller) informersSynced() bool {
 func (c *Controller) SyncAll() error {
 	c.beginSync.Store(true)
 	var err *multierror.Error
+	err = multierror.Append(err, c.syncSystemNamespace())
+	err = multierror.Append(err, c.syncNodes())
+	err = multierror.Append(err, c.syncServices())
+	err = multierror.Append(err, c.syncPods())
+	err = multierror.Append(err, c.syncEndpoints())
 
+	return multierror.Flatten(err.ErrorOrNil())
+}
+
+func (c *Controller) syncSystemNamespace() error {
+	var err error
 	if c.nsLister != nil {
 		sysNs, _ := c.nsLister.Get(c.opts.SystemNamespace)
+		log.Debugf("initializing systemNamespace:%s", c.opts.SystemNamespace)
 		if sysNs != nil {
-			err = multierror.Append(err, c.onSystemNamespaceEvent(sysNs, model.EventAdd))
+			err = c.onSystemNamespaceEvent(sysNs, model.EventAdd)
 		}
 	}
+	return err
+}
 
+func (c *Controller) syncNodes() error {
+	var err *multierror.Error
 	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
+	return err.ErrorOrNil()
+}
 
+func (c *Controller) syncServices() error {
+	var err *multierror.Error
 	services := c.serviceInformer.GetIndexer().List()
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
 	}
-
-	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.syncEndpoints())
-
-	return multierror.Flatten(err.ErrorOrNil())
+	return err.ErrorOrNil()
 }
 
 func (c *Controller) syncPods() error {
@@ -724,7 +751,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	}
 
 	// NodeName is set by the scheduler after the pod is created
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
 	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
 		if pod.Spec.NodeName != "" {
@@ -789,7 +816,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	c.RUnlock()
 
 	// Only select internal Kubernetes services with selectors
-	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != provider.Kubernetes ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB || svc.Attributes.LabelSelectors == nil {
 		return nil
 	}
@@ -932,7 +959,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) []*model.Servi
 }
 
 func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*model.ServiceInstance {
-	out := []*model.ServiceInstance{}
+	out := make([]*model.ServiceInstance, 0)
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
 	dummyPod := &v1.Pod{
@@ -1025,7 +1052,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 			}
 			// fire off eds update
-			c.opts.XDSUpdater.EDSUpdate(c.Cluster(), string(service.Hostname), service.Attributes.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSUpdate(string(c.Cluster()), string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
 }
@@ -1045,7 +1072,7 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 	nw := ns.Labels[label.TopologyNetwork.Name]
 	c.Lock()
 	oldDefaultNetwork := c.network
-	c.network = nw
+	c.network = network.ID(nw)
 	c.Unlock()
 	// network changed, not using mesh networks, and controller has been initialized
 	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() {

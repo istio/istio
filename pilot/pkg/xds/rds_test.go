@@ -52,7 +52,7 @@ func TestRDS(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ads := s.ConnectADS().WithType(v3.RouteType).WithID(tt.node)
-			ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: tt.routes})
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: tt.routes})
 		})
 	}
 }

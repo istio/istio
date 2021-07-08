@@ -16,13 +16,13 @@ package bootstrap
 
 import (
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/pkg/ledger"
 )
 
 func hasKubeRegistry(registries []string) bool {
 	for _, r := range registries {
-		if serviceregistry.ProviderID(r) == serviceregistry.Kubernetes {
+		if provider.ID(r) == provider.Kubernetes {
 			return true
 		}
 	}

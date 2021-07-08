@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
+	"github.com/lestrrat-go/jwx/jwt"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -1542,7 +1543,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ServiceCluster == "" {
 		errs = multierror.Append(errs, errors.New("service cluster must be set"))
 	}
-
 	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}
@@ -1610,14 +1610,22 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
 
-	switch config.ControlPlaneAuthPolicy {
-	case meshconfig.AuthenticationPolicy_NONE, meshconfig.AuthenticationPolicy_MUTUAL_TLS:
-	default:
-		errs = multierror.Append(errs,
-			fmt.Errorf("unrecognized control plane auth policy %q", config.ControlPlaneAuthPolicy))
+	if err := ValidateControlPlaneAuthPolicy(config.ControlPlaneAuthPolicy); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid authentication policy:"))
+	}
+
+	if err := ValidatePort(int(config.StatusPort)); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid status port:"))
 	}
 
 	return
+}
+
+func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) error {
+	if policy == meshconfig.AuthenticationPolicy_NONE || policy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		return nil
+	}
+	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
@@ -1815,6 +1823,13 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if len(rule.JwksUri) != 0 {
 		if _, err := security.ParseJwksURI(rule.JwksUri); err != nil {
 			errs = multierror.Append(errs, err)
+		}
+	}
+
+	if rule.Jwks != "" {
+		_, err := jwt.Parse([]byte(rule.Jwks))
+		if err != nil {
+			errs = multierror.Append(errs, errors.New("jwks parse error"))
 		}
 	}
 

@@ -36,8 +36,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/test/xdstest"
+	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -121,10 +123,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	for _, instance := range opts.Instances {
 		msd.AddInstance(instance.Service.Hostname, instance)
 	}
-	msd.ClusterID = string(serviceregistry.Mock)
+	msd.ClusterID = string(provider.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
-		ClusterID:        string(serviceregistry.Mock),
-		ProviderID:       serviceregistry.Mock,
+		ClusterID:        cluster2.ID(provider.Mock),
+		ProviderID:       provider.Mock,
 		ServiceDiscovery: msd,
 		Controller:       msd.Controller,
 	})
@@ -306,4 +308,4 @@ func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {}
 
-func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {}
+func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}

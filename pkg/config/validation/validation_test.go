@@ -167,6 +167,47 @@ func TestValidatePort(t *testing.T) {
 	}
 }
 
+func TestValidateControlPlaneAuthPolicy(t *testing.T) {
+	cases := []struct {
+		name    string
+		policy  meshconfig.AuthenticationPolicy
+		isValid bool
+	}{
+		{
+			name:    "invalid policy",
+			policy:  -1,
+			isValid: false,
+		},
+		{
+			name:    "valid policy",
+			policy:  0,
+			isValid: true,
+		},
+		{
+			name:    "valid policy",
+			policy:  1,
+			isValid: true,
+		},
+		{
+			name:    "invalid policy",
+			policy:  2,
+			isValid: false,
+		},
+		{
+			name:    "invalid policy",
+			policy:  100,
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateControlPlaneAuthPolicy(c.policy); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
+	}
+}
+
 func TestValidateProxyAddress(t *testing.T) {
 	addresses := map[string]bool{
 		"istio-pilot:80":        true,
@@ -411,6 +452,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"invalid parent and drain time combination invalid parent shutdown duration",
 			"discovery address must be set to the proxy discovery service",
 			"invalid proxy admin port",
+			"invalid status port",
 			"trustDomain: empty domain name not allowed",
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
@@ -448,6 +490,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
+		StatusPort:             15020,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -493,7 +536,17 @@ func TestValidateProxyConfig(t *testing.T) {
 		},
 		{
 			name:    "proxy admin port invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 0 }),
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 65536 }),
+			isValid: false,
+		},
+		{
+			name:    "validate status port",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatusPort = 0 }),
+			isValid: false,
+		},
+		{
+			name:    "validate vstatus port",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatusPort = 65536 }),
 			isValid: false,
 		},
 		{
@@ -744,6 +797,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service"},
 		ControlPlaneAuthPolicy: -1,
+		StatusPort:             0,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
@@ -760,7 +814,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 12 {
+			if len(err.Errors) != 13 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -6032,6 +6086,44 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		{
+			name:       "jwks ok",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer: "foo.com",
+						Jwks:   "{ \"keys\":[ {\"e\":\"AQAB\",\"kid\":\"DHFbpoIUqrY8t2zpA2qXfCmr5VO5ZEr4RzHU_-envvQ\",\"kty\":\"RSA\",\"n\":\"xAE7eB6qugXyCAG3yhh7pkDkT65pHymX-P7KfIupjf59vsdo91bSP9C8H07pSAGQO1MV_xFj9VswgsCg4R6otmg5PV2He95lZdHtOcU5DXIg_pbhLdKXbi66GlVeK6ABZOUW3WYtnNHD-91gVuoeJT_DwtGGcp4ignkgXfkiEm4sw-4sfb4qdt5oLbyVpmW6x9cfa7vs2WTfURiCrBoUqgBo_-4WTiULmmHSGZHOjzwa8WtrtOQGsAFjIbno85jp6MnGGGZPYZbDAa_b3y5u-YpW7ypZrvD8BgtKVjgtQgZhLAGezMt0ua3DRrWnKqTZ0BJ_EyxOGuHJrLsn00fnMQ\"}]}", // nolint: lll
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "x-foo",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "jwks error",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer: "foo.com",
+						Jwks:   "foo",
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "x-foo",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
 		},
 	}
 

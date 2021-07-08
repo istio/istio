@@ -34,12 +34,15 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/network"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -91,7 +94,7 @@ type Service struct {
 
 	// ClusterVIPs specifies the service address of the load balancer
 	// in each of the clusters where the service resides
-	ClusterVIPs map[string]string `json:"cluster-vips,omitempty"`
+	ClusterVIPs map[cluster.ID]string `json:"cluster-vips,omitempty"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -280,7 +283,7 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint.Locality != second.Endpoint.Locality {
 		return false
 	}
-	if first.Endpoint.LbWeight != second.Endpoint.LbWeight {
+	if first.Endpoint.GetLoadBalancingWeight() != second.Endpoint.GetLoadBalancingWeight() {
 		return false
 	}
 	if first.Namespace != second.Namespace {
@@ -341,7 +344,7 @@ type Locality struct {
 	Label string
 
 	// ClusterID where the endpoint is located
-	ClusterID string
+	ClusterID cluster.ID
 }
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -381,7 +384,7 @@ type IstioEndpoint struct {
 	ServiceAccount string
 
 	// Network holds the network where this endpoint is present
-	Network string
+	Network network.ID
 
 	// The locality where the endpoint is present.
 	Locality Locality
@@ -417,6 +420,14 @@ type IstioEndpoint struct {
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
 }
 
+// GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.
+func (ep *IstioEndpoint) GetLoadBalancingWeight() uint32 {
+	if ep.LbWeight > 0 {
+		return ep.LbWeight
+	}
+	return 1
+}
+
 // IsDiscoverableFromProxy indicates whether or not this endpoint is discoverable from the given Proxy.
 func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 	if ep == nil || ep.DiscoverabilityPolicy == nil {
@@ -445,7 +456,7 @@ type ServiceAttributes struct {
 	// ServiceRegistry indicates the backing service registry system where this service
 	// was sourced from.
 	// TODO: move the ServiceRegistry type from platform.go to model
-	ServiceRegistry string
+	ServiceRegistry provider.ID
 	// Name is "destination.service.name" attribute
 	Name string
 	// Namespace is "destination.service.namespace" attribute
@@ -468,14 +479,14 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses map[string][]string
+	ClusterExternalAddresses map[cluster.ID][]string
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
 	// node port IPs, we need to use the kubernetes assigned node ports of the service
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
-	ClusterExternalPorts map[string]map[uint32]uint32
+	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -537,7 +548,7 @@ type ServiceDiscovery interface {
 	// Deprecated - service account tracking moved to XdsServer, incremental.
 	GetIstioServiceAccounts(svc *Service, ports []int) []string
 
-	// NetworkGateways returns a list of network gateways that can be used to access endpoints residing in this registry..
+	// NetworkManager returns a list of network gateways that can be used to access endpoints residing in this registry..
 	NetworkGateways() []*NetworkGateway
 }
 
@@ -710,7 +721,7 @@ func (s *Service) DeepCopy() *Service {
 		CreationTime:    s.CreationTime,
 		Hostname:        s.Hostname,
 		Address:         s.Address,
-		ClusterVIPs:     clusterVIPs.(map[string]string),
+		ClusterVIPs:     clusterVIPs.(map[cluster.ID]string),
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,
 	}

@@ -29,6 +29,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -202,7 +203,7 @@ type PushContext struct {
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
-	networkGateways *NetworkGateways
+	networkMgr *NetworkManager
 
 	initDone        atomic.Bool
 	initializeMutex sync.Mutex
@@ -257,7 +258,7 @@ type XDSUpdater interface {
 
 	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
 	// The requests may be collapsed and throttled.
-	ProxyUpdate(clusterID, ip string)
+	ProxyUpdate(clusterID cluster.ID, ip string)
 }
 
 // PushRequest defines a request to push to proxies
@@ -963,7 +964,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	}
 
 	// TODO: only do this when meshnetworks or gateway service changed
-	ps.initMeshNetworks(env)
+	ps.initNetworkManager(env)
 
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
@@ -1873,12 +1874,12 @@ func instancesEmpty(m map[int][]*ServiceInstance) bool {
 }
 
 // pre computes gateways for each network
-func (ps *PushContext) initMeshNetworks(env *Environment) {
-	ps.networkGateways = newNetworkGateways(env)
+func (ps *PushContext) initNetworkManager(env *Environment) {
+	ps.networkMgr = NewNetworkManager(env)
 }
 
-func (ps *PushContext) NetworkGateways() *NetworkGateways {
-	return ps.networkGateways
+func (ps *PushContext) NetworkManager() *NetworkManager {
+	return ps.networkMgr
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
@@ -1920,16 +1921,24 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 	return MTLSPermissive
 }
 
-// ServiceInstancesByPort returns the cached instances by port if it exists, otherwise queries the discovery and returns.
+// ServiceInstancesByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
-	// Use cached version of instances by port when labels are empty. If there are labels,
-	// we will have to make actual call and filter instances by pod labels.
-	if len(labels) == 0 {
-		if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
+	out := []*ServiceInstance{}
+	if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
+		// Use cached version of instances by port when labels are empty.
+		if len(labels) == 0 {
 			return instances
 		}
+		// If there are labels,	we will filter instances by pod labels.
+		for _, instance := range instances {
+			// check that one of the input labels is a subset of the labels
+			if labels.HasSubsetOf(instance.Endpoint.Labels) {
+				out = append(out, instance)
+			}
+		}
 	}
-	return nil
+
+	return out
 }
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects

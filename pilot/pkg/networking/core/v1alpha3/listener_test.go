@@ -46,10 +46,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -238,7 +239,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "udp",
@@ -256,7 +257,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test5.com"),
 		Address:      "8.8.8.8",
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "MySQL",
@@ -274,7 +275,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test6.com"),
 		Address:      "2.2.2.2",
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "unknown",
@@ -391,20 +392,20 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
+	svc.Attributes.ServiceRegistry = provider.Kubernetes
 	services := []*model.Service{svc}
 
 	autoSvc := buildServiceWithPort("test.com", 9999, protocol.Unsupported, tnow)
 	autoSvc.Resolution = model.Passthrough
-	autoSvc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
+	autoSvc.Attributes.ServiceRegistry = provider.Kubernetes
 
 	extSvc := buildServiceWithPort("example1.com", 9999, protocol.TCP, tnow)
 	extSvc.Resolution = model.Passthrough
-	extSvc.Attributes.ServiceRegistry = serviceregistry.External
+	extSvc.Attributes.ServiceRegistry = provider.External
 
 	extSvcSelector := buildServiceWithPort("example2.com", 9999, protocol.TCP, tnow)
 	extSvcSelector.Resolution = model.Passthrough
-	extSvcSelector.Attributes.ServiceRegistry = serviceregistry.External
+	extSvcSelector.Attributes.ServiceRegistry = provider.External
 	extSvcSelector.Attributes.LabelSelectors = map[string]string{"foo": "bar"}
 
 	tests := []struct {
@@ -527,7 +528,7 @@ func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -552,7 +553,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[cluster.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -569,7 +570,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test1.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[cluster.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "foo",
@@ -592,7 +593,7 @@ func TestOutboundTls(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[cluster.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -2477,7 +2478,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 		CreationTime: creationTime,
 		Hostname:     host.Name(hostname),
 		Address:      ip,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -2497,7 +2498,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 		CreationTime: creationTime,
 		Hostname:     host.Name(hostname),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",

@@ -157,6 +157,21 @@ var (
 	HTTPMx = buildHTTPMxFilter()
 )
 
+func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
+	if ctx == nil {
+		return Router
+	}
+
+	return &hcm.HttpFilter{
+		Name: wellknown.Router,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&router.Router{
+				StartChildSpan: ctx.StartChildSpan,
+			}),
+		},
+	}
+}
+
 var (
 	// These ALPNs are injected in the client side by the ALPN filter.
 	// "istio" is added for each upstream protocol in order to make it

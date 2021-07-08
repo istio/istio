@@ -414,6 +414,34 @@ var (
 		},
 	}
 
+	configs16 = &config.Config{
+		Meta: config.Meta{
+			Name:      "sidecar-scope-with-specific-host",
+			Namespace: "ns1",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/en.wikipedia.org"},
+				},
+			},
+		},
+	}
+
+	configs17 = &config.Config{
+		Meta: config.Meta{
+			Name:      "sidecar-scope-with-wildcard-host",
+			Namespace: "ns1",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*.wikipedia.org"},
+				},
+			},
+		},
+	}
+
 	services1 = []*Service{
 		{Hostname: "bar"},
 	}
@@ -757,6 +785,42 @@ var (
 		},
 	}
 
+	services18 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "*",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "*",
+			},
+		},
+	}
+
+	services19 = []*Service{
+		{
+			Hostname: "en.wikipedia.org",
+			Attributes: ServiceAttributes{
+				Name:      "en.wikipedia.org",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "*.wikipedia.org",
+			Attributes: ServiceAttributes{
+				Name:      "*.wikipedia.org",
+				Namespace: "ns1",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -766,6 +830,25 @@ var (
 			},
 			Spec: &networking.VirtualService{
 				Hosts: []string{"virtualbar"},
+				Http: []*networking.HTTPRoute{
+					{
+						Mirror: &networking.Destination{Host: "foo.svc.cluster.local"},
+						Route:  []*networking.HTTPRouteDestination{{Destination: &networking.Destination{Host: "baz.svc.cluster.local"}}},
+					},
+				},
+			},
+		},
+	}
+
+	virtualServices2 = []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "virtualbar",
+				Namespace:        "foo",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"virtualbar", "*"},
 				Http: []*networking.HTTPRoute{
 					{
 						Mirror: &networking.Destination{Host: "foo.svc.cluster.local"},
@@ -1207,6 +1290,54 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
+			"virtual-service-2-match-service",
+			configs11,
+			services18,
+			virtualServices2,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
+			"virtual-service-2-match-service-and-domain",
+			configs12,
+			services18,
+			virtualServices2,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
+			"virtual-service-2-match-all-services",
+			configs15,
+			services18,
+			virtualServices2,
+			[]*Service{
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+				},
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+				},
+			},
+		},
+		{
 			"sidecar-scope-with-illegal-host",
 			configs13,
 			services14,
@@ -1215,6 +1346,31 @@ func TestCreateSidecarScope(t *testing.T) {
 				{
 					Hostname: "bar",
 					Ports:    port7443,
+				},
+			},
+		},
+		{
+			"sidecar-scope-with-specific-host",
+			configs16,
+			services19,
+			nil,
+			[]*Service{
+				{
+					Hostname: "en.wikipedia.org",
+				},
+			},
+		},
+		{
+			"sidecar-scope-with-wildcard-host",
+			configs17,
+			services19,
+			nil,
+			[]*Service{
+				{
+					Hostname: "en.wikipedia.org",
+				},
+				{
+					Hostname: "*.wikipedia.org",
 				},
 			},
 		},
@@ -1387,6 +1543,13 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			listenerHosts: map[string][]host.Name{"b": {wildcardService}},
 			services:      []*Service{serviceA8000},
 			expected:      []*Service{},
+			namespace:     "a",
+		},
+		{
+			name:          "multiple hosts selected same service",
+			listenerHosts: map[string][]host.Name{"a": {wildcardService}, "*": {wildcardService}},
+			services:      []*Service{serviceA8000},
+			expected:      []*Service{serviceA8000},
 			namespace:     "a",
 		},
 	}

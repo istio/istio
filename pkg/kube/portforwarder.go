@@ -130,7 +130,7 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 	}
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
-		return nil, fmt.Errorf("failed getting pod: %v", err)
+		return nil, fmt.Errorf("failed getting pod, object type is %T", obj)
 	}
 	if pod.Status.Phase != v1.PodRunning {
 		return nil, fmt.Errorf("pod is not running. Status=%v", pod.Status.Phase)

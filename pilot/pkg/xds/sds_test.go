@@ -31,6 +31,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -51,6 +52,7 @@ func TestParseResourceName(t *testing.T) {
 				Name:         "cert",
 				Namespace:    "default",
 				ResourceName: "kubernetes://cert",
+				Cluster:      "cluster",
 			},
 		},
 		{
@@ -62,6 +64,7 @@ func TestParseResourceName(t *testing.T) {
 				Name:         "cert",
 				Namespace:    "namespace",
 				ResourceName: "kubernetes://namespace/cert",
+				Cluster:      "cluster",
 			},
 		},
 		{
@@ -79,7 +82,7 @@ func TestParseResourceName(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseResourceName(tt.resource, tt.defaultNamespace)
+			got, err := parseResourceName(tt.resource, tt.defaultNamespace, "cluster")
 			if tt.err != (err != nil) {
 				t.Fatalf("expected err=%v but got err=%v", tt.err, err)
 			}
@@ -341,5 +344,38 @@ func TestGenerate(t *testing.T) {
 				t.Fatal(diff)
 			}
 		})
+	}
+}
+
+// TestCaching ensures we don't have cross-proxy cache generation issues. This is split from TestGenerate
+// since it is order dependant.
+// Regression test for https://github.com/istio/istio/issues/33368
+func TestCaching(t *testing.T) {
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjects: []runtime.Object{genericCert},
+		KubeClientModifier: func(c kube.Client) {
+			cc := c.Kube().(*fake.Clientset)
+			kubesecrets.DisableAuthorizationForTest(cc)
+		},
+	})
+	gen := s.Discovery.Generators[v3.SecretType]
+
+	fullPush := &model.PushRequest{Full: true}
+	istiosystem := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"}
+	otherNamespace := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"}, Type: model.Router, ConfigNamespace: "other-namespace"}
+
+	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
+		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 1 {
+		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
+	}
+
+	// We should not get secret returned, even though we are asking for the same one
+	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), s.PushContext(),
+		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+	if len(raw) != 0 {
+		t.Fatalf("failed to get expected secrets for unauthorized proxy: %v", raw)
 	}
 }

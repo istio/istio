@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -47,13 +47,15 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 	routeNames []string) []*route.RouteConfiguration {
 	routeConfigurations := make([]*route.RouteConfiguration, 0)
 
+	efw := push.EnvoyFilters(node)
+
 	switch node.Type {
 	case model.SidecarProxy:
 		vHostCache := make(map[int][]*route.VirtualHost)
 		for _, routeName := range routeNames {
 			rc := configgen.buildSidecarOutboundHTTPRouteConfig(node, push, routeName, vHostCache)
 			if rc != nil {
-				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, push, rc)
+				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, rc)
 			} else {
 				rc = &route.RouteConfiguration{
 					Name:             routeName,
@@ -67,7 +69,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 		for _, routeName := range routeNames {
 			rc := configgen.buildGatewayHTTPRouteConfig(node, push, routeName)
 			if rc != nil {
-				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, push, rc)
+				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
 				routeConfigurations = append(routeConfigurations, rc)
 			}
 		}
@@ -93,8 +95,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
-
-	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, node, push, r)
+	efw := push.EnvoyFilters(node)
+	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, node, efw, r)
 	return r
 }
 
@@ -208,14 +210,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 		listenerPort = 0
 	}
 
-	nameToServiceMap := make(map[host.Name]*model.Service)
+	servicesByName := make(map[host.Name]*model.Service)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
-			nameToServiceMap[svc.Hostname] = svc
+			servicesByName[svc.Hostname] = svc
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
-			nameToServiceMap[svc.Hostname] = &model.Service{
+			servicesByName[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
 				Address:      svc.GetServiceAddressForProxy(node),
 				MeshExternal: svc.MeshExternal,
@@ -229,7 +231,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 	}
 
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, nameToServiceMap, virtualServices, listenerPort)
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push, servicesByName, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
 
 	vhosts := sets.Set{}
@@ -374,7 +376,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&
-		service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+		service.Attributes.ServiceRegistry == provider.Kubernetes {
 		for _, domain := range domains {
 			domains = append(domains, wildcardDomainPrefix+domain)
 		}

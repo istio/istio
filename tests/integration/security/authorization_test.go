@@ -42,12 +42,6 @@ import (
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
 
-var (
-	// The extAuthzServiceNamespace namespace is used to deploy the sample ext-authz server.
-	extAuthzServiceNamespace    namespace.Instance
-	extAuthzServiceNamespaceErr error
-)
-
 func newRootNS(ctx framework.TestContext) namespace.Instance {
 	return istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 }
@@ -1322,15 +1316,47 @@ func TestAuthorization_Custom(t *testing.T) {
 			}
 
 			// Deploy and wait for the ext-authz server to be ready.
-			if extAuthzServiceNamespace == nil {
-				t.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
-			}
-			applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
+			applyYAML("../../../samples/extauthz/ext-authz.yaml", ns.Name())
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "ext-authz"); err != nil {
 				t.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
-			applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
+			// Update the mesh config extension provider for the ext-authz service.
+			extService := fmt.Sprintf("ext-authz.%s.svc.cluster.local", ns.Name())
+			extServiceWithNs := fmt.Sprintf("%s/%s", ns.Name(), extService)
+			istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), fmt.Sprintf(`
+extensionProviders:
+- name: "ext-authz-http"
+  envoyExtAuthzHttp:
+    service: %q
+    port: 8000
+    pathPrefix: "/check"
+    headersToUpstreamOnAllow: ["x-ext-authz-*"]
+    headersToDownstreamOnDeny: ["x-ext-authz-*"]
+    includeRequestHeadersInCheck: ["x-ext-authz"]
+    includeAdditionalHeadersInCheck:
+      x-ext-authz-additional-header-new: additional-header-new-value
+      x-ext-authz-additional-header-override: additional-header-override-value
+- name: "ext-authz-grpc"
+  envoyExtAuthzGrpc:
+    service: %q
+    port: 9000
+- name: "ext-authz-http-local"
+  envoyExtAuthzHttp:
+    service: ext-authz-http.local
+    port: 8000
+    pathPrefix: "/check"
+    headersToUpstreamOnAllow: ["x-ext-authz-*"]
+    headersToDownstreamOnDeny: ["x-ext-authz-*"]
+    includeRequestHeadersInCheck: ["x-ext-authz"]
+    includeAdditionalHeadersInCheck:
+      x-ext-authz-additional-header-new: additional-header-new-value
+      x-ext-authz-additional-header-override: additional-header-override-value
+- name: "ext-authz-grpc-local"
+  envoyExtAuthzGrpc:
+    service: ext-authz-grpc.local
+    port: 9000`, extService, extServiceWithNs))
 
+			applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
 			ports := []echo.Port{
 				{
 					Name:         "tcp-8092",
@@ -1367,7 +1393,8 @@ func TestAuthorization_Custom(t *testing.T) {
 				With(&x, echoConfig("x", false)).
 				BuildOrFail(t)
 
-			newTestCase := func(from, target echo.Instance, path, port string, header string, expectAllowed bool, scheme scheme.Instance) rbacUtil.TestCase {
+			newTestCase := func(from, target echo.Instance, path, port string, header string, expectAllowed bool,
+				expectHTTPResponse []rbacUtil.ExpectContains, scheme scheme.Instance) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
 						From: from,
@@ -1378,42 +1405,74 @@ func TestAuthorization_Custom(t *testing.T) {
 							Path:     path,
 						},
 					},
-					Headers:       map[string]string{"x-ext-authz": header},
-					ExpectAllowed: expectAllowed,
+					Headers: map[string]string{
+						"x-ext-authz":                            header,
+						"x-ext-authz-additional-header-override": "should-be-override",
+					},
+					ExpectAllowed:      expectAllowed,
+					ExpectHTTPResponse: expectHTTPResponse,
 				}
 			}
+			expectHTTPResponse := []rbacUtil.ExpectContains{
+				{
+					// For ext authz HTTP server, we expect the check request to include the override value because it
+					// is configued in the ext-authz filter side.
+					Key:       "X-Ext-Authz-Check-Received",
+					Values:    []string{"additional-header-new-value", "additional-header-override-value"},
+					NotValues: []string{"should-be-override"},
+				},
+				{
+					Key:       "X-Ext-Authz-Additional-Header-Override",
+					Values:    []string{"additional-header-override-value"},
+					NotValues: []string{"should-be-override"},
+				},
+			}
+			expectGRPCResponse := []rbacUtil.ExpectContains{
+				{
+					// For ext authz gRPC server, we expect the check request to include the original override value
+					// because the override is not configurable in the ext-authz filter side.
+					Key:    "X-Ext-Authz-Check-Received",
+					Values: []string{"should-be-override"},
+				},
+				{
+					Key:       "X-Ext-Authz-Additional-Header-Override",
+					Values:    []string{"grpc-additional-header-override-value"},
+					NotValues: []string{"should-be-override"},
+				},
+			}
+
 			// Path "/custom" is protected by ext-authz service and is accessible with the header `x-ext-authz: allow`.
 			// Path "/health" is not protected and is accessible to public.
 			cases := []rbacUtil.TestCase{
 				// workload b is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, b, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, b, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, b, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, b, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, b, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload c is using an ext-authz service in its own pod of gRPC API.
-				newTestCase(x, c, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, c, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, c, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, c, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, c, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload d is using an local ext-authz service in the same pod as the application of HTTP API.
-				newTestCase(x, d, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, d, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, d, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, d, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, d, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload e is using an local ext-authz service in the same pod as the application of gRPC API.
-				newTestCase(x, e, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, e, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, e, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "allow", true, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, e, "/custom", "http", "deny", false, expectGRPCResponse, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, e, "/health", "http", "deny", true, nil, scheme.HTTP),
 
 				// workload f is using an ext-authz service in its own pod of TCP API.
-				newTestCase(a, f, "", "tcp-8092", "", true, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8092", "", false, scheme.TCP),
-				newTestCase(a, f, "", "tcp-8093", "", true, scheme.TCP),
-				newTestCase(x, f, "", "tcp-8093", "", true, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8092", "", true, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8092", "", false, nil, scheme.TCP),
+				newTestCase(a, f, "", "tcp-8093", "", true, nil, scheme.TCP),
+				newTestCase(x, f, "", "tcp-8093", "", true, nil, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -1421,10 +1480,10 @@ func TestAuthorization_Custom(t *testing.T) {
 			ingr := ist.IngressFor(t.Clusters().Default())
 			ingressCases := []rbacUtil.TestCase{
 				// workload g is using an ext-authz service in its own pod of HTTP API.
-				newTestCase(x, g, "/custom", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, g, "/custom", "http", "deny", false, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "allow", true, scheme.HTTP),
-				newTestCase(x, g, "/health", "http", "deny", true, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "allow", true, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, g, "/custom", "http", "deny", false, expectHTTPResponse, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "allow", true, nil, scheme.HTTP),
+				newTestCase(x, g, "/health", "http", "deny", true, nil, scheme.HTTP),
 			}
 			for _, tc := range ingressCases {
 				name := fmt.Sprintf("%s->%s:%s%s[%t]",

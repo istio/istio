@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/gogo"
@@ -362,7 +362,7 @@ func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Clust
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
 		if proxy.Type == model.SidecarProxy {
-			if service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && features.EnableEDSForHeadless {
+			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
 				return cluster.Cluster_EDS
 			}
 
@@ -505,7 +505,7 @@ type buildClusterOpts struct {
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
-	serviceRegistry string
+	serviceRegistry provider.ID
 }
 
 type upgradeTuple struct {
@@ -594,6 +594,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		out.SplitExternalLocalOriginErrors = true
 		if outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
 			out.ConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: outlier.ConsecutiveLocalOriginFailures.Value}
+			out.EnforcingConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: 100}
 		}
 		// SuccessRate based outlier detection should be disabled.
 		out.EnforcingLocalOriginSuccessRate = &wrappers.UInt32Value{Value: 0}

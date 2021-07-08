@@ -83,3 +83,17 @@ Note that `a` is just a default value for testing. It can be changed with the fl
     $ kubectl delete -f ../sleep/sleep.yaml
     $ kubectl delete -f ext-authz.yaml
     ```
+
+## Advanced features
+
+The Ext Authz server supports the following advanced features that are useful for testing:
+
+- The ext authz server will add the `x-ext-authz-check-received` header to the user request. The content is the dump of
+  the check request it received from the ext-authz filter. This header is useful in verifying the ext-authz filter sending
+  the expected request to the ext authz server.
+
+- The ext authz server will add (or override if it already exists) the header `x-ext-authz-additional-header-override` to
+  the user request. The value of the header depends on the type of ext-authz server.
+  The ext authz HTTP server will set it to the value of the same `x-ext-authz-additional-header-override` header in the
+  check request. The ext authz gRPC server will set it to the constant value `grpc-additional-header-override-value`.
+  This header is useful in verifying the header override behavior in the ext-authz filter.

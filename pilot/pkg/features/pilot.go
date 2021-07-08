@@ -80,7 +80,7 @@ var (
 		"PILOT_DEBOUNCE_AFTER",
 		100*time.Millisecond,
 		"The delay added to config/registry events for debouncing. This will delay the push by "+
-			"at least this internal. If no change is detected within this period, the push will happen, "+
+			"at least this interval. If no change is detected within this period, the push will happen, "+
 			" otherwise we'll keep delaying until things settle, up to a max of PILOT_DEBOUNCE_MAX.",
 	).Get()
 
@@ -247,6 +247,12 @@ var (
 		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
 	).Get()
 
+	StatusUpdateInterval = env.RegisterDurationVar(
+		"PILOT_STATUS_UPDATE_INTERVAL",
+		500*time.Millisecond,
+		"Interval to update the XDS distribution status.",
+	).Get()
+
 	StatusQPS = env.RegisterFloatVar(
 		"PILOT_STATUS_QPS",
 		100,
@@ -287,6 +293,9 @@ var (
 	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
+
+	EnableGatewayAPIStatus = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_STATUS", true,
+		"If this is set to true, gateway-api resources will have status written to them").Get()
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",

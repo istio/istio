@@ -143,7 +143,7 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 	return out
 }
 
-func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
+func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint {
 	slice := endpoint.(*discovery.EndpointSlice)
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	for _, e := range slice.Endpoints {
@@ -154,6 +154,7 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
 	host, _, _ := esc.getServiceInfo(slice)
 	// endpointSlice cache update
 	esc.endpointCache.Delete(host, slice.Name)
+	return esc.endpointCache.Get(host)
 }
 
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
@@ -204,12 +205,7 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 		return nil
 	}
 
-	endpoints := make([]*model.IstioEndpoint, 0)
-	for _, es := range slices {
-		endpoints = append(endpoints, esc.buildIstioEndpoints(es, host)...)
-	}
-
-	return endpoints
+	return esc.endpointCache.Get(host)
 }
 
 func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {
@@ -242,12 +238,13 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
-				pod := c.getPod(a, &metav1.ObjectMeta{Name: slice.Labels[discovery.LabelServiceName], Namespace: slice.Namespace}, e.TargetRef)
+				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
+				if pod == nil && expectedPod {
+					continue
+				}
 				if pod != nil {
 					podLabels = pod.Labels
 				}
-
 				// check that one of the input labels is a subset of the labels
 				if !labelsList.HasSubsetOf(podLabels) {
 					continue

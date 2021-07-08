@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -74,7 +75,7 @@ func TestConvertResources(t *testing.T) {
 				Attributes: model.ServiceAttributes{
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
-					ClusterExternalAddresses: map[string][]string{
+					ClusterExternalAddresses: map[cluster.ID][]string{
 						"Kubernetes": {"1.2.3.4"},
 					},
 				},

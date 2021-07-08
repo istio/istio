@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+
+	"cloud.google.com/go/compute/metadata"
 )
 
 func TestGCPMetadata(t *testing.T) {
@@ -254,6 +256,37 @@ func TestGCPMetadata(t *testing.T) {
 				}
 			}
 			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
+		})
+	}
+}
+
+func TestGCPQuotaProject(t *testing.T) {
+	cases := []struct {
+		name         string
+		quotaProject string
+		wantFound    bool
+		wantProject  string
+	}{
+		{"no value set", "", false, ""},
+		{"value set", "234234323", true, "234234323"},
+	}
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			shouldFillMetadata = func() bool { return true }
+			tmpQuotaProject := GCPQuotaProjectVar
+			GCPQuotaProjectVar = v.quotaProject
+			defer func() {
+				GCPQuotaProjectVar = tmpQuotaProject
+				shouldFillMetadata = metadata.OnGCE
+			}()
+			meta := NewGCP().Metadata()
+			val, found := meta[GCPQuotaProject]
+			if got, want := found, v.wantFound; got != want {
+				tt.Errorf("Metadata() returned an unexpected value for GCPQuotaProject; found value: %t, want %t", got, want)
+			}
+			if got, want := val, v.wantProject; got != want {
+				tt.Errorf("Incorrect value for GCPQuotaProject; got = %q, want = %q", got, want)
+			}
 		})
 	}
 }

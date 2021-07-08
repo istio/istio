@@ -1,0 +1,1 @@
+{"servers":[{"port":{"number":80,"protocol":"https","name":"https"},"hosts":["bar.com"],"tls":{"httpsRedirect":true}}]}

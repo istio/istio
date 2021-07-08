@@ -36,10 +36,12 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/network"
 	proto2 "istio.io/istio/pkg/proto"
 )
 
@@ -753,7 +755,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -766,7 +768,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -779,7 +781,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -792,7 +794,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -805,7 +807,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -818,7 +820,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -831,7 +833,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -844,7 +846,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -857,7 +859,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -870,7 +872,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -883,7 +885,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -896,7 +898,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -909,7 +911,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -1133,17 +1135,17 @@ func TestEndpointMetadata(t *testing.T) {
 	features.EndpointTelemetryLabel = true
 	cases := []struct {
 		name         string
-		network      string
+		network      network.ID
 		tlsMode      string
 		workloadName string
-		clusterID    string
+		clusterID    cluster.ID
 		namespace    string
 		labels       labels.Instance
 		want         *core.Metadata
 	}{
 		{
 			name:         "all empty",
-			tlsMode:      string(model.DisabledTLSModeLabel),
+			tlsMode:      model.DisabledTLSModeLabel,
 			network:      "",
 			workloadName: "",
 			clusterID:    "",
@@ -1209,11 +1211,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: ";;;;",
@@ -1248,11 +1245,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;service;v1;cluster",
@@ -1283,11 +1275,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: "workload;default;;;cluster",
@@ -1318,11 +1305,6 @@ func TestEndpointMetadata(t *testing.T) {
 					},
 					IstioMetadataKey: {
 						Fields: map[string]*structpb.Value{
-							"network": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "network",
-								},
-							},
 							"workload": {
 								Kind: &structpb.Value_StringValue{
 									StringValue: ";;;;cluster",

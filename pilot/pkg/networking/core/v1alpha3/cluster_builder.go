@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -34,16 +35,15 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
-
-var defaultDestinationRule = networking.DestinationRule{}
 
 var istioMtlsTransportSocketMatch = &structpb.Struct{
 	Fields: map[string]*structpb.Value{
@@ -101,7 +101,7 @@ func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
 }
 
 func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
-	proxyNetworkView map[string]bool) *cluster.Cluster {
+	proxyNetworkView map[network.ID]bool) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
@@ -159,12 +159,11 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
-	proxyNetworkView map[string]bool) []*cluster.Cluster {
+	proxyNetworkView map[network.ID]bool) []*cluster.Cluster {
 	destRule := cb.push.DestinationRule(cb.proxy, service)
-	destinationRule := castDestinationRuleOrDefault(destRule)
-
+	destinationRule := castDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
-	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
+	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:        cb.push.Mesh,
 		mutable:     mc,
@@ -194,7 +193,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
-	for _, subset := range destinationRule.Subsets {
+	for _, subset := range destinationRule.GetSubsets() {
 		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyNetworkView)
 		if subsetCluster != nil {
 			subsetClusters = append(subsetClusters, subsetCluster)
@@ -381,7 +380,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	return localCluster
 }
 
-func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]bool, service *model.Service,
+func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.ID]bool, service *model.Service,
 	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
 	if service.Resolution != model.DNSLB {
 		return nil
@@ -418,11 +417,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 				},
 			},
 			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: 1,
+				Value: instance.Endpoint.GetLoadBalancingWeight(),
 			},
-		}
-		if instance.Endpoint.LbWeight > 0 {
-			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
 		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, instance.Endpoint.WorkloadName,
 			instance.Endpoint.Namespace, instance.Endpoint.Locality.ClusterID, instance.Endpoint.Labels)
@@ -434,8 +430,13 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 
 	for locality, eps := range lbEndpoints {
 		var weight uint32
+		var overflowStatus bool
 		for _, ep := range eps {
-			weight += ep.LoadBalancingWeight.GetValue()
+			weight, overflowStatus = addUint32(weight, ep.LoadBalancingWeight.GetValue())
+		}
+		if overflowStatus {
+			log.Warnf("Sum of localityLbEndpoints weight is overflow: service:%s, port: %d, locality:%s",
+				service.Hostname, port, locality)
 		}
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
@@ -447,6 +448,15 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 	}
 
 	return localityLbEndpoints
+}
+
+// addUint32AvoidOverflow returns sum of two uint32 and status. If sum overflows,
+// and returns MaxUint32 and status.
+func addUint32(left, right uint32) (uint32, bool) {
+	if math.MaxUint32-right < left {
+		return math.MaxUint32, true
+	}
+	return left + right, false
 }
 
 // buildInboundPassthroughClusters builds passthrough clusters for inbound.
@@ -668,7 +678,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		}
 	}
 
-	if settings != nil && settings.Http != nil && settings.Http.UseClientProtocol {
+	if settings.Http != nil && settings.Http.UseClientProtocol {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
@@ -767,7 +777,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
-		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -807,7 +817,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			Sni:              tls.Sni,
 		}
 		// Use subject alt names specified in service entry if TLS settings does not have subject alt names.
-		if opts.serviceRegistry == string(serviceregistry.External) && len(tls.SubjectAltNames) == 0 {
+		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
 		if tls.CredentialName != "" {
@@ -942,14 +952,14 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 	return mc.cluster
 }
 
-// castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
-// Otherwise, return default (empty) DR.
-func castDestinationRuleOrDefault(config *config.Config) *networking.DestinationRule {
+// castDestinationRule returns the destination rule enclosed by the config, if not null.
+// Otherwise, return nil.
+func castDestinationRule(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}
 
-	return &defaultDestinationRule
+	return nil
 }
 
 // maybeApplyEdsConfig applies EdsClusterConfig on the passed in cluster if it is an EDS type of cluster.

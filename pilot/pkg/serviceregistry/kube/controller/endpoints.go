@@ -128,12 +128,13 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
-			pod := c.getPod(ea.IP, &ep.ObjectMeta, ea.TargetRef)
+			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
+			if pod == nil && expectedPod {
+				continue
+			}
 			if pod != nil {
 				podLabels = pod.Labels
 			}
-
 			// check that one of the input labels is a subset of the labels
 			if !labelsList.HasSubsetOf(podLabels) {
 				continue
@@ -181,7 +182,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
 }
 
-func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint {
 	ep := endpoint.(*v1.Endpoints)
 	key := kube.KeyFunc(ep.Name, ep.Namespace)
 	for _, ss := range ep.Subsets {
@@ -189,6 +190,7 @@ func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
 			e.c.pods.endpointDeleted(key, ea.IP)
 		}
 	}
+	return nil
 }
 
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {

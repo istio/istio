@@ -16,22 +16,27 @@ package controller
 
 import (
 	"net"
+	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/yl2chen/cidranger"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/network"
 )
 
 // namedRangerEntry for holding network's CIDR and name
 type namedRangerEntry struct {
-	name    string
+	name    network.ID
 	network net.IPNet
 }
 
-// returns the IPNet for the network
+// Network returns the IPNet for the network
 func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
 }
@@ -74,29 +79,29 @@ func (c *Controller) reloadMeshNetworks() {
 		// track endpoints items from this registry are a part of this network
 		for _, ep := range v.Endpoints {
 			if ep.GetFromCidr() != "" {
-				_, network, err := net.ParseCIDR(ep.GetFromCidr())
+				_, nw, err := net.ParseCIDR(ep.GetFromCidr())
 				if err != nil {
 					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), n)
 					continue
 				}
 				rangerEntry := namedRangerEntry{
-					name:    n,
-					network: *network,
+					name:    network.ID(n),
+					network: *nw,
 				}
 				_ = ranger.Insert(rangerEntry)
 			}
-			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.Cluster() {
+			if ep.GetFromRegistry() != "" && cluster.ID(ep.GetFromRegistry()) == c.Cluster() {
 				if c.networkForRegistry != "" {
 					log.Warnf("multiple networks specify %s in fromRegistry, only first network %s will use %s",
 						c.Cluster(), c.networkForRegistry, c.Cluster())
 				} else {
-					c.networkForRegistry = n
+					c.networkForRegistry = network.ID(n)
 				}
 			}
 		}
 
 		// track which services from this registry act as gateways for what networks
-		if c.networkForRegistry == n {
+		if c.networkForRegistry == network.ID(n) {
 			for _, gw := range v.Gateways {
 				if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 					c.registryServiceNameGateways[host.Name(gwSvcName)] = gw.Port
@@ -111,19 +116,20 @@ func (c *Controller) reloadMeshNetworks() {
 func (c *Controller) NetworkGateways() []*model.NetworkGateway {
 	c.RLock()
 	defer c.RUnlock()
+
 	if c.networkGateways == nil || len(c.networkGateways) == 0 {
 		return nil
 	}
-	gws := make([]*model.NetworkGateway, 0)
-	for _, netGws := range c.networkGateways {
-		if netGws == nil {
-			continue
-		}
-		for _, gw := range netGws {
-			gws = append(gws, gw...)
+
+	// Merge all the gateways into a single set to eliminate duplicates.
+	out := make(gatewaySet)
+	for _, byNetwork := range c.networkGateways {
+		for _, gateways := range byNetwork {
+			out.addAll(gateways)
 		}
 	}
-	return gws
+
+	return out.toArray()
 }
 
 // extractGatewaysFromService checks if the service is a cross-network gateway
@@ -156,18 +162,22 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 	svc.Mutex.RLock()
 	defer svc.Mutex.RUnlock()
 
-	gwPort, network := c.getGatewayDetails(svc)
-	if gwPort == 0 || network == "" {
+	gwPort, nw := c.getGatewayDetails(svc)
+	if gwPort == 0 || nw == "" {
 		// TODO detect if this previously had the gateway label so we can cleanup the old value
 		// not a gateway
 		return false
 	}
 
 	if c.networkGateways[svc.Hostname] == nil {
-		c.networkGateways[svc.Hostname] = map[string][]*model.NetworkGateway{}
+		c.networkGateways[svc.Hostname] = make(map[network.ID]gatewaySet)
+	}
+	// Create the entry for this network, if doesn't exist.
+	if c.networkGateways[svc.Hostname][nw] == nil {
+		c.networkGateways[svc.Hostname][nw] = make(gatewaySet)
 	}
 
-	gws := make([]*model.NetworkGateway, 0, len(svc.Attributes.ClusterExternalAddresses))
+	newGateways := make(gatewaySet)
 
 	// TODO(landow) ClusterExternalAddresses doesn't need to get used outside of the kube controller, and spreads
 	// TODO(cont)   logic between ConvertService, extractGatewaysInner, and updateServiceNodePortAddresses.
@@ -184,46 +194,35 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 		ips := svc.Attributes.ClusterExternalAddresses[c.Cluster()]
 		for _, ip := range ips {
-			gws = append(gws, &model.NetworkGateway{
-				Cluster: model.ClusterID(c.Cluster()),
-				Network: model.NetworkID(network),
+			newGateways.add(model.NetworkGateway{
+				Cluster: c.Cluster(),
+				Network: nw,
 				Addr:    ip,
 				Port:    gwPort,
 			})
 		}
 	}
 
-	gwsChanged := len(c.networkGateways[svc.Hostname][network]) != len(gws)
-	if !gwsChanged {
-		// number of gateways are the same, check that their contents are the same
-		found := map[model.NetworkGateway]bool{}
-		for _, gw := range gws {
-			found[*gw] = true
-		}
-		for _, gw := range c.networkGateways[svc.Hostname][network] {
-			if _, ok := found[*gw]; !ok {
-				gwsChanged = true
-				break
-			}
-		}
-	}
-	c.networkGateways[svc.Hostname][network] = gws
-	return gwsChanged
+	previousGateways := c.networkGateways[svc.Hostname][nw]
+	gatewaysChanged := newGateways.equals(previousGateways)
+	c.networkGateways[svc.Hostname][nw] = newGateways
+
+	return gatewaysChanged
 }
 
 // getGatewayDetails finds the port and network to use for cross-network traffic on the given service.
 // Zero values are returned if the service is not a cross-network gateway.
-func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, string) {
+func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, network.ID) {
 	// label based gateways
 	if nw := svc.Attributes.Labels[label.TopologyNetwork.Name]; nw != "" {
 		if gwPortStr := svc.Attributes.Labels[IstioGatewayPortLabel]; gwPortStr != "" {
 			if gwPort, err := strconv.Atoi(gwPortStr); err == nil {
-				return uint32(gwPort), nw
+				return uint32(gwPort), network.ID(nw)
 			}
 			log.Warnf("could not parse %q for %s on %s/%s; defaulting to %d",
 				gwPortStr, IstioGatewayPortLabel, svc.Attributes.Namespace, svc.Attributes.Name, DefaultNetworkGatewayPort)
 		}
-		return DefaultNetworkGatewayPort, nw
+		return DefaultNetworkGatewayPort, network.ID(nw)
 	}
 
 	// meshNetworks registryServiceName+fromRegistry
@@ -256,7 +255,7 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
 		}
-		svc.Attributes.ClusterExternalAddresses = map[string][]string{c.Cluster(): nodeAddresses}
+		svc.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{c.Cluster(): nodeAddresses}
 		svc.Mutex.Unlock()
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
@@ -277,4 +276,48 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 	}
 
 	return out
+}
+
+// gatewaySet is a helper to manage a set of NetworkGateway instances.
+type gatewaySet map[model.NetworkGateway]struct{}
+
+func (s gatewaySet) equals(other gatewaySet) bool {
+	if len(s) != len(other) {
+		return false
+	}
+	return reflect.DeepEqual(s, other)
+}
+
+func (s gatewaySet) add(gw model.NetworkGateway) {
+	s[gw] = struct{}{}
+}
+
+func (s gatewaySet) addAll(other gatewaySet) {
+	for gw := range other {
+		s.add(gw)
+	}
+}
+
+func (s gatewaySet) toArray() []*model.NetworkGateway {
+	gws := make([]*model.NetworkGateway, 0, len(s))
+	for gw := range s {
+		gw := gw
+		gws = append(gws, &gw)
+	}
+
+	// Sort the array so that it's stable.
+	sort.SliceStable(gws, func(i, j int) bool {
+		if cmp := strings.Compare(string(gws[i].Network), string(gws[j].Network)); cmp < 0 {
+			return true
+		}
+		if cmp := strings.Compare(string(gws[i].Cluster), string(gws[j].Cluster)); cmp < 0 {
+			return true
+		}
+		if cmp := strings.Compare(gws[i].Addr, gws[j].Addr); cmp < 0 {
+			return true
+		}
+		return gws[i].Port < gws[j].Port
+	})
+
+	return gws
 }
