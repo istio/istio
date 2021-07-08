@@ -17,7 +17,6 @@ package tag
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
@@ -154,11 +153,10 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 	webhook := whs[0]
 	for i := range webhook.Webhooks {
 		wh := webhook.Webhooks[i]
-		if !strings.HasPrefix(wh.Name, "rev") {
-			// this is an abomination, but if this isn't a per-revision webhook, we want to make it ineffectual
-			// without deleting it. Add a nonsense match.
-			wh.NamespaceSelector = neverMatch
-		}
+		// this is an abomination, but if this isn't a per-revision webhook, we want to make it ineffectual
+		// without deleting it. Add a nonsense match.
+		wh.NamespaceSelector = neverMatch
+		wh.ObjectSelector = neverMatch
 		webhook.Webhooks[i] = wh
 	}
 	_, err = admit.Update(ctx, &webhook, metav1.UpdateOptions{})
