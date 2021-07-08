@@ -2590,10 +2590,19 @@ func TestValidateVirtualService(t *testing.T) {
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "wildcard for non-mesh gateway", in: &networking.VirtualService{
 			Hosts:    []string{"*"},
 			Gateways: []string{"somegateway"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true},
+		{name: "wildcard for mesh and non mesh gateway", in: &networking.VirtualService{
+			Hosts:    []string{"*"},
+			Gateways: []string{"mesh", "somegateway"},
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
