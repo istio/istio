@@ -869,7 +869,7 @@ type clusterzEl struct {
 
 func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
 	var out []clusterzEl
-	for secretName, clusters := range s.MulticlusterController.Clusters() {
+	for secretName, clusters := range s.MulticlusterSecretsController.Clusters() {
 		for clusterID, c := range clusters {
 			syncStatus := "syncing"
 			if c.HasSynced() {

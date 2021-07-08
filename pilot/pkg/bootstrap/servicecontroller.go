@@ -115,12 +115,11 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 
 	// start remote cluster controllers
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		mc.InitSecretController(stop)
+		// TODO(https://github.com/istio/istio/issues/33669) the controller should be top-level, we shouldn't be pulling it of the kube mc controller
+		s.XDSServer.MulticlusterSecretsController = mc.InitSecretController(stop)
 		return nil
 	})
-
 	s.multicluster = mc
-	s.XDSServer.MulticlusterController = mc
 	return
 }
 

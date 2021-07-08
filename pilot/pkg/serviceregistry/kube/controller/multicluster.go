@@ -359,10 +359,11 @@ func (m *Multicluster) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Inte
 	return nil
 }
 
-func (m *Multicluster) InitSecretController(stop <-chan struct{}) {
+func (m *Multicluster) InitSecretController(stop <-chan struct{}) *secretcontroller.Controller {
 	m.secretController = secretcontroller.StartSecretController(
 		m.client, m.AddMemberCluster, m.UpdateMemberCluster, m.DeleteMemberCluster,
 		m.secretNamespace, m.syncInterval, stop)
+	return m.secretController
 }
 
 func (m *Multicluster) HasSynced() bool {

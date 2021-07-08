@@ -32,11 +32,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/security"
 )
 
@@ -147,9 +147,8 @@ type DiscoveryServer struct {
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *model.JwksResolver
 
-	// MulticlusterController is referenced to allow getting debug info
-	// TODO use secretcontroller here instead after https://github.com/istio/istio/issues/33669
-	MulticlusterController *controller.Multicluster
+	// MulticlusterSecretsController is referenced to allow getting debug info
+	MulticlusterSecretsController *secretcontroller.Controller
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
