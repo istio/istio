@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"strconv"
 	"sync"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -145,7 +145,7 @@ type DiscoveryServer struct {
 	Cache model.XdsCache
 
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
-	JwtKeyResolver         *model.JwksResolver
+	JwtKeyResolver *model.JwksResolver
 
 	// MulticlusterController is referenced to allow getting debug info
 	// TODO use secretcontroller here instead after https://github.com/istio/istio/issues/33669

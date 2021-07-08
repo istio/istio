@@ -117,7 +117,7 @@ type Server struct {
 	kubeClient kubelib.Client
 
 	multicluster      *kubecontroller.Multicluster
-	secretsController *kubesecrets.Multiclust[er
+	secretsController *kubesecrets.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache

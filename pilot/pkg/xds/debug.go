@@ -861,8 +861,14 @@ func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, jsonMap)
 }
 
+type clusterzEl struct {
+	Secret     string
+	Name       string
+	SyncStatus string
+}
+
 func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
-	var out []map[string]interface{}
+	var out []clusterzEl
 	for secretName, clusters := range s.MulticlusterController.Clusters() {
 		for clusterID, c := range clusters {
 			syncStatus := "syncing"
@@ -872,10 +878,10 @@ func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
 				syncStatus = "timeout"
 			}
 
-			out = append(out, map[string]interface{}{
-				"secret":     secretName,
-				"name":       clusterID,
-				"syncStatus": syncStatus,
+			out = append(out, clusterzEl{
+				Secret:     secretName,
+				Name:       string(clusterID),
+				SyncStatus: syncStatus,
 			})
 		}
 	}
