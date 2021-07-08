@@ -20,6 +20,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -207,6 +208,48 @@ func TestImageFetcher_Fetch(t *testing.T) {
 
 		if string(actual) != string(want) {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), string(want))
+		}
+	})
+
+	t.Run("invalid image", func(t *testing.T) {
+		ref := fmt.Sprintf("%s/test/invalid", u.Host)
+
+		l, err := newMockLayer(types.OCIUncompressedLayer, map[string][]byte{"not-wasm.txt": []byte("a")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		img, err := mutate.Append(empty.Image, mutate.Addendum{Layer: l})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Set manifest type so it will pass the docker parsing branch.
+		manifest, err := img.Manifest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		manifest.MediaType = "no-docker"
+
+		// Push image to the registry.
+		err = crane.Push(img, ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Try to fetch.
+		actual, err := fetcher.Fetch(ref)
+		if actual != nil {
+			t.Errorf("ImageFetcher.Fetch got %s, but want nil", string(actual))
+		}
+
+		expErr := errors.New(`the given image is in invalid format as an OCI image: 2 errors occurred:
+	* could not parse as compat variant; invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
+	* could not parse as oci variant; number of layers must be 2 but got 1
+
+
+`)
+		if err != expErr {
+			t.Errorf("ImageFetcher.Fetch get unexpected error '%v', but want '%v'", err, expErr)
 		}
 	})
 }

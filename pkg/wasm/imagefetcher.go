@@ -25,11 +25,12 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/hashicorp/go-multierror"
 )
 
-const (
-	wasmPluginFileName = "plugin.wasm"
-)
+// This file implements the fetcher of "Wasm Image Specificiation" compatible container images.
+// The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
+// Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
 
 type ImageFetcherOption struct {
 	Username string
@@ -60,7 +61,7 @@ func NewImageFetcher(opt ImageFetcherOption) *ImageFetcher {
 	}
 }
 
-// Fetch is the entrypoint after variant detection the image's manifest annotations.
+// Fetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
 func (o *ImageFetcher) Fetch(url string) ([]byte, error) {
 	ref, err := name.ParseReference(url)
 	if err != nil {
@@ -81,18 +82,37 @@ func (o *ImageFetcher) Fetch(url string) ([]byte, error) {
 		// This case, assume we have docker images with "application/vnd.docker.distribution.manifest.v2+json"
 		// as the manifest media type. Note that the media type of manifest is Docker specific and
 		// all OCI images would have an empty string in .MediaType field.
-		return extractDockerImage(img)
+		ret, err := extractDockerImage(img)
+		if err != nil {
+			return nil, fmt.Errorf("could not extract Wasm file from the image as Docker container %v", err)
+		}
+		return ret, nil
 	}
 
 	// We try to parse it as the "compat" variant image with a single "application/vnd.oci.image.layer.v1.tar+gzip" layer.
-	if ret, err := extractOCIStandardImage(img); err == nil {
+	ret, errCompat := extractOCIStandardImage(img)
+	if errCompat == nil {
 		return ret, nil
 	}
 
 	// Otherwise, we try to parse it as the *oci* variant image with custom artifact media types.
-	return extractOCIArtifactImage(img)
+	ret, errOCI := extractOCIArtifactImage(img)
+	if errOCI == nil {
+		return ret, nil
+	}
+
+	// We failed to parse the image in any format, so wrap the errors and return.
+	return nil, fmt.Errorf("the given image is in invalid format as an OCI image: %v",
+		multierror.Append(err,
+			fmt.Errorf("could not parse as compat variant; %v", errCompat),
+			fmt.Errorf("could not parse as oci variant; %v", errOCI),
+		),
+	)
 }
 
+// extractDockerImage extracts the Wasm binary from the
+// *compat* variant Wasm image with the standard Docker media type: application/vnd.docker.image.rootfs.diff.tar.gzip.
+// https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md#specification
 func extractDockerImage(img v1.Image) ([]byte, error) {
 	layers, err := img.Layers()
 	if err != nil {
@@ -128,6 +148,9 @@ func extractDockerImage(img v1.Image) ([]byte, error) {
 	return ret, nil
 }
 
+// extractOCIStandardImage extracts the Wasm binary from the
+// *compat* variant Wasm image with the standard OCI media type: application/vnd.oci.image.layer.v1.tar+gzip.
+// https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md#specification
 func extractOCIStandardImage(img v1.Image) ([]byte, error) {
 	layers, err := img.Layers()
 	if err != nil {
@@ -163,13 +186,19 @@ func extractOCIStandardImage(img v1.Image) ([]byte, error) {
 	return ret, nil
 }
 
-// Extracts the Wasm plugin binary named "plugin.wasm" in a given tar.gz reader.
+// Extracts the Wasm plugin binary named "plugin.wasm" in a given reader for tar.gz.
+// This is only used for *compat* variant.
 func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse layer as tar.gz: %v", err)
 	}
 
+	// The target file name for Wasm binary.
+	// https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md#specification
+	const wasmPluginFileName = "plugin.wasm"
+
+	// Search for the file walking through the archive.
 	tr := tar.NewReader(gr)
 	for {
 		h, err := tr.Next()
@@ -191,6 +220,8 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 	return nil, fmt.Errorf("%s not found in the archive", wasmPluginFileName)
 }
 
+// extractOCIArtifactImage extracts the Wasm binary from the
+// *oci* variant Wasm image: https://github.com/solo-io/wasm/blob/master/spec/spec.md#format
 func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 	layers, err := img.Layers()
 	if err != nil {
@@ -202,7 +233,10 @@ func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 		return nil, fmt.Errorf("number of layers must be 2 but got %d", len(layers))
 	}
 
+	// The layer type of the Wasm binary itself in *oci* variant.
 	const wasmLayerMediaType = "application/vnd.module.wasm.content.layer.v1+wasm"
+
+	// Find the target layer walking through the layers.
 	var layer v1.Layer
 	for _, l := range layers {
 		mt, err := l.MediaType()
