@@ -1062,11 +1062,12 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 						if svc != "*" {
 							if _, ok := nssSvcs[ns][svc]; ok || nssSvcs[ns]["*"] {
 								// already exists
-								errs = appendErrors(errs, fmt.Errorf("duplicated egress host: %s", hostname))
+								// TODO: prevent this invalid setting, maybe in 1.12+
+								errs = appendErrors(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
 							}
 						} else {
 							if len(nssSvcs[ns]) != 0 {
-								errs = appendErrors(errs, fmt.Errorf("duplicated egress host: %s", hostname))
+								errs = appendErrors(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
 							}
 						}
 						nssSvcs[ns][svc] = true
@@ -1076,7 +1077,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				// */*
 				// test/a
 				if nssSvcs["*"]["*"] && len(nssSvcs) != 1 {
-					errs = appendErrors(errs, fmt.Errorf("`*/*` host select all resources, no other hosts can be added"))
+					errs = appendErrors(errs, WrapWarning(fmt.Errorf("`*/*` host select all resources, no other hosts can be added")))
 				}
 			}
 
