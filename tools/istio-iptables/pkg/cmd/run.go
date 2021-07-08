@@ -379,9 +379,9 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		iptConfigurator.ext.Run(constants.IPTABLESSAVE)
+		_, _ = iptConfigurator.ext.Run(constants.IPTABLESSAVE)
 		if iptConfigurator.cfg.EnableInboundIPv6 {
-			iptConfigurator.ext.Run(constants.IP6TABLESSAVE)
+			_, _ = iptConfigurator.ext.Run(constants.IP6TABLESSAVE)
 		}
 	}()
 

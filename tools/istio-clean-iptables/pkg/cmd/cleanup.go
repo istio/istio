@@ -65,7 +65,7 @@ func cleanup(cfg *config.Config) {
 	defer func() {
 		for _, cmd := range []string{constants.IPTABLESSAVE, constants.IP6TABLESSAVE} {
 			// iptables-save is best efforts
-			ext.Run(cmd)
+			_, _ = ext.Run(cmd)
 		}
 	}()
 

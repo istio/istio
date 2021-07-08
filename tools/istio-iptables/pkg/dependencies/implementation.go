@@ -166,8 +166,8 @@ func (r *RealDependencies) Run(cmd string, args ...string) (stdout string, err e
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, args ...string) {
 	if XTablesCmds.Contains(cmd) {
-		r.executeXTables(cmd, true, args...)
+		_, _ = r.executeXTables(cmd, true, args...)
 	} else {
-		r.execute(cmd, true, args...)
+		_, _ = r.execute(cmd, true, args...)
 	}
 }
