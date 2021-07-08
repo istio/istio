@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -202,7 +203,34 @@ type ResponseHandler interface {
 	HandleResponse(con *ADSC, response *discovery.DiscoveryResponse)
 }
 
+// jsonMarshalProtoWithName wraps a proto.Message with name so it can be marshaled with the standard encoding/json library
+type jsonMarshalProtoWithName struct {
+	Name    string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Message proto.Message
+}
+
+func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
+	strSer, serr := ConvertGolangProtoToJSONByGolangJSONPB(p.Message)
+	if serr != nil {
+		adscLog.Warnf("Error for marshaling [%s]: %v", p.Name, serr)
+		return []byte(""), serr
+	}
+	serialItem := []byte("{\"" + p.Name + "\":" + strSer + "}")
+	return serialItem, nil
+}
+
 var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
+
+// ConvertGolangProtoToJSONByGolangJSONPB help to implement the conversion from Proto message to string
+// Note: this conversion is just for golang protobuf by golang jsonpb
+func ConvertGolangProtoToJSONByGolangJSONPB(obj proto.Message) (string, error) {
+	jsonm := &jsonpb.Marshaler{Indent: "  "}
+	strResponse, err := jsonm.MarshalToString(obj)
+	if err != nil {
+		return "", err
+	}
+	return strResponse, nil
+}
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -467,12 +495,11 @@ func (a *ADSC) handleRecv() {
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
-				// TODO: use jsonpb
-				strResponse, err := json.MarshalIndent(m, "  ", "  ")
+				strResponse, err := ConvertGolangProtoToJSONByGolangJSONPB(m)
 				if err != nil {
 					continue
 				}
-				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0o644)
+				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", []byte(strResponse), 0o644)
 				if err != nil {
 					continue
 				}
@@ -629,8 +656,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		case wellknown.MySQLProxy:
 			// ignore for now
 		default:
-			tm := &jsonpb.Marshaler{Indent: "  "}
-			adscLog.Infof(tm.MarshalToString(l))
+			adscLog.Infof(ConvertGolangProtoToJSONByGolangJSONPB(l))
 		}
 	}
 
@@ -657,51 +683,123 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 func (a *ADSC) Save(base string) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	strResponse, err := json.MarshalIndent(a.tcpListeners, "  ", "  ")
+
+	// guarrante the persistence order for each element in tcpListeners
+	var sortTCPListeners []string
+	for key := range a.tcpListeners {
+		sortTCPListeners = append(sortTCPListeners, key)
+	}
+	sort.Strings(sortTCPListeners)
+	arrTCPListenersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortTCPListeners))
+	for _, element := range sortTCPListeners {
+		sliceItem := &jsonMarshalProtoWithName{element, a.tcpListeners[element]}
+		arrTCPListenersJSONProto = append(arrTCPListenersJSONProto, *sliceItem)
+	}
+	byteJSONResponse, err := json.MarshalIndent(arrTCPListenersJSONProto, "", "  ")
+	if err != nil {
+		adscLog.Warnf("Error for marshaling TCPListeners: %v", err)
+	}
+	err = ioutil.WriteFile(base+"_lds_tcp.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_tcp.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in httpListeners
+	var sortHTTPListeners []string
+	for key := range a.httpListeners {
+		sortHTTPListeners = append(sortHTTPListeners, key)
+	}
+	sort.Strings(sortHTTPListeners)
+	arrHTTPListenersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortHTTPListeners))
+	for _, element := range sortHTTPListeners {
+		sliceItem := &jsonMarshalProtoWithName{element, a.httpListeners[element]}
+		arrHTTPListenersJSONProto = append(arrHTTPListenersJSONProto, *sliceItem)
+	}
+	byteJSONResponse, err = json.MarshalIndent(arrHTTPListenersJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.httpListeners, "  ", "  ")
+	err = ioutil.WriteFile(base+"_lds_http.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_http.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in routes
+	var sortRoutes []string
+	for key := range a.routes {
+		sortRoutes = append(sortRoutes, key)
+	}
+	sort.Strings(sortRoutes)
+	arrRoutesJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortRoutes))
+	for _, element := range sortRoutes {
+		sliceItem := &jsonMarshalProtoWithName{element, a.routes[element]}
+		arrRoutesJSONProto = append(arrRoutesJSONProto, *sliceItem)
+	}
+	byteJSONResponse, err = json.MarshalIndent(arrRoutesJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.routes, "  ", "  ")
+	err = ioutil.WriteFile(base+"_rds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_rds.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in edsClusters
+	var sortEdsClusters []string
+	for key := range a.edsClusters {
+		sortEdsClusters = append(sortEdsClusters, key)
+	}
+	sort.Strings(sortEdsClusters)
+	arrEdsClustersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortEdsClusters))
+	for _, element := range sortEdsClusters {
+		sliceItem := &jsonMarshalProtoWithName{element, a.edsClusters[element]}
+		arrEdsClustersJSONProto = append(arrEdsClustersJSONProto, *sliceItem)
+	}
+	byteJSONResponse, err = json.MarshalIndent(arrEdsClustersJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.edsClusters, "  ", "  ")
+	err = ioutil.WriteFile(base+"_ecds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_ecds.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in clusters
+	var sortClusters []string
+	for key := range a.clusters {
+		sortClusters = append(sortClusters, key)
+	}
+	sort.Strings(sortClusters)
+	arrClustersJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortClusters))
+	for _, element := range sortClusters {
+		sliceItem := &jsonMarshalProtoWithName{element, a.clusters[element]}
+		arrClustersJSONProto = append(arrClustersJSONProto, *sliceItem)
+	}
+	byteJSONResponse, err = json.MarshalIndent(arrClustersJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.clusters, "  ", "  ")
+	err = ioutil.WriteFile(base+"_cds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_cds.json", strResponse, 0o644)
+
+	// guarrante the persistence order for each element in eds
+	var sortEds []string
+	for key := range a.eds {
+		sortEds = append(sortEds, key)
+	}
+	sort.Strings(sortEds)
+	arrEdsJSONProto := make([]jsonMarshalProtoWithName, 0, len(sortEds))
+	for _, element := range sortEds {
+		sliceItem := &jsonMarshalProtoWithName{element, a.eds[element]}
+		arrEdsJSONProto = append(arrEdsJSONProto, *sliceItem)
+	}
+	byteJSONResponse, err = json.MarshalIndent(arrEdsJSONProto, "", "  ")
 	if err != nil {
 		return err
 	}
-	strResponse, err = json.MarshalIndent(a.eds, "  ", "  ")
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(base+"_eds.json", strResponse, 0o644)
+	err = ioutil.WriteFile(base+"_eds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -776,8 +874,7 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 	}
 	req.ResponseNonce = time.Now().String()
 	if adscLog.DebugEnabled() {
-		jsonm := &jsonpb.Marshaler{}
-		strReq, _ := jsonm.MarshalToString(req)
+		strReq, _ := ConvertGolangProtoToJSONByGolangJSONPB(req)
 		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
 	}
 	return a.stream.Send(req)
