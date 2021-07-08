@@ -92,6 +92,8 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 // The force flag causes validation errors not to abort but only emit log/console warnings.
 func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeConfig *rest.Config,
 	l clog.Logger) (string, *iopv1alpha1.IstioOperator, error) {
+	setFlags = addDefaultProfileFlagIfNotSet(setFlags)
+
 	if err := validateSetFlags(setFlags); err != nil {
 		return "", nil, err
 	}
@@ -120,6 +122,20 @@ func OverlayYAMLStrings(profile string, fy string,
 		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", errs)
 	}
 	return iopsString, iops, nil
+}
+
+// addDefaultProfileFlagIfNotSet adds the `profile=default` value to set flags if no profile value is set.
+func addDefaultProfileFlagIfNotSet(setFlags []string) []string {
+	isProfileSet := false
+	for _, setFlag := range setFlags {
+		if strings.HasPrefix(setFlag, "profile=") {
+			isProfileSet = true
+		}
+	}
+	if !isProfileSet {
+		setFlags = append(setFlags, fmt.Sprintf("profile=%s", name.DefaultProfileName))
+	}
+	return setFlags
 }
 
 // GenIOPFromProfile generates an IstioOperator from the given profile name or path, and overlay YAMLs from user
