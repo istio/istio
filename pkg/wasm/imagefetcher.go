@@ -75,7 +75,7 @@ func (o *ImageFetcher) Fetch(url string) ([]byte, error) {
 
 	manifest, err := img.Manifest()
 	if err != nil {
-		return nil, fmt.Errorf("could not retreive manifest: %v", err)
+		return nil, fmt.Errorf("could not retrieve manifest: %v", err)
 	}
 
 	if manifest.MediaType == types.DockerManifestSchema2 {
@@ -104,8 +104,8 @@ func (o *ImageFetcher) Fetch(url string) ([]byte, error) {
 	// We failed to parse the image in any format, so wrap the errors and return.
 	return nil, fmt.Errorf("the given image is in invalid format as an OCI image: %v",
 		multierror.Append(err,
-			fmt.Errorf("could not parse as compat variant; %v", errCompat),
-			fmt.Errorf("could not parse as oci variant; %v", errOCI),
+			fmt.Errorf("could not parse as compat variant: %v", errCompat),
+			fmt.Errorf("could not parse as oci variant: %v", errOCI),
 		),
 	)
 }
@@ -241,7 +241,7 @@ func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 	for _, l := range layers {
 		mt, err := l.MediaType()
 		if err != nil {
-			return nil, fmt.Errorf("could not retreive the media type: %v", err)
+			return nil, fmt.Errorf("could not retrieve the media type: %v", err)
 		}
 		if mt == wasmLayerMediaType {
 			layer = l

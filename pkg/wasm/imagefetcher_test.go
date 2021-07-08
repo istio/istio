@@ -20,7 +20,6 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -242,14 +241,11 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Errorf("ImageFetcher.Fetch got %s, but want nil", string(actual))
 		}
 
-		expErr := errors.New(`the given image is in invalid format as an OCI image: 2 errors occurred:
-	* could not parse as compat variant; invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
-	* could not parse as oci variant; number of layers must be 2 but got 1
-
-
-`)
-		if err != expErr {
-			t.Errorf("ImageFetcher.Fetch get unexpected error '%v', but want '%v'", err, expErr)
+		expErr := `the given image is in invalid format as an OCI image: 2 errors occurred:
+	* could not parse as compat variant: invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
+	* could not parse as oci variant: number of layers must be 2 but got 1`
+		if actual := strings.TrimSpace(err.Error()); actual != expErr {
+			t.Errorf("ImageFetcher.Fetch get unexpected error '%v', but want '%v'", actual, expErr)
 		}
 	})
 }
@@ -282,7 +278,7 @@ func TestExtractDockerImage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var img = empty.Image
+		img := empty.Image
 		for i := 0; i < 2; i++ {
 			img, err = mutate.Append(img, mutate.Addendum{Layer: l})
 			if err != nil {
@@ -339,7 +335,7 @@ func TestExtractOCIStandardImage(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var img = empty.Image
+		img := empty.Image
 		for i := 0; i < 2; i++ {
 			img, err = mutate.Append(img, mutate.Addendum{Layer: l})
 			if err != nil {
