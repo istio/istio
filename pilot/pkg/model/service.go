@@ -34,6 +34,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -455,7 +456,7 @@ type ServiceAttributes struct {
 	// ServiceRegistry indicates the backing service registry system where this service
 	// was sourced from.
 	// TODO: move the ServiceRegistry type from platform.go to model
-	ServiceRegistry string
+	ServiceRegistry provider.ID
 	// Name is "destination.service.name" attribute
 	Name string
 	// Namespace is "destination.service.namespace" attribute

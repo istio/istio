@@ -52,7 +52,10 @@ var rootCmd = &cobra.Command{
 		if cfg.DryRun {
 			ext = &dep.StdoutStubDependencies{}
 		} else {
-			ext = &dep.RealDependencies{}
+			ext = &dep.RealDependencies{
+				CNIMode:          cfg.CNIMode,
+				NetworkNamespace: cfg.NetworkNamespace,
+			}
 		}
 
 		iptConfigurator := NewIptablesConfigurator(cfg, ext)
@@ -99,6 +102,9 @@ func constructConfig() *config.Config {
 		RunValidation:           viper.GetBool(constants.RunValidation),
 		RedirectDNS:             viper.GetBool(constants.RedirectDNS),
 		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
+		OutputPath:              viper.GetString(constants.OutputPath),
+		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
+		CNIMode:                 viper.GetBool(constants.CNIMode),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -289,6 +295,21 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.CaptureAllDNS, false)
+
+	if err := viper.BindPFlag(constants.OutputPath, cmd.Flags().Lookup(constants.OutputPath)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.OutputPath, "")
+
+	if err := viper.BindPFlag(constants.NetworkNamespace, cmd.Flags().Lookup(constants.NetworkNamespace)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.NetworkNamespace, "")
+
+	if err := viper.BindPFlag(constants.CNIMode, cmd.Flags().Lookup(constants.CNIMode)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.CNIMode, false)
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -357,6 +378,12 @@ func init() {
 
 	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
+
+	rootCmd.Flags().String(constants.OutputPath, "", "A file path to write the applied iptables rules to.")
+
+	rootCmd.Flags().String(constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.")
+
+	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
 }
 
 func GetCommand() *cobra.Command {

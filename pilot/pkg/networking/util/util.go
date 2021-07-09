@@ -42,7 +42,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -554,7 +554,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 // shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+	if attributes.ServiceRegistry == provider.Kubernetes {
 		return attributes.Name + "." + attributes.Namespace
 	}
 	return host

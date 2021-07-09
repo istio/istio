@@ -44,7 +44,7 @@ func FuzzConfigValidation(data []byte) int {
 	var iobj *config.Config
 	configIndex, err := f.GetInt()
 	if err != nil {
-		return 0
+		return -1
 	}
 
 	r := collections.Pilot.All()[configIndex%len(collections.Pilot.All())]
@@ -69,9 +69,48 @@ func FuzzConfigValidation(data []byte) int {
 	}
 
 	iobj = crdclient.TranslateObject(object, gvk, "cluster.local")
-	_, err = r.Resource().ValidateConfig(*iobj)
+	_, _ = r.Resource().ValidateConfig(*iobj)
+	return 1
+}
+
+// FuzzConfigValidation2 implements a second fuzzer for config validation.
+// The fuzzer targets the same API as FuzzConfigValidation above,
+// but its approach to creating a fuzzed config is a bit different
+// in that it utilizes Istio APIs to generate a Spec from json.
+// We currently run both continuously to compare their performance.
+func FuzzConfigValidation2(data []byte) int {
+	f := fuzz.NewConsumer(data)
+	configIndex, err := f.GetInt()
+	if err != nil {
+		return -1
+	}
+	r := collections.Pilot.All()[configIndex%len(collections.Pilot.All())]
+
+	spec, err := r.Resource().NewInstance()
 	if err != nil {
 		return 0
 	}
+	jsonData, err := f.GetString()
+	if err != nil {
+		return 0
+	}
+	err = config.ApplyJSON(spec, jsonData)
+	if err != nil {
+		return 0
+	}
+
+	m := config.Meta{}
+	err = f.GenerateStruct(&m)
+	if err != nil {
+		return 0
+	}
+
+	gvk := r.Resource().GroupVersionKind()
+	m.GroupVersionKind = gvk
+
+	_, _ = r.Resource().ValidateConfig(config.Config{
+		Meta: m,
+		Spec: spec,
+	})
 	return 1
 }

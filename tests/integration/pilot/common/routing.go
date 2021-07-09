@@ -459,6 +459,34 @@ spec:
 			},
 			workloadAgnostic: true,
 		},
+		// Retry conditions have been added to just validate that config is correct.
+		// Retries are not specifically tested.
+		TrafficTestCase{
+			name: "retry conditions",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ .dstSvc }}
+  http:
+  - route:
+    - destination:
+        host: {{ .dstSvc }}
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
+      retryRemoteLocalities: true`,
+			opts: echo.CallOptions{
+				PortName:  "http",
+				Count:     1,
+				Validator: echo.ExpectOK(),
+			},
+			workloadAgnostic: true,
+		},
 	)
 
 	// reduce the total # of subtests that don't give valuable coverage or just don't work

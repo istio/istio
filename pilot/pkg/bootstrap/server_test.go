@@ -32,8 +32,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
@@ -477,12 +477,12 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 	cases := []struct {
 		name             string
 		registry         string
-		expectedRegistry serviceregistry.ProviderID
+		expectedRegistry provider.ID
 	}{
 		{
 			name:             "Mock Registry",
 			registry:         "Mock",
-			expectedRegistry: serviceregistry.Mock,
+			expectedRegistry: provider.Mock,
 		},
 	}
 

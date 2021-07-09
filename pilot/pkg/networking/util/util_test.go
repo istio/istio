@@ -36,7 +36,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -755,7 +755,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -768,7 +768,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -781,7 +781,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "namespace1",
 			},
@@ -794,7 +794,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -807,7 +807,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -820,7 +820,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -833,7 +833,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -846,7 +846,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -859,7 +859,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -872,7 +872,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -885,7 +885,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -898,7 +898,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},
@@ -911,7 +911,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"v1",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Kubernetes),
+				ServiceRegistry: provider.Kubernetes,
 				Name:            "reviews",
 				Namespace:       "default",
 			},

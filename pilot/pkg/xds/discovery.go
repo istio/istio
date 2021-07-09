@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/security"
@@ -265,7 +266,7 @@ func (s *DiscoveryServer) getNonK8sRegistries() []serviceregistry.Instance {
 	}
 
 	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes && registry.Provider() != serviceregistry.External {
+		if registry.Provider() != provider.Kubernetes && registry.Provider() != provider.External {
 			nonK8sRegistries = append(nonK8sRegistries, registry)
 		}
 	}

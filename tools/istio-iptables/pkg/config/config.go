@@ -16,6 +16,9 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"istio.io/pkg/log"
@@ -50,6 +53,9 @@ type Config struct {
 	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
 	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
 	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
+	OutputPath              string        `json:"OUTPUT_PATH"`
+	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
+	CNIMode                 bool          `json:"CNI_MODE"`
 }
 
 func (c *Config) String() string {
@@ -61,26 +67,28 @@ func (c *Config) String() string {
 }
 
 func (c *Config) Print() {
-	log.Info("Variables:")
-	log.Info("----------")
-	log.Infof("PROXY_PORT=%s", c.ProxyPort)
-	log.Infof("PROXY_INBOUND_CAPTURE_PORT=%s", c.InboundCapturePort)
-	log.Infof("PROXY_TUNNEL_PORT=%s", c.InboundTunnelPort)
-	log.Infof("PROXY_UID=%s", c.ProxyUID)
-	log.Infof("PROXY_GID=%s", c.ProxyGID)
-	log.Infof("INBOUND_INTERCEPTION_MODE=%s", c.InboundInterceptionMode)
-	log.Infof("INBOUND_TPROXY_MARK=%s", c.InboundTProxyMark)
-	log.Infof("INBOUND_TPROXY_ROUTE_TABLE=%s", c.InboundTProxyRouteTable)
-	log.Infof("INBOUND_PORTS_INCLUDE=%s", c.InboundPortsInclude)
-	log.Infof("INBOUND_PORTS_EXCLUDE=%s", c.InboundPortsExclude)
-	log.Infof("OUTBOUND_IP_RANGES_INCLUDE=%s", c.OutboundIPRangesInclude)
-	log.Infof("OUTBOUND_IP_RANGES_EXCLUDE=%s", c.OutboundIPRangesExclude)
-	log.Infof("OUTBOUND_PORTS_INCLUDE=%s", c.OutboundPortsInclude)
-	log.Infof("OUTBOUND_PORTS_EXCLUDE=%s", c.OutboundPortsExclude)
-	log.Infof("KUBEVIRT_INTERFACES=%s", c.KubevirtInterfaces)
-	log.Infof("ENABLE_INBOUND_IPV6=%t", c.EnableInboundIPv6)
-	log.Infof("DNS_CAPTURE=%t", c.RedirectDNS)
-	log.Infof("CAPTURE_ALL_DNS=%t", c.CaptureAllDNS)
-	log.Infof("DNS_SERVERS=%s,%s", c.DNSServersV4, c.DNSServersV6)
-	log.Info("")
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("PROXY_PORT=%s\n", c.ProxyPort))
+	b.WriteString(fmt.Sprintf("PROXY_INBOUND_CAPTURE_PORT=%s\n", c.InboundCapturePort))
+	b.WriteString(fmt.Sprintf("PROXY_TUNNEL_PORT=%s\n", c.InboundTunnelPort))
+	b.WriteString(fmt.Sprintf("PROXY_UID=%s\n", c.ProxyUID))
+	b.WriteString(fmt.Sprintf("PROXY_GID=%s\n", c.ProxyGID))
+	b.WriteString(fmt.Sprintf("INBOUND_INTERCEPTION_MODE=%s\n", c.InboundInterceptionMode))
+	b.WriteString(fmt.Sprintf("INBOUND_TPROXY_MARK=%s\n", c.InboundTProxyMark))
+	b.WriteString(fmt.Sprintf("INBOUND_TPROXY_ROUTE_TABLE=%s\n", c.InboundTProxyRouteTable))
+	b.WriteString(fmt.Sprintf("INBOUND_PORTS_INCLUDE=%s\n", c.InboundPortsInclude))
+	b.WriteString(fmt.Sprintf("INBOUND_PORTS_EXCLUDE=%s\n", c.InboundPortsExclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", c.OutboundIPRangesInclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude))
+	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude))
+	b.WriteString(fmt.Sprintf("KUBEVIRT_INTERFACES=%s\n", c.KubevirtInterfaces))
+	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6))
+	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
+	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
+	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
+	b.WriteString(fmt.Sprintf("OUTPUT_PATH=%s\n", c.OutputPath))
+	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
+	b.WriteString(fmt.Sprintf("CNI_MODE=%s", strconv.FormatBool(c.CNIMode)))
+	log.Infof("Istio iptables variables:\n%s", b.String())
 }

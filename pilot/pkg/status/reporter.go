@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
@@ -87,10 +86,6 @@ func (r *Reporter) Init(ledger ledger.Ledger, stop <-chan struct{}) {
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
 	}
-	// default UpdateInterval
-	if r.UpdateInterval == 0 {
-		r.UpdateInterval = 500 * time.Millisecond
-	}
 	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string]map[string]struct{})
@@ -114,13 +109,10 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 	ctx := NewIstioContext(stop)
 	x, err := clientSet.CoreV1().Pods(namespace).Get(ctx, podname, metav1.GetOptions{})
 	if err != nil {
-		scope.Errorf("can't identify pod context: %s", err)
+		scope.Errorf("can't identify pod %s context: %s", podname, err)
 	} else {
 		r.cm.OwnerReferences = []metav1.OwnerReference{
-			*metav1.NewControllerRef(x, schema.GroupVersionKind{
-				Version: "v1",
-				Kind:    "Pod",
-			}),
+			*metav1.NewControllerRef(x, metav1.SchemeGroupVersion.WithKind("Pod")),
 		}
 	}
 	go func() {

@@ -42,12 +42,6 @@ import (
 	rbacUtil "istio.io/istio/tests/integration/security/util/rbac_util"
 )
 
-var (
-	// The extAuthzServiceNamespace namespace is used to deploy the sample ext-authz server.
-	extAuthzServiceNamespace    namespace.Instance
-	extAuthzServiceNamespaceErr error
-)
-
 func newRootNS(ctx framework.TestContext) namespace.Instance {
 	return istio.ClaimSystemNamespaceOrFail(ctx, ctx)
 }
@@ -1322,15 +1316,47 @@ func TestAuthorization_Custom(t *testing.T) {
 			}
 
 			// Deploy and wait for the ext-authz server to be ready.
-			if extAuthzServiceNamespace == nil {
-				t.Fatalf("Failed to create namespace for ext-authz server: %v", extAuthzServiceNamespaceErr)
-			}
-			applyYAML("../../../samples/extauthz/ext-authz.yaml", extAuthzServiceNamespace.Name())
-			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), extAuthzServiceNamespace.Name(), "ext-authz"); err != nil {
+			applyYAML("../../../samples/extauthz/ext-authz.yaml", ns.Name())
+			if _, _, err := kube.WaitUntilServiceEndpointsAreReady(t.Clusters().Default(), ns.Name(), "ext-authz"); err != nil {
 				t.Fatalf("Wait for ext-authz server failed: %v", err)
 			}
-			applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
+			// Update the mesh config extension provider for the ext-authz service.
+			extService := fmt.Sprintf("ext-authz.%s.svc.cluster.local", ns.Name())
+			extServiceWithNs := fmt.Sprintf("%s/%s", ns.Name(), extService)
+			istio.PatchMeshConfig(t, ist.Settings().IstioNamespace, t.Clusters(), fmt.Sprintf(`
+extensionProviders:
+- name: "ext-authz-http"
+  envoyExtAuthzHttp:
+    service: %q
+    port: 8000
+    pathPrefix: "/check"
+    headersToUpstreamOnAllow: ["x-ext-authz-*"]
+    headersToDownstreamOnDeny: ["x-ext-authz-*"]
+    includeRequestHeadersInCheck: ["x-ext-authz"]
+    includeAdditionalHeadersInCheck:
+      x-ext-authz-additional-header-new: additional-header-new-value
+      x-ext-authz-additional-header-override: additional-header-override-value
+- name: "ext-authz-grpc"
+  envoyExtAuthzGrpc:
+    service: %q
+    port: 9000
+- name: "ext-authz-http-local"
+  envoyExtAuthzHttp:
+    service: ext-authz-http.local
+    port: 8000
+    pathPrefix: "/check"
+    headersToUpstreamOnAllow: ["x-ext-authz-*"]
+    headersToDownstreamOnDeny: ["x-ext-authz-*"]
+    includeRequestHeadersInCheck: ["x-ext-authz"]
+    includeAdditionalHeadersInCheck:
+      x-ext-authz-additional-header-new: additional-header-new-value
+      x-ext-authz-additional-header-override: additional-header-override-value
+- name: "ext-authz-grpc-local"
+  envoyExtAuthzGrpc:
+    service: ext-authz-grpc.local
+    port: 9000`, extService, extServiceWithNs))
 
+			applyYAML("testdata/authz/v1beta1-custom.yaml.tmpl", "")
 			ports := []echo.Port{
 				{
 					Name:         "tcp-8092",

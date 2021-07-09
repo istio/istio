@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1alpha3_test
+package server_test
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core"
-	nds "istio.io/istio/pilot/pkg/proto"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	dnsProto "istio.io/istio/pkg/dns/proto"
+	dnsServer "istio.io/istio/pkg/dns/server"
 )
 
 // nolint
@@ -101,7 +100,7 @@ func TestNameTable(t *testing.T) {
 		Attributes: model.ServiceAttributes{
 			Name:            "headless-svc",
 			Namespace:       "testns",
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 
@@ -125,7 +124,7 @@ func TestNameTable(t *testing.T) {
 		Attributes: model.ServiceAttributes{
 			Name:            "wildcard-svc",
 			Namespace:       "testns",
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 
@@ -149,7 +148,7 @@ func TestNameTable(t *testing.T) {
 		Attributes: model.ServiceAttributes{
 			Name:            "cidr-svc",
 			Namespace:       "testns",
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 
@@ -175,14 +174,14 @@ func TestNameTable(t *testing.T) {
 		proxy                      *model.Proxy
 		push                       *model.PushContext
 		enableMultiClusterHeadless bool
-		expectedNameTable          *nds.NameTable
+		expectedNameTable          *dnsProto.NameTable
 	}{
 		{
 			name:  "headless service pods",
 			proxy: proxy,
 			push:  push,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"pod1.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"1.2.3.4"},
 						Registry:  "Kubernetes",
@@ -220,8 +219,8 @@ func TestNameTable(t *testing.T) {
 			name:  "headless service pods with network isolation",
 			proxy: nw1proxy,
 			push:  push,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"pod1.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"1.2.3.4"},
 						Registry:  "Kubernetes",
@@ -253,8 +252,8 @@ func TestNameTable(t *testing.T) {
 			name:  "multi cluster headless service pods",
 			proxy: cl1proxy,
 			push:  push,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"pod1.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"1.2.3.4"},
 						Registry:  "Kubernetes",
@@ -293,8 +292,8 @@ func TestNameTable(t *testing.T) {
 			proxy:                      cl1proxy,
 			push:                       push,
 			enableMultiClusterHeadless: true,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"pod1.headless-svc.testns.svc.cluster.local": {
 						Ips:       []string{"1.2.3.4"},
 						Registry:  "Kubernetes",
@@ -332,8 +331,8 @@ func TestNameTable(t *testing.T) {
 			name:  "wildcard service pods",
 			proxy: proxy,
 			push:  wpush,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"*.testns.svc.cluster.local": {
 						Ips:       []string{"172.10.10.10"},
 						Registry:  "Kubernetes",
@@ -347,20 +346,35 @@ func TestNameTable(t *testing.T) {
 			name:  "cidr service",
 			proxy: proxy,
 			push:  cpush,
-			expectedNameTable: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{},
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{},
 			},
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			dvalue := features.MulticlusterHeadlessEnabled
-			features.MulticlusterHeadlessEnabled = tt.enableMultiClusterHeadless
-			defer func() { features.MulticlusterHeadlessEnabled = dvalue }()
-			configgen := core.NewConfigGenerator(nil, model.DisabledCache{})
-			if diff := cmp.Diff(configgen.BuildNameTable(tt.proxy, tt.push), tt.expectedNameTable); diff != "" {
+			if diff := cmp.Diff(dnsServer.BuildNameTable(tt.proxy, tt.push, tt.enableMultiClusterHeadless), tt.expectedNameTable); diff != "" {
 				t.Fatalf("got diff: %v", diff)
 			}
 		})
 	}
+}
+
+func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targetPort int) []*model.ServiceInstance {
+	ret := make([]*model.ServiceInstance, 0)
+	for _, p := range svc.Ports {
+		if p.Port != servicePort {
+			continue
+		}
+		ret = append(ret, &model.ServiceInstance{
+			Service:     svc,
+			ServicePort: p,
+			Endpoint: &model.IstioEndpoint{
+				Address:         proxy.IPAddresses[0],
+				ServicePortName: p.Name,
+				EndpointPort:    uint32(targetPort),
+			},
+		})
+	}
+	return ret
 }

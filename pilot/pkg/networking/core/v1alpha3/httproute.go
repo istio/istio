@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -376,7 +376,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&
-		service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+		service.Attributes.ServiceRegistry == provider.Kubernetes {
 		for _, domain := range domains {
 			domains = append(domains, wildcardDomainPrefix+domain)
 		}

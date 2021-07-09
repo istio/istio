@@ -37,13 +37,13 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
-	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/model"
-	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	dnsClient "istio.io/istio/pkg/dns/client"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
@@ -113,7 +113,7 @@ type Agent struct {
 	xdsProxy *XdsProxy
 
 	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
-	localDNSServer *dns.LocalDNSServer
+	localDNSServer *dnsClient.LocalDNSServer
 
 	// Signals true completion (e.g. with delayed graceful termination of Envoy)
 	wg sync.WaitGroup
@@ -463,7 +463,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
-		if a.localDNSServer, err = dns.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()
@@ -501,7 +501,7 @@ func (a *Agent) Check() (err error) {
 	return nil
 }
 
-func (a *Agent) GetDNSTable() *nds.NameTable {
+func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil {
 		return a.localDNSServer.NameTable()
 	}

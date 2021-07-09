@@ -17,11 +17,20 @@
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseInputs fuzz_parse_inputs
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseAndBuildSchema fuzz_parse_and_build_schema
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation fuzz_config_validation
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation2 fuzz_config_validation2
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseMeshNetworks fuzz_parse_mesh_networks
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateMeshConfig fuzz_validate_mesh_config
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzInitContext fuzz_init_context
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzAnalyzer fuzz_analyzer
-
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzXds fuzz_xds
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCompareDiff fuzz_compare_diff
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHelmReconciler fuzz_helm_reconciler
 
 # Create seed corpora:
 zip "${OUT}"/fuzz_analyzer_seed_corpus.zip "${SRC}"/istio/galley/pkg/config/analysis/analyzers/testdata/*.yaml
+zip "${OUT}"/fuzz_config_validation2_seed_corpus.zip "${SRC}"/istio/tests/fuzz/testdata/FuzzConfigValidation2/seed1
+zip "${OUT}"/fuzz_helm_reconciler_seed_corpus.zip "${SRC}"/istio/operator/pkg/helmreconciler/testdata/*
+
+# Add dictionaries
+cp "${SRC}"/istio/tests/fuzz/testdata/FuzzConfigValidation2/fuzz_config_validation2.dict "${OUT}"/
+

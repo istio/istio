@@ -233,6 +233,9 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 	// Initialize the headers and add a default Host header if none provided.
 	if opts.Headers == nil {
 		opts.Headers = make(http.Header)
+	} else {
+		// Avoid mutating input, which can lead to concurrent writes
+		opts.Headers = opts.Headers.Clone()
 	}
 	if h := opts.Headers["Host"]; len(h) == 0 && opts.Target != nil {
 		// No host specified, use the hostname for the service.
