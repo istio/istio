@@ -30,6 +30,7 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/pkg/log"
 )
 
@@ -74,8 +75,9 @@ type Config struct {
 	PrevResult    *current.Result         `json:"-"`
 
 	// Add plugin-specific flags here
-	LogLevel   string     `json:"log_level"`
-	Kubernetes Kubernetes `json:"kubernetes"`
+	LogLevel      string     `json:"log_level"`
+	LogUDSAddress string     `json:"log_uds_address"`
+	Kubernetes    Kubernetes `json:"kubernetes"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -117,6 +119,16 @@ func parseConfig(stdin []byte) (*Config, error) {
 	return &conf, nil
 }
 
+func GetLoggingOptions(udsAddress string) *log.Options {
+	loggingOptions := log.DefaultOptions()
+	loggingOptions.OutputPaths = []string{"stderr"}
+	loggingOptions.JSONEncoding = true
+	if udsAddress != "" {
+		loggingOptions.WithTeeToUDS(udsAddress, constants.UDSLogPath)
+	}
+	return loggingOptions
+}
+
 // CmdAdd is called for ADD requests
 func CmdAdd(args *skel.CmdArgs) (err error) {
 	// Defer a panic recover, so that in case if panic we can still return
@@ -138,8 +150,15 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 
 	conf, err := parseConfig(args.StdinData)
 	if err != nil {
-		log.Errorf("istio-cni cmdAdd parsing config %v", err)
+		log.Errorf("istio-cni cmdAdd failed to parse config %v %v", string(args.StdinData), err)
 		return err
+	}
+
+	if conf.LogUDSAddress != "" {
+		// reconfigure log output with tee to UDS if UDS log is enabled.
+		if err := log.Configure(GetLoggingOptions(conf.LogUDSAddress)); err != nil {
+			log.Error("Failed to configure istio-cni with UDS log")
+		}
 	}
 
 	var loggedPrevResult interface{}
@@ -148,16 +167,17 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	} else {
 		loggedPrevResult = conf.PrevResult
 	}
-
-	log.WithLabels("version", conf.CNIVersion, "prevResult", loggedPrevResult).Info("CmdAdd config parsed")
+	log.Debugf("istio-cni CmdAdd config: %+v", conf)
+	log.Debugf("istio-cni CmdAdd previous result: %s", loggedPrevResult)
 
 	// Determine if running under k8s by checking the CNI args
+	log.Debugf("istio-cni cmdAdd args: %s", args.Args)
 	k8sArgs := K8sArgs{}
 	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
 		return err
 	}
-	log.Infof("Getting identifiers with arguments: %s", args.Args)
-	log.Infof("Loaded k8s arguments: %v", k8sArgs)
+
+	log.Infof("istio-cni cmdAdd with k8s args: %+v", k8sArgs)
 	if conf.Kubernetes.CNIBinDir != "" {
 		nsSetupBinDir = conf.Kubernetes.CNIBinDir
 	}
@@ -165,14 +185,14 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
 
-	log.WithLabels("ContainerID", args.ContainerID, "Pod", string(k8sArgs.K8S_POD_NAME),
-		"Namespace", string(k8sArgs.K8S_POD_NAMESPACE), "InterceptType", interceptRuleMgrType).Info("")
-
 	// Check if the workload is running under Kubernetes.
-	if string(k8sArgs.K8S_POD_NAMESPACE) != "" && string(k8sArgs.K8S_POD_NAME) != "" {
+	// TODO(bianpengyuan): refactor the following code to be less nested.
+	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
+	podName := string(k8sArgs.K8S_POD_NAME)
+	if podNamespace != "" && podName != "" {
 		excludePod := false
 		for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
-			if string(k8sArgs.K8S_POD_NAMESPACE) == excludeNs {
+			if podNamespace == excludeNs {
 				excludePod = true
 				break
 			}
@@ -186,62 +206,51 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 			pi := &PodInfo{}
 			var k8sErr error
 			for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
-				pi, k8sErr = getKubePodInfo(client, string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
+				pi, k8sErr = getKubePodInfo(client, podName, podNamespace)
 				if k8sErr == nil {
 					break
 				}
-				log.WithLabels("err", k8sErr, "attempt", attempt).Warn("Waiting for pod metadata")
+				log.Debugf("Failed to get %s/%s pod info: %v", podNamespace, podName, k8sErr)
 				time.Sleep(podRetrievalInterval)
 			}
 			if k8sErr != nil {
-				log.WithLabels("err", k8sErr).Error("Failed to get pod data")
+				log.Errorf("Failed to get %s/%s pod info: %v", podNamespace, podName, k8sErr)
 				return k8sErr
 			}
 
 			// Check if istio-init container is present; in that case exclude pod
 			if _, present := pi.InitContainers[ISTIOINIT]; present {
-				log.WithLabels(
-					"pod", string(k8sArgs.K8S_POD_NAME),
-					"namespace", string(k8sArgs.K8S_POD_NAMESPACE)).
-					Info("Pod excluded due to being already injected with istio-init container")
+				log.Infof("Pod %s/%s excluded due to being already injected with istio-init container", podNamespace, podName)
 				excludePod = true
 			}
 
 			if val, ok := pi.ProxyEnvironments["DISABLE_ENVOY"]; ok {
 				if val, err := strconv.ParseBool(val); err == nil && val {
-					log.Infof("Pod excluded due to DISABLE_ENVOY on istio-proxy")
+					log.Infof("Pod %s/%s excluded due to DISABLE_ENVOY on istio-proxy", podNamespace, podName)
 					excludePod = true
 				}
 			}
 
-			log.Infof("Found containers %v", pi.Containers)
 			if len(pi.Containers) > 1 {
-				log.WithLabels(
-					"ContainerID", args.ContainerID,
-					"netns", args.Netns,
-					"pod", string(k8sArgs.K8S_POD_NAME),
-					"Namespace", string(k8sArgs.K8S_POD_NAMESPACE),
-					"annotations", pi.Annotations).
-					Info("Checking annotations prior to redirect for Istio proxy")
+				log.Debugf("Checking pod %s/%s annotations prior to redirect for Istio proxy", podNamespace, podName)
 				if val, ok := pi.Annotations[injectAnnotationKey]; ok {
-					log.Infof("Pod %s contains inject annotation: %s", string(k8sArgs.K8S_POD_NAME), val)
+					log.Debugf("Pod %s/%s contains inject annotation: %s", podNamespace, podName, val)
 					if injectEnabled, err := strconv.ParseBool(val); err == nil {
 						if !injectEnabled {
-							log.Infof("Pod excluded due to inject-disabled annotation")
+							log.Infof("Pod %s/%s excluded due to inject-disabled annotation", podNamespace, podName)
 							excludePod = true
 						}
 					}
 				}
 				if _, ok := pi.Annotations[sidecarStatusKey]; !ok {
-					log.Infof("Pod %s excluded due to not containing sidecar annotation", string(k8sArgs.K8S_POD_NAME))
+					log.Infof("Pod %s/%s excluded due to not containing sidecar annotation", podNamespace, podName)
 					excludePod = true
 				}
 				if !excludePod {
-					log.Infof("setting up redirect")
+					log.Debugf("Setting up redirect for pod %v/%v", podNamespace, podName)
 					if redirect, redirErr := NewRedirect(pi); redirErr != nil {
-						log.Errorf("Pod redirect failed due to bad params: %v", redirErr)
+						log.Errorf("Pod %s/%s redirect failed due to bad params: %v", podNamespace, podName, redirErr)
 					} else {
-						log.Infof("Redirect local ports: %v", redirect.includePorts)
 						// Get the constructor for the configured type of InterceptRuleMgr
 						interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
 						if interceptMgrCtor == nil {
@@ -257,10 +266,10 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 				}
 			}
 		} else {
-			log.Infof("Pod excluded")
+			log.Infof("Pod %s/%s excluded", podNamespace, podName)
 		}
 	} else {
-		log.Infof("No Kubernetes Data")
+		log.Debugf("Not a kubernetes pod")
 	}
 
 	var result *current.Result

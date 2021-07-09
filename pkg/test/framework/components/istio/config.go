@@ -48,6 +48,10 @@ const (
 	// on remote clusters for integration tests when --istio.test.istio.istiodlessRemotes is set.
 	IntegrationTestIstiodlessRemoteDefaultsIOP = "tests/integration/iop-istiodless-remote-integration-test-defaults.yaml"
 
+	// IntegrationTestCNIDefaultIOP is the path of default IstioOperator spec to install CNI
+	// for integration tests.
+	IntegrationTestCNIDefaultIOP = "tests/integration/iop-cni-defaults.yaml"
+
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
 
