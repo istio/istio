@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** CNI network plugin log collection at CNI Daemonset via UDS.
+    **Improved** CNI network plugin to send logs to the CNI daemonset. This allows viewing CNI logs using `kubectl logs`, instead of looking at kubelet logs.
