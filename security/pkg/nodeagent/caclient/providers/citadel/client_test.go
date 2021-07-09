@@ -379,11 +379,11 @@ func TestCertExpired(t *testing.T) {
 		expected bool
 	}{
 		"Expired Cert": {
-			filepath: "./testdata/expired-cert",
+			filepath: "./testdata/expired-cert.pem",
 			expected: true,
 		},
 		"Not Expired Cert": {
-			filepath: "./testdata/notexpired-cert",
+			filepath: "./testdata/notexpired-cert.pem",
 			expected: true,
 		},
 	}
