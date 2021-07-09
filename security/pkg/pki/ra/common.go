@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"time"
 
-	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	clientset "k8s.io/client-go/kubernetes"
 
 	raerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
@@ -47,7 +47,7 @@ type IstioRAOptions struct {
 	// VerifyAppendCA : Whether to use caCertFile containing CA root cert to verify and append to signed cert-chain
 	VerifyAppendCA bool
 	// K8sClient : K8s API client
-	K8sClient certificatesv1beta1.CertificatesV1beta1Interface
+	K8sClient clientset.Interface
 	// TrustDomain
 	TrustDomain string
 }
