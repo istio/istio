@@ -16,6 +16,7 @@ package dns
 
 import (
 	"net"
+	"os"
 	"time"
 
 	"github.com/miekg/dns"
@@ -50,7 +51,12 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	p.serveMux.Handle(".", p)
 	p.server.Handler = p.serveMux
 	if protocol == "udp" {
-		p.server.PacketConn, err = net.ListenPacket("udp", "localhost:15053")
+		if os.Getuid() == 0 {
+			// Special mode if running as root: bind to 53 directly
+			p.server.PacketConn, err = net.ListenPacket("udp", "localhost:53")
+		} else {
+			p.server.PacketConn, err = net.ListenPacket("udp", "localhost:15053")
+		}
 	} else {
 		p.server.Listener, err = net.Listen("tcp", "localhost:15053")
 	}

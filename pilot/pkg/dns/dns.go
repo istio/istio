@@ -16,6 +16,7 @@ package dns
 
 import (
 	"net"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -95,8 +96,17 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 		h.proxyDomain = strings.Join(parts, ".")
 	}
 
+	resolvConf := "/etc/resolv.conf"
+	// If running as root and the alternate resolv.conf file exists, use it instead.
+	// This is used when running in Docker or VMs, without iptables DNS interception.
+	if os.Getuid() == 0 {
+		if _, err := os.Stat("/var/lib/istio/resolv.conf"); !os.IsNotExist(err) {
+			resolvConf = "/var/lib/istio/resolv.conf"
+		}
+	}
+
 	// We will use the local resolv.conf for resolving unknown names.
-	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	dnsConfig, err := dns.ClientConfigFromFile(resolvConf)
 	if err != nil {
 		log.Warnf("failed to load /etc/resolv.conf: %v", err)
 		return nil, err
@@ -164,6 +174,17 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
+func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string) *dns.Msg {
+	upstreamRequests.Increment()
+	start := time.Now()
+	// We did not find the host in our internal cache. Query upstream and return the response as is.
+	log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
+	response := h.queryUpstream(proxy.upstreamClient, req, log)
+	requestDuration.Record(float64(time.Since(start).Milliseconds()))
+	log.Debugf("upstream response for hostname %q : %v", hostname, response)
+	return response
+}
+
 // ServerDNS is the implementation of DNS interface
 func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	requests.Increment()
@@ -186,11 +207,17 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	lp := h.lookupTable.Load()
 	hostname := strings.ToLower(req.Question[0].Name)
 	if lp == nil {
-		log.Debugf("dns request for host %q before lookup table is loaded", hostname)
-		response = new(dns.Msg)
-		response.SetReply(req)
-		response.Rcode = dns.RcodeServerFailure
-		_ = w.WriteMsg(response)
+		if os.Getuid() != 0 {
+			log.Debugf("dns request for host %q before lookup table is loaded", hostname)
+			response = new(dns.Msg)
+			response.SetReply(req)
+			response.Rcode = dns.RcodeServerFailure
+			_ = w.WriteMsg(response)
+		} else {
+			response := h.upstream(proxy, req, hostname)
+			response.Truncate(size(proxy.protocol, req))
+			_ = w.WriteMsg(response)
+		}
 		return
 	}
 	lookupTable := lp.(*LookupTable)
@@ -217,13 +244,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		roundRobinResponse(response)
 		log.Debugf("response for hostname %q (found=true): %v", hostname, response)
 	} else {
-		upstreamRequests.Increment()
-		start := time.Now()
-		// We did not find the host in our internal cache. Query upstream and return the response as is.
-		log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
-		response = h.queryUpstream(proxy.upstreamClient, req, log)
-		requestDuration.Record(float64(time.Since(start).Milliseconds()))
-		log.Debugf("upstream response for hostname %q : %v", hostname, response)
+		response = h.upstream(proxy, req, hostname)
 	}
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed

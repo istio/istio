@@ -386,6 +386,10 @@ func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.B
 // This is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
+	if err = a.initLocalDNSServer(); err != nil {
+		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
+	}
+
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
@@ -393,10 +397,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
-
-	if err = a.initLocalDNSServer(); err != nil {
-		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
-	}
 
 	if a.cfg.ProxyXDSViaAgent {
 		a.xdsProxy, err = initXdsProxy(a)

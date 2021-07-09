@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -173,6 +174,15 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 	cmd := exec.Command(e.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if os.Getuid() == 0 {
+		log.Infof("============= Start envoy as 1337 ==========")
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		cmd.SysProcAttr.Credential = &syscall.Credential{
+			Uid: 1337,
+			Gid: 1337,
+		}
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
