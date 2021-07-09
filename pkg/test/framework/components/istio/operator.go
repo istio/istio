@@ -677,7 +677,7 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, c cluster.
 	// Include all user-specified values and configuration options.
 	if cfg.EnableCNI {
 		installSettings = append(installSettings, "-f",
-			filepath.Join(i.workDir, IntegrationTestCNIDefaultIOP))
+			filepath.Join(testenv.IstioSrc, IntegrationTestCNIDefaultIOP))
 	}
 
 	// Include all user-specified values.
