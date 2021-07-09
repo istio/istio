@@ -108,7 +108,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	b.InitialInterval = 100 * time.Millisecond
 	b.MaxInterval = 2 * time.Second
 	b.MaxElapsedTime = 10 * time.Second
-	backoff.Retry(func() error {
+	err = backoff.Retry(func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
@@ -130,7 +130,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		// Note we retry invoking iptables command explicitly instead of using the `-w` option of iptables,
 		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
-		return errors.New("Failed to acquire XTables lock")
+		return errors.New("failed to acquire XTables lock")
 	}, b)
 
 	if len(stdout.String()) != 0 {
