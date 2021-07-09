@@ -28,8 +28,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -38,8 +40,43 @@ import (
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
 
+// ListenerClass defines the class of the listener
+type telemetryMode int
+
+const (
+	statsAndMetadataExchange telemetryMode = iota
+	metadataExchangeOnly
+	statsOnly
+)
+
+func buildTelemetryNetworkFilters(push *model.PushContext, node *model.Proxy,
+	class istionetworking.ListenerClass, telemetryMode telemetryMode) []*listener.Filter {
+	filterstack := make([]*listener.Filter, 0)
+	telemetryEnabled := push.Telemetry.AnyTelemetryExists()
+
+	// We add metadata exchange on inbound if any telemetry exists, as a client may expect metadata exchange.
+	// For outbound, we only need to set it if our own proxy has telemetry enabled.
+	if telemetryMode == metadataExchangeOnly || telemetryMode == statsAndMetadataExchange {
+		if telemetryEnabled && class == istionetworking.ListenerClassSidecarInbound {
+			filterstack = append(filterstack, xdsfilters.TCPMx)
+		}
+	}
+	// For stats, we only enable if our proxy has it enabled
+	if telemetryMode == statsOnly || telemetryMode == statsAndMetadataExchange {
+		spec := push.Telemetry.EffectiveTelemetry(node)
+		telemetryProviders := model.MetricsProviders(spec, push.Mesh)
+		if len(telemetryProviders) > 0 {
+			// TODO support other providers
+			if model.PrometheusEnabled(telemetryProviders) {
+				filterstack = append(filterstack, xdsfilters.BuildTCPStatsFilter(class))
+			}
+		}
+	}
+	return filterstack
+}
+
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
-func buildInboundNetworkFilters(push *model.PushContext, instance *model.ServiceInstance, clusterName string) []*listener.Filter {
+func buildInboundNetworkFilters(push *model.PushContext, proxy *model.Proxy, instance *model.ServiceInstance, clusterName string) []*listener.Filter {
 	statPrefix := clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(push.Mesh.InboundClusterStatName) != 0 {
@@ -50,7 +87,10 @@ func buildInboundNetworkFilters(push *model.PushContext, instance *model.Service
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
-	return buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)
+
+	filters := buildTelemetryNetworkFilters(push, proxy, istionetworking.ListenerClassSidecarInbound, statsAndMetadataExchange)
+	filters = append(filters, buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)...)
+	return filters
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
@@ -81,7 +121,14 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
-	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
+
+	class := istionetworking.ListenerClassSidecarOutbound
+	if node.Type == model.Router {
+		class = istionetworking.ListenerClassGateway
+	}
+	filters := buildTelemetryNetworkFilters(push, node, class, statsAndMetadataExchange)
+	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	return filters
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -118,7 +165,14 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, proxyConfig)
-	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
+
+	class := istionetworking.ListenerClassSidecarOutbound
+	if node.Type == model.Router {
+		class = istionetworking.ListenerClassGateway
+	}
+	filters := buildTelemetryNetworkFilters(push, node, class, statsAndMetadataExchange)
+	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	return filters
 }
 
 // buildNetworkFiltersStack builds a slice of network filters based on

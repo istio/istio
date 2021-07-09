@@ -482,10 +482,6 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
 	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
-	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
-		return nil
-	}
-
 	metadata := &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
@@ -503,23 +499,21 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
-	if features.EndpointTelemetryLabel {
-		var sb strings.Builder
-		sb.WriteString(workloadname)
-		sb.WriteString(";")
-		sb.WriteString(namespace)
-		sb.WriteString(";")
-		if csn, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
-			sb.WriteString(csn)
-		}
-		sb.WriteString(";")
-		if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
-			sb.WriteString(csr)
-		}
-		sb.WriteString(";")
-		sb.WriteString(clusterID.String())
-		addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
+	var sb strings.Builder
+	sb.WriteString(workloadname)
+	sb.WriteString(";")
+	sb.WriteString(namespace)
+	sb.WriteString(";")
+	if csn, ok := labels[model.IstioCanonicalServiceLabelName]; ok {
+		sb.WriteString(csn)
 	}
+	sb.WriteString(";")
+	if csr, ok := labels[model.IstioCanonicalServiceRevisionLabelName]; ok {
+		sb.WriteString(csr)
+	}
+	sb.WriteString(";")
+	sb.WriteString(clusterID.String())
+	addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
 
 	return metadata
 }

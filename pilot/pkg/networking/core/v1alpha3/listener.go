@@ -313,7 +313,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	// by outbound routes. Traffic sent to our service VIP is redirected by
 	// remote services' kubeproxy to our specific endpoint IP.
 
-	listenerOpts.class = ListenerClassSidecarInbound
+	listenerOpts.class = istionetworking.ListenerClassSidecarInbound
 
 	if old, exists := listenerMap[listenerOpts.port.Port]; exists {
 		if old.protocol != listenerOpts.port.Protocol && old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
@@ -902,7 +902,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	var ret bool
 	var opts []*filterChainOpts
 
-	listenerOpts.class = ListenerClassSidecarOutbound
+	listenerOpts.class = istionetworking.ListenerClassSidecarOutbound
 
 	conflictType := NoConflict
 
@@ -1196,16 +1196,6 @@ type filterChainOpts struct {
 	filterChain      istionetworking.FilterChain
 }
 
-// ListenerClass defines the class of the listener
-type ListenerClass int
-
-const (
-	ListenerClassUndefined ListenerClass = iota
-	ListenerClassSidecarInbound
-	ListenerClassSidecarOutbound
-	ListenerClassGateway
-)
-
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
@@ -1217,7 +1207,7 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
-	class             ListenerClass
+	class             istionetworking.ListenerClass
 	service           *model.Service
 	protocol          istionetworking.ListenerProtocol
 }
@@ -1292,8 +1282,16 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 
 	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
 
+	spec := listenerOpts.push.Telemetry.EffectiveTelemetry(listenerOpts.proxy)
+	telemetry := model.MetricsEnabled(spec, listenerOpts.push.Mesh)
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
+
+	// We add metadata exchange on inbound if any telemetry exists, as a client may expect metadata exchange.
+	// For outbound, we only need to set it if our own proxy has telemetry enabled.
+	if telemetry || (listenerOpts.push.Telemetry.AnyTelemetryExists() && listenerOpts.class != istionetworking.ListenerClassSidecarOutbound) {
+		filters = append(filters, xdsfilters.HTTPMx)
+	}
 
 	if httpOpts.addGRPCWebFilter {
 		filters = append(filters, xdsfilters.GrpcWeb)
@@ -1304,11 +1302,15 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if listenerOpts.class == ListenerClassSidecarOutbound {
+	if listenerOpts.class == istionetworking.ListenerClassSidecarOutbound {
 		filters = append(filters, xdsfilters.Alpn)
 	}
 
-	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.BuildRouterFilter(routerFilterCtx))
+	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault)
+	if telemetry {
+		filters = append(filters, xdsfilters.BuildHTTPStatsFilter(listenerOpts.class))
+	}
+	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
 
@@ -1344,7 +1346,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	// needed, since we are explicitly setting transport protocol in every single
 	// match. We can do this for outbound as well, at which point this could be
 	// removed, but have not yet
-	if needTLSInspector || (opts.class == ListenerClassSidecarOutbound && opts.needHTTPInspector) {
+	if needTLSInspector || (opts.class == istionetworking.ListenerClassSidecarOutbound && opts.needHTTPInspector) {
 		listenerFiltersMap[wellknown.TlsInspector] = true
 		listenerFilters = append(listenerFilters, xdsfilters.TLSInspector)
 	}

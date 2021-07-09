@@ -15,7 +15,10 @@
 package filters
 
 import (
+	"encoding/json"
+
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
@@ -23,22 +26,24 @@ import (
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
-	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
+	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	protobuf "github.com/gogo/protobuf/types"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	alpn "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -49,7 +54,8 @@ const (
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"
 
-	MxFilterName = "istio.metadata_exchange"
+	MxFilterName    = "istio.metadata_exchange"
+	StatsFilterName = "istio.stats"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -154,6 +160,20 @@ var (
 		})},
 	}
 
+	TCPClusterMx = &cluster.Filter{
+		Name: MxFilterName,
+		TypedConfig: util.MessageToAny(&udpa.TypedStruct{
+			TypeUrl: "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
+			Value: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"protocol": {
+						Kind: &structpb.Value_StringValue{StringValue: "istio-peer-exchange"},
+					},
+				},
+			},
+		}),
+	}
+
 	HTTPMx = buildHTTPMxFilter()
 )
 
@@ -185,51 +205,141 @@ var (
 )
 
 func buildHTTPMxFilter() *hcm.HttpFilter {
-	var vmConfig *v3.PluginConfig_VmConfig
+	httpMxConfigProto := &httpwasm.Wasm{
+		Config: &wasm.PluginConfig{
+			Vm:            constructVMConfig("/etc/istio/extensions/metadata-exchange-filter.compiled.wasm", "envoy.wasm.metadata_exchange"),
+			Configuration: util.MessageToAny(&protobuf.StringValue{Value: "{}"}),
+		},
+	}
 
+	return &hcm.HttpFilter{
+		Name:       MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(httpMxConfigProto)},
+	}
+}
+
+func BuildTCPStatsFilter(class networking.ListenerClass) *listener.Filter {
+	js, err := json.Marshal(statsConfigForClass(class))
+	if err != nil {
+		log.Errorf("failed to marshal stats config: %v", err)
+		return nil
+	}
+
+	vmConfig := constructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+	root := rootIDForClass(class)
+	vmConfig.VmConfig.VmId = "tcp_" + root
+
+	wasmConfig := &wasmfilter.Wasm{
+		Config: &wasm.PluginConfig{
+			RootId:        root,
+			Vm:            vmConfig,
+			Configuration: util.MessageToAny(&protobuf.StringValue{Value: string(js)}),
+		},
+	}
+
+	return &listener.Filter{
+		Name:       StatsFilterName,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(wasmConfig)},
+	}
+}
+
+func BuildHTTPStatsFilter(class networking.ListenerClass) *hcm.HttpFilter {
+	js, err := json.Marshal(statsConfigForClass(class))
+	if err != nil {
+		log.Errorf("failed to marshal stats config: %v", err)
+		return nil
+	}
+
+	vmConfig := constructVMConfig("/etc/istio/extensions/stats-filter.compiled.wasm", "envoy.wasm.stats")
+	root := rootIDForClass(class)
+	vmConfig.VmConfig.VmId = root
+
+	wasmConfig := &httpwasm.Wasm{
+		Config: &wasm.PluginConfig{
+			RootId:        root,
+			Vm:            vmConfig,
+			Configuration: util.MessageToAny(&protobuf.StringValue{Value: string(js)}),
+		},
+	}
+
+	return &hcm.HttpFilter{
+		Name:       StatsFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: util.MessageToAny(wasmConfig)},
+	}
+}
+
+func rootIDForClass(class networking.ListenerClass) string {
+	switch class {
+	case networking.ListenerClassSidecarInbound:
+		return "stats_inbound"
+	default:
+		return "stats_outbound"
+	}
+}
+
+func statsConfigForClass(class networking.ListenerClass) statsConfig {
+	switch class {
+	case networking.ListenerClassSidecarInbound:
+		return statsConfig{
+			Metrics: []*metricsConfig{{
+				Dimensions: map[string]string{
+					"destination_cluster": "node.metadata['CLUSTER_ID']",
+					"source_cluster":      "downstream_peer.cluster_id",
+				},
+			}},
+			DisableHostHeaderFallback: true,
+		}
+	case networking.ListenerClassGateway:
+		return statsConfig{
+			DisableHostHeaderFallback: true,
+		}
+	default:
+		return statsConfig{}
+	}
+}
+
+// TODO: import https://github.com/istio/proxy/blob/master/extensions/stats/config.proto
+// and use directly.
+type statsConfig struct {
+	DisableHostHeaderFallback bool             `json:"disable_host_header_fallback,omitempty"`
+	Metrics                   []*metricsConfig `json:"metrics,omitempty"`
+}
+
+type metricsConfig struct {
+	Dimensions map[string]string `json:"dimensions,omitempty"`
+}
+
+// constructVMConfig constructs a VM config. If WASM is enabled, the wasm plugin at filename will be used.
+// If not, the builtin (null vm) extension, name, will be used.
+func constructVMConfig(filename, name string) *wasm.PluginConfig_VmConfig {
+	var vmConfig *wasm.PluginConfig_VmConfig
 	if features.EnableWasmTelemetry {
-		vmConfig = &v3.PluginConfig_VmConfig{
-			VmConfig: &v3.VmConfig{
+		vmConfig = &wasm.PluginConfig_VmConfig{
+			VmConfig: &wasm.VmConfig{
 				Runtime:          "envoy.wasm.runtime.v8",
 				AllowPrecompiled: true,
 				Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
 					Local: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/istio/extensions/metadata-exchange-filter.compiled.wasm",
+							Filename: filename,
 						},
 					},
 				}},
 			},
 		}
 	} else {
-		vmConfig = &v3.PluginConfig_VmConfig{
-			VmConfig: &v3.VmConfig{
+		vmConfig = &wasm.PluginConfig_VmConfig{
+			VmConfig: &wasm.VmConfig{
 				Runtime: "envoy.wasm.runtime.null",
 				Code: &core.AsyncDataSource{Specifier: &core.AsyncDataSource_Local{
 					Local: &core.DataSource{
 						Specifier: &core.DataSource_InlineString{
-							InlineString: "envoy.wasm.metadata_exchange",
+							InlineString: name,
 						},
 					},
 				}},
 			},
 		}
 	}
-
-	httpMxConfigProto := &wasm.Wasm{
-		Config: &v3.PluginConfig{
-			Vm:            vmConfig,
-			Configuration: util.MessageToAny(&protobuf.StringValue{Value: "{}\n"}),
-		},
-	}
-
-	typed, err := anypb.New(httpMxConfigProto)
-	if err != nil {
-		return nil
-	}
-
-	return &hcm.HttpFilter{
-		Name:       MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: typed},
-	}
+	return vmConfig
 }

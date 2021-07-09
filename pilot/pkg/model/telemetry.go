@@ -15,7 +15,11 @@
 package model
 
 import (
+	"strings"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	istiolog "istio.io/pkg/log"
@@ -62,6 +66,11 @@ func GetTelemetries(env *Environment) (*Telemetries, error) {
 	}
 
 	return telemetries, nil
+}
+
+// AnyTelemetryExists determines if there are an Telemetries present in the entire mesh.
+func (t *Telemetries) AnyTelemetryExists() bool {
+	return len(t.NamespaceToTelemetries) > 0
 }
 
 func (t *Telemetries) EffectiveTelemetry(proxy *Proxy) *tpb.Telemetry {
@@ -116,8 +125,31 @@ func shallowMerge(parent, child *tpb.Telemetry) *tpb.Telemetry {
 	}
 	merged := parent.DeepCopy()
 	shallowMergeTracing(merged, child)
+	mergeMetrics(merged, child)
 	shallowMergeAccessLogs(merged, child)
 	return merged
+}
+
+func mergeMetrics(parent *tpb.Telemetry, child *tpb.Telemetry) {
+	if len(parent.GetMetrics()) == 0 {
+		parent.Metrics = child.Metrics
+		return
+	}
+	if len(child.GetMetrics()) == 0 {
+		return
+	}
+
+	// TODO proper merge of matches
+	childMetrics := child.Metrics[0]
+	mergedMetrics := parent.Metrics[0]
+	if len(childMetrics.Providers) != 0 {
+		mergedMetrics.Providers = childMetrics.Providers
+	}
+
+	// TODO deep merge
+	if childMetrics.Overrides != nil {
+		mergedMetrics.Overrides = childMetrics.Overrides
+	}
 }
 
 func shallowMergeTracing(parent, child *tpb.Telemetry) {
@@ -168,4 +200,45 @@ func shallowMergeAccessLogs(parent *tpb.Telemetry, child *tpb.Telemetry) {
 	if childLogging.GetDisabled() != nil {
 		mergedLogging.Disabled = childLogging.Disabled
 	}
+}
+
+// PrometheusEnabled determines if any of the extension providers are for prometheus
+func PrometheusEnabled(providers []*meshconfig.MeshConfig_ExtensionProvider) bool {
+	for _, prov := range providers {
+		if _, ok := prov.Provider.(*meshconfig.MeshConfig_ExtensionProvider_Prometheus); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// MetricsEnabled determines if there is any `metrics` configuration for the provided mesh configuration and Telemetry.
+// Note that this can return `true` even when `spec` is `nil`, in the case there is a default provider.
+func MetricsEnabled(spec *tpb.Telemetry, mesh *meshconfig.MeshConfig) bool {
+	return len(MetricsProviders(spec, mesh)) > 0
+}
+
+// MetricsProviders returns a list of all metrics extension providers used by the spec
+// (`metrics.providers`) and mesh configuration (`defaultProviders.metrics`).
+func MetricsProviders(spec *tpb.Telemetry, mesh *meshconfig.MeshConfig) []*meshconfig.MeshConfig_ExtensionProvider {
+	providers := sets.NewSet(mesh.GetDefaultProviders().GetMetrics()...)
+	if len(spec.GetMetrics()) > 0 {
+		// handle multiple
+		if prov := spec.Metrics[0].GetProviders(); len(prov) > 0 {
+			providers.Insert(strings.ToLower(prov[0].Name))
+		}
+	}
+	if len(providers) == 0 {
+		return nil
+	}
+
+	ret := []*meshconfig.MeshConfig_ExtensionProvider{}
+
+	for _, p := range mesh.ExtensionProviders {
+		name := strings.ToLower(p.Name)
+		if providers.Contains(name) {
+			ret = append(ret, p)
+		}
+	}
+	return ret
 }
