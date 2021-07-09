@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -45,7 +46,7 @@ var (
 	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway, destination rule, and virtual service resource type")
 )
 
-type controller struct {
+type Controller struct {
 	client            kube.Client
 	cache             model.ConfigStoreCache
 	namespaceLister   listerv1.NamespaceLister
@@ -54,19 +55,17 @@ type controller struct {
 
 	state   OutputResources
 	stateMu sync.RWMutex
-	status  status.WorkerQueue
+
+	statusEnabled *atomic.Bool
+	status        status.WorkerQueue
 }
 
-var _ model.GatewayController = &controller{}
+var _ model.GatewayController = &Controller{}
 
-func NewController(client kube.Client, c model.ConfigStoreCache, options controller2.Options) model.GatewayController {
-	return &controller{
-		client:            client,
-		cache:             c,
-		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
-		namespaceInformer: client.KubeInformer().Core().V1().Namespaces().Informer(),
-		domain:            options.DomainSuffix,
-		status: status.NewWorkerPool(func(resource status.Resource, resourceStatus status.ResourceStatus) {
+func NewController(client kube.Client, c model.ConfigStoreCache, options controller2.Options) *Controller {
+	var statusQueue status.WorkerQueue
+	if features.EnableGatewayAPIStatus {
+		statusQueue = status.NewWorkerPool(func(resource status.Resource, resourceStatus status.ResourceStatus) {
 			log.Debugf("updating status for %v", resource.String())
 			_, err := c.UpdateStatus(config.Config{
 				// TODO stop round tripping this status.Resource<->config.Meta
@@ -77,11 +76,21 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 				// TODO should we requeue or wait for another event to trigger an update?
 				log.Errorf("failed to update status for %v/: %v", resource.String(), err)
 			}
-		}, uint(features.StatusMaxWorkers)),
+		}, uint(features.StatusMaxWorkers))
+	}
+	return &Controller{
+		client:            client,
+		cache:             c,
+		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
+		namespaceInformer: client.KubeInformer().Core().V1().Namespaces().Informer(),
+		domain:            options.DomainSuffix,
+		status:            statusQueue,
+		// Disabled by default, we will enable only if we win the leader election
+		statusEnabled: atomic.NewBool(false),
 	}
 }
 
-func (c *controller) Schemas() collection.Schemas {
+func (c *Controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
 		collections.IstioNetworkingV1Alpha3Virtualservices,
 		collections.IstioNetworkingV1Alpha3Gateways,
@@ -89,7 +98,7 @@ func (c *controller) Schemas() collection.Schemas {
 	)
 }
 
-func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
+func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	return nil
 }
 
@@ -119,7 +128,7 @@ func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
 	return filtered
 }
 
-func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	if typ != gvk.Gateway && typ != gvk.VirtualService && typ != gvk.DestinationRule {
 		return nil, errUnsupportedType
 	}
@@ -138,7 +147,11 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 	}
 }
 
-func (c *controller) Recompute(context model.GatewayContext) error {
+func (c *Controller) SetStatusWrite(enabled bool) {
+	c.statusEnabled.Store(enabled)
+}
+
+func (c *Controller) Recompute(context model.GatewayContext) error {
 	t0 := time.Now()
 	defer func() {
 		log.Debugf("recompute complete in %v", time.Since(t0))
@@ -208,7 +221,7 @@ func (c *controller) Recompute(context model.GatewayContext) error {
 	return nil
 }
 
-func (c *controller) QueueStatusUpdates(r *KubernetesResources) {
+func (c *Controller) QueueStatusUpdates(r *KubernetesResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
@@ -217,7 +230,10 @@ func (c *controller) QueueStatusUpdates(r *KubernetesResources) {
 	c.handleStatusUpdates(r.BackendPolicy)
 }
 
-func (c *controller) handleStatusUpdates(configs []config.Config) {
+func (c *Controller) handleStatusUpdates(configs []config.Config) {
+	if c.status == nil || !c.statusEnabled.Load() {
+		return
+	}
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
 		if ws.Dirty {
@@ -236,38 +252,38 @@ func anyApisUsed(input *KubernetesResources) bool {
 		len(input.BackendPolicy) > 0
 }
 
-func (c *controller) Create(config config.Config) (revision string, err error) {
+func (c *Controller) Create(config config.Config) (revision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Update(config config.Config) (newRevision string, err error) {
+func (c *Controller) Update(config config.Config) (newRevision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) UpdateStatus(config config.Config) (newRevision string, err error) {
+func (c *Controller) UpdateStatus(config config.Config) (newRevision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
+func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
+func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
 	return errUnsupportedOp
 }
 
-func (c *controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
+func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
 	// do nothing as c.cache has been registered
 }
 
-func (c *controller) Run(stop <-chan struct{}) {
+func (c *Controller) Run(stop <-chan struct{}) {
 	cache.WaitForCacheSync(stop, c.namespaceInformer.HasSynced)
 }
 
-func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
+func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
 	return c.cache.SetWatchErrorHandler(handler)
 }
 
-func (c *controller) HasSynced() bool {
+func (c *Controller) HasSynced() bool {
 	return c.cache.HasSynced()
 }

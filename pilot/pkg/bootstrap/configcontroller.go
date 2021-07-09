@@ -17,7 +17,6 @@ package bootstrap
 import (
 	"fmt"
 	"net/url"
-	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/mesh"
@@ -159,8 +158,22 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableServiceApis {
-		s.environment.GatewayAPIController = gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		gwc := gateway.NewController(s.kubeClient, configController, args.RegistryOptions.KubeOptions)
+		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayController, s.kubeClient.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("Starting gateway status writer")
+					gwc.SetStatusWrite(true)
+					<-leaderStop
+					log.Infof("Stoppping gateway status writer")
+					gwc.SetStatusWrite(false)
+				}).
+				Run(stop)
+			return nil
+		})
 	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {
@@ -287,7 +300,7 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 
 func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.statusReporter = &status.Reporter{
-		UpdateInterval: time.Millisecond * 500, // TODO: use args here?
+		UpdateInterval: features.StatusUpdateInterval,
 		PodName:        args.PodName,
 	}
 	s.addStartFunc(func(stop <-chan struct{}) error {

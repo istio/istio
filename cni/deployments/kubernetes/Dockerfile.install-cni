@@ -17,7 +17,6 @@ FROM ${BASE_DISTRIBUTION}
 LABEL description="Istio CNI plugin installer."
 
 COPY istio-cni /opt/cni/bin/
-COPY istio-iptables /opt/cni/bin/
 COPY install-cni /usr/local/bin/
 
 # Copy over the Taint binary

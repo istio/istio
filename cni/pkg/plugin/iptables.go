@@ -17,14 +17,15 @@
 package plugin
 
 import (
-	"fmt"
-	"os/exec"
-	"strings"
+	"github.com/spf13/viper"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/tools/istio-iptables/pkg/cmd"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/env"
 )
 
-var nsSetupProg = "istio-iptables"
+var dryRunFilePath = env.RegisterStringVar("DRY_RUN_FILE_PATH", "",
+	"If provided, CNI will dry run iptables rule apply, and print the applied rules to the given file.")
 
 type iptables struct{}
 
@@ -35,32 +36,28 @@ func newIPTables() InterceptRuleMgr {
 // Program defines a method which programs iptables based on the parameters
 // provided in Redirect.
 func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
-	netnsArg := fmt.Sprintf("--net=%s", netns)
-	nsSetupExecutable := fmt.Sprintf("%s/%s", nsSetupBinDir, nsSetupProg)
-	nsenterArgs := []string{
-		netnsArg,
-		"--", // separate nsenter args from the rest with `--`, needed for hosts using BusyBox binaries
-		nsSetupExecutable,
-		"-p", rdrct.targetPort,
-		"-u", rdrct.noRedirectUID,
-		"-m", rdrct.redirectMode,
-		"-i", rdrct.includeIPCidrs,
-		"-b", rdrct.includePorts,
-		"-d", rdrct.excludeInboundPorts,
-		"-o", rdrct.excludeOutboundPorts,
-		"-x", rdrct.excludeIPCidrs,
-		"-k", rdrct.kubevirtInterfaces,
+	viper.Set(constants.CNIMode, true)
+	viper.Set(constants.NetworkNamespace, netns)
+	viper.Set(constants.EnvoyPort, rdrct.targetPort)
+	viper.Set(constants.ProxyUID, rdrct.noRedirectUID)
+	viper.Set(constants.InboundInterceptionMode, rdrct.redirectMode)
+	viper.Set(constants.ServiceCidr, rdrct.includeIPCidrs)
+	viper.Set(constants.InboundPorts, rdrct.includePorts)
+	viper.Set(constants.LocalExcludePorts, rdrct.excludeInboundPorts)
+	viper.Set(constants.LocalOutboundPortsExclude, rdrct.excludeOutboundPorts)
+	viper.Set(constants.ServiceExcludeCidr, rdrct.excludeIPCidrs)
+	viper.Set(constants.KubeVirtInterfaces, rdrct.kubevirtInterfaces)
+	if drf := dryRunFilePath.Get(); drf != "" {
+		viper.Set(constants.DryRun, true)
+		viper.Set(constants.OutputPath, drf)
 	}
 	if rdrct.dnsRedirect {
-		nsenterArgs = append(nsenterArgs, "--redirect-dns", "--capture-all-dns")
+		viper.Set(constants.RedirectDNS, true)
+		viper.Set(constants.CaptureAllDNS, true)
 	}
-	log.Infof("nsenter args: %s", strings.Join(nsenterArgs, " "))
-	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
-	if err != nil {
-		log.WithLabels("err", err, "out", out).Errorf("nsenter failed ")
-		log.Infof("nsenter out: %s", out)
-	} else {
-		log.Infof("nsenter done: %s", out)
+	iptablesCmd := cmd.GetCommand()
+	if err := iptablesCmd.Execute(); err != nil {
+		return err
 	}
-	return err
+	return nil
 }

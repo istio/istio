@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serviceregistry
+package client
 
-// ProviderID defines underlying platform supporting service registry
-type ProviderID string
+import (
+	"testing"
 
-const (
-	// Mock is a service registry that contains 2 hard-coded test services
-	Mock ProviderID = "Mock"
-	// Kubernetes is a service registry backed by k8s API server
-	Kubernetes ProviderID = "Kubernetes"
-	// External is a service registry for externally provided ServiceEntries
-	External = "External"
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestMain(m *testing.M) {
+	// CheckMain asserts that no goroutines are leaked after a test package exits.
+	leak.CheckMain(m)
+}

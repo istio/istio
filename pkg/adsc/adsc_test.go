@@ -157,12 +157,12 @@ func TestADSC_Save(t *testing.T) {
 		{
 			desc: "empty",
 			expectedJSON: map[string]string{
-				"_lds_tcp":  `{}`,
-				"_lds_http": `{}`,
-				"_rds":      `{}`,
-				"_eds":      `{}`,
-				"_ecds":     `{}`,
-				"_cds":      `{}`,
+				"_lds_tcp":  `[]`,
+				"_lds_http": `[]`,
+				"_rds":      `[]`,
+				"_eds":      `[]`,
+				"_ecds":     `[]`,
+				"_cds":      `[]`,
 			},
 			err: nil,
 			adsc: &ADSC{
@@ -178,50 +178,58 @@ func TestADSC_Save(t *testing.T) {
 			desc: "populated",
 			err:  nil,
 			expectedJSON: map[string]string{
-				"_lds_tcp": `{
+				"_lds_tcp": `[
+  {
     "listener-1": {
-      "name": "bar",
-      "ListenerSpecifier": null
-    },
+      "name": "bar"
+    }
+  },
+  {
     "listener-2": {
-      "name": "mar",
-      "ListenerSpecifier": null
+      "name": "mar"
     }
-  }`,
-				"_lds_http": `{
+  }
+]`,
+				"_lds_http": `[
+  {
     "http-list-1": {
-      "name": "bar",
-      "ListenerSpecifier": null
-    },
-    "http-list-2": {
-      "name": "mar",
-      "ListenerSpecifier": null
+      "name": "bar"
     }
-  }`,
-				"_rds": `{
+  },
+  {
+    "http-list-2": {
+      "name": "mar"
+    }
+  }
+]`,
+				"_rds": `[
+  {
     "route-1": {
       "name": "mar"
     }
-  }`,
-				"_eds": `{
+  }
+]`,
+				"_eds": `[
+  {
     "load-assignment-1": {
-      "cluster_name": "foo"
+      "clusterName": "foo"
     }
-  }`,
-				"_ecds": `{
+  }
+]`,
+				"_ecds": `[
+  {
     "eds-cluster-1": {
-      "name": "test",
-      "ClusterDiscoveryType": null,
-      "LbConfig": null
+      "name": "test"
     }
-  }`,
-				"_cds": `{
+  }
+]`,
+				"_cds": `[
+  {
     "cluster-1": {
-      "name": "foo",
-      "ClusterDiscoveryType": null,
-      "LbConfig": null
+      "name": "foo"
     }
-  }`,
+  }
+]`,
 			},
 			adsc: &ADSC{
 				tcpListeners: map[string]*listener.Listener{

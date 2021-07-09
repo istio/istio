@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/spf13/viper"
 
 	"istio.io/istio/cni/pkg/cmd"
 	"istio.io/istio/cni/pkg/constants"
@@ -270,6 +271,9 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	}
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
+	// disable monitoring
+	viper.Set(constants.MonitoringPort, 0)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -301,7 +305,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	}
 
 	compareConfResult(resultFile, expectedOutputFile, t)
-	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
+	checkBinDir(t, tempCNIBinDir, "add", "istio-cni")
 
 	// Test script restart by removing configuration
 	if chainedCNIPlugin {
@@ -329,7 +333,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			t.Logf("FAIL: Istio CNI config file was not removed: %s", resultFile)
 		}
 	}
-	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
+	checkBinDir(t, tempCNIBinDir, "del", "istio-cni")
 	checkTempFilesCleaned(tempCNIConfDir, t)
 }
 

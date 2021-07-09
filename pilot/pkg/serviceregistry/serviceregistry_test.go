@@ -1022,7 +1022,7 @@ func expectEndpoints(t *testing.T, s *xds.FakeDiscoveryServer, cluster string, e
 // nolint: unparam
 func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *model.Service, port int, expected []ServiceInstanceResponse) {
 	t.Helper()
-	svc.Attributes.ServiceRegistry = string(sd.Provider())
+	svc.Attributes.ServiceRegistry = sd.Provider()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
 		instances := sd.InstancesByPort(svc, port, nil)

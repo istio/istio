@@ -15,6 +15,7 @@
 package monitoring
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 
@@ -25,11 +26,14 @@ import (
 	"istio.io/pkg/log"
 )
 
-func SetupMonitoring(addr, path string, stop <-chan struct{}) {
+func SetupMonitoring(port int, path string, stop <-chan struct{}) {
+	if port <= 0 {
+		return
+	}
 	mux := http.NewServeMux()
 	var listener net.Listener
 	var err error
-	if listener, err = net.Listen("tcp", addr); err != nil {
+	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
 		log.Errorf("unable to listen on socket: %v", err)
 	}
 	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: prometheus.DefaultRegisterer.(*prometheus.Registry)})

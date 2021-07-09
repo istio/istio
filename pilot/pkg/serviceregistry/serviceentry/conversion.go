@@ -22,7 +22,7 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -209,7 +209,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 			Ports:        ports,
 			Resolution:   resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.External),
+				ServiceRegistry: provider.External,
 				Name:            ha.host,
 				Namespace:       namespace,
 				Labels:          labels,

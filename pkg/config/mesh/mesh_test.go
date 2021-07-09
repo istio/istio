@@ -19,10 +19,15 @@ import (
 	"reflect"
 	"testing"
 
+	ptypes "github.com/gogo/protobuf/types"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -142,6 +147,11 @@ outboundTrafficPolicy:
   mode: REGISTRY_ONLY
 clusterLocalNamespaces: 
 - "foons"
+defaultProviders:
+  tracing: [foo]
+extensionProviders:
+- name: sd
+  stackdriver: {}
 defaultConfig:
   tracing: {}
   concurrency: 4`)
@@ -151,9 +161,136 @@ defaultConfig:
 	if got.DefaultConfig.Tracing.GetZipkin() != nil {
 		t.Error("Failed to override tracing")
 	}
+	if len(got.DefaultProviders.GetMetrics()) != 0 {
+		t.Errorf("default providers deep merge failed, got %v", got.DefaultProviders.GetMetrics())
+	}
+	if len(got.ExtensionProviders) != 2 {
+		t.Errorf("extension providers deep merge failed")
+	}
 
 	gotY, err := gogoprotomarshal.ToYAML(got)
 	t.Log("Result: \n", gotY, err)
+}
+
+func TestDeepMerge(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{
+			name: "set other default provider",
+			in: `
+defaultProviders:
+  tracing: [foo]`,
+			out: `defaultProviders:
+  metrics:
+  - stackdriver
+  tracing:
+  - foo
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAttributes: 3
+`,
+		},
+		{
+			name: "override default provider",
+			in: `
+defaultProviders:
+  metrics: [foo]`,
+			out: `defaultProviders:
+  metrics:
+  - foo
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAttributes: 3
+`,
+		},
+		{
+			name: "replace builtin provider",
+			in: `
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAnnotations: 5`,
+			out: `defaultProviders:
+  metrics:
+  - stackdriver
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAnnotations: 5
+`,
+		},
+		{
+			name: "add provider with existing type",
+			in: `
+extensionProviders:
+- name: stackdriver-annotations
+  stackdriver:
+    maxNumberOfAnnotations: 5`,
+			out: `defaultProviders:
+  metrics:
+  - stackdriver
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAttributes: 3
+- name: stackdriver-annotations
+  stackdriver:
+    maxNumberOfAnnotations: 5
+`,
+		},
+		{
+			name: "add provider",
+			in: `
+extensionProviders:
+- name: prometheus
+  prometheus: {}`,
+			out: `defaultProviders:
+  metrics:
+  - stackdriver
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAttributes: 3
+- name: prometheus
+  prometheus: {}
+`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mc := mesh.DefaultMeshConfig()
+			mc.DefaultProviders = &meshconfig.MeshConfig_DefaultProviders{
+				Metrics: []string{"stackdriver"},
+			}
+			mc.ExtensionProviders = []*meshconfig.MeshConfig_ExtensionProvider{{
+				Name: "stackdriver",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_Stackdriver{
+					Stackdriver: &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{
+						MaxNumberOfAttributes: &ptypes.Int64Value{Value: 3},
+					},
+				},
+			}}
+			res, err := mesh.ApplyMeshConfig(tt.in, mc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Just extract fields we are testing
+			minimal := &meshconfig.MeshConfig{}
+			minimal.DefaultProviders = res.DefaultProviders
+			minimal.ExtensionProviders = res.ExtensionProviders
+
+			want := &meshconfig.MeshConfig{}
+			protomarshal.ApplyYAML(tt.out, want)
+			if d := cmp.Diff(want, minimal, protocmp.Transform()); d != "" {
+				t.Fatalf("got diff %v", d)
+			}
+		})
+	}
 }
 
 func TestApplyMeshNetworksDefaults(t *testing.T) {

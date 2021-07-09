@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -205,7 +206,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		// "domain squatting" on the hostname before a Kubernetes Service is created.
 		// This relies on the assumption that
 		if existing, f := out.servicesByHostname[s.Hostname]; f &&
-			!(existing.Attributes.ServiceRegistry != "Kubernetes" && s.Attributes.ServiceRegistry == "Kubernetes") {
+			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
 			continue
 		}
 		out.servicesByHostname[s.Hostname] = s
