@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/log"
@@ -100,6 +101,9 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 
 	var stdout, stderr *bytes.Buffer
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 100 * time.Millisecond
+	b.Reset()
 	for i := 0; i < 10; i++ {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
@@ -121,7 +125,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		// If command failed because xtables was locked, try the command again.
 		// Note we retry invoking iptables command explicitly instead of using the `-w` option of iptables,
 		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(b.NextBackOff())
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
 	}
 

@@ -28,7 +28,7 @@ func TestIsXTablesLockError(t *testing.T) {
 	}{
 		{
 			name:    "no error",
-			errMsg:  "Another app is currently holding the xtables lock.",
+			errMsg:  "",
 			errCode: 0,
 			want:    false,
 		},
