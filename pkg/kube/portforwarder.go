@@ -15,9 +15,9 @@
 package kube
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -50,7 +50,6 @@ type forwarder struct {
 	stopCh    chan struct{}
 	readyCh   <-chan struct{}
 	address   string
-	output    *bytes.Buffer
 }
 
 func (f *forwarder) Start() error {
@@ -100,7 +99,6 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 
 	stopCh := make(chan struct{})
 	readyCh := make(chan struct{})
-	output := new(bytes.Buffer)
 	if localAddress == "" {
 		localAddress = defaultLocalAddress
 	}
@@ -115,7 +113,7 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 		[]string{fmt.Sprintf("%d:%d", localPort, podPort)},
 		stopCh,
 		readyCh,
-		output,
+		io.Discard,
 		os.Stderr)
 	if err != nil {
 		return nil, fmt.Errorf("failed establishing port-forward: %v", err)
@@ -140,7 +138,6 @@ func newPortForwarder(restConfig *rest.Config, podName, ns, localAddress string,
 		forwarder: fw,
 		stopCh:    stopCh,
 		readyCh:   readyCh,
-		output:    output,
 		address:   fmt.Sprintf("%s:%d", localAddress, localPort),
 	}, nil
 }
