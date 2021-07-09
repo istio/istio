@@ -384,7 +384,7 @@ func TestCertExpired(t *testing.T) {
 		},
 		"Not Expired Cert": {
 			filepath: "./testdata/notexpired-cert.pem",
-			expected: true,
+			expected: false,
 		},
 	}
 	for id, tc := range testCases {
