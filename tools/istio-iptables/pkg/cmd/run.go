@@ -156,7 +156,7 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
 			// TODO: (abhide): Move this out of this method
-			err := iptConfigurator.ext.Run(constants.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table",
+			_, err := iptConfigurator.ext.Run(constants.IP, "-f", "inet", "route", "add", "local", "default", "dev", "lo", "table",
 				iptConfigurator.cfg.InboundTProxyRouteTable)
 			if err != nil {
 				// TODO: (abhide): Move this out of this method
@@ -379,9 +379,9 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = iptConfigurator.ext.Run(constants.IPTABLESSAVE)
+		_, _ = iptConfigurator.ext.Run(constants.IPTABLESSAVE)
 		if iptConfigurator.cfg.EnableInboundIPv6 {
-			_ = iptConfigurator.ext.Run(constants.IP6TABLESSAVE)
+			_, _ = iptConfigurator.ext.Run(constants.IP6TABLESSAVE)
 		}
 	}()
 
@@ -407,7 +407,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		// TODO: (abhide): Move this out of this method
-		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
+		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "replace", "::6/128", "dev", "lo")
 	}
 
 	// Do not capture internal interface.
@@ -859,17 +859,36 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 
 func (iptConfigurator *IptablesConfigurator) executeCommands() {
 	if iptConfigurator.cfg.RestoreFormat {
-		// Execute iptables-restore
-		err := iptConfigurator.executeIptablesRestoreCommand(true)
-		if err != nil {
-			log.Errorf("Failed to execute iptables-restore command: %v", err)
-			os.Exit(1)
+
+		// Get the standard output of the iptables-save command
+		output, _ := iptConfigurator.ext.Run(constants.IPTABLESSAVE, "-t", constants.NAT)
+
+		// Skip execution of iptables-restore if it has already run before
+		// This ensures safe re-execution of init containers
+		if strings.Contains(output, "ISTIO") {
+			log.Infof("ISTIO chain(s) already exist in the %s table of the %s", constants.NAT, constants.IPTABLES)
+		} else {
+			// Execute iptables-restore
+			err := iptConfigurator.executeIptablesRestoreCommand(true)
+			if err != nil {
+				log.Errorf("Failed to execute iptables-restore command: %v", err)
+				os.Exit(1)
+			}
 		}
-		// Execute ip6tables-restore
-		err = iptConfigurator.executeIptablesRestoreCommand(false)
-		if err != nil {
-			log.Errorf("Failed to execute iptables-restore command: %v", err)
-			os.Exit(1)
+
+		// Get the standard output of the ip6tables-save command
+		output, _ = iptConfigurator.ext.Run(constants.IP6TABLESSAVE, "-t", constants.NAT)
+
+		// Skip execution of ip6tables-restore for the same reason as IPv4 above
+		if strings.Contains(output, "ISTIO") && iptConfigurator.cfg.EnableInboundIPv6 {
+			log.Infof("ISTIO chain(s) already exist in the %s table of the %s", constants.NAT, constants.IP6TABLES)
+		} else {
+			// Execute ip6tables-restore
+			err := iptConfigurator.executeIptablesRestoreCommand(false)
+			if err != nil {
+				log.Errorf("Failed to execute iptables-restore command: %v", err)
+				os.Exit(1)
+			}
 		}
 	} else {
 		// Execute iptables commands

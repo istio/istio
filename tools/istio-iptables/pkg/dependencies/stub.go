@@ -28,10 +28,10 @@ func (s *StdoutStubDependencies) RunOrFail(cmd string, args ...string) {
 	log.Infof("%s %s", cmd, strings.Join(args, " "))
 }
 
-// Run runs a command
-func (s *StdoutStubDependencies) Run(cmd string, args ...string) error {
+// Run runs a command, returns its standard output and error
+func (s *StdoutStubDependencies) Run(cmd string, args ...string) (string, error) {
 	log.Infof("%s %s", cmd, strings.Join(args, " "))
-	return nil
+	return "", nil
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
