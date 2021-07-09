@@ -310,10 +310,8 @@ func TestCleanup(t *testing.T) {
 			}
 
 			// Create existing binary files
-			for _, filename := range []string{"istio-cni", "istio-iptables"} {
-				if err := ioutil.WriteFile(filepath.Join(cniBinDir, filename), []byte{1, 2, 3}, 0o755); err != nil {
-					t.Fatal(err)
-				}
+			if err := ioutil.WriteFile(filepath.Join(cniBinDir, "istio-cni"), []byte{1, 2, 3}, 0o755); err != nil {
+				t.Fatal(err)
 			}
 
 			// Create kubeconfig
@@ -355,10 +353,8 @@ func TestCleanup(t *testing.T) {
 			}
 
 			// check if binaries are deleted
-			for _, filename := range []string{"istio-cni", "istio-iptables"} {
-				if file.Exists(filepath.Join(cniBinDir, filename)) {
-					t.Fatalf("File %s was not deleted", filename)
-				}
+			if file.Exists(filepath.Join(cniBinDir, "istio-cni")) {
+				t.Fatalf("File %s was not deleted", "istio-cni")
 			}
 		})
 	}
