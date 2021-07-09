@@ -867,7 +867,7 @@ type clusterzEl struct {
 	SyncStatus string
 }
 
-func (s *DiscoveryServer) clusterz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ http.Request) {
 	var out []clusterzEl
 	for secretName, clusters := range s.RemoteClusterStore.All() {
 		for clusterID, c := range clusters {
