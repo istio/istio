@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -304,4 +305,28 @@ func WaitForConfig(ctx framework.TestContext, configs string, namespace namespac
 		ctx.Logf("errors occurred waiting for config: %v", err)
 	}
 	// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
+}
+
+// SourceFilter returns workload pod A with sidecar injected and VM
+func SourceFilter(t framework.TestContext, apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
+	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
+		inst := apps.A.Match(echo.Namespace(ns))
+		if !skipVM {
+			inst = append(inst, apps.VM.Match(echo.Namespace(ns))...)
+		}
+		return inst
+	}}
+	return rt
+}
+
+// DestFilter returns workload pod B with sidecar injected and VM
+func DestFilter(t framework.TestContext, apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
+	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
+		inst := apps.B.Match(echo.Namespace(ns))
+		if !skipVM {
+			inst = append(inst, apps.VM.Match(echo.Namespace(ns))...)
+		}
+		return inst
+	}}
+	return rt
 }

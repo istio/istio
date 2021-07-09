@@ -106,6 +106,31 @@ func TestDNS(t *testing.T) {
 			expectResolutionFailure: dns.RcodeNameError,
 		},
 		{
+			name:     "success: alt host - name",
+			host:     "svc-with-alt.",
+			expected: a("svc-with-alt.", []net.IP{net.ParseIP("15.15.15.15").To4()}),
+		},
+		{
+			name:     "success: alt host - name.namespace",
+			host:     "svc-with-alt.ns1.",
+			expected: a("svc-with-alt.ns1.", []net.IP{net.ParseIP("15.15.15.15").To4()}),
+		},
+		{
+			name:     "success: alt host - name.namespace.svc",
+			host:     "svc-with-alt.ns1.svc.",
+			expected: a("svc-with-alt.ns1.svc.", []net.IP{net.ParseIP("15.15.15.15").To4()}),
+		},
+		{
+			name:     "success: alt host - name.namespace.svc.cluster.local",
+			host:     "svc-with-alt.ns1.svc.cluster.local.",
+			expected: a("svc-with-alt.ns1.svc.cluster.local.", []net.IP{net.ParseIP("15.15.15.15").To4()}),
+		},
+		{
+			name:     "success: alt host - name.namespace.svc.clusterset.local",
+			host:     "svc-with-alt.ns1.svc.clusterset.local.",
+			expected: a("svc-with-alt.ns1.svc.clusterset.local.", []net.IP{net.ParseIP("15.15.15.15").To4()}),
+		},
+		{
 			name: "success: remote cluster k8s svc - same ns and different domain - fqdn",
 			host: "details.ns2.svc.cluster.remote.",
 			id:   2,
@@ -443,6 +468,15 @@ func initDNS(t test.Failer) *LocalDNSServer {
 				Registry:  "Kubernetes",
 				Namespace: "ns2",
 				Shortname: "details",
+			},
+			"svc-with-alt.ns1.svc.cluster.local": {
+				Ips:       []string{"15.15.15.15"},
+				Registry:  "Kubernetes",
+				Namespace: "ns1",
+				Shortname: "svc-with-alt",
+				AltHosts: []string{
+					"svc-with-alt.ns1.svc.clusterset.local",
+				},
 			},
 			"ipv6.localhost": {
 				Ips:      []string{"2001:db8:0:0:0:ff00:42:8329"},

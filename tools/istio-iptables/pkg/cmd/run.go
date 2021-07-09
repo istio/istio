@@ -844,11 +844,22 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		filename = fmt.Sprintf("ip6tables-rules-%d.txt", time.Now().UnixNano())
 		cmd = constants.IP6TABLESRESTORE
 	}
-	rulesFile, err := ioutil.TempFile("", filename)
-	if err != nil {
-		return fmt.Errorf("unable to create iptables-restore file: %v", err)
+	var rulesFile *os.File
+	var err error
+	if iptConfigurator.cfg.OutputPath != "" {
+		// Print the iptables rules into the given output file.
+		rulesFile, err = os.OpenFile(iptConfigurator.cfg.OutputPath, os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			return fmt.Errorf("unable to open iptables rules output file %v: %v", iptConfigurator.cfg.OutputPath, err)
+		}
+	} else {
+		// Otherwise create a temporary file to write iptables rules to, which will be cleaned up at the end.
+		rulesFile, err = ioutil.TempFile("", filename)
+		if err != nil {
+			return fmt.Errorf("unable to create iptables-restore file: %v", err)
+		}
+		defer os.Remove(rulesFile.Name())
 	}
-	defer os.Remove(rulesFile.Name())
 	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
 	}

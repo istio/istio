@@ -368,6 +368,11 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 	// as some people have very long proxy domains with multiple dots
 	// For now, we will generate just one more domain (which is usually the .svc piece).
 	out[nameinfo.Shortname+"."+nameinfo.Namespace+"."+proxyDomainParts[0]+"."] = struct{}{}
+
+	// Add any additional alt hostnames.
+	for _, altHost := range nameinfo.AltHosts {
+		out[altHost+"."] = struct{}{}
+	}
 	return out
 }
 

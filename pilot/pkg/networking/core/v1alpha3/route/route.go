@@ -26,7 +26,7 @@ import (
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -95,38 +95,13 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 	}
 
 	// compute services missing virtual service configs
-	missing := make(map[host.Name]struct{})
-	for fqdn := range serviceRegistry {
-		missing[fqdn] = struct{}{}
-	}
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
-			delete(missing, service.Hostname)
+			delete(serviceRegistry, service.Hostname)
 		}
 	}
-
 	// append default hosts for the service missing virtual services
-	for hn := range missing {
-		svc := serviceRegistry[hn]
-		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				traceOperation := traceOperation(string(svc.Hostname), port.Port)
-				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
-
-				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-				if hashPolicy := getHashPolicyByService(node, push, svc, port); hashPolicy != nil {
-					httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
-				}
-				out = append(out, VirtualHostWrapper{
-					Port:     port.Port,
-					Services: []*model.Service{svc},
-					Routes:   []*route.Route{httpRoute},
-				})
-			}
-		}
-	}
-
+	out = append(out, buildSidecarVirtualHostsForService(node, push, serviceRegistry)...)
 	return out
 }
 
@@ -183,6 +158,12 @@ func buildSidecarVirtualHostsForVirtualService(
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int) []VirtualHostWrapper {
+	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
+	if err != nil || len(routes) == 0 {
+		return nil
+	}
+
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
 	// Now group these services by port so that we can infer the destination.port if the user
@@ -208,12 +189,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		// the current code is written.
 		serviceByPort[80] = nil
 	}
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
-	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
-	if err != nil || len(routes) == 0 {
-		return out
-	}
 	for port, service := range serviceByPort {
 		out = append(out, VirtualHostWrapper{
 			Port:                port,
@@ -223,6 +199,33 @@ func buildSidecarVirtualHostsForVirtualService(
 		})
 	}
 
+	return out
+}
+
+func buildSidecarVirtualHostsForService(
+	node *model.Proxy,
+	push *model.PushContext,
+	serviceRegistry map[host.Name]*model.Service) []VirtualHostWrapper {
+	out := make([]VirtualHostWrapper, 0)
+	for _, svc := range serviceRegistry {
+		for _, port := range svc.Ports {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				traceOperation := traceOperation(string(svc.Hostname), port.Port)
+				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
+
+				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
+				if hashPolicy := getHashPolicyByService(node, push, svc, port); hashPolicy != nil {
+					httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
+				}
+				out = append(out, VirtualHostWrapper{
+					Port:     port.Port,
+					Services: []*model.Service{svc},
+					Routes:   []*route.Route{httpRoute},
+				})
+			}
+		}
+	}
 	return out
 }
 

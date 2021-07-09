@@ -151,7 +151,11 @@ type meshConfig struct {
 }
 
 type (
-	meshConfigDefaultProviders  struct{}
+	meshConfigDefaultProviders struct {
+		AccessLogging []struct{} `json:"accessLogging"`
+		Tracing       []struct{} `json:"tracing"`
+		Metrics       []struct{} `json:"metrics"`
+	}
 	meshConfigExtensionProvider struct {
 		Name     string                              `json:"string"`
 		Provider meshConfigExtensionProviderInstance `json:"provider"`
@@ -159,7 +163,9 @@ type (
 )
 
 type meshConfigExtensionProviderInstance struct {
-	Prometheus struct{} `json:"prometheus"`
+	Prometheus         struct{} `json:"prometheus"`
+	EnvoyFileAccessLog struct{} `json:"envoyFileAccessLog"`
+	Stackdriver        struct{} `json:"stackdriver"`
 }
 
 type meshConfigThriftConfig struct {
