@@ -170,7 +170,7 @@ func (c *CitadelClient) isCertExpired(filepath string) (bool, error) {
 	var certPEMBlock []byte
 	certPEMBlock, err = os.ReadFile(filepath)
 	if err != nil {
-		return true, fmt.Errorf("failed to read the cert")
+		return true, fmt.Errorf("failed to read the cert, error is %v", err)
 	}
 	var certDERBlock *pem.Block
 	certDERBlock, _ = pem.Decode(certPEMBlock)
@@ -179,7 +179,7 @@ func (c *CitadelClient) isCertExpired(filepath string) (bool, error) {
 	}
 	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
 	if err != nil {
-		return true, fmt.Errorf("failed to parse the cert")
+		return true, fmt.Errorf("failed to parse the cert, err is %v", err)
 	}
 	return x509Cert.NotAfter.Before(time.Now()), nil
 }
