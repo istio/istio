@@ -41,6 +41,7 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
@@ -196,6 +197,11 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	// discovery type.
 	maybeApplyEdsConfig(mc.cluster)
 
+	// TODO do we need it in buildSubsetCluster?
+	if opts.proxy.Type == model.Router || opts.direction == model.TrafficDirectionOutbound {
+		cb.applyMetadataExchange(opts.mutable.cluster)
+	}
+
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 	}
@@ -207,6 +213,12 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		}
 	}
 	return subsetClusters
+}
+
+func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
+	if cb.push.Telemetry.AnyTelemetryExists() {
+		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
+	}
 }
 
 // MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
@@ -544,6 +556,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	if cb.proxy.SupportsIPv4() {
 		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
+		inboundPassthroughClusterIpv4.Filters = nil
 		inboundPassthroughClusterIpv4.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv4,
@@ -557,6 +570,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	if cb.proxy.SupportsIPv6() {
 		inboundPassthroughClusterIpv6 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv6.Name = util.InboundPassthroughClusterIpv6
+		inboundPassthroughClusterIpv6.Filters = nil
 		inboundPassthroughClusterIpv6.UpstreamBindConfig = &core.BindConfig{
 			SourceAddress: &core.SocketAddress{
 				Address: InboundPassthroughBindIpv6,
@@ -596,6 +610,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	cb.applyConnectionPool(cb.push.Mesh, NewMutableCluster(cluster), passthroughSettings)
+	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 

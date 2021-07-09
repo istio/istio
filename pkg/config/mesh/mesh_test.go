@@ -164,12 +164,20 @@ defaultConfig:
 	if len(got.DefaultProviders.GetMetrics()) != 0 {
 		t.Errorf("default providers deep merge failed, got %v", got.DefaultProviders.GetMetrics())
 	}
-	if len(got.ExtensionProviders) != 2 {
-		t.Errorf("extension providers deep merge failed")
+	if !reflect.DeepEqual(getExtensionProviders(got.ExtensionProviders), []string{"prometheus", "envoy", "sd"}) {
+		t.Errorf("extension providers deep merge failed, got %v", getExtensionProviders(got.ExtensionProviders))
 	}
 
 	gotY, err := gogoprotomarshal.ToYAML(got)
 	t.Log("Result: \n", gotY, err)
+}
+
+func getExtensionProviders(eps []*meshconfig.MeshConfig_ExtensionProvider) []string {
+	got := []string{}
+	for _, ep := range eps {
+		got = append(got, ep.Name)
+	}
+	return got
 }
 
 func TestDeepMerge(t *testing.T) {
