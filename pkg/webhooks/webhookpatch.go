@@ -15,6 +15,7 @@
 package webhooks
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -38,6 +39,7 @@ import (
 var (
 	errWrongRevision     = errors.New("webhook does not belong to target revision")
 	errNoWebhookWithName = errors.New("webhook configuration did not contain webhook with target name")
+	whc                  *cache.ListWatch
 )
 
 // WebhookCertPatcher listens for webhooks on specified revision and patches their CA bundles
@@ -57,6 +59,13 @@ type WebhookCertPatcher struct {
 
 // Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
+	whc = cache.NewFilteredListWatchFromClient(
+		w.client.AdmissionregistrationV1().RESTClient(),
+		"mutatingwebhookconfigurations",
+		"",
+		func(options *metav1.ListOptions) {
+			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)
+		})
 	go w.queue.Run(stopChan)
 	go w.runWebhookController(stopChan)
 	go w.startCaBundleWatcher(stopChan)
@@ -76,16 +85,8 @@ func NewWebhookCertPatcher(
 }
 
 func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
-	watchlist := cache.NewFilteredListWatchFromClient(
-		w.client.AdmissionregistrationV1().RESTClient(),
-		"mutatingwebhookconfigurations",
-		"",
-		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)
-		})
-
 	_, c := cache.NewInformer(
-		watchlist,
+		whc,
 		&v1.MutatingWebhookConfiguration{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -100,14 +101,18 @@ func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 			},
 		},
 	)
-
 	c.Run(stopChan)
 }
 
 func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1.MutatingWebhookConfiguration) {
+	caCertPem, err := util.LoadCABundle(w.CABundleWatcher)
+	if err != nil {
+		log.Errorf("Failed to load CA bundle: %v", err)
+		return
+	}
 	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
-		for _, wh := range newConfig.Webhooks {
-			if strings.HasSuffix(wh.Name, w.webhookName) {
+		for i, wh := range newConfig.Webhooks {
+			if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
 				w.queue.Push(func() error {
 					return w.webhookPatchTask(newConfig.Name)
 				})
@@ -185,11 +190,12 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			whcList, err := w.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), options)
+			lists, err := whc.List(options)
 			if err != nil {
 				log.Errorf("failed to get mutatingWebhookConfigurations %s", err)
 				break
 			}
+			whcList := lists.(*v1.MutatingWebhookConfigurationList)
 			var whcNameList []string
 			for _, whc := range whcList.Items {
 				whcNameList = append(whcNameList, whc.Name)
