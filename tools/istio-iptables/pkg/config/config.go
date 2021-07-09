@@ -17,6 +17,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +53,9 @@ type Config struct {
 	EnableInboundIPv6       bool          `json:"ENABLE_INBOUND_IPV6"`
 	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
 	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
+	OutputPath              string        `json:"OUTPUT_PATH"`
+	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
+	CNIMode                 bool          `json:"CNI_MODE"`
 }
 
 func (c *Config) String() string {
@@ -82,6 +86,9 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6))
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
-	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s", c.DNSServersV4, c.DNSServersV6))
+	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
+	b.WriteString(fmt.Sprintf("OUTPUT_PATH=%s\n", c.OutputPath))
+	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
+	b.WriteString(fmt.Sprintf("CNI_MODE=%s", strconv.FormatBool(c.CNIMode)))
 	log.Infof("Istio iptables variables:\n%s", b.String())
 }

@@ -61,9 +61,17 @@ var XTablesCmds = sets.NewSet(
 )
 
 // RealDependencies implementation of interface Dependencies, which is used in production
-type RealDependencies struct{}
+type RealDependencies struct {
+	NetworkNamespace string
+	CNIMode          bool
+}
 
 func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
+	if r.CNIMode {
+		originalCmd := cmd
+		cmd = constants.NSENTER
+		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
+	}
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	stdout := &bytes.Buffer{}
@@ -83,6 +91,11 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 }
 
 func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
+	if r.CNIMode {
+		originalCmd := cmd
+		cmd = constants.NSENTER
+		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
+	}
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	stdout := &bytes.Buffer{}
