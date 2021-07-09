@@ -134,12 +134,6 @@ func (in *Installer) Cleanup() error {
 				return err
 			}
 		}
-		if istioIptablesBin := filepath.Join(targetDir, "istio-iptables"); file.Exists(istioIptablesBin) {
-			log.Infof("Removing binary: %s", istioIptablesBin)
-			if err := os.Remove(istioIptablesBin); err != nil {
-				return err
-			}
-		}
 	}
 	return nil
 }
