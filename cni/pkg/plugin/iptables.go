@@ -57,7 +57,7 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 	log.Infof("nsenter args: %s", strings.Join(nsenterArgs, " "))
 	out, err := exec.Command("nsenter", nsenterArgs...).CombinedOutput()
 	if err != nil {
-		log.Errorf("nsenter failed %v, with output", err, out)
+		log.Errorf("nsenter failed %v, with output %v", err, out)
 	} else {
 		log.Infof("nsenter done: \n%s", out)
 	}

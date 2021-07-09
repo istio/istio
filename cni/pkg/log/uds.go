@@ -108,11 +108,12 @@ func (l *UDSLogger) processLogBody(body []byte) {
 		msg.Msg = strings.TrimSpace(msg.Msg)
 		messages = append(messages, msg)
 	}
-	// Lock log message printing to prevent log messages from
-	// different CNI processes interleaves.
+	// Lock log message printing to prevent log messages from different CNI
+	// processes interleave.
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for _, m := range messages {
+		// There is no fatal log from CNI plugin
 		switch m.Level {
 		case "debug":
 			log.Debug(m.Msg)

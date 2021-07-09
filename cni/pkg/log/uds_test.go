@@ -36,7 +36,7 @@ func TestUDSLog(t *testing.T) {
 	}()
 	logger.StartUDSLogServer(udsSock, stop)
 
-	// Configure log to tee to UDS server, and print to a tmp file
+	// Configure log to tee to UDS server
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	loggingOptions := log.DefaultOptions()
