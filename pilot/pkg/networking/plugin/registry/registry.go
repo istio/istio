@@ -25,9 +25,9 @@ import (
 
 var availablePlugins = map[string]plugin.Plugin{
 	// TODO(yangminzhu): Probably better to refactor to use a single plugin for all security filters?
-	plugin.AuthzCustom:      authz.NewPlugin(authz.Custom),
-	plugin.Authn:            authn.NewPlugin(),
-	plugin.Authz:            authz.NewPlugin(authz.Local),
+	plugin.AuthzCustom: authz.NewPlugin(authz.Custom),
+	plugin.Authn:       authn.NewPlugin(),
+	plugin.Authz:       authz.NewPlugin(authz.Local),
 }
 
 // NewPlugins returns a slice of default Plugins.
