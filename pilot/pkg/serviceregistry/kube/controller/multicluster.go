@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/secretcontroller/remotecluster"
 	"istio.io/istio/pkg/webhooks"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 )
@@ -151,7 +152,7 @@ func (m *Multicluster) close() (err error) {
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
+func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *remotecluster.Cluster) error {
 	m.m.Lock()
 
 	if m.closing {
@@ -292,7 +293,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
+func (m *Multicluster) UpdateMemberCluster(clusterID cluster.ID, rc *remotecluster.Cluster) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
@@ -368,12 +369,4 @@ func (m *Multicluster) InitSecretController(stop <-chan struct{}) *secretcontrol
 
 func (m *Multicluster) HasSynced() bool {
 	return m.secretController.HasSynced()
-}
-
-// TODO(stevenctl) remove this and talk directly to top-level secretcontroller
-func (m *Multicluster) Clusters() map[string]map[cluster.ID]*secretcontroller.Cluster {
-	if m.secretController == nil {
-		return nil
-	}
-	return m.secretController.Clusters()
 }

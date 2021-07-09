@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/secretcontroller/remotecluster"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -63,14 +64,14 @@ var (
 	deleted cluster.ID
 )
 
-func addCallback(id cluster.ID, _ *Cluster) error {
+func addCallback(id cluster.ID, _ *remotecluster.Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(id cluster.ID, _ *Cluster) error {
+func updateCallback(id cluster.ID, _ *remotecluster.Cluster) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
@@ -91,7 +92,7 @@ func resetCallbackData() {
 }
 
 func Test_SecretController(t *testing.T) {
-	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	remotecluster.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	features.RemoteClusterTimeout = 10 * time.Nanosecond
