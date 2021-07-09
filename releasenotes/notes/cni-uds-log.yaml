@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 32437
+
+releaseNotes:
+  - |
+    **Added** CNI network plugin log collection at install-cni container via UDS.
