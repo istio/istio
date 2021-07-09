@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -102,11 +103,12 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 
 	var stdout, stderr *bytes.Buffer
+
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 100 * time.Millisecond
-	b.MaxInterval = 1 * time.Second
-	b.Reset()
-	for i := 0; i < 10; i++ {
+	b.MaxInterval = 2 * time.Second
+	b.MaxElapsedTime = 10 * time.Second
+	backoff.Retry(func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
@@ -116,20 +118,20 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		exitCode, ok := exitCode(err)
 		if !ok {
 			// cannot get exit code. consider this as non-retriable.
-			break
+			return nil
 		}
 
 		if !isXTablesLockError(stderr, exitCode) {
 			// Command succeeded, or failed not because of xtables lock.
-			break
+			return nil
 		}
 
 		// If command failed because xtables was locked, try the command again.
 		// Note we retry invoking iptables command explicitly instead of using the `-w` option of iptables,
 		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
-		time.Sleep(b.NextBackOff())
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
-	}
+		return errors.New("Failed to acquire XTables lock")
+	}, b)
 
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
