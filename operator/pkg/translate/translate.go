@@ -251,58 +251,8 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		// keys instead of just the merging by port.
 		if strings.HasSuffix(inPath, "Service") {
 			if msvc, ok := m.(*v1alpha1.ServiceSpec); ok {
-				var basePorts []*v1.ServicePort
-				bps, _, err := unstructured.NestedSlice(oo.Unstructured(), "spec", "ports")
+				mergedObj, err = t.fixMergedObjectWithCustomServicePortOverlay(oo, msvc, mergedObj)
 				if err != nil {
-					return "", err
-				}
-				bby, err := json.Marshal(bps)
-				if err != nil {
-					return "", err
-				}
-				if err = json.Unmarshal(bby, &basePorts); err != nil {
-					return "", err
-				}
-				overlayPorts := make([]*v1.ServicePort, 0, len(msvc.GetPorts()))
-				for _, p := range msvc.GetPorts() {
-					var pr v1.Protocol
-					switch strings.ToLower(p.GetProtocol()) {
-					case "udp":
-						pr = v1.ProtocolUDP
-					default:
-						pr = v1.ProtocolTCP
-					}
-					overlayPorts = append(overlayPorts, &v1.ServicePort{
-						Name:       p.GetName(),
-						Protocol:   pr,
-						Port:       p.GetPort(),
-						TargetPort: p.TargetPort.IntOrString,
-						NodePort:   p.GetNodePort(),
-					})
-				}
-				mergedPorts, err := strategicMergePorts(basePorts, overlayPorts)
-				if err != nil {
-					scope.Errorf("failed to merge service ports for %s", componentName)
-					return "", err
-				}
-				// Now fix the ports
-				mpby, err := json.Marshal(mergedPorts)
-				if err != nil {
-					return "", err
-				}
-				var mergedPortSlice []interface{}
-				if err = json.Unmarshal(mpby, &mergedPortSlice); err != nil {
-					return "", err
-				}
-				if err = unstructured.SetNestedSlice(mergedObj.Unstructured(), mergedPortSlice, "spec", "ports"); err != nil {
-					return "", err
-				}
-				// Now fix the merged object
-				mjsonby, err := json.Marshal(mergedObj.Unstructured())
-				if err != nil {
-					return "", err
-				}
-				if mergedObj, err = object.ParseJSONToK8sObject(mjsonby); err != nil {
 					return "", err
 				}
 			}
@@ -315,6 +265,60 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 	return objects.YAMLManifest()
 }
 
+func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
+	msvc *v1alpha1.ServiceSpec, mergedObj *object.K8sObject) (*object.K8sObject, error) {
+	var basePorts []*v1.ServicePort
+	bps, _, err := unstructured.NestedSlice(oo.Unstructured(), "spec", "ports")
+	if err != nil {
+		return nil, err
+	}
+	bby, err := json.Marshal(bps)
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal(bby, &basePorts); err != nil {
+		return nil, err
+	}
+	overlayPorts := make([]*v1.ServicePort, 0, len(msvc.GetPorts()))
+	for _, p := range msvc.GetPorts() {
+		var pr v1.Protocol
+		switch strings.ToLower(p.GetProtocol()) {
+		case "udp":
+			pr = v1.ProtocolUDP
+		default:
+			pr = v1.ProtocolTCP
+		}
+		overlayPorts = append(overlayPorts, &v1.ServicePort{
+			Name:       p.GetName(),
+			Protocol:   pr,
+			Port:       p.GetPort(),
+			TargetPort: p.TargetPort.IntOrString,
+			NodePort:   p.GetNodePort(),
+		})
+	}
+	mergedPorts := strategicMergePorts(basePorts, overlayPorts)
+	mpby, err := json.Marshal(mergedPorts)
+	if err != nil {
+		return nil, err
+	}
+	var mergedPortSlice []interface{}
+	if err = json.Unmarshal(mpby, &mergedPortSlice); err != nil {
+		return nil, err
+	}
+	if err = unstructured.SetNestedSlice(mergedObj.Unstructured(), mergedPortSlice, "spec", "ports"); err != nil {
+		return nil, err
+	}
+	// Now fix the merged object
+	mjsonby, err := json.Marshal(mergedObj.Unstructured())
+	if err != nil {
+		return nil, err
+	}
+	if mergedObj, err = object.ParseJSONToK8sObject(mjsonby); err != nil {
+		return nil, err
+	}
+	return mergedObj, nil
+}
+
 type portWithProtocol struct {
 	port     int32
 	protocol v1.Protocol
@@ -323,9 +327,17 @@ type portWithProtocol struct {
 // strategicMergePorts merges the base with the given overlay considering both
 // port and the protocol as the merge keys. This is a workaround for the strategic
 // merge patch in Kubernetes which only uses port number as the key. This causes
-// a bug when we have to expose the same port with different protocols.
+// an issue when we have to expose the same port with different protocols.
 // See - https://github.com/kubernetes/kubernetes/issues/103544
-func strategicMergePorts(base, overlay []*v1.ServicePort) ([]*v1.ServicePort, error) {
+func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
+	if overlay == nil {
+		return base
+	}
+	if base == nil {
+		return overlay
+	}
+	// first add the base and then replace appropriate
+	// keys with the items in the overlay list
 	merged := make(map[portWithProtocol]*v1.ServicePort)
 	for _, p := range base {
 		key := portWithProtocol{port: p.Port, protocol: p.Protocol}
@@ -333,25 +345,13 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) ([]*v1.ServicePort, er
 	}
 	for _, p := range overlay {
 		key := portWithProtocol{port: p.Port, protocol: p.Protocol}
-		bp, found := merged[key]
-		if found && bp.Name != p.Name {
-			return nil, fmt.Errorf("port %d/%s has different names in base(%q) and overlay(%q)",
-				p.Port, p.Protocol, bp.Name, p.Name)
-		}
 		merged[key] = p
 	}
 	res := make([]*v1.ServicePort, 0, len(merged))
 	for _, pv := range merged {
 		res = append(res, pv)
 	}
-	// For consistent order
-	sort.Slice(res, func(i, j int) bool {
-		if res[i].Port != res[j].Port {
-			return res[i].Port < res[j].Port
-		}
-		return res[i].Protocol < res[j].Protocol
-	})
-	return res, nil
+	return res
 }
 
 // ProtoToValues traverses the supplied IstioOperatorSpec and returns a values.yaml translation from it.
