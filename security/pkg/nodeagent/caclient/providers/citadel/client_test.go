@@ -391,7 +391,7 @@ func TestCertExpired(t *testing.T) {
 		t.Run(id, func(t *testing.T) {
 			certExpired, err := cli.isCertExpired(tc.filepath)
 			if err != nil {
-				t.Fatalf("failed to check the cert")
+				t.Fatalf("failed to check the cert, err is: %v", err)
 			}
 			if certExpired != tc.expected {
 				t.Errorf("isCertExpired: get %v, want %v", certExpired, tc.expected)
