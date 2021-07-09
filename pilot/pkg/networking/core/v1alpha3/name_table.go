@@ -95,7 +95,12 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 							Namespace: svc.Attributes.Namespace,
 							Shortname: shortName,
 						}
-						out.Table[host] = nameInfo
+						if _, f := out.Table[host]; !f || instance.Endpoint.Locality.ClusterID == node.Metadata.ClusterID {
+							// We may have the same pod in two clusters (ie mysql-0 deployed in both places).
+							// We can only return a single IP for these queries. We should prefer the local cluster,
+							// so if the entry already exists only overwrite it if the instance is in our own cluster.
+							out.Table[host] = nameInfo
+						}
 					}
 
 					if instance.Endpoint.Locality.ClusterID != node.Metadata.ClusterID {
