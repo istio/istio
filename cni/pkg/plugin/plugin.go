@@ -119,6 +119,20 @@ func parseConfig(stdin []byte) (*Config, error) {
 	return &conf, nil
 }
 
+func getLogLevel(logLevel string) log.Level {
+	switch logLevel {
+	case "debug":
+		return log.DebugLevel
+	case "warn":
+		return log.WarnLevel
+	case "error":
+		return log.ErrorLevel
+	case "info":
+		return log.InfoLevel
+	}
+	return log.InfoLevel
+}
+
 func GetLoggingOptions(udsAddress string) *log.Options {
 	loggingOptions := log.DefaultOptions()
 	loggingOptions.OutputPaths = []string{"stderr"}
@@ -160,6 +174,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 			log.Error("Failed to configure istio-cni with UDS log")
 		}
 	}
+	log.FindScope("default").SetOutputLevel(getLogLevel(conf.LogLevel))
 
 	var loggedPrevResult interface{}
 	if conf.PrevResult == nil {
@@ -186,7 +201,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	// Check if the workload is running under Kubernetes.
-	// TODO(bianpengyuan): refactor the following code to be less nested.
+	// TODO(bianpengyuan): refactor the following code to make it less nested.
 	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
 	podName := string(k8sArgs.K8S_POD_NAME)
 	if podNamespace != "" && podName != "" {
@@ -202,7 +217,6 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 			if err != nil {
 				return err
 			}
-			log.Debugf("Created Kubernetes client: %v", client)
 			pi := &PodInfo{}
 			var k8sErr error
 			for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
@@ -264,6 +278,8 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 						}
 					}
 				}
+			} else {
+				log.Infof("Pod %s/%s excluded because it only has %d containers", podNamespace, podName, len(pi.Containers))
 			}
 		} else {
 			log.Infof("Pod %s/%s excluded", podNamespace, podName)

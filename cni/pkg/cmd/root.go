@@ -33,10 +33,13 @@ import (
 	"istio.io/pkg/log"
 )
 
+var options = log.DefaultOptions()
+
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
 	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		log.Configure(options)
 		ctx := cmd.Context()
 
 		// TODO(bianpengyuan) add log scope for install & repair.
@@ -84,6 +87,7 @@ var rootCmd = &cobra.Command{
 
 // GetCommand returns the main cobra.Command object for this application
 func GetCommand() *cobra.Command {
+	options.AttachCobraFlags(rootCmd)
 	return rootCmd
 }
 
