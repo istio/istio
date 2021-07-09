@@ -24,34 +24,43 @@
 set -ex
 
 # In Envoy custom log format: %DOWNSTREAM_PEER_SUBJECT% should show the CN of the client cert
-# Certs are also forward in http headers
+# Certs are also forwarded in X-Forwarded-Client-Cert http headers
 
 HOST=testca1.istio.io
 
-function gen_ca {
+function gen_root_ca {
     SUFFIX=$1
     openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 \
-        -subj "/O=TestCA${SUFFIX}_o/CN=TestCA${SUFFIX}_cn" -keyout "ca$SUFFIX.key" -out "ca$SUFFIX.crt"
+        -subj "/O=TestCA${SUFFIX}_o/CN=TestCA${SUFFIX}_root" -keyout "ca${SUFFIX}_r.key" -out "ca${SUFFIX}_r.crt"
 }
 
+function gen_intermediate_ca {
+    SUFFIX=$1
+    openssl req -sha256 -nodes -days 365 -newkey rsa:2048 \
+        -subj "/O=TestCA${SUFFIX}_o/CN=TestCA${SUFFIX}_intermediate" -keyout "ca${SUFFIX}_i.key" -out "ca${SUFFIX}_i.csr"
+    openssl x509 -req -days 180 -CA "ca${SUFFIX}_r.crt" -CAkey "ca${SUFFIX}_r.key" -set_serial 1 \
+        -in "ca${SUFFIX}_i.csr" -out "ca${SUFFIX}_i.crt"
+}
+
+# Client signed by intermediate CAs
 function gen_cli {
     SUFFIX=$1
     openssl req -out "cli$SUFFIX.csr" -newkey rsa:2048 -nodes -keyout "cli$SUFFIX.key" \
         -subj "/CN=TEST_CLI${SUFFIX}_001/O=Client test org${SUFFIX}"
-    openssl x509 -req -days 30 -CA "ca$SUFFIX.crt" -CAkey "ca$SUFFIX.key" -set_serial 1 \
+    openssl x509 -req -days 30 -CA "ca${SUFFIX}_i.crt" -CAkey "ca${SUFFIX}_i.key" -set_serial 1 \
         -in "cli$SUFFIX.csr" -out "cli$SUFFIX.crt"
 }
 
 # different CA for server - single cert
 function gen_server {
     SUFFIX=SRV
-    gen_ca $SUFFIX
+    gen_root_ca $SUFFIX
     openssl req -out srv.csr -newkey rsa:2048 -nodes -keyout srv.key \
         -subj "/CN=$HOST/O=Server test organization" \
         -reqexts SAN \
         -config <(cat /etc/ssl/openssl.cnf \
             <(printf "\n[SAN]\nsubjectAltName=DNS:%s" "$HOST"))
-    openssl x509 -req -days 90 -CA caSRV.crt -CAkey caSRV.key -set_serial 0 \
+    openssl x509 -req -days 90 -CA caSRV_r.crt -CAkey caSRV_r.key -set_serial 0 \
         -in srv.csr -out srv.crt \
         -extfile <(printf "subjectAltName=DNS:%s\n" "$HOST")
 }
@@ -110,18 +119,22 @@ function wait_for_propagation {
 gen_server
 
 for suffix in 1 2 ; do
-    gen_ca CLI$suffix
-    gen_cli CLI$suffix
-    kubectl delete -n istio-system secret test$suffix-credential || true
-    kubectl create -n istio-system secret tls test$suffix-credential \
+    gen_root_ca "CLI$suffix"
+    gen_intermediate_ca "CLI$suffix"
+    gen_cli "CLI$suffix"
+    # Make a bundle/chain for each CA (intermediate+root)
+    cat caCLI${suffix}_*.crt > "caCLI$suffix.crt"
+    kubectl delete -n istio-system secret "test$suffix-credential" || true
+    kubectl create -n istio-system secret tls "test$suffix-credential" \
         --key=srv.key --cert=srv.crt
     # Seperate the CA config map from the server cert one using credential-cacert:
-    kubectl delete -n istio-system secret test$suffix-credential-cacert || true
-    kubectl create -n istio-system secret generic test$suffix-credential-cacert \
-        --from-file=ca.crt=caCLI$suffix.crt
+    kubectl delete -n istio-system secret "test$suffix-credential-cacert" || true
+    kubectl create -n istio-system secret generic "test$suffix-credential-cacert" \
+        --from-file="ca.crt=caCLI$suffix.crt"
 done
+
 # Both/All CAs in a bundle:
-cat caCLI?.crt > caCLIall.crt
+cat caCLI?.crt caCLI?_i.crt > caCLIall.crt
 
 ls -l -- *.crt
 
@@ -149,7 +162,7 @@ function singleCall {
   SUFFIX=$1
 #  fortio curl is easier with resolve but regular curl is more standard.
 #  fortio curl -resolve $INGRESS_HOST -cert cliCLI$SUFFIX.crt -key cliCLI$SUFFIX.key -cacert caSRV.crt  https://$HOST/fortio/debug/
-  curl -v --resolve "$HOST:443:$INGRESS_IP" --cert "cliCLI$SUFFIX.crt" --key "cliCLI$SUFFIX.key" --cacert caSRV.crt  "https://$HOST/fortio/debug/"
+  curl -v --resolve "$HOST:443:$INGRESS_IP" --cert "cliCLI$SUFFIX.crt" --key "cliCLI$SUFFIX.key" --cacert caSRV_r.crt  "https://$HOST/fortio/debug/"
 }
 
 function check2fail {
@@ -167,13 +180,13 @@ function check2fail {
 # We start with only 1 CA:
 wait_for_propagation
 
-# Start fortio test during the changes of CA, on cli1 should not get any errors:
-RES_FILE=fortio_ca_test.json
-fortio load -json $RES_FILE -jitter -c 2 -qps 10 -t 0 -resolve "$INGRESS_HOST" -cert cliCLI1.crt -key cliCLI1.key -cacert caSRV.crt  "https://$HOST/fortio/debug/" &
-FORTIO_PID=$!
-
 # Should succeed
 singleCall 1
+# Also start fortio test during the changes of CA, on cli1 should not get any errors:
+RES_FILE=fortio_ca_test.json
+fortio load -json $RES_FILE -jitter -c 2 -qps 10 -t 0 -resolve "$INGRESS_HOST" -cert cliCLI1.crt -key cliCLI1.key -cacert caSRV_r.crt  "https://$HOST/fortio/debug/" &
+FORTIO_PID=$!
+
 # Should fail
 check2fail
 
