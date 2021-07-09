@@ -272,7 +272,7 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 								interceptRuleMgrType)
 						} else {
 							rulesMgr := interceptMgrCtor()
-							if err := rulesMgr.Program(args.Netns, redirect); err != nil {
+							if err := rulesMgr.Program(podName, args.Netns, redirect); err != nil {
 								return err
 							}
 						}

@@ -123,6 +123,8 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
+            - mountPath: /var/run/istio-cni
+              name: cni-log-dir
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
 {{- if contains "/" .Values.cni.image }}
@@ -150,3 +152,7 @@ spec:
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
+        # Used for UDS log
+        - name: cni-log-dir
+          hostPath:
+            path: /var/run/istio-cni

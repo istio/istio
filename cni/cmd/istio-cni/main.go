@@ -35,7 +35,9 @@ func main() {
 	// TODO: implement plugin version
 	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
 		fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
+	// Log sync will send logs to install-cni container via UDS.
+	// We don't need a timeout here because underlying the log pkg already handles it.
 	if err := log.Sync(); err != nil {
-		log.Errorf("Failed to sync logs")
+		log.Errorf("Failed to sync logs %v", err)
 	}
 }

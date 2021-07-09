@@ -676,8 +676,9 @@ func (i *operatorComponent) generateCommonInstallSettings(cfg Config, c cluster.
 
 	// Include all user-specified values and configuration options.
 	if cfg.EnableCNI {
-		installSettings = append(installSettings, "-f",
-			filepath.Join(testenv.IstioSrc, IntegrationTestCNIDefaultIOP))
+		installSettings = append(installSettings,
+			"--set", "components.cni.namespace=kube-system",
+			"--set", "components.cni.enabled=true")
 	}
 
 	// Include all user-specified values.

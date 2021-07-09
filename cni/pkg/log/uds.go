@@ -79,19 +79,19 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 }
 
 func (l *UDSLogger) handleLog(w http.ResponseWriter, req *http.Request) {
-	var body []byte
-	if req.Body != nil {
-		data, err := ioutil.ReadAll(req.Body)
-		if err != nil {
-			log.Errorf("Failed to read log report from cni plugin: %v", err)
-			return
-		}
-		body = data
+	if req.Body == nil {
+		return
 	}
-	l.processLogBody(body)
+	defer req.Body.Close()
+	data, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Errorf("Failed to read log report from cni plugin: %v", err)
+		return
+	}
+	l.processLog(data)
 }
 
-func (l *UDSLogger) processLogBody(body []byte) {
+func (l *UDSLogger) processLog(body []byte) {
 	cniLogs := make([]string, 0)
 	err := json.Unmarshal(body, &cniLogs)
 	if err != nil {

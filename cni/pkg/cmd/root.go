@@ -113,7 +113,7 @@ func init() {
 	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
 	registerStringArrayParameter(constants.SkipCNIBinaries, []string{}, "Binaries that should not be installed")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve metrics")
-	registerStringParameter(constants.LogUDSAddress, "", "The UDS server address which CNI plugin will copy log ouptut to.")
+	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to.")
 
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
