@@ -108,7 +108,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	b.InitialInterval = 100 * time.Millisecond
 	b.MaxInterval = 2 * time.Second
 	b.MaxElapsedTime = 10 * time.Second
-	err = backoff.Retry(func() error {
+	_ = backoff.Retry(func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
