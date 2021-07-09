@@ -17,8 +17,8 @@ package ra
 import (
 	"fmt"
 
-	cert "k8s.io/api/certificates/v1beta1"
-	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	cert "k8s.io/api/certificates/v1"
+	clientset "k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -28,7 +28,7 @@ import (
 
 // KubernetesRA integrated with an external CA using Kubernetes CSR API
 type KubernetesRA struct {
-	csrInterface  certclient.CertificatesV1beta1Interface
+	csrInterface  clientset.Interface
 	keyCertBundle *util.KeyCertBundle
 	raOpts        *IstioRAOptions
 }
@@ -48,18 +48,14 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 }
 
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile string) ([]byte, error) {
-	csrSpec := &cert.CertificateSigningRequestSpec{
-		SignerName: &r.raOpts.CaSigner,
-		Request:    csrPEM,
-		Groups:     []string{"system:authenticated"},
-		Usages: []cert.KeyUsage{
-			cert.UsageDigitalSignature,
-			cert.UsageKeyEncipherment,
-			cert.UsageServerAuth,
-			cert.UsageClientAuth,
-		},
+	usages := []cert.KeyUsage{
+		cert.UsageDigitalSignature,
+		cert.UsageKeyEncipherment,
+		cert.UsageServerAuth,
+		cert.UsageClientAuth,
 	}
-	certChain, _, err := chiron.SignCSRK8s(r.csrInterface.CertificateSigningRequests(), csrName, csrSpec, "", caCertFile, false)
+	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, csrName, r.raOpts.CaSigner,
+		nil, usages, "", caCertFile, false)
 	if err != nil {
 		return nil, raerror.NewError(raerror.CertGenError, err)
 	}
@@ -72,7 +68,10 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	csrName := chiron.GenCsrName()
+	csrName, err := chiron.GetUniqueCsrName(chiron.GenCsrName, r.raOpts.K8sClient, "", "")
+	if err != nil {
+		return nil, err
+	}
 	return r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile)
 }
 

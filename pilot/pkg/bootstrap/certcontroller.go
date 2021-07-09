@@ -77,8 +77,7 @@ func (s *Server) initCertController(args *PilotArgs) error {
 	// Provision and manage the certificates for non-Pilot services.
 	// If services are empty, the certificate controller will do nothing.
 	s.certController, err = chiron.NewWebhookController(defaultCertGracePeriodRatio, defaultMinCertGracePeriod,
-		k8sClient.CoreV1(), k8sClient.CertificatesV1beta1(),
-		defaultCACertPath, secretNames, dnsNames, namespaces)
+		k8sClient, defaultCACertPath, secretNames, dnsNames, namespaces, "")
 	if err != nil {
 		return fmt.Errorf("failed to create certificate controller: %v", err)
 	}
@@ -131,7 +130,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 	var err error
 	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", names)
-		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient.CertificatesV1beta1().CertificateSigningRequests(),
+		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,
 			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "")
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)

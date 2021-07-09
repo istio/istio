@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	cert "k8s.io/api/certificates/v1beta1"
+	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/istio/security/pkg/pki/ca"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
@@ -104,7 +105,7 @@ func createFakeK8sRA(client *fake.Clientset) (*KubernetesRA, error) {
 		CaSigner:       caSigner,
 		CaCertFile:     caCertFile,
 		VerifyAppendCA: true,
-		K8sClient:      client.CertificatesV1beta1(),
+		K8sClient:      client,
 	}
 	return NewKubernetesRA(raOpts)
 }
@@ -112,13 +113,17 @@ func createFakeK8sRA(client *fake.Clientset) (*KubernetesRA, error) {
 // TestK8sSign : Verify that ra.k8sSign returns a valid certPEM while using k8s Fake Client to create a CSR
 func TestK8sSign(t *testing.T) {
 	csrPEM := createFakeCsr(t)
-	csrName := chiron.GenCsrName()
+	csrName := chiron.GenCsrName("", "")
 	client := initFakeKubeClient(csrName)
 	r, err := createFakeK8sRA(client)
 	if err != nil {
 		t.Errorf("Validation CSR failed")
 	}
-	_, err = r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile)
+	subjectID := spiffe.Identity{TrustDomain: "cluster.local", Namespace: "default", ServiceAccount: "bookinfo-productpage"}.String()
+	_, err = r.Sign(csrPEM, ca.CertOpts{
+		SubjectIDs: []string{subjectID},
+		TTL:        60 * time.Second, ForCA: false,
+	})
 	if err != nil {
 		t.Errorf("K8s CA Signing CSR failed")
 	}
@@ -126,7 +131,7 @@ func TestK8sSign(t *testing.T) {
 
 func TestValidateCSR(t *testing.T) {
 	csrPEM := createFakeCsr(t)
-	csrName := chiron.GenCsrName()
+	csrName := chiron.GenCsrName("", "")
 	client := initFakeKubeClient(csrName)
 	_, err := createFakeK8sRA(client)
 	if err != nil {
