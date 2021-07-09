@@ -234,6 +234,11 @@ var (
 			"in a cluster will only discoverable within the same cluster unless explicitly exported "+
 			"(via the ServiceExport CR).").Get()
 
+	EnableMCSHost = env.RegisterBoolVar("ENABLE_MCS_HOST", false,
+		"If enabled, istiod will provide an alias <svc>.<namespace>.svc.clusterset.local for "+
+			"each Kubernetes service. Clients must, however, be able to successfully lookup these DNS hosts. "+
+			"That means that either Istio DNS interception must be enabled or an MCS controller must be used.").Get()
+
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
 		false,
