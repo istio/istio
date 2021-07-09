@@ -104,6 +104,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	var stdout, stderr *bytes.Buffer
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 100 * time.Millisecond
+	b.MaxInterval = 1 * time.Second
 	b.Reset()
 	for i := 0; i < 10; i++ {
 		externalCommand := exec.Command(cmd, args...)
