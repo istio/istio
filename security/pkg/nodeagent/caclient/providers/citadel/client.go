@@ -218,6 +218,7 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	citadelClientLog.Errorf("recreated connection")
 	return nil
 }
+
 func mapToStruct(metadata map[string]interface{}) (*types.Struct, error) {
 	metadataBytes, err := json.Marshal(metadata)
 	if err != nil {
