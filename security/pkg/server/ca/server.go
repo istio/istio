@@ -21,7 +21,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
@@ -79,7 +78,8 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	}
 
 	// TODO: Call authorizer.
-	certSigner := extractCertSigner(ctx)
+	crMetadata := request.Metadata.GetFields()
+	certSigner := crMetadata[security.CertSigner].GetStringValue()
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: caller.Identities,
@@ -162,19 +162,4 @@ func Authenticate(ctx context.Context, auth []security.Authenticator) *security.
 	}
 	serverCaLog.Warnf("Authentication failed for %v: %s", getConnectionAddress(ctx), errMsg)
 	return nil
-}
-
-func extractCertSigner(ctx context.Context) string {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return ""
-	}
-	certSignerHeader, exists := md[security.CertSigner]
-	if !exists {
-		return ""
-	}
-	if len(certSignerHeader) == 1 {
-		return certSignerHeader[0]
-	}
-	return ""
 }

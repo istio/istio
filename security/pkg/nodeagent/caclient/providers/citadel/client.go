@@ -15,14 +15,18 @@
 package caclient
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -78,9 +82,18 @@ func (c *CitadelClient) Close() {
 
 // CSR Sign calls Citadel to sign a CSR.
 func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+	crMetadata := map[string]interface{}{
+		security.CertSigner: c.opts.CertSigner,
+	}
+	crMetaStruct, err := mapToStruct(crMetadata)
+	if err != nil {
+		citadelClientLog.Errorf("parse CSR Metadata for citadel failed: %v", err)
+		return nil, fmt.Errorf("parse CSR Metadata for citadel failed: %v", err)
+	}
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
+		Metadata:         crMetaStruct,
 	}
 	if err := c.reconnectIfNeeded(); err != nil {
 		return nil, err
@@ -204,4 +217,19 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	citadelClientLog.Errorf("recreated connection")
 	return nil
+}
+func mapToStruct(metadata map[string]interface{}) (*types.Struct, error) {
+	metadataBytes, err := json.Marshal(metadata)
+	if err != nil {
+		citadelClientLog.Errorf("failed to parse Metadata %v to Json %v", metadata, err)
+		return nil, fmt.Errorf("failed to parse Metadata Map[string]interface{} to Json due to %v", err)
+	}
+	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	pb := &types.Struct{}
+	err = unmarshaler.Unmarshal(bytes.NewReader(metadataBytes), pb)
+	if err != nil {
+		citadelClientLog.Errorf("failed to parse Metadata JSON to proto.struct due to %v", err)
+		return nil, fmt.Errorf("failed to parse Metadata JSON to proto.struct due to %v", err)
+	}
+	return pb, nil
 }

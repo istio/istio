@@ -52,8 +52,6 @@ type IstioRAOptions struct {
 	TrustDomain string
 	// CertSignerDomain info
 	CertSignerDomain string
-	// CertSigner : To indicate custom signer name for workloads
-	CertSigner string
 }
 
 const (

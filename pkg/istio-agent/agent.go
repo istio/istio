@@ -659,7 +659,6 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, caCertFile)
 		}
 	}
-	a.secOpts.CertSigner = a.proxyConfig.ProxyMetadata[MetadataCertSigner]
 	// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 	// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 	// Otherwise assume the injection has mounted /etc/certs/root-cert.pem

@@ -241,9 +241,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
-		TrustDomain:    s.environment.Mesh().TrustDomain,
-		Namespace:      args.Namespace,
-		ExternalCAType: ra.CaExternalType(externalCaType),
+		TrustDomain:      s.environment.Mesh().TrustDomain,
+		Namespace:        args.Namespace,
+		ExternalCAType:   ra.CaExternalType(externalCaType),
+		CertSignerDomain: features.CertSignerDomain,
 	}
 
 	if caOpts.ExternalCAType == ra.ExtCAK8s {

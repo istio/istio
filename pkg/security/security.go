@@ -82,7 +82,7 @@ const (
 	K8sTokenPrefix = "Istio "
 
 	// CertSigner info
-	CertSigner = "signer"
+	CertSigner = "CertSigner"
 )
 
 // Options provides all of the configuration parameters for secret discovery service
