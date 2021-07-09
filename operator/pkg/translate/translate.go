@@ -288,13 +288,16 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 		default:
 			pr = v1.ProtocolTCP
 		}
-		overlayPorts = append(overlayPorts, &v1.ServicePort{
-			Name:       p.GetName(),
-			Protocol:   pr,
-			Port:       p.GetPort(),
-			TargetPort: p.TargetPort.IntOrString,
-			NodePort:   p.GetNodePort(),
-		})
+		port := &v1.ServicePort{
+			Name:     p.GetName(),
+			Protocol: pr,
+			Port:     p.GetPort(),
+			NodePort: p.GetNodePort(),
+		}
+		if p.TargetPort != nil {
+			port.TargetPort = p.TargetPort.IntOrString
+		}
+		overlayPorts = append(overlayPorts, port)
 	}
 	mergedPorts := strategicMergePorts(basePorts, overlayPorts)
 	mpby, err := json.Marshal(mergedPorts)
@@ -330,11 +333,31 @@ type portWithProtocol struct {
 // an issue when we have to expose the same port with different protocols.
 // See - https://github.com/kubernetes/kubernetes/issues/103544
 func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
+	sortFn := func(ps []*v1.ServicePort) func(int, int) bool {
+		return func(i, j int) bool {
+			if ps[i].Port != ps[j].Port {
+				return ps[i].Port < ps[j].Port
+			}
+			return ps[i].Protocol < ps[j].Protocol
+		}
+	}
 	if overlay == nil {
+		sort.Slice(base, sortFn(base))
 		return base
 	}
 	if base == nil {
+		sort.Slice(overlay, sortFn(overlay))
 		return overlay
+	}
+	for _, p := range base {
+		if p.Protocol == "" {
+			p.Protocol = v1.ProtocolTCP
+		}
+	}
+	for _, p := range overlay {
+		if p.Protocol == "" {
+			p.Protocol = v1.ProtocolTCP
+		}
 	}
 	// first add the base and then replace appropriate
 	// keys with the items in the overlay list
@@ -351,6 +374,7 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 	for _, pv := range merged {
 		res = append(res, pv)
 	}
+	sort.Slice(res, sortFn(res))
 	return res
 }
 

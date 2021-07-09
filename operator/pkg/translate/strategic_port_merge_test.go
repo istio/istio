@@ -28,6 +28,11 @@ var (
 		Port:       80,
 		TargetPort: intstr.IntOrString{IntVal: 8080},
 	}
+	httpNoProtoPort = &v1.ServicePort{
+		Name:       "http-port",
+		Port:       80,
+		TargetPort: intstr.IntOrString{IntVal: 8080},
+	}
 	mysqlPort = &v1.ServicePort{
 		Name:     "mysql-port",
 		Protocol: v1.ProtocolTCP,
@@ -77,6 +82,12 @@ func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
 			basePorts:           []*v1.ServicePort{httpPort},
 			overlayPorts:        []*v1.ServicePort{httpsPort},
 			expectedMergedPorts: []*v1.ServicePort{httpPort, httpsPort},
+		},
+		{
+			name:                "implicit ports",
+			basePorts:           []*v1.ServicePort{httpPort},
+			overlayPorts:        []*v1.ServicePort{httpNoProtoPort},
+			expectedMergedPorts: []*v1.ServicePort{httpPort},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
