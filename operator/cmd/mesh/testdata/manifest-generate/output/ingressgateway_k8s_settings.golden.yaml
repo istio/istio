@@ -486,6 +486,10 @@ metadata:
 spec:
   externalTrafficPolicy: Local
   ports:
+  - name: status-port
+    port: 15021
+    protocol: TCP
+    targetPort: 15021
   - name: http2
     port: 80
     protocol: TCP
@@ -494,10 +498,6 @@ spec:
     port: 443
     protocol: TCP
     targetPort: 8443
-  - name: status-port
-    port: 15021
-    protocol: TCP
-    targetPort: 15021
   selector:
     app: istio-ingressgateway
     istio: ingressgateway
@@ -521,6 +521,10 @@ metadata:
 spec:
   externalTrafficPolicy: Local
   ports:
+  - name: status-port
+    port: 15021
+    protocol: TCP
+    targetPort: 15021
   - name: http2
     port: 80
     protocol: TCP
@@ -529,10 +533,6 @@ spec:
     port: 443
     protocol: TCP
     targetPort: 8443
-  - name: status-port
-    port: 15021
-    protocol: TCP
-    targetPort: 15021
   selector:
     app: istio-ingressgateway
     istio: ingressgateway

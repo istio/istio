@@ -335,8 +335,20 @@ type portWithProtocol struct {
 func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 	sortFn := func(ps []*v1.ServicePort) func(int, int) bool {
 		return func(i, j int) bool {
-			if ps[i].Port != ps[j].Port {
-				return ps[i].Port < ps[j].Port
+			pi, pj := ps[i].Port, ps[j].Port
+			// The ports 15020 (metrics) and 15021 (status) need to be handled
+			// specially so that when status is present it ends up being the first
+			// and when metrics is present along with status, it ends up being the
+			// second (or first if status port 15021 is not present)
+			// See - https://github.com/istio/istio/issues/12503
+			if pi == 15020 || pi == 15021 {
+				pi = -pi
+			}
+			if pj == 15020 || pj == 15021 {
+				pj = -pj
+			}
+			if pi < pj {
+				return pi < pj
 			}
 			return ps[i].Protocol < ps[j].Protocol
 		}

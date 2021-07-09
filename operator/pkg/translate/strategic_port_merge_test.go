@@ -15,7 +15,6 @@
 package translate
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -51,6 +50,16 @@ var (
 		Name:     "mysql-port",
 		Protocol: v1.ProtocolTCP,
 		Port:     3306,
+	}
+	istioHealthcheckPort = &v1.ServicePort{
+		Name:     "status-port",
+		Protocol: v1.ProtocolTCP,
+		Port:     15021,
+	}
+	istioMetricsPort = &v1.ServicePort{
+		Name:     "metrics-port",
+		Protocol: v1.ProtocolTCP,
+		Port:     15020,
 	}
 )
 
@@ -89,7 +98,7 @@ func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
 			name:                "base and overlay for the same port, different protocol",
 			basePorts:           []*v1.ServicePort{httpPort, httpsPort, mysqlPort},
 			overlayPorts:        []*v1.ServicePort{quicPort},
-			expectedMergedPorts: []*v1.ServicePort{httpPort, quicPort, httpsPort, mysqlPort},
+			expectedMergedPorts: []*v1.ServicePort{httpPort, httpsPort, quicPort, mysqlPort},
 		},
 		{
 			name:                "base and overlay with different ports",
@@ -103,19 +112,27 @@ func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
 			overlayPorts:        []*v1.ServicePort{httpNoProtoPort},
 			expectedMergedPorts: []*v1.ServicePort{httpPort},
 		},
+		{
+			name:                "status and metrics port are present",
+			basePorts:           []*v1.ServicePort{istioHealthcheckPort, istioMetricsPort, httpsPort},
+			overlayPorts:        []*v1.ServicePort{httpsPort, httpPort},
+			expectedMergedPorts: []*v1.ServicePort{istioHealthcheckPort, istioMetricsPort, httpPort, httpsPort},
+		},
+		{
+			name:                "status port is present",
+			basePorts:           []*v1.ServicePort{istioHealthcheckPort, httpsPort, httpPort},
+			overlayPorts:        []*v1.ServicePort{httpsPort, httpPort},
+			expectedMergedPorts: []*v1.ServicePort{istioHealthcheckPort, httpPort, httpsPort},
+		},
+		{
+			name:                "metrics port is present",
+			basePorts:           []*v1.ServicePort{istioMetricsPort, httpsPort, httpPort},
+			overlayPorts:        []*v1.ServicePort{httpsPort, httpPort},
+			expectedMergedPorts: []*v1.ServicePort{istioMetricsPort, httpPort, httpsPort},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			actualMergedPorts := strategicMergePorts(tt.basePorts, tt.overlayPorts)
-			portCompareFn := func(ps []*v1.ServicePort) func(int, int) bool {
-				return func(i, j int) bool {
-					if ps[i].Port != ps[j].Port {
-						return ps[i].Port < ps[j].Port
-					}
-					return ps[i].Protocol < ps[j].Protocol
-				}
-			}
-			sort.Slice(tt.expectedMergedPorts, portCompareFn(tt.expectedMergedPorts))
-			sort.Slice(actualMergedPorts, portCompareFn(actualMergedPorts))
 			if diff := cmp.Diff(actualMergedPorts, tt.expectedMergedPorts); diff != "" {
 				t.Fatalf("expected differs from actual. Diff:\n%s", diff)
 			}
