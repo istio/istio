@@ -176,6 +176,10 @@ var (
 	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
 	// Description: Gateway should not have the same selector, port and matched hosts of server
 	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
+
+	// ImageAutoWithoutInjection defines a diag.MessageType for message "ImageAutoWithoutInjection".
+	// Description: Pods and Deployments with `image: auto` should be targeted for injection.
+	ImageAutoWithoutInjection = diag.NewMessageType(diag.Error, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
 )
 
 // All returns a list of all known message types.
@@ -223,6 +227,7 @@ func All() []*diag.MessageType {
 		LocalhostListener,
 		InvalidApplicationUID,
 		ConflictingGateways,
+		ImageAutoWithoutInjection,
 	}
 }
 
@@ -645,5 +650,15 @@ func NewConflictingGateways(r *resource.Instance, gateway string, selector strin
 		selector,
 		portnumber,
 		hosts,
+	)
+}
+
+// NewImageAutoWithoutInjection returns a new diag.Message based on ImageAutoWithoutInjection.
+func NewImageAutoWithoutInjection(r *resource.Instance, resourceType string, resourceName string) diag.Message {
+	return diag.NewMessage(
+		ImageAutoWithoutInjection,
+		r,
+		resourceType,
+		resourceName,
 	)
 }
