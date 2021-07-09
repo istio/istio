@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** CNI network plugin log collection at install-cni container via UDS.
+    **Added** CNI network plugin log collection at CNI Daemonset via UDS.
