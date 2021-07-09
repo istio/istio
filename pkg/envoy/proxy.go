@@ -175,7 +175,6 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if os.Getuid() == 0 {
-		log.Infof("============= Start envoy as 1337 ==========")
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 		cmd.SysProcAttr.Credential = &syscall.Credential{
 			Uid: 1337,

@@ -180,7 +180,7 @@ func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string
 	start := time.Now()
 	// We did not find the host in our internal cache. Query upstream and return the response as is.
 	log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
-	response = h.queryUpstream(proxy.upstreamClient, req, log)
+	response := h.queryUpstream(proxy.upstreamClient, req, log)
 	requestDuration.Record(time.Since(start).Seconds())
 	log.Debugf("upstream response for hostname %q : %v", hostname, response)
 	return response
