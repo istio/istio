@@ -409,7 +409,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if w == nil {
 		return nil
 	}
-	gen := s.findGenerator(w.TypeUrl, con)
+	gen := s.findGenerator(w.TypeUrl, con, true)
 	if gen == nil {
 		return nil
 	}
