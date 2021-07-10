@@ -39,7 +39,6 @@ import (
 var (
 	errWrongRevision     = errors.New("webhook does not belong to target revision")
 	errNoWebhookWithName = errors.New("webhook configuration did not contain webhook with target name")
-	whc                  *cache.ListWatch
 )
 
 // WebhookCertPatcher listens for webhooks on specified revision and patches their CA bundles
@@ -55,17 +54,11 @@ type WebhookCertPatcher struct {
 	// File path to the x509 certificate bundle used by the webhook server
 	// and patched into the webhook config.
 	CABundleWatcher *keycertbundle.Watcher
+	whcLw           *cache.ListWatch
 }
 
 // Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
-	whc = cache.NewFilteredListWatchFromClient(
-		w.client.AdmissionregistrationV1().RESTClient(),
-		"mutatingwebhookconfigurations",
-		"",
-		func(options *metav1.ListOptions) {
-			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, w.revision)
-		})
 	go w.queue.Run(stopChan)
 	go w.runWebhookController(stopChan)
 	go w.startCaBundleWatcher(stopChan)
@@ -75,18 +68,26 @@ func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 func NewWebhookCertPatcher(
 	client kubernetes.Interface,
 	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) (*WebhookCertPatcher, error) {
+	whcLw := cache.NewFilteredListWatchFromClient(
+		client.AdmissionregistrationV1().RESTClient(),
+		"mutatingwebhookconfigurations",
+		"",
+		func(options *metav1.ListOptions) {
+			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
+		})
 	return &WebhookCertPatcher{
 		client:          client,
 		revision:        revision,
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
 		queue:           queue.NewQueue(time.Second * 2),
+		whcLw:           whcLw,
 	}, nil
 }
 
 func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {
 	_, c := cache.NewInformer(
-		whc,
+		w.whcLw,
 		&v1.MutatingWebhookConfiguration{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -190,7 +191,7 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			lists, err := whc.List(options)
+			lists, err := w.whcLw.List(options)
 			if err != nil {
 				log.Errorf("failed to get mutatingWebhookConfigurations %s", err)
 				break
