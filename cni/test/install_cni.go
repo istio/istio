@@ -305,7 +305,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	}
 
 	compareConfResult(resultFile, expectedOutputFile, t)
-	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
+	checkBinDir(t, tempCNIBinDir, "add", "istio-cni")
 
 	// Test script restart by removing configuration
 	if chainedCNIPlugin {
@@ -333,7 +333,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			t.Logf("FAIL: Istio CNI config file was not removed: %s", resultFile)
 		}
 	}
-	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
+	checkBinDir(t, tempCNIBinDir, "del", "istio-cni")
 	checkTempFilesCleaned(tempCNIConfDir, t)
 }
 

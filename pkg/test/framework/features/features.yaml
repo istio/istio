@@ -19,6 +19,7 @@ features:
   observability:
     telemetry:
       stackdriver:
+      logging:
       stats:
         prometheus:
           customize-metric:

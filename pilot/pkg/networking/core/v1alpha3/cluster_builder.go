@@ -17,12 +17,16 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
+	"sort"
+	"strconv"
+	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -40,6 +44,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
@@ -83,13 +88,15 @@ type MutableCluster struct {
 type ClusterBuilder struct {
 	proxy *model.Proxy
 	push  *model.PushContext
+	cache model.XdsCache
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
-func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuilder {
+func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext, cache model.XdsCache) *ClusterBuilder {
 	return &ClusterBuilder{
 		proxy: proxy,
 		push:  push,
+		cache: cache,
 	}
 }
 
@@ -158,9 +165,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
-	proxyNetworkView map[network.ID]bool) []*cluster.Cluster {
-	destRule := cb.push.DestinationRule(cb.proxy, service)
+func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
+	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config) []*cluster.Cluster {
 	destinationRule := castDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
@@ -172,6 +178,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		clusterMode: clusterMode,
 		direction:   model.TrafficDirectionOutbound,
 		proxy:       cb.proxy,
+		cache:       cb.cache,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -294,6 +301,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           cb.proxy,
+		cache:           cb.cache,
 	}
 	// decides whether the cluster corresponds to a service external to mesh or not.
 	if direction == model.TrafficDirectionInbound {
@@ -308,6 +316,69 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
 	return ec
+}
+
+type clusterCache struct {
+	clusterName     string
+	destinationRule *config.Config
+	// locality identifies the locality the cluster is generated for
+	locality *core.Locality
+	// proxyClusterID identifies the cluster a proxy is in. Note cluster here refers to Kubernetes cluster, not Envoy cluster
+	proxyClusterID string
+	// proxySidecar identifies if this proxy is a Sidecar
+	proxySidecar bool
+	// http2 identifies if thi cluster is for an http2 service
+	http2          bool
+	downstreamAuto bool
+	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
+	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
+	// Hypothetically we could get smarter and determine the exact set of all configs we use and their versions,
+	// which we probably will need for proper delta XDS, but for now this is sufficient.
+	pushVersion string
+	service     *model.Service
+	networkView map[network.ID]bool
+}
+
+func (t *clusterCache) Key() string {
+	params := []string{
+		t.clusterName, t.pushVersion,
+		strconv.FormatBool(t.proxySidecar), strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
+		util.LocalityToString(t.locality), t.proxyClusterID,
+	}
+	if t.service != nil {
+		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
+	}
+	if t.destinationRule != nil {
+		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
+	}
+	if t.networkView != nil {
+		nv := make([]string, 0, len(t.networkView))
+		for nw := range t.networkView {
+			nv = append(nv, string(nw))
+		}
+		sort.Strings(nv)
+		params = append(params, nv...)
+	}
+	return "cds://" + strings.Join(params, "~")
+}
+
+func (t clusterCache) DependentConfigs() []model.ConfigKey {
+	configs := []model.ConfigKey{}
+	if t.destinationRule != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
+	}
+	if t.service != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+	}
+	return configs
+}
+
+func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
+	return nil
+}
+
+func (t clusterCache) Cacheable() bool {
+	return true
 }
 
 // buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to
@@ -427,8 +498,15 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 	}
 
 	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
-
-	for locality, eps := range lbEndpoints {
+	locs := make([]string, 0, len(lbEndpoints))
+	for k := range lbEndpoints {
+		locs = append(locs, k)
+	}
+	if len(locs) >= 2 {
+		sort.Strings(locs)
+	}
+	for _, locality := range locs {
+		eps := lbEndpoints[locality]
 		var weight uint32
 		var overflowStatus bool
 		for _, ep := range eps {
@@ -912,11 +990,11 @@ func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableClus
 
 // normalizeClusters normalizes clusters to avoid duplicate clusters. This should be called
 // at the end before adding the cluster to list of clusters.
-func (cb *ClusterBuilder) normalizeClusters(clusters []*cluster.Cluster) []*cluster.Cluster {
+func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*discovery.Resource {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 	// for any clusters that share the same name the first cluster is kept and the others are discarded.
 	have := sets.Set{}
-	out := make([]*cluster.Cluster, 0, len(clusters))
+	out := make([]*discovery.Resource, 0, len(clusters))
 	for _, c := range clusters {
 		if !have.Contains(c.Name) {
 			out = append(out, c)
@@ -927,6 +1005,34 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*cluster.Cluster) []*clus
 		have.Insert(c.Name)
 	}
 	return out
+}
+
+// getAllCachedSubsetClusters either fetches all cached clusters for a given key (there may be multiple due to subsets)
+// and returns them along with allFound=True, or returns allFound=False indicating a cache miss. In either case,
+// the cache tokens are returned to allow future writes to the cache.
+// This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
+// as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
+func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, map[string]model.CacheToken, bool) {
+	destinationRule := castDestinationRule(clusterKey.destinationRule)
+	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
+	tokens := make(map[string]model.CacheToken, 1+len(destinationRule.GetSubsets()))
+	cachedCluster, tok, f := cb.cache.Get(&clusterKey)
+	tokens[clusterKey.clusterName] = tok
+	allFound := f
+	if f {
+		res = append(res, cachedCluster)
+	}
+	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
+	for _, ss := range destinationRule.GetSubsets() {
+		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
+		cachedCluster, tok, f := cb.cache.Get(&clusterKey)
+		tokens[clusterKey.clusterName] = tok
+		if !f {
+			allFound = false
+		}
+		res = append(res, cachedCluster)
+	}
+	return res, tokens, allFound
 }
 
 // build does any final build operations needed, like marshaling etc.

@@ -210,6 +210,7 @@ ifeq ($(PULL_POLICY),)
 endif
 
 include operator/operator.mk
+include pkg/dns/proto/nds.mk
 
 .PHONY: default
 default: init build test
@@ -355,7 +356,17 @@ update-golden: refresh-goldens
 gen-charts:
 	@echo "This target is no longer required and will be removed in the future"
 
-gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto copy-templates gen-kustomize update-golden ## Update all generated code.
+gen: \
+	mod-download-go \
+	go-gen \
+	mirror-licenses \
+	format \
+	update-crds \
+	operator-proto \
+	gen-nds-proto \
+	copy-templates \
+	gen-kustomize \
+	update-golden ## Update all generated code.
 
 gen-check: gen check-clean-repo
 

@@ -65,9 +65,9 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.25.0
 	github.com/ryanuber/go-glob v1.0.0
-	github.com/spf13/cobra v1.1.3
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.7.1
+	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/yl2chen/cidranger v1.0.2
@@ -91,9 +91,9 @@ require (
 	helm.sh/helm/v3 v3.6.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 	istio.io/api v0.0.0-20210707151522-70c77011493f
-	istio.io/client-go v0.0.0-20210702172148-29e5a0d6d84e
-	istio.io/gogo-genproto v0.0.0-20210702140656-ccf714d90369
-	istio.io/pkg v0.0.0-20210702140656-1615cfceaeae
+	istio.io/client-go v0.0.0-20210707153527-aa5e3621ead1
+	istio.io/gogo-genproto v0.0.0-20210707151701-62a71316a7a4
+	istio.io/pkg v0.0.0-20210710023456-51a6dc56a729
 	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.21.2
 	k8s.io/apimachinery v0.21.2

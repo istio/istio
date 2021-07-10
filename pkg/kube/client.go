@@ -127,7 +127,7 @@ type Client interface {
 	// IstioInformer returns an informer for the istio client
 	IstioInformer() istioinformer.SharedInformerFactory
 
-	// GatewayApiInformer returns an informer for the gateway-api client
+	// GatewayAPIInformer returns an informer for the gateway-api client
 	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
 
 	// MCSApisInformer returns an informer for the mcs-apis client
@@ -376,11 +376,10 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
 
-	ext, err := kubeExtClient.NewForConfig(c.config)
+	c.extSet, err = kubeExtClient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.extSet = ext
 
 	return &c, nil
 }
@@ -652,7 +651,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	if len(istiods) == 0 {
 		return nil, errors.New("unable to find any Istiod instances")
 	}
-	var errs error
+
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
 		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
@@ -667,7 +666,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	if len(result) > 0 {
 		return result, nil
 	}
-	return nil, errs
+	return nil, nil
 }
 
 func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {

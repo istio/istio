@@ -63,7 +63,7 @@ func (p *Log) createStatus(maxWidth int) string {
 	wait := make([]string, 0, len(p.components))
 	for c, l := range p.components {
 		comps = append(comps, name.UserFacingComponentName(name.ComponentName(c)))
-		wait = append(wait, l.waiting...)
+		wait = append(wait, l.waitingResources()...)
 	}
 	sort.Strings(comps)
 	sort.Strings(wait)
@@ -116,11 +116,15 @@ func (p *Log) reportProgress(component string) func() {
 		defer p.mu.Unlock()
 		cmp := p.components[component]
 		// The component has completed
-		if cmp.finished || cmp.err != "" {
-			if cmp.finished {
+		cmp.mu.Lock()
+		finished := cmp.finished
+		cmpErr := cmp.err
+		cmp.mu.Unlock()
+		if finished || cmpErr != "" {
+			if finished {
 				p.SetMessage(fmt.Sprintf(`{{ green "✔" }} %s installed`, cliName), true)
 			} else {
-				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmp.err), true)
+				p.SetMessage(fmt.Sprintf(`{{ red "✘" }} %s encountered an error: %s`, cliName, cmpErr), true)
 			}
 			// Close the bar out, outputting a new line
 			delete(p.components, component)
@@ -180,6 +184,7 @@ type ManifestLog struct {
 	err      string
 	finished bool
 	waiting  []string
+	mu       sync.Mutex
 }
 
 func (p *ManifestLog) ReportProgress() {
@@ -193,7 +198,9 @@ func (p *ManifestLog) ReportError(err string) {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
 	p.err = err
+	p.mu.Unlock()
 	p.report()
 }
 
@@ -201,7 +208,9 @@ func (p *ManifestLog) ReportFinished() {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
 	p.finished = true
+	p.mu.Unlock()
 	p.report()
 }
 
@@ -209,6 +218,14 @@ func (p *ManifestLog) ReportWaiting(resources []string) {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
 	p.waiting = resources
+	p.mu.Unlock()
 	p.report()
+}
+
+func (p *ManifestLog) waitingResources() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.waiting
 }

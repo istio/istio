@@ -99,8 +99,19 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
 		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
-		DefaultProviders:   &meshconfig.MeshConfig_DefaultProviders{},
-		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{},
+		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
+			AccessLogging: []string{"envoy"},
+		},
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+					},
+				},
+			},
+		},
 	}
 }
 
