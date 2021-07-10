@@ -104,3 +104,6 @@ allowlisted_modules:
 
 # https://github.com/go-errors/errors/blob/master/LICENSE.MIT
 - github.com/go-errors/errors
+
+# BSD: https://github.com/opencontainers/runc/blob/v0.1.1/Godeps/_workspace/src/github.com/golang/protobuf/LICENSE
+- github.com/opencontainers/runc
