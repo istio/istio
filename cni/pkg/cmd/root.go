@@ -89,13 +89,13 @@ var rootCmd = &cobra.Command{
 
 // GetCommand returns the main cobra.Command object for this application
 func GetCommand() *cobra.Command {
-	options.AttachCobraFlags(rootCmd)
 	return rootCmd
 }
 
 func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	options.AttachCobraFlags(rootCmd)
 
 	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI networks are installed")
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")

@@ -61,7 +61,8 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 		return fmt.Errorf("failed to create UDS listener: %v", err)
 	}
 	go func() {
-		if err := l.loggingServer.Serve(unixListener); err != nil {
+		if err := l.loggingServer.Serve(unixListener); err != nil &&
+			err != http.ErrServerClosed {
 			log.Errorf("Error running UDS log server: %v", err)
 		}
 	}()

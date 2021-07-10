@@ -31,12 +31,11 @@ func TestUDSLog(t *testing.T) {
 	udsSock := filepath.Join(udsSockDir, "cni.sock")
 	logger := NewUDSLogger()
 	stop := make(chan struct{})
-	defer func() {
-		close(stop)
-	}()
+	defer close(stop)
 	logger.StartUDSLogServer(udsSock, stop)
 
 	// Configure log to tee to UDS server
+	stdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	loggingOptions := log.DefaultOptions()
@@ -48,6 +47,10 @@ func TestUDSLog(t *testing.T) {
 	log.Warn("warn log")
 	log.Error("error log")
 	log.Sync()
+
+	// Restore os stdout.
+	os.Stdout = stdout
+	log.Configure(loggingOptions)
 
 	w.Close()
 	out, _ := ioutil.ReadAll(r)
