@@ -231,8 +231,8 @@ func submitCSR(certClient certclient.CertificateSigningRequestInterface,
 	}
 	var reqRet *cert.CertificateSigningRequest
 	var errRet error
-	for i := 0; i < numRetries; i++ {
-		log.Debugf("trial %v to create CSR (%v)", i, csrName)
+	for try := 0; try <= numRetries; try++ {
+		log.Debugf("trial %v to create CSR (%v)", try, csrName)
 		reqRet, errRet = certClient.Create(context.TODO(), k8sCSR, metav1.CreateOptions{})
 		if errRet == nil && reqRet != nil {
 			break
@@ -242,17 +242,15 @@ func submitCSR(certClient certclient.CertificateSigningRequestInterface,
 			log.Debugf("failed to create CSR (%v): %v", csrName, errRet)
 			continue
 		}
+		if try == numRetries {
+			break
+		}
 		// If CSR exists, delete the existing CSR and create again
 		log.Debugf("delete an existing CSR: %v", csrName)
 		errRet = certClient.Delete(context.TODO(), csrName, metav1.DeleteOptions{})
 		if errRet != nil {
 			log.Errorf("failed to delete CSR (%v): %v", csrName, errRet)
 			continue
-		}
-		log.Debugf("create CSR (%v) after the existing one was deleted", csrName)
-		reqRet, errRet = certClient.Create(context.TODO(), k8sCSR, metav1.CreateOptions{})
-		if errRet == nil && reqRet != nil {
-			break
 		}
 	}
 	return reqRet, errRet
