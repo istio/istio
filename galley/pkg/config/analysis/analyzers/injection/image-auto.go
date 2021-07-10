@@ -45,6 +45,7 @@ func (a *ImageAutoAnalyzer) Metadata() analysis.Metadata {
 		Inputs: collection.Names{
 			collections.K8SCoreV1Namespaces.Name(),
 			collections.K8SCoreV1Pods.Name(),
+			collections.K8SAppsV1Deployments.Name(),
 			collections.K8SAdmissionregistrationK8SIoV1Mutatingwebhookconfigurations.Name(),
 		},
 	}
