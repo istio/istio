@@ -101,7 +101,17 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 	}
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
-			delete(missing, service.Hostname)
+			// service.Hostname can be wildcarded if virtual service has wildcard hosts.
+			// Match it with usual host matching semantics and delete it.
+			if service.Hostname.IsWildCarded() {
+				for ms := range missing {
+					if service.Hostname.Matches(ms) {
+						delete(missing, ms)
+					}
+				}
+			} else {
+				delete(missing, service.Hostname)
+			}
 		}
 	}
 
@@ -163,8 +173,12 @@ func separateVSHostsAndServices(virtualService config.Config,
 		for svcHost, svc := range serviceRegistry {
 			// *.foo.global matches *.global
 			if svcHost.Matches(hostname) {
+				// Change the host name of service to the host name in virtual service as we have to build domains based
+				// on virtual service host names.
+				svc.Hostname = hostname
 				servicesInVirtualService = append(servicesInVirtualService, svc)
 				foundSvcMatch = true
+				break
 			}
 		}
 		if !foundSvcMatch {
