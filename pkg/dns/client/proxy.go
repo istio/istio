@@ -17,6 +17,7 @@ package client
 import (
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/miekg/dns"
@@ -46,22 +47,25 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 		protocol: protocol,
 		resolver: resolver,
 	}
+	addr := resolver.addr
+	if addr == "" {
+		addr = "localhost:15053"
+	}
+	if strings.HasSuffix(addr, ":53") && os.Getuid() != 0 {
+		log.Error("DNS address :53 and not running as root, use default")
+		addr = "localhost:15053"
+	}
 
 	var err error
 	p.serveMux.Handle(".", p)
 	p.server.Handler = p.serveMux
 	if protocol == "udp" {
-		if os.Getuid() == 0 {
-			// Special mode if running as root: bind to 53 directly
-			p.server.PacketConn, err = net.ListenPacket("udp", "localhost:53")
-		} else {
-			p.server.PacketConn, err = net.ListenPacket("udp", "localhost:15053")
-		}
+		p.server.PacketConn, err = net.ListenPacket("udp", addr)
 	} else {
-		p.server.Listener, err = net.Listen("tcp", "localhost:15053")
+		p.server.Listener, err = net.Listen("tcp", addr)
 	}
 	if err != nil {
-		log.Errorf("Failed to listen on %s port 15053: %v", protocol, err)
+		log.Errorf("Failed to listen on %s port %s: %v", protocol, addr, err)
 		return nil, err
 	}
 	return p, nil

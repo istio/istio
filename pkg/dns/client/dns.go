@@ -51,6 +51,7 @@ type LocalDNSServer struct {
 	// Optimizations to save space and time
 	proxyDomain      string
 	proxyDomainParts []string
+	addr             string
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -79,9 +80,10 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace: proxyNamespace,
+		addr:           addr,
 	}
 
 	registerStats()
@@ -100,7 +102,9 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	resolvConf := "/etc/resolv.conf"
 	// If running as root and the alternate resolv.conf file exists, use it instead.
 	// This is used when running in Docker or VMs, without iptables DNS interception.
-	if os.Getuid() == 0 {
+	if strings.HasSuffix(addr, ":53") && os.Getuid() == 0 {
+		// TODO: we can also copy /etc/resolv.conf to /var/lib/istio/resolv.conf and
+		// replace it with 'nameserver 127.0.0.1'
 		if _, err := os.Stat("/var/lib/istio/resolv.conf"); !os.IsNotExist(err) {
 			resolvConf = "/var/lib/istio/resolv.conf"
 		}
