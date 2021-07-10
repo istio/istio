@@ -16,7 +16,6 @@ package dependencies
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -108,13 +107,13 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 	b.InitialInterval = 100 * time.Millisecond
 	b.MaxInterval = 2 * time.Second
 	b.MaxElapsedTime = 10 * time.Second
-	_ = backoff.Retry(func() error {
+	err = backoff.Retry(func() error {
 		externalCommand := exec.Command(cmd, args...)
 		stdout = &bytes.Buffer{}
 		stderr = &bytes.Buffer{}
 		externalCommand.Stdout = stdout
 		externalCommand.Stderr = stderr
-		err = externalCommand.Run()
+		err := externalCommand.Run()
 		exitCode, ok := exitCode(err)
 		if !ok {
 			// cannot get exit code. consider this as non-retriable.
@@ -130,7 +129,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		// Note we retry invoking iptables command explicitly instead of using the `-w` option of iptables,
 		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
 		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
-		return errors.New("failed to acquire XTables lock")
+		return err
 	}, b)
 
 	if len(stdout.String()) != 0 {
