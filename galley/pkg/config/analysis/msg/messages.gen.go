@@ -179,7 +179,7 @@ var (
 
 	// ImageAutoWithoutInjection defines a diag.MessageType for message "ImageAutoWithoutInjection".
 	// Description: Pods and Deployments with `image: auto` should be targeted for injection.
-	ImageAutoWithoutInjection = diag.NewMessageType(diag.Error, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
+	ImageAutoWithoutInjection = diag.NewMessageType(diag.Warning, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
 )
 
 // All returns a list of all known message types.
