@@ -179,6 +179,7 @@ func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
 	constants.CNIBinDir = filepath.Join(env.IstioSrc, "cni/test/testdata/bindir")
 	root.SetArgs([]string{
 		"--mounted-cni-net-dir", tempCNIConfDir,
+		"--ctrlz_port", "0",
 	})
 	os.Setenv("KUBERNETES_SERVICE_PORT", "443")
 	os.Setenv("KUBERNETES_SERVICE_HOST", "10.110.0.1")
