@@ -42,6 +42,7 @@ func TestUDSLog(t *testing.T) {
 	loggingOptions.WithTeeToUDS(udsSock, constants.UDSLogPath)
 	log.Configure(loggingOptions)
 	log.FindScope("default").SetOutputLevel(log.DebugLevel)
+	log.FindScope("cni").SetOutputLevel(log.DebugLevel)
 	log.Debug("debug log")
 	log.Info("info log")
 	log.Warn("warn log")
