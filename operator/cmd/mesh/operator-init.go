@@ -131,6 +131,10 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		}
 	}
 
+	if err := createNamespace(clientset, oiArgs.common.operatorNamespace, ""); err != nil {
+		l.LogAndFatal(err)
+	}
+
 	// create watched namespaces
 	namespaces := strings.Split(oiArgs.common.watchedNamespaces, ",")
 	// if the namespace in the CR is provided, consider creating it too.

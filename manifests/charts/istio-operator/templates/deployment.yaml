@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: {{.Values.operatorNamespace}}
+  namespace: {{.Release.Namespace}}
   name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 spec:
   replicas: 1
@@ -37,13 +37,13 @@ spec:
             - name: WATCH_NAMESPACE
               value: {{.Values.watchedNamespaces | quote}}
             - name: LEADER_ELECTION_NAMESPACE
-              value: {{.Values.operatorNamespace | quote}}
+              value: {{.Release.Namespace | quote}}
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: {{.Values.operatorNamespace | quote}}
+              value: {{.Release.Namespace | quote}}
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: {{.Values.waitForResourcesTimeout | quote}}
             - name: REVISION

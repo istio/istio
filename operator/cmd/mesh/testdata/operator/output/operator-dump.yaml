@@ -186,14 +186,6 @@ spec:
               value: ""
 ---
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: operator-test-namespace
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
-apiVersion: v1
 kind: Service
 metadata:
   namespace: operator-test-namespace

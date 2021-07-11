@@ -6040,7 +6040,7 @@ subjects:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istiod
+  name: istio-validator-istio-system
   labels:
     app: istiod
     release: istio

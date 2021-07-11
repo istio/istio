@@ -72,7 +72,6 @@ func renderOperatorManifest(_ *rootArgs, ocArgs *operatorCommonArgs) (string, st
 	}
 
 	tmpl := `
-operatorNamespace: {{.OperatorNamespace}}
 istioNamespace: {{.IstioNamespace}}
 watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
@@ -87,7 +86,6 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 `
 
 	tv := struct {
-		OperatorNamespace string
 		IstioNamespace    string
 		WatchedNamespaces string
 		Hub               string
@@ -95,7 +93,6 @@ revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 		ImagePullSecrets  []string
 		Revision          string
 	}{
-		OperatorNamespace: ocArgs.operatorNamespace,
 		IstioNamespace:    ocArgs.istioNamespace,
 		WatchedNamespaces: ocArgs.watchedNamespaces,
 		Hub:               ocArgs.hub,
