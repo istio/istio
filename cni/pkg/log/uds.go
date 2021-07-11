@@ -28,6 +28,8 @@ import (
 	"istio.io/pkg/log"
 )
 
+var pluginLog = log.RegisterScope("cni", "CNI network plugin", 0)
+
 type UDSLogger struct {
 	mu            sync.Mutex
 	loggingServer *http.Server
@@ -117,13 +119,13 @@ func (l *UDSLogger) processLog(body []byte) {
 		// There is no fatal log from CNI plugin
 		switch m.Level {
 		case "debug":
-			log.Debug(m.Msg)
+			pluginLog.Debug(m.Msg)
 		case "info":
-			log.Info(m.Msg)
+			pluginLog.Info(m.Msg)
 		case "warn":
-			log.Warn(m.Msg)
+			pluginLog.Warn(m.Msg)
 		case "error":
-			log.Error(m.Msg)
+			pluginLog.Error(m.Msg)
 		}
 	}
 }
