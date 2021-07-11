@@ -54,18 +54,22 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 		if err = copyBinaries(
 			in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
 			in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
+			cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
 			return
 		}
 
 		if in.saToken, err = readServiceAccountToken(); err != nil {
+			cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
 			return
 		}
 
 		if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
+			cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
 			return
 		}
 
 		if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
+			cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
 			return
 		}
 
@@ -184,6 +188,7 @@ func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfig
 		default:
 			// Valid configuration; set isReady to true and wait for modifications before checking again
 			SetReady(isReady)
+			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
 			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
 				// Pod set to "NotReady" before termination
 				return err
