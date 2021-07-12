@@ -35,15 +35,13 @@ func StartServer() *atomic.Value {
 
 // Sets isReady to true.
 func SetReady(isReady *atomic.Value) {
-	installState.With(stateLabel.Value(stateReady)).Record(1)
-	installState.With(stateLabel.Value(stateUnready)).Record(0)
+	installState.Record(1)
 	isReady.Store(true)
 }
 
 // Sets isReady to false.
 func SetNotReady(isReady *atomic.Value) {
-	installState.With(stateLabel.Value(stateUnready)).Record(1)
-	installState.With(stateLabel.Value(stateReady)).Record(0)
+	installState.Record(0)
 	isReady.Store(false)
 }
 
