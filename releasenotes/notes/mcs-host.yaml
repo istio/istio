@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 33949
+releaseNotes:
+  - |
+    **Added** experimental support for the Kubernetes Multi-Cluster Services (MCS) host (`clusterset.local`).
+    This feature is off by default, but can be enabled by setting the following flags in Istio:
+    `ENABLE_MCS_HOST` and `ENABLE_MCS_SERVICE_DISCOVERY`. When enabled Istio will include the MCS host as a
+    domain in the service's HTTP route. Additionally, Istio will support the MCS host during a DNS lookup.
+    For now, the MCS host is just an alias for `cluster.local` and resolves to the same service IP.
+    Future work will give the MCS host a separate IP as is defined by the MCS spec.

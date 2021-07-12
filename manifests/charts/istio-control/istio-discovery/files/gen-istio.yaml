@@ -73,6 +73,7 @@ data:
     {
       "global": {
         "caAddress": "",
+        "configCluster": false,
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -1277,7 +1278,7 @@ rules:
     resources: ["serviceexports"]
     verbs: ["get", "watch", "list", "create", "delete"]
 ---
-# Source: istio-discovery/templates/clusterrole.yaml
+# Source: istio-discovery/templates/reader-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -1320,23 +1321,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: istio-reader-clusterrole-istio-system
-  labels:
-    app: istio-reader
-    release: istio
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-reader-clusterrole-istio-system
-subjects:
-  - kind: ServiceAccount
-    name: istio-reader-service-account
-    namespace: istio-system
----
-# Source: istio-discovery/templates/clusterrolebinding.yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
   name: istiod-clusterrole-istio-system
   labels:
     app: istiod
@@ -1348,6 +1332,23 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istiod
+    namespace: istio-system
+---
+# Source: istio-discovery/templates/reader-clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: istio-reader-clusterrole-istio-system
+  labels:
+    app: istio-reader
+    release: istio
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: istio-reader-clusterrole-istio-system
+subjects:
+  - kind: ServiceAccount
+    name: istio-reader-service-account
     namespace: istio-system
 ---
 # Source: istio-discovery/templates/role.yaml

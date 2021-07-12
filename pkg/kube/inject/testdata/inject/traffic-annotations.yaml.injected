@@ -22,6 +22,7 @@ spec:
           concurrency: 0
           proxyMetadata:
             FOO: bar
+            ISTIO_META_TLS_CLIENT_KEY: /etc/identity2/client/keys/client-key.pem
         sidecar.istio.io/proxyCPU: 4000m
         sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
@@ -82,7 +83,7 @@ spec:
               fieldPath: status.hostIP
         - name: PROXY_CONFIG
           value: |
-            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar"}}
+            {"discoveryAddress":"foo:123","concurrency":0,"proxyMetadata":{"FOO":"bar","ISTIO_META_TLS_CLIENT_KEY":"/etc/identity2/client/keys/client-key.pem"}}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
@@ -104,6 +105,8 @@ spec:
           value: cluster.local
         - name: FOO
           value: bar
+        - name: ISTIO_META_TLS_CLIENT_KEY
+          value: /etc/identity2/client/keys/client-key.pem
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
@@ -166,6 +169,8 @@ spec:
         env:
         - name: FOO
           value: bar
+        - name: ISTIO_META_TLS_CLIENT_KEY
+          value: /etc/identity2/client/keys/client-key.pem
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init
         resources:
