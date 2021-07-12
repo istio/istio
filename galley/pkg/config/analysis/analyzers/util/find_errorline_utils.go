@@ -38,6 +38,10 @@ const (
 	// Required parameters: gateway index.
 	VSGateway = "{.spec.gateways[%d]}"
 
+	// Path for gateway match of virtual service.
+	// Required parameters: gateway index.
+	VSMatchGateway = "{.spec.%s[%d].match[%d].gateways[%d]}"
+
 	// Path for regex match of uri, scheme, method and authority.
 	// Required parameters: http index, match index, where to match.
 	URISchemeMethodAuthorityRegexMatch = "{.spec.http[%d].match[%d].%s.regex}"

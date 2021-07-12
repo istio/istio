@@ -500,6 +500,30 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gateway not declared",
+		inputFiles: []string{"testdata/virtualservice_gateway_not_declared.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService vs"},
+		},
+	},
+	{
+		name:       "gateway not declared tls",
+		inputFiles: []string{"testdata/virtualservice_gateway_not_declared_tls.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService vs-tls"},
+		},
+	},
+	{
+		name:       "gateway not declared tcp",
+		inputFiles: []string{"testdata/virtualservice_gateway_not_declared_tcp.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedResourceNotFound, "VirtualService vs-tcp"},
+		},
+	},
+	{
 		name: "Application Pod SecurityContext with UID 1337",
 		inputFiles: []string{
 			"testdata/pod-sec-uid.yaml",
