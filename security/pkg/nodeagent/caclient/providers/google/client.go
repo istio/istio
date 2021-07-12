@@ -135,6 +135,7 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(creds), nil
 }
 
+// GetRootCertBundle: Google Mesh CA doesn't publish any endpoint to retrieve CA certs
 func (cl *googleCAClient) GetRootCertBundle() ([]string, error) {
 	return []string{}, nil
 }

@@ -234,6 +234,7 @@ type StsRequestParameters struct {
 type Client interface {
 	CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error)
 	Close()
+	// Retrieve CA root certs If CA publishes API endpoint for this
 	GetRootCertBundle() ([]string, error)
 }
 

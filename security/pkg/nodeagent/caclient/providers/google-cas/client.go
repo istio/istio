@@ -35,6 +35,7 @@ import (
 
 var googleCAClientLog = log.RegisterScope("googlecas", "Google CAS client debugging", 0)
 
+// GoogleCASClient: Agent side plugin for Google CAS
 type GoogleCASClient struct {
 	caSigner string
 	caClient *privateca.CertificateAuthorityClient
@@ -51,6 +52,7 @@ func NewGoogleCASClient(capool string, provider *caclient.TokenProvider, lis *bu
 		caClient.caClient, err = privateca.NewCertificateAuthorityClient(ctx,
 			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(provider)))
 	} else {
+		// For Unit Testing
 		caClient.caClient, err = privateca.NewCertificateAuthorityClient(ctx,
 			option.WithoutAuthentication(),
 			option.WithGRPCDialOption(grpc.WithContextDialer(mock.ContextDialerCreate(lis))),
@@ -60,32 +62,15 @@ func NewGoogleCASClient(capool string, provider *caclient.TokenProvider, lis *bu
 		googleCAClientLog.Errorf("unable to initialize google cas caclient: %v", err)
 		return nil, err
 	}
+	googleCAClientLog.Debugf("Intitialized Google CAS plugin with endpoint: %v", capool)
 	return caClient, nil
 }
 
 func (r *GoogleCASClient) createCertReq(name string, csrPEM []byte, lifetime time.Duration) *privatecapb.CreateCertificateRequest {
-	subjectConfig := &privatecapb.CertificateConfig_SubjectConfig{
-		// Empty Subject
-		Subject: &privatecapb.Subject{},
-	}
-	keyUsage := &privatecapb.KeyUsage{
-		BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
-			DigitalSignature: true,
-			KeyEncipherment:  true,
-		},
-		ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
-			ServerAuth: true,
-			ClientAuth: true,
-		},
-	}
+	var isCA bool = false
 
-	// Derive Public Key from the csrPEM
-	publicKey := &privatecapb.PublicKey{
-		// TODO: Need to get key-type from security options
-		Format: privatecapb.PublicKey_PEM,
-		Key:    csrPEM,
-	}
-
+	// We use Certificate_Config option to ensure that we only request a certificate with CAS supported extensions/usages.
+	// CAS uses the PEM encoded CSR only for its public key and infers the certificate SAN (identity) of the workload through SPIFFE identity reflection
 	creq := &privatecapb.CreateCertificateRequest{
 		Parent:        r.caSigner,
 		CertificateId: name,
@@ -93,11 +78,25 @@ func (r *GoogleCASClient) createCertReq(name string, csrPEM []byte, lifetime tim
 			Lifetime: durationpb.New(lifetime),
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
-					SubjectConfig: subjectConfig,
 					X509Config: &privatecapb.X509Parameters{
-						KeyUsage: keyUsage,
+						KeyUsage: &privatecapb.KeyUsage{
+							BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{
+								DigitalSignature: true,
+								KeyEncipherment:  true,
+							},
+							ExtendedKeyUsage: &privatecapb.KeyUsage_ExtendedKeyUsageOptions{
+								ServerAuth: true,
+								ClientAuth: true,
+							},
+						},
+						CaOptions: &privatecapb.X509Parameters_CaOptions{
+							IsCa: &isCA,
+						},
 					},
-					PublicKey: publicKey,
+					PublicKey: &privatecapb.PublicKey{
+						Format: privatecapb.PublicKey_PEM,
+						Key:    csrPEM,
+					},
 				},
 			},
 			SubjectMode: privatecapb.SubjectRequestMode_REFLECTED_SPIFFE,
@@ -124,6 +123,7 @@ func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 	return certChain, nil
 }
 
+// GetRootCertBundle:  Get CA certs of the pool from Google CAS API endpoint
 func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 	var rootCertMap map[string]struct{} = make(map[string]struct{})
 	var trustbundle []string = []string{}
@@ -154,4 +154,5 @@ func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 }
 
 func (r *GoogleCASClient) Close() {
+	r.caClient.Close()
 }
