@@ -39,12 +39,12 @@ type Server struct {
 	grpcWorkloadListener net.Listener
 
 	grpcWorkloadServer *grpc.Server
-	stopped            atomic.Bool
+	stopped            *atomic.Bool
 }
 
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options *security.Options, workloadSecretCache security.SecretManager) *Server {
-	s := &Server{stopped: atomic.Bool{}}
+	s := &Server{stopped: atomic.NewBool(false)}
 	s.workloadSds = newSDSService(workloadSecretCache, options)
 	s.initWorkloadSdsService(options)
 	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", options.WorkloadUDSPath)
