@@ -18,10 +18,13 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -127,12 +130,23 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 				certificate, err = tls.LoadX509KeyPair(
 					filepath.Join(c.opts.ProvCert, "cert-chain.pem"),
 					filepath.Join(c.opts.ProvCert, "key.pem"))
+
 				if err != nil {
 					// we will return an empty cert so that when user sets the Prov cert path
 					// but not have such cert in the file path we use the token to provide verification
 					// instead of just broken the workflow
 					citadelClientLog.Warnf("cannot load key pair, using token instead: %v", err)
 					return &certificate, nil
+				}
+				var isExpired bool
+				isExpired, err = c.isCertExpired(filepath.Join(c.opts.ProvCert, "cert-chain.pem"))
+				if err != nil {
+					citadelClientLog.Warnf("cannot parse the cert chain, using token instead: %v", err)
+					return &tls.Certificate{}, nil
+				}
+				if isExpired {
+					citadelClientLog.Warnf("cert expired, using token instead")
+					return &tls.Certificate{}, nil
 				}
 				c.usingMtls.Store(true)
 			}
@@ -149,6 +163,25 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
+}
+
+func (c *CitadelClient) isCertExpired(filepath string) (bool, error) {
+	var err error
+	var certPEMBlock []byte
+	certPEMBlock, err = os.ReadFile(filepath)
+	if err != nil {
+		return true, fmt.Errorf("failed to read the cert, error is %v", err)
+	}
+	var certDERBlock *pem.Block
+	certDERBlock, _ = pem.Decode(certPEMBlock)
+	if certDERBlock == nil {
+		return true, fmt.Errorf("failed to decode certificate")
+	}
+	x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+	if err != nil {
+		return true, fmt.Errorf("failed to parse the cert, err is %v", err)
+	}
+	return x509Cert.NotAfter.Before(time.Now()), nil
 }
 
 func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
