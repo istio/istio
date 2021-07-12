@@ -81,6 +81,9 @@ const (
 )
 
 func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalDNSServer, error) {
+	if addr == "" {
+		addr = "localhost:15053"
+	}
 	h := &LocalDNSServer{
 		proxyNamespace: proxyNamespace,
 		addr:           addr,
@@ -179,6 +182,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
+// upstrem sends the requeset to the upstream server, with associated logs and metrics
 func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string) *dns.Msg {
 	upstreamRequests.Increment()
 	start := time.Now()
@@ -212,15 +216,15 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	lp := h.lookupTable.Load()
 	hostname := strings.ToLower(req.Question[0].Name)
 	if lp == nil {
-		if os.Getuid() != 0 {
+		if strings.HasSuffix(h.addr, ":53") {
+			response.Truncate(size(proxy.protocol, req))
+			_ = w.WriteMsg(response)
+		} else {
+			response := h.upstream(proxy, req, hostname)
 			log.Debugf("dns request for host %q before lookup table is loaded", hostname)
 			response = new(dns.Msg)
 			response.SetReply(req)
 			response.Rcode = dns.RcodeServerFailure
-			_ = w.WriteMsg(response)
-		} else {
-			response := h.upstream(proxy, req, hostname)
-			response.Truncate(size(proxy.protocol, req))
 			_ = w.WriteMsg(response)
 		}
 		return
