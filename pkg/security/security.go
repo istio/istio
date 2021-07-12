@@ -223,6 +223,7 @@ type StsRequestParameters struct {
 type Client interface {
 	CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error)
 	Close()
+	GetRootCertBundle() ([]string, error)
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
