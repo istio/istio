@@ -87,8 +87,8 @@ func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag 
 	return nsNames, nil
 }
 
-// GetWebhookName extracts tag name from webhook object.
-func GetWebhookName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
+// GetWebhookTagName extracts tag name from webhook object.
+func GetWebhookTagName(wh admit_v1.MutatingWebhookConfiguration) (string, error) {
 	if tagName, ok := wh.ObjectMeta.Labels[IstioTagLabel]; ok {
 		return tagName, nil
 	}
