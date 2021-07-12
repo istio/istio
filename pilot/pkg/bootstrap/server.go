@@ -34,6 +34,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/admin"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -724,6 +725,9 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
+	if features.GRPCDebug {
+		admin.Register(s.grpcServer)
+	}
 }
 
 // initialize secureGRPCServer.
@@ -772,6 +776,9 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
+	if features.GRPCDebug {
+		admin.Register(s.secureGrpcServer)
+	}
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {

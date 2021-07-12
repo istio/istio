@@ -23,6 +23,7 @@ import (
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/zpages"
 
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
@@ -63,6 +64,8 @@ func addMonitor(mux *http.ServeMux) error {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
+
+	zpages.Handle(mux, "/debug")
 
 	return nil
 }
