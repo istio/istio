@@ -19,10 +19,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	"github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -56,26 +56,26 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 			}
 			for _, p := range sv.Ports {
 				hp := net.JoinHostPort(shost, strconv.Itoa(p.Port))
-				ll := &envoy_config_listener_v3.Listener{
+				ll := &listener.Listener{
 					Name: hp,
 				}
 
-				ll.Address = &envoy_config_core_v3.Address{
-					Address: &envoy_config_core_v3.Address_SocketAddress{
-						SocketAddress: &envoy_config_core_v3.SocketAddress{
+				ll.Address = &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
 							Address: sv.Address,
-							PortSpecifier: &envoy_config_core_v3.SocketAddress_PortValue{
+							PortSpecifier: &core.SocketAddress_PortValue{
 								PortValue: uint32(p.Port),
 							},
 						},
 					},
 				}
-				hcm := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{
-					RouteSpecifier: &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_Rds{
-						Rds: &envoy_extensions_filters_network_http_connection_manager_v3.Rds{
-							ConfigSource: &envoy_config_core_v3.ConfigSource{
-								ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-									Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+				hcm := &hcm.HttpConnectionManager{
+					RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+						Rds: &hcm.Rds{
+							ConfigSource: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_Ads{
+									Ads: &core.AggregatedConfigSource{},
 								},
 							},
 							RouteConfigName: clusterKey(shost, p.Port),
@@ -84,10 +84,10 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 				}
 				hcmAny := util.MessageToAny(hcm)
 				// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
-				ll.ApiListener = &envoy_config_listener_v3.ApiListener{
+				ll.ApiListener = &listener.ApiListener{
 					ApiListener: hcmAny,
 				}
-				resp = append(resp, &envoy_service_discovery_v3.Resource{
+				resp = append(resp, &discovery.Resource{
 					Name:     hp,
 					Resource: util.MessageToAny(ll),
 				})

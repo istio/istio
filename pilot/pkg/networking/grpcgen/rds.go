@@ -15,8 +15,8 @@
 package grpcgen
 
 import (
-	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -30,7 +30,7 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 	resp := model.Resources{}
 	for _, routeName := range routeNames {
 		if rc := buildHTTPRoute(node, push, routeName); rc != nil {
-			resp = append(resp, &envoy_service_discovery_v3.Resource{
+			resp = append(resp, &discovery.Resource{
 				Name:     routeName,
 				Resource: util.MessageToAny(rc),
 			})
@@ -39,7 +39,7 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 	return resp
 }
 
-func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string) *routev3.RouteConfiguration {
+func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string) *route.RouteConfiguration {
 	// TODO use route-style naming instead of cluster naming
 	_, _, hostname, port := model.ParseSubsetKey(routeName)
 	if hostname == "" || port == 0 {
@@ -49,7 +49,7 @@ func buildHTTPRoute(node *model.Proxy, push *model.PushContext, routeName string
 
 	// Only generate the required route for grpc. Will need to generate more
 	// as GRPC adds more features.
-	return &routev3.RouteConfiguration{
+	return &route.RouteConfiguration{
 		Name:         routeName,
 		VirtualHosts: v1alpha3.BuildSidecarOutboundVirtualHosts(node, push, routeName, port),
 	}
