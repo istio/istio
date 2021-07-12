@@ -20,11 +20,9 @@ import (
 
 	// Needed to embed webhook templates.
 	_ "embed"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"strings"
-	"text/template"
 
 	admit_v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,8 +37,10 @@ const (
 	IstioTagLabel       = "istio.io/tag"
 	DefaultRevisionName = "default"
 
+	defaultChart                = "default"
 	pilotDiscoveryChart         = "istio-control/istio-discovery"
 	revisionTagTemplateName     = "revision-tags.yaml"
+	vwhTemplateName             = "validatingwebhook.yaml"
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 )
 
@@ -70,9 +70,6 @@ type GenerateOptions struct {
 	// Overwrite removes analysis checks around existing webhooks.
 	Overwrite bool
 }
-
-//go:embed templates/validatingwebhook.yaml
-var validatingWebhookTemplate string
 
 // Generate generates the manifests for a revision tag pointed the given revision.
 func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOptions) (string, error) {
@@ -124,7 +121,7 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
 		// to ease complexity when pointing default to revision without per-revision validating webhook,
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
-		vwhYAML, err := generateValidatingWebhook(tagWhConfig)
+		vwhYAML, err := generateValidatingWebhook(tagWhConfig, opts.ManifestsPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
@@ -145,20 +142,51 @@ func Create(client kube.ExtendedClient, manifests string) error {
 }
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
-func generateValidatingWebhook(config *tagWebhookConfig) (string, error) {
-	modified := *config
-	modified.CABundle = base64.StdEncoding.EncodeToString([]byte(config.CABundle))
-	tmpl, err := template.New("vwh").Parse(validatingWebhookTemplate)
-	if err != nil {
-		return "", err
+func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (string, error) {
+	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace)
+
+	if err := r.Run(); err != nil {
+		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
-	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, modified)
+
+	values := fmt.Sprintf(`
+revision: %q
+base:
+  validationURL: %s
+`, config.Revision, config.URL)
+
+	validatingWebhookYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
+		return strings.Contains(tmplName, vwhTemplateName)
+	})
 	if err != nil {
+		return "", fmt.Errorf("failed rendering istio-control manifest: %v", err)
+	}
+
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer()
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+			Yaml:   true,
+			Pretty: true,
+			Strict: true,
+		})
+
+	whObject, _, err := deserializer.Decode([]byte(validatingWebhookYAML), nil, &admit_v1.ValidatingWebhookConfiguration{})
+	if err != nil {
+		return "", fmt.Errorf("could not decode generated webhook: %w", err)
+	}
+	decodedWh := whObject.(*admit_v1.ValidatingWebhookConfiguration)
+	for i := range decodedWh.Webhooks {
+		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
+	}
+
+	whBuf := new(bytes.Buffer)
+	if err = serializer.Encode(decodedWh, whBuf); err != nil {
 		return "", err
 	}
 
-	return buf.String(), nil
+	return whBuf.String(), nil
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
@@ -190,8 +218,6 @@ istiodRemote:
 		return "", fmt.Errorf("failed rendering istio-control manifest: %v", err)
 	}
 
-	// Need to deserialize webhook to change CA bundle
-	// and serialize it back into YAML
 	scheme := runtime.NewScheme()
 	codecFactory := serializer.NewCodecFactory(scheme)
 	deserializer := codecFactory.UniversalDeserializer()
