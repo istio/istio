@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -26,7 +28,6 @@ import (
 
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -206,8 +207,8 @@ func (c *instance) Restart() error {
 
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
 func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
-	// TODO put this somewhere else, or require users explicitly set the protocol
-	if c.Config().IsProxylessGRPC() && opts.Scheme == scheme.GRPC {
+	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
+	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.PortName == "grpc" || opts.Port != nil && opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
 		opts.Scheme = scheme.XDS
 	}
