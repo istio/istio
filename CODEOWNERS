@@ -26,6 +26,7 @@ Makefile*                                                        @istio/wg-test-
 /pkg/adsc/                                                       @istio/wg-networking-maintainers
 /pkg/bootstrap/                                                  @istio/wg-networking-maintainers
 /pkg/config/                                                     @istio/wg-networking-maintainers
+/pkg/dns/                                                        @istio/wg-networking-maintainers
 /pkg/envoy/                                                      @istio/wg-networking-maintainers
 /pkg/istio-agent/                                                @istio/wg-networking-maintainers @istio/wg-security-maintainers
 /pkg/keepalive/                                                  @istio/wg-networking-maintainers
