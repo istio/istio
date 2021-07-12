@@ -76,9 +76,6 @@ var (
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
-	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
-		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
-			"will be removed once the feature is stabilized.").Get()
 	proxyXDSDebugViaAgent = env.RegisterBoolVar("PROXY_XDS_DEBUG_VIA_AGENT", true,
 		"If set to true, the agent will listen on 15004 and offer pilot's XDS istio.io/debug debug API there.").Get()
 	// DNSCaptureByAgent is a copy of the env var in the init code.
