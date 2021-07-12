@@ -176,6 +176,10 @@ var (
 	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
 	// Description: Gateway should not have the same selector, port and matched hosts of server
 	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
+
+	// NamespaceResourceConflict defines a diag.MessageType for message "NamespaceResourceConflict".
+	// Description: Multiple specifiers of the same kind in a namespace select the same workload.
+	NamespaceResourceConflict = diag.NewMessageType(diag.Warning, "IST0146", "More than one %s in namespace %q for workload %q: %v.")
 )
 
 // All returns a list of all known message types.
@@ -223,6 +227,7 @@ func All() []*diag.MessageType {
 		LocalhostListener,
 		InvalidApplicationUID,
 		ConflictingGateways,
+		NamespaceResourceConflict,
 	}
 }
 
@@ -645,5 +650,17 @@ func NewConflictingGateways(r *resource.Instance, gateway string, selector strin
 		selector,
 		portnumber,
 		hosts,
+	)
+}
+
+// NewNamespaceResourceConflict returns a new diag.Message based on NamespaceResourceConflict.
+func NewNamespaceResourceConflict(r *resource.Instance, kind string, namespace string, workloadSelector string, conflictingCRs []string) diag.Message {
+	return diag.NewMessage(
+		NamespaceResourceConflict,
+		r,
+		kind,
+		namespace,
+		workloadSelector,
+		conflictingCRs,
 	)
 }
