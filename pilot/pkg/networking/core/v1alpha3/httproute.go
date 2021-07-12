@@ -419,33 +419,41 @@ func generateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		return nil
 	}
 
+	// For Kubernetes services, If Kubernetes MCS host is enabled, also add a virtual host for 'clusterset.local'
+	if features.EnableMCSHost {
+		svcIndex := strings.LastIndex(hostname, ".svc.")
+		if svcIndex > 0 {
+			// It's a Kubernetes service. Add the virtual host for MCS.
+			mcsHost := hostname[:svcIndex+len(".svc.")] + mcsServiceDomain
+			vhosts = append(vhosts, mcsHost, domainName(mcsHost, port))
+		}
+	}
+
 	sharedDNSDomainParts := strings.Split(sharedDNSDomain, ".")
 	if len(strings.Split(uniqHostname, ".")) == 2 {
 		// This is the case of uniqHostname having namespace already.
 		dnsHostName := uniqHostname + "." + sharedDNSDomainParts[0]
 		vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port), dnsHostName, domainName(dnsHostName, port))
-	} else {
-		if strings.Contains(proxyDomain, ".svc.") {
-			// Derive the namespace from sharedDNSDomain and add virtual host.
-			namespace := sharedDNSDomainParts[0]
-			if strings.HasPrefix(proxyDomain, namespace+".svc.") {
-				// Split the domain and add only for Kubernetes proxies.
-				vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
-				if len(sharedDNSDomainParts) > 1 {
-					dnsHostName := uniqHostname + "." + namespace + "." + sharedDNSDomainParts[1]
-					vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
-				}
-				hostNameWithNS := uniqHostname + "." + namespace
-
-				// Don't add if they are same because we add it later and adding it here will result in duplicates.
-				if hostname != hostNameWithNS {
-					vhosts = append(vhosts, hostNameWithNS, domainName(hostNameWithNS, port))
-				}
-			}
-		} else {
-			// Add the uniqueHost if it is not a Kubernetes domain.
+	} else if strings.Contains(proxyDomain, ".svc.") {
+		// Derive the namespace from sharedDNSDomain and add virtual host.
+		namespace := sharedDNSDomainParts[0]
+		if strings.HasPrefix(proxyDomain, namespace+".svc.") {
+			// Split the domain and add only for Kubernetes proxies.
 			vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
+			if len(sharedDNSDomainParts) > 1 {
+				dnsHostName := uniqHostname + "." + namespace + "." + sharedDNSDomainParts[1]
+				vhosts = append(vhosts, dnsHostName, domainName(dnsHostName, port))
+			}
+			hostNameWithNS := uniqHostname + "." + namespace
+
+			// Don't add if they are same because we add it later and adding it here will result in duplicates.
+			if hostname != hostNameWithNS {
+				vhosts = append(vhosts, hostNameWithNS, domainName(hostNameWithNS, port))
+			}
 		}
+	} else {
+		// Add the uniqueHost if it is not a Kubernetes domain.
+		vhosts = append(vhosts, uniqHostname, domainName(uniqHostname, port))
 	}
 	return vhosts
 }
