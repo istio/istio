@@ -25,8 +25,6 @@ import (
 	client "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	"istio.io/pkg/log"
 )
 
 type Controller struct {
@@ -84,7 +82,7 @@ func NewRepairController(reconciler brokenPodReconciler) (*Controller, error) {
 func (rc *Controller) Run(stopCh <-chan struct{}) {
 	go rc.podController.Run(stopCh)
 	if !cache.WaitForCacheSync(stopCh, rc.podController.HasSynced) {
-		log.Error("timed out waiting for pod caches to sync")
+		repairLog.Error("timed out waiting for pod caches to sync")
 		return
 	}
 
@@ -114,7 +112,7 @@ func (rc *Controller) processNextItem() bool {
 
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
-		log.Errorf("Error decoding object, invalid type. Dropping.")
+		repairLog.Errorf("Error decoding object, invalid type. Dropping.")
 		rc.workQueue.Forget(obj)
 		// Short-circuit on this item, but return true to keep
 		// processing.
@@ -124,23 +122,23 @@ func (rc *Controller) processNextItem() bool {
 	err := rc.reconciler.ReconcilePod(*pod)
 
 	if err == nil {
-		log.Debugf("Removing %s/%s from work queue", pod.Namespace, pod.Name)
+		repairLog.Debugf("Removing %s/%s from work queue", pod.Namespace, pod.Name)
 		rc.workQueue.Forget(obj)
 	} else if rc.workQueue.NumRequeues(obj) < 50 {
 		if strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
-			log.Debugf("Object '%s/%s' modified, requeue for retry", pod.Namespace, pod.Name)
-			log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
+			repairLog.Debugf("Object '%s/%s' modified, requeue for retry", pod.Namespace, pod.Name)
+			repairLog.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
 			rc.workQueue.AddRateLimited(obj)
 		} else if strings.Contains(err.Error(), "not found") {
-			log.Debugf("Object '%s/%s' removed, dequeue", pod.Namespace, pod.Name)
+			repairLog.Debugf("Object '%s/%s' removed, dequeue", pod.Namespace, pod.Name)
 			rc.workQueue.Forget(obj)
 		} else {
-			log.Errorf("Error: %s", err)
-			log.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
+			repairLog.Errorf("Error: %s", err)
+			repairLog.Infof("Re-adding %s/%s to work queue", pod.Namespace, pod.Name)
 			rc.workQueue.AddRateLimited(obj)
 		}
 	} else {
-		log.Infof("Requeue limit reached, removing %s/%s", pod.Namespace, pod.Name)
+		repairLog.Infof("Requeue limit reached, removing %s/%s", pod.Namespace, pod.Name)
 		rc.workQueue.Forget(obj)
 		runtime.HandleError(err)
 	}

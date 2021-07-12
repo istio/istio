@@ -29,6 +29,8 @@ import (
 	"istio.io/pkg/log"
 )
 
+var repairLog = log.RegisterScope("repair", "CNI race condition repair", 0)
+
 // The pod reconciler struct. Contains state used to reconcile broken pods.
 type brokenPodReconciler struct {
 	client client.Interface
@@ -44,7 +46,7 @@ func newBrokenPodReconciler(client client.Interface, cfg *config.RepairConfig) b
 }
 
 func (bpr brokenPodReconciler) ReconcilePod(pod v1.Pod) (err error) {
-	log.Debugf("Reconciling pod %s", pod.Name)
+	repairLog.Debugf("Reconciling pod %s", pod.Name)
 
 	if bpr.cfg.DeletePods {
 		err = multierr.Append(err, bpr.deleteBrokenPod(pod))
@@ -75,12 +77,12 @@ func (bpr brokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 		m.With(resultLabel.Value(resultSkip)).Increment()
 		return
 	}
-	log.Infof("Pod detected as broken, adding label: %s/%s", pod.Namespace, pod.Name)
+	repairLog.Infof("Pod detected as broken, adding label: %s/%s", pod.Namespace, pod.Name)
 
 	labels := pod.GetLabels()
 	if _, ok := labels[bpr.cfg.LabelKey]; ok {
 		m.With(resultLabel.Value(resultSkip)).Increment()
-		log.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.cfg.LabelKey)
+		repairLog.Infof("Pod %s/%s already has label with key %s, skipping", pod.Namespace, pod.Name, bpr.cfg.LabelKey)
 		return
 	}
 
@@ -88,12 +90,12 @@ func (bpr brokenPodReconciler) labelBrokenPod(pod v1.Pod) (err error) {
 		labels = map[string]string{}
 	}
 
-	log.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.cfg.LabelKey, bpr.cfg.LabelValue)
+	repairLog.Infof("Labeling pod %s/%s with label %s=%s", pod.Namespace, pod.Name, bpr.cfg.LabelKey, bpr.cfg.LabelValue)
 	labels[bpr.cfg.LabelKey] = bpr.cfg.LabelValue
 	pod.SetLabels(labels)
 
 	if _, err = bpr.client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), &pod, metav1.UpdateOptions{}); err != nil {
-		log.Errorf("Failed to update pod: %s", err)
+		repairLog.Errorf("Failed to update pod: %s", err)
 		m.With(resultLabel.Value(resultFail)).Increment()
 		return
 	}
@@ -111,7 +113,7 @@ func (bpr brokenPodReconciler) DeleteBrokenPods() error {
 
 	var loopErrors []error
 	for _, pod := range podList.Items {
-		log.Infof("Deleting broken pod: %s/%s", pod.Namespace, pod.Name)
+		repairLog.Infof("Deleting broken pod: %s/%s", pod.Namespace, pod.Name)
 		if err := bpr.deleteBrokenPod(pod); err != nil {
 			loopErrors = append(loopErrors, err)
 		}
@@ -133,7 +135,7 @@ func (bpr brokenPodReconciler) deleteBrokenPod(pod v1.Pod) error {
 		m.With(resultLabel.Value(resultSkip)).Increment()
 		return nil
 	}
-	log.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
+	repairLog.Infof("Pod detected as broken, deleting: %s/%s", pod.Namespace, pod.Name)
 	err := bpr.client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 	if err != nil {
 		m.With(resultLabel.Value(resultFail)).Increment()
@@ -222,15 +224,15 @@ func (bpr brokenPodReconciler) detectPod(pod v1.Pod) bool {
 }
 
 func StartRepair(ctx context.Context, cfg *config.RepairConfig) {
-	log.Info("Start CNI race condition repair.")
+	repairLog.Info("Start CNI race condition repair.")
 	if !cfg.Enabled {
-		log.Info("CNI repair is disable.")
+		repairLog.Info("CNI repair is disable.")
 		return
 	}
 
 	clientSet, err := clientSetup()
 	if err != nil {
-		log.Fatalf("CNI repair could not construct clientSet: %s", err)
+		repairLog.Fatalf("CNI repair could not construct clientSet: %s", err)
 	}
 
 	podFixer := newBrokenPodReconciler(clientSet, cfg)
@@ -238,7 +240,7 @@ func StartRepair(ctx context.Context, cfg *config.RepairConfig) {
 	if cfg.RunAsDaemon {
 		rc, err := NewRepairController(podFixer)
 		if err != nil {
-			log.Fatalf("Fatal error constructing repair controller: %+v", err)
+			repairLog.Fatalf("Fatal error constructing repair controller: %+v", err)
 		}
 		rc.Run(ctx.Done())
 	} else {
@@ -250,7 +252,7 @@ func StartRepair(ctx context.Context, cfg *config.RepairConfig) {
 			err = multierr.Append(err, podFixer.DeleteBrokenPods())
 		}
 		if err != nil {
-			log.Fatalf(err.Error())
+			repairLog.Fatalf(err.Error())
 		}
 	}
 }

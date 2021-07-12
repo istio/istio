@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/pkg/log"
 )
 
 type pluginConfig struct {
@@ -96,12 +95,12 @@ func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Infof("Using CNI config template from %s", template.cniNetworkConfigFile)
+		installLog.Infof("Using CNI config template from %s", template.cniNetworkConfigFile)
 		return cniConfig, nil
 	}
 
 	if len(template.cniNetworkConfig) > 0 {
-		log.Infof("Using CNI config template from CNI_NETWORK_CONFIG environment variable.")
+		installLog.Infof("Using CNI config template from CNI_NETWORK_CONFIG environment variable.")
 		return []byte(template.cniNetworkConfig), nil
 	}
 
@@ -120,7 +119,7 @@ func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) 
 
 	// Log the config file before inserting service account token.
 	// This way auth token is not visible in the logs.
-	log.Infof("CNI config: %s", cniConfigStr)
+	installLog.Infof("CNI config: %s", cniConfigStr)
 
 	cniConfigStr = strings.ReplaceAll(cniConfigStr, "__SERVICEACCOUNT_TOKEN__", saToken)
 
@@ -154,7 +153,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 
 	if cfg.chainedCNIPlugin && strings.HasSuffix(cniConfigFilepath, ".conf") {
 		// If the old CNI config filename ends with .conf, rename it to .conflist, because it has to be changed to a list
-		log.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
+		installLog.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
 		err = os.Rename(cniConfigFilepath, cniConfigFilepath+"list")
 		if err != nil {
 			return "", err
@@ -162,7 +161,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		cniConfigFilepath += "list"
 	}
 
-	log.Infof("Created CNI config %s", cniConfigFilepath)
+	installLog.Infof("Created CNI config %s", cniConfigFilepath)
 	return cniConfigFilepath, nil
 }
 
@@ -191,8 +190,8 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 		if err == nil {
 			break
 		}
-		log.Warnf("Istio CNI is configured as chained plugin, but cannot find existing CNI network config: %v", err)
-		log.Infof("Waiting for CNI network config file to be written in %v...", cfg.mountedCNINetDir)
+		installLog.Warnf("Istio CNI is configured as chained plugin, but cannot find existing CNI network config: %v", err)
+		installLog.Infof("Waiting for CNI network config file to be written in %v...", cfg.mountedCNINetDir)
 		if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
 			return "", err
 		}
@@ -202,20 +201,20 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 
 	for !file.Exists(cniConfigFilepath) {
 		if strings.HasSuffix(cniConfigFilepath, ".conf") && file.Exists(cniConfigFilepath+"list") {
-			log.Infof("%s doesn't exist, but %[1]slist does; Using it as the CNI config file instead.", cniConfigFilepath)
+			installLog.Infof("%s doesn't exist, but %[1]slist does; Using it as the CNI config file instead.", cniConfigFilepath)
 			cniConfigFilepath += "list"
 		} else if strings.HasSuffix(cniConfigFilepath, ".conflist") && file.Exists(cniConfigFilepath[:len(cniConfigFilepath)-4]) {
-			log.Infof("%s doesn't exist, but %s does; Using it as the CNI config file instead.", cniConfigFilepath, cniConfigFilepath[:len(cniConfigFilepath)-4])
+			installLog.Infof("%s doesn't exist, but %s does; Using it as the CNI config file instead.", cniConfigFilepath, cniConfigFilepath[:len(cniConfigFilepath)-4])
 			cniConfigFilepath = cniConfigFilepath[:len(cniConfigFilepath)-4]
 		} else {
-			log.Infof("CNI config file %s does not exist. Waiting for file to be written...", cniConfigFilepath)
+			installLog.Infof("CNI config file %s does not exist. Waiting for file to be written...", cniConfigFilepath)
 			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
 				return "", err
 			}
 		}
 	}
 
-	log.Infof("CNI config file %s exists. Proceeding.", cniConfigFilepath)
+	installLog.Infof("CNI config file %s exists. Proceeding.", cniConfigFilepath)
 
 	return cniConfigFilepath, err
 }
@@ -237,30 +236,30 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 		if strings.HasSuffix(confFile, ".conflist") {
 			confList, err = libcni.ConfListFromFile(confFile)
 			if err != nil {
-				log.Warnf("Error loading CNI config list file %s: %v", confFile, err)
+				installLog.Warnf("Error loading CNI config list file %s: %v", confFile, err)
 				continue
 			}
 		} else {
 			conf, err := libcni.ConfFromFile(confFile)
 			if err != nil {
-				log.Warnf("Error loading CNI config file %s: %v", confFile, err)
+				installLog.Warnf("Error loading CNI config file %s: %v", confFile, err)
 				continue
 			}
 			// Ensure the config has a "type" so we know what plugin to run.
 			// Also catches the case where somebody put a conflist into a conf file.
 			if conf.Network.Type == "" {
-				log.Warnf("Error loading CNI config file %s: no 'type'; perhaps this is a .conflist?", confFile)
+				installLog.Warnf("Error loading CNI config file %s: no 'type'; perhaps this is a .conflist?", confFile)
 				continue
 			}
 
 			confList, err = libcni.ConfListFromConf(conf)
 			if err != nil {
-				log.Warnf("Error converting CNI config file %s to list: %v", confFile, err)
+				installLog.Warnf("Error converting CNI config file %s to list: %v", confFile, err)
 				continue
 			}
 		}
 		if len(confList.Plugins) == 0 {
-			log.Warnf("CNI config list %s has no networks, skipping", confList.Name)
+			installLog.Warnf("CNI config list %s has no networks, skipping", confList.Name)
 			continue
 		}
 
