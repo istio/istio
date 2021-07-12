@@ -253,68 +253,18 @@
       },
       {
         "name": "xds-grpc",
-        {{- if .proxy_via_agent }}
         "type" : "STATIC",
-        {{- else }}
-        "type": "STRICT_DNS",
-        "respect_dns_ttl": true,
-        "dns_lookup_family": "{{ .dns_lookup_family }}",
-        {{- end }}
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        {{- if not .proxy_via_agent }}
-        {{- if eq .config.ControlPlaneAuthPolicy 1 }}
-        "transport_socket": {
-          "name": "envoy.transport_sockets.tls",
-          "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
-            "sni": "{{ .discovery_host }}",
-            "common_tls_context": {
-              "alpn_protocols": [
-                "h2"
-              ],
-              "tls_certificate_sds_secret_configs": [
-                {
-                  "name": "default",
-                  "sds_config": {
-                    "resource_api_version": "V3",
-                    "initial_fetch_timeout": "0s",
-                    "api_config_source": {
-                      "api_type": "GRPC",
-                      "transport_api_version": "V3",
-                      "grpc_services": [
-                        {
-                          "envoy_grpc": { "cluster_name": "sds-grpc" }
-                        }
-                      ]
-                    }
-                  }
-                }
-              ],
-              "validation_context": {
-                "trusted_ca": {
-                  "filename": "{{- .provisioned_cert }}"
-                 },
-                "match_subject_alt_names": {{ .pilot_SAN }}
-              }
-            }
-          }
-        },
-        {{- end }}
-        {{- end }}
         "load_assignment": {
           "cluster_name": "xds-grpc",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
-                  {{- if not .proxy_via_agent }}
-                  "socket_address": {{ .pilot_grpc_address }}
-                  {{- else }}
                   "pipe": {
                     "path": "{{ .config.ConfigPath }}/XDS"
                   }
-                  {{- end }}
                 }
               }
             }]
