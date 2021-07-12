@@ -22,7 +22,7 @@ var (
 	resultCopyBinariesFailure     = "COPY_BINARIES_FAILURE"
 	resultReadSAFailure           = "READ_SERVICE_ACCOUNT_FAILURE"
 	resultCreateKubeConfigFailure = "CREATE_KUBECONFIG_FAILURE"
-	resultCreateCNIConfigFailure  = "CREATE_KUBECONFIG_FAILURE"
+	resultCreateCNIConfigFailure  = "CREATE_CNI_CONFIG_FAILURE"
 
 	stateLabel   = monitoring.MustCreateLabel("state")
 	stateReady   = "READY"
@@ -30,7 +30,7 @@ var (
 
 	cniInstalls = monitoring.NewSum(
 		"istio_cni_installs_total",
-		"Total number of CNI plugins installed by the ßIstio CNI installer",
+		"Total number of CNI plugins installed by the Istio CNI installer",
 		monitoring.WithLabels(resultLabel),
 	)
 
