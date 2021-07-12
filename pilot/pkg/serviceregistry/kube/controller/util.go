@@ -104,8 +104,10 @@ func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) (int
 		if p.Name == servicePort.Name || p.Port == int32(servicePort.Port) {
 			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
 				targetPort = int(p.TargetPort.IntVal)
-			} else {
+			} else if p.TargetPort.StrVal != "" {
 				targetPortName = p.TargetPort.StrVal
+			} else {
+				targetPortName = p.Name
 			}
 			break
 		}
