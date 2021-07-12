@@ -174,7 +174,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			prompt = fmt.Sprintf("This will install the Istio %s %s profile into the cluster. Proceed? (y/N)", tag, profile)
 		}
 		if !confirm(prompt, cmd.OutOrStdout()) {
-			cmd.Print("Cancelled.\n")
+			cmd.Println("Cancelled.")
 			os.Exit(1)
 		}
 	}
@@ -193,7 +193,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 	rev := iop.Spec.Revision
 	if !exists || rev == "" {
-		cmd.Print("Making this installation the default for injection and validation.")
+		cmd.Println("Making this installation the default for injection and validation.")
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
