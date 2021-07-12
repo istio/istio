@@ -324,7 +324,7 @@ func TestRequestAuthentication(t *testing.T) {
 									t.Logf("failed to apply security config %s: %v", c.Config, err)
 									return err
 								}
-								util.WaitForConfig(t, policy, ns)
+								util.WaitForConfig(t, ns, policy)
 							}
 							return nil
 						}).

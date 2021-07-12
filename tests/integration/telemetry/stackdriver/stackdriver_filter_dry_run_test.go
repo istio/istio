@@ -191,7 +191,7 @@ func createDryRunPolicy(t *testing.T, ctx framework.TestContext, authz string) {
 	ns := getEchoNamespaceInstance()
 	policies := tmpl.EvaluateAllOrFail(t, map[string]string{"Namespace": ns.Name()}, file.AsStringOrFail(t, authz))
 	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-	util.WaitForConfig(ctx, policies[0], ns)
+	util.WaitForConfig(ctx, ns, policies...)
 }
 
 func verifyAccessLog(t *testing.T, cltInstance echo.Instance, wantLog string) error {
