@@ -172,15 +172,15 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *clusterv3.Cluster)
 
 	// resolve policy from context
 	destinationRule := v1alpha3.CastDestinationRule(b.push.DestinationRule(b.node, b.svc))
-	trafficPolicy := v1alpha3.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, b.port)
+	trafficPolicy := v1alpha3.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
 	b.applyPolicy(defaultCluster, trafficPolicy)
 
 	// subset clusters
-	if len(destinationRule.Subsets) > 0 {
-		subsetClusters = make([]*clusterv3.Cluster, 0, len(destinationRule.Subsets))
-		for _, subset := range destinationRule.Subsets {
+	if len(destinationRule.GetSubsets()) > 0 {
+		subsetClusters = make([]*clusterv3.Cluster, 0, len(destinationRule.GetSubsets()))
+		for _, subset := range destinationRule.GetSubsets() {
 			subsetKey := subsetClusterKey(subset.Name, string(b.hostname), b.portNum)
 			if !b.filter.Contains(subsetKey) {
 				continue
