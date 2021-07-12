@@ -24,10 +24,6 @@ var (
 	resultCreateKubeConfigFailure = "CREATE_KUBECONFIG_FAILURE"
 	resultCreateCNIConfigFailure  = "CREATE_CNI_CONFIG_FAILURE"
 
-	stateLabel   = monitoring.MustCreateLabel("state")
-	stateReady   = "READY"
-	stateUnready = "UNREADY"
-
 	cniInstalls = monitoring.NewSum(
 		"istio_cni_installs_total",
 		"Total number of CNI plugins installed by the Istio CNI installer",
@@ -35,9 +31,8 @@ var (
 	)
 
 	installState = monitoring.NewGauge(
-		"istio_cni_install_state",
-		"Installation state of CNI plugin, one of [READY, UNREADY]",
-		monitoring.WithLabels(stateLabel),
+		"istio_cni_install_ready",
+		"Whether the CNI plugin installation is ready or not",
 	)
 )
 
