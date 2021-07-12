@@ -1621,6 +1621,9 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if !util.CidrRangeSliceEqual(first.SourcePrefixRanges, second.SourcePrefixRanges) {
 		return false
 	}
+	if !util.CidrRangeSliceEqual(first.DirectSourcePrefixRanges, second.DirectSourcePrefixRanges) {
+		return false
+	}
 	if first.AddressSuffix != second.AddressSuffix {
 		return false
 	}

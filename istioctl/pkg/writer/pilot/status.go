@@ -170,6 +170,8 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
+				// FIXME: https://github.com/istio/istio/issues/33980
+				// nolint: staticcheck
 				cds, lds, eds, rds := getSyncStatus(clientConfig.GetXdsConfig())
 				cp := multixds.CpInfo(dr)
 				fullStatus = append(fullStatus, &xdsWriterStatus{
