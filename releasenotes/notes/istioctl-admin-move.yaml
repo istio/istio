@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 33351
+releaseNotes:
+  - |
+    **Added** Subcommands affecting control plane duplicated in 'istioctl admin' for planned future move.
