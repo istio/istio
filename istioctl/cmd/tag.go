@@ -377,7 +377,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	fmt.Fprintln(w, "TAG\tREVISION\tNAMESPACES")
 	for _, wh := range tagWebhooks {
-		tagName, err := tag.GetWebhookName(wh)
+		tagName, err := tag.GetWebhookTagName(wh)
 		if err != nil {
 			return fmt.Errorf("error parsing tag name from webhook %q: %v", wh.Name, err)
 		}
