@@ -214,6 +214,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
 	rootCmd.AddCommand(adminCmd())
+	rootCmd.AddCommand(tagCommand())
 	experimentalCmd.AddCommand(injectorCommand())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
@@ -263,6 +264,10 @@ debug and diagnose their Istio mesh.
 	bugReportCmd := bugreport.Cmd(loggingOptions)
 	hideInheritedFlags(bugReportCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(bugReportCmd)
+
+	tagCmd := tagCommand()
+	hideInheritedFlags(tagCommand(), "namespace", "istioNamespace", "charts")
+	rootCmd.AddCommand(tagCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
 
