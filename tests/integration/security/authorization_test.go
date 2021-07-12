@@ -62,7 +62,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, args,
 					file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 				t.Config().ApplyYAMLOrFail(t, apps.Namespace1.Name(), policies...)
-				util.WaitForConfig(t, policies[0], apps.Namespace1)
+				util.WaitForConfig(t, apps.Namespace1, policies...)
 				for _, cluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", cluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(cluster).And(echo.Namespace(apps.Namespace1.Name())))
@@ -121,7 +121,7 @@ func TestAuthorization_JWT(t *testing.T) {
 				policies := tmpl.EvaluateAllOrFail(t, args,
 					file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
 				t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-				util.WaitForConfig(t, policies[0], ns)
+				util.WaitForConfig(t, ns, policies...)
 				for _, srcCluster := range t.Clusters() {
 					t.NewSubTest(fmt.Sprintf("From %s", srcCluster.StableName())).Run(func(t framework.TestContext) {
 						a := apps.A.Match(echo.InCluster(srcCluster).And(echo.Namespace(ns.Name())))
@@ -300,7 +300,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 							applyPolicy := func(filename string, ns namespace.Instance) {
 								policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 								t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-								util.WaitForConfig(t, policy[0], ns)
+								util.WaitForConfig(t, ns, policy...)
 							}
 							applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
 							applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
@@ -337,7 +337,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			applyPolicy := func(filename string, ns namespace.Instance) {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 				t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-				util.WaitForConfig(t, policy[0], ns)
+				util.WaitForConfig(t, ns, policy...)
 			}
 			applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
 			applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootns)
@@ -1085,7 +1085,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 							policies := tmpl.EvaluateAllOrFail(t, args,
 								file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
 							t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-							util.WaitForConfig(t, policies[0], ns)
+							util.WaitForConfig(t, ns, policies...)
 							cases := []rbacUtil.TestCase{
 								{
 									Request: connection.Checker{
@@ -1150,7 +1150,7 @@ func TestAuthorization_Path(t *testing.T) {
 						policies := tmpl.EvaluateAllOrFail(t, args,
 							file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
 						t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-						util.WaitForConfig(t, policies[0], ns)
+						util.WaitForConfig(t, ns, policies...)
 
 						callCount := 1
 						if t.Clusters().IsMulticluster() {
@@ -1245,7 +1245,7 @@ func TestAuthorization_Audit(t *testing.T) {
 					applyPolicy := func(filename string, ns namespace.Instance) {
 						policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
 						t.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-						util.WaitForConfig(t, policy[0], ns)
+						util.WaitForConfig(t, ns, policy...)
 					}
 					applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 
@@ -1296,7 +1296,7 @@ func TestAuthorization_Audit(t *testing.T) {
 						}
 						policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, tc.configFile))
 						t.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
-						util.WaitForConfig(t, policies[0], ns)
+						util.WaitForConfig(t, ns, policies...)
 						rbacUtil.RunRBACTest(t, tc.subCases)
 					})
 			}
