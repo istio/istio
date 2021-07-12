@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -261,7 +262,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 
 	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(serviceregistry.Simple{
 		ClusterID:        clusterID,
-		ProviderID:       serviceregistry.Mock,
+		ProviderID:       provider.Mock,
 		ServiceDiscovery: memRegistry,
 		Controller:       &memory.ServiceController{},
 	})

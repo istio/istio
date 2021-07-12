@@ -48,9 +48,9 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/server"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
@@ -250,7 +250,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		// Older environment variable preserved for backward compatibility
 		caOpts.ExternalCASigner = k8sSigner
 	}
-
 	// CA signing certificate must be created first if needed.
 	if err := s.maybeCreateCA(caOpts); err != nil {
 		return nil, err
@@ -381,7 +380,7 @@ func getClusterID(args *PilotArgs) cluster.ID {
 	clusterID := args.RegistryOptions.KubeOptions.ClusterID
 	if clusterID == "" {
 		if hasKubeRegistry(args.RegistryOptions.Registries) {
-			clusterID = cluster.ID(serviceregistry.Kubernetes)
+			clusterID = cluster.ID(provider.Kubernetes)
 		}
 	}
 	return clusterID
@@ -960,7 +959,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 // createPeerCertVerifier creates a SPIFFE certificate verifier with the current istiod configuration.
 func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCertVerifier, error) {
-	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" {
+	if tlsOptions.CaCertFile == "" && s.CA == nil && features.SpiffeBundleEndpoints == "" && !s.isDisableCa() {
 		// Running locally without configured certs - no TLS mode
 		return nil, nil
 	}
@@ -1047,16 +1046,17 @@ func (s *Server) maybeCreateCA(caOpts *caOptions) error {
 			}
 		}
 		// May return nil, if the CA is missing required configs - This is not an error.
-
-		// TODO: Issue #27606 If External CA is configured, use that to sign DNS Certs as well. IstioCA need not be initialized
-		if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
-			return fmt.Errorf("failed to create CA: %v", err)
-		}
 		if caOpts.ExternalCAType != "" {
 			if s.RA, err = s.createIstioRA(s.kubeClient, caOpts); err != nil {
 				return fmt.Errorf("failed to create RA: %v", err)
 			}
 		}
+		if !s.isDisableCa() {
+			if s.CA, err = s.createIstioCA(corev1, caOpts); err != nil {
+				return fmt.Errorf("failed to create CA: %v", err)
+			}
+		}
+
 	}
 	return nil
 }
@@ -1084,6 +1084,11 @@ func (s *Server) startCA(caOpts *caOptions) {
 }
 
 func (s *Server) fetchCARoot() map[string]string {
+	if s.isDisableCa() {
+		return map[string]string{
+			constants.CACertNamespaceConfigMapDataName: string(s.RA.GetCAKeyCertBundle().GetRootCertPem()),
+		}
+	}
 	if s.CA == nil {
 		return nil
 	}
@@ -1191,4 +1196,11 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	}
 	log.Infof("done initializing workload trustBundle")
 	return nil
+}
+
+// isDisableCa returns whether CA functionality is disabled in istiod.
+// It return true only if istiod certs is signed by Kubernetes and
+// workload certs are signed by external CA
+func (s *Server) isDisableCa() bool {
+	return features.PilotCertProvider == constants.CertProviderKubernetes && s.RA != nil
 }

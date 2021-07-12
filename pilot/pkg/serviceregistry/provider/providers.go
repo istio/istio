@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dns
+package provider
 
-import (
-	"testing"
+// ID defines underlying platform supporting service registry
+type ID string
 
-	"istio.io/istio/tests/util/leak"
+const (
+	// Mock is a service registry that contains 2 hard-coded test services
+	Mock ID = "Mock"
+	// Kubernetes is a service registry backed by k8s API server
+	Kubernetes ID = "Kubernetes"
+	// External is a service registry for externally provided ServiceEntries
+	External ID = "External"
 )
-
-func TestMain(m *testing.M) {
-	// CheckMain asserts that no goroutines are leaked after a test package exits.
-	leak.CheckMain(m)
-}

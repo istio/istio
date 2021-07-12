@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
@@ -355,8 +356,8 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	return c
 }
 
-func (c *Controller) Provider() serviceregistry.ProviderID {
-	return serviceregistry.Kubernetes
+func (c *Controller) Provider() provider.ID {
+	return provider.Kubernetes
 }
 
 func (c *Controller) Cluster() cluster.ID {
@@ -634,30 +635,45 @@ func (c *Controller) informersSynced() bool {
 func (c *Controller) SyncAll() error {
 	c.beginSync.Store(true)
 	var err *multierror.Error
+	err = multierror.Append(err, c.syncSystemNamespace())
+	err = multierror.Append(err, c.syncNodes())
+	err = multierror.Append(err, c.syncServices())
+	err = multierror.Append(err, c.syncPods())
+	err = multierror.Append(err, c.syncEndpoints())
 
+	return multierror.Flatten(err.ErrorOrNil())
+}
+
+func (c *Controller) syncSystemNamespace() error {
+	var err error
 	if c.nsLister != nil {
 		sysNs, _ := c.nsLister.Get(c.opts.SystemNamespace)
+		log.Debugf("initializing systemNamespace:%s", c.opts.SystemNamespace)
 		if sysNs != nil {
-			err = multierror.Append(err, c.onSystemNamespaceEvent(sysNs, model.EventAdd))
+			err = c.onSystemNamespaceEvent(sysNs, model.EventAdd)
 		}
 	}
+	return err
+}
 
+func (c *Controller) syncNodes() error {
+	var err *multierror.Error
 	nodes := c.nodeInformer.GetIndexer().List()
 	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
+	return err.ErrorOrNil()
+}
 
+func (c *Controller) syncServices() error {
+	var err *multierror.Error
 	services := c.serviceInformer.GetIndexer().List()
 	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
 	}
-
-	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.syncEndpoints())
-
-	return multierror.Flatten(err.ErrorOrNil())
+	return err.ErrorOrNil()
 }
 
 func (c *Controller) syncPods() error {
@@ -735,7 +751,7 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 	}
 
 	// NodeName is set by the scheduler after the pod is created
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/api-conventions.md#late-initialization
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
 	raw, err := c.nodeLister.Get(pod.Spec.NodeName)
 	if err != nil {
 		if pod.Spec.NodeName != "" {
@@ -800,7 +816,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	c.RUnlock()
 
 	// Only select internal Kubernetes services with selectors
-	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+	if !inRegistry || !workloadInstancesExist || svc.Attributes.ServiceRegistry != provider.Kubernetes ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB || svc.Attributes.LabelSelectors == nil {
 		return nil
 	}

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/pkg/log"
 )
 
 type Ops int
@@ -117,20 +118,18 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 
 func (iptConfigurator *IptablesConfigurator) logConfig() {
 	// Dump out our environment for debugging purposes.
-	fmt.Println("Environment:")
-	fmt.Println("------------")
-	fmt.Printf("ENVOY_PORT=%s\n", os.Getenv("ENVOY_PORT"))
-	fmt.Printf("INBOUND_CAPTURE_PORT=%s\n", os.Getenv("INBOUND_CAPTURE_PORT"))
-	fmt.Printf("ISTIO_INBOUND_INTERCEPTION_MODE=%s\n", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE"))
-	fmt.Printf("ISTIO_INBOUND_TPROXY_MARK=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_MARK"))
-	fmt.Printf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE"))
-	fmt.Printf("ISTIO_INBOUND_PORTS=%s\n", os.Getenv("ISTIO_INBOUND_PORTS"))
-	fmt.Printf("ISTIO_OUTBOUND_PORTS=%s\n", os.Getenv("ISTIO_OUTBOUND_PORTS"))
-	fmt.Printf("ISTIO_LOCAL_EXCLUDE_PORTS=%s\n", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS"))
-	fmt.Printf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR"))
-	fmt.Printf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR"))
-	fmt.Printf("ISTIO_META_DNS_CAPTURE=%s\n", os.Getenv("ISTIO_META_DNS_CAPTURE"))
-	fmt.Println("")
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("ENVOY_PORT=%s\n", os.Getenv("ENVOY_PORT")))
+	b.WriteString(fmt.Sprintf("INBOUND_CAPTURE_PORT=%s\n", os.Getenv("INBOUND_CAPTURE_PORT")))
+	b.WriteString(fmt.Sprintf("ISTIO_INBOUND_INTERCEPTION_MODE=%s\n", os.Getenv("ISTIO_INBOUND_INTERCEPTION_MODE")))
+	b.WriteString(fmt.Sprintf("ISTIO_INBOUND_TPROXY_ROUTE_TABLE=%s\n", os.Getenv("ISTIO_INBOUND_TPROXY_ROUTE_TABLE")))
+	b.WriteString(fmt.Sprintf("ISTIO_INBOUND_PORTS=%s\n", os.Getenv("ISTIO_INBOUND_PORTS")))
+	b.WriteString(fmt.Sprintf("ISTIO_OUTBOUND_PORTS=%s\n", os.Getenv("ISTIO_OUTBOUND_PORTS")))
+	b.WriteString(fmt.Sprintf("ISTIO_LOCAL_EXCLUDE_PORTS=%s\n", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")))
+	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR")))
+	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
+	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s", os.Getenv("ISTIO_META_DNS_CAPTURE")))
+	log.Infof("Istio iptables environment:\n%s", b.String())
 	iptConfigurator.cfg.Print()
 }
 
@@ -602,58 +601,62 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.executeCommands()
 }
 
+type UDPRuleApplier struct {
+	iptables *builder.IptablesBuilderImpl
+	ext      dep.Dependencies
+	ops      Ops
+	table    string
+	chain    string
+	cmd      string
+}
+
+func (f UDPRuleApplier) Run(args ...string) {
+	switch f.ops {
+	case AppendOps:
+		f.iptables.AppendRuleV4(f.chain, f.table, args...)
+	case DeleteOps:
+		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
+		deleteArgs = append(deleteArgs, args...)
+		f.ext.RunQuietlyAndIgnore(f.cmd, deleteArgs...)
+	}
+}
+
+func (f UDPRuleApplier) WithChain(chain string) UDPRuleApplier {
+	f.chain = chain
+	return f
+}
+
+func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
+	f.table = table
+	return f
+}
+
 // HandleDNSUDP is a helper function to tackle with DNS UDP specific operations.
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
 func HandleDNSUDP(
 	ops Ops, iptables *builder.IptablesBuilderImpl, ext dep.Dependencies,
 	cmd, proxyUID, proxyGID string, dnsServersV4 []string, captureAllDNS bool) {
-	const paramIdxRaw = 4
-	var raw []string
-	opsStr := opsToString[ops]
-	table := constants.NAT
-	chain := constants.OUTPUT
-
+	f := UDPRuleApplier{
+		iptables: iptables,
+		ext:      ext,
+		ops:      ops,
+		table:    constants.NAT,
+		chain:    constants.OUTPUT,
+		cmd:      cmd,
+	}
 	// Make sure that upstream DNS requests from agent/envoy dont get captured.
 	// TODO: add ip6 as well
 	for _, uid := range split(proxyUID) {
-		raw = []string{
-			"-t", table, opsStr, chain,
-			"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN,
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 	}
 	for _, gid := range split(proxyGID) {
-		raw = []string{
-			"-t", table, opsStr, chain,
-			"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN,
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 
 	if captureAllDNS {
 		// Redirect all TCP dns traffic on port 53 to the agent on port 15053
 		// This will be useful for the CNI case where pod DNS server address cannot be decided.
-		raw = []string{
-			"-t", table, opsStr, chain,
-			"-p", "udp", "--dport", "53",
-			"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort,
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--dport", "53", "-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort)
 	} else {
 		// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
 		// in etc/resolv.conf
@@ -663,21 +666,12 @@ func HandleDNSUDP(
 		// Note: If a user somehow configured etc/resolv.conf to point to dnsmasq and server X, and dnsmasq also
 		// pointed to server X, this would not work. However, the assumption is that is not a common case.
 		for _, s := range dnsServersV4 {
-			raw = []string{
-				"-t", table, opsStr, chain,
-				"-p", "udp", "--dport", "53", "-d", s + "/32",
-				"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort,
-			}
-			switch ops {
-			case AppendOps:
-				iptables.AppendRuleV4(chain, table, raw[paramIdxRaw:]...)
-			case DeleteOps:
-				ext.RunQuietlyAndIgnore(cmd, raw...)
-			}
+			f.Run("-p", "udp", "--dport", "53", "-d", s+"/32",
+				"-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort)
 		}
 	}
 	// Split UDP DNS traffic to separate conntrack zones
-	addConntrackZoneDNSUDP(ops, iptables, ext, cmd, proxyUID, proxyGID, dnsServersV4, captureAllDNS)
+	addConntrackZoneDNSUDP(f.WithTable(constants.RAW), proxyUID, proxyGID, dnsServersV4, captureAllDNS)
 }
 
 // addConntrackZoneDNSUDP is a helper function to add iptables rules to split DNS traffic
@@ -685,63 +679,19 @@ func HandleDNSUDP(
 // Traffic that goes from istio to DNS servers and vice versa are zone 1 and traffic from
 // DNS client to istio and vice versa goes to zone 2
 func addConntrackZoneDNSUDP(
-	ops Ops, iptables *builder.IptablesBuilderImpl, ext dep.Dependencies,
-	cmd, proxyUID, proxyGID string, dnsServersV4 []string, captureAllDNS bool) {
-	const paramIdxRaw = 4
-	var raw []string
-	opsStr := opsToString[ops]
-	table := constants.RAW
-	chainOUTPUT := constants.OUTPUT
-	chainPREROUTING := constants.PREROUTING
-
+	f UDPRuleApplier, proxyUID, proxyGID string, dnsServersV4 []string, captureAllDNS bool) {
 	// TODO: add ip6 as well
 	for _, uid := range split(proxyUID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
-		raw = []string{
-			"-t", table, opsStr, chainOUTPUT,
-			"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.CT, "--zone", "1",
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chainOUTPUT, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.CT, "--zone", "1")
 		// Packets with src port 15053 from istio to zone 2. These are Istio response packets to application clients
-		raw = []string{
-			"-t", table, opsStr, chainOUTPUT,
-			"-p", "udp", "--sport", "15053", "-m", "owner", "--uid-owner", uid, "-j", constants.CT, "--zone", "2",
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chainOUTPUT, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--sport", "15053", "-m", "owner", "--uid-owner", uid, "-j", constants.CT, "--zone", "2")
 	}
 	for _, gid := range split(proxyGID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
-		raw = []string{
-			"-t", table, opsStr, chainOUTPUT,
-			"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.CT, "--zone", "1",
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chainOUTPUT, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.CT, "--zone", "1")
 		// Packets with src port 15053 from istio to zone 2. These are Istio response packets to application clients
-		raw = []string{
-			"-t", table, opsStr, chainOUTPUT,
-			"-p", "udp", "--sport", "15053", "-m", "owner", "--gid-owner", gid, "-j", constants.CT, "--zone", "2",
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chainOUTPUT, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--sport", "15053", "-m", "owner", "--gid-owner", gid, "-j", constants.CT, "--zone", "2")
 
 	}
 
@@ -749,56 +699,20 @@ func addConntrackZoneDNSUDP(
 		// Not specifying destination address is useful for the CNI case where pod DNS server address cannot be decided.
 
 		// Mark all UDP dns traffic with dst port 53 as zone 2. These are application client packets towards DNS resolvers.
-		raw = []string{
-			"-t", table, opsStr, chainOUTPUT,
-			"-p", "udp", "--dport", "53",
-			"-j", constants.CT, "--zone", "2",
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chainOUTPUT, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.Run("-p", "udp", "--dport", "53",
+			"-j", constants.CT, "--zone", "2")
 		// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
-		raw = []string{
-			"-t", table, opsStr, chainPREROUTING,
-			"-p", "udp", "--sport", "53",
-			"-j", constants.CT, "--zone", "1",
-		}
-		switch ops {
-		case AppendOps:
-			iptables.AppendRuleV4(chainPREROUTING, table, raw[paramIdxRaw:]...)
-		case DeleteOps:
-			ext.RunQuietlyAndIgnore(cmd, raw...)
-		}
+		f.WithChain(constants.PREROUTING).Run("-p", "udp", "--sport", "53",
+			"-j", constants.CT, "--zone", "1")
 	} else {
 		// Go through all DNS servers in etc/resolv.conf and mark the packets based on these destination addresses.
 		for _, s := range dnsServersV4 {
 			// Mark all UDP dns traffic with dst port 53 as zone 2. These are application client packets towards DNS resolvers.
-			raw = []string{
-				"-t", table, opsStr, chainOUTPUT,
-				"-p", "udp", "--dport", "53", "-d", s + "/32",
-				"-j", constants.CT, "--zone", "2",
-			}
-			switch ops {
-			case AppendOps:
-				iptables.AppendRuleV4(chainOUTPUT, table, raw[paramIdxRaw:]...)
-			case DeleteOps:
-				ext.RunQuietlyAndIgnore(cmd, raw...)
-			}
+			f.Run("-p", "udp", "--dport", "53", "-d", s+"/32",
+				"-j", constants.CT, "--zone", "2")
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
-			raw = []string{
-				"-t", table, opsStr, chainPREROUTING,
-				"-p", "udp", "--sport", "53", "-d", s + "/32",
-				"-j", constants.CT, "--zone", "1",
-			}
-			switch ops {
-			case AppendOps:
-				iptables.AppendRuleV4(chainPREROUTING, table, raw[paramIdxRaw:]...)
-			case DeleteOps:
-				ext.RunQuietlyAndIgnore(cmd, raw...)
-			}
+			f.WithChain(constants.PREROUTING).Run("-p", "udp", "--sport", "53", "-d", s+"/32",
+				"-j", constants.CT, "--zone", "1")
 		}
 	}
 }
@@ -814,8 +728,7 @@ func (iptConfigurator *IptablesConfigurator) handleOutboundPortsInclude() {
 
 func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, contents string) error {
 	defer f.Close()
-	fmt.Println("Writing following contents to rules file: ", f.Name())
-	fmt.Println(contents)
+	log.Infof("Writing following contents to rules file: %v\n%v", f.Name(), strings.TrimSpace(contents))
 	writer := bufio.NewWriter(f)
 	_, err := writer.WriteString(contents)
 	if err != nil {
@@ -846,11 +759,22 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		filename = fmt.Sprintf("ip6tables-rules-%d.txt", time.Now().UnixNano())
 		cmd = constants.IP6TABLESRESTORE
 	}
-	rulesFile, err := ioutil.TempFile("", filename)
-	if err != nil {
-		return fmt.Errorf("unable to create iptables-restore file: %v", err)
+	var rulesFile *os.File
+	var err error
+	if iptConfigurator.cfg.OutputPath != "" {
+		// Print the iptables rules into the given output file.
+		rulesFile, err = os.OpenFile(iptConfigurator.cfg.OutputPath, os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			return fmt.Errorf("unable to open iptables rules output file %v: %v", iptConfigurator.cfg.OutputPath, err)
+		}
+	} else {
+		// Otherwise create a temporary file to write iptables rules to, which will be cleaned up at the end.
+		rulesFile, err = ioutil.TempFile("", filename)
+		if err != nil {
+			return fmt.Errorf("unable to create iptables-restore file: %v", err)
+		}
+		defer os.Remove(rulesFile.Name())
 	}
-	defer os.Remove(rulesFile.Name())
 	if err := iptConfigurator.createRulesFile(rulesFile, data); err != nil {
 		return err
 	}
@@ -864,13 +788,13 @@ func (iptConfigurator *IptablesConfigurator) executeCommands() {
 		// Execute iptables-restore
 		err := iptConfigurator.executeIptablesRestoreCommand(true)
 		if err != nil {
-			fmt.Println(err)
+			log.Errorf("Failed to execute iptables-restore command: %v", err)
 			os.Exit(1)
 		}
 		// Execute ip6tables-restore
 		err = iptConfigurator.executeIptablesRestoreCommand(false)
 		if err != nil {
-			fmt.Println(err)
+			log.Errorf("Failed to execute iptables-restore command: %v", err)
 			os.Exit(1)
 		}
 	} else {

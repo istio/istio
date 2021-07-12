@@ -51,7 +51,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 	for _, svc := range push.Services(nil) {
 		for _, registry := range registries {
 			// skip the service in case this svc does not belong to the registry.
-			if svc.Attributes.ServiceRegistry != string(registry.Provider()) {
+			if svc.Attributes.ServiceRegistry != registry.Provider() {
 				continue
 			}
 			endpoints := make([]*model.IstioEndpoint, 0)

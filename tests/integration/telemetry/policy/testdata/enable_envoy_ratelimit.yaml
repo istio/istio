@@ -31,8 +31,8 @@ spec:
               grpc_service:
                 envoy_grpc:
                   cluster_name: rate_limit_cluster
-                timeout: 10s
               transport_api_version: V3
+            timeout: 10s
     - applyTo: CLUSTER
       match:
         context: SIDECAR_OUTBOUND

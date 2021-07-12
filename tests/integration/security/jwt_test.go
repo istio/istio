@@ -42,7 +42,6 @@ const (
 
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/32392")
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
@@ -81,6 +80,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -98,6 +98,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
 							},
+							Path:  "/valid-token-2-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -115,6 +116,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
+							Path:  "/expired-token-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusUnauthorized,
@@ -125,6 +127,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/no-token-noauthz",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -139,6 +142,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -155,6 +159,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
+							Path:  "/expired-token",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusUnauthorized,
@@ -165,6 +170,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/no-token",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeForbidden,
@@ -174,6 +180,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/no-authn-authz",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -187,6 +194,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token-forward",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -204,6 +212,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-token-forward-remote-jwks",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -217,7 +226,7 @@ func TestRequestAuthentication(t *testing.T) {
 						SkipMultiCluster: true,
 					},
 					{
-						Name:   "invalid aud",
+						Name:   "invalid-aud",
 						Config: "aud",
 						CallOpts: echo.CallOptions{
 							PortName: "http",
@@ -225,12 +234,13 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
 							},
+							Path:  "/valid-aud",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeForbidden,
 					},
 					{
-						Name:   "valid aud",
+						Name:   "valid-aud",
 						Config: "aud",
 						CallOpts: echo.CallOptions{
 							PortName: "http",
@@ -238,12 +248,13 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer1WithAud},
 							},
+							Path:  "/valid-aud",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
 					},
 					{
-						Name:   "verify policies are combined",
+						Name:   "verify-policies-are-combined",
 						Config: "aud",
 						CallOpts: echo.CallOptions{
 							PortName: "http",
@@ -251,6 +262,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenIssuer2},
 							},
+							Path:  "/verify-policies-are-combined",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -277,6 +289,7 @@ func TestRequestAuthentication(t *testing.T) {
 							Headers: map[string][]string{
 								authHeaderKey: {"Bearer " + jwt.TokenExpired},
 							},
+							Path:  "/invalid-jwks-valid-token-noauthz",
 							Count: callCount,
 						},
 						ExpectResponseCode: response.StatusUnauthorized,
@@ -287,6 +300,7 @@ func TestRequestAuthentication(t *testing.T) {
 						CallOpts: echo.CallOptions{
 							PortName: "http",
 							Scheme:   scheme.HTTP,
+							Path:     "/invalid-jwks-no-token-noauthz",
 							Count:    callCount,
 						},
 						ExpectResponseCode: response.StatusCodeOK,
@@ -306,15 +320,19 @@ func TestRequestAuthentication(t *testing.T) {
 										"dst":       dst[0].Config().Service,
 									},
 								), ns.Name())
-								return t.Config().ApplyYAML(ns.Name(), policy)
+								if err := t.Config().ApplyYAML(ns.Name(), policy); err != nil {
+									t.Logf("failed to apply security config %s: %v", c.Config, err)
+									return err
+								}
+								util.WaitForConfig(t, policy, ns)
 							}
 							return nil
 						}).
 						From(
-							// TODO(JimmyCYJ): enable VM and fix valid-token-forward-remote-jwks and invalid_aud.
-							filters(t, ns.Name(), true)...).
+							// TODO(JimmyCYJ): enable VM for all test cases.
+							util.SourceFilter(t, apps, ns.Name(), true)...).
 						ConditionallyTo(echotest.ReachableDestinations).
-						To(filters(t, ns.Name(), false)...).
+						To(util.DestFilter(t, apps, ns.Name(), true)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]
@@ -326,28 +344,6 @@ func TestRequestAuthentication(t *testing.T) {
 				}
 			})
 		})
-}
-
-// filters returns a set of filters to only select injected workloads. VM is skipped
-// if skipVM is true.
-// TODO(JimmyCYJ): Simplify this function as a single filter.
-func filters(t framework.TestContext, ns string, skipVM bool) []echotest.Filter {
-	rt := []echotest.Filter{
-		echotest.SingleSimplePodServiceAndAllSpecial(),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsHeadless()) }),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsNaked()) }),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsExternal()) }),
-		echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(util.IsMultiversion()) }),
-		func(instances echo.Instances) echo.Instances { return instances.Match(echo.Namespace(ns)) },
-		// TODO(JimmyCYJ): extend clusters to cover cross-cluster traffic.
-		func(instances echo.Instances) echo.Instances {
-			return instances.Match(echo.InCluster(t.Clusters().Default()))
-		},
-	}
-	if skipVM {
-		rt = append(rt, echotest.Not(func(instances echo.Instances) echo.Instances { return instances.Match(echo.IsVirtualMachine()) }))
-	}
-	return rt
 }
 
 // TestIngressRequestAuthentication tests beta authn policy for jwt on ingress.
@@ -413,12 +409,12 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							), ns.Name())
 							return t.Config().ApplyYAML(ns.Name(), policy)
 						}).
-						From(filters(t, ns.Name(), false)...).
+						From(util.SourceFilter(t, apps, ns.Name(), false)...).
 						ConditionallyTo(echotest.ReachableDestinations).
 						ConditionallyTo(func(from echo.Instance, to echo.Instances) echo.Instances {
 							return to.Match(echo.InCluster(from.Config().Cluster))
 						}).
-						To(filters(t, ns.Name(), false)...).
+						To(util.DestFilter(t, apps, ns.Name(), false)...).
 						Run(func(t framework.TestContext, src echo.Instance, dest echo.Instances) {
 							t.NewSubTest(c.Name).Run(func(t framework.TestContext) {
 								c.CallOpts.Target = dest[0]

@@ -36,9 +36,9 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -412,7 +412,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					ClusterVIPs:     map[cluster.ID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
-						ServiceRegistry: string(serviceregistry.Kubernetes),
+						ServiceRegistry: provider.Kubernetes,
 						Name:            "svc1",
 						Namespace:       "nsa",
 						UID:             "istio://nsa/services/svc1",
@@ -483,7 +483,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					ClusterVIPs:     map[cluster.ID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
-						ServiceRegistry: string(serviceregistry.Kubernetes),
+						ServiceRegistry: provider.Kubernetes,
 						Name:            "svc1",
 						Namespace:       "nsa",
 						UID:             "istio://nsa/services/svc1",
@@ -549,7 +549,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					ClusterVIPs:     map[cluster.ID]string{clusterID: "10.0.0.1"},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
-						ServiceRegistry: string(serviceregistry.Kubernetes),
+						ServiceRegistry: provider.Kubernetes,
 						Name:            "svc1",
 						Namespace:       "nsa",
 						UID:             "istio://nsa/services/svc1",

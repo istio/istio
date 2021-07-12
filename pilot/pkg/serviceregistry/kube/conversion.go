@@ -24,7 +24,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -109,7 +109,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		CreationTime:    svc.CreationTimestamp.Time,
 		ClusterVIPs:     map[cluster.ID]string{clusterID: addr},
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 			Name:            svc.Name,
 			Namespace:       svc.Namespace,
 			Labels:          svc.Labels,

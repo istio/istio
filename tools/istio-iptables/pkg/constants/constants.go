@@ -91,6 +91,9 @@ const (
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
 	CaptureAllDNS             = "capture-all-dns"
+	OutputPath                = "output-paths"
+	NetworkNamespace          = "network-namespace"
+	CNIMode                   = "cni-mode"
 )
 
 const (
@@ -112,6 +115,7 @@ const (
 	IP6TABLESRESTORE = "ip6tables-restore"
 	IP6TABLESSAVE    = "ip6tables-save"
 	IP               = "ip"
+	NSENTER          = "nsenter"
 )
 
 // Constants for syscall

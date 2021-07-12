@@ -75,10 +75,24 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	}
 }
 
-func TestFuzzParseInputs(t *testing.T) {
-	runRegressionTest(t, "FuzzParseInputs", FuzzParseInputs)
-}
-
-func TestFuzzParseAndBuildSchema(t *testing.T) {
-	runRegressionTest(t, "FuzzParseAndBuildSchema", FuzzParseAndBuildSchema)
+func TestFuzzers(t *testing.T) {
+	cases := []struct {
+		name   string
+		fuzzer func([]byte) int
+	}{
+		{"FuzzConfigValidation", FuzzConfigValidation},
+		{"FuzzParseInputs", FuzzParseInputs},
+		{"FuzzParseAndBuildSchema", FuzzParseAndBuildSchema},
+		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
+		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
+		{"FuzzInitContext", FuzzInitContext},
+		{"FuzzCompareDiff", FuzzCompareDiff},
+		{"FuzzHelmReconciler", FuzzHelmReconciler},
+		{"FuzzIntoResourceFile", FuzzIntoResourceFile},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			runRegressionTest(t, tt.name, tt.fuzzer)
+		})
+	}
 }

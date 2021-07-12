@@ -23,16 +23,16 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/model"
-	nds "istio.io/istio/pilot/pkg/proto"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
 func TestNDS(t *testing.T) {
 	cases := []struct {
 		name     string
 		meta     model.NodeMetadata
-		expected *nds.NameTable
+		expected *dnsProto.NameTable
 	}{
 		{
 			name: "auto allocate",
@@ -40,8 +40,8 @@ func TestNDS(t *testing.T) {
 				DNSCapture:      true,
 				DNSAutoAllocate: true,
 			},
-			expected: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
+			expected: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"random-1.host.example": {
 						Ips:      []string{"240.240.0.1"},
 						Registry: "External",
@@ -62,8 +62,8 @@ func TestNDS(t *testing.T) {
 			meta: model.NodeMetadata{
 				DNSCapture: true,
 			},
-			expected: &nds.NameTable{
-				Table: map[string]*nds.NameTable_NameInfo{
+			expected: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"random-2.host.example": {
 						Ips:      []string{"9.9.9.9"},
 						Registry: "External",
@@ -86,7 +86,7 @@ func TestNDS(t *testing.T) {
 				},
 			})
 
-			var nt nds.NameTable
+			var nt dnsProto.NameTable
 			// nolint: staticcheck
 			err := ptypes.UnmarshalAny(res.Resources[0], &nt)
 			if err != nil {

@@ -20,14 +20,24 @@ package istio.networking.nds.v1;
 // Sent by istiod to istio agents via xds
 message NameTable {
     message NameInfo {
+        // List of IPs for the host.
         repeated string ips = 1;
-        // the registry where this
+
+        // The name of the service registry containing the service (e.g. 'Kubernetes').
         string registry = 2;
-        // these are set only for k8s services
+
+        // The k8s service name. Only applies when registry=`Kubernetes`
         string shortname = 3;
+
+        // The k8s namespace for the service. Only applies when registry=`Kubernetes`
         string namespace = 4;
+
+        // List of alternate hosts to map to the IPs.
+        // Only applies when registry=`Kubernetes`
+        repeated string alt_hosts = 5;
     }
-    // Map of hostname to IP plus other attributes used for resolution such as short names,
-    // k8s domains, etc.
+
+    // Map of hostname to resolution attributes.
     map<string, NameInfo> table = 1;
 }
+

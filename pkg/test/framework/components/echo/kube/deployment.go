@@ -362,7 +362,7 @@ spec:
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
 
           # TODO: run with systemctl?
-          export ISTIO_AGENT_FLAGS="--concurrency 2"
+          export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel warning,misc:error,rbac:debug,jwt:debug"
           sudo -E /usr/local/bin/istio-start.sh&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
