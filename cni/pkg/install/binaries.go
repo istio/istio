@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/file"
-	"istio.io/pkg/log"
 )
 
 func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipBinaries []string) error {
@@ -28,7 +27,7 @@ func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipB
 
 	for _, targetDir := range targetDirs {
 		if file.IsDirWriteable(targetDir) != nil {
-			log.Infof("Directory %s is not writable, skipping.", targetDir)
+			installLog.Infof("Directory %s is not writable, skipping.", targetDir)
 			continue
 		}
 
@@ -40,13 +39,13 @@ func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipB
 		for _, f := range files {
 			filename := f.Name()
 			if skipBinariesSet[filename] {
-				log.Infof("%s is in SKIP_CNI_BINARIES, skipping.", filename)
+				installLog.Infof("%s is in SKIP_CNI_BINARIES, skipping.", filename)
 				continue
 			}
 
 			targetFilepath := filepath.Join(targetDir, filename)
 			if _, err := os.Stat(targetFilepath); err == nil && !updateBinaries {
-				log.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilepath)
+				installLog.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilepath)
 				continue
 			}
 
@@ -55,7 +54,7 @@ func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipB
 			if err != nil {
 				return err
 			}
-			log.Infof("Copied %s to %s.", filename, targetDir)
+			installLog.Infof("Copied %s to %s.", filename, targetDir)
 		}
 	}
 

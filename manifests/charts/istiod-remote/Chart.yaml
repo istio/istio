@@ -1,0 +1,12 @@
+apiVersion: v1
+name: config
+version: 1.2.0
+tillerVersion: ">=2.7.2"
+description: Helm chart for a remote cluster using an external istio control plane
+keywords:
+  - istio
+  - external-istiod
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/latest/favicons/android-192x192.png

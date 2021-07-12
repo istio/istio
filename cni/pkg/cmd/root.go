@@ -30,19 +30,26 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/log"
 )
 
-var options = log.DefaultOptions()
+var (
+	logOptions   = log.DefaultOptions()
+	ctrlzOptions = ctrlz.DefaultOptions()
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
 	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		if err := log.Configure(options); err != nil {
+		if err := log.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
 		}
 		ctx := cmd.Context()
+
+		// Start controlz server
+		_, _ = ctrlz.Run(ctrlzOptions, nil)
 
 		// TODO(bianpengyuan) add log scope for install & repair.
 		var cfg *config.Config
@@ -95,7 +102,8 @@ func GetCommand() *cobra.Command {
 func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	options.AttachCobraFlags(rootCmd)
+	logOptions.AttachCobraFlags(rootCmd)
+	ctrlzOptions.AttachCobraFlags(rootCmd)
 
 	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI networks are installed")
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")

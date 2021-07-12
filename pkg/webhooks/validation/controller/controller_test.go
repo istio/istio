@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
+	"istio.io/istio/pkg/webhooks/util"
 )
 
 var (
@@ -335,7 +336,7 @@ func TestLoadCaCertPem(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %s", i, c.name), func(tt *testing.T) {
-			err := verifyCABundle(c.cert)
+			err := util.VerifyCABundle(c.cert)
 			if err != nil {
 				if !c.wantError {
 					tt.Fatalf("unexpected error: got error %q", err)

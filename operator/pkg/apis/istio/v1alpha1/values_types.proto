@@ -405,8 +405,11 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
+  
+  // Controls whether a remote cluster is the config cluster for an external istiod
+  google.protobuf.BoolValue configCluster = 64;
 
-  // The next available key is 64
+  // The next available key is 65
 }
 
 // Configuration for Security Token Service (STS) server.

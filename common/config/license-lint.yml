@@ -104,3 +104,7 @@ allowlisted_modules:
 
 # https://github.com/go-errors/errors/blob/master/LICENSE.MIT
 - github.com/go-errors/errors
+
+# runc is Apache 2.0: https://github.com/opencontainers/runc/blob/master/LICENSE
+# but it contains BSD dep which our linter fails to understand: https://github.com/opencontainers/runc/blob/v0.1.1/Godeps/_workspace/src/github.com/golang/protobuf/LICENSE
+- github.com/opencontainers/runc
