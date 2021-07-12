@@ -235,9 +235,6 @@ func GetDeployMetaFromPod(pod *kubeApiCore.Pod) (metav1.ObjectMeta, metav1.TypeM
 				if _, err := strconv.Atoi(controllerRef.Name[l-10:]); err == nil && string(controllerRef.Name[l-11]) == "-" {
 					deployMeta.Name = controllerRef.Name[:l-11]
 					typeMetadata.Kind = "CronJob"
-					// heuristically set cron job api version to v1beta1 as it cannot be derived from pod metadata.
-					// Cronjob is not GA yet and latest version is v1beta1: https://github.com/kubernetes/enhancements/pull/978
-					typeMetadata.APIVersion = "batch/v1beta1"
 				}
 			}
 		}
