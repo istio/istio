@@ -9,12 +9,15 @@ spec:
         ISTIO_META_DNS_CAPTURE: "true"
   components:
     base:
-      enabled: true
+      enabled: false
     pilot:
+      enabled: false
+    istiodRemote:
       enabled: true
   values:
     global:
       externalIstiod: true
+      configCluster: true
       proxy:
         resources:
           requests:
