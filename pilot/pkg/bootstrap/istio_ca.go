@@ -51,9 +51,10 @@ type caOptions struct {
 	ExternalCAType   ra.CaExternalType
 	ExternalCASigner string
 	// domain to use in SPIFFE identity URLs
-	TrustDomain    string
-	Namespace      string
-	Authenticators []security.Authenticator
+	TrustDomain      string
+	Namespace        string
+	Authenticators   []security.Authenticator
+	CertSignerDomain string
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -344,14 +345,15 @@ func (s *Server) createIstioRA(client kubelib.Client,
 		caCertFile = defaultCACertPath
 	}
 	raOpts := &ra.IstioRAOptions{
-		ExternalCAType: opts.ExternalCAType,
-		DefaultCertTTL: workloadCertTTL.Get(),
-		MaxCertTTL:     maxWorkloadCertTTL.Get(),
-		CaSigner:       opts.ExternalCASigner,
-		CaCertFile:     caCertFile,
-		VerifyAppendCA: true,
-		K8sClient:      client.CertificatesV1beta1(),
-		TrustDomain:    opts.TrustDomain,
+		ExternalCAType:   opts.ExternalCAType,
+		DefaultCertTTL:   workloadCertTTL.Get(),
+		MaxCertTTL:       maxWorkloadCertTTL.Get(),
+		CaSigner:         opts.ExternalCASigner,
+		CaCertFile:       caCertFile,
+		VerifyAppendCA:   true,
+		K8sClient:        client.CertificatesV1beta1(),
+		TrustDomain:      opts.TrustDomain,
+		CertSignerDomain: opts.CertSignerDomain,
 	}
 	return ra.NewIstioRA(raOpts)
 }

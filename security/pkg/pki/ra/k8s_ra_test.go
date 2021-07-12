@@ -118,7 +118,7 @@ func TestK8sSign(t *testing.T) {
 	if err != nil {
 		t.Errorf("Validation CSR failed")
 	}
-	_, err = r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile)
+	_, err = r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile, "")
 	if err != nil {
 		t.Errorf("K8s CA Signing CSR failed")
 	}

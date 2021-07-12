@@ -80,6 +80,9 @@ const (
 	BearerTokenPrefix = "Bearer "
 
 	K8sTokenPrefix = "Istio "
+
+	// CertSigner info
+	CertSigner = "CertSigner"
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -172,6 +175,9 @@ type Options struct {
 
 	// Token manager for the token exchange of XDS
 	TokenManager TokenManager
+
+	// Cert signer info
+	CertSigner string
 }
 
 // TokenManager contains methods for generating token.

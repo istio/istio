@@ -47,9 +47,14 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 	return istioRA, nil
 }
 
-func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile string) ([]byte, error) {
+func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile string, certSigner string) ([]byte, error) {
+	if certSigner == "" {
+		certSigner = r.raOpts.CertSignerDomain + "/" + r.raOpts.CaSigner
+	} else {
+		certSigner = r.raOpts.CertSignerDomain + "/" + certSigner
+	}
 	csrSpec := &cert.CertificateSigningRequestSpec{
-		SignerName: &r.raOpts.CaSigner,
+		SignerName: &certSigner,
 		Request:    csrPEM,
 		Groups:     []string{"system:authenticated"},
 		Usages: []cert.KeyUsage{
@@ -73,7 +78,8 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 		return nil, err
 	}
 	csrName := chiron.GenCsrName()
-	return r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile)
+	certSigner := certOpts.CertSigner
+	return r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile, certSigner)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.

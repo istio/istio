@@ -50,6 +50,8 @@ type IstioRAOptions struct {
 	K8sClient certificatesv1beta1.CertificatesV1beta1Interface
 	// TrustDomain
 	TrustDomain string
+	// CertSignerDomain info
+	CertSignerDomain string
 }
 
 const (
