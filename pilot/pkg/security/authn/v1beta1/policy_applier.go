@@ -152,6 +152,8 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(endpointPort uint32, node *mo
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
+// Create applier, then GetEffectivePolicy is used.
+// TODO: see when the policy applier is invoked (LDS) vs EDS logic. how to reuse, or recreate.
 func NewPolicyApplier(rootNamespace string,
 	jwtPolicies []*config.Config,
 	peerPolicies []*config.Config,

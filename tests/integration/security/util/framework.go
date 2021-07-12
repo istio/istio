@@ -191,7 +191,9 @@ func SetupApps(ctx resource.Context, i istio.Instance, apps *EchoDeployments, bu
 		WithClusters(ctx.Clusters()...).
 		WithConfig(EchoConfig(ASvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(BSvc, apps.Namespace1, false, nil)).
-		WithConfig(EchoConfig(CSvc, apps.Namespace1, false, nil)).
+		WithConfig(EchoConfig(CSvc, apps.Namespace1, false,
+			echo.NewAnnotations().Set(
+				echo.WorkloadEnableAutoMtlsWithPeerAuthn, "true"))).
 		WithConfig(EchoConfig(DSvc, apps.Namespace1, false, nil)).
 		WithConfig(EchoConfig(ESvc, apps.Namespace1, false, nil)).
 		WithConfig(func() echo.Config {

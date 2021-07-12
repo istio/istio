@@ -90,6 +90,16 @@ func TestReachability(t *testing.T) {
 					SkippedForMulticluster: true,
 				},
 				{
+					ConfigFile: "beta-mtls-off-nodr.yaml",
+					Namespace:  systemNM,
+					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						return apps.A.Contains(opts.Target) // && TODO(here): src is C or B. only C succeeds.
+					},
+					ExpectSuccess:          Always,
+					ExpectMTLS:             Never,
+					SkippedForMulticluster: true,
+				},
+				{
 					ConfigFile:             "plaintext-to-permissive.yaml",
 					Namespace:              systemNM,
 					Include:                Always,

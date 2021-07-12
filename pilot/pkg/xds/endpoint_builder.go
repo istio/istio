@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -35,6 +36,11 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+)
+
+const (
+	// TODO(incfly): move to propoer place.
+	enableAutoMtlsWithPeerAuthnAnnotationName = "security.istio.io/autoMtlsWithPeerAuthn"
 )
 
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
@@ -65,6 +71,7 @@ type EndpointBuilder struct {
 	clusterID       cluster.ID
 	locality        *core.Locality
 	destinationRule *config.Config
+	peerAuthnPolicy *config.Config
 	service         *model.Service
 	clusterLocal    bool
 	tunnelType      networking.TunnelType
@@ -100,9 +107,26 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		hostname:   hostname,
 		port:       port,
 	}
+
+	enableMtlsChecker := false
+	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		// We only need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH
-		// As an optimization, we skip this logic entirely for everything else.
+		enableMtlsChecker = true
+	}
+	if features.EnableAutomTLSCheckPolicies {
+		enableMtlsChecker = true
+	}
+	// Check per workload annotations allow a finer granularity opt-in as well as easier for test
+	// workloads setup.
+	if strings.Contains(b.proxy.ID, "sleep") {
+		// _, ok := b.proxy.Metadata.Raw[enableAutoMtlsWithPeerAuthnAnnotationName]
+		// log.Infof("incfly debug, md %v, exists %v", b.proxy.Metadata.Annotations, ok)
+		// log.Infof("incfly debug raw md %v", b.proxy.Metadata)
+	}
+	if _, ok := b.proxy.Metadata.Raw[enableAutoMtlsWithPeerAuthnAnnotationName]; ok {
+		enableMtlsChecker = true
+	}
+	if enableMtlsChecker {
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b
@@ -315,9 +339,20 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
-			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
+			// if strings.Contains(b.proxy.ID, "sleep") {
+			// log.Infof("incfly debug sleep metadata %+v", b.proxy.Metadata)
+			// }
+			// TODO(incfly): check with reviewer to see if we should only touches the updated metadata field
+			// or rebuild from scratch (better readability).
+			// if ep.EnvoyEndpoint == nil {
+			tlsMode := ep.TLSMode
+			if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
+				log.Infof("incfly pocliy disabled proxy %v, true or false %v",
+					ep.Address, b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep))
+				tlsMode = ""
 			}
+			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, tlsMode)
+			// }
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
@@ -384,7 +419,7 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(e *model.IstioEndpoint, tlsMode string) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 
 	ep := &endpoint.LbEndpoint{
@@ -401,7 +436,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not removepilot/pkg/xds/fake.go
-	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, tlsMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	return ep
 }
@@ -454,6 +489,7 @@ func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 // computeForEndpoint checks destination rule, peer authentication and metadata to determine if mTLS was turned off.
 // This must be done during conversion from IstioEndpoint since we still have workload metadata.
 func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
+
 	if drMode := c.mtlsModeForDestinationRule(ep); drMode != nil {
 		switch *drMode {
 		case networkingapi.ClientTLSSettings_DISABLE:
@@ -478,6 +514,7 @@ func (c *mtlsChecker) mtlsDisabledByPeerAuthentication(ep *model.IstioEndpoint) 
 		// avoid recomputing since most EPs will have the same labels/port
 		return value
 	}
+	// NOTE(incfly): okay already created this reference in the endpoint builder code.
 	c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
 		NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
 		GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
