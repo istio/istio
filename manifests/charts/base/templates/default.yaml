@@ -7,6 +7,7 @@ metadata:
     app: istiod
     release: {{ .Release.Name }}
     istio: istiod
+    istio.io/rev: {{ .Values.defaultRevision }}
 webhooks:
   - name: validation.istio.io
     clientConfig:
@@ -14,7 +15,11 @@ webhooks:
       url: {{ .Values.base.validationURL }}
       {{- else }}
       service:
-        name: istiod{{- if not (eq .Values.defaultRevision "") }}-{{ .Values.defaultRevision }}{{- end }}
+        {{- if (eq .Values.defaultRevision "default") }}
+        name: istiod
+        {{- else }}
+        name: istiod-{{ .Values.defaultRevision }}
+        {{- end }}
         namespace: {{ .Values.global.istioNamespace }}
         path: "/validate"
       {{- end }}
