@@ -765,8 +765,8 @@ func TestFilterChainMatchFields(t *testing.T) {
 	fcm := listener.FilterChainMatch{}
 	e := reflect.ValueOf(&fcm).Elem()
 	// If this fails, that means new fields have been added to FilterChainMatch, filterChainMatchEqual function needs to be updated.
-	if e.NumField() != 13 {
-		t.Fatalf("Expected 13 fields, got %v. This means we need to update filterChainMatchEqual implementation", e.NumField())
+	if e.NumField() != 14 {
+		t.Fatalf("Expected 14 fields, got %v. This means we need to update filterChainMatchEqual implementation", e.NumField())
 	}
 }
 
