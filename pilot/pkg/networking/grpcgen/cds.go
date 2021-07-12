@@ -16,10 +16,12 @@ package grpcgen
 
 import (
 	"fmt"
-	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	"github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -32,7 +34,7 @@ import (
 // The main difference is that the request includes Resources to filter.
 func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
 	filter := newClusterFilter(names)
-	var clusters = make([]*clusterv3.Cluster, 0, len(names))
+	clusters := make([]*cluster.Cluster, 0, len(names))
 	for defaultClusterName, subsetFilter := range filter {
 		builder, err := newClusterBuilder(node, push, defaultClusterName, subsetFilter)
 		if err != nil {
@@ -44,7 +46,7 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 
 	resp := make(model.Resources, 0, len(clusters))
 	for _, c := range clusters {
-		resp = append(resp, &envoy_service_discovery_v3.Resource{
+		resp = append(resp, &discovery.Resource{
 			Name:     c.Name,
 			Resource: util.MessageToAny(c),
 		})
@@ -133,14 +135,14 @@ func (b *clusterBuilder) subsetFilter() string {
 	return b.requestedClusterName
 }
 
-func (b *clusterBuilder) build() []*clusterv3.Cluster {
-	var defaultCluster *clusterv3.Cluster
+func (b *clusterBuilder) build() []*cluster.Cluster {
+	var defaultCluster *cluster.Cluster
 	if b.filter.Contains(b.defaultClusterName) {
 		defaultCluster = edsCluster(b.defaultClusterName)
 	}
 
 	subsetClusters := b.applyDestinationRule(defaultCluster)
-	out := make([]*clusterv3.Cluster, 0, 1+len(subsetClusters))
+	out := make([]*cluster.Cluster, 0, 1+len(subsetClusters))
 	if defaultCluster != nil {
 		out = append(out, defaultCluster)
 	}
@@ -148,15 +150,15 @@ func (b *clusterBuilder) build() []*clusterv3.Cluster {
 }
 
 // edsCluster creates a simple cluster to read endpoints from ads/eds.
-func edsCluster(name string) *clusterv3.Cluster {
-	return &clusterv3.Cluster{
+func edsCluster(name string) *cluster.Cluster {
+	return &cluster.Cluster{
 		Name:                 name,
-		ClusterDiscoveryType: &clusterv3.Cluster_Type{Type: clusterv3.Cluster_EDS},
-		EdsClusterConfig: &clusterv3.Cluster_EdsClusterConfig{
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+		EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
 			ServiceName: name,
-			EdsConfig: &envoy_config_core_v3.ConfigSource{
-				ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-					Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+			EdsConfig: &core.ConfigSource{
+				ConfigSourceSpecifier: &core.ConfigSource_Ads{
+					Ads: &core.AggregatedConfigSource{},
 				},
 			},
 		},
@@ -165,7 +167,7 @@ func edsCluster(name string) *clusterv3.Cluster {
 
 // applyDestinationRule mutates the default cluster to reflect traffic policies, and returns a set of additional
 // subset clusters if specified by a destination rule
-func (b *clusterBuilder) applyDestinationRule(defaultCluster *clusterv3.Cluster) (subsetClusters []*clusterv3.Cluster) {
+func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (subsetClusters []*cluster.Cluster) {
 	if b.svc == nil || b.port == nil {
 		return nil
 	}
@@ -179,7 +181,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *clusterv3.Cluster)
 
 	// subset clusters
 	if len(destinationRule.GetSubsets()) > 0 {
-		subsetClusters = make([]*clusterv3.Cluster, 0, len(destinationRule.GetSubsets()))
+		subsetClusters = make([]*cluster.Cluster, 0, len(destinationRule.GetSubsets()))
 		for _, subset := range destinationRule.GetSubsets() {
 			subsetKey := subsetClusterKey(subset.Name, string(b.hostname), b.portNum)
 			if !b.filter.Contains(subsetKey) {
@@ -196,7 +198,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *clusterv3.Cluster)
 }
 
 // applyPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.
-func (b *clusterBuilder) applyPolicy(c *clusterv3.Cluster, trafficPolicy *networking.TrafficPolicy) {
+func (b *clusterBuilder) applyPolicy(c *cluster.Cluster, trafficPolicy *networking.TrafficPolicy) {
 	// cluster can be nil if it wasn't requested
 	if c == nil || trafficPolicy == nil {
 		return
@@ -206,7 +208,7 @@ func (b *clusterBuilder) applyPolicy(c *clusterv3.Cluster, trafficPolicy *networ
 	// TODO status or log when unsupported features are included
 }
 
-func (b *clusterBuilder) applyLoadBalancing(c *clusterv3.Cluster, policy *networking.TrafficPolicy) {
+func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networking.TrafficPolicy) {
 	switch policy.LoadBalancer.GetSimple() {
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 	// ok
@@ -217,7 +219,7 @@ func (b *clusterBuilder) applyLoadBalancing(c *clusterv3.Cluster, policy *networ
 	// TODO https://github.com/grpc/proposal/blob/master/A42-xds-ring-hash-lb-policy.md
 }
 
-func (b *clusterBuilder) applyTLS(c *clusterv3.Cluster, policy *networking.TrafficPolicy) {
+func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.TrafficPolicy) {
 	// TODO check for automtls
 	mode := networking.ClientTLSSettings_ISTIO_MUTUAL
 	if settings := policy.GetTls(); settings != nil {
@@ -233,9 +235,9 @@ func (b *clusterBuilder) applyTLS(c *clusterv3.Cluster, policy *networking.Traff
 		// TODO support this
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsCtx := buildTLSContext(b.push.ServiceAccounts[b.hostname][b.portNum])
-		c.TransportSocket = &envoy_config_core_v3.TransportSocket{
+		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
-			ConfigType: &envoy_config_core_v3.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsCtx)},
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsCtx)},
 		}
 	}
 
@@ -247,20 +249,20 @@ const transportSocketName = "envoy.transport_sockets.tls"
 
 // buildTLSContext creates a TLS context that assumes 'default' name, and credentials/tls/certprovider/pemfile
 // (see grpc/xds/internal/client/xds.go securityConfigFromCluster).
-func buildTLSContext(sans []string) *tlsv3.UpstreamTlsContext {
-	return &tlsv3.UpstreamTlsContext{
-		CommonTlsContext: &tlsv3.CommonTlsContext{
-			TlsCertificateCertificateProviderInstance: &tlsv3.CommonTlsContext_CertificateProviderInstance{
+func buildTLSContext(sans []string) *tls.UpstreamTlsContext {
+	return &tls.UpstreamTlsContext{
+		CommonTlsContext: &tls.CommonTlsContext{
+			TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
 				InstanceName:    "default",
 				CertificateName: "default",
 			},
-			ValidationContextType: &tlsv3.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
-					ValidationContextCertificateProviderInstance: &tlsv3.CommonTlsContext_CertificateProviderInstance{
+			ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+					ValidationContextCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
 						InstanceName:    "default",
 						CertificateName: "ROOTCA",
 					},
-					DefaultValidationContext: &tlsv3.CertificateValidationContext{
+					DefaultValidationContext: &tls.CertificateValidationContext{
 						MatchSubjectAltNames: util.StringToExactMatch(sans),
 					},
 				},
