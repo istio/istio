@@ -429,8 +429,13 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 	if root == nil || leaf == nil {
 		return false
 	}
-	// regex match is not allowed
-	if root.GetRegex() != "" || leaf.GetRegex() != "" {
+
+	// TODO: check regex conflict
+	// if one has regex ,the others can not be set
+	if root.GetRegex() != "" && (leaf.GetRegex() != "" || leaf.GetPrefix() != "" || leaf.GetExact() != "") {
+		return true
+	}
+	if leaf.GetRegex() != "" && (root.GetPrefix() != "" || root.GetExact() != "") {
 		return true
 	}
 	// root is exact match
@@ -459,7 +464,7 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 		}
 	}
 
-	return true
+	return false
 }
 
 func isRootVs(vs *networking.VirtualService) bool {
