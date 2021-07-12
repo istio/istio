@@ -1,0 +1,4 @@
+*.crt
+*.csr
+*.key
+fortio_ca_test.json
