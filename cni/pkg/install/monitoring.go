@@ -30,7 +30,7 @@ var (
 		monitoring.WithLabels(resultLabel),
 	)
 
-	installState = monitoring.NewGauge(
+	installReady = monitoring.NewGauge(
 		"istio_cni_install_ready",
 		"Whether the CNI plugin installation is ready or not",
 	)
@@ -38,5 +38,5 @@ var (
 
 func init() {
 	monitoring.MustRegister(cniInstalls)
-	monitoring.MustRegister(installState)
+	monitoring.MustRegister(installReady)
 }
