@@ -97,11 +97,12 @@ func NewTranslator() *Translator {
 	t := &Translator{
 		Version: oversion.OperatorBinaryVersion.MinorVersion,
 		APIMapping: map[string]*Translation{
-			"Hub":         {OutPath: "global.hub"},
-			"Tag":         {OutPath: "global.tag"},
-			"K8SDefaults": {OutPath: "global.resources"},
-			"Revision":    {OutPath: "revision"},
-			"MeshConfig":  {OutPath: "meshConfig"},
+			"Hub":             {OutPath: "global.hub"},
+			"Tag":             {OutPath: "global.tag"},
+			"K8SDefaults":     {OutPath: "global.resources"},
+			"Revision":        {OutPath: "revision"},
+			"DefaultRevision": {OutPath: "defaultRevision"},
+			"MeshConfig":      {OutPath: "meshConfig"},
 		},
 		GlobalNamespaces: map[name.ComponentName]string{
 			name.PilotComponentName: "istioNamespace",

@@ -446,6 +446,20 @@ func TestMultiICPSFiles(t *testing.T) {
 	}
 }
 
+func TestDefaultRevision(t *testing.T) {
+	g := NewWithT(t)
+	objss, err := runManifestCommands("default_revision", "--default-revision", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, objs := range objss {
+		vwhc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-canary").Unstructured()
+		g.Expect(vwhc).Should(HavePathValueEqual(PathValue{"webhooks.[0].name", "validation.istio.io"}))
+		g.Expect(vwhc).Should(HavePathValueEqual(PathValue{"webhooks.[1].name", "rev.validation.istio.io"}))
+	}
+}
+
 func TestBareSpec(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
