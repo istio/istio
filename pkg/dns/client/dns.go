@@ -220,7 +220,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 			response.Truncate(size(proxy.protocol, req))
 			_ = w.WriteMsg(response)
 		} else {
-			response := h.upstream(proxy, req, hostname)
+			response = h.upstream(proxy, req, hostname)
 			log.Debugf("dns request for host %q before lookup table is loaded", hostname)
 			response = new(dns.Msg)
 			response.SetReply(req)
