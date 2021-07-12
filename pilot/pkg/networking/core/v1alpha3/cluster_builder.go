@@ -960,6 +960,7 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 		MaxConcurrentStreams: &wrappers.UInt32Value{
 			Value: 1073741824,
 		},
+		AllowConnect: true,
 	}
 }
 
