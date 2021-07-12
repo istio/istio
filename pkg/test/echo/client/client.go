@@ -91,7 +91,7 @@ func (c *Instance) Close() error {
 	return nil
 }
 
-func (c *Instance) Echo(ctx context.Context, request *proto.EchoRequest) (*ParsedResponse, error)  {
+func (c *Instance) Echo(ctx context.Context, request *proto.EchoRequest) (*ParsedResponse, error) {
 	resp, err := c.client.Echo(ctx, request)
 	if err != nil {
 		return nil, err

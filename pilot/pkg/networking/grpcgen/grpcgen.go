@@ -39,8 +39,7 @@ import (
 
 var log = istiolog.RegisterScope("grpcgen", "xDS Generator for Proxyless gRPC", 0)
 
-type GrpcConfigGenerator struct {
-}
+type GrpcConfigGenerator struct{}
 
 func clusterKey(hostname string, port int) string {
 	return subsetClusterKey("", hostname, port)

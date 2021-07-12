@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+
 	//  To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 

@@ -77,7 +77,6 @@ func newClusterFilter(names []string) map[string]sets.Set {
 // * BuildClusterOpts and members
 // * Add something to allow us to override how tlscontext is built
 type clusterBuilder struct {
-	// conveinence
 	push *model.PushContext
 	node *model.Proxy
 
@@ -208,7 +207,7 @@ func (b *clusterBuilder) applyPolicy(c *cluster.Cluster, trafficPolicy *networki
 	// TODO status or log when unsupported features are included
 }
 
-func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networking.TrafficPolicy) {
+func (b *clusterBuilder) applyLoadBalancing(_ *cluster.Cluster, policy *networking.TrafficPolicy) {
 	switch policy.LoadBalancer.GetSimple() {
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 	// ok
@@ -240,7 +239,6 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsCtx)},
 		}
 	}
-
 }
 
 // TransportSocket proto message has a `name` field which is expected to be set to exactly this value by the
