@@ -89,6 +89,7 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzCompareDiff", FuzzCompareDiff},
 		{"FuzzHelmReconciler", FuzzHelmReconciler},
 		{"FuzzIntoResourceFile", FuzzIntoResourceFile},
+		{"FuzzTranslateFromValueToSpec", FuzzTranslateFromValueToSpec},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
