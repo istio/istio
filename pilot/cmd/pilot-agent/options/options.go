@@ -85,6 +85,10 @@ var (
 	DNSCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
+	// DNSCaptureAddr is the address to listen.
+	DNSCaptureAddr = env.RegisterStringVar("DNS_PROXY_ADDR", "localhost:15053",
+		"Custom address for the DNS proxy. If it ends with :53 and running as root allows running without iptable DNS capture")
+
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.RegisterBoolVar("PROXY_CONFIG_XDS_AGENT", false,
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()

@@ -134,6 +134,8 @@ type AgentOptions struct {
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	// This option will not be considered if proxyXDSViaAgent is false.
 	DNSCapture bool
+	// DNSAddr is the DNS capture address
+	DNSAddr string
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -277,6 +279,12 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	a.envoyOpts.ParentShutdownDuration = a.proxyConfig.ParentShutdownDuration
 	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
 
+	// Checking only uid should be sufficient - but tests also run as root and
+	// will break due to permission errors if we start envoy as 1337.
+	// This is a mode used for permission-less docker, where iptables can't be
+	// used.
+	a.envoyOpts.AgentIsRoot = os.Getuid() == 0 && strings.HasSuffix(a.cfg.DNSAddr, ":53")
+
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
 	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
@@ -386,6 +394,10 @@ func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.B
 // This is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
+	if err = a.initLocalDNSServer(); err != nil {
+		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
+	}
+
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
@@ -393,10 +405,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
-
-	if err = a.initLocalDNSServer(); err != nil {
-		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
-	}
 
 	if a.cfg.ProxyXDSViaAgent {
 		a.xdsProxy, err = initXdsProxy(a)
@@ -463,7 +471,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
-		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()
