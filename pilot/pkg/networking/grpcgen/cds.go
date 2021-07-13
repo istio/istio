@@ -54,8 +54,9 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	return resp
 }
 
-// newClusterFilter builds a filtering map to determine which clusters need to be built.
-// gRPC will usually request each subset individually, regardless of if a previous response included it.
+// newClusterFilter maps a non-subset cluster name to the list of actual cluster names (default or subset) actually
+// requested by the client. gRPC will usually request a group of clusters that are used in the same route; in some
+// cases this means subsets associated with the same default cluster aren't all expected in the same CDS response.
 func newClusterFilter(names []string) map[string]sets.Set {
 	filter := map[string]sets.Set{}
 	for _, name := range names {
@@ -176,7 +177,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	trafficPolicy := v1alpha3.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
-	b.applyPolicy(defaultCluster, trafficPolicy)
+	b.applyTrafficPolicy(defaultCluster, trafficPolicy)
 
 	// subset clusters
 	if len(destinationRule.GetSubsets()) > 0 {
@@ -188,7 +189,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 			}
 			c := edsCluster(subsetKey)
 			trafficPolicy := v1alpha3.MergeTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
-			b.applyPolicy(c, trafficPolicy)
+			b.applyTrafficPolicy(c, trafficPolicy)
 			subsetClusters = append(subsetClusters, c)
 		}
 	}
@@ -196,8 +197,8 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	return
 }
 
-// applyPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.
-func (b *clusterBuilder) applyPolicy(c *cluster.Cluster, trafficPolicy *networking.TrafficPolicy) {
+// applyTrafficPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.
+func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *networking.TrafficPolicy) {
 	// cluster can be nil if it wasn't requested
 	if c == nil || trafficPolicy == nil {
 		return
