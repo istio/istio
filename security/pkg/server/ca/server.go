@@ -38,8 +38,8 @@ var serverCaLog = log.RegisterScope("serverca", "Citadel server log", 0)
 type CertificateAuthority interface {
 	// Sign generates a certificate for a workload or CA, from the given CSR and cert opts.
 	Sign(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
-	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-	SignWithCertChain(csrPEM []byte, opts ca.CertOpts) ([]byte, error)
+	// SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain including root-cert.
+	SignWithCertChain(csrPEM []byte, opts ca.CertOpts) ([]string, error)
 	// GetCAKeyCertBundle returns the KeyCertBundle used by CA.
 	GetCAKeyCertBundle() *util.KeyCertBundle
 }
@@ -77,28 +77,22 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 		return nil, status.Error(codes.Unauthenticated, "request authenticate failure")
 	}
 
-	// TODO: Call authorizer.
-
-	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: caller.Identities,
 		TTL:        time.Duration(request.ValidityDuration) * time.Second,
 		ForCA:      false,
 	}
-	cert, signErr := s.ca.Sign([]byte(request.Csr), certOpts)
+	respCertChain, signErr := s.ca.SignWithCertChain([]byte(request.Csr), certOpts)
+
 	if signErr != nil {
 		serverCaLog.Errorf("CSR signing error (%v)", signErr.Error())
 		s.monitoring.GetCertSignError(signErr.(*caerror.Error).ErrorType()).Increment()
 		return nil, status.Errorf(signErr.(*caerror.Error).HTTPErrorCode(), "CSR signing error (%v)", signErr.(*caerror.Error))
 	}
-	respCertChain := []string{string(cert)}
-	if len(certChainBytes) != 0 {
-		respCertChain = append(respCertChain, string(certChainBytes))
-	}
-	respCertChain = append(respCertChain, string(rootCertBytes))
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,
 	}
+
 	s.monitoring.Success.Increment()
 	serverCaLog.Debug("CSR successfully signed.")
 	return response, nil

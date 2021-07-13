@@ -77,16 +77,22 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.
-func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error) {
+func (r *KubernetesRA) SignWithCertChain(csrPEM []byte, certOpts ca.CertOpts) ([]string, error) {
+	certChain := []string{}
 	cert, err := r.Sign(csrPEM, certOpts)
 	if err != nil {
-		return nil, err
+		return certChain, err
 	}
+	certChain = append(certChain, string(cert))
 	chainPem := r.GetCAKeyCertBundle().GetCertChainPem()
 	if len(chainPem) > 0 {
-		cert = append(cert, chainPem...)
+		certChain = append(certChain, string(chainPem))
 	}
-	return cert, nil
+	rootPEM := r.GetCAKeyCertBundle().GetRootCertPem()
+	if len(rootPEM) > 0 {
+		certChain = append(certChain, string(rootPEM))
+	}
+	return certChain, nil
 }
 
 // GetCAKeyCertBundle returns the KeyCertBundle for the CA.
