@@ -334,6 +334,7 @@ func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
 	values := fmt.Sprintf(`
 global:
   istioNamespace: %s
+  externalIstiod: true
 `, opt.Namespace)
 
 	// Render the templates required for the service account and role bindings.
@@ -532,9 +533,9 @@ type RemoteSecretOptions struct {
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.StringVar(&o.ServiceAccountName, "service-account", "",
-		"Create a secret with this service account's credentials. Use \""+
-			constants.DefaultServiceAccountName+"\" as default value if --type is \"remote\", use \""+
-			constants.DefaultConfigServiceAccountName+"\" as default value if --type is \"config\".")
+		"Create a secret with this service account's credentials. Default value is \""+
+			constants.DefaultServiceAccountName+"\" if --type is \"remote\", \""+
+			constants.DefaultConfigServiceAccountName+"\" if --type is \"config\".")
 	flagset.BoolVar(&o.CreateServiceAccount, "create-service-account", true,
 		"If true, the service account needed for creating the remote secret will be created "+
 			"if it doesn't exist.")
