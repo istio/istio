@@ -19,9 +19,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/shell"
 	"os"
 	"path/filepath"
+
+	"istio.io/istio/pkg/test/shell"
+
+	"istio.io/istio/pkg/test/shell"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -33,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
