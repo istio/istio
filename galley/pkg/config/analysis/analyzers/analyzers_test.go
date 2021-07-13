@@ -539,6 +539,16 @@ var testGrid = []testCase{
 			{msg.InvalidApplicationUID, "Deployment deploy-con-sec-uid"},
 		},
 	},
+	{
+		name: "Detect `image: auto` in non-injected pods",
+		inputFiles: []string{
+			"testdata/image-auto.yaml",
+		},
+		analyzer: &injection.ImageAutoAnalyzer{},
+		expected: []message{
+			{msg.ImageAutoWithoutInjection, "Deployment non-injected-gateway-deployment"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
