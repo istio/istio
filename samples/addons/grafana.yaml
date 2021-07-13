@@ -4,10 +4,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    helm.sh/chart: grafana-6.6.3
+    helm.sh/chart: grafana-6.11.0
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "7.4.3"
+    app.kubernetes.io/version: "7.5.5"
     app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
@@ -19,10 +19,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.6.3
+    helm.sh/chart: grafana-6.11.0
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "7.4.3"
+    app.kubernetes.io/version: "7.5.5"
     app.kubernetes.io/managed-by: Helm
 data:
   grafana.ini: |
@@ -33,7 +33,7 @@ data:
     [log]
     mode = console
     [paths]
-    data = /var/lib/grafana/data
+    data = /var/lib/grafana/
     logs = /var/log/grafana
     plugins = /var/lib/grafana/plugins
     provisioning = /etc/grafana/provisioning
@@ -75,10 +75,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.6.3
+    helm.sh/chart: grafana-6.11.0
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "7.4.3"
+    app.kubernetes.io/version: "7.5.5"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -120,7 +120,7 @@ spec:
         app.kubernetes.io/instance: grafana
         app: grafana
       annotations:
-        checksum/config: d066c8e65e3f58572437b75dd33ea6df6cd2f6183c019024839b6eec0e3cd086
+        checksum/config: af4530cc6e67e63b6285f3ceccaf0aaa2a20d322e35c9f0ae48721add3b58eb0
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         sidecar.istio.io/inject: "false"
@@ -133,7 +133,7 @@ spec:
         runAsUser: 472
       containers:
         - name: grafana
-          image: "docker.io/grafana/grafana:7.4.3"
+          image: "docker.io/grafana/grafana:7.5.5"
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: config
@@ -159,7 +159,15 @@ spec:
               containerPort: 3000
               protocol: TCP
           env:
-            
+
+            - name: GF_PATHS_DATA
+              value: /var/lib/grafana/
+            - name: GF_PATHS_LOGS
+              value: /var/log/grafana
+            - name: GF_PATHS_PLUGINS
+              value: /var/lib/grafana/plugins
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning  
             - name: "GF_AUTH_ANONYMOUS_ENABLED"
               value: "true"
             - name: "GF_AUTH_ANONYMOUS_ORG_ROLE"
