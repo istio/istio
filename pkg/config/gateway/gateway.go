@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -39,6 +40,17 @@ func IsHTTPServer(server *v1alpha3.Server) bool {
 	}
 
 	return false
+}
+
+// IsEligibleForHTTP3Upgrade returns true if we can create an HTTP/3 server
+// listening of QUIC for the given server. It must be a TLS non-passthrough
+// as TLS is mandatory for QUIC
+func IsEligibleForHTTP3Upgrade(server *v1alpha3.Server) bool {
+	if !features.EnableQUICListeners {
+		return false
+	}
+	p := protocol.Parse(server.Port.Protocol)
+	return p == protocol.HTTPS && server.Tls != nil && !IsPassThroughServer(server)
 }
 
 // IsPassThroughServer returns true if this server does TLS passthrough (auto or manual)

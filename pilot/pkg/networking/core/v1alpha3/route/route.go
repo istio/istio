@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
@@ -159,7 +160,8 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int) []VirtualHostWrapper {
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
-	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
+	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry,
+		listenPort, meshGateway, false /* isH3DiscoveryNeeded */)
 	if err != nil || len(routes) == 0 {
 		return nil
 	}
@@ -262,7 +264,8 @@ func BuildHTTPRoutesForVirtualService(
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int,
-	gatewayNames map[string]bool) ([]*route.Route, error) {
+	gatewayNames map[string]bool,
+	isH3DiscoveryNeeded bool) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -273,13 +276,13 @@ func BuildHTTPRoutesForVirtualService(
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+			if r := translateRoute(push, node, http, nil, listenPort, virtualService, serviceRegistry, gatewayNames, isH3DiscoveryNeeded); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames); r != nil {
+				if r := translateRoute(push, node, http, match, listenPort, virtualService, serviceRegistry, gatewayNames, isH3DiscoveryNeeded); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
@@ -327,7 +330,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	match *networking.HTTPMatchRequest, port int,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	gatewayNames map[string]bool) *route.Route {
+	gatewayNames map[string]bool,
+	isH3DiscoveryNeeded bool) *route.Route {
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
@@ -493,7 +497,32 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
+	if isH3DiscoveryNeeded {
+		h3DiscoveryHeader := buildH3AltSvcHeader(port, util.ALPNHttp3OverQUIC)
+		if out.ResponseHeadersToAdd == nil {
+			out.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
+		}
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, h3DiscoveryHeader)
+	}
+
 	return out
+}
+
+func buildH3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption {
+	headerName := "Alt-svc"
+	valParts := make([]string, 0, len(h3Alpns))
+	for _, alpn := range h3Alpns {
+		// Max-age is hardcoded to 1 day for now.
+		valParts = append(valParts, fmt.Sprintf(`%s=":%d"; ma=86400`, alpn, port))
+	}
+	headerVal := strings.Join(valParts, "; ")
+	return &core.HeaderValueOption{
+		Append: proto.BoolTrue,
+		Header: &core.HeaderValue{
+			Key:   headerName,
+			Value: headerVal,
+		},
+	}
 }
 
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption

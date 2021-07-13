@@ -135,8 +135,8 @@ func TestMergeGateways(t *testing.T) {
 				instances = append(instances, gatewayWithInstances{c, true, nil})
 			}
 			mgw := MergeGateways(instances)
-			if len(mgw.MergedServers) != tt.mergedServersNum {
-				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedServers))
+			if len(mgw.MergedTCPServers) != tt.mergedServersNum {
+				t.Errorf("Incorrect number of merged servers. Expected: %v Got: %d", tt.mergedServersNum, len(mgw.MergedTCPServers))
 			}
 			if len(mgw.ServersByRouteName) != len(tt.serversForRouteNum) {
 				t.Errorf("Incorrect number of routes. Expected: %v Got: %d", len(tt.serversForRouteNum), len(mgw.ServersByRouteName))
@@ -147,7 +147,7 @@ func TestMergeGateways(t *testing.T) {
 				}
 			}
 			ns := 0
-			for _, ms := range mgw.MergedServers {
+			for _, ms := range mgw.MergedTCPServers {
 				ns += len(ms.Servers)
 			}
 			if ns != tt.serverNum {
