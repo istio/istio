@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 33474
+releaseNotes:
+- |
+  **Fixed** Prometheus [metrics merging](/docs/ops/integrations/prometheus/#option-1-metrics-merging) to
+  correctly handle the case where the application metrics are exposed as [OpenMetrics](https://github.com/OpenObservability/OpenMetrics).
