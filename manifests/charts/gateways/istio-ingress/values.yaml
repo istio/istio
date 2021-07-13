@@ -77,6 +77,10 @@ gateways:
     additionalContainers: []
     configVolumes: []
 
+    serviceAccount:
+      # Annotations to add to the service account
+      annotations: {}
+
     ### Advanced options ############
     env:
       # A gateway with this mode ensures that pilot generates an additional
