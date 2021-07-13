@@ -289,7 +289,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		return true
 	}
 
-	// emtpy webhook name means we must patch for each webhook
+	// empty webhook name means we must patch for each webhook
 	if req.webhookName == "" {
 		err := c.updateAll()
 		if err != nil {

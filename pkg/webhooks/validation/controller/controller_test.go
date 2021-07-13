@@ -201,9 +201,9 @@ func createTestController(t *testing.T) *fakeController {
 }
 
 func copyWithName(vwh *kubeApiAdmission.ValidatingWebhookConfiguration, newName string) *kubeApiAdmission.ValidatingWebhookConfiguration {
-	new := vwh.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
-	new.Name = newName
-	return new
+	n := vwh.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
+	n.Name = newName
+	return n
 }
 
 func (fc *fakeController) ValidatingWebhookConfigurations() kubeTypedAdmission.ValidatingWebhookConfigurationInterface {
