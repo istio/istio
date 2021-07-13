@@ -47,14 +47,11 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 	viper.Set(constants.LocalOutboundPortsExclude, rdrct.excludeOutboundPorts)
 	viper.Set(constants.ServiceExcludeCidr, rdrct.excludeIPCidrs)
 	viper.Set(constants.KubeVirtInterfaces, rdrct.kubevirtInterfaces)
-	if drf := dryRunFilePath.Get(); drf != "" {
-		viper.Set(constants.DryRun, true)
-		viper.Set(constants.OutputPath, drf)
-	}
-	if rdrct.dnsRedirect {
-		viper.Set(constants.RedirectDNS, true)
-		viper.Set(constants.CaptureAllDNS, true)
-	}
+	drf := dryRunFilePath.Get()
+	viper.Set(constants.DryRun, drf != "")
+	viper.Set(constants.OutputPath, drf)
+	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
+	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
 	iptablesCmd := cmd.GetCommand()
 	if err := iptablesCmd.Execute(); err != nil {
 		return err
