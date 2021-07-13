@@ -40,9 +40,6 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
-	SystemRootCerts = "SYSTEM"
-
 	// RootCertReqResourceName is resource name of discovery request for root certificate.
 	RootCertReqResourceName = "ROOTCA"
 
