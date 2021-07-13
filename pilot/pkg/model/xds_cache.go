@@ -211,14 +211,10 @@ func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 }
 
 func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
-	if !entry.Cacheable() || pushReq == nil {
+	if !entry.Cacheable() || pushReq == nil || pushReq.Start.Equal(time.Time{}) {
 		return
 	}
-	// Start unset
-	if pushReq.Start.Equal(time.Time{}) {
-		panic("token cannot be empty!")
-	}
-	// TODO: It will not overflow until year 2262
+	// It will not overflow until year 2262
 	token := CacheToken(pushReq.Start.UnixNano())
 	l.mu.Lock()
 	defer l.mu.Unlock()
