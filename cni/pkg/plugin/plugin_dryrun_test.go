@@ -30,6 +30,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
+	diff "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -138,10 +139,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			}
 			generatedRules := getRules(generated)
 
-			if os.Getenv("REFRESH_GOLDEN") == "true" {
-				refreshGoldens(t, tt.golden, generatedRules)
-				return
-			}
+			refreshGoldens(t, tt.golden, generatedRules)
 
 			// Compare generated iptables rule with golden files.
 			golden, err := ioutil.ReadFile(tt.golden)
@@ -186,10 +184,5 @@ func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[stri
 	for _, t := range tables {
 		goldenFileContent += generatedRules[t] + "\n"
 	}
-
-	// Refresh iptables golden file.
-	err := ioutil.WriteFile(goldenFileName, []byte(goldenFileContent), 0755)
-	if err != nil {
-		t.Fatalf("Failed to update iptables rule golden file %v", err)
-	}
+	diff.RefreshGoldenFile([]byte(goldenFileContent), goldenFileName, t)
 }
