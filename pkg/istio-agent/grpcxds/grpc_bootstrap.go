@@ -100,7 +100,6 @@ func LoadBootstrap(file string) (*Bootstrap, error) {
 
 type GenerateBootstrapOptions struct {
 	Node             *model.Node
-	ProxyXDSViaAgent bool
 	XdsUdsPath       string
 	DiscoveryAddress string
 	CertDir          string
@@ -115,7 +114,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 
 	// TODO direct to CP should use secure channel (most likely JWT + TLS, but possibly allow mTLS)
 	serverURI := opts.DiscoveryAddress
-	if opts.ProxyXDSViaAgent && opts.XdsUdsPath != "" {
+	if opts.XdsUdsPath != "" {
 		serverURI = fmt.Sprintf("unix:///%s", opts.XdsUdsPath)
 	}
 

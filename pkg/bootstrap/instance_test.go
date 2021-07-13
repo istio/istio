@@ -82,7 +82,6 @@ func TestGolden(t *testing.T) {
 		expectLightstepAccessToken bool
 		stats                      stats
 		checkLocality              bool
-		proxyViaAgent              bool
 		stsPort                    int
 		platformMeta               map[string]string
 		setup                      func()
@@ -90,8 +89,7 @@ func TestGolden(t *testing.T) {
 		check                      func(got *bootstrap.Bootstrap, t *testing.T)
 	}{
 		{
-			base:          "xdsproxy",
-			proxyViaAgent: true,
+			base: "xdsproxy",
 		},
 		{
 			base: "auth",
@@ -318,7 +316,6 @@ func TestGolden(t *testing.T) {
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
 				},
 				OutlierLogPath:      "/dev/stdout",
-				ProxyViaAgent:       c.proxyViaAgent,
 				annotationFilePath:  annoFile.Name(),
 				EnvoyPrometheusPort: 15090,
 				EnvoyStatusPort:     15021,
