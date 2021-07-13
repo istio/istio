@@ -37,11 +37,13 @@ const (
 	IstioTagLabel       = "istio.io/tag"
 	DefaultRevisionName = "default"
 
-	defaultChart                = "default"
-	pilotDiscoveryChart         = "istio-control/istio-discovery"
-	revisionTagTemplateName     = "revision-tags.yaml"
-	vwhTemplateName             = "validatingwebhook.yaml"
-	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
+	defaultChart            = "default"
+	pilotDiscoveryChart     = "istio-control/istio-discovery"
+	revisionTagTemplateName = "revision-tags.yaml"
+	vwhTemplateName         = "validatingwebhook.yaml"
+
+	deprecatedValidatingWebhookName = "istiod-istio-system"
+	istioInjectionWebhookSuffix     = "sidecar-injector.istio.io"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -118,6 +120,12 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		if err != nil {
 			return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 		}
+		// delete deprecated validating webhook configuration if it exists.
+		err = DeleteDeprecatedValidator(ctx, client)
+		if err != nil {
+			return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
+		}
+
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
 		// to ease complexity when pointing default to revision without per-revision validating webhook,
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.

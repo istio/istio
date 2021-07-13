@@ -20,6 +20,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -110,6 +111,16 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhook
 		result = multierror.Append(client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
 	}
 	return result
+}
+
+// DeleteDeprecatedValidator deletes the deprecated validating webhook configuration. This is used after a user explicitly
+// sets a new default revision.
+func DeleteDeprecatedValidator(ctx context.Context, client kubernetes.Interface) error {
+	err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, deprecatedValidatingWebhookName, metav1.DeleteOptions{})
+	if kerrors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 var neverMatch = &metav1.LabelSelector{
