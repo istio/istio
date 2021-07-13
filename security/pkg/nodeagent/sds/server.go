@@ -18,6 +18,7 @@ import (
 	"net"
 	"time"
 
+	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -38,11 +39,12 @@ type Server struct {
 	grpcWorkloadListener net.Listener
 
 	grpcWorkloadServer *grpc.Server
+	stopped            *atomic.Bool
 }
 
 // NewServer creates and starts the Grpc server for SDS.
 func NewServer(options *security.Options, workloadSecretCache security.SecretManager) *Server {
-	s := &Server{}
+	s := &Server{stopped: atomic.NewBool(false)}
 	s.workloadSds = newSDSService(workloadSecretCache, options)
 	s.initWorkloadSdsService(options)
 	sdsServiceLog.Infof("SDS server for workload certificates started, listening on %q", options.WorkloadUDSPath)
@@ -67,7 +69,7 @@ func (s *Server) Stop() {
 	if s == nil {
 		return
 	}
-
+	s.stopped.Store(true)
 	if s.grpcWorkloadServer != nil {
 		s.grpcWorkloadServer.Stop()
 	}
@@ -90,10 +92,13 @@ func (s *Server) initWorkloadSdsService(options *security.Options) {
 	}
 
 	go func() {
-		sdsServiceLog.Info("Start SDS grpc server")
+		sdsServiceLog.Info("Starting SDS grpc server")
 		waitTime := time.Second
-
+		started := false
 		for i := 0; i < maxRetryTimes; i++ {
+			if s.stopped.Load() {
+				return
+			}
 			serverOk := true
 			setUpUdsOK := true
 			if s.grpcWorkloadListener == nil {
@@ -109,10 +114,15 @@ func (s *Server) initWorkloadSdsService(options *security.Options) {
 				}
 			}
 			if serverOk && setUpUdsOK {
+				sdsServiceLog.Info("SDS grpc server started")
+				started = true
 				break
 			}
 			time.Sleep(waitTime)
 			waitTime *= 2
+		}
+		if !started {
+			sdsServiceLog.Warn("SDS grpc server could not be started")
 		}
 	}()
 }
