@@ -2708,7 +2708,7 @@ func TestValidateVirtualService(t *testing.T) {
 					},
 				},
 			}},
-		}, valid: true, warning: false},
+		}, valid: true, warning: true},
 	}
 
 	for _, tc := range testCases {

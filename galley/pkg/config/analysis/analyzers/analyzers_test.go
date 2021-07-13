@@ -437,6 +437,8 @@ var testGrid = []testCase{
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-in-single-match"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-in-two-matches"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-mathes-with-different-methods"},
+
+			{msg.SchemaWarning, "VirtualService uri-with-prefix-exact"},
 		},
 	},
 	{

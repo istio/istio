@@ -564,3 +564,103 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 		})
 	}
 }
+
+func TestIsCatchAllMatch(t *testing.T) {
+	cases := []struct {
+		name  string
+		match *networking.HTTPMatchRequest
+		want  bool
+	}{
+		{
+			name: "catch all prefix",
+			match: &networking.HTTPMatchRequest{
+				Name: "catch-all",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{
+						Prefix: "/",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "catch all without uri",
+			match: &networking.HTTPMatchRequest{
+				Name: "catch-all",
+			},
+			want: true,
+		},
+		{
+			name: "specific prefix match",
+			match: &networking.HTTPMatchRequest{
+				Name: "specific match",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{
+						Prefix: "/a",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "uri regex catch all",
+			match: &networking.HTTPMatchRequest{
+				Name: "regex-catch-all",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "uri regex with headers",
+			match: &networking.HTTPMatchRequest{
+
+				Name: "regex with headers",
+				Headers: map[string]*networking.StringMatch{
+					"Authentication": {
+						MatchType: &networking.StringMatch_Regex{
+							Regex: "Bearer .+?\\..+?\\..+?",
+						},
+					},
+				},
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "uri regex with query params",
+			match: &networking.HTTPMatchRequest{
+				Name: "regex with query params",
+				QueryParams: map[string]*networking.StringMatch{
+					"Authentication": {
+						MatchType: &networking.StringMatch_Regex{
+							Regex: "Bearer .+?\\..+?\\..+?",
+						},
+					},
+				},
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			match := IsCatchAllMatch(tt.match)
+			if match != tt.want {
+				t.Errorf("Unexpected catchAllMatch want %v, got %v", tt.want, match)
+			}
+		})
+	}
+}
