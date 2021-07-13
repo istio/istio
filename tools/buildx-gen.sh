@@ -26,18 +26,10 @@ shift
 function to_platform_list() {
   image="${1}"
   platforms="${2}"
-  # Allow list images verified to work with multi architecture
-  # Eventually this should be everything but the testing images (app_sidecar_)
-  if [[ "${image}" == base || "${image}" == distroless ]]; then
-    # convert CSV to "foo","bar" list
-    # shellcheck disable=SC2001
-    echo "\"$(echo "${platforms}" | sed 's/,/","/g')\""
-  else
-    echo '"linux/amd64"'
-  fi
+  # convert CSV to "foo","bar" list
+  # shellcheck disable=SC2001
+  echo "\"$(echo "${platforms}" | sed 's/,/","/g')\""
 }
-
-
 
 variants=\"$(for i in ${DOCKER_ALL_VARIANTS}; do echo "\"${i}\""; done | xargs | sed -e 's/ /\", \"/g')\"
 cat <<EOF > "${config}"
