@@ -48,7 +48,7 @@ type tagWebhookConfig struct {
 	Tag            string
 	Revision       string
 	URL            string
-	CABundle       string // note: this is raw PEM bytes, should base64 encode before inserting
+	CABundle       string
 	IstioNamespace string
 }
 
