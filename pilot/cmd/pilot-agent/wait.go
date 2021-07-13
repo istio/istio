@@ -70,7 +70,7 @@ func checkIfReady(client *http.Client, url string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("HTTP status code %v", resp.StatusCode)
 	}
 	return nil

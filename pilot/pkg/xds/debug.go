@@ -237,7 +237,7 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 		if ids == nil {
 			istiolog.Errorf("Failed to authenticate %s %v", req.URL, authFailMsgs)
 			// Not including detailed info in the response, XDS doesn't either (returns a generic "authentication failure).
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		// TODO: Check that the identity contains istio-system namespace, else block or restrict to only info that
@@ -728,7 +728,7 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 
 	if err := indexTmpl.Execute(w, deps); err != nil {
 		istiolog.Errorf("Error in rendering index template %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
