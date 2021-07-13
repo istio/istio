@@ -87,15 +87,15 @@ type MutableCluster struct {
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
 	proxy *model.Proxy
-	push  *model.PushContext
+	req   *model.PushRequest
 	cache model.XdsCache
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
-func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext, cache model.XdsCache) *ClusterBuilder {
+func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	return &ClusterBuilder{
 		proxy: proxy,
-		push:  push,
+		req:   req,
 		cache: cache,
 	}
 }
@@ -109,7 +109,7 @@ func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
 
 func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
 	proxyNetworkView map[network.ID]bool) *cluster.Cluster {
-	opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
@@ -139,8 +139,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 		return nil
 	}
 
-	if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
-		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName,
+	if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
+		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 			string(service.Hostname), subset.Name, opts.port, service.Attributes)
 	}
 
@@ -170,7 +170,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
-		mesh:        cb.push.Mesh,
+		mesh:        cb.req.Push.Mesh,
 		mutable:     mc,
 		policy:      trafficPolicy,
 		port:        port,
@@ -181,12 +181,12 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	}
 
 	if clusterMode == DefaultClusterMode {
-		opts.serviceAccounts = cb.push.ServiceAccounts[service.Hostname][port.Port]
+		opts.serviceAccounts = cb.req.Push.ServiceAccounts[service.Hostname][port.Port]
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
 	}
 	// Apply traffic policy for the main default cluster.
 	cb.applyTrafficPolicy(opts)
@@ -272,13 +272,13 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
 		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
+		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
-			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
+			cb.req.Push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
 				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
 			return nil
 		}
@@ -291,7 +291,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
-		mesh:            cb.push.Mesh,
+		mesh:            cb.req.Push.Mesh,
 		mutable:         ec,
 		policy:          nil,
 		port:            port,
@@ -404,13 +404,13 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		localCluster.cluster.CleanupInterval = &duration.Duration{Seconds: 60}
 	}
 	// If stat name is configured, build the alt statname.
-	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
+	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
+		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
 
 	opts := buildClusterOpts{
-		mesh:            cb.push.Mesh,
+		mesh:            cb.req.Push.Mesh,
 		mutable:         localCluster,
 		policy:          nil,
 		port:            instance.ServicePort,
@@ -425,7 +425,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// (not the defaults) to handle the increased traffic volume
 	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := cb.push.DestinationRule(cb.proxy, instance.Service)
+	cfg := cb.req.Push.DestinationRule(cb.proxy, instance.Service)
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
@@ -456,11 +456,11 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 		return nil
 	}
 
-	instances := cb.push.ServiceInstancesByPort(service, port, labels)
+	instances := cb.req.Push.ServiceInstancesByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := cb.push.IsClusterLocal(service)
+	isClusterLocal := cb.req.Push.IsClusterLocal(service)
 
 	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
@@ -575,7 +575,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
+		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	return c
@@ -587,14 +587,14 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
+		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 	}
 	cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
 		v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
-	cb.applyConnectionPool(cb.push.Mesh, NewMutableCluster(cluster), passthroughSettings)
+	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), passthroughSettings)
 	return cluster
 }
 
@@ -690,8 +690,8 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
 	defaultConnectTimeout := &types.Duration{
-		Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
-		Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
+		Seconds: cb.req.Push.Mesh.ConnectTimeout.Seconds,
+		Nanos:   cb.req.Push.Mesh.ConnectTimeout.Nanos,
 	}
 	cluster.ConnectTimeout = gogo.DurationToProtoDuration(defaultConnectTimeout)
 }
@@ -998,7 +998,7 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 		if !have.Contains(c.Name) {
 			out = append(out, c)
 		} else {
-			cb.push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxy.ID,
+			cb.req.Push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxy.ID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", c.Name))
 		}
 		have.Insert(c.Name)
@@ -1011,12 +1011,10 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 // the cache tokens are returned to allow future writes to the cache.
 // This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
 // as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
-func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, map[string]model.CacheToken, bool) {
+func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, bool) {
 	destinationRule := CastDestinationRule(clusterKey.destinationRule)
 	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
-	tokens := make(map[string]model.CacheToken, 1+len(destinationRule.GetSubsets()))
-	cachedCluster, tok, f := cb.cache.Get(&clusterKey)
-	tokens[clusterKey.clusterName] = tok
+	cachedCluster, f := cb.cache.Get(&clusterKey)
 	allFound := f
 	if f {
 		res = append(res, cachedCluster)
@@ -1024,14 +1022,13 @@ func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([
 	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
 	for _, ss := range destinationRule.GetSubsets() {
 		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
-		cachedCluster, tok, f := cb.cache.Get(&clusterKey)
-		tokens[clusterKey.clusterName] = tok
+		cachedCluster, f := cb.cache.Get(&clusterKey)
 		if !f {
 			allFound = false
 		}
 		res = append(res, cachedCluster)
 	}
-	return res, tokens, allFound
+	return res, allFound
 }
 
 // build does any final build operations needed, like marshaling etc.
