@@ -94,7 +94,6 @@ type Controller struct {
 	client kube.Client
 
 	webhookInformer               cache.SharedInformer
-	webhookName                   string
 	queue                         workqueue.RateLimitingInterface
 	dryRunOfInvalidConfigRejected bool
 }
@@ -121,6 +120,7 @@ const (
 type reconcileRequest struct {
 	event       eventType
 	description string
+	webhookName string // if empty, ALL webhooks should be updated in response
 }
 
 func (rr reconcileRequest) String() string {
@@ -147,8 +147,9 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			if skip {
 				return
 			}
-			req := &reconcileRequest{
+			req := reconcileRequest{
 				event:       updateEvent,
+				webhookName: obj.GetName(),
 				description: fmt.Sprintf("add event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
 			}
 			queue.Add(req)
@@ -170,8 +171,9 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			if skip {
 				return
 			}
-			req := &reconcileRequest{
+			req := reconcileRequest{
 				event:       updateEvent,
+				webhookName: currObj.GetName(),
 				description: fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
 			}
 			queue.Add(req)
@@ -195,8 +197,9 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 			if skip {
 				return
 			}
-			req := &reconcileRequest{
+			req := reconcileRequest{
 				event:       updateEvent,
+				webhookName: currObj.GetName(),
 				description: fmt.Sprintf("delete event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
 			}
 			queue.Add(req)
@@ -214,10 +217,9 @@ func newController(
 	client kube.Client,
 ) *Controller {
 	c := &Controller{
-		o:           o,
-		client:      client,
-		queue:       workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
-		webhookName: o.validatingWebhookName(),
+		o:      o,
+		client: client,
+		queue:  workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(1*time.Second, 1*time.Minute)),
 	}
 
 	webhookInformer := cache.NewSharedIndexInformer(
@@ -257,9 +259,10 @@ func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			c.queue.AddRateLimited(&reconcileRequest{
+			c.queue.AddRateLimited(reconcileRequest{
 				updateEvent,
 				"CA bundle update",
+				"",
 			})
 		case <-stop:
 			return
@@ -279,15 +282,32 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 	}
 	defer c.queue.Done(obj)
 
-	req, ok := obj.(*reconcileRequest)
+	req, ok := obj.(reconcileRequest)
 	if !ok {
 		// don't retry an invalid reconcileRequest item
 		c.queue.Forget(req)
 		return true
 	}
 
+	// emtpy webhook name means we must patch for each webhook
+	if req.webhookName == "" {
+		err := c.updateAll()
+		if err != nil {
+			c.queue.AddRateLimited(reconcileRequest{
+				event:       retryEvent,
+				description: "retry reconcile request",
+				webhookName: "",
+			})
+		}
+		return true
+	}
+
 	if retry, err := c.reconcileRequest(req); retry || err != nil {
-		c.queue.AddRateLimited(retryRequest)
+		c.queue.AddRateLimited(reconcileRequest{
+			event:       retryEvent,
+			description: "retry reconcile request",
+			webhookName: req.webhookName,
+		})
 		utilruntime.HandleError(err)
 	} else {
 		c.queue.Forget(obj)
@@ -295,21 +315,43 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 	return true
 }
 
-var retryRequest = &reconcileRequest{
-	event:       retryEvent,
-	description: "retry reconcile request",
+// updateAll updates all webhooks matching the controller's revision, generally in response
+// to a CA bundle update. updateAll reports an error only when there's an issue listing webhooks,
+// not when it has an issue updating a single webhook so that we can retry separately for the
+// two cases.
+func (c *Controller) updateAll() error {
+	whs, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _, wh := range whs.Items {
+		if retry, err := c.reconcileRequest(reconcileRequest{
+			event:       updateEvent,
+			description: "CA bundle update",
+			webhookName: wh.Name,
+		}); retry || err != nil {
+			c.queue.AddRateLimited(reconcileRequest{
+				event:       retryEvent,
+				description: "retry reconcile request",
+				webhookName: wh.Name,
+			})
+		}
+	}
+
+	return nil
 }
 
 // reconcile the desired state with the kube-apiserver.
 // the returned results indicate if the reconciliation should be retried and/or
 // if there was an error.
-func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
+func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	configuration, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
+	configuration, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), req.webhookName, metav1.GetOptions{})
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
-			scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
+			scope.Infof("Skip patching webhook, webhook %q not found", req.webhookName)
 			return false, nil
 		}
 		return false, err
@@ -415,15 +457,6 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 		current.Name, failurePolicy, current.ResourceVersion)
 
 	return nil
-}
-
-func (o *Options) validatingWebhookName() string {
-	name := "istio-validator"
-	if o.Revision != "default" {
-		name = fmt.Sprintf("%s-%s", name, o.Revision)
-	}
-	name = fmt.Sprintf("%s-%s", name, o.WatchedNamespace)
-	return name
 }
 
 var (
