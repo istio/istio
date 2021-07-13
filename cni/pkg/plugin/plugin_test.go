@@ -87,12 +87,12 @@ var conf = `{
     "kubernetes": {
         "k8s_api_root": "APIRoot",
         "kubeconfig": "testK8sConfig",
-		"intercept_type": "mock",
+		"intercept_type": "%s",
         "node_name": "testNodeName",
         "exclude_namespaces": ["testExcludeNS"],
         "cni_bin_dir": "/testDirectory"
     }
-    }`
+}`
 
 type mockInterceptRuleMgr struct {
 	lastRedirect []*Redirect
@@ -160,7 +160,7 @@ func testSetArgs(stdinData string) *skel.CmdArgs {
 }
 
 func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
-	cniConf := fmt.Sprintf(conf, invalidVersion, ifname, sandboxDirectory)
+	cniConf := fmt.Sprintf(conf, invalidVersion, ifname, sandboxDirectory, "mock")
 	args := testSetArgs(cniConf)
 
 	err := f(args)
@@ -174,7 +174,7 @@ func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
 }
 
 func testCmdAdd(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
+	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory, "mock")
 	testCmdAddWithStdinData(t, cniConf)
 }
 
@@ -413,7 +413,7 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 
 	k8Args = "K8S_POD_NAMESPACE_InvalidKeyword=istio-system"
 
-	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory)
+	cniConf := fmt.Sprintf(conf, currentVersion, ifname, sandboxDirectory, "mock")
 	args := testSetArgs(cniConf)
 
 	err := CmdAdd(args)
