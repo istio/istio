@@ -187,7 +187,7 @@ func reachableFromProxylessGRPC(from echo.Instance) echo.Matcher {
 	if !from.Config().IsProxylessGRPC() {
 		return echo.Any
 	}
-	return echo.Not(echo.IsExternal())
+	return echo.Not(echo.IsExternal()).And(echo.Not(echo.IsHeadless()))
 }
 
 // fromNaked filters out all virtual machines and any instance that isn't on the same network

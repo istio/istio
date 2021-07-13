@@ -34,24 +34,30 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test"
 )
 
 var (
-	grpcAddr = "127.0.0.1:14057"
+	grpcXdsAddr = "127.0.0.1:14057"
 
 	// Address of the Istiod gRPC service, used in tests.
 	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
 )
 
+func resolverForTest(t test.Failer) resolver.Builder {
+	bootstrap, err := ioutil.ReadFile("testdata/xds_bootstrap.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	xdsresolver, err := grpcxds.NewXDSResolverWithConfigForTesting(bootstrap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return xdsresolver
+}
+
 func TestGRPC(t *testing.T) {
-	bootstap, err := ioutil.ReadFile("testdata/xds_bootstrap.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	xdsresolver, err := grpcxds.NewXDSResolverWithConfigForTesting(bootstap)
-	if err != nil {
-		t.Fatal(err)
-	}
+	xdsresolver := resolverForTest(t)
 	ds := xds.NewXDS(make(chan struct{}))
 
 	sd := ds.DiscoveryServer.MemRegistry
@@ -96,6 +102,20 @@ func TestGRPC(t *testing.T) {
 		},
 	})
 
+	store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "mtls",
+			Namespace:        "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host: "istiod.istio-system.svc.cluster.local",
+			TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
+				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+			}},
+		},
+	})
+
 	env := ds.DiscoveryServer.Env
 	env.Init()
 	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
@@ -103,7 +123,7 @@ func TestGRPC(t *testing.T) {
 	}
 	ds.DiscoveryServer.UpdateServiceShards(env.PushContext)
 
-	if err := ds.StartGRPC(grpcAddr); err != nil {
+	if err := ds.StartGRPC(grpcXdsAddr); err != nil {
 		t.Fatal(err)
 	}
 	defer ds.GRPCListener.Close()

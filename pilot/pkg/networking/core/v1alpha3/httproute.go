@@ -152,7 +152,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 		}
 	}
 	if !cacheHit {
-		virtualHosts = configgen.buildSidecarOutboundVirtualHosts(node, push, routeName, listenerPort)
+		virtualHosts = BuildSidecarOutboundVirtualHosts(node, push, routeName, listenerPort)
 		if listenerPort > 0 {
 			// only cache for tcp ports and not for uds
 			vHostCache[listenerPort] = virtualHosts
@@ -160,7 +160,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 
 		// FIXME: This will ignore virtual services with hostnames that do not match any service in the registry
 		// per api spec, these hostnames + routes should appear in the virtual hosts (think bookinfo.com and
-		// productpage.ns1.svc.cluster.local). See the TODO in buildSidecarOutboundVirtualHosts for the right solution
+		// productpage.ns1.svc.cluster.local). See the TODO in BuildSidecarOutboundVirtualHosts for the right solution
 		if useSniffing {
 			virtualHosts = getVirtualHostsForSniffedServicePort(virtualHosts, routeName)
 		}
@@ -181,7 +181,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	return out
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
+func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
 	var virtualServices []config.Config
 	var services []*model.Service

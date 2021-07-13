@@ -26,10 +26,12 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/admin"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/utils/env"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -42,7 +44,8 @@ var _ Instance = &grpcInstance{}
 
 type grpcInstance struct {
 	Config
-	server *grpc.Server
+	server   *grpc.Server
+	cleanups []func()
 }
 
 func newGRPC(config Config) Instance {
@@ -80,7 +83,13 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		Config: s.Config,
 	})
 	reflection.Register(s.server)
-
+	if val, _ := env.GetBool("EXPOSE_GRPC_ADMIN", false); val {
+		cleanup, err := admin.Register(s.server)
+		if err != nil {
+			return err
+		}
+		s.cleanups = append(s.cleanups, cleanup)
+	}
 	// Start serving GRPC traffic.
 	go func() {
 		err := s.server.Serve(listener)
@@ -124,6 +133,9 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 func (s *grpcInstance) Close() error {
 	if s.server != nil {
 		s.server.Stop()
+	}
+	for _, cleanup := range s.cleanups {
+		cleanup()
 	}
 	return nil
 }
