@@ -870,7 +870,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
 		if currentlyPending != 0 {
-			log.Infof("Starting new push while %v were still pending", currentlyPending)
+			log.Debugf("Starting new push while %v were still pending", currentlyPending)
 		}
 	}
 	req.Start = time.Now()
