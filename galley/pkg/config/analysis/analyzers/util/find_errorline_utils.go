@@ -93,6 +93,14 @@ const (
 	// Path for Port in ServiceEntry.
 	// Required parameters: port index.
 	ServiceEntryPort = "{.spec.ports[%d].name}"
+
+	// Path for DestinationRule tls certificate.
+	// Required parameters: none.
+	DestinationRuleTLSCert = "{.spec.trafficPolicy.tls.caCertificates}"
+
+	// Path for DestinationRule port-level tls certificate.
+	// Required parameters: portLevelSettings index.
+	DestinationRuleTLSPortLevelCert = "{.spec.trafficPolicy.portLevelSettings[%d].tls.caCertificates"
 )
 
 // ErrorLine returns the line number of the input path key in the resource

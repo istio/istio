@@ -25,22 +25,24 @@ import (
 )
 
 var fieldMap = map[string]int{
-	"{.metadata.name}":                                 1,
-	"{.metadata.namespace}":                            1,
-	"{.metadata.annotations.test}":                     1,
-	"{.spec.test[0].route[0].destination.host}":        1,
-	"{.spec.http[0].mirror.host}":                      1,
-	"{.spec.gateways[0]}":                              1,
-	"{.spec.http[0].match[0].test.regex}":              1,
-	"{.spec.http[0].match[0].test.test.regex}":         1,
-	"{.spec.http[0].corsPolicy.allowOrigins[0].regex}": 1,
-	"{.spec.workloadSelector.labels.test}":             1,
-	"{.spec.ports[0].port}":                            1,
-	"{.spec.containers[0].image}":                      1,
-	"{.spec.rules[0].from[0].source.namespaces[0]}":    1,
-	"{.spec.selector.test}":                            1,
-	"{.spec.servers[0].tls.credentialName}":            1,
-	"{.networks.test.endpoints[0]}":                    1,
+	"{.metadata.name}":                                             1,
+	"{.metadata.namespace}":                                        1,
+	"{.metadata.annotations.test}":                                 1,
+	"{.spec.test[0].route[0].destination.host}":                    1,
+	"{.spec.http[0].mirror.host}":                                  1,
+	"{.spec.gateways[0]}":                                          1,
+	"{.spec.http[0].match[0].test.regex}":                          1,
+	"{.spec.http[0].match[0].test.test.regex}":                     1,
+	"{.spec.http[0].corsPolicy.allowOrigins[0].regex}":             1,
+	"{.spec.workloadSelector.labels.test}":                         1,
+	"{.spec.ports[0].port}":                                        1,
+	"{.spec.containers[0].image}":                                  1,
+	"{.spec.rules[0].from[0].source.namespaces[0]}":                1,
+	"{.spec.selector.test}":                                        1,
+	"{.spec.servers[0].tls.credentialName}":                        1,
+	"{.networks.test.endpoints[0]}":                                1,
+	"{.spec.trafficPolicy.tls.caCertificates}":                     1,
+	"{.spec.trafficPolicy.portLevelSettings[0].tls.caCertificates": 1,
 }
 
 func TestExtractLabelFromSelectorString(t *testing.T) {
@@ -78,8 +80,10 @@ func TestConstants(t *testing.T) {
 		fmt.Sprintf(Annotation, "test"),
 		fmt.Sprintf(GatewaySelector, "test"),
 		fmt.Sprintf(CredentialName, 0),
+		fmt.Sprintf(DestinationRuleTLSPortLevelCert, 0),
 		MetadataNamespace,
 		MetadataName,
+		DestinationRuleTLSCert,
 	}
 
 	for _, v := range constantsPath {
