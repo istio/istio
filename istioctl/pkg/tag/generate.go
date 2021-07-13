@@ -17,9 +17,6 @@ package tag
 import (
 	"bytes"
 	"context"
-
-	// Needed to embed webhook templates.
-	_ "embed"
 	"fmt"
 	"io/ioutil"
 	"strings"
