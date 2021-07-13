@@ -127,9 +127,7 @@ func applyOverlay(current, overlay *unstructured.Unstructured) error {
 			return err
 		}
 
-		if err := saveNodePorts(current, overlayUpdated); err != nil {
-			return err
-		}
+		saveNodePorts(current, overlayUpdated)
 	}
 
 	uj, err := runtime.Encode(unstructured.UnstructuredJSONScheme, overlayUpdated)
@@ -158,11 +156,18 @@ func createPortMap(current *unstructured.Unstructured) map[string]uint32 {
 }
 
 // saveNodePorts transfers the port values from the current cluster into the overlay
-func saveNodePorts(current, overlay *unstructured.Unstructured) error {
+func saveNodePorts(current, overlay *unstructured.Unstructured) {
 	portMap := createPortMap(current)
 	ports, _, _ := unstructured.NestedFieldNoCopy(overlay.Object, "spec", "ports")
-	for _, port := range ports.([]interface{}) {
-		m := port.(map[string]interface{})
+	portList, ok := ports.([]interface{})
+	if !ok {
+		return
+	}
+	for _, port := range portList {
+		m, ok := port.(map[string]interface{})
+		if !ok {
+			continue
+		}
 		if nodePortNum, ok := m["nodePort"]; ok && fmt.Sprintf("%v", nodePortNum) == "0" {
 			if portNum, ok := m["port"]; ok {
 				if v, ok := portMap[fmt.Sprintf("%v", portNum)]; ok {
@@ -171,7 +176,6 @@ func saveNodePorts(current, overlay *unstructured.Unstructured) error {
 			}
 		}
 	}
-	return nil
 }
 
 // saveClusterIP copies the cluster IP from the current cluster into the overlay
