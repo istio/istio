@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install"
+	udsLog "istio.io/istio/cni/pkg/log"
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -33,12 +34,18 @@ import (
 	"istio.io/pkg/log"
 )
 
-var ctrlzOptions = ctrlz.DefaultOptions()
+var (
+	logOptions   = log.DefaultOptions()
+	ctrlzOptions = ctrlz.DefaultOptions()
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
 	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		if err := log.Configure(logOptions); err != nil {
+			log.Errorf("Failed to configure log %v", err)
+		}
 		ctx := cmd.Context()
 
 		// Start controlz server
@@ -54,6 +61,13 @@ var rootCmd = &cobra.Command{
 
 		// Start metrics server
 		monitoring.SetupMonitoring(cfg.InstallConfig.MonitoringPort, "/metrics", ctx.Done())
+
+		// Start UDS log server
+		udsLogger := udsLog.NewUDSLogger()
+		if err = udsLogger.StartUDSLogServer(cfg.InstallConfig.LogUDSAddress, ctx.Done()); err != nil {
+			log.Errorf("Failed to start up UDS Log Server: %v", err)
+			return
+		}
 
 		isReady := install.StartServer()
 
@@ -88,6 +102,7 @@ func GetCommand() *cobra.Command {
 func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	logOptions.AttachCobraFlags(rootCmd)
 	ctrlzOptions.AttachCobraFlags(rootCmd)
 
 	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI networks are installed")
@@ -106,6 +121,7 @@ func init() {
 	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
 	registerStringArrayParameter(constants.SkipCNIBinaries, []string{}, "Binaries that should not be installed")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve metrics")
+	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to.")
 
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
@@ -184,6 +200,7 @@ func constructConfig() (*config.Config, error) {
 		UpdateCNIBinaries: viper.GetBool(constants.UpdateCNIBinaries),
 		SkipCNIBinaries:   viper.GetStringSlice(constants.SkipCNIBinaries),
 		MonitoringPort:    viper.GetInt(constants.MonitoringPort),
+		LogUDSAddress:     viper.GetString(constants.LogUDSAddress),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {

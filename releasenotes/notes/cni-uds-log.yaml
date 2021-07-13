@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 32437
+
+releaseNotes:
+  - |
+    **Improved** CNI network plugin to send logs to the CNI daemonset. This allows viewing CNI logs using `kubectl logs`, instead of looking at kubelet logs.

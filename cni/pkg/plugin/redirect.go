@@ -201,22 +201,19 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 	redir.targetPort = defaultRedirectToPort
 	isFound, redir.redirectMode, valErr = getAnnotationOrDefault("redirectMode", pi.Annotations)
 	if valErr != nil {
-		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"redirectMode", isFound, valErr)
-		return nil, valErr
 	}
 	redir.noRedirectUID = defaultNoRedirectUID
 	isFound, redir.includeIPCidrs, valErr = getAnnotationOrDefault("includeIPCidrs", pi.Annotations)
 	if valErr != nil {
-		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"includeIPCidrs", isFound, valErr)
-		return nil, valErr
 	}
 	isFound, redir.includePorts, valErr = getAnnotationOrDefault("includePorts", pi.Annotations)
 	if valErr != nil {
-		log.Errorf("Annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
+		return nil, fmt.Errorf("annotation value error for redirect ports, using ContainerPorts=\"%s\": %v",
 			redir.includePorts, valErr)
-		return nil, valErr
 	}
 	if !isFound {
 		// reflect injection-template: istio fill the value only when the annotation is not set
@@ -224,21 +221,18 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 	}
 	isFound, redir.excludeIPCidrs, valErr = getAnnotationOrDefault("excludeIPCidrs", pi.Annotations)
 	if valErr != nil {
-		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"excludeIPCidrs", isFound, valErr)
-		return nil, valErr
 	}
 	isFound, redir.excludeInboundPorts, valErr = getAnnotationOrDefault("excludeInboundPorts", pi.Annotations)
 	if valErr != nil {
-		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"excludeInboundPorts", isFound, valErr)
-		return nil, valErr
 	}
 	isFound, redir.excludeOutboundPorts, valErr = getAnnotationOrDefault("excludeOutboundPorts", pi.Annotations)
 	if valErr != nil {
-		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"excludeOutboundPorts", isFound, valErr)
-		return nil, valErr
 	}
 	// Add 15090 to sync with non-cni injection template
 	// TODO: Revert below once https://github.com/istio/istio/pull/23037 or its follow up is merged.
@@ -250,9 +244,8 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 	redir.excludeInboundPorts = strings.Join(dedupPorts(splitPorts(redir.excludeInboundPorts)), ",")
 	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
 	if valErr != nil {
-		log.Errorf("Annotation value error for value %s; annotationFound = %t: %v",
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
-		return nil, valErr
 	}
 	if v, found := pi.ProxyEnvironments[options.DNSCaptureByAgent.Name]; found {
 		// parse and set the bool value of dnsRedirect

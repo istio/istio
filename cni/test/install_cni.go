@@ -272,8 +272,9 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	}
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
-	// disable monitoring
+	// disable monitoring & uds logging
 	viper.Set(constants.MonitoringPort, 0)
+	viper.Set(constants.LogUDSAddress, "")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}

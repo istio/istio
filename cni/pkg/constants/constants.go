@@ -31,6 +31,7 @@ const (
 	SkipCNIBinaries      = "skip-cni-binaries"
 	UpdateCNIBinaries    = "update-cni-binaries"
 	MonitoringPort       = "monitoring-port"
+	LogUDSAddress        = "log-uds-address"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"
@@ -55,6 +56,7 @@ var (
 	SecondaryBinDir       = "/host/secondary-bin-dir"
 	ServiceAccountPath    = "/var/run/secrets/kubernetes.io/serviceaccount"
 	DefaultKubeconfigMode = 0o600
+	UDSLogPath            = "/log"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint  = "/healthz"
