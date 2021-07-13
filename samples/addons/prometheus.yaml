@@ -434,6 +434,7 @@ spec:
 
         - name: prometheus-server
           image: "docker.io/prom/prometheus:v2.26.0"
+
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
