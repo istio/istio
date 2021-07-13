@@ -16,7 +16,6 @@ package helmreconciler
 
 import (
 	"fmt"
-
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
