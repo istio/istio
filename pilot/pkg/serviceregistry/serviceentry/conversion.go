@@ -170,6 +170,7 @@ func convertServices(cfg config.Config) []*model.Service {
 	if serviceEntry.WorkloadSelector != nil {
 		labelSelectors = serviceEntry.WorkloadSelector.Labels
 	}
+
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
 		if len(serviceEntry.Addresses) > 0 {
@@ -191,19 +192,20 @@ func convertServices(cfg config.Config) []*model.Service {
 			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP})
 		}
 	}
+	meshExternal := serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL
 
-	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+	return buildServices(hostAddresses, cfg.Namespace, svcPorts, meshExternal, resolution,
 		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
-func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
+func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, meshExternal bool,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
 	ctime time.Time, labels map[string]string) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
 			CreationTime: ctime,
-			MeshExternal: location == networking.ServiceEntry_MESH_EXTERNAL,
+			MeshExternal: meshExternal,
 			Hostname:     host.Name(ha.host),
 			Address:      ha.address,
 			Ports:        ports,
