@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -52,10 +53,20 @@ global:
 
 revision: canary
 `
+	stableLabelValues = `
+global:
+  hub: %s
+  tag: %s
+
+revision: %s
+revisionTags: [%s]
+`
 	tarGzSuffix = ".tar.gz"
 
+	prodTag             = "prod"
 	revisionLabel       = "canary"
 	revisionChartSuffix = "-canary"
+	latestRevision      = "latest"
 )
 
 // previousChartPath is path of Helm charts for previous Istio deployments.
@@ -133,6 +144,19 @@ func deleteIstioRevision(h *helm.Helm, revision string) error {
 func getValuesOverrides(ctx framework.TestContext, valuesStr, hub, tag string) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
 	overrideValues := fmt.Sprintf(valuesStr, hub, tag)
+	overrideValuesFile := filepath.Join(workDir, "values.yaml")
+	if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+		ctx.Fatalf("failed to write iop cr file: %v", err)
+	}
+
+	return overrideValuesFile
+}
+
+// getValuesOverrides returns the the values file created to pass into Helm override default values
+// for the hub and tag
+func getValuesOverridesStableLabels(ctx framework.TestContext, valuesStr, hub, tag, revision, revisionTag string) string {
+	workDir := ctx.CreateTmpDirectoryOrFail("helm")
+	overrideValues := fmt.Sprintf(valuesStr, hub, tag, revision, revisionTag)
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
 	if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
@@ -225,6 +249,78 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+	}
+}
+
+// performStableLabelRevisionUpgradeFunc returns the provided function necessary to run inside of a integration test
+// for upgrade capability with stable label revision upgrades
+func performStableLabelRevisionUpgradeFunc(previousVersion string) func(framework.TestContext) {
+	return func(t framework.TestContext) {
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename(), filepath.Join(previousChartPath, previousVersion))
+
+		//t.ConditionalCleanup(func() {
+		//	err := deleteIstioRevision(h, revisionChartSuffix)
+		//	if err != nil {
+		//		t.Fatalf("could not delete istio: %v", err)
+		//	}
+		//	err = deleteIstio(cs, h)
+		//	if err != nil {
+		//		t.Fatalf("could not delete istio: %v", err)
+		//	}
+		//})
+
+		// set revisionTag to 'prod' and revision to the previous version (e.g. 1-9-0)
+		prodRevisionTag := strings.ReplaceAll(previousVersion, ".", "-")
+		overrideValuesFile := getValuesOverridesStableLabels(t, stableLabelValues, gcrHub, previousVersion, prodRevisionTag, prodTag)
+		t.Log(overrideValuesFile)
+		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile)
+		helmtest.VerifyInstallation(t, cs)
+
+		// setup istio.io/rev tag to point to previous version (e.g. istio.io/rev=1-9-0)
+		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, prodRevisionTag)
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
+
+		// now upgrade istio to the latest version found in this branch
+		// use the command line or environmental vars from the user to set
+		// the hub/tag
+		s, err := image.SettingsFromCommandLine()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// set revisionTag to 'canary'
+		overrideValuesFile = getValuesOverridesStableLabels(t, stableLabelValues, s.Hub, s.Tag, latestRevision, revisionLabel)
+		t.Log(overrideValuesFile)
+		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, revisionChartSuffix, overrideValuesFile)
+		helmtest.VerifyInstallation(t, cs)
+
+		// setup istio.io/rev=latest
+		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, latestRevision)
+		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
+
+		// now check that we are compatible with N-1 proxy with N proxy
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+
+		err = oldNs.RemoveLabel("istio.io/tag")
+		if err != nil {
+			t.Fatal("could not remove istio.io/tag label from namespace")
+		}
+		err = oldNs.SetLabel("istio.io/tag", latestRevision)
+		if err != nil {
+			t.Fatal("could not set istio.io/tag label on namespace")
+		}
+		err = oldClient.Restart()
+		if err != nil {
+			t.Fatal("could not restart old client")
+		}
+		err = oldServer.Restart()
+		if err != nil {
+			t.Fatal("could not restart old server")
+		}
+
+		// now check traffic still works
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
 	}
 }

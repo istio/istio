@@ -29,6 +29,8 @@ type Config struct {
 	Revision string
 	// Labels to be applied to namespace
 	Labels map[string]string
+	// RevisionTag is the tag to use for stable label revisions
+	RevisionTag string
 }
 
 // Instance represents an allocated namespace that can be used to create config, or deploy components in.
