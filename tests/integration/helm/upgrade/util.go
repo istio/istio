@@ -19,9 +19,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/shell"
 	"os"
 	"path/filepath"
+
+	"istio.io/istio/pkg/test/shell"
+
+	"istio.io/istio/pkg/test/shell"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
