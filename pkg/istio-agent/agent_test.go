@@ -394,6 +394,35 @@ func TestAgent(t *testing.T) {
 		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
 		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
 	})
+	t.Run("agent no-proxy mode", func(t *testing.T) {
+		// no-proxy mode starts agent without envoy.
+		// In this mode, we expect certificates to be generated as well as gRPC
+		// bootstrap files.
+		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
+		dir := mktemp()
+
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.Security.OutputKeyCertToDir = dir
+			a.Security.SecretRotationGracePeriodRatio = 1
+			a.AgentConfig.GRPCBootstrapPath = bootstrapPath
+			a.envoyEnable = false
+			return a
+		})
+		// We start the agent, but never send a single SDS request
+		// This behavior is useful for supporting writing the certs to disk without Envoy
+		checkCertsWritten(t, dir)
+
+		// Check generated gRPC bootstrap file.
+		got, err := ioutil.ReadFile(bootstrapPath)
+		if err != nil {
+			t.Fatalf("could not read bootstrap config: %v", err)
+		}
+		// make UDS path in file deterministic
+		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
+		if len(got) == 0 {
+			t.Fatalf("generated gRPC bootstrap config is empty")
+		}
+	})
 }
 
 type AgentTest struct {

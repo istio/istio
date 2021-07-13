@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -89,68 +90,7 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			cmd.PrintFlags(c.Flags())
 			log.Infof("Version %s", version.Info.String())
-
-			proxy, err := initProxy(args)
-			if err != nil {
-				return err
-			}
-			proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, options.ProxyConfigEnv, concurrency, proxy)
-			if err != nil {
-				return fmt.Errorf("failed to get proxy config: %v", err)
-			}
-			if out, err := gogoprotomarshal.ToYAML(proxyConfig); err != nil {
-				log.Infof("Failed to serialize to YAML: %v", err)
-			} else {
-				log.Infof("Effective config: %s", out)
-			}
-
-			secOpts, err := options.NewSecurityOptions(proxyConfig, stsPort, tokenManagerPlugin)
-			if err != nil {
-				return err
-			}
-
-			// If security token service (STS) port is not zero, start STS server and
-			// listen on STS port for STS requests. For STS, see
-			// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
-			// STS is used for stackdriver or other Envoy services using google gRPC.
-			if stsPort > 0 {
-				stsServer, err := initStsServer(proxy, secOpts.TokenManager)
-				if err != nil {
-					return err
-				}
-				defer stsServer.Stop()
-			}
-
-			// If we are using a custom template file (for control plane proxy, for example), configure this.
-			if templateFile != "" && proxyConfig.CustomConfigFile == "" {
-				proxyConfig.ProxyBootstrapTemplatePath = templateFile
-			}
-
-			envoyOptions := envoy.ProxyConfig{
-				LogLevel:          proxyLogLevel,
-				ComponentLogLevel: proxyComponentLogLevel,
-				LogAsJSON:         loggingOptions.JSONEncoding,
-				NodeIPs:           proxy.IPAddresses,
-				Sidecar:           proxy.Type == model.SidecarProxy,
-				OutlierLogPath:    outlierLogPath,
-			}
-			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
-			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			// If a status port was provided, start handling status probes.
-			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
-					return err
-				}
-			}
-
-			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
-			go cmd.WaitSignalFunc(cancel)
-
-			// Start in process SDS, dns server, xds proxy, and Envoy.
-			wait, err := agent.Run(ctx)
+			wait, err := initAgent(args)
 			if err != nil {
 				return err
 			}
@@ -158,7 +98,37 @@ var (
 			return nil
 		},
 	}
+
+	execCmd = newExecCommand()
 )
+
+func newExecCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "exec -- COMMAND [args...]",
+		Short: "Execute a command in pilot-agent",
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			// Allow unknown flags for backward-compatibility.
+			UnknownFlags: true,
+		},
+		PersistentPreRunE: configureLogging,
+		RunE: func(c *cobra.Command, args []string) error {
+			// In exec mode, only "sidecar" NodeType is supported.
+			wait, err := initAgent([]string{})
+			if err != nil {
+				return err
+			}
+			cmd := exec.Command(args[0], args[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Start(); err != nil {
+				return fmt.Errorf("failed to execute command: %v", err)
+			}
+			// For no-proxy mode, wait for SIGTERM for a graceful shutdown.
+			wait()
+			return nil
+		},
+	}
+}
 
 func init() {
 	proxyCmd.PersistentFlags().StringVar(&dnsDomain, "domain", "",
@@ -192,6 +162,7 @@ func init() {
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
+	rootCmd.AddCommand(execCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(iptables.GetCommand())
 	rootCmd.AddCommand(cleaniptables.GetCommand())
@@ -229,6 +200,81 @@ func initStsServer(proxy *model.Proxy, tokenManager security.TokenManager) (*sts
 		return nil, err
 	}
 	return stsServer, nil
+}
+
+func initAgent(args []string) (func(), error) {
+	proxy, err := initProxy(args)
+	if err != nil {
+		return nil, err
+	}
+	proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, options.ProxyConfigEnv, concurrency, proxy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proxy config: %v", err)
+	}
+	if out, err := gogoprotomarshal.ToYAML(proxyConfig); err != nil {
+		log.Infof("Failed to serialize to YAML: %v", err)
+	} else {
+		log.Infof("Effective config: %s", out)
+	}
+
+	secOpts, err := options.NewSecurityOptions(proxyConfig, stsPort, tokenManagerPlugin)
+	if err != nil {
+		return nil, err
+	}
+
+	// If security token service (STS) port is not zero, start STS server and
+	// listen on STS port for STS requests. For STS, see
+	// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16.
+	// STS is used for stackdriver or other Envoy services using google gRPC.
+	var stsServer *stsserver.Server
+	if stsPort > 0 {
+		stsServer, err = initStsServer(proxy, secOpts.TokenManager)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// If we are using a custom template file (for control plane proxy, for example), configure this.
+	if templateFile != "" && proxyConfig.CustomConfigFile == "" {
+		proxyConfig.ProxyBootstrapTemplatePath = templateFile
+	}
+
+	envoyOptions := envoy.ProxyConfig{
+		LogLevel:          proxyLogLevel,
+		ComponentLogLevel: proxyComponentLogLevel,
+		LogAsJSON:         loggingOptions.JSONEncoding,
+		NodeIPs:           proxy.IPAddresses,
+		Sidecar:           proxy.Type == model.SidecarProxy,
+		OutlierLogPath:    outlierLogPath,
+	}
+	agentOptions := options.NewAgentOptions(proxy, proxyConfig)
+	agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// If a status port was provided, start handling status probes.
+	if proxyConfig.StatusPort > 0 {
+		if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
+			cancel()
+			return nil, err
+		}
+	}
+
+	// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
+	go cmd.WaitSignalFunc(cancel)
+
+	// Start in process SDS, dns server, xds proxy, and Envoy.
+	wait, err := agent.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+	retFunc := func() {
+		if stsPort > 0 {
+			defer stsServer.Stop()
+		}
+		defer cancel()
+		wait()
+	}
+	return retFunc, nil
 }
 
 func getDNSDomain(podNamespace, domain string) string {
