@@ -15,12 +15,14 @@
 package plugin
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/containernetworking/plugins/pkg/testutils"
@@ -28,8 +30,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
-	istioenv "istio.io/istio/pkg/test/env"
-	istioenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/env"
 )
 
 type k8sPodInfoFunc func(*kubernetes.Clientset, string, string) (*PodInfo, error)
@@ -58,7 +59,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 				Annotations:       map[string]string{annotation.SidecarStatus.Name: "true"},
 				ProxyEnvironments: map[string]string{},
 			},
-			golden: filepath.Join(istioenv.IstioSrc, "cni/pkg/plugin/testdata/basic.txt.golden"),
+			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/basic.txt.golden"),
 		},
 		{
 			name: "include-exclude-ip",
@@ -126,6 +127,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			os.Setenv(dryRunFilePath.Name, outputFilePath)
 			_, _, err := testutils.CmdAddWithResult(
 				sandboxDirectory, ifname, []byte(cniConf), func() error { return CmdAdd(args) })
+			os.Unsetenv(dryRunFilePath.Name)
 			if err != nil {
 				t.Fatalf("CNI cmdAdd failed with error: %v", err)
 			}
@@ -134,13 +136,10 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			if err != nil {
 				log.Fatalf("Cannot read generated IPTables rule file: %v", err)
 			}
+			generatedRules := getRules(generated)
 
 			if os.Getenv("REFRESH_GOLDEN") == "true" {
-				// Refresh iptables golden file.
-				err = ioutil.WriteFile(tt.golden, generated, 0755)
-				if err != nil {
-					t.Fatalf("Failed to update iptables rule golden file %v", err)
-				}
+				refreshGoldens(t, tt.golden, generatedRules)
 				return
 			}
 
@@ -149,10 +148,48 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			if err != nil {
 				log.Fatalf("Cannot read golden rule file: %v", err)
 			}
+			goldenRules := getRules(golden)
 
-			if !bytes.Equal(generated, golden) {
-				t.Errorf("Unexpected IPtables rules generated, want \n%v \ngot \n%v", string(golden), string(generated))
+			if len(generatedRules) == 0 {
+				t.Error("Got empty generated rules")
+			}
+			if !reflect.DeepEqual(generatedRules, goldenRules) {
+				t.Errorf("Unexpected IPtables rules generated, want \n%v \ngot \n%v", goldenRules, generatedRules)
 			}
 		})
+	}
+}
+
+func getRules(b []byte) map[string]string {
+	// Separate content with "COMMIT"
+	parts := strings.Split(string(b), "COMMIT")
+	tables := make(map[string]string)
+	for _, table := range parts {
+		// If table is not empty, get table name from the first line
+		lines := strings.Split(strings.Trim(table, "\n"), "\n")
+		if len(lines) >= 1 && strings.HasPrefix(lines[0], "* ") {
+			tableName := lines[0][2:]
+			lines = append(lines, "COMMIT")
+			tables[tableName] = strings.Join(lines, "\n")
+		}
+	}
+	return tables
+}
+
+func refreshGoldens(t *testing.T, goldenFileName string, generatedRules map[string]string) {
+	tables := make([]string, 0)
+	for table := range generatedRules {
+		tables = append(tables, table)
+	}
+	sort.Strings(tables)
+	goldenFileContent := ""
+	for _, t := range tables {
+		goldenFileContent += generatedRules[t] + "\n"
+	}
+
+	// Refresh iptables golden file.
+	err := ioutil.WriteFile(goldenFileName, []byte(goldenFileContent), 0755)
+	if err != nil {
+		t.Fatalf("Failed to update iptables rule golden file %v", err)
 	}
 }
