@@ -263,6 +263,7 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 		respCode := 0
 		if resp != nil {
 			respCode = resp.StatusCode
+			resp.Body.Close()
 		}
 		pluginLog.Errorf("Failed to exchange federated token (HTTP status %d, total time elapsed %s): %v",
 			respCode, timeElapsed.String(), err)
@@ -306,6 +307,9 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, elapsedTime time.Duration, err error) {
 	start := time.Now()
 	for i := 0; i < maxRequestRetry; i++ {
+		if resp != nil {
+			resp.Body.Close()
+		}
 		resp, err = p.httpClient.Do(req)
 		if err != nil {
 			pluginLog.Errorf("failed to send out request: %v (response: %v)", err, resp)
@@ -320,7 +324,6 @@ func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, e
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		defer resp.Body.Close()
 		return resp, time.Since(start), fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 	return resp, time.Since(start), err
@@ -395,6 +398,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		respCode := 0
 		if resp != nil {
 			respCode = resp.StatusCode
+			resp.Body.Close()
 		}
 		pluginLog.Errorf("failed to exchange access token (HTTP status %d, total time elapsed %s): %v",
 			respCode, timeElapsed.String(), err)
