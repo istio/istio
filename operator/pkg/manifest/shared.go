@@ -516,6 +516,8 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 		iop = make(map[string]interface{})
 	}
 
+	setFlags = addDefaultProfileFlagIfNotSet(setFlags)
+
 	for _, sf := range setFlags {
 		p, v := getPV(sf)
 		p = strings.TrimPrefix(p, "spec.")
@@ -535,6 +537,20 @@ func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
 	}
 
 	return string(out), nil
+}
+
+// addDefaultProfileFlagIfNotSet adds the `profile=default` value to set flags if no profile value is set.
+func addDefaultProfileFlagIfNotSet(setFlags []string) []string {
+	isProfileSet := false
+	for _, setFlag := range setFlags {
+		if strings.HasPrefix(setFlag, "profile=") {
+			isProfileSet = true
+		}
+	}
+	if !isProfileSet {
+		setFlags = append(setFlags, fmt.Sprintf("profile=%s", name.DefaultProfileName))
+	}
+	return setFlags
 }
 
 // GetValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
