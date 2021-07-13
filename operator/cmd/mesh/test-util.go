@@ -224,13 +224,6 @@ func mustGetMutatingWebhookConfiguration(g *gomega.WithT, objs *ObjectSet, mutat
 	return obj
 }
 
-// mustGetValidatingWebhookConfiguration returns the validatingWebhookConfiguration with the given name or fails if it's not found in objs.
-func mustGetValidatingWebhookConfiguration(g *gomega.WithT, objs *ObjectSet, validatingWebhookConfigurationName string) *object.K8sObject {
-	obj := objs.kind(name2.ValidatingWebhookConfigurationStr).nameEquals(validatingWebhookConfigurationName)
-	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
-	return obj
-}
-
 // HavePathValueEqual matches map[string]interface{} tree against a PathValue.
 func HavePathValueEqual(expected interface{}) types.GomegaMatcher {
 	return &HavePathValueEqualMatcher{

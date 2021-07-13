@@ -30,6 +30,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -173,7 +174,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			prompt = fmt.Sprintf("This will install the Istio %s %s profile into the cluster. Proceed? (y/N)", tag, profile)
 		}
 		if !confirm(prompt, cmd.OutOrStdout()) {
-			cmd.Print("Cancelled.\n")
+			cmd.Println("Cancelled.")
 			os.Exit(1)
 		}
 	}
@@ -183,6 +184,32 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, restConfig, client, iArgs.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
+	}
+
+	// Make this revision the default if none exists
+	exists, err := revtag.DefaultRevisionExists(context.Background(), kubeClient)
+	if err != nil {
+		return err
+	}
+	rev := iop.Spec.Revision
+	if !exists || rev == "" {
+		cmd.Println("Making this installation the default for injection and validation.")
+		if rev == "" {
+			rev = revtag.DefaultRevisionName
+		}
+		o := &revtag.GenerateOptions{
+			Tag:       revtag.DefaultRevisionName,
+			Revision:  rev,
+			Overwrite: true,
+		}
+		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o)
+		if err != nil {
+			return err
+		}
+		err = revtag.Create(kubeClient, tagManifests)
+		if err != nil {
+			return err
+		}
 	}
 
 	if iArgs.verify {
