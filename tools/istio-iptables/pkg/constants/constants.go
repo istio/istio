@@ -21,6 +21,7 @@ const (
 	MANGLE = "mangle"
 	NAT    = "nat"
 	FILTER = "filter"
+	RAW    = "raw"
 )
 
 // Built-in iptables chains
@@ -51,6 +52,7 @@ const (
 	REJECT   = "REJECT"
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
+	CT       = "CT"
 )
 
 // iptables chains

@@ -115,6 +115,7 @@ func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 }
 
 func TestRulesWithIpRange(t *testing.T) {
+	useConntrackZoneDNS = true
 	cfg := constructTestConfig()
 	cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 	cfg.OutboundIPRangesInclude = "9.9.0.0/16"
@@ -159,6 +160,16 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 3 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 4 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 2 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2",
+		"iptables -t raw -A PREROUTING -p udp --sport 53 -d 127.0.0.53/32 -j CT --zone 1",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
@@ -166,6 +177,7 @@ func TestRulesWithIpRange(t *testing.T) {
 }
 
 func TestRulesWithTproxy(t *testing.T) {
+	useConntrackZoneDNS = true
 	cfg := constructTestConfig()
 	cfg.InboundInterceptionMode = constants.TPROXY
 	cfg.InboundPortsInclude = "*"
@@ -214,6 +226,12 @@ func TestRulesWithTproxy(t *testing.T) {
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 1337 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2",
+		"iptables -t raw -A PREROUTING -p udp --sport 53 -d 127.0.0.53/32 -j CT --zone 1",
 		"iptables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark",
 		"iptables -t mangle -A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark",
 		"iptables -t mangle -I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN",
@@ -714,6 +732,7 @@ func TestHandleInboundPortsIncludeWithWildcardInboundPortsAndTproxy(t *testing.T
 }
 
 func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
+	useConntrackZoneDNS = true
 	cfg := constructTestConfig()
 	cfg.DryRun = true
 	cfg.RedirectDNS = true
@@ -753,6 +772,16 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 3 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 4 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 2 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2",
+		"iptables -t raw -A PREROUTING -p udp --sport 53 -d 127.0.0.53/32 -j CT --zone 1",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -799,6 +828,7 @@ func TestHandleOutboundPortsIncludeWithOutboundPorts(t *testing.T) {
 }
 
 func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
+	useConntrackZoneDNS = true
 	cfg := constructTestConfig()
 	cfg.OutboundIPRangesInclude = "127.1.2.3/32"
 	cfg.DryRun = true
@@ -837,6 +867,16 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 3 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 4 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j CT --zone 1",
+		"iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 2 -j CT --zone 2",
+		"iptables -t raw -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2",
+		"iptables -t raw -A PREROUTING -p udp --sport 53 -d 127.0.0.53/32 -j CT --zone 1",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
