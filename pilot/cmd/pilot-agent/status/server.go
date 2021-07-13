@@ -500,10 +500,10 @@ func (s *Server) scrape(url string, header http.Header) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error scraping %s: %v", url, err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	metrics, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading %s: %v", url, err)
