@@ -279,6 +279,12 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	a.envoyOpts.ParentShutdownDuration = a.proxyConfig.ParentShutdownDuration
 	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
 
+	// Checking only uid should be sufficient - but tests also run as root and
+	// will break due to permission errors if we start envoy as 1337.
+	// This is a mode used for permission-less docker, where iptables can't be
+	// used.
+	a.envoyOpts.AgentIsRoot = os.Getuid() == 0 && strings.HasSuffix(a.cfg.DNSAddr, ":53")
+
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
 	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
