@@ -198,6 +198,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 
 	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
 	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
 
@@ -859,6 +860,14 @@ func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	writeJSON(w, jsonMap)
+}
+
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ *http.Request) {
+	if s.ListRemoteClusters == nil {
+		w.WriteHeader(400)
+		return
+	}
+	writeJSON(w, s.ListRemoteClusters())
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.
