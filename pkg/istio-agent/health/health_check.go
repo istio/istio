@@ -15,6 +15,7 @@
 package health
 
 import (
+	"net/http"
 	"strings"
 	"time"
 
@@ -168,7 +169,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 				numFail = 0
 				callback(&ProbeEvent{
 					Healthy:          false,
-					UnhealthyStatus:  500,
+					UnhealthyStatus:  http.StatusInternalServerError,
 					UnhealthyMessage: err.Error(),
 				})
 				lastState = lastStateUnhealthy

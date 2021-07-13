@@ -102,7 +102,7 @@ func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", response.StatusCode)
 	}
 
