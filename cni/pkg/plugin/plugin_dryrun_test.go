@@ -24,11 +24,12 @@ import (
 	"testing"
 
 	"github.com/containernetworking/plugins/pkg/testutils"
+	"k8s.io/client-go/kubernetes"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
-	"istio.io/istio/pkg/test/env"
 	istioenv "istio.io/istio/pkg/test/env"
-	"k8s.io/client-go/kubernetes"
+	istioenv "istio.io/istio/pkg/test/env"
 )
 
 type k8sPodInfoFunc func(*kubernetes.Clientset, string, string) (*PodInfo, error)
@@ -64,9 +65,11 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			input: &PodInfo{
 				Containers:     []string{"test", "istio-proxy"},
 				InitContainers: map[string]struct{}{"istio-validate": {}},
-				Annotations: map[string]string{annotation.SidecarStatus.Name: "true",
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name:                         "true",
 					annotation.SidecarTrafficIncludeOutboundIPRanges.Name: "127.0.0.0/8",
-					annotation.SidecarTrafficExcludeOutboundIPRanges.Name: "10.0.0.0/8"},
+					annotation.SidecarTrafficExcludeOutboundIPRanges.Name: "10.0.0.0/8",
+				},
 				ProxyEnvironments: map[string]string{},
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/include-exclude-ip.txt.golden"),
@@ -76,10 +79,12 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			input: &PodInfo{
 				Containers:     []string{"test", "istio-proxy"},
 				InitContainers: map[string]struct{}{"istio-validate": {}},
-				Annotations: map[string]string{annotation.SidecarStatus.Name: "true",
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name:                      "true",
 					annotation.SidecarTrafficIncludeInboundPorts.Name:  "1111,2222",
 					annotation.SidecarTrafficExcludeInboundPorts.Name:  "3333,4444",
-					annotation.SidecarTrafficExcludeOutboundPorts.Name: "5555,6666"},
+					annotation.SidecarTrafficExcludeOutboundPorts.Name: "5555,6666",
+				},
 				ProxyEnvironments: map[string]string{},
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/include-exclude-ports.txt.golden"),
@@ -89,8 +94,10 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			input: &PodInfo{
 				Containers:     []string{"test", "istio-proxy"},
 				InitContainers: map[string]struct{}{"istio-validate": {}},
-				Annotations: map[string]string{annotation.SidecarStatus.Name: "true",
-					annotation.SidecarInterceptionMode.Name: redirectModeTPROXY},
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name:           "true",
+					annotation.SidecarInterceptionMode.Name: redirectModeTPROXY,
+				},
 				ProxyEnvironments: map[string]string{},
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/tproxy.txt.golden"),
