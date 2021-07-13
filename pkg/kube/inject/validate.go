@@ -163,7 +163,7 @@ func splitPorts(portsString string) []string {
 func parsePort(portStr string) (int, error) {
 	port, err := strconv.ParseUint(strings.TrimSpace(portStr), 10, 16)
 	if err != nil {
-		return 0, fmt.Errorf("failed parsing port '%d': %v", port, err)
+		return 0, fmt.Errorf("failed parsing port '%s': %v", portStr, err)
 	}
 	return int(port), nil
 }
@@ -175,7 +175,7 @@ func parsePorts(portsString string) ([]int, error) {
 		for _, portStr := range splitPorts(portsString) {
 			port, err := parsePort(portStr)
 			if err != nil {
-				return nil, fmt.Errorf("failed parsing port '%d': %v", port, err)
+				return nil, fmt.Errorf("failed parsing port '%s': %v", portStr, err)
 			}
 			ports = append(ports, port)
 		}
