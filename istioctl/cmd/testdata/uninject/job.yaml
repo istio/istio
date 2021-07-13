@@ -17,7 +17,7 @@ spec:
         - -Mbignum=bpi
         - -wle
         - print bpi(2000)
-        image: perl
+        image: docker.io/perl
         name: pi
         resources: {}
       restartPolicy: Never

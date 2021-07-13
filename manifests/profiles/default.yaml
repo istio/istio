@@ -51,7 +51,7 @@ spec:
       pilotCertProvider: istiod
       jwtPolicy: third-party-jwt
       proxy:
-        image: proxyv2
+        image: docker.io/proxyv2
         clusterDomain: "cluster.local"
         resources:
           requests:
@@ -75,7 +75,7 @@ spec:
         autoInject: enabled
         tracer: "zipkin"
       proxy_init:
-        image: proxyv2
+        image: docker.io/proxyv2
         resources:
           limits:
             cpu: 2000m

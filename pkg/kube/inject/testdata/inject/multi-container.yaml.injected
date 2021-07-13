@@ -27,13 +27,13 @@ spec:
       - image: image
         name: name1
         resources: {}
-      - image: alpine
+      - image: docker.io/alpine
         name: name2
         ports:
         - containerPort: 123
           name: foo
         resources: {}
-      - image: alpine
+      - image: docker.io/alpine
         name: name3
         resources: {}
       - args:

@@ -15,10 +15,10 @@ spec:
       containers:
       - image: image
         name: name1
-      - image: alpine
+      - image: docker.io/alpine
         name: name2
         ports:
         - containerPort: 123
           name: foo
       - name: name3
-        image: alpine
+        image: docker.io/alpine

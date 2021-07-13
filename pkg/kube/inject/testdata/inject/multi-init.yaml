@@ -24,8 +24,8 @@ spec:
               containerPort: 80
       initContainers:
         - name: init-one
-          image: "busybox"
+          image: "docker.io/busybox"
           command: ["sh", "-c", "true"]
         - name: init-two
-          image: "busybox"
+          image: "docker.io/busybox"
           command: ["sh", "-c", "true"] 

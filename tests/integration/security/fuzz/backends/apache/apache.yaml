@@ -60,7 +60,7 @@ spec:
     spec:
       serviceAccountName: apache
       containers:
-      - image: httpd:2.4.46
+      - image: docker.io/httpd:2.4.46
         imagePullPolicy: IfNotPresent
         name: apache
         ports:

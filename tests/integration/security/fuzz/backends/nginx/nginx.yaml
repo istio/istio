@@ -60,7 +60,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: nginx:1.20.0
+          image: docker.io/nginx:1.20.0
           ports:
             - containerPort: 80
           volumeMounts:

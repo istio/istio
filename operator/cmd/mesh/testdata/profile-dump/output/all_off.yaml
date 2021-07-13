@@ -91,7 +91,7 @@ spec:
         excludeIPRanges: ""
         excludeInboundPorts: ""
         excludeOutboundPorts: ""
-        image: proxyv2
+        image: docker.io/proxyv2
         includeIPRanges: '*'
         logLevel: warning
         privileged: false
@@ -108,7 +108,7 @@ spec:
         statusPort: 15020
         tracer: zipkin
       proxy_init:
-        image: proxyv2
+        image: docker.io/proxyv2
         resources:
           limits:
             cpu: 2000m

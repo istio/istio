@@ -10,7 +10,7 @@ spec:
         spec:
           containers:
           - name: hello
-            image: busybox
+            image: docker.io/busybox
             args:
             - /bin/sh
             - -c

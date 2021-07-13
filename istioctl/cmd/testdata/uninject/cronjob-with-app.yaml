@@ -21,7 +21,7 @@ spec:
             - /bin/sh
             - -c
             - date; echo Hello from the Kubernetes cluster
-            image: busybox
+            image: docker.io/busybox
             name: hello
             resources: {}
           restartPolicy: OnFailure

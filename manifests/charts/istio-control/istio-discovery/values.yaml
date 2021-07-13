@@ -293,7 +293,7 @@ global:
   priorityClassName: ""
 
   proxy:
-    image: proxyv2
+    image: docker.io/proxyv2
 
     # This controls the 'policy' in the sidecar injector.
     autoInject: enabled
@@ -360,7 +360,7 @@ global:
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
-    image: proxyv2
+    image: docker.io/proxyv2
     resources:
       limits:
         cpu: 2000m

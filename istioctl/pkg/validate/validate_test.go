@@ -49,7 +49,7 @@ items:
       spec:
         containers:
         - name: hello
-          image: istio/examples-hello
+          image: docker.io/istio/examples-hello
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9080
@@ -70,7 +70,7 @@ items:
       spec:
         containers:
         - name: details
-          image: istio/examples-bookinfo-details-v1:1.10.1
+          image: docker.io/istio/examples-bookinfo-details-v1:1.10.1
           imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 9080

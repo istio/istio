@@ -142,14 +142,14 @@ spec:
         - sh
         - -c
         - "true"
-        image: busybox
+        image: docker.io/busybox
         name: init-one
         resources: {}
       - command:
         - sh
         - -c
         - "true"
-        image: busybox
+        image: docker.io/busybox
         name: init-two
         resources: {}
       - args:

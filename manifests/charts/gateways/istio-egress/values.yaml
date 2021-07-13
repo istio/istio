@@ -197,7 +197,7 @@ global:
   priorityClassName: ""
 
   proxy:
-    image: proxyv2
+    image: docker.io/proxyv2
 
     # CAUTION: It is important to ensure that all Istio helm charts specify the same clusterDomain value
     # cluster domain. Default value is "cluster.local".

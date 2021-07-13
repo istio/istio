@@ -253,7 +253,7 @@ global:
   # for more detail.
   priorityClassName: ""
   proxy:
-    image: proxyv2
+    image: docker.io/proxyv2
     # This controls the 'policy' in the sidecar injector.
     autoInject: enabled
     # CAUTION: It is important to ensure that all Istio helm charts specify the same clusterDomain value
@@ -304,7 +304,7 @@ global:
     holdApplicationUntilProxyStarts: false
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
-    image: proxyv2
+    image: docker.io/proxyv2
     resources:
       limits:
         cpu: 2000m
