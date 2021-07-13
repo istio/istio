@@ -130,7 +130,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
 		lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, []labels.Instance{subset.Labels})
 		if len(lbEndpoints) == 0 {
-			log.Warnf("locality endpoints missing for cluster %s", subsetClusterName)
+			log.Debugf("locality endpoints missing for cluster %s", subsetClusterName)
 		}
 	}
 
