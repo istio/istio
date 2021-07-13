@@ -742,7 +742,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	return func(w http.ResponseWriter, req *http.Request) {
 		qp, err := url.ParseQuery(req.URL.RawQuery)
 		if err != nil {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}
@@ -756,14 +756,14 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		}
 		response, err := p.tapRequest(&dr, 5*time.Second)
 		if err != nil {
-			w.WriteHeader(503)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}
 
 		if response == nil {
 			log.Infof("timed out waiting for Istiod to respond to %q", typeURL)
-			w.WriteHeader(504)
+			w.WriteHeader(http.StatusGatewayTimeout)
 			return
 		}
 
@@ -785,7 +785,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		j, err := json.Marshal(response)
 		if err != nil {
 			// Couldn't unmarshal at all
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}
