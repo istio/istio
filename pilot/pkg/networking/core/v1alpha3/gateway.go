@@ -127,7 +127,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			bind:       bind,
 			port:       &model.Port{Port: int(port.Number)},
 			bindToPort: true,
-			class:      ListenerClassGateway,
+			class:      istionetworking.ListenerClassGateway,
 		}
 		p := protocol.Parse(port.Protocol)
 		lname := opts.bind + "_" + strconv.Itoa(opts.port.Port)

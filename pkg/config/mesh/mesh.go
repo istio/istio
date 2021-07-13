@@ -104,6 +104,12 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
+				Name: "prometheus",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_Prometheus{
+					Prometheus: &meshconfig.MeshConfig_ExtensionProvider_PrometheusMetricsProvider{},
+				},
+			},
+			{
 				Name: "envoy",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
 					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
