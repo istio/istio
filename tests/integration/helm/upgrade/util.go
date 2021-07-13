@@ -22,10 +22,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"istio.io/istio/pkg/test/shell"
-
-	"istio.io/istio/pkg/test/shell"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
