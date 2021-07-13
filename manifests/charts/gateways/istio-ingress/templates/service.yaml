@@ -16,6 +16,12 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "IngressGateways"
 spec:
+{{- if $gateway.externalIPs }}
+  externalIPs:
+    {{- range $gateway.externalIPs }}
+    - {{ . | quote }}
+    {{- end }}
+{{- end }}
 {{- if $gateway.loadBalancerIP }}
   loadBalancerIP: "{{ $gateway.loadBalancerIP }}"
 {{- end }}

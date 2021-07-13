@@ -44,6 +44,7 @@ gateways:
         cpu: 2000m
         memory: 1024Mi
 
+    externalIPs: []
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
     serviceAnnotations: {}
