@@ -943,7 +943,8 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
+		errs := Validation{}
 		rule, ok := cfg.Spec.(*networking.Sidecar)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to Sidecar")
@@ -960,40 +961,40 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		portMap := make(map[uint32]struct{})
 		for _, i := range rule.Ingress {
 			if i == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ingress may not be null"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: ingress may not be null"))
 				continue
 			}
 			if i.Port == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
 				continue
 			}
 
 			bind := i.GetBind()
-			errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
+			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
 			if _, found := portMap[i.Port.Number]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 			}
 			portMap[i.Port.Number] = struct{}{}
 
 			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
-					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
 				} else {
 					// format should be 127.0.0.1:port or :port
 					parts := strings.Split(i.DefaultEndpoint, ":")
 					if len(parts) < 2 {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 					} else {
 						if len(parts[0]) > 0 && parts[0] != "127.0.0.1" && parts[0] != "0.0.0.0" {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 						}
 
 						port, err := strconv.Atoi(parts[1])
 						if err != nil {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
+							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
 						} else {
-							errs = appendErrors(errs, ValidatePort(port))
+							errs = appendValidation(errs, ValidatePort(port))
 						}
 					}
 				}
@@ -1003,56 +1004,89 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		portMap = make(map[uint32]struct{})
 		udsMap := make(map[string]struct{})
 		catchAllEgressListenerFound := false
-		for index, i := range rule.Egress {
-			if i == nil {
-				errs = appendErrors(errs, errors.New("egress listener may not be null"))
+		for index, egress := range rule.Egress {
+			if egress == nil {
+				errs = appendValidation(errs, errors.New("egress listener may not be null"))
 				continue
 			}
 			// there can be only one catch all egress listener with empty port, and it should be the last listener.
-			if i.Port == nil {
+			if egress.Port == nil {
 				if !catchAllEgressListenerFound {
 					if index == len(rule.Egress)-1 {
 						catchAllEgressListenerFound = true
 					} else {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
 					}
 				} else {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
+					errs = appendValidation(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
 					continue
 				}
 			} else {
-				bind := i.GetBind()
-				captureMode := i.GetCaptureMode()
-				errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
+				bind := egress.GetBind()
+				captureMode := egress.GetCaptureMode()
+				errs = appendValidation(errs, validateSidecarEgressPortBindAndCaptureMode(egress.Port, bind, captureMode))
 
-				if i.Port.Number == 0 {
+				if egress.Port.Number == 0 {
 					if _, found := udsMap[bind]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[i.Port.Number]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+					if _, found := portMap[egress.Port.Number]; found {
+						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[i.Port.Number] = struct{}{}
+					portMap[egress.Port.Number] = struct{}{}
 				}
 			}
 
 			// validate that the hosts field is a slash separated value
 			// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
-			if len(i.Hosts) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
+			if len(egress.Hosts) == 0 {
+				errs = appendValidation(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
 			} else {
-				for _, hostname := range i.Hosts {
-					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+				nssSvcs := map[string]map[string]bool{}
+				for _, hostname := range egress.Hosts {
+					parts := strings.SplitN(hostname, "/", 2)
+					if len(parts) == 2 {
+						ns := parts[0]
+						svc := parts[1]
+						if ns == "." {
+							ns = cfg.Namespace
+						}
+						if _, ok := nssSvcs[ns]; !ok {
+							nssSvcs[ns] = map[string]bool{}
+						}
+
+						// test/a
+						// test/a
+						// test/*
+						if svc != "*" {
+							if _, ok := nssSvcs[ns][svc]; ok || nssSvcs[ns]["*"] {
+								// already exists
+								// TODO: prevent this invalid setting, maybe in 1.12+
+								errs = appendValidation(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
+							}
+						} else {
+							if len(nssSvcs[ns]) != 0 {
+								errs = appendValidation(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
+							}
+						}
+						nssSvcs[ns][svc] = true
+					}
+					errs = appendValidation(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+				}
+				// */*
+				// test/a
+				if nssSvcs["*"]["*"] && len(nssSvcs) != 1 {
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("`*/*` host select all resources, no other hosts can be added")))
 				}
 			}
 
 		}
 
-		errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
+		errs = appendValidation(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
 
-		return
+		return errs.Unwrap()
 	})
 
 func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
