@@ -44,7 +44,6 @@ import (
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -1915,17 +1914,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			}
 		}
 
-		appliesToMesh := false
-		if len(virtualService.Gateways) == 0 {
-			appliesToMesh = true
-		}
-
 		errs = appendValidation(errs, validateGatewayNames(virtualService.Gateways))
-		for _, gatewayName := range virtualService.Gateways {
-			if gatewayName == constants.IstioMeshGateway {
-				appliesToMesh = true
-			}
-		}
 
 		allHostsValid := true
 		for _, virtualHost := range virtualService.Hosts {
@@ -1935,9 +1924,6 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 					errs = appendValidation(errs, err)
 					allHostsValid = false
 				}
-			} else if appliesToMesh && virtualHost == "*" {
-				errs = appendValidation(errs, fmt.Errorf("wildcard host * is not allowed for virtual services bound to the mesh gateway"))
-				allHostsValid = false
 			}
 		}
 
