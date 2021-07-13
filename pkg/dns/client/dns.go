@@ -217,10 +217,10 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	hostname := strings.ToLower(req.Question[0].Name)
 	if lp == nil {
 		if strings.HasSuffix(h.addr, ":53") {
+			response = h.upstream(proxy, req, hostname)
 			response.Truncate(size(proxy.protocol, req))
 			_ = w.WriteMsg(response)
 		} else {
-			response = h.upstream(proxy, req, hostname)
 			log.Debugf("dns request for host %q before lookup table is loaded", hostname)
 			response = new(dns.Msg)
 			response.SetReply(req)
