@@ -16,6 +16,7 @@
 package translate
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -23,6 +24,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -250,11 +253,148 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		if err != nil {
 			return "", err
 		}
+
+		// Apply the workaround for merging service ports with (port,protocol) composite
+		// keys instead of just the merging by port.
+		if strings.HasSuffix(inPath, "Service") {
+			if msvc, ok := m.(*v1alpha1.ServiceSpec); ok {
+				mergedObj, err = t.fixMergedObjectWithCustomServicePortOverlay(oo, msvc, mergedObj)
+				if err != nil {
+					return "", err
+				}
+			}
+		}
+
 		// Update the original object in objects slice, since the output should be ordered.
 		*(om[pe]) = *mergedObj
 	}
 
 	return objects.YAMLManifest()
+}
+
+func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sObject,
+	msvc *v1alpha1.ServiceSpec, mergedObj *object.K8sObject) (*object.K8sObject, error) {
+	var basePorts []*v1.ServicePort
+	bps, _, err := unstructured.NestedSlice(oo.Unstructured(), "spec", "ports")
+	if err != nil {
+		return nil, err
+	}
+	bby, err := json.Marshal(bps)
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal(bby, &basePorts); err != nil {
+		return nil, err
+	}
+	overlayPorts := make([]*v1.ServicePort, 0, len(msvc.GetPorts()))
+	for _, p := range msvc.GetPorts() {
+		var pr v1.Protocol
+		switch strings.ToLower(p.GetProtocol()) {
+		case "udp":
+			pr = v1.ProtocolUDP
+		default:
+			pr = v1.ProtocolTCP
+		}
+		port := &v1.ServicePort{
+			Name:     p.GetName(),
+			Protocol: pr,
+			Port:     p.GetPort(),
+			NodePort: p.GetNodePort(),
+		}
+		if p.TargetPort != nil {
+			port.TargetPort = p.TargetPort.IntOrString
+		}
+		overlayPorts = append(overlayPorts, port)
+	}
+	mergedPorts := strategicMergePorts(basePorts, overlayPorts)
+	mpby, err := json.Marshal(mergedPorts)
+	if err != nil {
+		return nil, err
+	}
+	var mergedPortSlice []interface{}
+	if err = json.Unmarshal(mpby, &mergedPortSlice); err != nil {
+		return nil, err
+	}
+	if err = unstructured.SetNestedSlice(mergedObj.Unstructured(), mergedPortSlice, "spec", "ports"); err != nil {
+		return nil, err
+	}
+	// Now fix the merged object
+	mjsonby, err := json.Marshal(mergedObj.Unstructured())
+	if err != nil {
+		return nil, err
+	}
+	if mergedObj, err = object.ParseJSONToK8sObject(mjsonby); err != nil {
+		return nil, err
+	}
+	return mergedObj, nil
+}
+
+type portWithProtocol struct {
+	port     int32
+	protocol v1.Protocol
+}
+
+// strategicMergePorts merges the base with the given overlay considering both
+// port and the protocol as the merge keys. This is a workaround for the strategic
+// merge patch in Kubernetes which only uses port number as the key. This causes
+// an issue when we have to expose the same port with different protocols.
+// See - https://github.com/kubernetes/kubernetes/issues/103544
+func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
+	sortFn := func(ps []*v1.ServicePort) func(int, int) bool {
+		return func(i, j int) bool {
+			pi, pj := ps[i].Port, ps[j].Port
+			// The ports 15020 (metrics) and 15021 (status) need to be handled
+			// specially so that when status is present it ends up being the first
+			// and when metrics is present along with status, it ends up being the
+			// second (or first if status port 15021 is not present)
+			// See - https://github.com/istio/istio/issues/12503
+			if pi == 15020 || pi == 15021 {
+				pi = -pi
+			}
+			if pj == 15020 || pj == 15021 {
+				pj = -pj
+			}
+			if pi < pj {
+				return pi < pj
+			}
+			return ps[i].Protocol < ps[j].Protocol
+		}
+	}
+	if overlay == nil {
+		sort.Slice(base, sortFn(base))
+		return base
+	}
+	if base == nil {
+		sort.Slice(overlay, sortFn(overlay))
+		return overlay
+	}
+	for _, p := range base {
+		if p.Protocol == "" {
+			p.Protocol = v1.ProtocolTCP
+		}
+	}
+	for _, p := range overlay {
+		if p.Protocol == "" {
+			p.Protocol = v1.ProtocolTCP
+		}
+	}
+	// first add the base and then replace appropriate
+	// keys with the items in the overlay list
+	merged := make(map[portWithProtocol]*v1.ServicePort)
+	for _, p := range base {
+		key := portWithProtocol{port: p.Port, protocol: p.Protocol}
+		merged[key] = p
+	}
+	for _, p := range overlay {
+		key := portWithProtocol{port: p.Port, protocol: p.Protocol}
+		merged[key] = p
+	}
+	res := make([]*v1.ServicePort, 0, len(merged))
+	for _, pv := range merged {
+		res = append(res, pv)
+	}
+	sort.Slice(res, sortFn(res))
+	return res
 }
 
 // ProtoToValues traverses the supplied IstioOperatorSpec and returns a values.yaml translation from it.

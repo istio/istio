@@ -182,9 +182,9 @@ func TestManifestGenerateGateways(t *testing.T) {
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
 		g.Expect(c).Should(HavePathValueEqual(PathValue{"env.[name:PILOT_CERT_PROVIDER].value", "foobar"}))
 		g.Expect(s).Should(HavePathValueContain(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
-		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[0]", portVal("tcp-dns", 5353, -1)}))
 		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
-		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[2]", portVal("grpc-pilot-mtls", 15011, -1)}))
 
 		for _, o := range objs.kind(name.HPAStr).objSlice {
 			ou := o.Unstructured()
