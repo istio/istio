@@ -229,12 +229,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-{{- if .ProxylessGRPC }}
-        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
-          value: 99
-        - name: GRPC_GO_LOG_SEVERITY_LEVEL
-          value: info
-{{- end }}
         readinessProbe:
           httpGet:
             path: /
@@ -658,7 +652,6 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Service":            cfg.Service,
 		"Version":            cfg.Version,
 		"Headless":           cfg.Headless,
-		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
 		"StatefulSet":        cfg.StatefulSet,
 		"Locality":           cfg.Locality,
 		"ServiceAccount":     cfg.ServiceAccount,
