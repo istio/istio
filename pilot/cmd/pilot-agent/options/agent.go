@@ -51,6 +51,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		o.ProxyXDSViaAgent = true
 		o.ProxyXDSDebugViaAgent = proxyXDSDebugViaAgent
 		o.DNSCapture = DNSCaptureByAgent.Get()
+		o.DNSAddr = DNSCaptureAddr.Get()
 		o.ProxyNamespace = PodNamespaceVar.Get()
 		o.ProxyDomain = proxy.DNSDomain
 	}

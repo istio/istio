@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -53,7 +54,8 @@ type ProxyConfig struct {
 	Concurrency            int32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
-	TestOnly bool
+	TestOnly    bool
+	AgentIsRoot bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -173,6 +175,14 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 	cmd := exec.Command(e.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if e.AgentIsRoot {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		cmd.SysProcAttr.Credential = &syscall.Credential{
+			Uid: 1337,
+			Gid: 1337,
+		}
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}
