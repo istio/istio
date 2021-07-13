@@ -307,7 +307,15 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 // If response code is 4xx, return immediately without retry.
 func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, elapsedTime time.Duration, err error) {
 	start := time.Now()
+	defer func() {
+		if err != nil && resp != nil {
+			resp.Body.Close()
+		}
+	}()
 	for i := 0; i < maxRequestRetry; i++ {
+		if resp != nil {
+			resp.Body.Close()
+		}
 		resp, err = p.httpClient.Do(req)
 		if err != nil {
 			pluginLog.Errorf("failed to send out request: %v (response: %v)", err, resp)
@@ -322,7 +330,6 @@ func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, e
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		defer resp.Body.Close()
 		return resp, time.Since(start), fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 	return resp, time.Since(start), err
