@@ -85,6 +85,10 @@ func (c *CAClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, er
 	return ret, nil
 }
 
+func (c *CAClient) GetRootCertBundle() ([]string, error) {
+	return []string{}, nil
+}
+
 // TokenExchangeServer is the mocked token exchange server for testing.
 type TokenExchangeServer struct {
 	exchangeMap map[string]string
