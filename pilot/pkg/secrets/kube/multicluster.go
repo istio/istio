@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/secretcontroller/remotecluster"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -68,11 +69,11 @@ func NewMulticluster(client kube.Client, localCluster cluster.ID, secretNamespac
 	// Add the local cluster
 	m.addMemberCluster(client, localCluster)
 	sc := secretcontroller.StartSecretController(client,
-		func(k cluster.ID, c *secretcontroller.Cluster) error {
+		func(k cluster.ID, c *remotecluster.Cluster) error {
 			m.addMemberCluster(c.Client, k)
 			return nil
 		},
-		func(k cluster.ID, c *secretcontroller.Cluster) error {
+		func(k cluster.ID, c *remotecluster.Cluster) error {
 			m.updateMemberCluster(c.Client, k)
 			return nil
 		},

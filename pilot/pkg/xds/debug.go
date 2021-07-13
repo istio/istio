@@ -861,6 +861,33 @@ func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, jsonMap)
 }
 
+type clusterzEl struct {
+	Secret     string
+	Name       string
+	SyncStatus string
+}
+
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ http.Request) {
+	var out []clusterzEl
+	for secretName, clusters := range s.RemoteClusterStore.All() {
+		for clusterID, c := range clusters {
+			syncStatus := "syncing"
+			if c.HasSynced() {
+				syncStatus = "synced"
+			} else if c.SyncDidTimeout() {
+				syncStatus = "timeout"
+			}
+
+			out = append(out, clusterzEl{
+				Secret:     secretName,
+				Name:       string(clusterID),
+				SyncStatus: syncStatus,
+			})
+		}
+	}
+	writeJSON(w, out)
+}
+
 // handlePushRequest handles a ?push=true query param and triggers a push.
 // A boolean response is returned to indicate if the caller should continue
 func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Request) bool {

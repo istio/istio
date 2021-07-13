@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/kube/secretcontroller/remotecluster"
 	"istio.io/pkg/log"
 )
 
@@ -101,7 +101,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 			<-stop
 			close(writableStop)
 		}()
-		if err := mc.AddMemberCluster(args.RegistryOptions.KubeOptions.ClusterID, &secretcontroller.Cluster{
+		if err := mc.AddMemberCluster(args.RegistryOptions.KubeOptions.ClusterID, &remotecluster.Cluster{
 			Client: s.kubeClient,
 			Stop:   writableStop,
 		}); err != nil {
@@ -115,10 +115,10 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 
 	// start remote cluster controllers
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		mc.InitSecretController(stop)
+		// TODO(https://github.com/istio/istio/issues/33669) the controller should be top-level, we shouldn't be pulling it of the kube mc controller
+		s.XDSServer.RemoteClusterStore = mc.InitSecretController(stop).Store()
 		return nil
 	})
-
 	s.multicluster = mc
 	return
 }

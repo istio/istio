@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -33,12 +32,12 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/secretcontroller/remotecluster"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -59,7 +58,7 @@ var timeouts = monitoring.NewSum(
 )
 
 // newClientCallback prototype for the add secret callback function.
-type newClientCallback func(clusterID cluster.ID, cluster *Cluster) error
+type newClientCallback func(clusterID cluster.ID, cluster *remotecluster.Cluster) error
 
 // removeClientCallback prototype for the remove secret callback function.
 type removeClientCallback func(clusterID cluster.ID) error
@@ -70,7 +69,7 @@ type Controller struct {
 	queue     workqueue.RateLimitingInterface
 	informer  cache.SharedIndexInformer
 
-	cs *ClusterStore
+	cs *remotecluster.Store
 
 	addCallback    newClientCallback
 	updateCallback newClientCallback
@@ -80,86 +79,6 @@ type Controller struct {
 	syncInterval      time.Duration
 	initialSync       atomic.Bool
 	remoteSyncTimeout atomic.Bool
-}
-
-// Cluster defines cluster struct
-type Cluster struct {
-	clusterID     string
-	kubeConfigSha [sha256.Size]byte
-
-	// Client for accessing the cluster.
-	Client kube.Client
-	// Stop channel which is closed when the cluster is removed or the secretcontroller that created the client is stopped.
-	// Client.RunAndWait is called using this channel.
-	Stop chan struct{}
-	// initialSync is marked when RunAndWait completes
-	initialSync *atomic.Bool
-	// SyncTimeout is marked after features.RemoteClusterTimeout
-	SyncTimeout *atomic.Bool
-}
-
-// Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
-// This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-func (r *Cluster) Run() {
-	r.Client.RunAndWait(r.Stop)
-	r.initialSync.Store(true)
-}
-
-func (r *Cluster) HasSynced() bool {
-	return r.initialSync.Load() || r.SyncTimeout.Load()
-}
-
-// ClusterStore is a collection of clusters
-type ClusterStore struct {
-	sync.RWMutex
-	// keyed by secret key(ns/name)->clusterID
-	remoteClusters map[string]map[cluster.ID]*Cluster
-}
-
-// newClustersStore initializes data struct to store clusters information
-func newClustersStore() *ClusterStore {
-	return &ClusterStore{
-		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
-	}
-}
-
-func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Cluster) {
-	c.Lock()
-	defer c.Unlock()
-	if _, ok := c.remoteClusters[secretKey]; !ok {
-		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
-	}
-	c.remoteClusters[secretKey][clusterID] = value
-}
-
-func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
-	c.RLock()
-	defer c.RUnlock()
-	if _, ok := c.remoteClusters[secretKey]; !ok {
-		return nil
-	}
-	return c.remoteClusters[secretKey][clusterID]
-}
-
-// Get existing clusters registered for the given secret
-func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
-	c.RLock()
-	defer c.RUnlock()
-	out := make([]*Cluster, 0, len(c.remoteClusters[secretKey]))
-	for _, cluster := range c.remoteClusters[secretKey] {
-		out = append(out, cluster)
-	}
-	return out
-}
-
-func (c *ClusterStore) Len() int {
-	c.Lock()
-	defer c.Unlock()
-	out := 0
-	for _, clusterMap := range c.remoteClusters {
-		out += len(clusterMap)
-	}
-	return out
 }
 
 // NewController returns a new secret controller
@@ -187,7 +106,7 @@ func NewController(
 
 	controller := &Controller{
 		namespace:      namespace,
-		cs:             newClustersStore(),
+		cs:             remotecluster.NewStore(),
 		informer:       secretsInformer,
 		queue:          queue,
 		addCallback:    addCallback,
@@ -256,7 +175,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 func (c *Controller) close() {
 	c.cs.Lock()
 	defer c.cs.Unlock()
-	for _, clusterMap := range c.cs.remoteClusters {
+	for _, clusterMap := range c.cs.RemoteClusters {
 		for _, cluster := range clusterMap {
 			close(cluster.Stop)
 		}
@@ -271,10 +190,10 @@ func (c *Controller) hasSynced() bool {
 	}
 	c.cs.RLock()
 	defer c.cs.RUnlock()
-	for _, clusterMap := range c.cs.remoteClusters {
+	for _, clusterMap := range c.cs.RemoteClusters {
 		for _, cluster := range clusterMap {
 			if !cluster.HasSynced() {
-				log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.clusterID)
+				log.Debugf("remote cluster %s registered informers have not been synced up yet", cluster.ClusterID)
 				return false
 			}
 		}
@@ -298,6 +217,10 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	return synced
+}
+
+func (c *Controller) Store() *remotecluster.Store {
+	return c.cs
 }
 
 // StartSecretController creates the secret controller.
@@ -369,53 +292,12 @@ func (c *Controller) processItem(key string) error {
 	return nil
 }
 
-// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overiden for testing only
-var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
-	if len(kubeConfig) == 0 {
-		return nil, errors.New("kubeconfig is empty")
-	}
-
-	rawConfig, err := clientcmd.Load(kubeConfig)
-	if err != nil {
-		return nil, fmt.Errorf("kubeconfig cannot be loaded: %v", err)
-	}
-
-	if err := clientcmd.Validate(*rawConfig); err != nil {
-		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
-	}
-
-	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
-
-	clients, err := kube.NewClient(clientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kube clients: %v", err)
-	}
-	return clients, nil
-}
-
-func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
-	clients, err := BuildClientsFromConfig(kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-	return &Cluster{
-		clusterID: clusterID,
-		Client:    clients,
-		// access outside this package should only be reading
-		Stop: make(chan struct{}),
-		// for use inside the package, to close on cleanup
-		initialSync:   atomic.NewBool(false),
-		SyncTimeout:   &c.remoteSyncTimeout,
-		kubeConfigSha: sha256.Sum256(kubeConfig),
-	}, nil
-}
-
 func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 	// First delete clusters
 	existingClusters := c.cs.GetExistingClustersFor(secretKey)
 	for _, existingCluster := range existingClusters {
-		if _, ok := s.Data[existingCluster.clusterID]; !ok {
-			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.clusterID))
+		if _, ok := s.Data[existingCluster.ClusterID]; !ok {
+			c.deleteMemberCluster(secretKey, cluster.ID(existingCluster.ClusterID))
 		}
 	}
 
@@ -426,19 +308,19 @@ func (c *Controller) addSecret(secretKey string, s *corev1.Secret) {
 			// clusterID must be unique even across multiple secrets
 			// TODO： warning
 			kubeConfigSha := sha256.Sum256(kubeConfig)
-			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
+			if bytes.Equal(kubeConfigSha[:], prev.KubeConfigSha[:]) {
 				log.Infof("skipping update of cluster_id=%v from secret=%v: (kubeconfig are identical)", clusterID, secretKey)
 				continue
 			}
 		}
 		log.Infof("%s cluster %v from secret %v", action, clusterID, secretKey)
 
-		remoteCluster, err := c.createRemoteCluster(kubeConfig, clusterID)
+		remoteCluster, err := remotecluster.New(kubeConfig, clusterID, &c.remoteSyncTimeout)
 		if err != nil {
 			log.Errorf("%s cluster_id=%v from secret=%v: %v", action, clusterID, secretKey, err)
 			continue
 		}
-		c.cs.Store(secretKey, cluster.ID(clusterID), remoteCluster)
+		c.cs.Insert(secretKey, cluster.ID(clusterID), remoteCluster)
 		if err := callback(cluster.ID(clusterID), remoteCluster); err != nil {
 			log.Errorf("%s cluster_id from secret=%v: %s %v", action, clusterID, secretKey, err)
 			continue
@@ -456,7 +338,7 @@ func (c *Controller) deleteSecret(secretKey string) {
 		c.cs.Unlock()
 		log.Infof("Number of remote clusters: %d", c.cs.Len())
 	}()
-	for clusterID, cluster := range c.cs.remoteClusters[secretKey] {
+	for clusterID, cluster := range c.cs.RemoteClusters[secretKey] {
 		log.Infof("Deleting cluster_id=%v configured by secret=%v", clusterID, secretKey)
 		err := c.removeCallback(clusterID)
 		if err != nil {
@@ -464,7 +346,7 @@ func (c *Controller) deleteSecret(secretKey string) {
 				clusterID, secretKey, err)
 		}
 		close(cluster.Stop)
-		delete(c.cs.remoteClusters, secretKey)
+		delete(c.cs.RemoteClusters, secretKey)
 	}
 }
 
@@ -480,6 +362,6 @@ func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID)
 		log.Errorf("Error removing cluster_id=%v configured by secret=%v: %v",
 			clusterID, secretKey, err)
 	}
-	close(c.cs.remoteClusters[secretKey][clusterID].Stop)
-	delete(c.cs.remoteClusters[secretKey], clusterID)
+	close(c.cs.RemoteClusters[secretKey][clusterID].Stop)
+	delete(c.cs.RemoteClusters[secretKey], clusterID)
 }
