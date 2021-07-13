@@ -115,7 +115,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 
 	// start remote cluster controllers
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		mc.InitSecretController(stop)
+		s.XDSServer.ListRemoteClusters = mc.InitSecretController(stop).ListRemoteClusters
 		return nil
 	})
 
