@@ -93,8 +93,9 @@ type KubeAppProbers map[string]*Prober
 
 // Prober represents a single container prober
 type Prober struct {
-	HTTPGet        *apimirror.HTTPGetAction `json:"httpGet"`
-	TimeoutSeconds int32                    `json:"timeoutSeconds,omitempty"`
+	HTTPGet        *apimirror.HTTPGetAction   `json:"httpGet,omitempty"`
+	TCPSocket      *apimirror.TCPSocketAction `json:"tcpSocket,omitempty"`
+	TimeoutSeconds int32                      `json:"timeoutSeconds,omitempty"`
 }
 
 // Options for the status server.
@@ -212,6 +213,10 @@ func NewServer(config Options) (*Server, error) {
 	s.appProbeClient = make(map[string]*http.Client, len(s.appKubeProbers))
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
+		if prober.HTTPGet == nil {
+			// client only needed for http probes
+			continue
+		}
 		if !appProberPattern.Match([]byte(path)) {
 			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern %v`, appProberPattern)
 		}
@@ -262,7 +267,6 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(`/stats/prometheus`, s.handleStats)
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
-	mux.HandleFunc("/tcp-probe/", s.handleTcpProbe)
 
 	// Add the handler for pprof.
 	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
@@ -555,23 +559,6 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	notifyExit()
 }
 
-func (s *Server) handleTcpProbe(w http.ResponseWriter, req *http.Request) {
-	portStr := strings.TrimPrefix(req.URL.Path, "/tcp-probe/")
-
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		log.Errorf("could not parse port number when handling %s", req.URL.Path)
-	}
-
-	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-	if err != nil {
-		w.WriteHeader(404)
-	} else {
-		w.WriteHeader(200)
-		conn.Close()
-	}
-}
-
 func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	// Validate the request first.
 	path := req.URL.Path
@@ -586,6 +573,15 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if prober.HTTPGet != nil {
+		s.handleAppProbeHTTPGet(w, req, prober, path)
+	}
+	if prober.TCPSocket != nil {
+		s.handleAppProbeTCPSocket(w, req, prober, path)
+	}
+}
+
+func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request, prober *Prober, path string) {
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
 		proberPath = "/" + proberPath
@@ -644,6 +640,19 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
+}
+
+func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, req *http.Request, prober *Prober, path string) {
+	port := prober.TCPSocket.Port.IntValue()
+	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
+
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port), timeout)
+	if err != nil {
+		w.WriteHeader(404)
+	} else {
+		w.WriteHeader(200)
+		conn.Close()
+	}
 }
 
 func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {

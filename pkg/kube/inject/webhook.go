@@ -604,6 +604,7 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 		return fmt.Errorf("could not parse configuration values: %v", err)
 	}
 
+	//TODO What about TCP probes?
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, valuesStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe())
 	sidecar := FindSidecar(pod.Spec.Containers)
 
