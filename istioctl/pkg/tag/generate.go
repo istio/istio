@@ -282,9 +282,6 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 	if !found {
 		return nil, fmt.Errorf("could not find sidecar-injector webhook in canonical webhook %q", wh.Name)
 	}
-	if caBundle == "" {
-		return nil, fmt.Errorf("could not find CA bundle in canonical webhook %q", wh.Name)
-	}
 
 	return &tagWebhookConfig{
 		Tag:            tagName,
