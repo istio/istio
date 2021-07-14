@@ -193,15 +193,12 @@ func TestXdsCache(t *testing.T) {
 		}
 	})
 
-	t.Run("write without token causes panic", func(t *testing.T) {
+	t.Run("write without token does nothing", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-		defer func() {
-			ret := recover()
-			if ret == nil {
-				t.Fatalf("expected no keys, got: %v", c.Keys())
-			}
-		}()
 		c.Add(ep1, &model.PushRequest{}, any1)
+		if got, f := c.Get(ep1); f {
+			t.Fatalf("unexpected result: %v, want none", got)
+		}
 	})
 
 	t.Run("write with evicted token", func(t *testing.T) {
