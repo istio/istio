@@ -208,7 +208,7 @@ var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
 // Note: any errors returned will completely close the XDS stream. Use with caution; typically and empty
 // or no response is preferred.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest, delta bool) (Resources, XdsLogDetails, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,

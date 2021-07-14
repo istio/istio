@@ -104,7 +104,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 
 	t0 := time.Now()
 
-	res, logdata, err := gen.Generate(con.proxy, push, w, req)
+	res, logdata, err := gen.Generate(con.proxy, push, w, req, false)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {

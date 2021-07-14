@@ -40,8 +40,7 @@ type BootstrapGenerator struct {
 var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
-func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, _ *model.WatchedResource,
-	_ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest, delta bool) (model.Resources, model.XdsLogDetails, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ConvertXDSNodeToNode(proxy.XdsNode)
 

@@ -559,7 +559,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
+	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext(), false, nil, nil)
 
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs.Resource})
@@ -611,7 +611,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 
 	secretsDump := &adminapi.SecretsConfigDump{}
 	if s.Generators[v3.SecretType] != nil {
-		secrets, _, _ := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
+		secrets, _, _ := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil, false)
 		if len(secrets) > 0 {
 			for _, secretAny := range secrets {
 				secret := &tls.Secret{}
@@ -765,7 +765,7 @@ func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
+		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil, false)
 		if len(nds) == 0 {
 			return
 		}

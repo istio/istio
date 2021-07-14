@@ -555,7 +555,7 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 	// todo aditya
-	s.Generators["delta"] = &deltagen.DeltaConfigGenerator{}
+	s.Generators["delta" + v3.ClusterType] = &deltagen.DeltaConfigGenerator{}
 
 
 	s.Generators["api"] = apigen.NewGenerator(env.IstioConfigStore)

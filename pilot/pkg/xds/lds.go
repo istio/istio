@@ -56,8 +56,7 @@ func ldsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest, delta bool) (model.Resources, model.XdsLogDetails, error) {
 	if !ldsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

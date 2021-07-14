@@ -373,8 +373,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest, delta bool) (model.Resources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
