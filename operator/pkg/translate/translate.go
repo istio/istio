@@ -369,8 +369,8 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 	}
 	sortFn := func(ps []*v1.ServicePort) func(int, int) bool {
 		return func(i, j int) bool {
-			pi := portIndexOf(portWithProtocol{port:ps[i].Port, protocol: ps[i].Protocol}, portPriority)
-			pj := portIndexOf(portWithProtocol{port:ps[j].Port, protocol: ps[j].Protocol}, portPriority)
+			pi := portIndexOf(portWithProtocol{port: ps[i].Port, protocol: ps[i].Protocol}, portPriority)
+			pj := portIndexOf(portWithProtocol{port: ps[j].Port, protocol: ps[j].Protocol}, portPriority)
 			return pi < pj
 		}
 	}
