@@ -51,10 +51,10 @@ revision: %s
 `
 	tarGzSuffix = ".tar.gz"
 
-	istioRevLabel       = "istio.io/rev"
-	prodTag             = "prod"
-	canaryTag           = "canary"
-	latestRevisionTag   = "latest"
+	istioRevLabel     = "istio.io/rev"
+	prodTag           = "prod"
+	canaryTag         = "canary"
+	latestRevisionTag = "latest"
 )
 
 // previousChartPath is path of Helm charts for previous Istio deployments.
@@ -232,7 +232,7 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 			t.Fatal(err)
 		}
 
-		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, "canary")
+		overrideValuesFile = getValuesOverrides(t, s.Hub, s.Tag, canaryTag)
 		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, canaryTag, overrideValuesFile, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
@@ -344,7 +344,6 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 
 		// now check traffic still works between the proxies
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
-
 	}
 }
 
