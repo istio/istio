@@ -100,7 +100,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	switch proxy.Type {
 	case model.SidecarProxy:
 		// Setup outbound clusters
-		outboundPatcher := clusterPatcher{Efw: envoyFilterPatches, Pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		var ob []*discovery.Resource
 		var cs cacheStats
 		if delta {
@@ -121,13 +121,13 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
 
 		// Setup inbound clusters -- todo need to implement delta here
-		inboundPatcher := clusterPatcher{Efw: envoyFilterPatches, Pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
+		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
-		patcher := clusterPatcher{Efw: envoyFilterPatches, Pctx: networking.EnvoyFilter_GATEWAY}
+		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		var ob []*discovery.Resource
 		var cs cacheStats
 		if delta {
@@ -270,8 +270,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClustersWithServices(cb *Clus
 }
 
 type clusterPatcher struct {
-	Efw  *model.EnvoyFilterWrapper
-	Pctx networking.EnvoyFilter_PatchContext
+	efw  *model.EnvoyFilterWrapper
+	pctx networking.EnvoyFilter_PatchContext
 }
 
 func (p clusterPatcher) applyResource(hosts []host.Name, c *cluster.Cluster) *discovery.Resource {
@@ -283,10 +283,10 @@ func (p clusterPatcher) applyResource(hosts []host.Name, c *cluster.Cluster) *di
 }
 
 func (p clusterPatcher) apply(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
-	if !envoyfilter.ShouldKeepCluster(p.Pctx, p.Efw, c, hosts) {
+	if !envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
 		return nil
 	}
-	return envoyfilter.ApplyClusterMerge(p.Pctx, p.Efw, c, hosts)
+	return envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts)
 }
 
 func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.Name, clusters ...*cluster.Cluster) []*cluster.Cluster {
@@ -302,11 +302,11 @@ func (p clusterPatcher) conditionallyAppend(l []*cluster.Cluster, hosts []host.N
 }
 
 func (p clusterPatcher) insertedClusters() []*cluster.Cluster {
-	return envoyfilter.InsertedClusters(p.Pctx, p.Efw)
+	return envoyfilter.InsertedClusters(p.pctx, p.efw)
 }
 
 func (p clusterPatcher) hasPatches() bool {
-	return p.Efw != nil && len(p.Efw.Patches[networking.EnvoyFilter_CLUSTER]) > 0
+	return p.efw != nil && len(p.efw.Patches[networking.EnvoyFilter_CLUSTER]) > 0
 }
 
 // SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream
