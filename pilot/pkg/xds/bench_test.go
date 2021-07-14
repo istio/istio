@@ -359,7 +359,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.11.0",
+			IstioVersion: "1.12.0",
 		},
 		ConfigNamespace: "default",
 	}
