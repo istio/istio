@@ -648,7 +648,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, req *http.Reques
 
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port), timeout)
 	if err != nil {
-		w.WriteHeader(404)
+		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(200)
 		conn.Close()
