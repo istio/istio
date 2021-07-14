@@ -140,7 +140,8 @@ func enableMCSServiceDiscovery(_ resource.Context, cfg *istio.Config) {
 values:
   pilot:
     env:
-      ENABLE_MCS_SERVICE_DISCOVERY: "true"`
+      ENABLE_MCS_SERVICE_DISCOVERY: "true"
+      ENABLE_MCS_HOST: "true"`
 }
 
 func deployEchos(t resource.Context) error {
@@ -196,7 +197,14 @@ func newServiceExport(service string) *v1alpha1.ServiceExport {
 
 func checkClustersReached(t framework.TestContext, src, dest echo.Instance, clusters cluster.Clusters) {
 	t.Helper()
+
+	// Call the service using the MCS clusterset host.
+	address := fmt.Sprintf("%s.%s.svc.clusterset.local",
+		dest.Config().Service,
+		dest.Config().Namespace.Name())
+
 	src.CallWithRetryOrFail(t, echo.CallOptions{
+		Address:   address,
 		Target:    dest,
 		Count:     50,
 		PortName:  "http",

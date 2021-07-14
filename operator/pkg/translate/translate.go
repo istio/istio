@@ -140,6 +140,11 @@ func NewTranslator() *Translator {
 				HelmSubdir:           "istio-cni",
 				ToHelmValuesTreeRoot: "cni",
 			},
+			name.IstiodRemoteComponentName: {
+				HelmSubdir:           "istiod-remote",
+				ToHelmValuesTreeRoot: "global",
+				SkipReverseTranslate: true,
+			},
 		},
 		// nolint: lll
 		KubernetesMapping: map[string]*Translation{

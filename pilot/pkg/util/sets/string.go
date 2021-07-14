@@ -20,7 +20,7 @@ type Set map[string]struct{}
 
 // NewSet creates a Set from a list of values.
 func NewSet(items ...string) Set {
-	ss := Set{}
+	ss := make(Set, len(items))
 	ss.Insert(items...)
 	return ss
 }

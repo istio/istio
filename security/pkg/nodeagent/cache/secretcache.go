@@ -241,6 +241,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
+	cacheLog.Debugf("generate secret %q", resourceName)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -442,6 +443,7 @@ func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*s
 // if it is not able to read file after timeout.
 func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	timeout := time.After(totalTimeout)
 	for {
 		cert, err := ioutil.ReadFile(path)
 		if err == nil {
@@ -450,7 +452,7 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 		select {
 		case <-time.After(time.Duration(retryBackoffInMS)):
 			retryBackoffInMS *= 2
-		case <-time.After(totalTimeout):
+		case <-timeout:
 			return nil, err
 		case <-sc.stop:
 			return nil, err

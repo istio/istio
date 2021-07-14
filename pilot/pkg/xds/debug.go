@@ -198,6 +198,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 
 	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
 	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
 
@@ -237,7 +238,7 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 		if ids == nil {
 			istiolog.Errorf("Failed to authenticate %s %v", req.URL, authFailMsgs)
 			// Not including detailed info in the response, XDS doesn't either (returns a generic "authentication failure).
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		// TODO: Check that the identity contains istio-system namespace, else block or restrict to only info that
@@ -728,7 +729,7 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 
 	if err := indexTmpl.Execute(w, deps); err != nil {
 		istiolog.Errorf("Error in rendering index template %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -859,6 +860,14 @@ func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	writeJSON(w, jsonMap)
+}
+
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ *http.Request) {
+	if s.ListRemoteClusters == nil {
+		w.WriteHeader(400)
+		return
+	}
+	writeJSON(w, s.ListRemoteClusters())
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.

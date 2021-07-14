@@ -18,11 +18,12 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 require (
 	cloud.google.com/go v0.82.0
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
-	github.com/AdaLogics/go-fuzz-headers v0.0.0-20210626112853-139b25a67133
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20210714150155-92da1d72158f
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/aws/aws-sdk-go v1.38.51
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.3.0
+	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e
 	github.com/cncf/xds/go v0.0.0-20210323124008-b88cc788a63e
@@ -31,7 +32,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/envoyproxy/go-control-plane v0.9.10-0.20210527202905-e1f5cab41e70
+	github.com/envoyproxy/go-control-plane v0.9.10-0.20210708144103-3a95f2df6351
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.5.0
 	github.com/fatih/color v1.12.0
@@ -64,6 +65,7 @@ require (
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.25.0
+	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
@@ -90,10 +92,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.6.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210707151522-70c77011493f
-	istio.io/client-go v0.0.0-20210707153527-aa5e3621ead1
-	istio.io/gogo-genproto v0.0.0-20210707151701-62a71316a7a4
-	istio.io/pkg v0.0.0-20210707151701-f38f0f47e9cd
+	istio.io/api v0.0.0-20210713184933-b719f46511e4
+	istio.io/client-go v0.0.0-20210713195242-59adb375bae9
+	istio.io/gogo-genproto v0.0.0-20210713185313-36d0f033bd9f
+	istio.io/pkg v0.0.0-20210713185124-c4e9ef29f747
 	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.21.2
 	k8s.io/apimachinery v0.21.2

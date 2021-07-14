@@ -35,17 +35,19 @@ func StartServer() *atomic.Value {
 
 // Sets isReady to true.
 func SetReady(isReady *atomic.Value) {
+	installReady.Record(1)
 	isReady.Store(true)
 }
 
 // Sets isReady to false.
 func SetNotReady(isReady *atomic.Value) {
+	installReady.Record(0)
 	isReady.Store(false)
 }
 
 func initRouter(router *http.ServeMux) *atomic.Value {
 	isReady := &atomic.Value{}
-	isReady.Store(false)
+	SetNotReady(isReady)
 
 	router.HandleFunc(constants.LivenessEndpoint, healthz)
 	router.HandleFunc(constants.ReadinessEndpoint, readyz(isReady))

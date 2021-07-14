@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/security"
 )
 
@@ -145,6 +146,9 @@ type DiscoveryServer struct {
 
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *model.JwksResolver
+
+	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
+	ListRemoteClusters func() []cluster.DebugInfo
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update

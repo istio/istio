@@ -7,7 +7,6 @@ keywords:
   - istio
   - istiod
   - istio-discovery
-  - istiod-remote
 sources:
   - http://github.com/istio/istio
 engine: gotpl

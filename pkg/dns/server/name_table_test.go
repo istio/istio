@@ -174,6 +174,7 @@ func TestNameTable(t *testing.T) {
 		proxy                      *model.Proxy
 		push                       *model.PushContext
 		enableMultiClusterHeadless bool
+		altServiceDomains          []string
 		expectedNameTable          *dnsProto.NameTable
 	}{
 		{
@@ -350,10 +351,56 @@ func TestNameTable(t *testing.T) {
 				Table: map[string]*dnsProto.NameTable_NameInfo{},
 			},
 		},
+		{
+			name:              "alt service domains",
+			proxy:             proxy,
+			push:              push,
+			altServiceDomains: []string{"clusterset.local"},
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					"pod1.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4"},
+						Registry:  "Kubernetes",
+						Shortname: "pod1.headless-svc",
+						Namespace: "testns",
+					},
+					"pod2.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod2.headless-svc",
+						Namespace: "testns",
+					},
+					"pod3.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"19.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod3.headless-svc",
+						Namespace: "testns",
+					},
+					"pod4.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod4.headless-svc",
+						Namespace: "testns",
+					},
+					"headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"1.2.3.4", "9.6.7.8", "19.6.7.8", "9.16.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "headless-svc",
+						Namespace: "testns",
+						AltHosts:  []string{"headless-svc.testns.svc.clusterset.local"},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			if diff := cmp.Diff(dnsServer.BuildNameTable(tt.proxy, tt.push, tt.enableMultiClusterHeadless), tt.expectedNameTable); diff != "" {
+			if diff := cmp.Diff(dnsServer.BuildNameTable(dnsServer.Config{
+				Node:                        tt.proxy,
+				Push:                        tt.push,
+				MulticlusterHeadlessEnabled: tt.enableMultiClusterHeadless,
+				AltServiceDomainSuffixes:    tt.altServiceDomains,
+			}), tt.expectedNameTable); diff != "" {
 				t.Fatalf("got diff: %v", diff)
 			}
 		})

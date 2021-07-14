@@ -109,6 +109,10 @@ func (r *Cluster) HasSynced() bool {
 	return r.initialSync.Load() || r.SyncTimeout.Load()
 }
 
+func (r *Cluster) SyncDidTimeout() bool {
+	return r.SyncTimeout.Load() && !r.HasSynced()
+}
+
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
 	sync.RWMutex
@@ -141,7 +145,25 @@ func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
 	return c.remoteClusters[secretKey][clusterID]
 }
 
-// Get existing clusters registered for the given secret
+// All returns a copy of the current remote clusters.
+func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
+	if c == nil {
+		return nil
+	}
+	c.RLock()
+	defer c.RUnlock()
+	out := make(map[string]map[cluster.ID]*Cluster, len(c.remoteClusters))
+	for secret, clusters := range c.remoteClusters {
+		out[secret] = make(map[cluster.ID]*Cluster, len(clusters))
+		for cid, c := range clusters {
+			outCluster := *c
+			out[secret][cid] = &outCluster
+		}
+	}
+	return out
+}
+
+// GetExistingClustersFor return existing clusters registered for the given secret
 func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
 	c.RLock()
 	defer c.RUnlock()
@@ -369,7 +391,7 @@ func (c *Controller) processItem(key string) error {
 	return nil
 }
 
-// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overiden for testing only
+// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
 var BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
 	if len(kubeConfig) == 0 {
 		return nil, errors.New("kubeconfig is empty")
@@ -464,8 +486,9 @@ func (c *Controller) deleteSecret(secretKey string) {
 				clusterID, secretKey, err)
 		}
 		close(cluster.Stop)
-		delete(c.cs.remoteClusters, secretKey)
+		delete(c.cs.remoteClusters[secretKey], clusterID)
 	}
+	delete(c.cs.remoteClusters, secretKey)
 }
 
 func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID) {
@@ -482,4 +505,26 @@ func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID)
 	}
 	close(c.cs.remoteClusters[secretKey][clusterID].Stop)
 	delete(c.cs.remoteClusters[secretKey], clusterID)
+}
+
+// ListRemoteClusters provides debug info about connected remote clusters.
+func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
+	var out []cluster.DebugInfo
+	for secretName, clusters := range c.cs.All() {
+		for clusterID, c := range clusters {
+			syncStatus := "syncing"
+			if c.HasSynced() {
+				syncStatus = "synced"
+			} else if c.SyncDidTimeout() {
+				syncStatus = "timeout"
+			}
+
+			out = append(out, cluster.DebugInfo{
+				ID:         clusterID,
+				SecretName: secretName,
+				SyncStatus: syncStatus,
+			})
+		}
+	}
+	return out
 }

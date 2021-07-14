@@ -24,21 +24,35 @@ import (
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
+// Config for building the name table.
+type Config struct {
+	Node *model.Proxy
+	Push *model.PushContext
+
+	// MulticlusterHeadlessEnabled if true, the DNS name table for a headless service will resolve to
+	// same-network endpoints in any cluster.
+	MulticlusterHeadlessEnabled bool
+
+	// AltServiceDomainSuffixes provides a list of alternate domain suffixes (e.g. 'clusterset.local') used
+	// for generating alternate hosts for each service. Applies only to Kubernetes services.
+	AltServiceDomainSuffixes []string
+}
+
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
-func BuildNameTable(node *model.Proxy, push *model.PushContext, multiclusterHeadlessEnabled bool) *dnsProto.NameTable {
-	if node.Type != model.SidecarProxy {
+func BuildNameTable(cfg Config) *dnsProto.NameTable {
+	if cfg.Node.Type != model.SidecarProxy {
 		// DNS resolution is only for sidecars
 		return nil
 	}
 
 	out := &dnsProto.NameTable{
-		Table: map[string]*dnsProto.NameTable_NameInfo{},
+		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}
 
-	for _, svc := range push.Services(node) {
-		svcAddress := svc.GetServiceAddressForProxy(node)
+	for _, svc := range cfg.Push.Services(cfg.Node) {
+		svcAddress := svc.GetServiceAddressForProxy(cfg.Node)
 		var addressList []string
 
 		// The IP will be unspecified here if its headless service or if the auto
@@ -48,9 +62,9 @@ func BuildNameTable(node *model.Proxy, push *model.PushContext, multiclusterHead
 			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
 			if svc.Attributes.ServiceRegistry == provider.Kubernetes &&
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
-				for _, instance := range push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
-					sameNetwork := node.InNetwork(instance.Endpoint.Network)
-					sameCluster := node.InCluster(instance.Endpoint.Locality.ClusterID)
+				for _, instance := range cfg.Push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
+					sameNetwork := cfg.Node.InNetwork(instance.Endpoint.Network)
+					sameCluster := cfg.Node.InCluster(instance.Endpoint.Locality.ClusterID)
 					// Add individual addresses even for cross cluster.
 					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
@@ -77,7 +91,7 @@ func BuildNameTable(node *model.Proxy, push *model.PushContext, multiclusterHead
 						}
 					}
 
-					skipForMulticluster := !multiclusterHeadlessEnabled && !sameCluster
+					skipForMulticluster := !cfg.MulticlusterHeadlessEnabled && !sameCluster
 					if skipForMulticluster || !sameNetwork {
 						// We take only cluster-local endpoints. While this seems contradictory to
 						// our logic other parts of the code, where cross-cluster is the default.
@@ -117,6 +131,12 @@ func BuildNameTable(node *model.Proxy, push *model.PushContext, multiclusterHead
 			// No need to provide a DNS entry for each variant.
 			nameInfo.Namespace = svc.Attributes.Namespace
 			nameInfo.Shortname = svc.Attributes.Name
+
+			// Generate hostnames for any alt domain suffixes for the service.
+			for _, domain := range cfg.AltServiceDomainSuffixes {
+				fqdn := svc.Attributes.Name + "." + svc.Attributes.Namespace + ".svc." + domain
+				nameInfo.AltHosts = append(nameInfo.AltHosts, fqdn)
+			}
 		}
 		out.Table[string(svc.Hostname)] = nameInfo
 	}

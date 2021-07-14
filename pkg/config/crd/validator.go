@@ -103,11 +103,18 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 
 func NewValidatorFromFiles(files ...string) (*Validator, error) {
 	crds := []apiextensions.CustomResourceDefinition{}
+	closers := make([]io.Closer, 0, len(files))
+	defer func() {
+		for _, closer := range closers {
+			closer.Close()
+		}
+	}()
 	for _, file := range files {
 		data, err := os.Open(file)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read input yaml file: %v", err)
 		}
+		closers = append(closers, data)
 
 		yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(data, 512*1024)
 		for {

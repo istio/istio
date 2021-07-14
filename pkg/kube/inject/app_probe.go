@@ -149,7 +149,7 @@ func patchRewriteProbe(annotations map[string]string, pod *corev1.Pod, defaultPo
 	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
 		p, err := strconv.Atoi(v)
 		if err != nil {
-			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
+			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort.Name, v, err)
 		}
 		statusPort = p
 	}
