@@ -642,7 +642,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	w.WriteHeader(response.StatusCode)
 }
 
-func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, req *http.Request, prober *Prober, path string) {
+func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, _ *http.Request, prober *Prober, path string) {
 	port := prober.TCPSocket.Port.IntValue()
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
@@ -650,7 +650,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		conn.Close()
 	}
 }
