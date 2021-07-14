@@ -275,7 +275,8 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, previousRevision, overrideValuesFile, true)
 		helmtest.VerifyInstallation(t, cs, false)
 
-		// helm template istiod-1-10-0 ../tests/integration/helm/testdata/1.10.0/istio-control/istio-discovery.tar.gz -s templates/revision-tags.yaml --set revision=1-10-0 --set revisionTags={prod}
+		// helm template istiod-1-10-0 ../tests/integration/helm/testdata/1.10.0/istio-control/istio-discovery.tar.gz
+		//    -s templates/revision-tags.yaml --set revision=1-10-0 --set revisionTags={prod}
 		helmtest.SetRevisionTag(t, h, tarGzSuffix, previousRevision, prodTag)
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{"istio-revision-tag-prod", "istio-sidecar-injector-1-10-0"})
 
