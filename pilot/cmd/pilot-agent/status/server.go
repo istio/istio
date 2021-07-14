@@ -213,39 +213,51 @@ func NewServer(config Options) (*Server, error) {
 	s.appProbeClient = make(map[string]*http.Client, len(s.appKubeProbers))
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
-		if prober.HTTPGet == nil {
-			// client only needed for http probes
-			continue
+		err := validateAppKubeProber(path, prober)
+		if err != nil {
+			return nil, err
 		}
-		if !appProberPattern.Match([]byte(path)) {
-			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern %v`, appProberPattern)
-		}
-		if prober.HTTPGet == nil {
-			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
-		}
-		if prober.HTTPGet.Port.Type != intstr.Int {
-			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
-		}
-		localAddr := UpstreamLocalAddressIPv4
-		if config.IPv6 {
-			localAddr = UpstreamLocalAddressIPv6
-		}
-		d := &net.Dialer{
-			LocalAddr: localAddr,
-		}
-		// Construct a http client and cache it in order to reuse the connection.
-		s.appProbeClient[path] = &http.Client{
-			Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
-			// We skip the verification since kubelet skips the verification for HTTPS prober as well
-			// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-				DialContext:     d.DialContext,
-			},
+		if prober.HTTPGet != nil {
+			localAddr := UpstreamLocalAddressIPv4
+			if config.IPv6 {
+				localAddr = UpstreamLocalAddressIPv6
+			}
+			d := &net.Dialer{
+				LocalAddr: localAddr,
+			}
+			// Construct a http client and cache it in order to reuse the connection.
+			s.appProbeClient[path] = &http.Client{
+				Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
+				// We skip the verification since kubelet skips the verification for HTTPS prober as well
+				// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+					DialContext:     d.DialContext,
+				},
+			}
 		}
 	}
 
 	return s, nil
+}
+
+func validateAppKubeProber(path string, prober *Prober) error {
+	if !appProberPattern.Match([]byte(path)) {
+		return fmt.Errorf(`invalid key, must be in form of regex pattern %v`, appProberPattern)
+	}
+	if prober.HTTPGet == nil && prober.TCPSocket == nil {
+		return fmt.Errorf(`invalid prober type, must be of type httpGet or tcpSocket`)
+	}
+	if prober.HTTPGet != nil && prober.TCPSocket != nil {
+		return fmt.Errorf(`invalid prober, type must be either httpGet or tcpSocket`)
+	}
+	if prober.HTTPGet != nil && prober.HTTPGet.Port.Type != intstr.Int {
+		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
+	}
+	if prober.TCPSocket != nil && prober.TCPSocket.Port.Type != intstr.Int {
+		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
+	}
+	return nil
 }
 
 // FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes

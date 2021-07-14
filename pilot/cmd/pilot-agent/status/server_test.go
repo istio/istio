@@ -89,10 +89,24 @@ func TestNewServer(t *testing.T) {
 		},
 		// invalid probe type
 		{
-			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "8888"}}}`,
+			probe: `{"/app-health/hello-world/readyz": {"exec": {"command": [ "true" ]}}}`,
 			err:   "invalid prober type",
 		},
-		// Port is not Int typed.
+		// tcp probes are valid as well
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}}}`,
+		},
+		// probes must be tcp or http, not both
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}, "httpGet": {"path": "/", "port": 7777}}}`,
+			err:   "must be either httpGet or tcpSocket",
+		},
+		// Port is not Int typed (tcpSocket).
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "tcp"}}}`,
+			err:   "must be int type",
+		},
+		// Port is not Int typed (httpGet).
 		{
 			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}}`,
 			err:   "must be int type",
