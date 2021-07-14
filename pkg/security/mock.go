@@ -44,7 +44,7 @@ func NewDirectSecretManager() *DirectSecretManager {
 	}
 }
 
-func (d *DirectSecretManager) GenerateSecret(resourceName string) (*SecretItem, error) {
+func (d *DirectSecretManager) GenerateSecret(resourceName string, caRootPath string) (*SecretItem, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	si, f := d.items[resourceName]

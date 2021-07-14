@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/log"
 )
 
@@ -67,7 +68,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})
-	gotSecret, err := sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	gotSecret, err := sc.GenerateSecret(security.WorkloadKeyCertResourceName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -76,7 +77,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		t.Errorf("Got unexpected certificate chain #1. Got: %v, want: %v", string(got), string(want))
 	}
 
-	gotSecretRoot, err := sc.GenerateSecret(security.RootCertReqResourceName)
+	gotSecretRoot, err := sc.GenerateSecret(security.RootCertReqResourceName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -86,7 +87,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	}
 
 	// Try to get secret again, verify secret is not generated.
-	gotSecret, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	gotSecret, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -149,7 +150,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	u := NewUpdateTracker(t)
 	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
 
-	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName, "")
 	if err != nil {
 		t.Fatalf("failed to get secrets: %v", err)
 	}
@@ -157,7 +158,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	// First update will trigger root cert immediately, then workload cert once it expires in 200ms
 	u.Expect(map[string]int{security.WorkloadKeyCertResourceName: 1, security.RootCertReqResourceName: 1})
 
-	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName, "")
 	if err != nil {
 		t.Fatalf("failed to get secrets: %v", err)
 	}
@@ -429,7 +430,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 
 func checkSecret(t *testing.T, sc *SecretManagerClient, name string, expected security.SecretItem) {
 	t.Helper()
-	got, err := sc.GenerateSecret(name)
+	got, err := sc.GenerateSecret(name, "")
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -451,7 +452,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 
 	resource := fmt.Sprintf("file-cert:%s~%s", certChainPath, keyPath)
 
-	gotSecret, err := sc.GenerateSecret(resource)
+	gotSecret, err := sc.GenerateSecret(resource, "")
 
 	if err == nil {
 		t.Fatalf("expected to get error")
@@ -462,7 +463,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 	}
 
 	rootResource := "file-root:" + rootCertPath
-	gotSecretRoot, err := sc.GenerateSecret(rootResource)
+	gotSecretRoot, err := sc.GenerateSecret(rootResource, "")
 
 	if err == nil {
 		t.Fatalf("Expected to get error, but did not get")
@@ -482,7 +483,7 @@ func verifySecret(t *testing.T, gotSecret *security.SecretItem, expectedSecret *
 		t.Fatalf("resource name:: expected %s but got %s", expectedSecret.ResourceName,
 			gotSecret.ResourceName)
 	}
-	cfg, ok := model.SdsCertificateConfigFromResourceName(expectedSecret.ResourceName)
+	cfg, ok := nodeagentutil.SdsCertificateConfigFromResourceName(expectedSecret.ResourceName)
 	if expectedSecret.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
 		if !bytes.Equal(expectedSecret.RootCert, gotSecret.RootCert) {
 			t.Fatalf("root cert: expected %v but got %v", expectedSecret.RootCert,
@@ -549,7 +550,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	u := NewUpdateTracker(t)
 
 	sc := createCache(t, fakeCACli, u.Callback, security.Options{})
-	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName, "")
 	if err != nil {
 		t.Errorf("failed to generate certificate for trustAnchor test case")
 	}
