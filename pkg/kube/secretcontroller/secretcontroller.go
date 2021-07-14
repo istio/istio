@@ -486,8 +486,9 @@ func (c *Controller) deleteSecret(secretKey string) {
 				clusterID, secretKey, err)
 		}
 		close(cluster.Stop)
-		delete(c.cs.remoteClusters, secretKey)
+		delete(c.cs.remoteClusters[secretKey], clusterID)
 	}
+	delete(c.cs.remoteClusters, secretKey)
 }
 
 func (c *Controller) deleteMemberCluster(secretKey string, clusterID cluster.ID) {
