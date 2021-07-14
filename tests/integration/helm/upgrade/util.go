@@ -47,7 +47,7 @@ global:
   hub: %s
   tag: %s
 
-revision: %s
+revision: "%s"
 `
 	tarGzSuffix = ".tar.gz"
 
