@@ -236,7 +236,7 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		helmtest.InstallIstioWithRevision(t, cs, h, tarGzSuffix, canaryTag, overrideValuesFile, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
-		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, latestRevisionTag)
+		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, canaryTag)
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
