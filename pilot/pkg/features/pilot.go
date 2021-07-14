@@ -537,7 +537,7 @@ var (
 		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
 			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
 
-	VerifyCertAtClient = env.RegisterBoolVar("VERIFY_CERTIFICATE_AT_CLIENT", true,
+	VerifyCertAtClient = env.RegisterBoolVar("VERIFY_CERTIFICATE_AT_CLIENT", false,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
 )
 

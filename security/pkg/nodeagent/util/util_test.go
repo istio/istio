@@ -16,14 +16,7 @@ package util
 
 import (
 	"testing"
-	"time"
 )
-
-const (
-	rootNamespace = "istio-config"
-)
-
-var baseTimestamp = time.Date(2020, 2, 2, 2, 2, 2, 0, time.UTC)
 
 func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 	cases := []struct {

@@ -405,9 +405,10 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
+	// Get and store the OS CA certificate path
 	var once sync.Once
 	once.Do(func() {
-		var certFiles = []string{
+		certFiles := []string{
 			"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
 			"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
 			"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
