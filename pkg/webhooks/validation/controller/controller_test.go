@@ -304,10 +304,7 @@ func TestUpdateAll(t *testing.T) {
 	go c.webhookInformer.Run(stop)
 
 	retry.UntilOrFail(t, func() bool {
-		err := c.updateAll()
-		if err != nil {
-			t.Fatalf("failed to update webhooks: %v", err)
-		}
+		c.updateAll()
 		if c.queue.Len() != 2 {
 			return false
 		}

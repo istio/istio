@@ -291,14 +291,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 
 	// empty webhook name means we must patch for each webhook
 	if req.webhookName == "" {
-		err := c.updateAll()
-		if err != nil {
-			c.queue.AddRateLimited(reconcileRequest{
-				event:       retryEvent,
-				description: "retry reconcile request",
-				webhookName: "",
-			})
-		}
+		c.updateAll()
 		return true
 	}
 
@@ -319,7 +312,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 // to a CA bundle update. updateAll reports an error only when there's an issue listing webhooks,
 // not when it has an issue updating a single webhook so that we can retry separately for the
 // two cases.
-func (c *Controller) updateAll() error {
+func (c *Controller) updateAll() {
 	whs := c.webhookInformer.GetStore().List()
 	for _, item := range whs {
 		wh := item.(*kubeApiAdmission.ValidatingWebhookConfiguration)
@@ -335,8 +328,6 @@ func (c *Controller) updateAll() error {
 			})
 		}
 	}
-
-	return nil
 }
 
 // reconcile the desired state with the kube-apiserver.
