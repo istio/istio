@@ -77,6 +77,10 @@ type FakeOptions struct {
 	// Callback to modify the kube client before it is started
 	KubeClientModifier func(c kubelib.Client)
 
+	// ListenerBuilder, if specified, allows making the server use the given
+	// listener instead of a buffered conn.
+	ListenerBuilder func() (net.Listener, error)
+
 	// Time to debounce
 	// By default, set to 0s to speed up tests
 	DebounceTime time.Duration
@@ -89,7 +93,8 @@ type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
 	t            test.Failer
 	Discovery    *DiscoveryServer
-	Listener     *bufconn.Listener
+	Listener     net.Listener
+	BufListener  *bufconn.Listener
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
 	XdsUpdater   model.XDSUpdater
@@ -249,9 +254,18 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.DiscoveryServerModifier(s)
 	}
 
-	// Start in memory gRPC listener
-	buffer := 1024 * 1024
-	listener := bufconn.Listen(buffer)
+	var listener net.Listener
+	if opts.ListenerBuilder != nil {
+		var err error
+		if listener, err = opts.ListenerBuilder(); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		// Start in memory gRPC listener
+		buffer := 1024 * 1024
+		listener = bufconn.Listen(buffer)
+	}
+
 	grpcServer := grpc.NewServer()
 	s.Register(grpcServer)
 	go func() {
@@ -261,6 +275,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}()
 	t.Cleanup(func() {
 		grpcServer.Stop()
+		_ = listener.Close()
 	})
 	// Start the discovery server
 	s.Start(stop)
@@ -286,10 +301,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Mark ourselves ready
 	s.CachesSynced()
 
+	bufListener, _ := listener.(*bufconn.Listener)
 	fake := &FakeDiscoveryServer{
 		t:             t,
 		Discovery:     s,
 		Listener:      listener,
+		BufListener:   bufListener,
 		ConfigGenTest: cg,
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
@@ -312,7 +329,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.Listener.Dial()
+		return f.BufListener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -323,7 +340,7 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 // ConnectDeltaADS starts a Delta ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.Listener.Dial()
+		return f.BufListener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -357,7 +374,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		InitialDiscoveryRequests: initialWatch,
 		GrpcOpts: []grpc.DialOption{
 			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return f.Listener.Dial()
+				return f.BufListener.Dial()
 			}),
 			grpc.WithInsecure(),
 		},
