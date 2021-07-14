@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	"istio.io/istio/pilot/pkg/networking/deltagen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -554,9 +553,6 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
-	// todo aditya
-	s.Generators["delta" + v3.ClusterType] = &deltagen.DeltaConfigGenerator{}
-
 
 	s.Generators["api"] = apigen.NewGenerator(env.IstioConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
