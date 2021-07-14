@@ -76,6 +76,15 @@ var (
 		Protocol: v1.ProtocolUDP,
 		Port:     9000,
 	}
+	httpFooPort = &v1.ServicePort{
+		Name:     "http-foo",
+		Protocol: v1.ProtocolTCP,
+		Port:     8080,
+	}
+	httpFooProtocolOmittedPort = &v1.ServicePort{
+		Name: "http-foo",
+		Port: 8080,
+	}
 )
 
 func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
@@ -156,6 +165,18 @@ func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
 			basePorts:           []*v1.ServicePort{httpBaseBarPort},
 			overlayPorts:        []*v1.ServicePort{httpOverlayDiffProtocolBarPort},
 			expectedMergedPorts: []*v1.ServicePort{httpBaseBarPort, httpOverlayDiffProtocolBarPort},
+		},
+		{
+			name:                "same base and overlay with protocol omitted for overlay",
+			basePorts:           []*v1.ServicePort{httpFooPort},
+			overlayPorts:        []*v1.ServicePort{httpFooProtocolOmittedPort},
+			expectedMergedPorts: []*v1.ServicePort{httpFooPort},
+		},
+		{
+			name:                "same base and overlay with protocol omitted for base",
+			basePorts:           []*v1.ServicePort{httpFooProtocolOmittedPort},
+			overlayPorts:        []*v1.ServicePort{httpFooPort},
+			expectedMergedPorts: []*v1.ServicePort{httpFooPort},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
