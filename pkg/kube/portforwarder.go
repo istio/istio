@@ -30,7 +30,7 @@ import (
 
 // PortForwarder manages the forwarding of a single port.
 type PortForwarder interface {
-	// Run this forwarder.
+	// Start runs this forwarder.
 	Start() error
 
 	// Address returns the local forwarded address. Only valid while the forwarder is running.
@@ -39,7 +39,7 @@ type PortForwarder interface {
 	// Close this forwarder and release an resources.
 	Close()
 
-	// Block until connection closed (e.g. control-C interrupt)
+	// WaitForStop blocks until connection closed (e.g. control-C interrupt)
 	WaitForStop()
 }
 
