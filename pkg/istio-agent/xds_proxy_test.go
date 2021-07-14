@@ -61,7 +61,7 @@ func init() {
 func TestXdsProxyBasicFlow(t *testing.T) {
 	proxy := setupXdsProxy(t)
 	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	setDialOptions(proxy, f.Listener)
+	setDialOptions(proxy, f.BufListener)
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 	sendDownstreamWithNode(t, downstream, model.NodeMetadata{
@@ -100,7 +100,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	setDialOptions(proxy, f.Listener)
+	setDialOptions(proxy, f.BufListener)
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 	sendDownstreamWithNode(t, downstream, node)
@@ -258,7 +258,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	t.Run("Envoy close and open stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		setDialOptions(proxy, f.Listener)
+		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
@@ -279,7 +279,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	t.Run("Envoy opens multiple stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		setDialOptions(proxy, f.Listener)
+		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
@@ -296,7 +296,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	t.Run("Envoy closes connection", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		setDialOptions(proxy, f.Listener)
+		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
@@ -318,7 +318,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		// this ensures we are robust against cases where envoy rapidly disconnects and reconnects
 		proxy := setupXdsProxy(t)
 		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-		setDialOptions(proxy, f.Listener)
+		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
 		downstream := stream(t, conn)
@@ -422,7 +422,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: string(ef),
 	})
-	setDialOptions(proxy, f.Listener)
+	setDialOptions(proxy, f.BufListener)
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 
@@ -484,7 +484,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	f = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: string(ef),
 	})
-	setDialOptions(proxy, f.Listener)
+	setDialOptions(proxy, f.BufListener)
 	conn = setupDownstreamConnection(t, proxy)
 	downstream = stream(t, conn)
 
