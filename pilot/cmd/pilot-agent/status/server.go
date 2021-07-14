@@ -170,7 +170,7 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
-		appProbersDestination: config.PodIP,
+		appProbersDestination: wrapIPv6(config.PodIP),
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
 	}
@@ -658,7 +658,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 	port := prober.TCPSocket.Port.IntValue()
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", wrapIPv6(s.appProbersDestination), port), timeout)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port), timeout)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -709,6 +709,7 @@ func notifyExit() {
 	}
 }
 
+// wrapIPv6 wraps the ip into "[]" in case of ipv6
 func wrapIPv6(ipAddr string) string {
 	addr := net.ParseIP(ipAddr)
 	if addr == nil {
