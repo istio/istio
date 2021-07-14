@@ -1,0 +1,14 @@
+kind: WorkloadGroup
+metadata:
+  name: foo
+  namespace: bar
+spec:
+  metadata:
+    annotations: {}
+    labels: {}
+  template:
+    ports: {}
+    serviceAccount: vm-serviceaccount
+  probe:
+    httpGet:
+      port: 8080
