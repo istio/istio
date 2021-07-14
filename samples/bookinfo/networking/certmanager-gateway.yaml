@@ -12,7 +12,7 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - "*"
+    - "istio-system/*"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
