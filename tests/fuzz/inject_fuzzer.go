@@ -17,7 +17,6 @@ package fuzz
 
 import (
 	"bytes"
-	"errors"
 	"strings"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
@@ -31,31 +30,6 @@ var requiredJSONFields = []string{
 	"aliases", "neverInjectSelector",
 	"alwaysInjectSelector",
 	"injectedAnnotations",
-}
-
-func createStringMap(f *fuzz.ConsumeFuzzer) (map[string]string, error) {
-	m := make(map[string]string)
-	maxNoEntries := 50
-	qty, err := f.GetInt()
-	if err != nil {
-		return m, err
-	}
-	noOfEntries := qty % maxNoEntries
-	if noOfEntries == 0 {
-		return m, errors.New("a map of zero-length was created")
-	}
-	for i := 0; i < noOfEntries; i++ {
-		k, err := f.GetString()
-		if err != nil {
-			return m, err
-		}
-		v, err := f.GetString()
-		if err != nil {
-			return m, err
-		}
-		m[k] = v
-	}
-	return m, nil
 }
 
 func FuzzIntoResourceFile(data []byte) int {
@@ -74,7 +48,8 @@ func FuzzIntoResourceFile(data []byte) int {
 		return 0
 	}
 	if len(c.Templates) == 0 {
-		m, err := createStringMap(f)
+		var m map[string]string
+		err = f.FuzzMap(&m)
 		if err != nil {
 			return 0
 		}
