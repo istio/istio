@@ -211,7 +211,8 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		}
 		// for server-side apply, make sure service port has protocol defined.
 		// TODO(richardwxn): remove after https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 is fixed.
-		if strings.HasSuffix(inPath, "Service") {
+		inPathParts := strings.Split(inPath, ".")
+		if inPathParts[len(inPathParts)-1] == "Service" {
 			if msvc, ok := m.(*v1alpha1.ServiceSpec); ok {
 				for _, port := range msvc.Ports {
 					if port.Protocol == "" {
@@ -249,7 +250,7 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 
 		// Apply the workaround for merging service ports with (port,protocol) composite
 		// keys instead of just the merging by port.
-		if strings.HasSuffix(inPath, "Service") {
+		if inPathParts[len(inPathParts)-1] == "Service" {
 			if msvc, ok := m.(*v1alpha1.ServiceSpec); ok {
 				mergedObj, err = t.fixMergedObjectWithCustomServicePortOverlay(oo, msvc, mergedObj)
 				if err != nil {
@@ -341,6 +342,13 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 			// and when metrics is present along with status, it ends up being the
 			// second (or first if status port 15021 is not present)
 			// See - https://github.com/istio/istio/issues/12503
+			//
+			// This is because some cloud load-balancer (like AWS) use the first
+			// port in the service manifest generated for health-checks.
+			//
+			// TODO(su225): Remove this workaround once we confirm that the index
+			//     of the ports 15021 and 15020 do not matter as mentioned in the
+			//     the following issue https://github.com/istio/istio/issues/12503
 			if pi == 15020 || pi == 15021 {
 				pi = -pi
 			}
