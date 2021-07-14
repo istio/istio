@@ -296,12 +296,18 @@ func TestUpdateAll(t *testing.T) {
 	_ = c.configStore.Add(unpatchedWebhookConfig)
 	_ = c.configStore.Add(copyWithName(unpatchedWebhookConfig, secondName))
 
-	err := c.updateAll()
-	if err != nil {
-		t.Fatalf("failed to update webhooks: %v", err)
-	}
+	// Run to populate the webhook informer.
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	go c.webhookInformer.Run(stop)
 
 	retry.UntilOrFail(t, func() bool {
+		err := c.updateAll()
+		if err != nil {
+			t.Fatalf("failed to update webhooks: %v", err)
+		}
 		if c.queue.Len() != 2 {
 			return false
 		}
@@ -316,7 +322,7 @@ func TestUpdateAll(t *testing.T) {
 			}
 		}
 		return true
-	}, retry.Timeout(time.Second*5))
+	}, retry.Delay(time.Second), retry.Timeout(time.Second*5))
 }
 
 func TestCABundleChange(t *testing.T) {

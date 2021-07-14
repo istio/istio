@@ -320,12 +320,9 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 // not when it has an issue updating a single webhook so that we can retry separately for the
 // two cases.
 func (c *Controller) updateAll() error {
-	whs, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, wh := range whs.Items {
+	whs := c.webhookInformer.GetStore().List()
+	for _, item := range whs {
+		wh := item.(*kubeApiAdmission.ValidatingWebhookConfiguration)
 		if retry, err := c.reconcileRequest(reconcileRequest{
 			event:       updateEvent,
 			description: "CA bundle update",
