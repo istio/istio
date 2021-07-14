@@ -50,10 +50,10 @@ func TestDefaultRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
 		Run(performRevisionUpgradeFunc(previousSupportedVersion))
 }
 
-// TestStableLabelRevisionUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestStableLabelRevisionUpgradeFromPreviousMinorRelease(t *testing.T) {
+// TestRevisionTagsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
+func TestRevisionTagsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("installation.helm.default.upgrade").
-		Run(performStableLabelRevisionUpgradeFunc(previousSupportedVersion))
+		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
 }

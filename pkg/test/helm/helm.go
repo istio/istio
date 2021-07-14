@@ -44,7 +44,8 @@ func (h *Helm) InstallChartWithValues(name, relpath, namespace string, values []
 
 	command := fmt.Sprintf("helm install %s %s --namespace %s --kubeconfig %s --timeout %s %s",
 		name, p, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
-	return execCommand(command)
+	_, err := execCommand(command)
+	return err
 }
 
 // InstallChart installs the specified chart with its given name to the given namespace
@@ -52,7 +53,8 @@ func (h *Helm) InstallChart(name, relpath, namespace, overridesFile string, time
 	p := filepath.Join(h.baseDir, relpath)
 	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
 		name, p, namespace, overridesFile, h.kubeConfig, timeout)
-	return execCommand(command)
+	_, err := execCommand(command)
+	return err
 }
 
 // UpgradeChart upgrades the specified chart with its given name to the given namespace; does not use baseWorkDir
@@ -60,23 +62,34 @@ func (h *Helm) InstallChart(name, relpath, namespace, overridesFile string, time
 func (h *Helm) UpgradeChart(name, chartPath, namespace, overridesFile string, timeout time.Duration, args ...string) error {
 	command := fmt.Sprintf("helm upgrade %s %s --namespace %s -f %s --kubeconfig %s --timeout %s %v",
 		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout, strings.Join(args, " "))
-	return execCommand(command)
+	_, err := execCommand(command)
+	return err
 }
 
 // DeleteChart deletes the specified chart with its given name in the given namespace
 func (h *Helm) DeleteChart(name, namespace string) error {
 	command := fmt.Sprintf("helm delete %s --namespace %s --kubeconfig %s", name, namespace, h.kubeConfig)
+	_, err := execCommand(command)
+	return err
+}
+
+// Template runs the template command and applies the generated file with kubectl
+func (h *Helm) Template(name, relpath, namespace, templateFile string, timeout time.Duration, args ...string) (string, error) {
+	p := filepath.Join(h.baseDir, relpath)
+	command := fmt.Sprintf("helm template %s %s --namespace %s -s %s --kubeconfig %s --timeout %s %s ",
+		name, p, namespace, templateFile, h.kubeConfig, timeout, strings.Join(args, " "))
+
 	return execCommand(command)
 }
 
-func execCommand(cmd string) error {
+func execCommand(cmd string) (string, error) {
 	scopes.Framework.Infof("Applying helm command: %s", cmd)
 
 	s, err := shell.Execute(true, cmd)
 	if err != nil {
 		scopes.Framework.Infof("(FAILED) Executing helm: %s (err: %v): %s", cmd, err, s)
-		return fmt.Errorf("%v: %s", err, s)
+		return "", fmt.Errorf("%v: %s", err, s)
 	}
 
-	return nil
+	return s, nil
 }

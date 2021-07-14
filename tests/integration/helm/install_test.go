@@ -78,9 +78,9 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)
 		}
-		InstallIstio(t, cs, h, "", overrideValuesFile)
+		InstallIstio(t, cs, h, "", overrideValuesFile, true)
 
-		VerifyInstallation(t, cs)
+		VerifyInstallation(t, cs, true)
 
 		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {
