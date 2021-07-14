@@ -221,8 +221,8 @@ func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discove
 	k := entry.Key()
 	cur, f := l.store.Get(k)
 	if f {
-		// This is the stale or same resource
-		if token <= cur.(cacheValue).token || token <= l.token {
+		// This is the stale resource
+		if token < cur.(cacheValue).token || token < l.token {
 			// entry may be stale, we need to drop it. This can happen when the cache is invalidated
 			// after we call Get.
 			return
