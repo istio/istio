@@ -24,11 +24,10 @@ type CdsGenerator struct {
 	Server *DiscoveryServer
 }
 
-
 var _ model.XdsResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
-var SkippedCdsConfigs = map[config.GroupVersionKind]struct{}{
+var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.Gateway:               {},
 	gvk.WorkloadEntry:         {},
 	gvk.WorkloadGroup:         {},
@@ -38,7 +37,7 @@ var SkippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 }
 
 // Map all configs that impacts CDS for gateways.
-var PushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
+var pushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
 	gvk.VirtualService: {},
 	gvk.Gateway:        {},
 }
@@ -57,12 +56,12 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	}
 	for config := range req.ConfigsUpdated {
 		if proxy.Type == model.Router {
-			if _, f := PushCdsGatewayConfig[config.Kind]; f {
+			if _, f := pushCdsGatewayConfig[config.Kind]; f {
 				return true
 			}
 		}
 
-		if _, f := SkippedCdsConfigs[config.Kind]; !f {
+		if _, f := skippedCdsConfigs[config.Kind]; !f {
 			return true
 		}
 	}
@@ -79,4 +78,3 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, push, delta, updates, w)
 	return clusters, logs, nil
 }
-
