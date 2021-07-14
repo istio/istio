@@ -523,33 +523,39 @@ func TestAppProbe(t *testing.T) {
 	}
 
 	testCases := []struct {
+		name       string
 		probePath  string
 		config     KubeAppProbers
 		podIP      string
 		statusCode int
 	}{
 		{
+			name:       "http-bad-path",
 			probePath:  "bad-path-should-be-404",
 			config:     simpleHTTPConfig,
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "http-readyz",
 			probePath:  "app-health/hello-world/readyz",
 			config:     simpleHTTPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "http-livez",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleHTTPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "http-livez-localhost",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleHTTPConfig,
 			statusCode: http.StatusOK,
 			podIP:      "localhost",
 		},
 		{
+			name:      "http-readyz-header",
 			probePath: "app-health/header/readyz",
 			config: KubeAppProbers{
 				"/app-health/header/readyz": &Prober{
@@ -566,6 +572,7 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:      "http-readyz-path",
 			probePath: "app-health/hello-world/readyz",
 			config: KubeAppProbers{
 				"/app-health/hello-world/readyz": &Prober{
@@ -578,6 +585,7 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:      "http-livez-path",
 			probePath: "app-health/hello-world/livez",
 			config: KubeAppProbers{
 				"/app-health/hello-world/livez": &Prober{
@@ -590,34 +598,40 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "tcp-readyz",
 			probePath:  "app-health/hello-world/readyz",
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "tcp-livez",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "tcp-livez-ipv4",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
 			podIP:      "127.0.0.1",
 		},
 		{
+			name:       "tcp-livez-ipv6",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
 			podIP:      "::1",
 		},
 		{
+			name:       "tcp-livez-wrapped-ipv6",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
 			podIP:      "[::1]",
 		},
 		{
+			name:       "tcp-livez-localhost",
 			probePath:  "app-health/hello-world/livez",
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
@@ -625,8 +639,7 @@ func TestAppProbe(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		name := fmt.Sprintf("%s-%d-%s", tc.probePath, tc.statusCode, tc.podIP)
-		t.Run(name, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			appProber, err := json.Marshal(tc.config)
 			if err != nil {
 				t.Fatalf("invalid app probers")
