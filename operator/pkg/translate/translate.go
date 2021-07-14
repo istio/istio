@@ -328,37 +328,50 @@ type portWithProtocol struct {
 	protocol v1.Protocol
 }
 
+func portIndexOf(element portWithProtocol, data []portWithProtocol) int {
+	for k, v := range data {
+		if element == v {
+			return k
+		}
+	}
+	return len(data)
+}
+
 // strategicMergePorts merges the base with the given overlay considering both
 // port and the protocol as the merge keys. This is a workaround for the strategic
 // merge patch in Kubernetes which only uses port number as the key. This causes
 // an issue when we have to expose the same port with different protocols.
 // See - https://github.com/kubernetes/kubernetes/issues/103544
+// TODO(su225): Remove this once the above issue is addressed in Kubernetes
 func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
+	// We want to keep the original port order with base first and then the newly
+	// added ports through the overlay. This is because there are some cases where
+	// port order actually matters. For instance, some cloud load balancers use the
+	// first port for health-checking (in Istio it is 15021). So we must keep maintain
+	// it in order not to break the users
+	// See - https://github.com/istio/istio/issues/12503 for more information
+	//
+	// Or changing port order might generate weird diffs while upgrading or changing
+	// IstioOperator spec. It is annoying. So better maintain original order while
+	// appending newly added ports through overlay.
+	portPriority := make([]portWithProtocol, 0, len(base)+len(overlay))
+	for _, p := range base {
+		if p.Protocol == "" {
+			p.Protocol = v1.ProtocolTCP
+		}
+		portPriority = append(portPriority, portWithProtocol{port: p.Port, protocol: p.Protocol})
+	}
+	for _, p := range overlay {
+		if p.Protocol == "" {
+			p.Protocol = v1.ProtocolTCP
+		}
+		portPriority = append(portPriority, portWithProtocol{port: p.Port, protocol: p.Protocol})
+	}
 	sortFn := func(ps []*v1.ServicePort) func(int, int) bool {
 		return func(i, j int) bool {
-			pi, pj := ps[i].Port, ps[j].Port
-			// The ports 15020 (metrics) and 15021 (status) need to be handled
-			// specially so that when status is present it ends up being the first
-			// and when metrics is present along with status, it ends up being the
-			// second (or first if status port 15021 is not present)
-			// See - https://github.com/istio/istio/issues/12503
-			//
-			// This is because some cloud load-balancer (like AWS) use the first
-			// port in the service manifest generated for health-checks.
-			//
-			// TODO(su225): Remove this workaround once we confirm that the index
-			//     of the ports 15021 and 15020 do not matter as mentioned in the
-			//     the following issue https://github.com/istio/istio/issues/12503
-			if pi == 15020 || pi == 15021 {
-				pi = -pi
-			}
-			if pj == 15020 || pj == 15021 {
-				pj = -pj
-			}
-			if pi < pj {
-				return pi < pj
-			}
-			return ps[i].Protocol < ps[j].Protocol
+			pi := portIndexOf(portWithProtocol{port:ps[i].Port, protocol: ps[i].Protocol}, portPriority)
+			pj := portIndexOf(portWithProtocol{port:ps[j].Port, protocol: ps[j].Protocol}, portPriority)
+			return pi < pj
 		}
 	}
 	if overlay == nil {
@@ -368,16 +381,6 @@ func strategicMergePorts(base, overlay []*v1.ServicePort) []*v1.ServicePort {
 	if base == nil {
 		sort.Slice(overlay, sortFn(overlay))
 		return overlay
-	}
-	for _, p := range base {
-		if p.Protocol == "" {
-			p.Protocol = v1.ProtocolTCP
-		}
-	}
-	for _, p := range overlay {
-		if p.Protocol == "" {
-			p.Protocol = v1.ProtocolTCP
-		}
 	}
 	// first add the base and then replace appropriate
 	// keys with the items in the overlay list

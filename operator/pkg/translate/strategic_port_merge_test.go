@@ -122,7 +122,7 @@ func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
 			name:                "base and overlay for the same port, different protocol",
 			basePorts:           []*v1.ServicePort{httpPort, httpsPort, mysqlPort},
 			overlayPorts:        []*v1.ServicePort{quicPort},
-			expectedMergedPorts: []*v1.ServicePort{httpPort, httpsPort, quicPort, mysqlPort},
+			expectedMergedPorts: []*v1.ServicePort{httpPort, httpsPort, mysqlPort, quicPort},
 		},
 		{
 			name:                "base and overlay with different ports",
@@ -140,19 +140,19 @@ func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
 			name:                "status and metrics port are present",
 			basePorts:           []*v1.ServicePort{istioHealthcheckPort, istioMetricsPort, httpsPort},
 			overlayPorts:        []*v1.ServicePort{httpsPort, httpPort},
-			expectedMergedPorts: []*v1.ServicePort{istioHealthcheckPort, istioMetricsPort, httpPort, httpsPort},
+			expectedMergedPorts: []*v1.ServicePort{istioHealthcheckPort, istioMetricsPort, httpsPort, httpPort},
 		},
 		{
 			name:                "status port is present",
 			basePorts:           []*v1.ServicePort{istioHealthcheckPort, httpsPort, httpPort},
 			overlayPorts:        []*v1.ServicePort{httpsPort, httpPort},
-			expectedMergedPorts: []*v1.ServicePort{istioHealthcheckPort, httpPort, httpsPort},
+			expectedMergedPorts: []*v1.ServicePort{istioHealthcheckPort, httpsPort, httpPort},
 		},
 		{
 			name:                "metrics port is present",
 			basePorts:           []*v1.ServicePort{istioMetricsPort, httpsPort, httpPort},
 			overlayPorts:        []*v1.ServicePort{httpsPort, httpPort},
-			expectedMergedPorts: []*v1.ServicePort{istioMetricsPort, httpPort, httpsPort},
+			expectedMergedPorts: []*v1.ServicePort{istioMetricsPort, httpsPort, httpPort},
 		},
 		{
 			name:                "overlay with port name changed",
