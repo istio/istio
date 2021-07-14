@@ -61,6 +61,21 @@ var (
 		Protocol: v1.ProtocolTCP,
 		Port:     15020,
 	}
+	httpBaseBarPort = &v1.ServicePort{
+		Name:     "http-bar-base",
+		Protocol: v1.ProtocolTCP,
+		Port:     9000,
+	}
+	httpOverlayBarPort = &v1.ServicePort{
+		Name:     "http-bar-overlay",
+		Protocol: v1.ProtocolTCP,
+		Port:     9000,
+	}
+	httpOverlayDiffProtocolBarPort = &v1.ServicePort{
+		Name:     "http3-bar-overlay",
+		Protocol: v1.ProtocolUDP,
+		Port:     9000,
+	}
 )
 
 func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
@@ -129,6 +144,18 @@ func TestStrategicPortMergeByPortAndProtocol(t *testing.T) {
 			basePorts:           []*v1.ServicePort{istioMetricsPort, httpsPort, httpPort},
 			overlayPorts:        []*v1.ServicePort{httpsPort, httpPort},
 			expectedMergedPorts: []*v1.ServicePort{istioMetricsPort, httpPort, httpsPort},
+		},
+		{
+			name:                "overlay with port name changed",
+			basePorts:           []*v1.ServicePort{httpBaseBarPort},
+			overlayPorts:        []*v1.ServicePort{httpOverlayBarPort},
+			expectedMergedPorts: []*v1.ServicePort{httpOverlayBarPort},
+		},
+		{
+			name:                "overlay with different protocol",
+			basePorts:           []*v1.ServicePort{httpBaseBarPort},
+			overlayPorts:        []*v1.ServicePort{httpOverlayDiffProtocolBarPort},
+			expectedMergedPorts: []*v1.ServicePort{httpBaseBarPort, httpOverlayDiffProtocolBarPort},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
