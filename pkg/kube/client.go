@@ -109,7 +109,7 @@ type Client interface {
 	// Istio returns the Istio kube client.
 	Istio() istioclient.Interface
 
-	// GatewayApi returns the gateway-api kube client.
+	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
 	// MCSApis returns the mcs-apis kube client.
@@ -571,10 +571,10 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 		if err != nil {
 			if len(stderr) > 0 {
 				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s",
-					podName, podNamespace, container, err, stderr)
+					podNamespace, podName, container, err, stderr)
 			} else {
 				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v",
-					podName, podNamespace, container, err)
+					podNamespace, podName, container, err)
 			}
 		}
 	}()
@@ -736,9 +736,9 @@ func (c *client) extractExecResult(podName, podNamespace, container, cmd string)
 	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
 		if stderr != "" {
-			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podName, podNamespace, container, err, stderr)
+			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podNamespace, podName, container, err, stderr)
 		}
-		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podName, podNamespace, container, err)
+		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podNamespace, podName, container, err)
 	}
 	return stdout, nil
 }
@@ -768,7 +768,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			bi, execErr := c.getIstioVersionUsingExec(&pod)
 			if execErr != nil {
 				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Name, pod.Namespace, err),
+					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Namespace, pod.Name, err),
 					execErr,
 				)
 				continue
