@@ -34,7 +34,8 @@ import (
 func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
 	resp := model.Resources{}
 
-	filter := map[string]bool{}
+	// TODO filter by port as well, this only filters by a host and includes every port on matching service
+	filter := map[string]struct{}{}
 	for _, name := range names {
 		if strings.Contains(name, ":") {
 			n, _, err := net.SplitHostPort(name)
@@ -42,7 +43,7 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 				name = n
 			}
 		}
-		filter[name] = true
+		filter[name] = struct{}{}
 	}
 
 	for _, el := range node.SidecarScope.EgressListeners {
@@ -50,7 +51,7 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 			shost := string(sv.Hostname)
 			if len(filter) > 0 {
 				// DiscReq has a filter - only return services that match
-				if !filter[shost] {
+				if _, ok := filter[shost]; !ok {
 					continue
 				}
 			}
@@ -58,37 +59,36 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 				hp := net.JoinHostPort(shost, strconv.Itoa(p.Port))
 				ll := &listener.Listener{
 					Name: hp,
-				}
-
-				ll.Address = &core.Address{
-					Address: &core.Address_SocketAddress{
-						SocketAddress: &core.SocketAddress{
-							Address: sv.Address,
-							PortSpecifier: &core.SocketAddress_PortValue{
-								PortValue: uint32(p.Port),
-							},
-						},
-					},
-				}
-				hcm := &hcm.HttpConnectionManager{
-					RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-						Rds: &hcm.Rds{
-							ConfigSource: &core.ConfigSource{
-								ConfigSourceSpecifier: &core.ConfigSource_Ads{
-									Ads: &core.AggregatedConfigSource{},
+					Address: &core.Address{
+						Address: &core.Address_SocketAddress{
+							SocketAddress: &core.SocketAddress{
+								Address: sv.Address,
+								PortSpecifier: &core.SocketAddress_PortValue{
+									PortValue: uint32(p.Port),
 								},
 							},
-							RouteConfigName: clusterKey(shost, p.Port),
 						},
 					},
+					ApiListener: &listener.ApiListener{
+						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
+								Rds: &hcm.Rds{
+									ConfigSource: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_Ads{
+											Ads: &core.AggregatedConfigSource{},
+										},
+									},
+									RouteConfigName: clusterKey(shost, p.Port),
+								},
+							},
+						}),
+					},
+					// TODO server-side listeners + mTLS
 				}
-				hcmAny := util.MessageToAny(hcm)
-				// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
-				ll.ApiListener = &listener.ApiListener{
-					ApiListener: hcmAny,
-				}
+
 				resp = append(resp, &discovery.Resource{
-					Name:     hp,
+					Name:     ll.Name,
 					Resource: util.MessageToAny(ll),
 				})
 			}
