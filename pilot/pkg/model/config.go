@@ -149,6 +149,8 @@ type ConfigStore interface {
 	Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error
 }
 
+type EventHandler = func(config.Config, config.Config, Event)
+
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The
 // cache actively synchronizes its local state with the remote store and
 // provides a notification mechanism to receive update events. As such, the
@@ -167,7 +169,7 @@ type ConfigStoreCache interface {
 
 	// RegisterEventHandler adds a handler to receive config update events for a
 	// configuration type
-	RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, Event))
+	RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler)
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
