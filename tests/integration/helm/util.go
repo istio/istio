@@ -118,7 +118,7 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 	}
 
 	// install discovery chart with --set revision=NAME
-	err := h.InstallChart(IstiodReleaseName+revision, filepath.Join(ControlChartsDir, DiscoveryChart)+fileSuffix,
+	err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(ControlChartsDir, DiscoveryChart)+fileSuffix,
 		IstioNamespace, overrideValuesFile, Timeout)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", DiscoveryChart)
@@ -196,7 +196,7 @@ func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revisio
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChart)
 	}
 
-	err = ctx.Config().ApplyYaml(IstioNamespace, template)
+	err = ctx.Config().ApplyYAML(IstioNamespace, template)
 	if err != nil {
 		ctx.Fatalf("failed to apply templated reivision tags yaml: %v", err)
 	}
