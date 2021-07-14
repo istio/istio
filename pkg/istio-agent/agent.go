@@ -46,6 +46,7 @@ import (
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
@@ -162,6 +163,9 @@ type AgentOptions struct {
 
 	// Path to local UDS to communicate with Envoy
 	XdsUdsPath string
+
+	// Options defines the set of options used for grpc keepalive.
+	KeepaliveOptions *istiokeepalive.Options
 
 	// Ability to retrieve ProxyConfig dynamically through XDS
 	EnableDynamicProxyConfig bool

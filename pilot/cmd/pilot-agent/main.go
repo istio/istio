@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
+	istiokeepalive "istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
@@ -66,6 +67,7 @@ var (
 	templateFile           string
 	loggingOptions         = log.DefaultOptions()
 	outlierLogPath         string
+	keepaliveOptions       = istiokeepalive.DefaultOption()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -134,7 +136,7 @@ var (
 				Sidecar:           proxy.Type == model.SidecarProxy,
 				OutlierLogPath:    outlierLogPath,
 			}
-			agentOptions := options.NewAgentOptions(proxy, proxyConfig)
+			agentOptions := options.NewAgentOptions(proxy, proxyConfig, keepaliveOptions)
 			agent := istio_agent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -185,6 +187,8 @@ func init() {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+
+	keepaliveOptions.AttachCobraFlags(proxyCmd)
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)

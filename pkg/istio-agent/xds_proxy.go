@@ -95,6 +95,7 @@ type XdsProxy struct {
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
+	keepaliveOptions     *istiokeepalive.Options
 	proxyAddresses       []string
 
 	httpTapServer      *http.Server
@@ -141,15 +142,16 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 	proxy := &XdsProxy{
-		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
-		clusterID:      ia.secOpts.ClusterID,
-		handlers:       map[string]ResponseHandler{},
-		stopChan:       make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
-		xdsHeaders:     ia.cfg.XDSHeaders,
-		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
-		proxyAddresses: ia.cfg.ProxyIPAddresses,
+		istiodAddress:    ia.proxyConfig.DiscoveryAddress,
+		clusterID:        ia.secOpts.ClusterID,
+		handlers:         map[string]ResponseHandler{},
+		stopChan:         make(chan struct{}),
+		healthChecker:    health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
+		xdsHeaders:       ia.cfg.XDSHeaders,
+		xdsUdsPath:       ia.cfg.XdsUdsPath,
+		keepaliveOptions: ia.cfg.KeepaliveOptions,
+		wasmCache:        wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
+		proxyAddresses:   ia.cfg.ProxyIPAddresses,
 	}
 
 	if ia.localDNSServer != nil {
@@ -571,8 +573,7 @@ func (p *XdsProxy) initDownstreamServer() error {
 	if err != nil {
 		return err
 	}
-	// TODO: Expose keepalive options to agent cmd line flags.
-	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+	grpcs := grpc.NewServer(istiogrpc.ServerOptions(p.keepaliveOptions)...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
 	p.downstreamGrpcServer = grpcs
