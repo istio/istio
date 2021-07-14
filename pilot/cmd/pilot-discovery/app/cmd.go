@@ -127,7 +127,7 @@ func addFlags(c *cobra.Command) {
 		serverArgs.RegistryOptions.ClusterRegistriesNamespace, "Namespace for ConfigMap which stores clusters configs")
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	c.PersistentFlags().StringVar(&serverArgs.MeshConfigFile, "meshConfig", "./etc/istio/config/mesh",
+	c.PersistentFlags().StringVar(&serverArgs.MeshConfigFile, "meshConfig", "/etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used.")
 	c.PersistentFlags().StringVar(&serverArgs.NetworksConfigFile, "networksConfig", "/etc/istio/config/meshNetworks",
 		"File name for Istio mesh networks configuration. If not specified, a default mesh networks will be used.")
