@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -30,7 +31,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	galleyutil "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+
+	// galleyutil "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -88,7 +90,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		configs := model.ConfigsOfKind(updates.ConfigsUpdated, gvk.Service)
 		for s := range configs {
 			// get service that changed
-			service := push.ServiceForHostname(proxy, host.Name(galleyutil.GetFullNameFromFQDN(s.Name).Name))
+			service := push.ServiceForHostname(proxy, host.Name(nameFromFQDN(s.Name)))
 			// is the service visible to envoy?
 			// does envoy care about this service changing? (watchedResources)
 			if push.IsServiceVisible(service, proxy.ConfigNamespace) {
@@ -168,6 +170,14 @@ func configMapKeys(cfgs map[model.ConfigKey]struct{}) []model.ConfigKey {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func nameFromFQDN(fqdn string) string {
+	result := regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`).FindAllStringSubmatch(fqdn, -1)
+	if len(result) == 0 {
+		return ""
+	}
+	return result[0][1]
 }
 
 type cacheStats struct {
