@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"runtime"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -63,6 +64,10 @@ type configGenTest struct {
 //      ports:
 //        grpc: {generated portnum}
 func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
+	if runtime.GOOS == "darwin" {
+		// TODO always skip if this breaks anywhere else
+		t.Skip("cannot use 127.0.0.x on OSX")
+	}
 	cgt := &configGenTest{T: t}
 	for i, s := range servers {
 		// TODO this breaks without extra ifonfig aliases on OSX, and probably elsewhere
