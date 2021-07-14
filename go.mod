@@ -23,6 +23,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.51
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/census-instrumentation/opencensus-proto v0.3.0
+	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e
 	github.com/cncf/xds/go v0.0.0-20210323124008-b88cc788a63e
@@ -64,6 +65,7 @@ require (
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.25.0
+	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/pflag v1.0.5
