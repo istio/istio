@@ -611,9 +611,9 @@ gateways:
       istio: custom-gateway-helm
 `, rev)), 0o644)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
-				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
+				h := helm.New(cs.Filename())
 				// Install ingress gateway chart
-				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
+				if err := h.InstallChart("ingress", filepath.Join(env.IstioSrc, "manifests/charts/gateways/istio-ingress"), gatewayNs.Name(),
 					d, helmtest.Timeout); err != nil {
 					t.Fatal(err)
 				}
