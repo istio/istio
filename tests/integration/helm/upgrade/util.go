@@ -173,7 +173,7 @@ func performInPlaceUpgradeFunc(previousVersion string) func(framework.TestContex
 		})
 
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
-		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, previousVersion, true)
+		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, true)
 		helmtest.VerifyInstallation(t, cs, true)
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
@@ -218,7 +218,7 @@ func performRevisionUpgradeFunc(previousVersion string) func(framework.TestConte
 		})
 
 		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
-		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, previousVersion, false)
+		helmtest.InstallIstio(t, cs, h, tarGzSuffix, overrideValuesFile, helmtest.TestDataChartPath, previousVersion, false)
 		helmtest.VerifyInstallation(t, cs, false)
 
 		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, t, "")
