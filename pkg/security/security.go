@@ -31,10 +31,10 @@ const (
 	// i.e. mounted Secret or external plugin.
 	// If present, FileMountedCerts should be true.
 
-	// The well-known path for an existing certificate chain file
+	// DefaultCertChainFilePath is the well-known path for an existing certificate chain file
 	DefaultCertChainFilePath = "./etc/certs/cert-chain.pem"
 
-	// The well-known path for an existing key file
+	// DefaultKeyFilePath is the well-known path for an existing key file
 	DefaultKeyFilePath = "./etc/certs/key.pem"
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
@@ -63,7 +63,7 @@ const (
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
 var (
-	// Require 3P TOKEN disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
+	// Require3PToken disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
 	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
 	// the Apiserver.
 	Require3PToken = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false,
@@ -265,7 +265,7 @@ type CredFetcher interface {
 	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
 	GetType() string
 
-	// The name of the IdentityProvider that can authenticate the workload credential.
+	// GetIdentityProvider returns the name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
 
 	// Stop releases resources and cleans up.

@@ -21,7 +21,7 @@ import (
 // Default used for testing
 var Default = "default"
 
-// DefaultGroupIndexFn used for testing.
+// DefaultIndexFn used for testing.
 func DefaultIndexFn(_ string, _ *mcp.SinkNode) string {
 	return Default
 }
