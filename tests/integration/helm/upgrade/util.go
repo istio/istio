@@ -25,7 +25,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -56,9 +55,6 @@ revision: "%s"
 	canaryTag         = "canary"
 	latestRevisionTag = "latest"
 )
-
-// previousChartPath is path of Helm charts for previous Istio deployments.
-var previousChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata/")
 
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
