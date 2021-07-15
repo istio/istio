@@ -226,6 +226,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	if err != nil {
 		t.Fatalf("Failed to initialize xds proxy %v", err)
 	}
+	ia.xdsProxy = proxy
 
 	return proxy
 }
