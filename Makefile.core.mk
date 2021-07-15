@@ -432,13 +432,11 @@ ${ISTIO_OUT}/release/istioctl-win.exe: depend
 	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
-${ISTIO_OUT}/release/istioctl.bash: istioctl
-	${LOCAL_OUT}/istioctl collateral --bash && \
-	mv istioctl.bash ${ISTIO_OUT}/release/istioctl.bash
+${ISTIO_OUT}/release/istioctl.bash: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion bash > ${ISTIO_OUT}/release/istioctl.bash
 
-${ISTIO_OUT}/release/_istioctl: istioctl
-	${LOCAL_OUT}/istioctl collateral --zsh && \
-	mv _istioctl ${ISTIO_OUT}/release/_istioctl
+${ISTIO_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion zsh > ${ISTIO_OUT}/release/_istioctl
 
 .PHONY: binaries-test
 binaries-test:
