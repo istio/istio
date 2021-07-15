@@ -16,6 +16,8 @@ package plugin
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -49,12 +51,11 @@ func newK8sClient(conf Config) (*kubernetes.Clientset, error) {
 
 	config, err := kube.DefaultRestConfig(kubeconfig, "")
 	if err != nil {
-		log.Infof("Failed setting up kubernetes client with kubeconfig %s", kubeconfig)
+		log.Errorf("Failed setting up kubernetes client with kubeconfig %s", kubeconfig)
 		return nil, err
 	}
 
-	log.Infof("Set up kubernetes client with kubeconfig %s", kubeconfig)
-	log.Infof("Kubernetes config %v", config)
+	log.Debugf("istio-cni set up kubernetes client with kubeconfig %s", kubeconfig)
 
 	// Create the clientset
 	return kubernetes.NewForConfig(config)
@@ -63,7 +64,6 @@ func newK8sClient(conf Config) (*kubernetes.Clientset, error) {
 // getK8sPodInfo returns information of a POD
 func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (*PodInfo, error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	log.Infof("pod info %+v", pod)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 		pi.InitContainers[initContainer.Name] = struct{}{}
 	}
 	for containerIdx, container := range pod.Spec.Containers {
-		log.WithLabels("pod", podName, "container", container.Name).Debug("Inspecting container")
+		log.Debugf("Inspecting pod %v/%v container %v", podNamespace, podName, container.Name)
 		pi.Containers[containerIdx] = container.Name
 
 		if container.Name == "istio-proxy" {
@@ -94,7 +94,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 					}
 					mc, err := mesh.ApplyProxyConfig(e.Value, *mc)
 					if err != nil {
-						log.Warnf("failed to apply proxy config for %v: %+v", pod.Name, err)
+						log.Warnf("Failed to apply proxy config for %v/%v: %+v", pod.Namespace, pod.Name, err)
 					} else {
 						pi.ProxyConfig = mc.DefaultConfig
 					}
@@ -104,6 +104,22 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			continue
 		}
 	}
+	log.Debugf("Pod %v/%v info: \n%+v", podNamespace, podName, pi)
 
 	return pi, nil
+}
+
+func (pi PodInfo) String() string {
+	var b strings.Builder
+	icn := make([]string, 0, len(pi.InitContainers))
+	for n := range pi.InitContainers {
+		icn = append(icn, n)
+	}
+	b.WriteString(fmt.Sprintf("  Init Containers: %v\n", icn))
+	b.WriteString(fmt.Sprintf("  Containers: %v\n", pi.Containers))
+	b.WriteString(fmt.Sprintf("  Labels: %+v\n", pi.Labels))
+	b.WriteString(fmt.Sprintf("  Annotatioins: %+v\n", pi.Annotations))
+	b.WriteString(fmt.Sprintf("  Envs: %+v\n", pi.ProxyEnvironments))
+	b.WriteString(fmt.Sprintf("  ProxyConfig: %+v\n", pi.ProxyEnvironments))
+	return b.String()
 }
