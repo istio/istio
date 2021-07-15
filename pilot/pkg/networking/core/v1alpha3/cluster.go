@@ -16,8 +16,8 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/config"
 	"math"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -83,17 +83,17 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, push, configgen.Cache)
 	instances := proxy.ServiceInstances
-	configKeys := configMapKeys(updates.ConfigsUpdated)
-	delta := len(configKeys) == 1 && configKeys[0].Kind == gvk.Service && attemptDeltas
+	// delta when only services are modified and we attempt deltas
+	delta := allConfigKeysOfType(configMapKeys(updates.ConfigsUpdated), gvk.Service) && attemptDeltas
 	if delta {
 		// use delta -- only services changed
 		configs := model.ConfigsOfKind(updates.ConfigsUpdated, gvk.Service)
 		for s := range configs {
 			// get service that changed
-			service := push.ServiceForHostname(proxy, host.Name(nameFromFQDN(s.Name)))
+			service := push.ServiceForHostname(proxy, host.Name(s.Name))
 			// is the service visible to envoy?
 			// does envoy care about this service changing? (watchedResources)
-			if push.IsServiceVisible(service, proxy.ConfigNamespace) {
+			if proxy.ServiceInSidecarScope(service) {
 				services = append(services, service)
 			}
 		}
@@ -108,21 +108,16 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		if delta {
 			ob, cs = configgen.buildOutboundClustersWithServices(cb, outboundPatcher, services)
 			// only add to list when we know the proxy is subscribed to this resource
-			for _, resource := range ob {
-				if contains(watched.ResourceNames, resource.Name) {
-					resources = append(resources, resource)
-				}
-			}
 		} else {
 			ob, cs = configgen.buildOutboundClusters(cb, outboundPatcher)
-			resources = append(resources, ob...)
 		}
+		resources = append(resources, ob...)
 		clusterCacheStats = clusterCacheStats.merge(cs)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
 
-		// Setup inbound clusters -- todo need to implement delta here
+		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
@@ -132,18 +127,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		var ob []*discovery.Resource
 		var cs cacheStats
-		if delta {
-			ob, cs = configgen.buildOutboundClustersWithServices(cb, patcher, services)
-			// only add to list when we know the proxy is subscribed to this resource
-			for _, resource := range ob {
-				if contains(watched.ResourceNames, resource.Name) {
-					resources = append(resources, resource)
-				}
-			}
-		} else {
-			ob, cs = configgen.buildOutboundClusters(cb, patcher)
-			resources = append(resources, ob...)
-		}
+		ob, cs = configgen.buildOutboundClusters(cb, patcher)
+		resources = append(resources, ob...)
+		// todo deltas for gateways -- logic is different than that of sidecars
 		clusterCacheStats = clusterCacheStats.merge(cs)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
@@ -164,20 +150,21 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", clusterCacheStats.hits, clusterCacheStats.hits+clusterCacheStats.miss)}
 }
 
+func allConfigKeysOfType(keys []model.ConfigKey, cfg config.GroupVersionKind) bool {
+	for _, m := range keys {
+		if  m.Kind != cfg {
+			return false
+		}
+	}
+	return true
+}
+
 func configMapKeys(cfgs map[model.ConfigKey]struct{}) []model.ConfigKey {
 	keys := make([]model.ConfigKey, 0)
 	for k := range cfgs {
 		keys = append(keys, k)
 	}
 	return keys
-}
-
-func nameFromFQDN(fqdn string) string {
-	result := regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`).FindAllStringSubmatch(fqdn, -1)
-	if len(result) == 0 {
-		return ""
-	}
-	return result[0][1]
 }
 
 type cacheStats struct {
