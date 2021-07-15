@@ -856,27 +856,25 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 		if wi.Namespace != svc.Attributes.Namespace {
 			continue
 		}
-		if selector.SubsetOf(wi.Endpoint.Labels) {
-			// create an instance with endpoint whose service port name matches
-			istioEndpoint := *wi.Endpoint
-			if targetPortName != "" {
-				// This is a named port, find the corresponding port in the port map
-				matchedPort := wi.PortMap[targetPortName]
-				if matchedPort == 0 {
-					// No match found, skip this endpoint
-					continue
-				}
-				istioEndpoint.EndpointPort = matchedPort
-			} else {
-				istioEndpoint.EndpointPort = uint32(targetPort)
-			}
-			istioEndpoint.ServicePortName = servicePort.Name
-			out = append(out, &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: servicePort,
-				Endpoint:    &istioEndpoint,
-			})
+		if !selector.SubsetOf(wi.Endpoint.Labels) {
+			continue
 		}
+		// create an instance with endpoint whose service port name matches
+		istioEndpoint := *wi.Endpoint
+		if matchedPort, ok := wi.PortMap[targetPortName]; ok && matchedPort > 0 {
+			istioEndpoint.EndpointPort = matchedPort
+		} else if matchedPort, ok := wi.PortMap[servicePort.Name]; ok && matchedPort > 0 {
+			istioEndpoint.EndpointPort = matchedPort
+		} else {
+			istioEndpoint.EndpointPort = uint32(targetPort)
+		}
+
+		istioEndpoint.ServicePortName = servicePort.Name
+		out = append(out, &model.ServiceInstance{
+			Service:     svc,
+			ServicePort: servicePort,
+			Endpoint:    &istioEndpoint,
+		})
 	}
 	c.RUnlock()
 	return out
