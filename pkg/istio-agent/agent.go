@@ -405,26 +405,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
 	}
 
-	// Get and store the OS CA certificate path
-	var once sync.Once
-	once.Do(func() {
-		certFiles := []string{
-			"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
-			"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
-			"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
-			"/etc/pki/tls/cacert.pem",                           // OpenELEC
-			"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
-			"/etc/ssl/cert.pem",                                 // Alpine Linux
-			"/usr/local/etc/ssl/cert.pem",                       // FreeBSD
-		}
-
-		for _, cert := range certFiles {
-			if _, err := os.Stat(cert); err == nil {
-				a.secOpts.CARootPath = cert
-			}
-		}
-	})
-
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -353,4 +354,24 @@ func ExtractRequestToken(req *http.Request) (string, error) {
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
+}
+
+func GetOSRootPath() string {
+	// Get and store the OS CA certificate path
+	certFiles := []string{
+		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
+		"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
+		"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
+		"/etc/pki/tls/cacert.pem",                           // OpenELEC
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
+		"/etc/ssl/cert.pem",                                 // Alpine Linux
+		"/usr/local/etc/ssl/cert.pem",                       // FreeBSD
+	}
+
+	for _, cert := range certFiles {
+		if _, err := os.Stat(cert); err == nil {
+			return cert
+		}
+	}
+	return ""
 }
