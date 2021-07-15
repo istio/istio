@@ -16,7 +16,6 @@ package helm
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,32 +26,27 @@ import (
 // Helm allows clients to interact with helm commands in their cluster
 type Helm struct {
 	kubeConfig string
-	baseDir    string
 }
 
 // New returns a new instance of a helm object.
-func New(kubeConfig, baseWorkDir string) *Helm {
+func New(kubeConfig string) *Helm {
 	return &Helm{
 		kubeConfig: kubeConfig,
-		baseDir:    baseWorkDir,
 	}
 }
 
 // InstallChartWithValues installs the specified chart with its given name to the given namespace
-func (h *Helm) InstallChartWithValues(name, relpath, namespace string, values []string, timeout time.Duration) error {
-	p := filepath.Join(h.baseDir, relpath)
-
+func (h *Helm) InstallChartWithValues(name, chartPath, namespace string, values []string, timeout time.Duration) error {
 	command := fmt.Sprintf("helm install %s %s --namespace %s --kubeconfig %s --timeout %s %s",
-		name, p, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
+		name, chartPath, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
 	_, err := execCommand(command)
 	return err
 }
 
 // InstallChart installs the specified chart with its given name to the given namespace
-func (h *Helm) InstallChart(name, relpath, namespace, overridesFile string, timeout time.Duration) error {
-	p := filepath.Join(h.baseDir, relpath)
+func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, timeout time.Duration) error {
 	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s",
-		name, p, namespace, overridesFile, h.kubeConfig, timeout)
+		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout)
 	_, err := execCommand(command)
 	return err
 }
@@ -74,10 +68,9 @@ func (h *Helm) DeleteChart(name, namespace string) error {
 }
 
 // Template runs the template command and applies the generated file with kubectl
-func (h *Helm) Template(name, relpath, namespace, templateFile string, timeout time.Duration, args ...string) (string, error) {
-	p := filepath.Join(h.baseDir, relpath)
+func (h *Helm) Template(name, chartPath, namespace, templateFile string, timeout time.Duration, args ...string) (string, error) {
 	command := fmt.Sprintf("helm template %s %s --namespace %s -s %s --kubeconfig %s --timeout %s %s ",
-		name, p, namespace, templateFile, h.kubeConfig, timeout, strings.Join(args, " "))
+		name, chartPath, namespace, templateFile, h.kubeConfig, timeout, strings.Join(args, " "))
 
 	return execCommand(command)
 }
