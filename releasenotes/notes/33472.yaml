@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 33472
+releaseNotes:
+  - |
+    **Added** VerifyCertAtClient Environmental Variable to pilot. Setting VerifyCertAtClient to `true` will verify server certificates using the OS CA certificate.
