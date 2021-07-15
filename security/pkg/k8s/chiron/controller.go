@@ -208,7 +208,7 @@ func (wc *WebhookController) upsertSecret(secretName, dnsName, secretNamespace s
 	}
 
 	// Now we know the secret does not exist yet. So we create a new one.
-	chain, key, caCert, err := GenKeyCertK8sCA(wc.clientset, dnsName, secretName, secretNamespace, wc.k8sCaCertFile, wc.certIssuer)
+	chain, key, caCert, err := GenKeyCertK8sCA(wc.clientset, dnsName, secretName, secretNamespace, wc.k8sCaCertFile, wc.certIssuer, true)
 	if err != nil {
 		log.Errorf("failed to generate key and certificate for secret %v in namespace %v (error %v)",
 			secretName, secretNamespace, err)
@@ -329,7 +329,7 @@ func (wc *WebhookController) refreshSecret(scrt *v1.Secret) error {
 		return fmt.Errorf("failed to find the service name for the secret (%v) to refresh", scrtName)
 	}
 
-	chain, key, caCert, err := GenKeyCertK8sCA(wc.clientset, dnsName, scrtName, namespace, wc.k8sCaCertFile, wc.certIssuer)
+	chain, key, caCert, err := GenKeyCertK8sCA(wc.clientset, dnsName, scrtName, namespace, wc.k8sCaCertFile, wc.certIssuer, true)
 	if err != nil {
 		return err
 	}

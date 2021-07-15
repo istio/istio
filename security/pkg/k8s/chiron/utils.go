@@ -34,61 +34,21 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
 const (
-	maxNameLength       = 63
-	maxDomainNameLength = 6
-	maxNamespaceLength  = 8
-	maxSecretNameLength = 8
-	randomLength        = 18
-	csrRetriesMax       = 3
+	randomLength  = 18
+	csrRetriesMax = 3
 )
 
 type CsrNameGenerator func(string, string) string
 
 // GenCsrName : Generate CSR Name for Resource. Guarantees returning a resource name that doesn't already exist
-func GenCsrName(secretName, namespace string) string {
+func GenCsrName() string {
 	name := fmt.Sprintf("csr-workload-%s", rand.String(randomLength))
 	return name
-}
-
-// getRandomCsrName : returns a random name for CSR.
-func getRandomCsrName(secretName, namespace string) string {
-	domain := spiffe.GetTrustDomain()
-	if len(domain) > maxDomainNameLength {
-		domain = domain[:maxDomainNameLength]
-	}
-	if len(namespace) > maxNamespaceLength {
-		namespace = namespace[:maxNamespaceLength]
-	}
-	if len(secretName) > maxSecretNameLength {
-		secretName = secretName[:maxSecretNameLength]
-	}
-	name := fmt.Sprintf("csr-%s-%s-%s-%s",
-		domain, namespace, secretName, rand.String(randomLength))
-	if len(name) > maxNameLength {
-		name = name[:maxNameLength]
-	}
-	return name
-}
-
-func GetUniqueCsrName(csrCb CsrNameGenerator, client clientset.Interface, secretName, secretNamespace string) (string, error) {
-	var csrName string = ""
-	for retryCount := 0; retryCount < 10; retryCount++ {
-		csrName = csrCb(secretName, secretNamespace)
-		v1CsrReq, v1Beta1CsrReq := checkDuplicateCsr(client, csrName)
-		if v1CsrReq == nil && v1Beta1CsrReq == nil {
-			break
-		}
-	}
-	if csrName == "" {
-		return csrName, fmt.Errorf("exceeded retry attempt to generate unique csrName")
-	}
-	return csrName, nil
 }
 
 // GenKeyCertK8sCA : Generates a key pair and gets public certificate signed by K8s_CA
@@ -96,9 +56,9 @@ func GetUniqueCsrName(csrCb CsrNameGenerator, client clientset.Interface, secret
 // 1. Generate a CSR
 // 2. Call SignCSRK8sCA to finish rest of the flow
 func GenKeyCertK8sCA(client clientset.Interface, dnsName,
-	secretName, secretNamespace, caFilePath string, signerName string) ([]byte, []byte, []byte, error) {
+	secretName, secretNamespace, caFilePath string,
+	signerName string, approveCsr bool) ([]byte, []byte, []byte, error) {
 	// 1. Generate a CSR
-	var csrName string
 
 	options := util.CertOptions{
 		Host:       dnsName,
@@ -111,13 +71,6 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 		log.Errorf("CSR generation error (%v)", err)
 		return nil, nil, nil, err
 	}
-
-	csrName, err = GetUniqueCsrName(getRandomCsrName, client, secretName, secretNamespace)
-	if err != nil {
-		log.Errorf("CSR generation error (%v)", err)
-		return nil, nil, nil, err
-	}
-
 	usages := []certv1.KeyUsage{
 		certv1.UsageDigitalSignature,
 		certv1.UsageKeyEncipherment,
@@ -128,7 +81,8 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 		signerName = "kubernetes.io/legacy-unknown"
 	}
 	certChain, caCert, err := SignCSRK8s(client, csrPEM,
-		csrName, signerName, nil, usages, dnsName, caFilePath, true)
+		signerName, nil, usages, dnsName, caFilePath, approveCsr, true)
+
 	return certChain, keyPEM, caCert, err
 }
 
@@ -138,14 +92,16 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 // 3. Read the signed certificate
 // 4. Clean up the artifacts (e.g., delete CSR)
 func SignCSRK8s(client clientset.Interface,
-	csrData []byte, csrName string, signerName string, requestedDuration *time.Duration,
+	csrData []byte, signerName string, requestedDuration *time.Duration,
 	usages []certv1.KeyUsage,
-	dnsName, caFilePath string, appendCaCert bool) ([]byte, []byte, error) {
+	dnsName, caFilePath string,
+	approveCsr bool, appendCaCert bool) ([]byte, []byte, error) {
 	var err error
 	var v1Req bool = false
 
 	// 1. Submit the CSR
-	v1CsrReq, v1Beta1CsrReq, err := submitCSR(client, csrData, csrName, signerName, usages, csrRetriesMax)
+
+	csrName, v1CsrReq, v1Beta1CsrReq, err := submitCSR(client, csrData, signerName, usages, csrRetriesMax)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to submit CSR request (%v). Error: %v", csrName, err)
 	}
@@ -160,12 +116,14 @@ func SignCSRK8s(client clientset.Interface,
 	}()
 
 	// 2. Approve the CSR
-	csrMsg := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csrName, dnsName)
-	err = approveCSR(csrName, csrMsg, client, v1CsrReq, v1Beta1CsrReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to approve CSR request. Error: %v", err)
+	if approveCsr {
+		csrMsg := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csrName, dnsName)
+		err = approveCSR(csrName, csrMsg, client, v1CsrReq, v1Beta1CsrReq)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to approve CSR request. Error: %v", err)
+		}
+		log.Debugf("CSR (%v) is approved", csrName)
 	}
-	log.Debugf("CSR (%v) is approved", csrName)
 
 	// 3. Read the signed certificate
 	certChain, caCert, err := readSignedCertificate(client,
@@ -229,53 +187,68 @@ func reloadCACert(wc *WebhookController) (bool, error) {
 }
 
 func submitCSR(clientset clientset.Interface,
-	csrData []byte, csrName string, signerName string,
-	usages []certv1.KeyUsage, numRetries int) (*certv1.CertificateSigningRequest, *certv1beta1.CertificateSigningRequest, error) {
-	var err error = fmt.Errorf("unable to submit csr %s", csrName)
+	csrData []byte, signerName string,
+	usages []certv1.KeyUsage, numRetries int) (string, *certv1.CertificateSigningRequest, *certv1beta1.CertificateSigningRequest, error) {
+	var err error = fmt.Errorf("unable to submit csr")
+	var useV1 bool = true
+	var csrName string = ""
 
 	for i := 0; i < numRetries; i++ {
-		log.Debugf("trial %v to create CSR (%v)", i, csrName)
-		csr := &certv1.CertificateSigningRequest{
-			// Username, UID, Groups will be injected by API server.
-			TypeMeta: metav1.TypeMeta{Kind: "CertificateSigningRequest"},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: csrName,
-			},
-			Spec: certv1.CertificateSigningRequestSpec{
-				Request:    csrData,
-				Usages:     usages,
-				SignerName: signerName,
-			},
+		if csrName == "" {
+			csrName = GenCsrName()
 		}
-		if len(csr.Spec.Usages) > 0 && len(csr.Spec.SignerName) > 0 && csr.Spec.SignerName != "kubernetes.io/legacy-unknown" {
+		if useV1 && len(usages) > 0 && len(signerName) > 0 && signerName != "kubernetes.io/legacy-unknown" {
+			log.Debugf("trial %v using v1 api to create CSR (%v)", i, csrName)
+			csr := &certv1.CertificateSigningRequest{
+				// Username, UID, Groups will be injected by API server.
+				TypeMeta: metav1.TypeMeta{Kind: "CertificateSigningRequest"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: csrName,
+				},
+				Spec: certv1.CertificateSigningRequestSpec{
+					Request:    csrData,
+					Usages:     usages,
+					SignerName: signerName,
+				},
+			}
 			v1req, err := clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, metav1.CreateOptions{})
 			if err == nil {
-				return v1req, nil, nil
-			} else if !apierrors.IsNotFound(err) {
+				return csrName, v1req, nil, nil
+			} else if apierrors.IsAlreadyExists(err) {
+				csrName = ""
+				continue
+			} else if apierrors.IsNotFound(err) {
 				// don't attempt to use older api unless we get an API error
+				useV1 = false
+			} else {
 				continue
 			}
 		}
+		// Only exercise v1beta1 logic if v1 api was not found
 		log.Debugf("trial %v using v1beta1 api for csr %v", csrName)
 		// convert relevant bits to v1beta1
 		v1beta1csr := &certv1beta1.CertificateSigningRequest{
-			ObjectMeta: csr.ObjectMeta,
+			ObjectMeta: metav1.ObjectMeta{
+				Name: csrName,
+			},
 			Spec: certv1beta1.CertificateSigningRequestSpec{
-				SignerName: &csr.Spec.SignerName,
-				Request:    csr.Spec.Request,
+				SignerName: &signerName,
+				Request:    csrData,
 			},
 		}
-		for _, usage := range csr.Spec.Usages {
+		for _, usage := range usages {
 			v1beta1csr.Spec.Usages = append(v1beta1csr.Spec.Usages, certv1beta1.KeyUsage(usage))
 		}
 		// create v1beta1 certificate request
 		v1beta1req, err := clientset.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), v1beta1csr, metav1.CreateOptions{})
 		if err == nil {
-			return nil, v1beta1req, nil
+			return csrName, nil, v1beta1req, nil
+		} else if apierrors.IsAlreadyExists(err) {
+			csrName = ""
 		}
 	}
-	log.Errorf("failed to create csr %v: %v", csrName, err)
-	return nil, nil, err
+	log.Errorf("retry attempts exceeded when creating csr request %v: %v", csrName, err)
+	return "", nil, nil, err
 }
 
 func approveCSR(csrName string, csrMsg string, client clientset.Interface,

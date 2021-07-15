@@ -131,7 +131,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 	if features.PilotCertProvider == constants.CertProviderKubernetes {
 		log.Infof("Generating K8S-signed cert for %v", names)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,
-			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "")
+			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "", true)
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
 		}

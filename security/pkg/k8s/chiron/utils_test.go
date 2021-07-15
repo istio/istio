@@ -86,16 +86,6 @@ func defaultReactionFunc(obj runtime.Object) kt.ReactionFunc {
 	}
 }
 
-func TestGetRandomCsrName(t *testing.T) {
-	secretName := "very-long-secret-name-that-will-be-truncated"
-	namespaceName := "very-long-namespace-name-that-will-be-truncated"
-
-	csrName := getRandomCsrName(secretName, namespaceName)
-	if len(csrName) > maxNameLength {
-		t.Errorf("the csr name returned %v is longer than %v", csrName, maxNameLength)
-	}
-}
-
 func TestGenKeyCertK8sCA(t *testing.T) {
 	testCases := map[string]struct {
 		gracePeriodRatio  float32
@@ -137,7 +127,7 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		}
 
 		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], tc.secretNames[0],
-			tc.serviceNamespaces[0], wc.k8sCaCertFile, "testSigner")
+			tc.serviceNamespaces[0], wc.k8sCaCertFile, "testSigner", true)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -387,7 +377,6 @@ func TestSubmitCSR(t *testing.T) {
 			continue
 		}
 
-		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
 		numRetries := 3
 
 		usages := []cert.KeyUsage{
@@ -397,7 +386,7 @@ func TestSubmitCSR(t *testing.T) {
 			cert.UsageClientAuth,
 		}
 
-		r, _, err := submitCSR(wc.clientset, []byte("test-pem"), csrName, "test-signer",
+		_, r, _, err := submitCSR(wc.clientset, []byte("test-pem"), "test-signer",
 			usages, numRetries)
 		if tc.expectFail {
 			if err == nil {

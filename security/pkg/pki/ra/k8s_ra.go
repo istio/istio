@@ -47,15 +47,15 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 	return istioRA, nil
 }
 
-func (r *KubernetesRA) kubernetesSign(csrPEM []byte, csrName string, caCertFile string) ([]byte, error) {
+func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string) ([]byte, error) {
 	usages := []cert.KeyUsage{
 		cert.UsageDigitalSignature,
 		cert.UsageKeyEncipherment,
 		cert.UsageServerAuth,
 		cert.UsageClientAuth,
 	}
-	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, csrName, r.raOpts.CaSigner,
-		nil, usages, "", caCertFile, false)
+	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, r.raOpts.CaSigner,
+		nil, usages, "", caCertFile, true, false)
 	if err != nil {
 		return nil, raerror.NewError(raerror.CertGenError, err)
 	}
@@ -68,11 +68,7 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	csrName, err := chiron.GetUniqueCsrName(chiron.GenCsrName, r.raOpts.K8sClient, "", "")
-	if err != nil {
-		return nil, err
-	}
-	return r.kubernetesSign(csrPEM, csrName, r.raOpts.CaCertFile)
+	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.

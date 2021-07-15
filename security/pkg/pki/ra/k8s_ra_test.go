@@ -113,7 +113,7 @@ func createFakeK8sRA(client *fake.Clientset) (*KubernetesRA, error) {
 // TestK8sSign : Verify that ra.k8sSign returns a valid certPEM while using k8s Fake Client to create a CSR
 func TestK8sSign(t *testing.T) {
 	csrPEM := createFakeCsr(t)
-	csrName := chiron.GenCsrName("", "")
+	csrName := chiron.GenCsrName()
 	client := initFakeKubeClient(csrName)
 	r, err := createFakeK8sRA(client)
 	if err != nil {
@@ -131,7 +131,7 @@ func TestK8sSign(t *testing.T) {
 
 func TestValidateCSR(t *testing.T) {
 	csrPEM := createFakeCsr(t)
-	csrName := chiron.GenCsrName("", "")
+	csrName := chiron.GenCsrName()
 	client := initFakeKubeClient(csrName)
 	_, err := createFakeK8sRA(client)
 	if err != nil {
