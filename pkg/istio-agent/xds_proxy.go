@@ -282,6 +282,15 @@ type ProxyConnection struct {
 	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 }
 
+// safeSendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
+// block forever on
+func (con *ProxyConnection) safeSendRequest(req *discovery.DiscoveryRequest) {
+	select {
+	case con.requestsChan <- req:
+	case <-con.stopChan:
+	}
+}
+
 type adsStream interface {
 	Send(*discovery.DiscoveryResponse) error
 	Recv() (*discovery.DiscoveryRequest, error)
@@ -321,25 +330,25 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 				return
 			}
 			// forward to istiod
-			con.requestsChan <- req
+			con.safeSendRequest(req)
 			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
 				if _, f := p.handlers[v3.NameTableType]; f {
-					con.requestsChan <- &discovery.DiscoveryRequest{
+					con.safeSendRequest(&discovery.DiscoveryRequest{
 						TypeUrl: v3.NameTableType,
-					}
+					})
 				}
 				// fire off an initial PCDS request
 				if _, f := p.handlers[v3.ProxyConfigType]; f {
-					con.requestsChan <- &discovery.DiscoveryRequest{
+					con.safeSendRequest(&discovery.DiscoveryRequest{
 						TypeUrl: v3.ProxyConfigType,
-					}
+					})
 				}
 				// Fire of a configured initial request, if there is one
 				p.connectedMutex.RLock()
 				initialRequest := p.initialRequest
 				if initialRequest != nil {
-					con.requestsChan <- initialRequest
+					con.safeSendRequest(initialRequest)
 				}
 				p.connectedMutex.RUnlock()
 				initialRequestsSent = true
@@ -383,12 +392,15 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	go func() {
 		for {
 			// from istiod
-			resp, err := upstream.Recv()
+			resp, err := con.upstream.Recv()
 			if err != nil {
 				con.upstreamError <- err
 				return
 			}
-			con.responsesChan <- resp
+			select {
+			case con.responsesChan <- resp:
+			case <-con.stopChan:
+			}
 		}
 	}()
 
@@ -471,12 +483,12 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					}
 				}
 				// Send ACK/NACK
-				con.requestsChan <- &discovery.DiscoveryRequest{
+				con.safeSendRequest(&discovery.DiscoveryRequest{
 					VersionInfo:   resp.VersionInfo,
 					TypeUrl:       resp.TypeUrl,
 					ResponseNonce: resp.Nonce,
 					ErrorDetail:   errorResp,
-				}
+				})
 				continue
 			}
 			switch resp.TypeUrl {
@@ -505,7 +517,7 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 	sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
-		con.requestsChan <- &discovery.DiscoveryRequest{
+		con.safeSendRequest(&discovery.DiscoveryRequest{
 			VersionInfo:   p.ecdsLastAckVersion.Load(),
 			TypeUrl:       v3.ExtensionConfigurationType,
 			ResponseNonce: resp.Nonce,
@@ -513,7 +525,7 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 				// TODO(bianpengyuan): make error message more informative.
 				Message: "failed to fetch wasm module",
 			},
-		}
+		})
 		return
 	}
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
@@ -723,7 +735,7 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	defer p.tapMutex.Unlock()
 
 	// Send to Istiod
-	p.connected.requestsChan <- req
+	p.connected.safeSendRequest(req)
 
 	// Wait for expected response or timeout
 	for {
