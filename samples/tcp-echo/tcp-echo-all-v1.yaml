@@ -16,6 +16,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: tcp-echo-gateway
+  namespace: default
 spec:
   selector:
     istio: ingressgateway
@@ -31,6 +32,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: tcp-echo-destination
+  namespace: default
 spec:
   host: tcp-echo
   subsets:
@@ -45,6 +47,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: tcp-echo
+  namespace: default
 spec:
   hosts:
   - "*"

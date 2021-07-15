@@ -61,6 +61,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: istiod-dr
+  namespace: istio-system
 spec:
   host: istiod.istio-system.svc.cluster.local
   trafficPolicy:
