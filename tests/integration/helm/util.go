@@ -65,18 +65,18 @@ var TestDataChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/test
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
 func InstallIstio(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile, version string, installGateways bool) {
+	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateways bool) {
 	CreateNamespace(t, cs, IstioNamespace)
 
 	// Install base chart
-	err := h.InstallChart(BaseReleaseName, filepath.Join(TestDataChartPath, version, BaseChart+suffix),
+	err := h.InstallChart(BaseReleaseName, filepath.Join(relPath, version, BaseChart+suffix),
 		IstioNamespace, overrideValuesFile, Timeout)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", BaseChart)
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(IstiodReleaseName, filepath.Join(TestDataChartPath, version, ControlChartsDir, DiscoveryChart)+suffix,
+	err = h.InstallChart(IstiodReleaseName, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChart)+suffix,
 		IstioNamespace, overrideValuesFile, Timeout)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart", DiscoveryChart)
@@ -84,14 +84,14 @@ func InstallIstio(t test.Failer, cs cluster.Cluster,
 
 	if installGateways {
 		// Install ingress gateway chart
-		err = h.InstallChart(IngressReleaseName, filepath.Join(TestDataChartPath, version, GatewayChartsDir, IngressGatewayChart)+suffix,
+		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, IngressGatewayChart)+suffix,
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
 			t.Fatalf("failed to install istio %s chart", IngressGatewayChart)
 		}
 
 		// Install egress gateway chart
-		err = h.InstallChart(EgressReleaseName, filepath.Join(TestDataChartPath, version, GatewayChartsDir, EgressGatewayChart)+suffix,
+		err = h.InstallChart(EgressReleaseName, filepath.Join(relPath, version, GatewayChartsDir, EgressGatewayChart)+suffix,
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
 			t.Fatalf("failed to install istio %s chart", EgressGatewayChart)
