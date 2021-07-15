@@ -132,7 +132,8 @@ func cleanupIstio(cs cluster.Cluster, h *helm.Helm) error {
 // deleteIstioCanary deletes installed Istio Helm charts and resources
 func deleteIstioRevision(h *helm.Helm, revision string) error {
 	scopes.Framework.Infof("cleaning up revision resources (%s)", revision)
-	if err := h.DeleteChart(helmtest.IstiodReleaseName+"-"+revision, helmtest.IstioNamespace); err != nil {
+	name := helmtest.IstiodReleaseName+"-"+strings.ReplaceAll(revision, ".", "-")
+	if err := h.DeleteChart(name, helmtest.IstioNamespace); err != nil {
 		return fmt.Errorf("failed to delete %s revision", helmtest.IstiodReleaseName+revision)
 	}
 
