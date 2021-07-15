@@ -554,6 +554,8 @@ func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace
 	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
 	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
 
+	s.Generators["delta/" + v3.ClusterType] = &CdsGenerator{Server: s, Delta: true}
+
 	s.Generators["api"] = apigen.NewGenerator(env.IstioConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
 

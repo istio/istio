@@ -152,7 +152,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil, false)
+				c, _, _ = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no routes!")
 				}
@@ -166,7 +166,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 // update our benchmark doesn't become useless.
 func TestValidateTelemetry(t *testing.T) {
 	s, proxy := setupAndInitializeTest(t, ConfigInput{Name: "telemetry", Services: 1})
-	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil, false)
+	c, _, _ := s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
 	if len(c) == 0 {
 		t.Fatal("Got no clusters!")
 	}
@@ -192,7 +192,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil, false)
+				c, _, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
@@ -210,7 +210,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil, false)
+				c, _, _ = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no listeners!")
 				}
@@ -228,7 +228,7 @@ func BenchmarkNameTableGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil, false)
+				c, _, _ = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 && tt.ProxyType != model.Router {
 					b.Fatal("Got no name tables!")
 				}
@@ -271,7 +271,7 @@ func BenchmarkSecretGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true}, false)
+				c, _, _ = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
 				if len(c) == 0 {
 					b.Fatal("Got no secrets!")
 				}

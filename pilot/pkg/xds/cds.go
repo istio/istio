@@ -22,6 +22,7 @@ import (
 
 type CdsGenerator struct {
 	Server *DiscoveryServer
+	Delta bool
 }
 
 var _ model.XdsResourceGenerator = &CdsGenerator{}
@@ -68,13 +69,13 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	return false
 }
 
-func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest, delta bool) (model.Resources, model.XdsLogDetails, error) {
+func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// todo -- right now, we push some clusters (inbound for sidecars, passthrough and blackhole for sidecars and gateways) regardless.
 	// 	for delta, therefore, it doesn't make sense to check if we need to push on a per-resource basis, for now, scoping to a per-type basis should
 	// 	be a good first step.
 	if !cdsNeedsPush(updates, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, push, delta, updates, w)
+	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, push, c.Delta, updates, w)
 	return clusters, logs, nil
 }
