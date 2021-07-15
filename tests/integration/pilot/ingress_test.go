@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/env"
 	"net"
 	"path/filepath"
 	"testing"
@@ -30,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -611,9 +611,9 @@ gateways:
       istio: custom-gateway-helm
 `, rev)), 0o644)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
-				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
+				h := helm.New(cs.Filename())
 				// Install ingress gateway chart
-				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
+				if err := h.InstallChart("ingress", filepath.Join(env.IstioSrc, "manifests/charts/gateways/istio-ingress"), gatewayNs.Name(),
 					d, helmtest.Timeout); err != nil {
 					t.Fatal(err)
 				}
