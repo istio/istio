@@ -214,6 +214,11 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 		retryBackoffTime := firstRetryBackOffTime
 		startTime := time.Now()
 		var resp *http.Response
+		defer func() {
+			if resp != nil {
+				resp.Body.Close()
+			}
+		}()
 		for {
 			resp, err = httpClient.Get(endpoint)
 			var errMsg string
@@ -239,7 +244,6 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 			time.Sleep(retryBackoffTime)
 			retryBackoffTime *= 2 // Exponentially increase the retry backoff time.
 		}
-		defer resp.Body.Close()
 
 		doc := new(bundleDoc)
 		if err := json.NewDecoder(resp.Body).Decode(doc); err != nil {
