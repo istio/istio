@@ -18,6 +18,7 @@ data:
           "name": "istio-cni",
           "type": "istio-cni",
           "log_level": {{ quote .Values.cni.logLevel }},
+          "log_uds_address": "__LOG_UDS_ADDRESS__", 
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
               "cni_bin_dir": {{ quote .Values.cni.cniBinDir }},
