@@ -2386,12 +2386,12 @@ spec:
                     local:
                       inline_string: "envoy.wasm.stats"
 ---
-# Source: istio-discovery/templates/telemetryv2_1.9.yaml
+# Source: istio-discovery/templates/telemetryv2_1.12.yaml
 # Note: metadata exchange filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: metadata-exchange-1.9
+  name: metadata-exchange-1.12
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -2403,7 +2403,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2430,7 +2430,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2457,7 +2457,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2481,11 +2481,11 @@ spec:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
 ---
-# Source: istio-discovery/templates/telemetryv2_1.9.yaml
+# Source: istio-discovery/templates/telemetryv2_1.12.yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-metadata-exchange-1.9
+  name: tcp-metadata-exchange-1.12
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -2495,7 +2495,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener: {}
       patch:
         operation: INSERT_BEFORE
@@ -2510,7 +2510,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -2526,7 +2526,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         cluster: {}
       patch:
         operation: MERGE
@@ -2539,12 +2539,12 @@ spec:
               value:
                 protocol: istio-peer-exchange
 ---
-# Source: istio-discovery/templates/telemetryv2_1.9.yaml
+# Source: istio-discovery/templates/telemetryv2_1.12.yaml
 # Note: http stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.9
+  name: stats-filter-1.12
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -2554,7 +2554,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2576,15 +2576,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -2596,7 +2588,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2619,6 +2611,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
+                      "disable_host_header_fallback": true,
                       "metrics": [
                         {
                           "dimensions": {
@@ -2638,7 +2631,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2661,15 +2654,7 @@ spec:
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
-                      "disable_host_header_fallback": true,
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "disable_host_header_fallback": true
                     }
                 vm_config:
                   vm_id: stats_outbound
@@ -2678,12 +2663,12 @@ spec:
                     local:
                       inline_string: envoy.wasm.stats
 ---
-# Source: istio-discovery/templates/telemetryv2_1.9.yaml
+# Source: istio-discovery/templates/telemetryv2_1.12.yaml
 # Note: tcp stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.9
+  name: tcp-stats-filter-1.12
   namespace: istio-system
   labels:
     istio.io/rev: default
@@ -2693,7 +2678,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2733,7 +2718,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2753,15 +2738,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
@@ -2773,7 +2750,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.9.*'
+          proxyVersion: '^1\.12.*'
         listener:
           filterChain:
             filter:
@@ -2793,15 +2770,7 @@ spec:
                   value: |
                     {
                       "debug": "false",
-                      "stat_prefix": "istio",
-                      "metrics": [
-                        {
-                          "dimensions": {
-                            "source_cluster": "node.metadata['CLUSTER_ID']",
-                            "destination_cluster": "upstream_peer.cluster_id"
-                          }
-                        }
-                      ]
+                      "stat_prefix": "istio"
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
