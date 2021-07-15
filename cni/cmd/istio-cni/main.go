@@ -29,13 +29,15 @@ import (
 )
 
 func main() {
-	loggingOptions := log.DefaultOptions()
-	loggingOptions.OutputPaths = []string{"stderr"}
-	loggingOptions.JSONEncoding = true
-	if err := log.Configure(loggingOptions); err != nil {
+	if err := log.Configure(plugin.GetLoggingOptions("")); err != nil {
 		os.Exit(1)
 	}
 	// TODO: implement plugin version
 	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
 		fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
+	// Log sync will send logs to install-cni container via UDS.
+	// We don't need a timeout here because underlying the log pkg already handles it.
+	if err := log.Sync(); err != nil {
+		log.Errorf("Failed to sync logs %v", err)
+	}
 }

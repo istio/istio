@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var dryRunFilePath = env.RegisterStringVar("DRY_RUN_FILE_PATH", "",
@@ -35,7 +36,7 @@ func newIPTables() InterceptRuleMgr {
 
 // Program defines a method which programs iptables based on the parameters
 // provided in Redirect.
-func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
+func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.CNIMode, true)
 	viper.Set(constants.NetworkNamespace, netns)
 	viper.Set(constants.EnvoyPort, rdrct.targetPort)
@@ -53,6 +54,8 @@ func (ipt *iptables) Program(netns string, rdrct *Redirect) error {
 	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
 	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
 	iptablesCmd := cmd.GetCommand()
+	log.Infof("============= Start iptables configuration for %v =============", podName)
+	defer log.Infof("============= End iptables configuration for %v =============", podName)
 	if err := iptablesCmd.Execute(); err != nil {
 		return err
 	}

@@ -103,7 +103,7 @@ func init() {
 	testAnnotations[sidecarStatusKey] = "true"
 }
 
-func (mrdir *mockInterceptRuleMgr) Program(netns string, redirect *Redirect) error {
+func (mrdir *mockInterceptRuleMgr) Program(podName, netns string, redirect *Redirect) error {
 	nsenterFuncCalled = true
 	mrdir.lastRedirect = append(mrdir.lastRedirect, redirect)
 	return nil
