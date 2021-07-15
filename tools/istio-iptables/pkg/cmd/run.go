@@ -48,7 +48,7 @@ var opsToString = map[Ops]string{
 }
 
 type IptablesConfigurator struct {
-	iptables *builder.IptablesBuilderImpl
+	iptables *builder.IptablesBuilder
 	// TODO(abhide): Fix dep.Dependencies with better interface
 	ext dep.Dependencies
 	cfg *config.Config
@@ -602,7 +602,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 }
 
 type UDPRuleApplier struct {
-	iptables *builder.IptablesBuilderImpl
+	iptables *builder.IptablesBuilder
 	ext      dep.Dependencies
 	ops      Ops
 	table    string
@@ -634,7 +634,7 @@ func (f UDPRuleApplier) WithTable(table string) UDPRuleApplier {
 // HandleDNSUDP is a helper function to tackle with DNS UDP specific operations.
 // This helps the creation logic of DNS UDP rules in sync with the deletion.
 func HandleDNSUDP(
-	ops Ops, iptables *builder.IptablesBuilderImpl, ext dep.Dependencies,
+	ops Ops, iptables *builder.IptablesBuilder, ext dep.Dependencies,
 	cmd, proxyUID, proxyGID string, dnsServersV4 []string, captureAllDNS bool) {
 	f := UDPRuleApplier{
 		iptables: iptables,
