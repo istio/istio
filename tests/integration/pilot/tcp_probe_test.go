@@ -13,24 +13,23 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package security
+package pilot
 
 import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
-func TestTcpHealthCheck(t *testing.T) {
+func TestTcpProbe(t *testing.T) {
 	framework.NewTest(t).
-		Features("tcp.healthcheck").
+		Features("usability.observability.tcp-probe").
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "healthcheck", Inject: true})
+			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "tcp-probe", Inject: true})
 			for _, testCase := range []struct {
 				name    string
 				rewrite bool
@@ -40,41 +39,36 @@ func TestTcpHealthCheck(t *testing.T) {
 				{name: "rewrite-fail", rewrite: true, success: false},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
-					runHealthCheckDeployment(t, ns, testCase.name, testCase.rewrite, testCase.success)
+					runTcpProbeDeployment(t, ns, testCase.name, testCase.rewrite, testCase.success)
 				})
 			}
 		})
 }
 
-func runHealthCheckDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
+func runTcpProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
 	name string, rewrite bool, wantSuccess bool) {
 	ctx.Helper()
 
-	var healthcheck echo.Instance
-	cfg := echo.Config{ //FIXME: liveness probe of app must use tcpSocket and use a port that the app does not open
-		Namespace: ns,
-		Service:   name,
-		Ports: []echo.Port{{
-			Name:         "http-8080",
-			Protocol:     protocol.HTTP,
-			ServicePort:  8080,
-			InstancePort: 8080,
-		}},
+	var tcpProbe echo.Instance
+	cfg := echo.Config{
+		Namespace:                  ns,
+		Service:                    name,
+		AlternativeTcpLivenessPort: "1234", // this port must not be opened from the app
 		Subsets: []echo.SubsetConfig{
 			{
 				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
 			},
 		},
 	}
-	// Negative test, we expect the health check fails, so set a timeout duration.
+	// Negative test, we expect the tcp liveness check fails, so set a timeout duration.
 	if !wantSuccess {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
 	_, err := echoboot.NewBuilder(ctx).
-		With(&healthcheck, cfg).
+		With(&tcpProbe, cfg).
 		Build()
 	gotSuccess := err == nil
 	if gotSuccess != wantSuccess {
-		ctx.Errorf("health check app %v, got error %v, want success = %v", name, err, wantSuccess)
+		ctx.Errorf("tcpProbe app %v, got error %v, want success = %v", name, err, wantSuccess)
 	}
 }
