@@ -334,7 +334,6 @@ func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
 	values := fmt.Sprintf(`
 global:
   istioNamespace: %s
-  externalIstiod: true
 `, opt.Namespace)
 
 	// Render the templates required for the service account and role bindings.
