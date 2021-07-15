@@ -2433,9 +2433,14 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 }
 
 func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
+	switch sm.GetMatchType().(type) {
+	case *networking.StringMatch_Regex:
+	default:
+		return nil
+	}
 	re := sm.GetRegex()
 	if re == "" {
-		return nil
+		return fmt.Errorf("%q: regex string match should not be empty", where)
 	}
 
 	_, err := regexp.Compile(re)
