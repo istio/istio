@@ -80,6 +80,7 @@ var rootCmd = &cobra.Command{
 func constructConfig() *config.Config {
 	cfg := &config.Config{
 		DryRun:                  viper.GetBool(constants.DryRun),
+		TraceLogging:            viper.GetBool(constants.TraceLogging),
 		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
 		ProxyPort:               viper.GetString(constants.EnvoyPort),
 		InboundCapturePort:      viper.GetString(constants.InboundCapturePort),
@@ -267,6 +268,11 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.DryRun, false)
 
+	if err := viper.BindPFlag(constants.TraceLogging, cmd.Flags().Lookup(constants.TraceLogging)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.TraceLogging, false)
+
 	if err := viper.BindPFlag(constants.RestoreFormat, cmd.Flags().Lookup(constants.RestoreFormat)); err != nil {
 		handleError(err)
 	}
@@ -372,6 +378,8 @@ func init() {
 	rootCmd.Flags().StringP(constants.InboundTProxyRouteTable, "r", "", "")
 
 	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
+
+	rootCmd.Flags().Bool(constants.TraceLogging, false, "Insert tracing logs for each iptables rules, using the LOG chain.")
 
 	rootCmd.Flags().BoolP(constants.RestoreFormat, "f", true, "Print iptables rules in iptables-restore interpretable format")
 

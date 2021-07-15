@@ -222,6 +222,12 @@ func TestIptables(t *testing.T) {
 				cfg.ExcludeInterfaces = "not-istio-nic"
 			},
 		},
+		{
+			"logging",
+			func(cfg *config.Config) {
+				cfg.TraceLogging = true
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

@@ -36,6 +36,7 @@ require (
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.5.0
 	github.com/fatih/color v1.12.0
+	github.com/florianl/go-nflog/v2 v2.0.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.2
