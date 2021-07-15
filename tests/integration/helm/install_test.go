@@ -68,7 +68,7 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 			t.Fatal("failed to create test directory")
 		}
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
-		h := helm.New(cs.Filename(), ChartPath)
+		h := helm.New(cs.Filename(), ManifestsChartPath)
 		s, err := image.SettingsFromCommandLine()
 		if err != nil {
 			t.Fatal(err)
