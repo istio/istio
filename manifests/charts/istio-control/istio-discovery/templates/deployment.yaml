@@ -60,6 +60,9 @@ spec:
 {{- end }}
       securityContext:
         fsGroup: 1337
+      {{- if .Values.istiod.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.pilot.image }}
