@@ -90,8 +90,8 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 	if cidrList == "*" {
 		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
 	}
-	ipv6Ranges := NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}
-	ipv4Ranges := NetworkRange{IsWildcard: false, IPNets: make([]*net.IPNet, 0)}
+	ipv6Ranges := NetworkRange{}
+	ipv4Ranges := NetworkRange{}
 	for _, ipRange := range split(cidrList) {
 		ip, ipNet, err := net.ParseCIDR(ipRange)
 		if err != nil {
