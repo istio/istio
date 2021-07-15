@@ -2935,6 +2935,13 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 			}
 			servicePortNumbers[port.Number] = true
+			if port.TargetPort != 0 {
+				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
+			}
+			errs = appendValidation(errs,
+				ValidatePortName(port.Name),
+				ValidateProtocol(port.Protocol),
+				ValidatePort(int(port.Number)))
 		}
 
 		switch serviceEntry.Resolution {
@@ -3036,17 +3043,6 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if !canDifferentiate {
 				errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
 			}
-		}
-
-		for _, port := range serviceEntry.Ports {
-			if port == nil {
-				errs = appendValidation(errs, errors.New("port may not be null"))
-				continue
-			}
-			errs = appendValidation(errs,
-				ValidatePortName(port.Name),
-				ValidateProtocol(port.Protocol),
-				ValidatePort(int(port.Number)))
 		}
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))

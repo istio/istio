@@ -4317,6 +4317,37 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "repeat target port", in: networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
+					{Number: 81, Protocol: "http", Name: "http-valid2", TargetPort: 80},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "valid target port", in: networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "invalid target port", in: networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
