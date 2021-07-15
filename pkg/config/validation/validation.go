@@ -2329,7 +2329,7 @@ func routeName(route interface{}, routen int) string {
 func requestName(match interface{}, matchn int) string {
 	switch mr := match.(type) {
 	case *networking.HTTPMatchRequest:
-		if mr.Name != "" {
+		if mr != nil && mr.Name != "" {
 			return fmt.Sprintf("%q", mr.Name)
 		}
 

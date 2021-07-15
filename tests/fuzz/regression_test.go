@@ -19,9 +19,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/test/env"
 )
 
 // baseCases contains a few trivial test cases to do a very brief sanity check of a test
@@ -75,7 +78,37 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	}
 }
 
+func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
+	var matches []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if filepath.Base(path) == "regression_test.go" {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		bytes, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		matched := pattern.FindAllString(string(bytes), -1)
+		for _, m := range matched {
+			// Add the match, with trailing ( and previous `func ` stripped
+			matches = append(matches, m[5:len(m)-1])
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return matches, nil
+}
+
 func TestFuzzers(t *testing.T) {
+	testedFuzzers := sets.NewSet()
 	cases := []struct {
 		name   string
 		fuzzer func([]byte) int
@@ -86,17 +119,32 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzParseMeshNetworks", FuzzParseMeshNetworks},
 		{"FuzzValidateMeshConfig", FuzzValidateMeshConfig},
 		{"FuzzInitContext", FuzzInitContext},
-		{"FuzzCompareDiff", FuzzCompareDiff},
 		{"FuzzXds", FuzzXds},
 		{"FuzzAnalyzer", FuzzAnalyzer},
 		{"FuzzCompareDiff", FuzzCompareDiff},
 		{"FuzzHelmReconciler", FuzzHelmReconciler},
 		{"FuzzIntoResourceFile", FuzzIntoResourceFile},
 		{"FuzzTranslateFromValueToSpec", FuzzTranslateFromValueToSpec},
+		{"FuzzConfigValidation2", FuzzConfigValidation2},
 	}
 	for _, tt := range cases {
+		if testedFuzzers.Contains(tt.name) {
+			t.Fatalf("dupliate fuzzer test %v", tt.name)
+		}
+		testedFuzzers.Insert(tt.name)
 		t.Run(tt.name, func(t *testing.T) {
 			runRegressionTest(t, tt.name, tt.fuzzer)
 		})
 	}
+	t.Run("completeness", func(t *testing.T) {
+		match := regexp.MustCompile(`func Fuzz.+\(`)
+		fuzzers, err := walkMatch(filepath.Join(env.IstioSrc, "tests/fuzz"), match)
+		if err != nil {
+			t.Fatal(err)
+		}
+		allFuzzers := sets.NewSet(fuzzers...)
+		if !allFuzzers.Equals(testedFuzzers) {
+			t.Fatalf("Not all fuzzers are tested! Missing %v", allFuzzers.Difference(testedFuzzers))
+		}
+	})
 }
