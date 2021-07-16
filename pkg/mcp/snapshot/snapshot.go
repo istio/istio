@@ -122,7 +122,9 @@ func (c *Cache) Watch(
 			pushResponse(response)
 			return nil
 		}
+		info.mu.Lock()
 		info.synced[request.Collection][peerAddr] = true
+		info.mu.Unlock()
 	}
 
 	// Otherwise, open a watch if no snapshot was available or the requested version is up-to-date.
@@ -157,11 +159,14 @@ func (c *Cache) fillStatus(group string, request *source.Request, peerAddr strin
 		}
 		peerStatus := make(map[string]bool)
 		peerStatus[peerAddr] = false
+		info.mu.Lock()
 		info.synced[request.Collection] = peerStatus
+		info.mu.Unlock()
 		c.status[group] = info
 	} else {
 		collectionExists := false
 		peerExists := false
+		info.mu.Lock()
 		for collection, synced := range info.synced {
 			if collection == request.Collection {
 				collectionExists = true
@@ -185,6 +190,7 @@ func (c *Cache) fillStatus(group string, request *source.Request, peerAddr strin
 		if !peerExists {
 			info.synced[request.Collection][peerAddr] = false
 		}
+		info.mu.Unlock()
 	}
 
 	// update last responseWatch request time
