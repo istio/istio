@@ -21,8 +21,10 @@ import (
 	"github.com/yl2chen/cidranger"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/pkg/log"
 )
 
@@ -216,31 +218,79 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 		return false
 	}
 	for _, svc := range svcs {
+		if c.isNodePortGatewayService(svc) && svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal {
+			endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname)
+			if features.EnableK8SServiceSelectWorkloadEntries {
+				fep := c.collectWorkloadInstanceEndpoints(svc)
+				endpoints = append(endpoints, fep...)
+			}
+			nodesWithEndpoints := getWorkloadNodeLocations(endpoints)
+			log.Debugf("---> svc:%s nodesWithEndpoints = %#v", svc.Hostname, nodesWithEndpoints)
+			c.Lock()
+			c.serviceToWorkloadNodesMap[svc.Hostname] = nodesWithEndpoints
+			c.Unlock()
+		}
+
 		c.RLock()
 		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 		c.RUnlock()
+
 		// update external address
-		svc.Mutex.Lock()
-		if nodeSelector == nil {
-			var extAddresses []string
-			for _, n := range c.nodeInfoMap {
-				extAddresses = append(extAddresses, n.address)
-			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
-		} else {
-			var nodeAddresses []string
-			for _, n := range c.nodeInfoMap {
-				if nodeSelector.SubsetOf(n.labels) {
-					nodeAddresses = append(nodeAddresses, n.address)
-				}
-			}
-			svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
-		}
-		svc.Mutex.Unlock()
+
+		c.updateClusterExternalAddressesForNodePortServices(nodeSelector, svc)
+
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
 	}
 	return true
+}
+
+func getWorkloadNodeLocations(endpoints []*model.IstioEndpoint) map[string]struct{} {
+	nodesWithEndpoints := make(map[string]struct{})
+	for _, ep := range endpoints {
+		nodeName := ep.NodeName
+		if nodeName == "" {
+			continue
+		}
+		nodesWithEndpoints[nodeName] = struct{}{}
+	}
+	return nodesWithEndpoints
+}
+
+func (c *Controller) updateClusterExternalAddressesForNodePortServices(nodeSelector labels.Instance, svc *model.Service) {
+	svc.Mutex.Lock()
+	defer svc.Mutex.Unlock()
+	if nodeSelector == nil {
+		var extAddresses []string
+		for nodeName, n := range c.nodeInfoMap {
+			// When traffic policy is set to local, add the cluster external address if and only
+			// if there is at least one workload/pod on that node. Otherwise, the traffic will be
+			// dropped leading to bad end-user experience and weird intermittent issues.
+			if svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal &&
+				!c.containsWorkloadForLocalTrafficService(svc, nodeName) {
+				continue
+			}
+			extAddresses = append(extAddresses, n.address)
+		}
+		svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: extAddresses}
+	} else {
+		var nodeAddresses []string
+		for nodeName, n := range c.nodeInfoMap {
+			if nodeSelector.SubsetOf(n.labels) {
+				if svc.Attributes.ExternalTrafficPolicy == model.ExternalTrafficPolicyLocal &&
+					!c.containsWorkloadForLocalTrafficService(svc, nodeName) {
+					continue
+				}
+				nodeAddresses = append(nodeAddresses, n.address)
+			}
+		}
+		svc.Attributes.ClusterExternalAddresses = map[string][]string{c.clusterID: nodeAddresses}
+	}
+}
+
+func (c *Controller) containsWorkloadForLocalTrafficService(svc *model.Service, nodeName string) bool {
+	_, f := c.serviceToWorkloadNodesMap[svc.Hostname][nodeName]
+	return f
 }
 
 // getNodePortServices returns nodePort type gateway service
@@ -256,4 +306,11 @@ func (c *Controller) getNodePortGatewayServices() []*model.Service {
 	}
 
 	return out
+}
+
+func (c *Controller) isNodePortGatewayService(svc *model.Service) bool {
+	c.RLock()
+	defer c.RUnlock()
+	_, f := c.nodeSelectorsForServices[svc.Hostname]
+	return f && c.servicesMap[svc.Hostname] != nil
 }

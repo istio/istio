@@ -324,6 +324,8 @@ const (
 	DebugTrigger TriggerReason = "debug"
 	// Describes a push triggered for a Secret change
 	SecretTrigger TriggerReason = "secret"
+	// Describes a push triggered due to node event
+	NodeTrigger TriggerReason = "node"
 )
 
 // Merge two update requests together

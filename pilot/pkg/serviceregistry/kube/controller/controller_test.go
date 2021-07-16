@@ -24,6 +24,8 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	coreV1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -434,8 +436,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			if len(metaServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(metaServices))
 			}
-			if !reflect.DeepEqual(expected, metaServices[0]) {
-				t.Fatalf("expected instance %v, got %v", expected, metaServices[0])
+			if diff := cmp.Diff(expected, metaServices[0], cmpopts.IgnoreFields(model.Service{}, "Mutex")); diff != "" {
+				t.Fatalf("expected instance %v, got %v.\nDiff=%s", expected, metaServices[0], diff)
 			}
 
 			// Test that we first look up instances by Proxy pod
@@ -495,13 +497,14 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod2",
 					Namespace:      "nsa",
+					NodeName:       "node1",
 				},
 			}
 			if len(podServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
-			if !reflect.DeepEqual(expected, podServices[0]) {
-				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
+			if diff := cmp.Diff(expected, podServices[0], cmpopts.IgnoreFields(model.Service{}, "Mutex")); diff != "" {
+				t.Fatalf("expected instance %v, got %v\nDiff=%s", expected, podServices[0], diff)
 			}
 
 			// 2. pod with `istio-locality` label, ignore node label.
@@ -556,13 +559,14 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod3",
 					Namespace:      "nsa",
+					NodeName:       "node1",
 				},
 			}
 			if len(podServices) != 1 {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
-			if !reflect.DeepEqual(expected, podServices[0]) {
-				t.Fatalf("expected instance %v, got %v", expected, podServices[0])
+			if diff := cmp.Diff(expected, podServices[0], cmpopts.IgnoreFields(model.Service{}, "Mutex")); diff != "" {
+				t.Fatalf("expected instance %v, got %v\nDiff=%s", expected, podServices[0], diff)
 			}
 		})
 	}

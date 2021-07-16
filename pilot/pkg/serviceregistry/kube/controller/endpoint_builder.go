@@ -28,7 +28,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-// A stateful IstioEndpoint builder with metadata used to build IstioEndpoint
+// EndpointBuilder is a stateful IstioEndpoint builder with metadata used to build IstioEndpoint
 type EndpointBuilder struct {
 	controller controllerInterface
 
@@ -39,16 +39,18 @@ type EndpointBuilder struct {
 	tlsMode        string
 	workloadName   string
 	namespace      string
+	nodeName       string
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, wn, namespace := "", "", "", ""
+	locality, sa, wn, namespace, nodeName := "", "", "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod)
 		podLabels = pod.Labels
 		namespace = pod.Namespace
+		nodeName = pod.Spec.NodeName
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
 	if dm != nil {
@@ -66,6 +68,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		tlsMode:      kube.PodTLSMode(pod),
 		workloadName: wn,
 		namespace:    namespace,
+		nodeName:     nodeName,
 	}
 }
 
@@ -128,6 +131,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		Network:         b.endpointNetwork(endpointAddress),
 		WorkloadName:    b.workloadName,
 		Namespace:       b.namespace,
+		NodeName:        b.nodeName,
 	}
 }
 
