@@ -295,7 +295,6 @@ func (con *ProxyConnection) safeSendRequest(req *discovery.DiscoveryRequest) {
 	select {
 	case con.requestsChan <- req:
 	case <-con.stopChan:
-		log.Errorf("howardjohn: send stopped request")
 	}
 }
 
@@ -408,7 +407,6 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			select {
 			case con.responsesChan <- resp:
 			case <-con.stopChan:
-				log.Errorf("howardjohn: stop response")
 			}
 		}
 	}()
