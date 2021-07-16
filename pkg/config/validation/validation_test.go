@@ -1091,14 +1091,9 @@ func TestValidateServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateServer(tt.in)
-			if err == nil && tt.out != "" {
-				t.Fatalf("validateServer(%v) = nil, wanted %q", tt.in, tt.out)
-			} else if err != nil && tt.out == "" {
-				t.Fatalf("validateServer(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
-				t.Fatalf("validateServer(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
+			v := validateServer(tt.in)
+			warn, err := v.Unwrap()
+			checkValidationMessage(t, warn, err, "", tt.out)
 		})
 	}
 }
@@ -1164,11 +1159,12 @@ func TestValidateServerPort(t *testing.T) {
 
 func TestValidateTlsOptions(t *testing.T) {
 	tests := []struct {
-		name string
-		in   *networking.ServerTLSSettings
-		out  string
+		name    string
+		in      *networking.ServerTLSSettings
+		out     string
+		warning string
 	}{
-		{"empty", &networking.ServerTLSSettings{}, ""},
+		{"empty", &networking.ServerTLSSettings{}, "", ""},
 		{
 			"simple",
 			&networking.ServerTLSSettings{
@@ -1176,7 +1172,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple with client bundle",
@@ -1186,7 +1182,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple sds with client bundle",
@@ -1197,7 +1193,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple no server cert",
@@ -1206,7 +1202,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 			},
-			"server certificate",
+			"server certificate", "",
 		},
 		{
 			"simple no private key",
@@ -1215,7 +1211,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "",
 			},
-			"private key",
+			"private key", "",
 		},
 		{
 			"simple sds no server cert",
@@ -1225,7 +1221,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple sds no private key",
@@ -1235,7 +1231,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual",
@@ -1245,7 +1241,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual sds",
@@ -1256,7 +1252,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual no server cert",
@@ -1266,7 +1262,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"server certificate",
+			"server certificate", "",
 		},
 		{
 			"mutual sds no server cert",
@@ -1277,7 +1273,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual no client CA bundle",
@@ -1287,7 +1283,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "",
 			},
-			"client CA bundle",
+			"client CA bundle", "",
 		},
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
 		// and both are absent, but requires less rewriting of the testing harness than merging the cases
@@ -1299,7 +1295,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"server certificate",
+			"server certificate", "",
 		},
 		{
 			"mutual no certs",
@@ -1309,7 +1305,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"private key",
+			"private key", "",
 		},
 		{
 			"mutual no certs",
@@ -1319,7 +1315,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"client CA bundle",
+			"client CA bundle", "",
 		},
 		{
 			"pass through sds no certs",
@@ -1329,7 +1325,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"istio_mutual no certs",
@@ -1339,7 +1335,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"",
+			"", "",
 		},
 		{
 			"istio_mutual with server cert",
@@ -1347,7 +1343,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 			},
-			"cannot have associated server cert",
+			"cannot have associated server cert", "",
 		},
 		{
 			"istio_mutual with client bundle",
@@ -1357,7 +1353,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"cannot have associated",
+			"cannot have associated", "",
 		},
 		{
 			"istio_mutual with private key",
@@ -1365,20 +1361,41 @@ func TestValidateTlsOptions(t *testing.T) {
 				Mode:       networking.ServerTLSSettings_ISTIO_MUTUAL,
 				PrivateKey: "Khan Noonien Singh",
 			},
-			"cannot have associated private key",
+			"cannot have associated private key", "",
+		},
+		{
+			"invalid cipher suites",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"not-a-cipher-suite"},
+			},
+			"", "not-a-cipher-suite",
+		},
+		{
+			"valid cipher suites",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"ECDHE-ECDSA-AES128-SHA"},
+			},
+			"", "",
+		},
+		{
+			"cipher suites operations",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"-ECDHE-ECDSA-AES128-SHA"},
+			},
+			"", "",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateTLSOptions(tt.in)
-			if err == nil && tt.out != "" {
-				t.Fatalf("validateTlsOptions(%v) = nil, wanted %q", tt.in, tt.out)
-			} else if err != nil && tt.out == "" {
-				t.Fatalf("validateTlsOptions(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
-				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
+			v := validateTLSOptions(tt.in)
+			warn, err := v.Unwrap()
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
 }
