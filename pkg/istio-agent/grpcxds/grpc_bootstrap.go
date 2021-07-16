@@ -17,6 +17,7 @@ package grpcxds
 import (
 	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
 	"io/ioutil"
 	"os"
 	"path"
@@ -58,10 +59,10 @@ type CertificateProvider struct {
 const FileWatcherCertProviderName = "file_watcher"
 
 type FileWatcherCertProviderConfig struct {
-	CertificateFile   string               `json:"certificate_file,omitempty"`
-	PrivateKeyFile    string               `json:"private_key_file,omitempty"`
-	CACertificateFile string               `json:"ca_certificate_file,omitempty"`
-	RefreshDuration   *durationpb.Duration `json:"refresh_interval,omitempty"`
+	CertificateFile   string          `json:"certificate_file,omitempty"`
+	PrivateKeyFile    string          `json:"private_key_file,omitempty"`
+	CACertificateFile string          `json:"ca_certificate_file,omitempty"`
+	RefreshDuration   json.RawMessage `json:"refresh_interval,omitempty"`
 }
 
 func (c *FileWatcherCertProviderConfig) FilePaths() []string {
@@ -134,6 +135,12 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 	}
 
 	if opts.CertDir != "" {
+		// TODO use a more appropriate interval
+		refresh, err := protojson.Marshal(durationpb.New(15 * time.Minute))
+		if err != nil {
+			return nil, err
+		}
+
 		bootstrap.CertProviders = map[string]CertificateProvider{
 			"default": {
 				PluginName: "file_watcher",
@@ -141,8 +148,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 					PrivateKeyFile:    path.Join(opts.CertDir, "key.pem"),
 					CertificateFile:   path.Join(opts.CertDir, "cert-chain.pem"),
 					CACertificateFile: path.Join(opts.CertDir, "root-cert.pem"),
-					// TODO use a more appropriate interval
-					RefreshDuration: durationpb.New(15 * time.Minute),
+					RefreshDuration: refresh,
 				},
 			},
 		}
