@@ -82,6 +82,9 @@ const (
 type SecretManagerClient struct {
 	caClient security.Client
 
+	// Ensures CARootPath can change in configOptions without collision
+	caRootPathMutex sync.Mutex
+
 	// configOptions includes all configurable params for the cache.
 	configOptions *security.Options
 
@@ -461,7 +464,7 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 }
 
 func (sc *SecretManagerClient) generateFileSecret(resourceName string, caRootPath string) (bool, *security.SecretItem, error) {
-	sc.configOptions.CARootPath = caRootPath
+	sc.SetCARootPath(caRootPath)
 	logPrefix := cacheLogPrefix(resourceName)
 
 	cf := sc.existingCertificateFile
@@ -741,4 +744,17 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
 	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
+}
+
+func (sc *SecretManagerClient) GetCARootPath() string {
+	sc.caRootPathMutex.Lock()
+	defer sc.caRootPathMutex.Unlock()
+	caRootPath := sc.configOptions.GetCARootPath()
+	return caRootPath
+}
+
+func (sc *SecretManagerClient) SetCARootPath(caRootPath string) {
+	sc.caRootPathMutex.Lock()
+	defer sc.caRootPathMutex.Unlock()
+	sc.configOptions.SetCARootPath(caRootPath)
 }

@@ -93,7 +93,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
 
-	ret.rootCaPath = options.CARootPath
+	ret.rootCaPath = options.GetCARootPath()
 
 	if options.FileMountedCerts {
 		return ret

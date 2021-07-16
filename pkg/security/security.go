@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc/metadata"
@@ -191,6 +192,9 @@ type Options struct {
 	// Delay in reading certificates from file after the change is detected. This is useful in cases
 	// where the write operation of key and cert take longer.
 	FileDebounceDuration time.Duration
+
+	// Prevents collision when accessing CARootPath
+	caRootPathMutex sync.Mutex
 
 	// Root Cert generated
 	CARootPath string
@@ -374,4 +378,16 @@ func GetOSRootPath() string {
 		}
 	}
 	return ""
+}
+
+func (opt *Options) GetCARootPath() string {
+	opt.caRootPathMutex.Lock()
+	defer opt.caRootPathMutex.Unlock()
+	return opt.CARootPath
+}
+
+func (opt *Options) SetCARootPath(caRootPath string) {
+	opt.caRootPathMutex.Lock()
+	defer opt.caRootPathMutex.Unlock()
+	opt.CARootPath = caRootPath
 }
