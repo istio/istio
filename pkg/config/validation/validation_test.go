@@ -5177,57 +5177,58 @@ func TestValidateSidecar(t *testing.T) {
 		name  string
 		in    *networking.Sidecar
 		valid bool
+		warn  bool
 	}{
-		{"empty ingress and egress", &networking.Sidecar{}, false},
+		{"empty ingress and egress", &networking.Sidecar{}, false, false},
 		{"default", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"import local namespace with wildcard", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"./*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"import local namespace with fqdn", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"./foo.com"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"import nothing", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"~/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"bad egress host 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"/"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"empty egress host", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"multiple wildcard egress", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5241,7 +5242,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"wildcard egress not in end", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5260,7 +5261,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"invalid Port", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5274,7 +5275,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"Port without name", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5287,7 +5288,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"UDS bind in outbound", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5302,7 +5303,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///@foo/bar/com",
 				},
 			},
-		}, true},
+		}, true, false},
 		{"UDS bind in inbound", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5315,7 +5316,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"UDS bind in outbound 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5330,7 +5331,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///foo/bar/com",
 				},
 			},
-		}, true},
+		}, true, false},
 		{"invalid bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5345,7 +5346,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "foobar:///@foo/bar/com",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"invalid capture mode with uds bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5361,7 +5362,7 @@ func TestValidateSidecar(t *testing.T) {
 					CaptureMode: networking.CaptureMode_IPTABLES,
 				},
 			},
-		}, false},
+		}, false, false},
 		{"duplicate UDS bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5387,7 +5388,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///@foo/bar/com",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"duplicate ports", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5411,7 +5412,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress without port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5423,7 +5424,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress with duplicate ports", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5448,7 +5449,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5464,7 +5465,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"ingress with invalid default endpoint IP", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5476,7 +5477,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "1.1.1.1:90",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress with invalid default endpoint uds", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5493,7 +5494,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress with invalid default endpoint port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5510,7 +5511,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"valid ingress and egress", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5527,7 +5528,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"valid ingress and empty egress", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5539,11 +5540,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
-		}, true},
-		{"empty", &networking.Sidecar{}, false},
+		}, true, false},
+		{"empty", &networking.Sidecar{}, false, false},
 		{"just outbound traffic policy", &networking.Sidecar{OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 			Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-		}}, true},
+		}}, true, false},
 		{"empty protocol", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5559,7 +5560,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"ALLOW_ANY sidecar egress policy with no egress proxy ", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5569,7 +5570,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"sidecar egress proxy with RESGISTRY_ONLY(default)", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				EgressProxy: &networking.Destination{
@@ -5585,7 +5586,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"sidecar egress proxy with ALLOW_ANY", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5602,7 +5603,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"sidecar egress proxy with ALLOW_ANY, service hostname invalid fqdn", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5619,7 +5620,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"sidecar egress proxy(without Port) with ALLOW_ANY", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5633,23 +5634,59 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
+		{"sidecar egress only one wildcarded", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/*",
+						"test/a.com",
+					},
+				},
+			},
+		}, true, true},
+		{"sidecar egress wildcarded ns", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/b.com",
+						"test/a.com",
+					},
+				},
+			},
+		}, true, false},
+		{"sidecar egress duplicated with wildcarded same namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"test/*",
+						"test/a.com",
+					},
+				},
+			},
+		}, true, true},
+		{"sidecar egress duplicated with wildcarded same namespace .", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"./*",
+						"bar/a.com",
+					},
+				},
+			},
+		}, true, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ValidateSidecar(config.Config{
+			warn, err := ValidateSidecar(config.Config{
 				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "bar",
 				},
 				Spec: tt.in,
 			})
-			if err == nil && !tt.valid {
-				t.Fatalf("ValidateSidecar(%v) = true, wanted false", tt.in)
-			} else if err != nil && tt.valid {
-				t.Fatalf("ValidateSidecar(%v) = %v, wanted true", tt.in, err)
-			}
+			checkValidation(t, warn, err, tt.valid, tt.warn)
 		})
 	}
 }
