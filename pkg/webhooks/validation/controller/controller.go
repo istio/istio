@@ -69,7 +69,7 @@ type Options struct {
 func (o Options) Validate() error {
 	var errs *multierror.Error
 	if o.WatchedNamespace == "" || !labels.IsDNS1123Label(o.WatchedNamespace) {
-		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", o.WatchedNamespace)) // nolint: lll
+		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", o.WatchedNamespace))
 	}
 	if o.ServiceName == "" || !labels.IsDNS1123Label(o.ServiceName) {
 		errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", o.ServiceName))
@@ -80,7 +80,7 @@ func (o Options) Validate() error {
 	return errs.ErrorOrNil()
 }
 
-// String produces a stringified version of the arguments for debugging.
+// String produces a string field version of the arguments for debugging.
 func (o Options) String() string {
 	buf := &bytes.Buffer{}
 	_, _ = fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
