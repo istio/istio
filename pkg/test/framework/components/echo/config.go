@@ -130,7 +130,7 @@ type Config struct {
 	IncludeExtAuthz bool
 
 	// If set, use this port for the tcp liveness probe
-	AlternativeTcpLivenessPort string
+	AlternativeTCPLivenessPort string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

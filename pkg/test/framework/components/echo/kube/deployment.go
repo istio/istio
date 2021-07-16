@@ -246,7 +246,7 @@ spec:
           failureThreshold: 10
         livenessProbe:
           tcpSocket:
-            port: {{ $.TcpLivenessPort }}
+            port: {{ $.TCPLivenessPort }}
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
@@ -673,7 +673,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
-		"TcpLivenessPort":    getTcpLivenessPort(cfg.AlternativeTcpLivenessPort),
+		"TCPLivenessPort":    getTCPLivenessPort(cfg.AlternativeTCPLivenessPort),
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
@@ -961,11 +961,11 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 	return containerPorts
 }
 
-func getTcpLivenessPort(alternativeTcpLivenessPort string) string {
-	if alternativeTcpLivenessPort == "" {
+func getTCPLivenessPort(alternativeTCPLivenessPort string) string {
+	if alternativeTCPLivenessPort == "" {
 		return "tcp-health-port"
 	}
-	return alternativeTcpLivenessPort
+	return alternativeTCPLivenessPort
 }
 
 func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (err error) {

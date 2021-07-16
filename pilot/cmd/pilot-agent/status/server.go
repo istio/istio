@@ -243,7 +243,7 @@ func NewServer(config Options) (*Server, error) {
 
 func validateAppKubeProber(path string, prober *Prober) error {
 	if !appProberPattern.Match([]byte(path)) {
-		return fmt.Errorf(`invalid key, must be in form of regex pattern %v`, appProberPattern)
+		return fmt.Errorf(`invalid path, must be in form of regex pattern %v`, appProberPattern)
 	}
 	if prober.HTTPGet == nil && prober.TCPSocket == nil {
 		return fmt.Errorf(`invalid prober type, must be of type httpGet or tcpSocket`)

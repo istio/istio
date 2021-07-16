@@ -39,13 +39,13 @@ func TestTcpProbe(t *testing.T) {
 				{name: "rewrite-fail", rewrite: true, success: false},
 			} {
 				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
-					runTcpProbeDeployment(t, ns, testCase.name, testCase.rewrite, testCase.success)
+					runTCPProbeDeployment(t, ns, testCase.name, testCase.rewrite, testCase.success)
 				})
 			}
 		})
 }
 
-func runTcpProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
+func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
 	name string, rewrite bool, wantSuccess bool) {
 	ctx.Helper()
 
@@ -53,7 +53,7 @@ func runTcpProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 	cfg := echo.Config{
 		Namespace:                  ns,
 		Service:                    name,
-		AlternativeTcpLivenessPort: "1234", // this port must not be opened from the app
+		AlternativeTCPLivenessPort: "1234", // this port must not be opened from the app
 		Subsets: []echo.SubsetConfig{
 			{
 				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),
