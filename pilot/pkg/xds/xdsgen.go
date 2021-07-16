@@ -65,7 +65,7 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection, delta b
 		return g
 	}
 
-	if g, f := s.Generators["delta/" + typeURL]; f && delta {
+	if g, f := s.Generators["delta/"+typeURL]; f && delta {
 		return g
 	}
 

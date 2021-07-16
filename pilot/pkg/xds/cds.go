@@ -22,7 +22,7 @@ import (
 
 type CdsGenerator struct {
 	Server *DiscoveryServer
-	Delta bool
+	Delta  bool
 }
 
 var _ model.XdsResourceGenerator = &CdsGenerator{}

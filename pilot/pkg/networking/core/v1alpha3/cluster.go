@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/config"
 	"math"
 	"strconv"
 	"strings"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -84,7 +84,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	cb := NewClusterBuilder(proxy, push, configgen.Cache)
 	instances := proxy.ServiceInstances
 	// delta when only services are modified and we attempt deltas
-	delta := allConfigKeysOfType(configMapKeys(updates.ConfigsUpdated), gvk.Service) && attemptDeltas
+	delta := updates != nil && allConfigKeysOfType(configMapKeys(updates.ConfigsUpdated), gvk.Service) && attemptDeltas
 	if delta {
 		// use delta -- only services changed
 		configs := model.ConfigsOfKind(updates.ConfigsUpdated, gvk.Service)
@@ -152,7 +152,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 func allConfigKeysOfType(keys []model.ConfigKey, cfg config.GroupVersionKind) bool {
 	for _, m := range keys {
-		if  m.Kind != cfg {
+		if m.Kind != cfg {
 			return false
 		}
 	}
