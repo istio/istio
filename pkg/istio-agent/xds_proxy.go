@@ -116,8 +116,9 @@ type XdsProxy struct {
 	// TODO(bianpengyuan): this relies on the fact that istiod versions all ECDS resources
 	// the same in a update response. This needs update to support per resource versioning,
 	// in case istiod changes its behavior, or a different ECDS server is used.
-	ecdsLastAckVersion atomic.String
-	ecdsLastNonce      atomic.String
+	ecdsLastAckVersion    atomic.String
+	ecdsLastNonce         atomic.String
+	downstreamGrpcOptions []grpc.ServerOption
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -141,15 +142,16 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		}
 	}
 	proxy := &XdsProxy{
-		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
-		clusterID:      ia.secOpts.ClusterID,
-		handlers:       map[string]ResponseHandler{},
-		stopChan:       make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
-		xdsHeaders:     ia.cfg.XDSHeaders,
-		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
-		proxyAddresses: ia.cfg.ProxyIPAddresses,
+		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
+		clusterID:             ia.secOpts.ClusterID,
+		handlers:              map[string]ResponseHandler{},
+		stopChan:              make(chan struct{}),
+		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
+		xdsHeaders:            ia.cfg.XDSHeaders,
+		xdsUdsPath:            ia.cfg.XdsUdsPath,
+		wasmCache:             wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
+		proxyAddresses:        ia.cfg.ProxyIPAddresses,
+		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
 
 	if ia.localDNSServer != nil {
@@ -584,7 +586,9 @@ func (p *XdsProxy) initDownstreamServer() error {
 		return err
 	}
 	// TODO: Expose keepalive options to agent cmd line flags.
-	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+	opts := p.downstreamGrpcOptions
+	opts = append(opts, istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+	grpcs := grpc.NewServer(opts...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
 	p.downstreamGrpcServer = grpcs
