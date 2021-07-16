@@ -236,17 +236,22 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 // to the upstream XDS request we will resend this request.
 func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	var ch chan *discovery.DiscoveryRequest
+	var stop chan struct{}
 
 	p.connectedMutex.Lock()
 	if p.connected != nil {
 		ch = p.connected.requestsChan
+		stop = p.connected.stopChan
 	}
 	p.initialRequest = req
 	p.connectedMutex.Unlock()
 
 	// Immediately send if we are currently connect
 	if ch != nil {
-		ch <- req
+		select {
+		case ch <- req:
+		case <-stop:
+		}
 	}
 }
 
@@ -290,6 +295,7 @@ func (con *ProxyConnection) safeSendRequest(req *discovery.DiscoveryRequest) {
 	select {
 	case con.requestsChan <- req:
 	case <-con.stopChan:
+		log.Errorf("howardjohn: send stopped request")
 	}
 }
 
@@ -402,6 +408,7 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 			select {
 			case con.responsesChan <- resp:
 			case <-con.stopChan:
+				log.Errorf("howardjohn: stop response")
 			}
 		}
 	}()
