@@ -51,8 +51,8 @@ type XdsServer struct {
 }
 
 type CertificateProvider struct {
-	Name   string      `json:"name,omitempty"`
-	Config interface{} `json:"config,omitempty"`
+	PluginName string      `json:"plugin_name,omitempty"`
+	Config     interface{} `json:"config,omitempty"`
 }
 
 const FileWatcherCertProviderName = "file_watcher"
@@ -74,7 +74,7 @@ func (b *Bootstrap) FileWatcherProvider() *FileWatcherCertProviderConfig {
 		return nil
 	}
 	for _, provider := range b.CertProviders {
-		if provider.Name == FileWatcherCertProviderName {
+		if provider.PluginName == FileWatcherCertProviderName {
 			cfg, ok := provider.Config.(FileWatcherCertProviderConfig)
 			if !ok {
 				return nil
@@ -136,7 +136,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 	if opts.CertDir != "" {
 		bootstrap.CertProviders = map[string]CertificateProvider{
 			"default": {
-				Name: "file_watcher",
+				PluginName: "file_watcher",
 				Config: FileWatcherCertProviderConfig{
 					PrivateKeyFile:    path.Join(opts.CertDir, "key.pem"),
 					CertificateFile:   path.Join(opts.CertDir, "cert-chain.pem"),
