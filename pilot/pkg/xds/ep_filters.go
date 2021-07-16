@@ -128,8 +128,17 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			}
 		}
 
-		// Now create endpoints for the gateways.
-		for gw, weight := range gatewayWeights {
+		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
+		gateways := make([]*model.NetworkGateway, 0, len(gatewayWeights))
+		for gw := range gatewayWeights {
+			gw := gw
+			gateways = append(gateways, &gw)
+		}
+		gateways = model.SortGateways(gateways)
+
+		// Create endpoints for the gateways.
+		for _, gw := range gateways {
+			epWeight := gatewayWeights[*gw]
 			epAddr := util.BuildAddress(gw.Addr, gw.Port)
 
 			// Generate a fake IstioEndpoint to carry network and cluster information.
@@ -148,7 +157,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 					},
 				},
 				LoadBalancingWeight: &wrappers.UInt32Value{
-					Value: weight,
+					Value: epWeight,
 				},
 			}
 			// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
@@ -192,16 +201,6 @@ func (b *EndpointBuilder) scaleEndpointLBWeight(ep *endpoint.LbEndpoint, scaleFa
 		weight = ep.GetLoadBalancingWeight().Value * scaleFactor
 	}
 	return weight
-}
-
-func (b *EndpointBuilder) gatewaysByNetwork() map[network.ID][]*model.NetworkGateway {
-	gateways := b.push.NetworkManager().AllGateways()
-	byNetwork := make(map[network.ID][]*model.NetworkGateway)
-	for _, gateway := range gateways {
-		networkGateways := append(byNetwork[gateway.Network], gateway)
-		byNetwork[gateway.Network] = networkGateways
-	}
-	return byNetwork
 }
 
 // EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at
