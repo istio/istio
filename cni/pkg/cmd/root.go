@@ -45,7 +45,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
-	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition",
+	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if err := log.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
