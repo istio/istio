@@ -60,7 +60,7 @@ func init() {
 
 // TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
 func TestXdsLeak(t *testing.T) {
-	proxy := setupXdsProxy(t)
+	proxy := setupXdsProxyWithDownstreamOptions(t, []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))})
 	f := xdstest.NewMockServer(t)
 	setDialOptions(proxy, f.Listener)
 	proxy.istiodDialOptions = append(proxy.istiodDialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
@@ -233,6 +233,10 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 }
 
 func setupXdsProxy(t *testing.T) *XdsProxy {
+	return setupXdsProxyWithDownstreamOptions(t, nil)
+}
+
+func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) *XdsProxy {
 	secOpts := &security.Options{
 		FileMountedCerts: true,
 	}
@@ -249,7 +253,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	dir := t.TempDir()
 	ia := NewAgent(&proxyConfig, &AgentOptions{
 		XdsUdsPath:            filepath.Join(dir, "XDS"),
-		DownstreamGrpcOptions: []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))},
+		DownstreamGrpcOptions: opts,
 	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
 		ia.Close()
