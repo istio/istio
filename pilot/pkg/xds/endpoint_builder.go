@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,10 +39,10 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
-const (
-	// TODO(incfly): move to propoer place.
-	enableAutoMtlsWithPeerAuthnAnnotationName = "security.istio.io/autoMtlsWithPeerAuthn"
-)
+// note: per proxy different eds config can cause some problem for the cache.
+// Check per workload annotations allow a finer granularity opt-in as well as easier for test
+// workloads setup.
+// enableAutoMtlsWithPeerAuthnAnnotationName = "security.istio.io/autoMtlsWithPeerAuthn"
 
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
 // collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
@@ -114,16 +115,6 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		enableMtlsChecker = true
 	}
 	if features.EnableAutomTLSCheckPolicies {
-		enableMtlsChecker = true
-	}
-	// Check per workload annotations allow a finer granularity opt-in as well as easier for test
-	// workloads setup.
-	if strings.Contains(b.proxy.ID, "sleep") {
-		// _, ok := b.proxy.Metadata.Raw[enableAutoMtlsWithPeerAuthnAnnotationName]
-		// log.Infof("incfly debug, md %v, exists %v", b.proxy.Metadata.Annotations, ok)
-		// log.Infof("incfly debug raw md %v", b.proxy.Metadata)
-	}
-	if _, ok := b.proxy.Metadata.Raw[enableAutoMtlsWithPeerAuthnAnnotationName]; ok {
 		enableMtlsChecker = true
 	}
 	if enableMtlsChecker {
@@ -352,6 +343,13 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				tlsMode = ""
 			}
 			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, tlsMode)
+			// TODO(note): reason why old still works is migh because the endpoint is cached already, cache key
+			// not consider each client... might not worth the complexity. use revision for migration instead.
+			if strings.Contains(b.proxy.ID, "sleep") && !strings.Contains(b.proxy.ID, "old") {
+				log.Infof("incfly debug sleep/httpbin endpoint, right after the build, proxy ID %v, assignment %v, policyChecker != nil: %v",
+					b.proxy.ID, *ep.EnvoyEndpoint, b.mtlsChecker != nil)
+				debug.PrintStack()
+			}
 			// }
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
