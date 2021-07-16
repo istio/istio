@@ -51,8 +51,10 @@ const (
 	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
-	// Credential fetcher type
-	GCE  = "GoogleComputeEngine"
+	// GCE is Credential fetcher type of Google plugin
+	GCE = "GoogleComputeEngine"
+
+	// Mock is Credential fetcher type of mock plugin
 	Mock = "Mock" // testing only
 
 	// GoogleCAProvider uses the Google CA for workload certificate signing
