@@ -59,8 +59,8 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
 			return body, err
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)

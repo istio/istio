@@ -100,8 +100,8 @@ func ApplyYAML(yml string, pb proto.Message) error {
 	return ApplyJSON(string(js), pb)
 }
 
-// ApplyYAML unmarshals a YAML string into a proto message.
-// Unknown fields are notallowed.
+// ApplyYAMLStrict unmarshals a YAML string into a proto message.
+// Unknown fields are not allowed.
 func ApplyYAMLStrict(yml string, pb proto.Message) error {
 	js, err := yaml.YAMLToJSON([]byte(yml))
 	if err != nil {
