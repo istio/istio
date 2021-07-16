@@ -200,7 +200,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 // applyTrafficPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.
 func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *networking.TrafficPolicy) {
 	// cluster can be nil if it wasn't requested
-	if c == nil || trafficPolicy == nil {
+	if c == nil {
 		return
 	}
 	b.applyTLS(c, trafficPolicy)
@@ -209,7 +209,7 @@ func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *n
 }
 
 func (b *clusterBuilder) applyLoadBalancing(_ *cluster.Cluster, policy *networking.TrafficPolicy) {
-	switch policy.LoadBalancer.GetSimple() {
+	switch policy.GetLoadBalancer().GetSimple() {
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 	// ok
 	default:
@@ -225,6 +225,8 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 	if settings := policy.GetTls(); settings != nil {
 		mode = settings.GetMode()
 	}
+
+	log.Infof("grpc cds: tls mode for %s: %s", b.node.ID, mode.String())
 
 	switch mode {
 	case networking.ClientTLSSettings_DISABLE:
