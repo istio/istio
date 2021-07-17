@@ -49,13 +49,13 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 
 func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string) ([]byte, error) {
 	certSignerDomain := r.raOpts.CertSignerDomain
+	if certSignerDomain == "" && certSigner != "" {
+		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
+	}
 	if certSignerDomain != "" && certSigner != "" {
 		certSigner = certSignerDomain + "/" + certSigner
 	} else {
 		certSigner = r.raOpts.CaSigner
-	}
-	if certSignerDomain == "" && certSigner != "" {
-		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
 	}
 	usages := []cert.KeyUsage{
 		cert.UsageDigitalSignature,
