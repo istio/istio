@@ -606,10 +606,10 @@ func createK8sService(client kubernetes.Interface, ns string, svc *corev1.Servic
 		return fmt.Errorf("failed to create vm service")
 	}
 	if _, err := client.CoreV1().Services(ns).Create(context.TODO(), svc, metav1.CreateOptions{}); err != nil {
-		return fmt.Errorf("failed to create kuberenetes service %v", err)
+		return fmt.Errorf("failed to create kubernetes service %v", err)
 	}
 	if _, err := client.CoreV1().Services(ns).UpdateStatus(context.TODO(), svc, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to create kuberenetes service %v", err)
+		return fmt.Errorf("failed to create kubernetes service %v", err)
 	}
 	sName := strings.Join([]string{svc.Name, svc.Namespace}, ".")
 	_, _ = fmt.Fprintf(writer, "Kubernetes Service %q has been created in the Istio service mesh"+
