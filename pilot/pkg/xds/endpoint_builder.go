@@ -66,7 +66,6 @@ type EndpointBuilder struct {
 	clusterID       cluster.ID
 	locality        *core.Locality
 	destinationRule *config.Config
-	peerAuthnPolicy *config.Config
 	service         *model.Service
 	clusterLocal    bool
 	tunnelType      networking.TunnelType
@@ -470,7 +469,6 @@ func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 // computeForEndpoint checks destination rule, peer authentication and metadata to determine if mTLS was turned off.
 // This must be done during conversion from IstioEndpoint since we still have workload metadata.
 func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
-
 	if drMode := c.mtlsModeForDestinationRule(ep); drMode != nil {
 		switch *drMode {
 		case networkingapi.ClientTLSSettings_DISABLE:

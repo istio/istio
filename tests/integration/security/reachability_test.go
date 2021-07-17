@@ -101,7 +101,7 @@ func TestReachability(t *testing.T) {
 						if apps.D.Contains(src) {
 							return true
 						}
-						// For naked app as client, only requests targetted to mTLS disabled endpoints succeed:
+						// For naked app as client, only requests targeted to mTLS disabled endpoints succeed:
 						// A are disabled by workload selector for entire service.
 						// C port 8090 http port are disabled.
 						return apps.A.Contains(opts.Target) || (apps.C.Contains(opts.Target) && opts.PortName == "http")
