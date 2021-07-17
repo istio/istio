@@ -49,6 +49,7 @@ values:
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
+      ENABLE_AUTO_MTLS_CHECK_POLICIES: true
 meshConfig:
   accessLogEncoding: JSON
   accessLogFile: /dev/stdout

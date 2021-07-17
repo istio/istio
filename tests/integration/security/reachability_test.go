@@ -90,12 +90,22 @@ func TestReachability(t *testing.T) {
 					SkippedForMulticluster: true,
 				},
 				{
-					ConfigFile: "beta-mtls-off-nodr.yaml",
-					Namespace:  systemNM,
+					ConfigFile: "beta-mtls-automtls-workload.yaml",
+					Namespace:  apps.Namespace1,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return apps.A.Contains(opts.Target) // && TODO(here): src is C or B. only C succeeds.
+						return (apps.D.Contains(src) || apps.IsNaked(src)) &&
+							(apps.A.Contains(opts.Target) || apps.B.Contains(opts.Target) || apps.C.Contains(opts.Target))
 					},
-					ExpectSuccess:          Always,
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Sidecar injected client always succeed.
+						if apps.D.Contains(src) {
+							return true
+						}
+						// For naked app as client, only requests targetted to mTLS disabled endpoints succeed:
+						// A are disabled by workload selector for entire service.
+						// C port 8090 http port are disabled.
+						return apps.A.Contains(opts.Target) || (apps.C.Contains(opts.Target) && opts.PortName == "http")
+					},
 					ExpectMTLS:             Never,
 					SkippedForMulticluster: true,
 				},

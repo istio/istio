@@ -1,0 +1,42 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: "a-disable"
+  annotations:
+    test-suite: "beta-mtls-automtls-workload"
+spec:
+  selector:
+    matchLabels:
+      app: a
+  mtls:
+    mode: DISABLE
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: "b-strict"
+  annotations:
+    test-suite: "beta-mtls-automtls-workload"
+spec:
+  selector:
+    matchLabels:
+      app: b
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: "c-per-port"
+  annotations:
+    test-suite: "beta-mtls-automtls-workload"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    # 8090 is the targetPort for service http(80)
+    8080:
+      mode: DISABLE
