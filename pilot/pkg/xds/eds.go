@@ -402,7 +402,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
-			// NOTE(incfly) oh! this is invoked but why still not get the called function we want.
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
@@ -417,7 +416,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 				Resource: util.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			// NOTE(incfly): indeed here add, but not recalculation?
 			eds.Server.Cache.Add(builder, token, resource)
 		}
 	}

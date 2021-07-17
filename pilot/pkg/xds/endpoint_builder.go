@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,11 +37,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 )
-
-// note: per proxy different eds config can cause some problem for the cache.
-// Check per workload annotations allow a finer granularity opt-in as well as easier for test
-// workloads setup.
-// enableAutoMtlsWithPeerAuthnAnnotationName = "security.istio.io/autoMtlsWithPeerAuthn"
 
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
 // collection includes only the endpoints which support H2 tunnel and the non-tunnel endpoints. The latter case is to
@@ -330,9 +324,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
-			// if strings.Contains(b.proxy.ID, "sleep") {
-			// log.Infof("incfly debug sleep metadata %+v", b.proxy.Metadata)
-			// }
 			// TODO(incfly): check with reviewer to see if we should only touches the updated metadata field
 			// or rebuild from scratch (better readability).
 			// if ep.EnvoyEndpoint == nil {
@@ -343,14 +334,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				tlsMode = ""
 			}
 			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, tlsMode)
-			// TODO(note): reason why old still works is migh because the endpoint is cached already, cache key
-			// not consider each client... might not worth the complexity. use revision for migration instead.
-			if strings.Contains(b.proxy.ID, "sleep") && !strings.Contains(b.proxy.ID, "old") {
-				log.Infof("incfly debug sleep/httpbin endpoint, right after the build, proxy ID %v, assignment %v, policyChecker != nil: %v",
-					b.proxy.ID, *ep.EnvoyEndpoint, b.mtlsChecker != nil)
-				debug.PrintStack()
-			}
-			// }
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering

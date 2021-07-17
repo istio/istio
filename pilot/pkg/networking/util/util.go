@@ -490,8 +490,6 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
 
-	// TODO(incfly): here we should add the checker to see if the policy caused the label should be disabled or not.
-	// refactor into caller is a better choice, in endpointbuilder.checker.xxx.
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
 		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{

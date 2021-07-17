@@ -122,7 +122,6 @@ func augmentLabels(in labels.Instance, clusterID cluster.ID, locality string) la
 	return out
 }
 
-// NOTE(incfly): where the EndpointBuilder is converted to the IstioEndpoint for EDS.
 func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointAddress string,
 	endpointPort int32,
@@ -133,10 +132,9 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	}
 
 	return &model.IstioEndpoint{
-		Labels:         b.labels,
-		ServiceAccount: b.serviceAccount,
-		Locality:       b.locality,
-		// See how to reference authn policy for conversion.
+		Labels:                b.labels,
+		ServiceAccount:        b.serviceAccount,
+		Locality:              b.locality,
 		TLSMode:               b.tlsMode,
 		Address:               endpointAddress,
 		EndpointPort:          uint32(endpointPort),

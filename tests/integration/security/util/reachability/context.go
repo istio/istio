@@ -107,7 +107,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 			t.NewSubTest("wait for config").Run(func(t framework.TestContext) {
 				util.WaitForConfig(t, c.Namespace, policyYAML)
 			})
-			t.Logf("incfly debug the config policy yaml\n%v", policyYAML)
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {
 					client := client

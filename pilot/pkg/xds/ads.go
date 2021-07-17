@@ -709,8 +709,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	// NOTE(incfly): I think this is where the CRD -> xDS dependency is roughly determined.
-	// Dig a bit.
 	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
