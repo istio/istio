@@ -39,14 +39,12 @@ import (
 	"istio.io/pkg/log"
 )
 
-/* #nosec: disable gas linter */
 const (
-	// The Istio DNS secret annotation type
+	// IstioDNSSecretType is the Istio DNS secret annotation type
 	IstioDNSSecretType = "istio.io/dns-key-and-cert"
 
 	// For debugging, set the resync period to be a shorter period.
 	secretResyncPeriod = 10 * time.Second
-	// secretResyncPeriod = time.Minute
 
 	recommendedMinGracePeriodRatio = 0.2
 	recommendedMaxGracePeriodRatio = 0.8
@@ -88,7 +86,7 @@ type WebhookController struct {
 	k8sCaCertFile  string
 	minGracePeriod time.Duration
 	certMutex      sync.RWMutex
-	// Length of the grace period for the certificate rotation.
+	// Ratio of the grace period for the certificate rotation.
 	gracePeriodRatio float32
 	certUtil         certutil.CertUtil
 }
@@ -111,7 +109,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 		return nil, fmt.Errorf("the size of secret names must be the same as the size of service namespaces")
 	}
 	if len(dnsNames) != len(serviceNamespaces) {
-		return nil, fmt.Errorf("the size of service names must be the same as the size of service namespaces")
+		return nil, fmt.Errorf("the size of DNS names must be the same as the size of service namespaces")
 	}
 	// Check secret names are unique
 	set := make(map[string]bool) // New empty set
@@ -139,7 +137,7 @@ func NewWebhookController(gracePeriodRatio float32, minGracePeriod time.Duration
 	if err != nil {
 		return nil, err
 	}
-	if len(dnsNames) == 0 {
+	if len(serviceNamespaces) == 0 {
 		log.Warn("the input services are empty, no services to manage certificates for")
 	} else {
 		istioSecretSelector := fields.SelectorFromSet(map[string]string{"type": IstioDNSSecretType}).String()
