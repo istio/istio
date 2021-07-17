@@ -47,14 +47,23 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 	return istioRA, nil
 }
 
-func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string) ([]byte, error) {
+func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string) ([]byte, error) {
+	certSignerDomain := r.raOpts.CertSignerDomain
+	if certSignerDomain != "" && certSigner != "" {
+		certSigner = certSignerDomain + "/" + certSigner
+	} else {
+		certSigner = r.raOpts.CaSigner
+	}
+	if certSignerDomain == "" && certSigner != "" {
+		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
+	}
 	usages := []cert.KeyUsage{
 		cert.UsageDigitalSignature,
 		cert.UsageKeyEncipherment,
 		cert.UsageServerAuth,
 		cert.UsageClientAuth,
 	}
-	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, r.raOpts.CaSigner,
+	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, certSigner,
 		nil, usages, "", caCertFile, true, false)
 	if err != nil {
 		return nil, raerror.NewError(raerror.CertGenError, err)
@@ -68,7 +77,8 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile)
+	certSigner := certOpts.CertSigner
+	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certSigner)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.

@@ -50,6 +50,8 @@ type IstioRAOptions struct {
 	K8sClient clientset.Interface
 	// TrustDomain
 	TrustDomain string
+	// CertSignerDomain info
+	CertSignerDomain string
 }
 
 const (

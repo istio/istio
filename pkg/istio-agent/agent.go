@@ -88,6 +88,7 @@ const (
 	MetadataClientCertKey   = "ISTIO_META_TLS_CLIENT_KEY"
 	MetadataClientCertChain = "ISTIO_META_TLS_CLIENT_CERT_CHAIN"
 	MetadataClientRootCert  = "ISTIO_META_TLS_CLIENT_ROOT_CERT"
+	MetadataCertSigner      = "ISTIO_META_CERT_SIGNER"
 )
 
 // Agent contains the configuration of the agent, based on the injected

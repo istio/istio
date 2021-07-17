@@ -70,6 +70,9 @@ type CertOpts struct {
 	// ForCA indicates whether the signed certificate if for CA.
 	// If true, the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 	ForCA bool
+
+	// Cert Signer info
+	CertSigner string
 }
 
 const (
