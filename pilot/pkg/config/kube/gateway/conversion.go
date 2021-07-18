@@ -429,6 +429,9 @@ func buildHTTPVirtualServices(obj config.Config, gateways []gatewayReference, do
 			reportError(err)
 			return nil
 		}
+		if len(route) == 0 {
+			return nil
+		}
 		vs.Route = route
 		httproutes = append(httproutes, vs)
 	}
@@ -525,6 +528,9 @@ func buildTLSVirtualService(obj config.Config, gateways []gatewayReference, doma
 			reportError(err)
 			return nil
 		}
+		if len(route) == 0 {
+			return nil
+		}
 		ir := &istio.TLSRoute{
 			Match: buildTLSMatch(r.Matches),
 			Route: route,
@@ -551,17 +557,22 @@ func buildTLSVirtualService(obj config.Config, gateways []gatewayReference, doma
 	return &vsConfig
 }
 
-func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) ([]*istio.RouteDestination, *ConfigError) {
-	if len(action) == 0 {
+func buildTCPDestination(forwardTo []k8s.RouteForwardTo, ns, domain string) ([]*istio.RouteDestination, *ConfigError) {
+	if forwardTo == nil {
 		return nil, nil
 	}
 
 	weights := []int{}
-	for _, w := range action {
+	action := []k8s.RouteForwardTo{}
+	for i, w := range forwardTo {
 		wt := 1
 		if w.Weight != nil {
 			wt = int(*w.Weight)
 		}
+		if wt == 0 {
+			continue
+		}
+		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
 	weights = standardizeWeights(weights)
@@ -616,17 +627,22 @@ func intSum(n []int) int {
 	return r
 }
 
-func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain string) ([]*istio.HTTPRouteDestination, *ConfigError) {
-	if action == nil {
+func buildHTTPDestination(forwardTo []k8s.HTTPRouteForwardTo, ns string, domain string) ([]*istio.HTTPRouteDestination, *ConfigError) {
+	if forwardTo == nil {
 		return nil, nil
 	}
 
 	weights := []int{}
-	for _, w := range action {
+	action := []k8s.HTTPRouteForwardTo{}
+	for i, w := range forwardTo {
 		wt := 1
 		if w.Weight != nil {
 			wt = int(*w.Weight)
 		}
+		if wt == 0 {
+			continue
+		}
+		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
 	weights = standardizeWeights(weights)
@@ -698,13 +714,6 @@ func standardizeWeights(weights []int) []int {
 		return []int{0}
 	}
 	total := intSum(weights)
-	if total == 0 {
-		// All empty, fallback to even weight
-		for i := range weights {
-			weights[i] = 1
-		}
-		total = len(weights)
-	}
 	results := make([]int, 0, len(weights))
 	remainders := make([]float64, 0, len(weights))
 	for _, w := range weights {
