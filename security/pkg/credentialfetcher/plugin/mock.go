@@ -13,14 +13,15 @@
 // limitations under the License.
 
 // Test only: this is the mock plugin of credentialfetcher.
+
 package plugin
 
 import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
-	"strings"
 	"sync"
 
 	"istio.io/istio/pkg/security"
@@ -31,7 +32,7 @@ const fakeTokenPrefix = "fake-token-"
 
 var mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
 
-// The plugin object.
+// MockPlugin is the plugin object.
 type MockPlugin struct {
 	token string
 }
@@ -63,7 +64,6 @@ func (p *MockPlugin) GetIdentityProvider() string {
 func (p *MockPlugin) Stop() {}
 
 // MetadataServer mocks GCE metadata server.
-// nolint: maligned
 type MetadataServer struct {
 	server *httptest.Server
 
@@ -77,8 +77,11 @@ func StartMetadataServer() (*MetadataServer, error) {
 	ms := &MetadataServer{}
 	httpServer := httptest.NewServer(http.HandlerFunc(ms.getToken))
 	ms.server = httpServer
-	// nolint: staticcheck
-	if err := os.Setenv("GCE_METADATA_HOST", strings.Trim(httpServer.URL, "http://")); err != nil {
+	url, err := url.Parse(httpServer.URL)
+	if err != nil {
+		return nil, fmt.Errorf("parse URL failed: %v", err)
+	}
+	if err := os.Setenv("GCE_METADATA_HOST", url.Host); err != nil {
 		fmt.Printf("Error running os.Setenv: %v", err)
 		ms.Stop()
 		return nil, err
@@ -100,7 +103,7 @@ func (ms *MetadataServer) NumGetTokenCall() int {
 	return ms.numGetTokenCall
 }
 
-// ResetGetTokenCall resets members to default values.
+// Reset resets members to default values.
 func (ms *MetadataServer) Reset() {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()

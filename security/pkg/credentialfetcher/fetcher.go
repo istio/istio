@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// credentailfetcher fetches workload credentials through platform plugins.
+// Package credentialfetcher fetches workload credentials through platform plugins.
 package credentialfetcher
 
 import (
