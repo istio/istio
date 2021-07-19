@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -96,6 +97,12 @@ spec:
     tls:
       mode: SIMPLE
       credentialName: {{.Credential}}
+{{- if .Ciphers }}
+      cipherSuites:
+{{- range $cipher := .Ciphers }}
+      - "{{$cipher}}"
+{{- end }}
+{{- end }}
 {{- end }}
     hosts:
     - "{{.GatewayHost}}"
@@ -815,7 +822,7 @@ spec:
 }
 
 func gatewayCases() []TrafficTestCase {
-	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances) map[string]interface{} {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]interface{} {
 		host, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			host, portN, cred = dest.Config().FQDN(), 443, "cred"
@@ -830,6 +837,7 @@ func gatewayCases() []TrafficTestCase {
 			"VirtualServiceHost": dest.Config().FQDN(),
 			"Port":               dest.Config().PortByName("http").ServicePort,
 			"Credential":         cred,
+			"Ciphers":            ciphers,
 		}
 	}
 
@@ -970,6 +978,25 @@ spec:
 				}
 			},
 		},
+		{
+			name: "cipher suite",
+			config: gatewayTmpl + httpVirtualServiceTmpl +
+				ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
+			templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
+				// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
+				// and control plane should filter our invalid one.
+				return templateParams(protocol.HTTPS, src, dests, append(security.ValidCipherSuites.SortedList(), "fake"))
+			},
+			setupOpts: fqdnHostHeader,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+			},
+			viaIngress:       true,
+			workloadAgnostic: true,
+		},
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
@@ -983,7 +1010,7 @@ spec:
 				name:   string(proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
-					return templateParams(proto, src, dests)
+					return templateParams(proto, src, dests, nil)
 				},
 				setupOpts: fqdnHostHeader,
 				opts: echo.CallOptions{
@@ -999,7 +1026,7 @@ spec:
 				name:   fmt.Sprintf("%s scheme match", proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
-					params := templateParams(proto, src, dests)
+					params := templateParams(proto, src, dests, nil)
 					params["MatchScheme"] = strings.ToLower(string(proto))
 					return params
 				},
