@@ -23,7 +23,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
