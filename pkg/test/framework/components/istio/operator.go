@@ -289,6 +289,9 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	scopes.Framework.Infof("=== Istio Component Config ===")
 	scopes.Framework.Infof("\n%s", cfg.String())
+	scopes.Framework.Infof("\nctx:%+v", ctx)
+	scopes.Framework.Infof("\nctx.Environment:%+v", ctx.Environment())
+	scopes.Framework.Infof("\nctx.Environment config cluster:%+v", ctx.Environment().Clusters().Configs())
 	scopes.Framework.Infof("================================")
 
 	t0 := time.Now()
@@ -957,7 +960,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 		return err
 	}
 
-	scopes.Framework.Infof("configuring external control plane to use config cluster in %s", c.Name())
+	scopes.Framework.Infof("configuring external control plane in %s to use config cluster in %s", c.Name(), configCluster.Name())
 	// ensure system namespace exists
 	_, err = c.CoreV1().Namespaces().
 		Create(context.TODO(), &kubeApiCore.Namespace{

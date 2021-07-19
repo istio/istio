@@ -6,3 +6,7 @@ spec:
     ingressGateways:
       - name: test-gateway
         enabled: true
+  values:
+    gateways:
+      test-gateway:
+        injectionTemplate: gateway
