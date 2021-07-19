@@ -265,20 +265,6 @@ func TestReachability(t *testing.T) {
 						return opts.Path == "/vistio"
 					},
 				},
-				{
-					ConfigFile: "beta-mtls-partial-automtls.yaml",
-					Namespace:  apps.Namespace1,
-					Include:    Always,
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
-						// have proxy or have mTLS disabled
-						if apps.IsNaked(src) {
-							return apps.IsNaked(opts.Target)
-						}
-						return true
-					},
-					ExpectMTLS: mtlsOnExpect,
-				},
 				// ----- end of automtls partial test suites -----
 			}
 			reachability.Run(testCases, t, apps)
