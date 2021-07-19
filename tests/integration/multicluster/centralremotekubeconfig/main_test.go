@@ -96,8 +96,8 @@ components:
         - path: spec.template.spec.volumes[100]
           value: |-
             name: inject-volume
-              configMap:
-                name: istio-sidecar-injector
+            configMap:
+              name: istio-sidecar-injector
         - path: spec.template.spec.containers[0].volumeMounts[100]
           value: |-
             name: config-volume
