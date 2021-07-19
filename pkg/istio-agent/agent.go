@@ -21,6 +21,8 @@ import (
 	"path"
 	"strings"
 
+	"google.golang.org/grpc"
+
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/model"
@@ -127,6 +129,8 @@ type AgentConfig struct {
 
 	// Path to local UDS to communicate with Envoy
 	XdsUdsPath string
+
+	DownstreamGrpcOptions []grpc.ServerOption
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
