@@ -31,9 +31,9 @@ import (
 	"istio.io/istio/pkg/wasm"
 )
 
-// safeSendDeltaRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
+// sendDeltaRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
 // block forever on
-func (con *ProxyConnection) safeSendDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
+func (con *ProxyConnection) sendDeltaRequest(req *discovery.DeltaDiscoveryRequest) {
 	select {
 	case con.deltaRequestsChan <- req:
 	case <-con.stopChan:
@@ -70,27 +70,30 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream discovery.AggregatedDisco
 			// From Envoy
 			req, err := downstream.Recv()
 			if err != nil {
-				con.downstreamError <- err
+				select {
+				case con.downstreamError <- err:
+				case <-con.stopChan:
+				}
 				return
 			}
 			// forward to istiod
-			con.safeSendDeltaRequest(req)
+			con.sendDeltaRequest(req)
 			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
 				if _, f := p.handlers[v3.NameTableType]; f {
-					con.safeSendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
 						TypeUrl: v3.NameTableType,
 					})
 				}
 				// fire off an initial PCDS request
 				if _, f := p.handlers[v3.ProxyConfigType]; f {
-					con.safeSendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
 						TypeUrl: v3.ProxyConfigType,
 					})
 				}
 				// Fire of a configured initial request, if there is one
 				if initialRequest != nil {
-					con.safeSendDeltaRequest(initialRequest)
+					con.sendDeltaRequest(initialRequest)
 				}
 				initialRequestsSent = true
 			}
@@ -134,7 +137,10 @@ func (p *XdsProxy) HandleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		for {
 			resp, err := deltaUpstream.Recv()
 			if err != nil {
-				con.upstreamError <- err
+				select {
+				case con.upstreamError <- err:
+				case <-con.stopChan:
+				}
 				return
 			}
 			select {
@@ -223,7 +229,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 					}
 				}
 				// Send ACK/NACK
-				con.safeSendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+				con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
 					TypeUrl:       resp.TypeUrl,
 					ResponseNonce: resp.Nonce,
 					ErrorDetail:   errorResp,
@@ -252,7 +258,7 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 	sendNack := wasm.MaybeConvertWasmExtensionConfigDelta(resp.Resources, p.wasmCache)
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
-		con.safeSendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
 			TypeUrl:       v3.ExtensionConfigurationType,
 			ResponseNonce: resp.Nonce,
 			ErrorDetail: &google_rpc.Status{
