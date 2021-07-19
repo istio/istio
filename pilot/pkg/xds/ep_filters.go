@@ -49,6 +49,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// network gateways, increasing reliability of the endpoint.
 	scaleFactor := b.push.NetworkManager().GetMaxGatewaysPerNetwork()
 
+	sortedGateways := b.push.NetworkManager().AllGateways()
+
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
@@ -129,8 +131,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 		}
 
 		// Now create endpoints for the gateways.
-		for gw, weight := range gatewayWeights {
-			epAddr := util.BuildAddress(gw.Addr, gw.Port)
+		for _, gw := range sortedGateways {
+			weight, ok := gatewayWeights[*gw]
+			if !ok {
+				continue
+			}
 
 			// Generate a fake IstioEndpoint to carry network and cluster information.
 			gwIstioEp := &model.IstioEndpoint{
@@ -141,6 +146,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			}
 
 			// Generate the EDS endpoint for this gateway.
+			epAddr := util.BuildAddress(gw.Addr, gw.Port)
 			gwEp := &endpoint.LbEndpoint{
 				HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 					Endpoint: &endpoint.Endpoint{

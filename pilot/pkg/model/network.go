@@ -16,6 +16,7 @@ package model
 
 import (
 	"net"
+	"sort"
 
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
@@ -119,6 +120,9 @@ func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
 	for _, gateways := range mgr.byNetwork {
 		out = append(out, gateways...)
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].Addr < out[j].Addr
+	})
 	return out
 }
 
