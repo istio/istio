@@ -195,6 +195,144 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	})
 }
 
+func TestSidecarOutboundHTTPRouteConfigWithWildcardsInVirtualService(t *testing.T) {
+	virtualService1 := &networking.VirtualService{
+		Hosts:    []string{"*.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-service-one.com",
+						},
+					},
+				},
+			},
+		},
+	}
+	virtualService2 := &networking.VirtualService{
+		Hosts:    []string{"*.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-service-two.com",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	virtualService3 := &networking.VirtualService{
+		Hosts:    []string{"*.foo.global"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-service-two.com",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	virtualService4 := &networking.VirtualService{
+		Hosts:    []string{"*.global"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-service-two.com",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	services := []*model.Service{
+		buildHTTPService("test-service-two.com", visibility.Public, "", "default", 7442),
+		buildHTTPService("test-service-one.com", visibility.Public, "", "default", 7442),
+		buildHTTPService("*.global", visibility.Public, "", "default", 7442),
+	}
+	config := []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "vs-1",
+			},
+			Spec: virtualService1,
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "vs-2",
+			},
+			Spec: virtualService2,
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "vs-3",
+			},
+			Spec: virtualService3,
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "vs-4",
+			},
+			Spec: virtualService4,
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: services,
+		Configs:  config,
+	})
+
+	vHostCache := make(map[int][]*route.VirtualHost)
+	routeName := "7442"
+	routeCfg := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(cg.SetupProxy(nil), cg.PushContext(), routeName, vHostCache)
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
+	if routeCfg == nil {
+		t.Fatalf("got nil route for %s", routeName)
+	}
+	expectedHosts := map[string][]string{
+		"allow_any":     {"*"},
+		"*.com:7442":    {"*.com", "*.com:7442"},
+		"*.global:7442": {"*.global", "*.global:7442"},
+	}
+	expectedDestination := map[string]string{
+		"allow_any":     "PassthroughCluster",
+		"*.com:7442":    "outbound|7442||test-service-one.com",
+		"*.global:7442": "outbound|7442||test-service-two.com",
+	}
+	got := map[string][]string{}
+	clusters := map[string]string{}
+	for _, vh := range routeCfg.VirtualHosts {
+		got[vh.Name] = vh.Domains
+		clusters[vh.Name] = vh.GetRoutes()[0].GetRoute().GetCluster()
+	}
+
+	if !reflect.DeepEqual(expectedHosts, got) {
+		t.Fatalf("unexpected virtual hosts\n%v, wanted\n%v", got, expectedHosts)
+	}
+
+	if !reflect.DeepEqual(expectedDestination, clusters) {
+		t.Fatalf("unexpected destinations\n%v, wanted\n%v", clusters, expectedDestination)
+	}
+}
+
 func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"test-duplicate-domains.default.svc.cluster.local", "test-duplicate-domains.default"},
