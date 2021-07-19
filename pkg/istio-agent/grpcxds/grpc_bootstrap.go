@@ -17,13 +17,13 @@ package grpcxds
 import (
 	"encoding/json"
 	"fmt"
-	"google.golang.org/protobuf/encoding/protojson"
 	"io/ioutil"
 	"os"
 	"path"
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -148,7 +148,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 					PrivateKeyFile:    path.Join(opts.CertDir, "key.pem"),
 					CertificateFile:   path.Join(opts.CertDir, "cert-chain.pem"),
 					CACertificateFile: path.Join(opts.CertDir, "root-cert.pem"),
-					RefreshDuration: refresh,
+					RefreshDuration:   refresh,
 				},
 			},
 		}
