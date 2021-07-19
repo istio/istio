@@ -220,13 +220,15 @@ func (b *clusterBuilder) applyLoadBalancing(_ *cluster.Cluster, policy *networki
 }
 
 func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.TrafficPolicy) {
-	// TODO check for automtls
-	mode := networking.ClientTLSSettings_ISTIO_MUTUAL
+	// TODO for now, we leave mTLS *off* by default:
+	// 1. We don't know if the client uses xds.NewClientCredentials; these settings will be ignored if not
+	// 2. We cannot reach servers in PERMISSIVE mode; gRPC doesn't allow us to override the alpn to one of Istio's
+	// 3. Once we support gRPC servers, we have no good way to detect if a server is implemented with xds.NewGrpcServer and will actually support our config
+	// For these reasons, support only explicit tls configuration.
+	mode := networking.ClientTLSSettings_DISABLE
 	if settings := policy.GetTls(); settings != nil {
 		mode = settings.GetMode()
 	}
-
-	log.Infof("grpc cds: tls mode for %s: %s", b.node.ID, mode.String())
 
 	switch mode {
 	case networking.ClientTLSSettings_DISABLE:
