@@ -443,14 +443,14 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
+
+		if features.AutoReloadPluginCerts {
+			s.initCACertsWatcher()
+		}
 	}
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
-	}
-
-	if features.AutoReloadPluginCerts {
-		s.initCACertsWatcher()
 	}
 
 	// TODO: provide an endpoint returning all the roots. SDS can only pull a single root in current impl.
