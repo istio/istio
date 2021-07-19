@@ -86,7 +86,7 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 	return certChain, keyPEM, caCert, err
 }
 
-// SignCSRK8sCA generates a certificate from CSR using the K8s CA
+// SignCSRK8s generates a certificate from CSR using the K8s CA
 // 1. Submit a CSR
 // 2. Approve a CSR
 // 3. Read the signed certificate
@@ -166,7 +166,7 @@ func isTCPReachable(host string, port int) bool {
 		// No connection yet, so no need to conn.Close()
 		return false
 	}
-	defer conn.Close()
+	conn.Close()
 	return true
 }
 
@@ -198,7 +198,7 @@ func submitCSR(clientset clientset.Interface,
 			csrName = GenCsrName()
 		}
 		if useV1 && len(usages) > 0 && len(signerName) > 0 && signerName != "kubernetes.io/legacy-unknown" {
-			log.Debugf("trial %v using v1 api to create CSR (%v)", i, csrName)
+			log.Debugf("trial %v using v1 api to create CSR (%v)", i+1, csrName)
 			csr := &certv1.CertificateSigningRequest{
 				// Username, UID, Groups will be injected by API server.
 				TypeMeta: metav1.TypeMeta{Kind: "CertificateSigningRequest"},
@@ -225,7 +225,7 @@ func submitCSR(clientset clientset.Interface,
 			}
 		}
 		// Only exercise v1beta1 logic if v1 api was not found
-		log.Debugf("trial %v using v1beta1 api for csr %v", csrName)
+		log.Debugf("trial %v using v1beta1 api for csr %v", i+1, csrName)
 		// convert relevant bits to v1beta1
 		v1beta1csr := &certv1beta1.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
@@ -391,8 +391,6 @@ func getSignedCsr(client clientset.Interface, csrName string, readInterval time.
 }
 
 // Return signed CSR through a watcher. If no CSR is read, return nil.
-// The following nonlint is to fix the lint error: `certClient` can be `k8s.io/client-go/tools/cache.Watcher` (interfacer)
-// nolint: interfacer
 func readSignedCsr(client clientset.Interface, csrName string, watchTimeout time.Duration, readInterval time.Duration,
 	maxNumRead int, usev1 bool) []byte {
 	var watcher watch.Interface
