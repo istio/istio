@@ -80,7 +80,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	// TODO: Call authorizer.
 	crMetadata := request.Metadata.GetFields()
 	certSigner := crMetadata[security.CertSigner].GetStringValue()
-	log.Infof("cert signer %s", certSigner)
+	log.Debugf("cert signer from workload %s", certSigner)
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: caller.Identities,
