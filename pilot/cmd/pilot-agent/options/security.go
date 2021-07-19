@@ -50,6 +50,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		SecretTTL:                      secretTTLEnv,
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 		STSPort:                        stsPort,
+		CertSigner:                     certSigner.Get(),
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
