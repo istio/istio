@@ -55,7 +55,7 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 					}
 					for _, cluster := range clusters {
 						_, err = cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
-							"istiod-istio-system", metav1.GetOptions{})
+							"istio-validator-istio-system", metav1.GetOptions{})
 						if err == nil {
 							istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: cluster})
 							scopes.Framework.Debugf("cluster Name %s", cluster.Name())
