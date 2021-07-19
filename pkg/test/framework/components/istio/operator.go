@@ -289,9 +289,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	scopes.Framework.Infof("=== Istio Component Config ===")
 	scopes.Framework.Infof("\n%s", cfg.String())
-	scopes.Framework.Infof("\nctx:%+v", ctx)
-	scopes.Framework.Infof("\nctx.Environment:%+v", ctx.Environment())
-	scopes.Framework.Infof("\nctx.Environment config cluster:%+v", ctx.Environment().Clusters().Configs())
 	scopes.Framework.Infof("================================")
 
 	t0 := time.Now()
