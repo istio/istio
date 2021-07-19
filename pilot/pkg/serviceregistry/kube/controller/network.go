@@ -204,7 +204,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 	}
 
 	previousGateways := c.networkGateways[svc.Hostname][nw]
-	gatewaysChanged := newGateways.equals(previousGateways)
+	gatewaysChanged := !newGateways.equals(previousGateways)
 	c.networkGateways[svc.Hostname][nw] = newGateways
 
 	return gatewaysChanged
