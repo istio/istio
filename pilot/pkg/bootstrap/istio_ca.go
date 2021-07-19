@@ -273,7 +273,7 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 func isValidCACertsFile(path string) bool {
 	_, file := filepath.Split(path)
 
-	for _, name := range []string{"ca-cert.pem", "ca-key.pem", "root-cert.pem", "cert-chain.pem"} {
+	for _, name := range []string{ca.CACertFile, ca.CAPrivateKeyFile, ca.RootCertFile, ca.CertChainFile} {
 		if file == name {
 			return true
 		}
@@ -292,7 +292,7 @@ func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
 
 	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-	newCABundle, err := ioutil.ReadFile(path.Join(LocalCertDir.Get(), "root-cert.pem"))
+	newCABundle, err := ioutil.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
 	if err != nil {
 		log.Error("failed reading root-cert.pem: ", err)
 		return
@@ -305,10 +305,10 @@ func handleEvent(s *Server) {
 	}
 
 	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
-		path.Join(LocalCertDir.Get(), "ca-cert.pem"),
-		path.Join(LocalCertDir.Get(), "ca-key.pem"),
-		path.Join(LocalCertDir.Get(), "cert-chain.pem"),
-		path.Join(LocalCertDir.Get(), "root-cert.pem"))
+		path.Join(LocalCertDir.Get(), ca.CACertFile),
+		path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
+		path.Join(LocalCertDir.Get(), ca.CertChainFile),
+		path.Join(LocalCertDir.Get(), ca.RootCertFile))
 	if err != nil {
 		log.Error("Failed to update new Plug-in CA certs: ", err)
 		return
@@ -319,6 +319,8 @@ func handleEvent(s *Server) {
 		log.Error("Failed generating plugged-in istiod key cert: ", err)
 		return
 	}
+
+	log.Info("Istiod has detected the newly added intermediate CA and updated its key and certs accordingly")
 }
 
 // handleCACertsFileWatch handles the events on cacerts files
@@ -354,7 +356,7 @@ func (s *Server) handleCACertsFileWatch() {
 func (s *Server) addCACertsFileWatcher(dir string) error {
 	err := s.cacertsWatcher.Add(dir)
 	if err != nil {
-		log.Info("Failed to add file watcher: ", err)
+		log.Info("AUTO_RELOAD_PLUGIN_CERTS will not work, failed to add file watcher: ", err)
 		return err
 	}
 

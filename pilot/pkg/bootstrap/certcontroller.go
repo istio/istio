@@ -184,7 +184,7 @@ func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 	}
 }
 
-// updatePluggedinRootCertAndGenKeyCert generates new dns certs and notifies keycertbundle
+// updatePluggedinRootCertAndGenKeyCert when intermediate CA is updated, it generates new dns certs and notifies keycertbundle about the changes
 func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
 	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
