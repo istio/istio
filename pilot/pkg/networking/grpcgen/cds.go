@@ -225,12 +225,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 	// 2. We cannot reach servers in PERMISSIVE mode; gRPC doesn't allow us to override the alpn to one of Istio's
 	// 3. Once we support gRPC servers, we have no good way to detect if a server is implemented with xds.NewGrpcServer and will actually support our config
 	// For these reasons, support only explicit tls configuration.
-	mode := networking.ClientTLSSettings_DISABLE
-	if settings := policy.GetTls(); settings != nil {
-		mode = settings.GetMode()
-	}
-
-	switch mode {
+	switch policy.GetTls().GetMode() {
 	case networking.ClientTLSSettings_DISABLE:
 		// nothing to do
 	case networking.ClientTLSSettings_SIMPLE:
