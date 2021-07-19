@@ -1,9 +1,10 @@
 apiVersion: release-notes/v2
-kind: feature -- Auto mTLS now is improved to work with workload level peer authentication policy. You should not have to configure destination rule anymore.
+kind: feature
 area: security
-issue: 33809
+issue:
+  - 33809
 releaseNotes:
   - |
-    Auto mTLS is improved. You no longer need to configure destination rule when servers are configured with workload level peer authentication policy. This can be disabled by setting ENABLE_AUTO_MTLS_CHECK_POLICIES to "false". 
+    **Added** Auto mTLS support for workload level peer authentication. You no longer need to configure destination rule when servers are configured with workload level peer authentication policy. This can be disabled by setting ENABLE_AUTO_MTLS_CHECK_POLICIES to "false". 
 docs:
 - https://istio.io/latest/docs/tasks/security/authentication/authn-policy/#enable-mutual-tls-per-workload
