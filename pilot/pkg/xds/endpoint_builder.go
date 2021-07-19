@@ -325,11 +325,8 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			}
 			// TODO(incfly): check with reviewer to see if we should only touches the updated metadata field
 			// or rebuild from scratch (better readability).
-			// if ep.EnvoyEndpoint == nil {
 			tlsMode := ep.TLSMode
 			if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
-				log.Infof("incfly pocliy disabled proxy %v, true or false %v",
-					ep.Address, b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep))
 				tlsMode = ""
 			}
 			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, tlsMode)

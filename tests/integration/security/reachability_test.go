@@ -106,7 +106,7 @@ func TestReachability(t *testing.T) {
 						// C port 8090 http port are disabled.
 						return apps.A.Contains(opts.Target) || (apps.C.Contains(opts.Target) && opts.PortName == "http")
 					},
-					ExpectMTLS:             Never,
+					ExpectMTLS:             mtlsOnExpect,
 					SkippedForMulticluster: true,
 				},
 				{
@@ -141,22 +141,6 @@ func TestReachability(t *testing.T) {
 							return apps.IsNaked(opts.Target)
 						}
 						return true
-					},
-					ExpectMTLS: mtlsOnExpect,
-				},
-				{
-					ConfigFile: "beta-mtls-partial-automtls.yaml",
-					Namespace:  apps.Namespace1,
-					Include:    Always,
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
-						// have proxy or have mTLS disabled
-						if apps.IsNaked(src) {
-							return apps.IsNaked(opts.Target) || (apps.B.Contains(opts.Target) && opts.PortName != "http")
-						}
-						// PeerAuthentication disable mTLS for workload app:b, except http port. Thus, autoMTLS
-						// will fail on all ports on b, except http port.
-						return !apps.B.Contains(opts.Target) || opts.PortName == "http"
 					},
 					ExpectMTLS: mtlsOnExpect,
 				},
@@ -280,6 +264,20 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
 						return opts.Path == "/vistio"
 					},
+				},
+				{
+					ConfigFile: "beta-mtls-partial-automtls.yaml",
+					Namespace:  apps.Namespace1,
+					Include:    Always,
+					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+						// autoMtls doesn't work for client that doesn't have proxy, unless target doesn't
+						// have proxy or have mTLS disabled
+						if apps.IsNaked(src) {
+							return apps.IsNaked(opts.Target)
+						}
+						return true
+					},
+					ExpectMTLS: mtlsOnExpect,
 				},
 				// ----- end of automtls partial test suites -----
 			}

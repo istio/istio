@@ -90,6 +90,9 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 	}
 
 	for _, c := range testCases {
+		if c.ConfigFile != "beta-mtls-partial-automtls.yaml" {
+			continue
+		}
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
 		if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
