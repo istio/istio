@@ -34,6 +34,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -188,7 +189,8 @@ type AgentOptions struct {
 	GRPCBootstrapPath string
 
 	// Disables all envoy agent features
-	DisableEnvoy bool
+	DisableEnvoy          bool
+	DownstreamGrpcOptions []grpc.ServerOption
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
