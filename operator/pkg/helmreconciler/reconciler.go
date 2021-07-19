@@ -17,6 +17,14 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/galley/pkg/config/analysis/local"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/istioctl/pkg/util/formatting"
+	istioV1Aplha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pkg/config/resource"
+	istioConfigSchema "istio.io/istio/pkg/config/schema"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
@@ -155,12 +163,15 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		return nil, err
 	}
 
-	status := h.processRecursive(manifestMap)
-	if status.Status == v1alpha1.InstallStatus_ERROR && !h.opts.Force {
-		h.opts.ProgressLog.SetState(progress.StatePrunePartialInstall)
-		err  := h.Prune(h.manifests, true)
-		return status, err
+	err = h.analyzeWebhooks(manifestMap[name.PilotComponentName])
+	if err != nil {
+		if h.opts.Force {
+			scope.Error("invalid webhook configs; continuing because of --force")
+		} else {
+			return nil, err
+		}
 	}
+	status := h.processRecursive(manifestMap)
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
 	pruneErr := h.Prune(manifestMap, false)
@@ -542,6 +553,54 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string) 
 		}
 	}
 
+	return nil
+}
+
+func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
+	if len(whs) == 0 {
+		return nil
+	}
+
+	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{
+		SkipServiceCheck: true}),
+		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Aplha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
+	var localWebhookYAMLReaders []local.ReaderSource
+	var parsedK8sObjects object.K8sObjects
+	for _, wh := range whs {
+		whReaderSource := local.ReaderSource{
+			Name:   "",
+			Reader: strings.NewReader(wh),
+		}
+		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
+		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
+		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
+		if err != nil {
+			return err
+		}
+	}
+	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
+	if err != nil {
+		return err
+	}
+
+	k := cfgKube.NewInterfaces(h.restConfig)
+	sa.AddRunningKubeSource(k)
+
+	// Analyze webhooks
+	res, err := sa.Analyze(make(chan struct{}))
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	relevantMessages := res.Messages.FilterOutBasedOnResources(parsedK8sObjects)
+	if len(relevantMessages) > 0 {
+		o, err := formatting.Print(relevantMessages, formatting.LogFormat, false)
+		if err != nil {
+			return err
+		}
+		// nolint
+		return fmt.Errorf("creating default tag would conflict:\n%v", o)
+	}
 	return nil
 }
 

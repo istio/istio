@@ -15,6 +15,7 @@
 package diag
 
 import (
+	"istio.io/istio/operator/pkg/object"
 	"sort"
 )
 
@@ -83,3 +84,17 @@ func (ms *Messages) FilterOutLowerThan(outputLevel Level) Messages {
 	}
 	return outputMessages
 }
+
+func (ms *Messages) FilterOutBasedOnResources(resources object.K8sObjects) Messages {
+	outputMessages := Messages{}
+	for _, m := range *ms {
+		for _, rs := range resources {
+			if rs.Name == m.Resource.Metadata.FullName.Name.String() {
+				outputMessages = append(outputMessages, m)
+				break
+			}
+		}
+	}
+	return outputMessages
+}
+

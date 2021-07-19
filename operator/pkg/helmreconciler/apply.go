@@ -17,15 +17,6 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/config/resource"
-	istioConfigSchema "istio.io/istio/pkg/config/schema"
 	"strings"
 	"time"
 
@@ -101,23 +92,8 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 	// Objects are applied in groups: namespaces, CRDs, everything else, with wait for ready in between.
 	nsObjs := object.KindObjects(changedObjects, name.NamespaceStr)
 	crdObjs := object.KindObjects(changedObjects, name.CRDStr)
-	mutatingWebhookObjs := object.KindObjects(changedObjects, name.MutatingWebhookConfigurationStr)
-	otherObjs := object.ObjectsNotInLists(changedObjects, nsObjs, crdObjs, mutatingWebhookObjs)
-	for _, objList := range []object.K8sObjects{nsObjs, crdObjs, otherObjs, mutatingWebhookObjs} {
-		// Analyze mutating webhook objects
-		if len(objList) > 0 {
-			if objList[0].Kind == name.MutatingWebhookConfigurationStr {
-				err := h.analyzeWebhooks(objList)
-				if err != nil {
-					if !h.opts.Force {
-						errs = util.AppendErr(errs, err)
-						continue
-					}
-					scope.Error("invalid webhook configs; continuing because of --force")
-				}
-			}
-		}
-
+	otherObjs := object.ObjectsNotInLists(changedObjects, nsObjs, crdObjs)
+	for _, objList := range []object.K8sObjects{nsObjs, crdObjs, otherObjs} {
 		// For a given group of objects, apply in sorted order of priority with no wait in between.
 		objList.Sort(object.DefaultObjectOrder())
 		for _, obj := range objList {
@@ -251,63 +227,6 @@ func (h *HelmReconciler) serverSideApply(obj *unstructured.Unstructured) error {
 	opts := []client.PatchOption{client.ForceOwnership, client.FieldOwner(fieldOwnerOperator)}
 	if err := h.client.Patch(context.TODO(), obj, client.Apply, opts...); err != nil {
 		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)
-	}
-	return nil
-}
-
-func (h *HelmReconciler) analyzeWebhooks(whs object.K8sObjects) error {
-	// Get YAML string from K8sObject
-	var whYAMLs []string
-	whNameMap := make(map[string]bool)
-	for _, whObj := range whs {
-		yaml, err := whObj.YAML()
-		if err != nil {
-			return err
-		}
-		whYAMLs = append(whYAMLs, string(yaml))
-		whNameMap[whObj.Name] = true
-	}
-	if len(whYAMLs) == 0 {
-		return nil
-	}
-
-	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{}),
-		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(v1alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
-	var localWebhookYAMLReaders []local.ReaderSource
-	for _, wh := range whYAMLs {
-		whReaderSource := local.ReaderSource{
-			Name:   "",
-			Reader: strings.NewReader(wh),
-		}
-		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
-	}
-	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
-	if err != nil {
-		return err
-	}
-
-	k := cfgKube.NewInterfaces(h.restConfig)
-	sa.AddRunningKubeSource(k)
-
-	// Analyze webhooks
-	res, err := sa.Analyze(make(chan struct{}))
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	relevantMessages := diag.Messages{}
-	for _, msg := range res.Messages.FilterOutLowerThan(diag.Error) {
-		if _, ok := whNameMap[msg.Resource.Metadata.FullName.Name.String()]; ok {
-			relevantMessages = append(relevantMessages, msg)
-		}
-	}
-	if len(relevantMessages) > 0 {
-		o, err := formatting.Print(relevantMessages, formatting.LogFormat, false)
-		if err != nil {
-			return err
-		}
-		// nolint
-		return fmt.Errorf("creating default tag would conflict:\n%v", o)
 	}
 	return nil
 }
