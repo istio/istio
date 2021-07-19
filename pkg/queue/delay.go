@@ -236,6 +236,7 @@ func (d *delayQueue) work(stop <-chan struct{}) {
 					d.Push(t.do)
 					t.retries++
 					log.Warnf("Work item handle failed: %v %d times, retry it", err, t.retries)
+					continue
 				}
 				log.Errorf("Work item handle failed: %v, reaching the maximum retry times: %d, drop it", err, maxTaskRetry)
 			}

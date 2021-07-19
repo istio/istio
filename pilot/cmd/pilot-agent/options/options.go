@@ -108,4 +108,8 @@ var (
 
 	disableEnvoyEnv = env.RegisterBoolVar("DISABLE_ENVOY", false,
 		"Disables all Envoy agent features.").Get()
+
+	// certSigner is cert signer for workload cert
+	certSigner = env.RegisterStringVar("ISTIO_META_CERT_SIGNER", "",
+		"The cert signer info for workload cert")
 )

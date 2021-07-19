@@ -36,7 +36,7 @@ BUILDER_SHA=343862e8279d9acd0308256b69a5f93fe74d5fde
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
-NEXT_VERSION=1.11
+NEXT_VERSION=1.12
 TAG=$(git rev-parse HEAD)
 VERSION="${NEXT_VERSION}-alpha.${TAG}"
 

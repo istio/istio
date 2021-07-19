@@ -43,6 +43,7 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -469,42 +470,42 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 		return v.Unwrap()
 	})
 
-func validateServer(server *networking.Server) (errs error) {
+func validateServer(server *networking.Server) (v Validation) {
 	if server == nil {
-		return fmt.Errorf("cannot have nil server")
+		return WrapError(fmt.Errorf("cannot have nil server"))
 	}
 	if len(server.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
+		v = appendValidation(v, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, hostname := range server.Hosts {
-			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, true))
+			v = appendValidation(v, validateNamespaceSlashWildcardHostname(hostname, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
 	if portErr != nil {
-		errs = appendErrors(errs, portErr)
+		v = appendValidation(v, portErr)
 	}
-	errs = appendErrors(errs, validateServerBind(server.Port, server.Bind))
-	errs = appendErrors(errs, validateTLSOptions(server.Tls))
+	v = appendValidation(v, validateServerBind(server.Port, server.Bind))
+	v = appendValidation(v, validateTLSOptions(server.Tls))
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
 	if portErr == nil {
 		p := protocol.Parse(server.Port.Protocol)
 		if p.IsTLS() && server.Tls == nil {
-			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
+			v = appendValidation(v, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
 		} else if !p.IsTLS() && server.Tls != nil {
 			// only tls redirect is allowed if this is a HTTP server
 			if p.IsHTTP() {
 				if !gateway.IsPassThroughServer(server) ||
 					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
-					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
+					v = appendValidation(v, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
 				}
 			} else {
-				errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+				v = appendValidation(v, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
 			}
 		}
 	}
-	return errs
+	return v
 }
 
 func validateServerPort(port *networking.Port) (errs error) {
@@ -536,23 +537,33 @@ func validateServerBind(port *networking.Port, bind string) (errs error) {
 	return
 }
 
-func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
+func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
+	}
+
+	invalidCiphers := sets.NewSet()
+	for _, cs := range tls.CipherSuites {
+		if !security.IsValidCipherSuite(cs) {
+			invalidCiphers.Insert(cs)
+		}
+	}
+	if len(invalidCiphers) > 0 {
+		return WrapWarning(fmt.Errorf("ignoring invalid cipher suites: %v", invalidCiphers.SortedList()))
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set
 		if tls.ServerCertificate != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
 		}
 		if tls.PrivateKey != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
 		}
 		if tls.CaCertificates != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
 
 		return
@@ -565,20 +576,20 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 	}
 	if tls.Mode == networking.ServerTLSSettings_SIMPLE {
 		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
+			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
+			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
 	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
 		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a private key"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a private key"))
 		}
 		if tls.CaCertificates == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
 		}
 	}
 	return
@@ -943,7 +954,8 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
+		errs := Validation{}
 		rule, ok := cfg.Spec.(*networking.Sidecar)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to Sidecar")
@@ -960,40 +972,40 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		portMap := make(map[uint32]struct{})
 		for _, i := range rule.Ingress {
 			if i == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ingress may not be null"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: ingress may not be null"))
 				continue
 			}
 			if i.Port == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
 				continue
 			}
 
 			bind := i.GetBind()
-			errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
+			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
 			if _, found := portMap[i.Port.Number]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 			}
 			portMap[i.Port.Number] = struct{}{}
 
 			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
-					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
 				} else {
 					// format should be 127.0.0.1:port or :port
 					parts := strings.Split(i.DefaultEndpoint, ":")
 					if len(parts) < 2 {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 					} else {
 						if len(parts[0]) > 0 && parts[0] != "127.0.0.1" && parts[0] != "0.0.0.0" {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 						}
 
 						port, err := strconv.Atoi(parts[1])
 						if err != nil {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
+							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
 						} else {
-							errs = appendErrors(errs, ValidatePort(port))
+							errs = appendValidation(errs, ValidatePort(port))
 						}
 					}
 				}
@@ -1003,56 +1015,89 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		portMap = make(map[uint32]struct{})
 		udsMap := make(map[string]struct{})
 		catchAllEgressListenerFound := false
-		for index, i := range rule.Egress {
-			if i == nil {
-				errs = appendErrors(errs, errors.New("egress listener may not be null"))
+		for index, egress := range rule.Egress {
+			if egress == nil {
+				errs = appendValidation(errs, errors.New("egress listener may not be null"))
 				continue
 			}
 			// there can be only one catch all egress listener with empty port, and it should be the last listener.
-			if i.Port == nil {
+			if egress.Port == nil {
 				if !catchAllEgressListenerFound {
 					if index == len(rule.Egress)-1 {
 						catchAllEgressListenerFound = true
 					} else {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
 					}
 				} else {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
+					errs = appendValidation(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
 					continue
 				}
 			} else {
-				bind := i.GetBind()
-				captureMode := i.GetCaptureMode()
-				errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
+				bind := egress.GetBind()
+				captureMode := egress.GetCaptureMode()
+				errs = appendValidation(errs, validateSidecarEgressPortBindAndCaptureMode(egress.Port, bind, captureMode))
 
-				if i.Port.Number == 0 {
+				if egress.Port.Number == 0 {
 					if _, found := udsMap[bind]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[i.Port.Number]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+					if _, found := portMap[egress.Port.Number]; found {
+						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[i.Port.Number] = struct{}{}
+					portMap[egress.Port.Number] = struct{}{}
 				}
 			}
 
 			// validate that the hosts field is a slash separated value
 			// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
-			if len(i.Hosts) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
+			if len(egress.Hosts) == 0 {
+				errs = appendValidation(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
 			} else {
-				for _, hostname := range i.Hosts {
-					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+				nssSvcs := map[string]map[string]bool{}
+				for _, hostname := range egress.Hosts {
+					parts := strings.SplitN(hostname, "/", 2)
+					if len(parts) == 2 {
+						ns := parts[0]
+						svc := parts[1]
+						if ns == "." {
+							ns = cfg.Namespace
+						}
+						if _, ok := nssSvcs[ns]; !ok {
+							nssSvcs[ns] = map[string]bool{}
+						}
+
+						// test/a
+						// test/a
+						// test/*
+						if svc != "*" {
+							if _, ok := nssSvcs[ns][svc]; ok || nssSvcs[ns]["*"] {
+								// already exists
+								// TODO: prevent this invalid setting, maybe in 1.12+
+								errs = appendValidation(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
+							}
+						} else {
+							if len(nssSvcs[ns]) != 0 {
+								errs = appendValidation(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
+							}
+						}
+						nssSvcs[ns][svc] = true
+					}
+					errs = appendValidation(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+				}
+				// */*
+				// test/a
+				if nssSvcs["*"]["*"] && len(nssSvcs) != 1 {
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("`*/*` host select all resources, no other hosts can be added")))
 				}
 			}
 
 		}
 
-		errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
+		errs = appendValidation(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
 
-		return
+		return errs.Unwrap()
 	})
 
 func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
@@ -2329,7 +2374,7 @@ func routeName(route interface{}, routen int) string {
 func requestName(match interface{}, matchn int) string {
 	switch mr := match.(type) {
 	case *networking.HTTPMatchRequest:
-		if mr.Name != "" {
+		if mr != nil && mr.Name != "" {
 			return fmt.Sprintf("%q", mr.Name)
 		}
 
@@ -2433,9 +2478,14 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 }
 
 func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
+	switch sm.GetMatchType().(type) {
+	case *networking.StringMatch_Regex:
+	default:
+		return nil
+	}
 	re := sm.GetRegex()
 	if re == "" {
-		return nil
+		return fmt.Errorf("%q: regex string match should not be empty", where)
 	}
 
 	_, err := regexp.Compile(re)
@@ -2935,6 +2985,13 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 			}
 			servicePortNumbers[port.Number] = true
+			if port.TargetPort != 0 {
+				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
+			}
+			errs = appendValidation(errs,
+				ValidatePortName(port.Name),
+				ValidateProtocol(port.Protocol),
+				ValidatePort(int(port.Number)))
 		}
 
 		switch serviceEntry.Resolution {
@@ -3036,17 +3093,6 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			if !canDifferentiate {
 				errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
 			}
-		}
-
-		for _, port := range serviceEntry.Ports {
-			if port == nil {
-				errs = appendValidation(errs, errors.New("port may not be null"))
-				continue
-			}
-			errs = appendValidation(errs,
-				ValidatePortName(port.Name),
-				ValidateProtocol(port.Protocol),
-				ValidatePort(int(port.Number)))
 		}
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))

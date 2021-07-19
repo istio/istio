@@ -31,10 +31,10 @@ const (
 	// i.e. mounted Secret or external plugin.
 	// If present, FileMountedCerts should be true.
 
-	// The well-known path for an existing certificate chain file
+	// DefaultCertChainFilePath is the well-known path for an existing certificate chain file
 	DefaultCertChainFilePath = "./etc/certs/cert-chain.pem"
 
-	// The well-known path for an existing key file
+	// DefaultKeyFilePath is the well-known path for an existing key file
 	DefaultKeyFilePath = "./etc/certs/key.pem"
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
@@ -51,8 +51,10 @@ const (
 	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
-	// Credential fetcher type
-	GCE  = "GoogleComputeEngine"
+	// GCE is Credential fetcher type of Google plugin
+	GCE = "GoogleComputeEngine"
+
+	// Mock is Credential fetcher type of mock plugin
 	Mock = "Mock" // testing only
 
 	// GoogleCAProvider uses the Google CA for workload certificate signing
@@ -63,7 +65,7 @@ const (
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
 var (
-	// Require 3P TOKEN disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
+	// Require3PToken disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
 	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
 	// the Apiserver.
 	Require3PToken = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false,
@@ -80,6 +82,9 @@ const (
 	BearerTokenPrefix = "Bearer "
 
 	K8sTokenPrefix = "Istio "
+
+	// CertSigner info
+	CertSigner = "CertSigner"
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -172,6 +177,9 @@ type Options struct {
 
 	// Token manager for the token exchange of XDS
 	TokenManager TokenManager
+
+	// Cert signer info
+	CertSigner string
 }
 
 // TokenManager contains methods for generating token.
@@ -265,7 +273,7 @@ type CredFetcher interface {
 	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
 	GetType() string
 
-	// The name of the IdentityProvider that can authenticate the workload credential.
+	// GetIdentityProvider returns the name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
 
 	// Stop releases resources and cleans up.

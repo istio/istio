@@ -197,14 +197,10 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 				break
 			}
 			whcList := lists.(*v1.MutatingWebhookConfigurationList)
-			var whcNameList []string
 			for _, whc := range whcList.Items {
-				whcNameList = append(whcNameList, whc.Name)
-			}
-			for _, whcName := range whcNameList {
-				log.Debugf("updating caBundle for webhook %q", whcName)
+				log.Debugf("updating caBundle for webhook %q", whc.Name)
 				w.queue.Push(func() error {
-					return w.webhookPatchTask(whcName)
+					return w.webhookPatchTask(whc.Name)
 				})
 			}
 		case <-stop:
