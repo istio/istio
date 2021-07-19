@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"sort"
 	"testing"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -24,6 +23,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -65,12 +65,12 @@ var networkFiltered = []networkFilterCase{
 					// 2 local endpoints on network1
 					{address: "10.0.0.1", weight: 2},
 					{address: "10.0.0.2", weight: 2},
+					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
+					{address: "40.0.0.1", weight: 2},
 					// 1 endpoint on network2, cluster2a
 					{address: "2.2.2.2", weight: 2},
 					// 2 endpoints on network2, cluster2b
 					{address: "2.2.2.20", weight: 4},
-					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 2},
 				},
 				weight: 12,
 			},
@@ -85,12 +85,12 @@ var networkFiltered = []networkFilterCase{
 					// 2 local endpoints on network1
 					{address: "10.0.0.1", weight: 2},
 					{address: "10.0.0.2", weight: 2},
+					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
+					{address: "40.0.0.1", weight: 2},
 					// 1 endpoint on network2, cluster2a
 					{address: "2.2.2.2", weight: 2},
 					// 2 endpoints on network2, cluster2b
 					{address: "2.2.2.20", weight: 4},
-					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 2},
 				},
 				weight: 12,
 			},
@@ -106,10 +106,10 @@ var networkFiltered = []networkFilterCase{
 					{address: "20.0.0.1", weight: 2},
 					{address: "20.0.0.2", weight: 2},
 					{address: "20.0.0.3", weight: 2},
-					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 4},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
 					{address: "40.0.0.1", weight: 2},
+					// 2 endpoint on network1 with weight aggregated at the gateway
+					{address: "1.1.1.1", weight: 4},
 				},
 				weight: 12,
 			},
@@ -125,10 +125,10 @@ var networkFiltered = []networkFilterCase{
 					{address: "20.0.0.1", weight: 2},
 					{address: "20.0.0.2", weight: 2},
 					{address: "20.0.0.3", weight: 2},
-					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 4},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
 					{address: "40.0.0.1", weight: 2},
+					// 2 endpoint on network1 with weight aggregated at the gateway
+					{address: "1.1.1.1", weight: 4},
 				},
 				weight: 12,
 			},
@@ -140,14 +140,14 @@ var networkFiltered = []networkFilterCase{
 		want: []LocLbEpInfo{
 			{
 				lbEps: []LbEpInfo{
+					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
+					{address: "40.0.0.1", weight: 2},
 					// 2 endpoint on network2 with weight aggregated at the gateway
 					{address: "1.1.1.1", weight: 4},
 					// 1 endpoint on network2, cluster2a
 					{address: "2.2.2.2", weight: 2},
 					// 2 endpoints on network2, cluster2b
 					{address: "2.2.2.20", weight: 4},
-					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 2},
 				},
 				weight: 12,
 			},
@@ -620,40 +620,30 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 				return
 			}
 
-			sort.Slice(filtered, func(i, j int) bool {
-				addrI := filtered[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				addrJ := filtered[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-				return addrI < addrJ
-			})
-
 			for i, ep := range filtered {
 				if len(ep.llbEndpoints.LbEndpoints) != len(tt.want[i].lbEps) {
 					t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v",
 						i, getLbEndpointAddrs(&ep.llbEndpoints), tt.want[i].getAddrs())
+					continue
 				}
 
 				if ep.llbEndpoints.LoadBalancingWeight.GetValue() != tt.want[i].weight {
 					t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), tt.want[i].weight)
 				}
 
-				for _, lbEp := range ep.llbEndpoints.LbEndpoints {
+				for j, lbEp := range ep.llbEndpoints.LbEndpoints {
 					addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
-					found := false
-					for _, wantLbEp := range tt.want[i].lbEps {
-						if addr == wantLbEp.address {
-							found = true
+					wantLbEp := tt.want[i].lbEps[j]
+					if addr != wantLbEp.address {
+						t.Errorf("Unexpected address for endpoint %d: got %v, want %v", i, addr, wantLbEp.address)
+					}
 
-							// Now compare the weight.
-							if lbEp.GetLoadBalancingWeight().Value != wantLbEp.weight {
-								t.Errorf("Unexpected weight for endpoint %s: got %v, want %v",
-									addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
-							}
-							break
-						}
+					// Now compare the weight.
+					if lbEp.GetLoadBalancingWeight().Value != wantLbEp.weight {
+						t.Errorf("Unexpected weight for endpoint %s: got %v, want %v",
+							addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
 					}
-					if !found {
-						t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
-					}
+
 				}
 			}
 		})
