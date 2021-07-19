@@ -22,47 +22,34 @@ import (
 	privateca "cloud.google.com/go/security/privateca/apiv1"
 	"google.golang.org/api/option"
 	privatecapb "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/caclient"
-	"istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas/mock"
 	"istio.io/pkg/log"
 )
 
-var googleCAClientLog = log.RegisterScope("googlecas", "Google CAS client debugging", 0)
+var googleCASClientLog = log.RegisterScope("googlecas", "Google CAS client debugging", 0)
 
 // GoogleCASClient: Agent side plugin for Google CAS
 type GoogleCASClient struct {
 	caSigner string
 	caClient *privateca.CertificateAuthorityClient
-	provider *caclient.TokenProvider
 }
 
 // NewGoogleCASClient create a CA client for Google CAS.
-func NewGoogleCASClient(capool string, provider *caclient.TokenProvider, lis *bufconn.Listener) (security.Client, error) {
-	var err error
-	caClient := &GoogleCASClient{caSigner: capool, provider: provider}
+func NewGoogleCASClient(capool string, options ...option.ClientOption) (security.Client, error) {
+	caClient := &GoogleCASClient{caSigner: capool}
 	ctx := context.Background()
+	var err error
 
-	if lis == nil {
-		caClient.caClient, err = privateca.NewCertificateAuthorityClient(ctx,
-			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(provider)))
-	} else {
-		// For Unit Testing
-		caClient.caClient, err = privateca.NewCertificateAuthorityClient(ctx,
-			option.WithoutAuthentication(),
-			option.WithGRPCDialOption(grpc.WithContextDialer(mock.ContextDialerCreate(lis))),
-			option.WithGRPCDialOption(grpc.WithInsecure()))
-	}
+	caClient.caClient, err = privateca.NewCertificateAuthorityClient(ctx, options...)
+
 	if err != nil {
-		googleCAClientLog.Errorf("unable to initialize google cas caclient: %v", err)
+		googleCASClientLog.Errorf("unable to initialize google cas caclient: %v", err)
 		return nil, err
 	}
-	googleCAClientLog.Debugf("Intitialized Google CAS plugin with endpoint: %v", capool)
+	googleCASClientLog.Debugf("Intitialized Google CAS plugin with endpoint: %v", capool)
 	return caClient, nil
 }
 
@@ -108,6 +95,8 @@ func (r *GoogleCASClient) createCertReq(name string, csrPEM []byte, lifetime tim
 // CSR Sign calls Google CAS to sign a CSR.
 func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	certChain := []string{}
+
+	rand.Seed(time.Now().UnixNano())
 	name := fmt.Sprintf("csr-workload-%s", rand.String(8))
 	creq := r.createCertReq(name, csrPEM, time.Duration(certValidTTLInSec)*time.Second)
 
@@ -115,7 +104,7 @@ func (r *GoogleCASClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]str
 
 	cresp, err := r.caClient.CreateCertificate(ctx, creq)
 	if err != nil {
-		googleCAClientLog.Errorf("unable to create certificate: %v", err)
+		googleCASClientLog.Errorf("unable to create certificate: %v", err)
 		return []string{}, err
 	}
 	certChain = append(certChain, cresp.GetPemCertificate())
@@ -136,7 +125,7 @@ func (r *GoogleCASClient) GetRootCertBundle() ([]string, error) {
 	}
 	resp, err := r.caClient.FetchCaCerts(ctx, req)
 	if err != nil {
-		googleCAClientLog.Errorf("error when getting root-certs from CAS pool: %v", err)
+		googleCASClientLog.Errorf("error when getting root-certs from CAS pool: %v", err)
 		return trustbundle, err
 	}
 	for _, certChain := range resp.CaCerts {

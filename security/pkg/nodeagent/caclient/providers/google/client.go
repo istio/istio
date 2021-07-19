@@ -154,7 +154,3 @@ func parseZone(clusterURL string) string {
 	}
 	return rs[2]
 }
-
-func (cl *googleCAClient) GetRootCertBundle() ([]string, error) {
-	return []string{}, nil
-}

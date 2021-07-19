@@ -34,6 +34,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -646,7 +647,8 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
 		// Use a plugin
-		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint, caclient.NewCATokenProvider(a.secOpts), nil)
+		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
+			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))))
 		if err != nil {
 			return nil, err
 		}

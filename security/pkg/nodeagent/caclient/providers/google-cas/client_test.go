@@ -18,6 +18,8 @@ import (
 	"reflect"
 	"testing"
 
+	"google.golang.org/api/option"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -71,7 +73,10 @@ func TestGoogleCASClient(t *testing.T) {
 		}
 		defer s.Stop()
 
-		cli, err := NewGoogleCASClient(tc.poolLocator, nil, lis)
+		cli, err := NewGoogleCASClient(tc.poolLocator,
+			option.WithoutAuthentication(),
+			option.WithGRPCDialOption(grpc.WithContextDialer(mock.ContextDialerCreate(lis))),
+			option.WithGRPCDialOption(grpc.WithInsecure()))
 		if err != nil {
 			t.Errorf("Test case [%s] Client Init: failed to create ca client: %v", id, err)
 		}
