@@ -381,13 +381,9 @@ func GetOSRootPath() string {
 }
 
 func (opt *Options) GetCARootPath() string {
-	opt.caRootPathMutex.Lock()
-	defer opt.caRootPathMutex.Unlock()
 	return opt.CARootPath
 }
 
 func (opt *Options) SetCARootPath(caRootPath string) {
-	opt.caRootPathMutex.Lock()
-	defer opt.caRootPathMutex.Unlock()
 	opt.CARootPath = caRootPath
 }
