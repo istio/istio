@@ -8,5 +8,5 @@ spec:
         enabled: true
   values:
     gateways:
-      test-gateway:
+      istio-ingressgateway:
         injectionTemplate: gateway
