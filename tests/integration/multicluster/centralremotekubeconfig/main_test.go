@@ -126,6 +126,7 @@ components:
 values:
   global:
     operatorManageWebhooks: true
+    configValidation: false
 `
 		})).
 		Run()
