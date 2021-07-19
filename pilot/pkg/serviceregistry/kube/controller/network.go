@@ -17,9 +17,7 @@ package controller
 import (
 	"net"
 	"reflect"
-	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/yl2chen/cidranger"
 
@@ -204,7 +202,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 	}
 
 	previousGateways := c.networkGateways[svc.Hostname][nw]
-	gatewaysChanged := newGateways.equals(previousGateways)
+	gatewaysChanged := !newGateways.equals(previousGateways)
 	c.networkGateways[svc.Hostname][nw] = newGateways
 
 	return gatewaysChanged
@@ -306,18 +304,5 @@ func (s gatewaySet) toArray() []*model.NetworkGateway {
 	}
 
 	// Sort the array so that it's stable.
-	sort.SliceStable(gws, func(i, j int) bool {
-		if cmp := strings.Compare(string(gws[i].Network), string(gws[j].Network)); cmp < 0 {
-			return true
-		}
-		if cmp := strings.Compare(string(gws[i].Cluster), string(gws[j].Cluster)); cmp < 0 {
-			return true
-		}
-		if cmp := strings.Compare(gws[i].Addr, gws[j].Addr); cmp < 0 {
-			return true
-		}
-		return gws[i].Port < gws[j].Port
-	})
-
-	return gws
+	return model.SortGateways(gws)
 }
