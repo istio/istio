@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -87,10 +88,11 @@ type VirtualHostWrapper struct {
 func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
+	mutatedHosts := sets.NewSet()
 
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, listenPort)
+		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, listenPort, mutatedHosts)
 		out = append(out, wrappers...)
 	}
 
@@ -118,7 +120,7 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 // separateVSHostsAndServices splits the virtual service hosts into services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service) ([]string, []*model.Service) {
+	serviceRegistry map[host.Name]*model.Service, mutatedHosts sets.Set) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
@@ -148,12 +150,18 @@ func separateVSHostsAndServices(virtualService config.Config,
 		for svcHost, svc := range serviceRegistry {
 			// *.foo.global matches *.global
 			if svcHost.Matches(hostname) {
+				service := svc
 				// Change the host name of service to the host name in virtual service as we have to build domains based
 				// on virtual service host names.
-				svc.Hostname = hostname
-				servicesInVirtualService = append(servicesInVirtualService, svc)
+				// Check if the service has been already mutated, if yes we need to create a copy of it
+				// and add this new host.
+				if mutatedHosts.Contains(string(svcHost)) {
+					service = svc.DeepCopy()
+				}
+				mutatedHosts.Insert(string(svcHost))
+				service.Hostname = hostname
+				servicesInVirtualService = append(servicesInVirtualService, service)
 				foundSvcMatch = true
-				break
 			}
 		}
 		if !foundSvcMatch {
@@ -171,14 +179,14 @@ func buildSidecarVirtualHostsForVirtualService(
 	push *model.PushContext,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	listenPort int) []VirtualHostWrapper {
+	listenPort int, mutatedHosts sets.Set) []VirtualHostWrapper {
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
 	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
 	if err != nil || len(routes) == 0 {
 		return nil
 	}
 
-	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
+	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry, mutatedHosts)
 
 	// Now group these services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in

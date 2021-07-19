@@ -308,14 +308,16 @@ func TestSidecarOutboundHTTPRouteConfigWithWildcardsInVirtualService(t *testing.
 		t.Fatalf("got nil route for %s", routeName)
 	}
 	expectedHosts := map[string][]string{
-		"allow_any":     {"*"},
-		"*.com:7442":    {"*.com", "*.com:7442"},
-		"*.global:7442": {"*.global", "*.global:7442"},
+		"allow_any":         {"*"},
+		"*.com:7442":        {"*.com", "*.com:7442"},
+		"*.foo.global:7442": {"*.foo.global", "*.foo.global:7442"},
+		"*.global:7442":     {"*.global", "*.global:7442"},
 	}
 	expectedDestination := map[string]string{
-		"allow_any":     "PassthroughCluster",
-		"*.com:7442":    "outbound|7442||test-service-one.com",
-		"*.global:7442": "outbound|7442||test-service-two.com",
+		"allow_any":         "PassthroughCluster",
+		"*.com:7442":        "outbound|7442||test-service-one.com",
+		"*.foo.global:7442": "outbound|7442||test-service-two.com",
+		"*.global:7442":     "outbound|7442||test-service-two.com",
 	}
 	got := map[string][]string{}
 	clusters := map[string]string{}
