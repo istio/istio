@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -32,6 +34,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/prometheus/pkg/textparse"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -307,6 +310,119 @@ my_metric{app="bar"} 0
 				t.Fatalf("failed to parse metrics: %v", err)
 			} else if err == nil && tt.expectParseError {
 				t.Fatalf("expected a prse error, got %+v", mfMap)
+			}
+		})
+	}
+}
+
+func TestStatsContentType(t *testing.T) {
+	appOpenMetrics := `# TYPE jvm info
+# HELP jvm VM version info
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
+# TYPE jmx_config_reload_success counter
+# HELP jmx_config_reload_success Number of times configuration have successfully been reloaded.
+jmx_config_reload_success_total 0.0
+jmx_config_reload_success_created 1.623984612719E9
+# EOF
+`
+	appText004 := `# HELP jvm_info VM version info
+# TYPE jvm_info gauge
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9",} 1.0
+# HELP jmx_config_reload_failure_created Number of times configuration have failed to be reloaded.
+# TYPE jmx_config_reload_failure_created gauge
+jmx_config_reload_failure_created 1.624025983489E9
+`
+	envoy := `# TYPE my_metric counter
+my_metric{} 0
+
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`
+	cases := []struct {
+		name             string
+		acceptHeader     string
+		expectParseError bool
+	}{
+		{
+			name:         "openmetrics accept header",
+			acceptHeader: `application/openmetrics-text; version=0.0.1,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`,
+		},
+		{
+			name:         "plaintext accept header",
+			acceptHeader: string(expfmt.FmtText),
+		},
+		{
+			name:         "empty accept header",
+			acceptHeader: "",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			envoy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(envoy)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer envoy.Close()
+			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+				var negotiatedMetrics string
+				if format == expfmt.FmtOpenMetrics {
+					negotiatedMetrics = appOpenMetrics
+					w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
+				} else {
+					negotiatedMetrics = appText004
+					w.Header().Set("Content-Type", string(expfmt.FmtText))
+				}
+				if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer app.Close()
+			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := &Server{
+				prometheus: &PrometheusScrapeConfiguration{
+					Port: strings.Split(app.URL, ":")[2],
+				},
+				envoyStatsPort: envoyPort,
+			}
+			req := &http.Request{}
+			req.Header = make(http.Header)
+			req.Header.Add("Accept", tt.acceptHeader)
+			server.handleStats(rec, req)
+			if rec.Code != 200 {
+				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+
+			var format expfmt.Format
+			mediaType, _, err := mime.ParseMediaType(rec.Header().Get("Content-Type"))
+			if err == nil && mediaType == "application/openmetrics-text" {
+				format = expfmt.FmtOpenMetrics
+			} else {
+				format = expfmt.FmtText
+			}
+
+			if format == expfmt.FmtOpenMetrics {
+				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
+				for {
+					_, err := omParser.Next()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						t.Fatalf("failed to parse openmetrics: %v", err)
+					}
+				}
+			} else {
+				textParser := expfmt.TextParser{}
+				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+				if err != nil {
+					t.Fatalf("failed to parse text metrics: %v", err)
+				}
 			}
 		})
 	}
