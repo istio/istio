@@ -93,7 +93,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
 
-	ret.rootCaPath = options.GetCARootPath()
+	ret.rootCaPath = options.CARootPath
 
 	if options.FileMountedCerts {
 		return ret
@@ -210,7 +210,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 	}
 	cfg := nodeagentutil.SdsCertificateConfig{}
 	ok := false
-	if caRootPath != "" {
+	if s.ResourceName == "file-root:system" {
 		cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(caRootPath)
 	} else {
 		cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(s.ResourceName)

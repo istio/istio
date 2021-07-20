@@ -503,7 +503,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string, caRootPat
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
 		cfg := nodeagentutil.SdsCertificateConfig{}
 		ok := false
-		if caRootPath != "" {
+		if resourceName == "file-root:system" {
 			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(caRootPath)
 		} else {
 			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(resourceName)
@@ -749,12 +749,12 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
 func (sc *SecretManagerClient) GetCARootPath() string {
 	sc.caRootPathMutex.Lock()
 	defer sc.caRootPathMutex.Unlock()
-	caRootPath := sc.configOptions.GetCARootPath()
+	caRootPath := sc.configOptions.CARootPath
 	return caRootPath
 }
 
 func (sc *SecretManagerClient) SetCARootPath(caRootPath string) {
 	sc.caRootPathMutex.Lock()
 	defer sc.caRootPathMutex.Unlock()
-	sc.configOptions.SetCARootPath(caRootPath)
+	sc.configOptions.CARootPath = caRootPath
 }

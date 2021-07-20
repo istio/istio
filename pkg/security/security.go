@@ -379,11 +379,3 @@ func GetOSRootPath() string {
 	}
 	return ""
 }
-
-func (opt *Options) GetCARootPath() string {
-	return opt.CARootPath
-}
-
-func (opt *Options) SetCARootPath(caRootPath string) {
-	opt.CARootPath = caRootPath
-}
