@@ -266,6 +266,19 @@ func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
 	}
 }
 
+func needConstructEnvoyendpoint(tlsMode string, e *endpoint.LbEndpoint) bool {
+	if e == nil {
+		return true
+	}
+	epTlsMode := ""
+	if e.Metadata != nil {
+		if v, ok := e.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]; ok {
+			epTlsMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
+		}
+	}
+	return tlsMode == epTlsMode
+}
+
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
@@ -327,7 +340,9 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
 				tlsMode = ""
 			}
-			ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, tlsMode)
+			if needConstructEnvoyendpoint(tlsMode, ep.EnvoyEndpoint) {
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, tlsMode)
+			}
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
