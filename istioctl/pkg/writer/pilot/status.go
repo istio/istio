@@ -171,7 +171,7 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
-				cds, lds, eds, rds := getSyncStatus(clientConfig.GenericXdsConfigs)
+				cds, lds, eds, rds := getSyncStatus(&clientConfig)
 				cp := multixds.CpInfo(dr)
 				fullStatus = append(fullStatus, &xdsWriterStatus{
 					proxyID:        clientConfig.GetNode().GetId(),
@@ -225,7 +225,8 @@ func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
 	return err
 }
 
-func getSyncStatus(configs []*xdsstatus.ClientConfig_GenericXdsConfig) (cds, lds, eds, rds string) {
+func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds string) {
+	configs := handleAndGetXdsConfigs(clientConfig)
 	for _, config := range configs {
 		cfgType := config.GetTypeUrl()
 		switch cfgType {
@@ -238,8 +239,41 @@ func getSyncStatus(configs []*xdsstatus.ClientConfig_GenericXdsConfig) (cds, lds
 		case xdsresource.EndpointType:
 			eds = config.GetConfigStatus().String()
 		default:
-			log.Infof("PerXdsConfig unexpected type %s\n", xdsresource.GetShortType(cfgType))
+			log.Infof("GenericXdsConfig unexpected type %s\n", xdsresource.GetShortType(cfgType))
 		}
 	}
 	return
+}
+
+func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.ClientConfig_GenericXdsConfig {
+	configs := make([]*xdsstatus.ClientConfig_GenericXdsConfig, 0)
+	if clientConfig.GetGenericXdsConfigs() != nil {
+		configs = clientConfig.GetGenericXdsConfigs()
+		return configs
+	}
+
+	// FIXME: currently removing the deprecated code below may result in functions not working
+	// if there is a mismatch of versions between istiod and istioctl
+	// nolint: staticcheck
+	for _, config := range clientConfig.GetXdsConfig() {
+		var typeURL string
+		switch config.PerXdsConfig.(type) {
+		case *xdsstatus.PerXdsConfig_ListenerConfig:
+			typeURL = xdsresource.ListenerType
+		case *xdsstatus.PerXdsConfig_ClusterConfig:
+			typeURL = xdsresource.ClusterType
+		case *xdsstatus.PerXdsConfig_RouteConfig:
+			typeURL = xdsresource.RouteType
+		case *xdsstatus.PerXdsConfig_EndpointConfig:
+			typeURL = xdsresource.EndpointType
+		}
+
+		if typeURL != "" {
+			configs = append(configs, &xdsstatus.ClientConfig_GenericXdsConfig{
+				TypeUrl:      typeURL,
+				ConfigStatus: config.Status,
+			})
+		}
+	}
+	return configs
 }
