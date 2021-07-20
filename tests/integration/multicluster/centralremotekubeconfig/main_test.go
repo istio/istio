@@ -72,9 +72,9 @@ values:
   pilot:
     configMap: true
   istiodRemote:
-    injectionURL: https://istiod.istio-system.svc:15017/inject
+    injectionURL: https://istiod.istio-system.svc:443/inject
   base:
-    validationURL: https://istiod.istio-system.svc:15017/validate`
+    validationURL: https://istiod.istio-system.svc:443/validate`
 			cfg.ControlPlaneValues = `
 components:
   base:
