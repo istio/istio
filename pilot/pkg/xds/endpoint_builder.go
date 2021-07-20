@@ -323,8 +323,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
-			// TODO(incfly): check with reviewer to see if we should only touches the updated metadata field
-			// or rebuild from scratch (better readability).
 			tlsMode := ep.TLSMode
 			if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
 				tlsMode = ""
