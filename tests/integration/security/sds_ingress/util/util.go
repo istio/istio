@@ -27,6 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -66,21 +67,36 @@ var IngressCredentialA = IngressCredential{
 	ServerCert: TLSServerCertA,
 	CaCert:     CaCertA,
 }
+
 var IngressCredentialServerKeyCertA = IngressCredential{
 	PrivateKey: TLSServerKeyA,
 	ServerCert: TLSServerCertA,
 }
+
 var IngressCredentialCaCertA = IngressCredential{
 	CaCert: CaCertA,
 }
+
 var IngressCredentialB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
 	CaCert:     CaCertB,
 }
+
 var IngressCredentialServerKeyCertB = IngressCredential{
 	PrivateKey: TLSServerKeyB,
 	ServerCert: TLSServerCertB,
+}
+
+// IngressKubeSecretYAML will generate a credential for a gateway
+func IngressKubeSecretYAML(name, namespace string, ingressType CallType, ingressCred IngressCredential) string {
+	// Create Kubernetes secret for ingress gateway
+	secret := createSecret(ingressType, name, namespace, ingressCred, true)
+	by, err := yaml.Marshal(secret)
+	if err != nil {
+		panic(err)
+	}
+	return string(by) + "\n---\n"
 }
 
 // CreateIngressKubeSecret reads credential names from credNames and key/cert from ingressCred,
@@ -154,6 +170,10 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 	if ingressType == Mtls {
 		if isCompoundAndNotGeneric {
 			return &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cn,
 					Namespace: ns,
@@ -166,6 +186,10 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 			}
 		}
 		return &v1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cn,
 				Namespace: ns,
@@ -178,6 +202,10 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 		}
 	}
 	return &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cn,
 			Namespace: ns,
