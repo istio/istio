@@ -568,7 +568,7 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.WorkloadEntryController.RegisterWorkload(proxy, node, con.Connect); err != nil {
+	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return err
 	}
 
