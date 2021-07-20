@@ -98,8 +98,9 @@ type XdsProxy struct {
 	// TODO(bianpengyuan): this relies on the fact that istiod versions all ECDS resources
 	// the same in a update response. This needs update to support per resource versioning,
 	// in case istiod changes its behavior, or a different ECDS server is used.
-	ecdsLastAckVersion atomic.String
-	ecdsLastNonce      atomic.String
+	ecdsLastAckVersion    atomic.String
+	ecdsLastNonce         atomic.String
+	downstreamGrpcOptions []grpc.ServerOption
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -120,15 +121,16 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		LocalHostAddr: localHostAddr,
 	}
 	proxy := &XdsProxy{
-		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
-		clusterID:      ia.secOpts.ClusterID,
-		localDNSServer: ia.localDNSServer,
-		stopChan:       make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
-		xdsHeaders:     ia.cfg.XDSHeaders,
-		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
-		ecdsUpdateChan: make(chan *discovery.DiscoveryResponse, 10),
+		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
+		clusterID:             ia.secOpts.ClusterID,
+		localDNSServer:        ia.localDNSServer,
+		stopChan:              make(chan struct{}),
+		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe),
+		xdsHeaders:            ia.cfg.XDSHeaders,
+		xdsUdsPath:            ia.cfg.XdsUdsPath,
+		wasmCache:             wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
+		ecdsUpdateChan:        make(chan *discovery.DiscoveryResponse, 10),
+		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
 
 	proxyLog.Infof("Initializing with upstream address %q and cluster %q", proxy.istiodAddress, proxy.clusterID)
@@ -169,17 +171,22 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 // to the upstream XDS request we will resend this request.
 func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	var ch chan *discovery.DiscoveryRequest
+	var stop chan struct{}
 
 	p.connectedMutex.Lock()
 	if p.connected != nil {
 		ch = p.connected.requestsChan
+		stop = p.connected.stopChan
 	}
 	p.initialRequest = req
 	p.connectedMutex.Unlock()
 
 	// Immediately send if we are currently connect
 	if ch != nil {
-		ch <- req
+		select {
+		case ch <- req:
+		case <-stop:
+		}
 	}
 }
 
@@ -212,6 +219,15 @@ type ProxyConnection struct {
 	upstream        discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 }
 
+// sendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
+// block forever on
+func (con *ProxyConnection) sendRequest(req *discovery.DiscoveryRequest) {
+	select {
+	case con.requestsChan <- req:
+	case <-con.stopChan:
+	}
+}
+
 // Every time envoy makes a fresh connection to the agent, we reestablish a new connection to the upstream xds
 // This ensures that a new connection between istiod and agent doesn't end up consuming pending messages from envoy
 // as the new connection may not go to the same istiod. Vice versa case also applies.
@@ -242,21 +258,24 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			// From Envoy
 			req, err := downstream.Recv()
 			if err != nil {
-				con.downstreamError <- err
+				select {
+				case con.downstreamError <- err:
+				case <-con.stopChan:
+				}
 				return
 			}
 			// forward to istiod
-			con.requestsChan <- req
+			con.sendRequest(req)
 			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
 				if p.localDNSServer != nil {
-					con.requestsChan <- &discovery.DiscoveryRequest{
+					con.sendRequest(&discovery.DiscoveryRequest{
 						TypeUrl: v3.NameTableType,
-					}
+					})
 				}
 				// Fire of a configured initial request, if there is one
 				if initialRequest != nil {
-					con.requestsChan <- initialRequest
+					con.sendRequest(initialRequest)
 				}
 				initialRequestsSent = true
 			}
@@ -299,12 +318,18 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	go func() {
 		for {
 			// from istiod
-			resp, err := upstream.Recv()
+			resp, err := con.upstream.Recv()
 			if err != nil {
-				con.upstreamError <- err
+				select {
+				case con.upstreamError <- err:
+				case <-con.stopChan:
+				}
 				return
 			}
-			con.responsesChan <- resp
+			select {
+			case con.responsesChan <- resp:
+			case <-con.stopChan:
+			}
 		}
 	}()
 
@@ -390,11 +415,11 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 				}
 
 				// Send ACK
-				con.requestsChan <- &discovery.DiscoveryRequest{
+				con.sendRequest(&discovery.DiscoveryRequest{
 					VersionInfo:   resp.VersionInfo,
 					TypeUrl:       v3.NameTableType,
 					ResponseNonce: resp.Nonce,
-				}
+				})
 			case v3.ExtensionConfigurationType:
 				if features.WasmRemoteLoadConversion {
 					// If Wasm remote load conversion feature is enabled, push ECDS update into
@@ -420,7 +445,7 @@ func (p *XdsProxy) handleUpstreamECDSResponse(con *ProxyConnection) {
 		case resp := <-p.ecdsUpdateChan:
 			sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
 			if sendNack {
-				con.requestsChan <- &discovery.DiscoveryRequest{
+				con.sendRequest(&discovery.DiscoveryRequest{
 					VersionInfo:   p.ecdsLastAckVersion.Load(),
 					TypeUrl:       v3.ExtensionConfigurationType,
 					ResponseNonce: resp.Nonce,
@@ -428,7 +453,7 @@ func (p *XdsProxy) handleUpstreamECDSResponse(con *ProxyConnection) {
 						// TODO(bianpengyuan): make error message more informative.
 						Message: "failed to fetch wasm module",
 					},
-				}
+				})
 				return
 			}
 			proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
@@ -521,7 +546,7 @@ func (p *XdsProxy) initDownstreamServer() error {
 	if err != nil {
 		return err
 	}
-	grpcs := grpc.NewServer()
+	grpcs := grpc.NewServer(p.downstreamGrpcOptions...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
 	p.downstreamGrpcServer = grpcs
