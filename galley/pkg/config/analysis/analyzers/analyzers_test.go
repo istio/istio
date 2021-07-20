@@ -546,7 +546,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAutoAnalyzer{},
 		expected: []message{
-			{msg.ImageAutoWithoutInjection, "Deployment non-injected-gateway-deployment"},
+			{msg.ImageAutoWithoutInjectionWarning, "Deployment non-injected-gateway-deployment"},
 		},
 	},
 }

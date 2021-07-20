@@ -177,9 +177,13 @@ var (
 	// Description: Gateway should not have the same selector, port and matched hosts of server
 	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
 
-	// ImageAutoWithoutInjection defines a diag.MessageType for message "ImageAutoWithoutInjection".
+	// ImageAutoWithoutInjectionWarning defines a diag.MessageType for message "ImageAutoWithoutInjectionWarning".
 	// Description: Pods and Deployments with `image: auto` should be targeted for injection.
-	ImageAutoWithoutInjection = diag.NewMessageType(diag.Warning, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
+	ImageAutoWithoutInjectionWarning = diag.NewMessageType(diag.Warning, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
+
+	// ImageAutoWithoutInjectionError defines a diag.MessageType for message "ImageAutoWithoutInjectionError".
+	// Description: Pods and Deployments with `image: auto` should be targeted for injection.
+	ImageAutoWithoutInjectionError = diag.NewMessageType(diag.Error, "IST0147", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
 )
 
 // All returns a list of all known message types.
@@ -227,7 +231,8 @@ func All() []*diag.MessageType {
 		LocalhostListener,
 		InvalidApplicationUID,
 		ConflictingGateways,
-		ImageAutoWithoutInjection,
+		ImageAutoWithoutInjectionWarning,
+		ImageAutoWithoutInjectionError,
 	}
 }
 
@@ -653,10 +658,20 @@ func NewConflictingGateways(r *resource.Instance, gateway string, selector strin
 	)
 }
 
-// NewImageAutoWithoutInjection returns a new diag.Message based on ImageAutoWithoutInjection.
-func NewImageAutoWithoutInjection(r *resource.Instance, resourceType string, resourceName string) diag.Message {
+// NewImageAutoWithoutInjectionWarning returns a new diag.Message based on ImageAutoWithoutInjectionWarning.
+func NewImageAutoWithoutInjectionWarning(r *resource.Instance, resourceType string, resourceName string) diag.Message {
 	return diag.NewMessage(
-		ImageAutoWithoutInjection,
+		ImageAutoWithoutInjectionWarning,
+		r,
+		resourceType,
+		resourceName,
+	)
+}
+
+// NewImageAutoWithoutInjectionError returns a new diag.Message based on ImageAutoWithoutInjectionError.
+func NewImageAutoWithoutInjectionError(r *resource.Instance, resourceType string, resourceName string) diag.Message {
+	return diag.NewMessage(
+		ImageAutoWithoutInjectionError,
 		r,
 		resourceType,
 		resourceName,
