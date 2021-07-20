@@ -49,6 +49,7 @@ func TestConvertResources(t *testing.T) {
 		"tls",
 		"mismatch",
 		"weighted",
+		"zero",
 		"backendpolicy",
 		"mesh",
 		"invalid",
