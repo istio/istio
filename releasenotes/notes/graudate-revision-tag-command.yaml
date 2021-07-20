@@ -3,4 +3,4 @@ kind: promotion
 area: istioctl
 releaseNotes:
   - |
-    **Promoted** the `istioctl experimental revision` command group to `istioctl revision`.
+    **Promoted** the `istioctl experimental revision tag` command group to `istioctl tag`.
