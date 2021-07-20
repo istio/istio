@@ -169,11 +169,11 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 						autoPassthrough = true
 					}
 					if len(s.Tls.CipherSuites) > 0 {
-						serverName := s.Name
-						if len(serverName) == 0 {
-							serverName = s.Port.Name
+						serverIdentifier := s.Name
+						if len(serverIdentifier) == 0 {
+							serverIdentifier = s.Port.Name
 						}
-						s.Tls.CipherSuites = filteredCipherSuites(s.Tls.CipherSuites, serverName, gatewayName)
+						s.Tls.CipherSuites = filteredCipherSuites(s.Tls.CipherSuites, serverIdentifier, gatewayName)
 					}
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
@@ -473,13 +473,13 @@ func getTargetPortMap(serversByRouteName map[string][]*networking.Server) Gatewa
 }
 
 // Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
-func filteredCipherSuites(suites []string, serverName string, gatewayName string) []string {
+func filteredCipherSuites(suites []string, serverIdentifier string, gatewayName string) []string {
 	ret := make([]string, 0, len(suites))
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
 			ret = append(ret, s)
 		} else {
-			log.Debugf("ignoring unsupported cipherSuite: %q for server %s in gateway %s", s, serverName, gatewayName)
+			log.Debugf("ignoring unsupported cipherSuite: %q for server %s in gateway %s", s, serverIdentifier, gatewayName)
 		}
 	}
 	return ret
