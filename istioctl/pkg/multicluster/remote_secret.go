@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -110,10 +109,13 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out, err := CreateRemoteSecret(opts, env)
+			out, warn, err := CreateRemoteSecret(opts, env)
 			if err != nil {
 				_, _ = fmt.Fprintf(c.OutOrStderr(), "error: %v\n", err)
 				return err
+			}
+			if warn != nil {
+				_, _ = fmt.Fprintf(c.OutOrStderr(), "warn: %v\n", warn)
 			}
 			_, _ = fmt.Fprint(c.OutOrStdout(), out)
 			return nil
@@ -371,24 +373,26 @@ func writeToTempFile(content string) (string, error) {
 	return outFile.Name(), nil
 }
 
-func getServerFromKubeconfig(context string, config *api.Config) (string, error) {
+func getServerFromKubeconfig(context string, config *api.Config) (string, Warning, error) {
 	if context == "" {
 		context = config.CurrentContext
 	}
 
 	configContext, ok := config.Contexts[context]
 	if !ok {
-		return "", fmt.Errorf("could not find cluster for context %q", context)
+		return "", nil, fmt.Errorf("could not find cluster for context %q", context)
 	}
 	cluster, ok := config.Clusters[configContext.Cluster]
 	if !ok {
-		return "", fmt.Errorf("could not find server for context %q", context)
+		return "", nil, fmt.Errorf("could not find server for context %q", context)
 	}
 	if strings.Contains(cluster.Server, "127.0.0.1") || strings.Contains(cluster.Server, "localhost") {
-		log.Warnf("Server in Kubeconfig is %s. This is likely not reachable from inside the cluster.\n"+
-			"If you're using Kubernetes in Docker, pass --server with the container IP for the API Server.", cluster.Server)
+		return cluster.Server, fmt.Errorf(
+			"server in Kubeconfig is %s. This is likely not reachable from inside the cluster, "+
+				"if you're using Kubernetes in Docker, pass --server with the container IP for the API Server",
+			cluster.Server), nil
 	}
-	return cluster.Server, nil
+	return cluster.Server, nil, nil
 }
 
 const (
@@ -541,12 +545,14 @@ func (o *RemoteSecretOptions) prepare(flags *pflag.FlagSet) error {
 	return nil
 }
 
-func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env Environment) (*v1.Secret, error) {
+type Warning error
+
+func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env Environment) (*v1.Secret, Warning, error) {
 	// generate the clusterName if not specified
 	if opt.ClusterName == "" {
 		uid, err := clusterUID(client)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		opt.ClusterName = string(uid)
 	}
@@ -564,20 +570,21 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 			opt.ServiceAccountName = constants.DefaultConfigServiceAccountName
 		}
 	default:
-		return nil, fmt.Errorf("unsupported type: %v", opt.Type)
+		return nil, nil, fmt.Errorf("unsupported type: %v", opt.Type)
 	}
 	tokenSecret, err := getServiceAccountSecret(client, opt)
 	if err != nil {
-		return nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
+		return nil, nil, fmt.Errorf("could not get access token to read resources from local kube-apiserver: %v", err)
 	}
 
 	var server string
+	var warn Warning
 	if opt.ServerOverride != "" {
 		server = opt.ServerOverride
 	} else {
-		server, err = getServerFromKubeconfig(opt.Context, env.GetConfig())
+		server, warn, err = getServerFromKubeconfig(opt.Context, env.GetConfig())
 		if err != nil {
-			return nil, err
+			return nil, warn, err
 		}
 	}
 
@@ -596,24 +603,24 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.ExtendedClient, env
 		err = fmt.Errorf("unsupported authentication type: %v", opt.AuthType)
 	}
 	if err != nil {
-		return nil, err
+		return nil, warn, err
 	}
 
 	remoteSecret.Namespace = opt.Namespace
-	return remoteSecret, nil
+	return remoteSecret, warn, nil
 }
 
 // CreateRemoteSecret creates a remote secret with credentials of the specified service account.
 // This is useful for providing a cluster access to a remote apiserver.
-func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, error) {
+func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, Warning, error) {
 	client, err := env.CreateClient(opt.Context)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	remoteSecret, err := createRemoteSecret(opt, client, env)
+	remoteSecret, warn, err := createRemoteSecret(opt, client, env)
 	if err != nil {
-		return "", err
+		return "", warn, err
 	}
 
 	// convert any binary data to the string equivalent for easier review. The
@@ -626,7 +633,7 @@ func CreateRemoteSecret(opt RemoteSecretOptions, env Environment) (string, error
 
 	w := makeOutputWriterTestHook()
 	if err := writeEncodedObject(w, remoteSecret); err != nil {
-		return "", err
+		return "", warn, err
 	}
-	return w.String(), nil
+	return w.String(), warn, nil
 }
