@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 func httpGateway(host string) string {
@@ -56,6 +58,7 @@ spec:
 `, host)
 }
 
+// nolint: unparam
 func httpVirtualService(gateway, host string, port int) string {
 	return tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -610,6 +613,45 @@ func gatewayCases(apps *EchoDeployments) []TrafficTestCase {
 					"Host": {"foo.bar"},
 				},
 				Validator: echo.ExpectCode("404"),
+			},
+		},
+		TrafficTestCase{
+			name: "cipher suite",
+			config: httpVirtualService("gateway", apps.PodA[0].Config().FQDN(), apps.PodA[0].Config().PortByName("http").ServicePort) +
+				ingressutil.IngressKubeSecretYAML("cred", "istio-system", ingressutil.TLS, ingressutil.IngressCredentialA) +
+				tmpl.MustEvaluate(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: cred
+      cipherSuites:
+{{- range $cipher := . }}
+      - "{{$cipher}}"
+{{- end }}
+    hosts:
+    - "*"
+---
+`, append(security.ValidCipherSuites.SortedList(), "fake")),
+			call: apps.Ingress.CallEchoWithRetryOrFail,
+			opts: echo.CallOptions{
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+				Headers: map[string][]string{
+					"Host": {apps.PodA[0].Config().FQDN()},
+				},
+				Validator: echo.ExpectCode("200"),
 			},
 		},
 		TrafficTestCase{
