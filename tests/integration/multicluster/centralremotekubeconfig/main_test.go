@@ -70,11 +70,7 @@ values:
     omitSidecarInjectorConfigMap: true
     configCluster: true
   pilot:
-    configMap: true
-  istiodRemote:
-    injectionURL: https://istiod.istio-system.svc:443/inject
-  base:
-    validationURL: https://istiod.istio-system.svc:443/validate`
+    configMap: true`
 			cfg.ControlPlaneValues = `
 components:
   base:
