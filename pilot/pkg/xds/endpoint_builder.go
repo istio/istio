@@ -270,13 +270,13 @@ func needConstructEnvoyendpoint(tlsMode string, e *endpoint.LbEndpoint) bool {
 	if e == nil {
 		return true
 	}
-	epTlsMode := ""
-	if e.Metadata != nil {
+	epTLSMode := ""
+	if e.Metadata != nil && e.Metadata.FilterMetadata == nil {
 		if v, ok := e.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]; ok {
-			epTlsMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
+			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}
 	}
-	return tlsMode == epTlsMode
+	return tlsMode == epTLSMode
 }
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
