@@ -1612,7 +1612,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		if ifilter.Priority != jfilter.Priority {
 			return ifilter.Priority < jfilter.Priority
 		}
-		// If prirority is same fallback to name and creation timestamp, else use prirority.
+		// If priority is same fallback to name and creation timestamp, else use priority.
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
