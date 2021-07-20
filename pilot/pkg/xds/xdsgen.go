@@ -60,12 +60,8 @@ func init() {
 	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
 }
 
-func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection, delta bool) model.XdsResourceGenerator {
+func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
 	if g, f := s.Generators[con.proxy.Metadata.Generator+"/"+typeURL]; f {
-		return g
-	}
-
-	if g, f := s.Generators["delta/"+typeURL]; f && delta {
 		return g
 	}
 
@@ -95,7 +91,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	if w == nil {
 		return nil
 	}
-	gen := s.findGenerator(w.TypeUrl, con, false)
+	gen := s.findGenerator(w.TypeUrl, con)
 	if gen == nil {
 		return nil
 	}

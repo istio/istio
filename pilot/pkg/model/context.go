@@ -209,6 +209,8 @@ var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
 // or no response is preferred.
 type XdsResourceGenerator interface {
 	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+
+	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest) (Resources, Resources, XdsLogDetails, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,

@@ -18,7 +18,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+
 )
+
 
 type CdsGenerator struct {
 	Server *DiscoveryServer
@@ -76,6 +78,14 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	if !cdsNeedsPush(updates, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, push, c.Delta, updates, w)
+	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, push)
 	return clusters, logs, nil
+}
+
+func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
+	if !cdsNeedsPush(updates, proxy) {
+		return nil, nil, model.DefaultXdsLogDetails, nil
+	}
+	updatedClusters, removedClusters, logs := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, push, updates)
+	return updatedClusters, removedClusters, logs, nil
 }

@@ -78,3 +78,7 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	resources := model.Resources{&discovery.Resource{Resource: util.MessageToAny(nt)}}
 	return resources, model.DefaultXdsLogDetails, nil
 }
+
+func (n *NdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
+	return nil, nil, model.XdsLogDetails{}, nil
+}

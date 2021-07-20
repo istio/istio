@@ -96,6 +96,10 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 	return res, model.DefaultXdsLogDetails, nil
 }
 
+func (sg *StatusGen) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
+	return nil, nil, model.XdsLogDetails{}, nil
+}
+
 // isSidecar ad-hoc method to see if connection represents a sidecar
 func isProxy(con *Connection) bool {
 	return con != nil &&

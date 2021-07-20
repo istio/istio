@@ -174,6 +174,10 @@ func (s *sdsservice) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 	return resp, pushLog(names), err
 }
 
+func (s *sdsservice) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
+	return nil, nil, model.XdsLogDetails{}, nil
+}
+
 // register adds the SDS handle to the grpc server
 func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
