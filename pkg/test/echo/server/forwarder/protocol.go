@@ -35,6 +35,8 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials/xds"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -156,7 +158,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	if cfg.Request.FollowRedirects {
 		redirectFn = nil
 	}
-	switch scheme.Instance(urlScheme) {
+	switch s := scheme.Instance(urlScheme); s {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
 			tlsConfig.NextProtos = []string{"http/1.1"}
@@ -215,6 +217,13 @@ func newProtocol(cfg Config) (protocol, error) {
 
 		// transport security
 		security := grpc.WithInsecure()
+		if s == scheme.XDS {
+			creds, err := xds.NewClientCredentials(xds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
+			if err != nil {
+				return nil, err
+			}
+			security = grpc.WithTransportCredentials(creds)
+		}
 		if getClientCertificate != nil {
 			security = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 		}
