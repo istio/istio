@@ -81,8 +81,6 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	go c.Run(stop)
 	defer close(stop)
 
-	n := core.Node{}
-
 	cases := map[string]*model.Proxy{
 		"missing group":      {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: wgA.Namespace}},
 		"missing ip":         {Metadata: &model.NodeMetadata{Namespace: wgA.Namespace, AutoRegisterGroup: wgA.Name}},
@@ -93,7 +91,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			c.RegisterWorkload(tc, &n, time.Now())
+			c.RegisterWorkload(tc, time.Now())
 			items, err := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if err != nil {
 				t.Fatalf("failed listing WorkloadEntry: %v", err)
@@ -121,23 +119,28 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	go c1.Run(stop1)
 	go c2.Run(stop2)
 
-	p := fakeProxy("1.2.3.4", wgA, "nw1")
-	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
-	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
-
 	n := fakeNode("reg1", "zone1", "subzone1")
+
+	p := fakeProxy("1.2.3.4", wgA, "nw1")
+	p.XdsNode = n
+
+	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
+	p2.XdsNode = n
+
+	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
+	p3.XdsNode = n
 
 	// allows associating a Register call with Unregister
 	var origConnTime time.Time
 
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
-		c1.RegisterWorkload(p, n, time.Now())
+		c1.RegisterWorkload(p, time.Now())
 		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
-		c2.RegisterWorkload(p2, n, time.Now())
+		c2.RegisterWorkload(p2, time.Now())
 		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 		checkEntryOrFail(t, store, wgA, p2, n, c2.instanceID)
 	})
@@ -149,12 +152,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			checkEntryOrFail(t, store, wgA, p, n, "")
 			// reconnect, ensure entry is there with the same instance id
 			origConnTime = time.Now()
-			c1.RegisterWorkload(p, n, origConnTime)
+			c1.RegisterWorkload(p, origConnTime)
 			checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 		})
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
 			// reconnect, ensure entry is there with the same instance id
-			c1.RegisterWorkload(p, n, origConnTime.Add(10*time.Millisecond))
+			c1.RegisterWorkload(p, origConnTime.Add(10*time.Millisecond))
 			// disconnect (associated with original connect, not the reconnect)
 			// make sure entry is still there with disconnect meta
 			c1.QueueUnregisterWorkload(p, origConnTime)
@@ -168,7 +171,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			checkEntryOrFail(t, store, wgA, p, n, "")
 			// reconnect, ensure entry is there with the new instance id
 			origConnTime = time.Now()
-			c2.RegisterWorkload(p, n, origConnTime)
+			c2.RegisterWorkload(p, origConnTime)
 			checkEntryOrFail(t, store, wgA, p, n, c2.instanceID)
 		})
 	})
@@ -180,7 +183,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		})
 		// reconnect
 		origConnTime = time.Now()
-		c1.RegisterWorkload(p, n, origConnTime)
+		c1.RegisterWorkload(p, origConnTime)
 		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
@@ -197,7 +200,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	t.Run("garbage collected if pilot and workload stops simultaneously before pilot can do anything", func(t *testing.T) {
 		// simulate p3 has been registered long before
-		c2.RegisterWorkload(p3, n, time.Now().Add(-2*maxConnAge))
+		c2.RegisterWorkload(p3, time.Now().Add(-2*maxConnAge))
 
 		// keep silent to simulate the scenario
 
@@ -219,8 +222,8 @@ func TestUpdateHealthCondition(t *testing.T) {
 	go ig.Run(stop)
 	go ig2.Run(stop)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
-	n := fakeNode("reg1", "zone1", "subzone1")
-	ig.RegisterWorkload(p, n, time.Now())
+	p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
+	ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
 		ig.QueueWorkloadEntryHealth(p, HealthEvent{
 			Healthy: true,
@@ -262,7 +265,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 	proxy := fakeProxy("10.0.0.1", group, "nw1")
-	node := fakeNode("rgn2", "zone2", "subzone2")
+	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
 
 	wantLabels := map[string]string{
 		"app":   "a",   // from WorkloadEntry template
@@ -301,7 +304,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 		},
 	}
 
-	got := workloadEntryFromGroup("test-we", proxy, node, &group)
+	got := workloadEntryFromGroup("test-we", proxy, &group)
 	if diff := cmp.Diff(got, &want); diff != "" {
 		t.Errorf(diff)
 	}

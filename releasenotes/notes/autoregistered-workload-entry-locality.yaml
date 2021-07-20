@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: traffic-management
+
+issue:
+- https://github.com/istio/istio/pull/33426
+- 33426
+
+releaseNotes:
+- |
+  **Added** support for overriding the locality of the WorkloadGroup template in
+  auto registered WorkloadEntries. Locality overrides can be passed in through
+  Envoy bootstrap configuration.
