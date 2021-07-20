@@ -70,7 +70,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		}
 		nsLabels := getNamespaceLabels(c, p.Namespace)
 		if !matchesWebhooks(nsLabels, p.Labels, istioWebhooks) {
-			m := msg.NewImageAutoWithoutInjection(resource, "Pod", p.Name)
+			m := msg.NewImageAutoWithoutInjectionError(resource, "Pod", p.Name)
 			c.Report(collections.K8SCoreV1Pods.Name(), m)
 		}
 		return true
@@ -82,7 +82,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		}
 		nsLabels := getNamespaceLabels(c, d.Spec.Template.Namespace)
 		if !matchesWebhooks(nsLabels, d.Spec.Template.Labels, istioWebhooks) {
-			m := msg.NewImageAutoWithoutInjection(resource, "Deployment", d.Name)
+			m := msg.NewImageAutoWithoutInjectionWarning(resource, "Deployment", d.Name)
 			c.Report(collections.K8SAppsV1Deployments.Name(), m)
 		}
 		return true
