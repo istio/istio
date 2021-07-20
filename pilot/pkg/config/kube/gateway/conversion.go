@@ -424,7 +424,25 @@ func buildHTTPVirtualServices(obj config.Config, gateways []gatewayReference, do
 			}
 		}
 
-		route, err := buildHTTPDestination(r.ForwardTo, obj.Namespace, domain)
+		zero := true
+		for _, w := range r.ForwardTo {
+			if w.Weight == nil || (w.Weight != nil && int(*w.Weight) != 0) {
+				zero = false
+				break
+			}
+		}
+		if zero {
+			vs.Fault = &istio.HTTPFaultInjection{Abort: &istio.HTTPFaultInjection_Abort{
+				Percentage: &istio.Percent{
+					Value: 100,
+				},
+				ErrorType: &istio.HTTPFaultInjection_Abort_HttpStatus{
+					HttpStatus: 503,
+				},
+			}}
+		}
+
+		route, err := buildHTTPDestination(r.ForwardTo, obj.Namespace, domain, zero)
 		if err != nil {
 			reportError(err)
 			return nil
@@ -433,6 +451,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []gatewayReference, do
 			return nil
 		}
 		vs.Route = route
+
 		httproutes = append(httproutes, vs)
 	}
 	reportError(nil)
@@ -627,7 +646,7 @@ func intSum(n []int) int {
 	return r
 }
 
-func buildHTTPDestination(forwardTo []k8s.HTTPRouteForwardTo, ns string, domain string) ([]*istio.HTTPRouteDestination, *ConfigError) {
+func buildHTTPDestination(forwardTo []k8s.HTTPRouteForwardTo, ns string, domain string, totalZero bool) ([]*istio.HTTPRouteDestination, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil
 	}
@@ -639,7 +658,9 @@ func buildHTTPDestination(forwardTo []k8s.HTTPRouteForwardTo, ns string, domain 
 		if w.Weight != nil {
 			wt = int(*w.Weight)
 		}
-		if wt == 0 {
+		// When total weight is zero, create destination to add falutInjection.
+		// When total weight is not zero, do not create the destination.
+		if wt == 0 && !totalZero {
 			continue
 		}
 		action = append(action, forwardTo[i])
@@ -714,6 +735,13 @@ func standardizeWeights(weights []int) []int {
 		return []int{0}
 	}
 	total := intSum(weights)
+	if total == 0 {
+		// All empty, fallback to even weight
+		for i := range weights {
+			weights[i] = 1
+		}
+		total = len(weights)
+	}
 	results := make([]int, 0, len(weights))
 	remainders := make([]float64, 0, len(weights))
 	for _, w := range weights {
