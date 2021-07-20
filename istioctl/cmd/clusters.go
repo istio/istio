@@ -61,6 +61,7 @@ func writeMulticlusterStatus(out io.Writer, input map[string][]byte) error {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.ID, c.SecretName, c.SyncStatus, istiod)
 		}
 	}
+	_ = w.Flush()
 	return nil
 }
 
