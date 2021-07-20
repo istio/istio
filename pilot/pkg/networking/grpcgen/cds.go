@@ -200,7 +200,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 // applyTrafficPolicy mutates the give cluster (if not-nil) so that the given merged traffic policy applies.
 func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *networking.TrafficPolicy) {
 	// cluster can be nil if it wasn't requested
-	if c == nil || trafficPolicy == nil {
+	if c == nil {
 		return
 	}
 	b.applyTLS(c, trafficPolicy)
@@ -209,7 +209,7 @@ func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *n
 }
 
 func (b *clusterBuilder) applyLoadBalancing(_ *cluster.Cluster, policy *networking.TrafficPolicy) {
-	switch policy.LoadBalancer.GetSimple() {
+	switch policy.GetLoadBalancer().GetSimple() {
 	case networking.LoadBalancerSettings_ROUND_ROBIN:
 	// ok
 	default:
@@ -220,13 +220,12 @@ func (b *clusterBuilder) applyLoadBalancing(_ *cluster.Cluster, policy *networki
 }
 
 func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.TrafficPolicy) {
-	// TODO check for automtls
-	mode := networking.ClientTLSSettings_ISTIO_MUTUAL
-	if settings := policy.GetTls(); settings != nil {
-		mode = settings.GetMode()
-	}
-
-	switch mode {
+	// TODO for now, we leave mTLS *off* by default:
+	// 1. We don't know if the client uses xds.NewClientCredentials; these settings will be ignored if not
+	// 2. We cannot reach servers in PERMISSIVE mode; gRPC doesn't allow us to override the alpn to one of Istio's
+	// 3. Once we support gRPC servers, we have no good way to detect if a server is implemented with xds.NewGrpcServer and will actually support our config
+	// For these reasons, support only explicit tls configuration.
+	switch policy.GetTls().GetMode() {
 	case networking.ClientTLSSettings_DISABLE:
 		// nothing to do
 	case networking.ClientTLSSettings_SIMPLE:
