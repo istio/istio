@@ -463,8 +463,6 @@ type ServiceAttributes struct {
 	Namespace string
 	// Labels applied to the service
 	Labels map[string]string
-	// UID is "destination.service.uid" attribute
-	UID string
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
 	ExportTo map[visibility.Instance]bool
