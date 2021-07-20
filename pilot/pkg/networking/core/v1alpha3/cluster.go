@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/pkg/log"
 	"math"
 	"strconv"
 	"strings"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
 )
+
 
 // defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
 // or those whose label value does not match "istio"
@@ -137,20 +139,23 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	instances := proxy.ServiceInstances
 	// delta when only services are modified and we attempt deltas
 	// we can progressively optimize this
-	delta := updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.Service)
+	log.Infof("adiprerepa: update types: %v", updates.UpdateTypes)
+	delta := updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry)
 	// if we can't use delta, fall back to generate all
-	if !delta || updates == nil || len(updates.ConfigsUpdated) == 0 || updates.Full {
+	if !delta || updates == nil || len(updates.ConfigsUpdated) == 0 {
 		cl, lg := configgen.BuildClusters(proxy, push)
 		return cl, make([]*discovery.Resource, 0), lg
 	}
-	configs := model.ConfigsOfKind(updates.ConfigsUpdated, gvk.Service)
+	configs := model.ConfigsOfKind(updates.ConfigsUpdated, gvk.ServiceEntry)
 	for s := range configs {
 		// get service that changed
 		service := proxy.SidecarScope.Service(host.Name(s.Name))
 		// SidecarScope.Service will return nil if the proxy doesn't care about the service.
 		if service == nil {
+			log.Infof("service for hostname %v nil", s.Name)
 			continue
 		}
+		log.Infof("service: %v", service)
 		// these are the services we need to push
 		if updates.UpdateTypes[s] == model.EventUpdate || updates.UpdateTypes[s] == model.EventAdd {
 			services = append(services, service)
