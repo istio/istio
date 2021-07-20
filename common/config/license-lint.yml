@@ -108,3 +108,9 @@ allowlisted_modules:
 # runc is Apache 2.0: https://github.com/opencontainers/runc/blob/master/LICENSE
 # but it contains BSD dep which our linter fails to understand: https://github.com/opencontainers/runc/blob/v0.1.1/Godeps/_workspace/src/github.com/golang/protobuf/LICENSE
 - github.com/opencontainers/runc
+
+# MIT: https://github.com/felixge/fgprof/blob/master/LICENSE.txt
+- github.com/felixge/fgprof
+
+# Apache 2.0
+- github.com/google/pprof
