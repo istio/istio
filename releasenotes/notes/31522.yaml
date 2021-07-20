@@ -5,4 +5,4 @@ issue:
   - 31522
 releaseNotes:
   - |
-    **Added** support to istiod to notice cacerts file changes.
+    **Added** support to istiod to notice cacerts file changes via the `AUTO_RELOAD_PLUGIN_CERTS` env var.
