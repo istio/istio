@@ -103,35 +103,18 @@ func (s *Server) initCertController(args *PilotArgs) error {
 //
 // TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
 // matches the k8s namespace, failure to start DNS server is a fatal error.
-func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
+func (s *Server) initDNSCerts(hostname, namespace string) error {
 	// Name in the Istiod cert - support the old service names as well.
 	// validate hostname contains namespace
 	parts := strings.Split(hostname, ".")
 	hostnamePrefix := parts[0]
 
-	// append custom hostname if there is any
-	names := []string{hostname}
-	if customHost != "" && customHost != hostname {
-		log.Infof("Adding custom hostname %s", customHost)
-		names = append(names, customHost)
-	}
-
-	// The first is the recommended one, also used by Apiserver for webhooks.
-	// add a few known hostnames
-	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
-		name := fmt.Sprintf("%v.%v.svc", altName, namespace)
-		if name == hostname || name == customHost {
-			continue
-		}
-		names = append(names, name)
-	}
-
 	var certChain, keyPEM, caBundle []byte
 	var err error
 	if features.PilotCertProvider == constants.CertProviderKubernetes {
-		log.Infof("Generating K8S-signed cert for %v", names)
+		log.Infof("Generating K8S-signed cert for %v", s.dnsNames)
 		certChain, keyPEM, _, err = chiron.GenKeyCertK8sCA(s.kubeClient,
-			strings.Join(names, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "", true)
+			strings.Join(s.dnsNames, ","), hostnamePrefix+".csr.secret", namespace, defaultCACertPath, "", true)
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
 		}
@@ -140,11 +123,11 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
 	} else if features.PilotCertProvider == constants.CertProviderIstiod {
-		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
+		certChain, keyPEM, err = s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
 		if err != nil {
 			return fmt.Errorf("failed generating istiod key cert %v", err)
 		}
-		log.Infof("Generating istiod-signed cert for %v:\n %s", names, certChain)
+		log.Infof("Generating istiod-signed cert for %v:\n %s", s.dnsNames, certChain)
 
 		signingKeyFile := path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile)
 		// check if signing key file exists the cert dir
@@ -154,7 +137,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			s.addStartFunc(func(stop <-chan struct{}) error {
 				go func() {
 					// regenerate istiod key cert when root cert changes.
-					s.watchRootCertAndGenKeyCert(names, stop)
+					s.watchRootCertAndGenKeyCert(stop)
 				}()
 				return nil
 			})
@@ -179,7 +162,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 }
 
 // TODO(hzxuzonghu): support async notification instead of polling the CA root cert.
-func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}) {
+func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	for {
 		select {
@@ -189,7 +172,7 @@ func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}
 			newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			if !bytes.Equal(caBundle, newRootCert) {
 				caBundle = newRootCert
-				certChain, keyPEM, err := s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get(), false)
+				certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
 				if err != nil {
 					log.Errorf("failed generating istiod key cert %v", err)
 				} else {
@@ -199,6 +182,18 @@ func (s *Server) watchRootCertAndGenKeyCert(names []string, stop <-chan struct{}
 			}
 		}
 	}
+}
+
+// updatePluggedinRootCertAndGenKeyCert when intermediate CA is updated, it generates new dns certs and notifies keycertbundle about the changes
+func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
+	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
+	certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
+	if err != nil {
+		return err
+	}
+
+	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+	return nil
 }
 
 // initCertificateWatches sets up watches for the plugin dns certs.
