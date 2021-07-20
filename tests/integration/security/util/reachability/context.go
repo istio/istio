@@ -92,6 +92,9 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
+		if c.ConfigFile != "beta-mtls-automtls-workload.yaml" {
+			continue
+		}
 		if c.SkippedForMulticluster && t.Clusters().IsMulticluster() {
 			continue
 		}
@@ -212,6 +215,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 				}
 			}
 		})
+		time.Sleep(time.Second * 3600)
 	}
 }
 
