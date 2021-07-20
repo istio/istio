@@ -246,6 +246,12 @@ type Controller struct {
 	workloadInstancesByIP map[string]*model.WorkloadInstance
 	// Stores a map of workload instance name/namespace to address
 	workloadInstancesIPsByName map[string]string
+	// nodePortGwLocalServiceToWorkloadNodesMap is a mapping of NodePort services with external traffic policy set to Local
+	// to the list of kubernetes node names on which there is at least one workload belonging to the service is
+	// running. This is needed to handle node-port services with external traffic policy type set to Local
+	// (default is Cluster). This is because when it is set to local and traffic is sent to a node not hosting
+	// a workload, it will be dropped
+	nodePortGwLocalServiceToWorkloadNodesMap map[host.Name]map[string]struct{}
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -272,20 +278,21 @@ type Controller struct {
 // Created by bootstrap and multicluster (see secretcontroller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
-		opts:                        options,
-		client:                      kubeClient,
-		queue:                       queue.NewQueue(1 * time.Second),
-		servicesMap:                 make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
-		nodeInfoMap:                 make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap:  make(map[host.Name][]*model.ServiceInstance),
-		workloadInstancesByIP:       make(map[string]*model.WorkloadInstance),
-		workloadInstancesIPsByName:  make(map[string]string),
-		registryServiceNameGateways: make(map[host.Name]uint32),
-		networkGateways:             make(map[host.Name]map[network.ID]gatewaySet),
-		informerInit:                atomic.NewBool(false),
-		beginSync:                   atomic.NewBool(false),
-		initialSync:                 atomic.NewBool(false),
+		opts:                                     options,
+		client:                                   kubeClient,
+		queue:                                    queue.NewQueue(1 * time.Second),
+		servicesMap:                              make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:                 make(map[host.Name]labels.Instance),
+		nodeInfoMap:                              make(map[string]kubernetesNode),
+		externalNameSvcInstanceMap:               make(map[host.Name][]*model.ServiceInstance),
+		workloadInstancesByIP:                    make(map[string]*model.WorkloadInstance),
+		workloadInstancesIPsByName:               make(map[string]string),
+		registryServiceNameGateways:              make(map[host.Name]uint32),
+		nodePortGwLocalServiceToWorkloadNodesMap: make(map[host.Name]map[string]struct{}),
+		networkGateways:                          make(map[host.Name]map[network.ID]gatewaySet),
+		informerInit:                             atomic.NewBool(false),
+		beginSync:                                atomic.NewBool(false),
+		initialSync:                              atomic.NewBool(false),
 	}
 	c.nsInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
 	c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
@@ -350,7 +357,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		}
 	})
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
-
 	c.exports = newServiceExportCache(c)
 
 	return c
@@ -453,6 +459,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.externalNameSvcInstanceMap, svcConv.ClusterLocal.Hostname)
 		_, isNetworkGateway := c.networkGateways[svcConv.ClusterLocal.Hostname]
 		delete(c.networkGateways, svcConv.ClusterLocal.Hostname)
+		delete(c.nodePortGwLocalServiceToWorkloadNodesMap, svcConv.Hostname)
 		c.Unlock()
 		if isNetworkGateway {
 			// networks are different, we need to update all eds endpoints
@@ -536,6 +543,15 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	if event == model.EventDelete {
 		updatedNeeded = true
 		c.Lock()
+		// We should remove the node for all the gateway services that
+		// had a workload there as we don't want to route traffic.
+		// For performance reasons, we do it only for gateway services
+		// whose external traffic policy is set to Local.
+		if _, f := c.nodeInfoMap[node.Name]; f {
+			for h := range c.nodePortGwLocalServiceToWorkloadNodesMap {
+				delete(c.nodePortGwLocalServiceToWorkloadNodesMap[h], node.Name)
+			}
+		}
 		delete(c.nodeInfoMap, node.Name)
 		c.Unlock()
 	} else {
@@ -564,7 +580,8 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	// update all related services
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full: true,
+			Full:   true,
+			Reason: []model.TriggerReason{model.NodeTrigger},
 		})
 	}
 	return nil

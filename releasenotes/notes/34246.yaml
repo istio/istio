@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 34246
+releaseNotes:
+  - |
+    **Added** support for NodePort eastwest gateway when
+    external traffic policy is set to Local. Kubernetes provides
+    a way to optimize away an extra hop from a random node to a
+    node containing the gateway workload through external traffic
+    policy mode called _Local_. However, when this is set and the
+    traffic is routed to a node which does not host a gateway
+    workload then it is dropped. This feature adds support to
+    track the node the gateway workload is hosted on to avoid traffic
+    drop and improve east-west gateway routing performance by
+    avoiding the extra hop.

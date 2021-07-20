@@ -350,6 +350,8 @@ const (
 	ProxyRequest TriggerReason = "proxyrequest"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
+	// Describes a push triggered due to node event
+	NodeTrigger TriggerReason = "node"
 )
 
 // Merge two update requests together

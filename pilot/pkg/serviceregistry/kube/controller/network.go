@@ -20,11 +20,13 @@ import (
 	"strconv"
 
 	"github.com/yl2chen/cidranger"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/network"
 )
 
@@ -240,20 +242,62 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 	}
 	for _, svc := range svcs {
 		c.RLock()
+		_, found := c.nodeSelectorsForServices[svc.Hostname]
+		isNodePortGateway := found && c.servicesMap[svc.Hostname] != nil
+		c.RUnlock()
+
+		if isNodePortGateway && svc.Attributes.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
+			endpoints := c.buildEndpointsForService(svc)
+			nodesWithEndpoints := getWorkloadNodeLocations(endpoints)
+			c.Lock()
+			c.nodePortGwLocalServiceToWorkloadNodesMap[svc.Hostname] = nodesWithEndpoints
+			c.Unlock()
+		}
+
+		c.RLock()
 		nodeSelector := c.nodeSelectorsForServices[svc.ClusterLocal.Hostname]
 		c.RUnlock()
+
 		// update external address
-		var nodeAddresses []string
-		for _, n := range c.nodeInfoMap {
-			if nodeSelector.SubsetOf(n.labels) {
-				nodeAddresses = append(nodeAddresses, n.address)
-			}
-		}
-		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
+		c.updateClusterExternalAddressesForNodePortServices(nodeSelector, svc)
+
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
 	}
 	return true
+}
+
+func getWorkloadNodeLocations(endpoints []*model.IstioEndpoint) map[string]struct{} {
+	nodesWithEndpoints := make(map[string]struct{})
+	for _, ep := range endpoints {
+		nodeName := ep.NodeName
+		if nodeName == "" {
+			continue
+		}
+		nodesWithEndpoints[nodeName] = struct{}{}
+	}
+	return nodesWithEndpoints
+}
+
+func (c *Controller) updateClusterExternalAddressesForNodePortServices(nodeSelector labels.Instance, svc *model.Service) {
+	svc.Mutex.Lock()
+	defer svc.Mutex.Unlock()
+	var nodeAddresses []string
+	for nodeName, n := range c.nodeInfoMap {
+		if nodeSelector.SubsetOf(n.labels) {
+			// When the external traffic policy of the service is set to Local, then we
+			// should consider only those nodes which host gateway workloads. Routing to
+			// a node not hosting a workload would drop traffic leading to intermittent
+			// traffic drops, latency due to retries
+			if svc.Attributes.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
+				if _, f := c.nodePortGwLocalServiceToWorkloadNodesMap[svc.Hostname][nodeName]; !f {
+					continue
+				}
+			}
+			nodeAddresses = append(nodeAddresses, n.address)
+		}
+	}
+	svc.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{c.opts.ClusterID: nodeAddresses}
 }
 
 // getNodePortServices returns nodePort type gateway service

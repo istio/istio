@@ -32,6 +32,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/networking"
@@ -416,6 +417,10 @@ type IstioEndpoint struct {
 	// Namespace that this endpoint belongs to. This is for telemetry purpose.
 	Namespace string
 
+	// NodeName is the name of the node on which the workload is running. This is
+	// available only in Kubernetes environment
+	NodeName string
+
 	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
 	WorkloadName string
 
@@ -499,6 +504,11 @@ type ServiceAttributes struct {
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
+
+	// ExternalTrafficPolicy affects the list of available endpoints in case of NodePort
+	// services. This is useful to preserve source IP address. If the traffic is sent to
+	// a node which does not have a workload then it would be dropped.
+	ExternalTrafficPolicy v1.ServiceExternalTrafficPolicyType
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.

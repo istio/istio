@@ -127,8 +127,9 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		for _, p := range svc.Spec.Ports {
 			portMap[uint32(p.Port)] = uint32(p.NodePort)
 		}
-		istioService.Attributes.ClusterExternalPorts = map[cluster.ID]map[uint32]uint32{clusterID: portMap}
 		// address mappings will be done elsewhere
+		istioService.Attributes.ClusterExternalPorts = map[cluster.ID]map[uint32]uint32{clusterID: portMap}
+		istioService.Attributes.ExternalTrafficPolicy = svc.Spec.ExternalTrafficPolicy
 	case coreV1.ServiceTypeLoadBalancer:
 		if len(svc.Status.LoadBalancer.Ingress) > 0 {
 			var lbAddrs []string

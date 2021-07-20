@@ -96,20 +96,32 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
 
-	// handling k8s service selecting workload entries
-	if features.EnableK8SServiceSelectWorkloadEntries {
-		c.RLock()
-		svc := c.servicesMap[host]
-		c.RUnlock()
-		if svc != nil {
+	c.RLock()
+	svc := c.servicesMap[host]
+	c.RUnlock()
+
+	shard := model.ShardKeyFromRegistry(c)
+	if svc != nil {
+		// handling k8s service selecting workload entries
+		if features.EnableK8SServiceSelectWorkloadEntries {
 			fep := c.collectWorkloadInstanceEndpoints(svc)
 			endpoints = append(endpoints, fep...)
-		} else {
-			log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated", svcName, ns)
+		}
+
+		// Handle external address update for NodePort services whose external
+		// traffic policy is set to Local.
+		if len(svc.Attributes.ClusterExternalPorts) > 0 &&
+			svc.Attributes.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
+
+			// It is written this way for clarity. updateServiceNodePortAddresses has side-effect
+			// where it can update the node port addresses of the passed service. If it is updated,
+			// then "addressUpdated" would be true and we have to trigger Service Update [XDS]
+			if addressesUpdated := c.updateServiceNodePortAddresses(svc); addressesUpdated {
+				c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
+			}
 		}
 	}
 
-	shard := model.ShardKeyFromRegistry(c)
 	c.opts.XDSUpdater.EDSUpdate(shard, string(host), ns, endpoints)
 }
 
