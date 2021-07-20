@@ -212,7 +212,6 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 				}
 			}
 		})
-		time.Sleep(time.Second * 3600)
 	}
 }
 
