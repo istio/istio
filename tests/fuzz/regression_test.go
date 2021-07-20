@@ -36,7 +36,9 @@ var baseCases = [][]byte{
 
 // brokenCases contains test cases that are currently failing. These should only be added if the
 // failure is publicly disclosed!
-var brokenCases = map[string]string{}
+var brokenCases = map[string]string{
+	"6169070276837376": "https://github.com/go-yaml/yaml/issues/666",
+}
 
 func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	dir := filepath.Join("testdata", name)
@@ -48,7 +50,7 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 		defer func() {
 			if r := recover(); r != nil {
 				if _, broken := brokenCases[name]; broken {
-					t.Log("expected broken case failed")
+					t.Logf("expected broken case failed: %v", broken)
 				} else {
 					runtime.LogPanic(r)
 					t.Fatalf("panic encountered: %v", r)
