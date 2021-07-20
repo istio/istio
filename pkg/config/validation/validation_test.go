@@ -1401,7 +1401,7 @@ func TestValidateTLS(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "SIMPLE CredentialName set with ClientCertificate specified",
+			name: "SIMPLE: CredentialName set with ClientCertificate specified",
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_SIMPLE,
 				CredentialName:    "credential",
@@ -1445,7 +1445,7 @@ func TestValidateTLS(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "MUTUAL CredentialName set with ClientCertificate specified",
+			name: "MUTUAL: CredentialName set with ClientCertificate specified",
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				CredentialName:    "credential",
@@ -3267,6 +3267,27 @@ func TestValidateConnectionPool(t *testing.T) {
 			name: "invalid connection pool, bad connect timeout", in: networking.ConnectionPoolSettings{
 				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
 					ConnectTimeout: &types.Duration{Seconds: 2, Nanos: 5},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, bad tcp keepalive time", in: networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+						Time: &types.Duration{Seconds: 2, Nanos: 5},
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid connection pool, bad tcp keepalive interval", in: networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+						Interval: &types.Duration{Seconds: 2, Nanos: 5},
+					},
 				},
 			},
 			valid: false,
@@ -5733,7 +5754,31 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 			in:    nil,
 			valid: true,
 		},
-
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute From is not set",
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+					{
+						To: map[string]uint32{
+							"a/b/c": 80,
+							"a/b1":  25,
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting_Distribute To is not set",
+			in: &networking.LocalityLoadBalancerSetting{
+				Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
+					{
+						From: "a/b/c",
+					},
+				},
+			},
+			valid: false,
+		},
 		{
 			name: "invalid LocalityLoadBalancerSetting_Distribute total weight > 100",
 			in: &networking.LocalityLoadBalancerSetting{
@@ -5812,6 +5857,76 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			name: "invalid failover To is not set ",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "/region1",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover From is not set ",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						To: "/region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover From and To regions start or end with / ",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "/region1",
+						To:   "region1/",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover From and To have specify zone",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "/region1/zone1",
+						To:   "/region2",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid failover To contains '*'",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region*",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "valid failover From and To",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+			},
+			valid: true,
 		},
 	}
 
