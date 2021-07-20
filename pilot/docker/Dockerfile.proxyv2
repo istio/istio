@@ -29,7 +29,7 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 # Install Envoy.
 ARG TARGETARCH
-COPY ${TARGETARCH:-amd64}/${SIDECAR} /usr/local/bin/${SIDECAR}
+COPY ${TARGETARCH}/${SIDECAR} /usr/local/bin/${SIDECAR}
 
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
 ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
@@ -37,7 +37,7 @@ ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
 ENV ISTIO_META_ISTIO_VERSION $istio_version
 
 ARG TARGETARCH
-COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent
+COPY ${TARGETARCH}/pilot-agent /usr/local/bin/pilot-agent
 
 COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
 COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm
