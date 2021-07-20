@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 33799
+
+releaseNotes:
+- |
+  **Added** `istioctl x remote-clusters` to list the remote clusters each `istiod` instance has API Server credentials for,
+  and the service registry sync status of each cluster.

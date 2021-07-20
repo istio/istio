@@ -533,3 +533,24 @@ func TestKubeInject(t *testing.T) {
 			}
 		})
 }
+
+func TestRemoteClusters(t *testing.T) {
+	framework.NewTest(t).Features("usability.observability.remote-clusters").
+		RequiresMinClusters(2).
+		Run(func(t framework.TestContext) {
+			for _, cluster := range t.Clusters().Primaries() {
+				cluster := cluster
+				t.NewSubTest(cluster.StableName()).RunParallel(func(t framework.TestContext) {
+					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: cluster})
+					var output string
+					args := []string{"x", "remote-clusters"}
+					output, _ = istioCtl.InvokeOrFail(t, args)
+					for _, otherName := range t.Clusters().Exclude(cluster).Names() {
+						if !strings.Contains(output, otherName) {
+							t.Fatalf("remote-clusters output did not contain %s; got:\n%s", otherName, output)
+						}
+					}
+				})
+			}
+		})
+}
