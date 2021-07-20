@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -55,6 +56,36 @@ import (
 func init() {
 	features.WorkloadEntryHealthChecks = true
 	features.WorkloadEntryAutoRegistration = true
+}
+
+// TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
+func TestXdsLeak(t *testing.T) {
+	proxy := setupXdsProxyWithDownstreamOptions(t, []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))})
+	f := xdstest.NewMockServer(t)
+	setDialOptions(proxy, f.Listener)
+	proxy.istiodDialOptions = append(proxy.istiodDialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
+	conn := setupDownstreamConnection(t, proxy)
+	downstream := stream(t, conn)
+	sendDownstreamWithoutResponse(t, downstream)
+	for i := 0; i < 15; i++ {
+		// Send a bunch of responses from Istiod. These should not block, even though there are more sends than responseChan can hold
+		f.SendResponse(&discovery.DiscoveryResponse{TypeUrl: v3.ClusterType})
+	}
+	// Exit test, closing the connections. We should not have any goroutine leaks (checked by leak.CheckMain)
+}
+
+// sendDownstreamWithoutResponse sends a response without waiting for a response
+func sendDownstreamWithoutResponse(t *testing.T, downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) {
+	t.Helper()
+	err := downstream.Send(&discovery.DiscoveryRequest{
+		TypeUrl: v3.ClusterType,
+		Node: &core.Node{
+			Id: "sidecar~0.0.0.0~debug~cluster.local",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
@@ -202,6 +233,10 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 }
 
 func setupXdsProxy(t *testing.T) *XdsProxy {
+	return setupXdsProxyWithDownstreamOptions(t, nil)
+}
+
+func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) *XdsProxy {
 	secOpts := &security.Options{
 		FileMountedCerts: true,
 	}
@@ -217,7 +252,8 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	}
 	dir := t.TempDir()
 	ia := NewAgent(&proxyConfig, &AgentOptions{
-		XdsUdsPath: filepath.Join(dir, "XDS"),
+		XdsUdsPath:            filepath.Join(dir, "XDS"),
+		DownstreamGrpcOptions: opts,
 	}, secOpts, envoy.ProxyConfig{TestOnly: true})
 	t.Cleanup(func() {
 		ia.Close()
@@ -226,6 +262,7 @@ func setupXdsProxy(t *testing.T) *XdsProxy {
 	if err != nil {
 		t.Fatalf("Failed to initialize xds proxy %v", err)
 	}
+	ia.xdsProxy = proxy
 
 	return proxy
 }
