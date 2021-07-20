@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/pkg/monitoring"
 )
 
@@ -166,6 +167,13 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 					tlsServerInfo[s] = &TLSServerInfo{SNIHosts: GetSNIHostsForServer(s), RouteName: routeName}
 					if s.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 						autoPassthrough = true
+					}
+					if len(s.Tls.CipherSuites) > 0 {
+						serverName := s.Name
+						if len(serverName) == 0 {
+							serverName = s.Port.Name
+						}
+						s.Tls.CipherSuites = filteredCipherSuites(s.Tls.CipherSuites, serverName, gatewayName)
 					}
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
@@ -462,4 +470,17 @@ func getTargetPortMap(serversByRouteName map[string][]*networking.Server) Gatewa
 		}
 	}
 	return pm
+}
+
+// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
+func filteredCipherSuites(suites []string, serverName string, gatewayName string) []string {
+	ret := make([]string, 0, len(suites))
+	for _, s := range suites {
+		if security.IsValidCipherSuite(s) {
+			ret = append(ret, s)
+		} else {
+			log.Debugf("ignoring unsupported cipherSuite: %q for server %s in gateway %s", s, serverName, gatewayName)
+		}
+	}
+	return ret
 }
