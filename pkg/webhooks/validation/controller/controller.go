@@ -124,7 +124,7 @@ type reconcileRequest struct {
 }
 
 func (rr reconcileRequest) String() string {
-	return fmt.Sprintf("[description] %s, [eventType] %s", rr.description, rr.event)
+	return fmt.Sprintf("[description] %s, [eventType] %s, [name] %s", rr.description, rr.event, rr.webhookName)
 }
 
 func filterWatchedObject(obj metav1.Object) (skip bool, key string) {
@@ -175,32 +175,6 @@ func makeHandler(queue workqueue.Interface, gvk schema.GroupVersionKind) *cache.
 				event:       updateEvent,
 				webhookName: currObj.GetName(),
 				description: fmt.Sprintf("update event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
-			}
-			queue.Add(req)
-		},
-		DeleteFunc: func(curr interface{}) {
-			if _, ok := curr.(metav1.Object); !ok {
-				// If the object doesn't have Metadata, assume it is a tombstone object
-				// of type DeletedFinalStateUnknown
-				tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-				if !ok {
-					return
-				}
-				curr = tombstone.Obj
-			}
-			currObj, err := meta.Accessor(curr)
-			if err != nil {
-				return
-			}
-			skip, key := filterWatchedObject(currObj)
-			scope.Debugf("HandlerDelete: key=%v skip=%v", key, skip)
-			if skip {
-				return
-			}
-			req := reconcileRequest{
-				event:       updateEvent,
-				webhookName: currObj.GetName(),
-				description: fmt.Sprintf("delete event (%v, Kind=%v) %v", gvk.GroupVersion(), gvk.Kind, key),
 			}
 			queue.Add(req)
 		},
