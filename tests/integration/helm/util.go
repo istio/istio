@@ -165,7 +165,7 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 		t.Errorf("failed to delete %s release", IngressReleaseName)
 	}
 	if err := h.DeleteChart(IstiodReleaseName, IstioNamespace); err != nil {
-		t.Errorf("failed to delete %s release", IngressReleaseName)
+		t.Errorf("failed to delete %s release", IstiodReleaseName)
 	}
 	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release", BaseReleaseName)

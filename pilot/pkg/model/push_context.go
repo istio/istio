@@ -1612,7 +1612,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		if ifilter.Priority != jfilter.Priority {
 			return ifilter.Priority < jfilter.Priority
 		}
-		// If prirority is same fallback to name and creation timestamp, else use prirority.
+		// If priority is same fallback to name and creation timestamp, else use priority.
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
@@ -1641,37 +1641,18 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	if proxy == nil {
 		return nil
 	}
-	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
+	var matchedEnvoyFilters []*EnvoyFilterWrapper
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
 	if ps.Mesh.RootNamespace != "" {
-		// if there is no workload selector, the config applies to all workloads
-		// if there is a workload selector, check for matching workload labels
-		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
-			var workloadLabels labels.Collection
-			// This should never happen except in tests.
-			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-				workloadLabels = labels.Collection{proxy.Metadata.Labels}
-			}
-			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
-				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
-			}
-		}
+		matchedEnvoyFilters = ps.getMatchedEnvoyFilters(proxy, ps.Mesh.RootNamespace)
 	}
 
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
-		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-			var workloadLabels labels.Collection
-			// This should never happen except in tests.
-			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-				workloadLabels = labels.Collection{proxy.Metadata.Labels}
-			}
-			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
-				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
-			}
-		}
+		matched := ps.getMatchedEnvoyFilters(proxy, proxy.ConfigNamespace)
+		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
 	var out *EnvoyFilterWrapper
@@ -1696,6 +1677,22 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	}
 
 	return out
+}
+
+// if there is no workload selector, the config applies to all workloads
+// if there is a workload selector, check for matching workload labels
+func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
+	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
+	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
+		var workloadLabels labels.Collection
+		if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+			workloadLabels = labels.Collection{proxy.Metadata.Labels}
+		}
+		if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
+			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
+		}
+	}
+	return matchedEnvoyFilters
 }
 
 // pre computes gateways per namespace

@@ -424,6 +424,47 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
+	t.Run("Service selects WorkloadEntry with port name", func(t *testing.T) {
+		kc, _, store, kube, _ := setupTest(t)
+		makeService(t, kube, &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "service",
+				Namespace: namespace,
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{{
+					Name: "my-port",
+					Port: 80,
+				}},
+				Selector:  labels,
+				ClusterIP: "9.9.9.9",
+			},
+		})
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workload",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"my-port": 8080,
+				},
+			},
+		})
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       8080,
+		}}
+		expectServiceInstances(t, kc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Service selects WorkloadEntry with targetPort name", func(t *testing.T) {
 		kc, _, store, kube, _ := setupTest(t)
 		makeService(t, kube, &v1.Service{
@@ -1108,6 +1149,15 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 
 func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	t.Helper()
+	// avoid mutating input
+	svc = svc.DeepCopy()
+	// simulate actual k8s behavior
+	for i, port := range svc.Spec.Ports {
+		if port.TargetPort.IntVal == 0 && port.TargetPort.StrVal == "" {
+			svc.Spec.Ports[i].TargetPort.IntVal = port.Port
+		}
+	}
+
 	_, err := c.CoreV1().Services(svc.Namespace).Create(context.Background(), svc, metav1.CreateOptions{})
 	if kerrors.IsAlreadyExists(err) {
 		_, err = c.CoreV1().Services(svc.Namespace).Update(context.Background(), svc, metav1.UpdateOptions{})

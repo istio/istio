@@ -63,6 +63,7 @@ features:
       proxy-config:
       proxy-status:
       authz-check:
+      remote-clusters:
       analysis:
         line-numbers:
     helpers:

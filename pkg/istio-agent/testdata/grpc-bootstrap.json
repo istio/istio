@@ -20,14 +20,12 @@
   },
   "certificate_providers": {
     "default": {
-      "name": "file_watcher",
+      "plugin_name": "file_watcher",
       "config": {
         "certificate_file": "/cert/path/cert-chain.pem",
         "private_key_file": "/cert/path/key.pem",
         "ca_certificate_file": "/cert/path/root-cert.pem",
-        "refresh_interval": {
-          "seconds": 900
-        }
+        "refresh_interval": "900s"
       }
     }
   }

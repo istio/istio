@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 33841
+releaseNotes:
+  - |
+    **Fixed** a bug where specifying same port number with different protocols (TCP and UDP)
+    lead to incorrect merging and rendered erroneous manifest.

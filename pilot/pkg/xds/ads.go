@@ -681,10 +681,7 @@ func (s *DiscoveryServer) shouldProcessRequest(proxy *model.Proxy, req *discover
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	if features.DeltaXds {
-		return s.StreamDeltas(stream)
-	}
-	return status.Errorf(codes.Unimplemented, "not implemented")
+	return s.StreamDeltas(stream)
 }
 
 // Compute and send the new configuration for a connection.
@@ -870,7 +867,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
 		if currentlyPending != 0 {
-			log.Infof("Starting new push while %v were still pending", currentlyPending)
+			log.Debugf("Starting new push while %v were still pending", currentlyPending)
 		}
 	}
 	req.Start = time.Now()

@@ -98,9 +98,8 @@ func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough boo
 			applier.InboundMTLSSettings(port, in.Node, trustDomains),
 		}
 	}
-	// Otherwise, this is for passthrough configuration. We need to create configuration for the
-	// passthrough, but also any ports that are not explicitly declared in the Service but are in the
-	// mTLS port level settings.
+	// Otherwise, this is for passthrough configuration. We need to create configuration for the passthrough,
+	// but also any ports that are not explicitly declared in the Service but are in the mTLS port level settings.
 	resp := []plugin.MTLSSettings{
 		// Full passthrough - no port match
 		applier.InboundMTLSSettings(0, in.Node, trustDomains),

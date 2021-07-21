@@ -93,8 +93,8 @@ const (
 	// DefaultServiceAccountName is the default service account to use for remote cluster access.
 	DefaultServiceAccountName = "istio-reader-service-account"
 
-	// DefaultConfigServiceAccountName is the default service account to use for external Istiod cluster access.
-	DefaultConfigServiceAccountName = "istiod-service-account"
+	// DefaultConfigServiceAccountName is the default service account to use for external Istiod config cluster access.
+	DefaultConfigServiceAccountName = "istiod"
 
 	// KubeSystemNamespace is the system namespace where we place kubernetes system components.
 	KubeSystemNamespace string = "kube-system"

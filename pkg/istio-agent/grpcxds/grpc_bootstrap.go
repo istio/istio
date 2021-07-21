@@ -23,6 +23,7 @@ import (
 	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -51,17 +52,17 @@ type XdsServer struct {
 }
 
 type CertificateProvider struct {
-	Name   string      `json:"name,omitempty"`
-	Config interface{} `json:"config,omitempty"`
+	PluginName string      `json:"plugin_name,omitempty"`
+	Config     interface{} `json:"config,omitempty"`
 }
 
 const FileWatcherCertProviderName = "file_watcher"
 
 type FileWatcherCertProviderConfig struct {
-	CertificateFile   string               `json:"certificate_file,omitempty"`
-	PrivateKeyFile    string               `json:"private_key_file,omitempty"`
-	CACertificateFile string               `json:"ca_certificate_file,omitempty"`
-	RefreshDuration   *durationpb.Duration `json:"refresh_interval,omitempty"`
+	CertificateFile   string          `json:"certificate_file,omitempty"`
+	PrivateKeyFile    string          `json:"private_key_file,omitempty"`
+	CACertificateFile string          `json:"ca_certificate_file,omitempty"`
+	RefreshDuration   json.RawMessage `json:"refresh_interval,omitempty"`
 }
 
 func (c *FileWatcherCertProviderConfig) FilePaths() []string {
@@ -74,7 +75,7 @@ func (b *Bootstrap) FileWatcherProvider() *FileWatcherCertProviderConfig {
 		return nil
 	}
 	for _, provider := range b.CertProviders {
-		if provider.Name == FileWatcherCertProviderName {
+		if provider.PluginName == FileWatcherCertProviderName {
 			cfg, ok := provider.Config.(FileWatcherCertProviderConfig)
 			if !ok {
 				return nil
@@ -134,15 +135,20 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 	}
 
 	if opts.CertDir != "" {
+		// TODO use a more appropriate interval
+		refresh, err := protojson.Marshal(durationpb.New(15 * time.Minute))
+		if err != nil {
+			return nil, err
+		}
+
 		bootstrap.CertProviders = map[string]CertificateProvider{
 			"default": {
-				Name: "file_watcher",
+				PluginName: "file_watcher",
 				Config: FileWatcherCertProviderConfig{
 					PrivateKeyFile:    path.Join(opts.CertDir, "key.pem"),
 					CertificateFile:   path.Join(opts.CertDir, "cert-chain.pem"),
 					CACertificateFile: path.Join(opts.CertDir, "root-cert.pem"),
-					// TODO use a more appropriate interval
-					RefreshDuration: durationpb.New(15 * time.Minute),
+					RefreshDuration:   refresh,
 				},
 			},
 		}
