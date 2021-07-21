@@ -1,0 +1,11 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  values:
+    global:
+      proxy:
+        tracer: none
+  components:
+    pilot:
+      enabled: true
