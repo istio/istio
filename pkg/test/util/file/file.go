@@ -15,7 +15,10 @@
 package file
 
 import (
+	"archive/tar"
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -74,4 +77,31 @@ func NormalizePath(originalPath string) (string, error) {
 	}
 
 	return out, nil
+}
+
+// ReadTarFile reads a tar compress file from the embedded
+func ReadTarFile(f string) (string, error) {
+	b, err := ioutil.ReadFile(f)
+	if err != nil {
+		return "", err
+	}
+	tr := tar.NewReader(bytes.NewBuffer(b))
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return "", err
+		}
+		if hdr.Name != f {
+			continue
+		}
+		contents, err := ioutil.ReadAll(tr)
+		if err != nil {
+			return "", err
+		}
+		return string(contents), nil
+	}
+	return "", fmt.Errorf("file not found")
 }
