@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -100,9 +101,16 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		hostname:   hostname,
 		port:       port,
 	}
+
+	enableMtlsChecker := false
+	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		// We only need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH
-		// As an optimization, we skip this logic entirely for everything else.
+		enableMtlsChecker = true
+	}
+	if features.EnableAutomTLSCheckPolicies {
+		enableMtlsChecker = true
+	}
+	if enableMtlsChecker {
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b
@@ -317,6 +325,13 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			}
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
+			}
+			if features.EnableAutomTLSCheckPolicies {
+				tlsMode := ep.TLSMode
+				if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
+					tlsMode = ""
+				}
+				util.MaybeUpdateTLSModeLabel(ep.EnvoyEndpoint.Metadata, tlsMode)
 			}
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
