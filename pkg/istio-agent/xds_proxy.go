@@ -800,7 +800,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		var buf bytes.Buffer
 		err = jsonm.Marshal(&buf, response)
 		if err == nil {
-			_, _ = w.Write(buf.Bytes())
+			_, err = w.Write(buf.Bytes())
 			if err != nil {
 				log.Infof("fail to write debug response: %v", err)
 			}
