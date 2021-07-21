@@ -276,7 +276,7 @@ func needConstructEnvoyendpoint(tlsMode string, e *endpoint.LbEndpoint) bool {
 			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}
 	}
-	return tlsMode == epTLSMode
+	return tlsMode != epTLSMode
 }
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
