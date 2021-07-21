@@ -108,7 +108,7 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CAProviderName = security.GoogleCAProvider
 	}
 	// TODO extract this logic out to a plugin
-	if o.CAProviderName == security.GoogleCAProvider {
+	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
 		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
 	}
 
