@@ -1,0 +1,9 @@
+ARG BASE_VERSION=latest
+
+FROM gcr.io/istio-release/base:${BASE_VERSION}
+
+ARG TARGETARCH
+WORKDIR /
+COPY ${TARGETARCH:-amd64}/csrctrl .
+
+ENTRYPOINT ["/csrctrl"]
