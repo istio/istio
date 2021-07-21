@@ -46,11 +46,11 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 		switch trafficDirection {
 		case core.TrafficDirection_INBOUND:
 			if !features.EnableProtocolSniffingForInbound {
-				p = protocol.TCP
+				return ListenerProtocolTCP
 			}
 		case core.TrafficDirection_OUTBOUND:
 			if !features.EnableProtocolSniffingForOutbound {
-				p = protocol.TCP
+				return ListenerProtocolTCP
 			}
 		default:
 			// Should not reach here.
