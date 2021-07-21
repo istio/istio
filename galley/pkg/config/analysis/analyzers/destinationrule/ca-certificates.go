@@ -15,8 +15,11 @@
 package destinationrule
 
 import (
+	"fmt"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -53,18 +56,28 @@ func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx
 
 	if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL {
 		if dr.GetTrafficPolicy().GetTls().GetCaCertificates() == "" {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), msg.NewNoServerCertificateVerificationDestinationLevel(r, drName,
-				drNs.String(), mode.String(), dr.GetHost()))
+			m := msg.NewNoServerCertificateVerificationDestinationLevel(r, drName,
+				drNs.String(), mode.String(), dr.GetHost())
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.DestinationRuleTLSCert)); ok {
+				m.Line = line
+			}
+			ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), m)
 		}
 	}
 	portSettings := dr.TrafficPolicy.GetPortLevelSettings()
 
-	for _, p := range portSettings {
+	for i, p := range portSettings {
 		mode = p.GetTls().GetMode()
 		if mode == v1alpha3.ClientTLSSettings_SIMPLE || mode == v1alpha3.ClientTLSSettings_MUTUAL {
 			if p.GetTls().GetCaCertificates() == "" {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), msg.NewNoServerCertificateVerificationPortLevel(r, drName,
-					drNs.String(), mode.String(), dr.GetHost(), p.GetPort().String()))
+				m := msg.NewNoServerCertificateVerificationPortLevel(r, drName,
+					drNs.String(), mode.String(), dr.GetHost(), p.GetPort().String())
+
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.DestinationRuleTLSPortLevelCert, i)); ok {
+					m.Line = line
+				}
+				ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), m)
 			}
 		}
 	}
