@@ -61,7 +61,7 @@ func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceN
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, true)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -148,7 +148,7 @@ func (u *UpdateTracker) Reset() {
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	cacheLog.SetOutputLevel(log.DebugLevel)
-	fakeCACli, err := mock.NewMockCAClient(time.Millisecond * 200)
+	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*200, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestFileSecrets(t *testing.T) {
 }
 
 func runFileAgentTest(t *testing.T, sds bool) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -533,7 +533,7 @@ func TestConcatCerts(t *testing.T) {
 }
 
 func TestProxyConfigAnchors(t *testing.T) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
