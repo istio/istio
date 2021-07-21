@@ -195,6 +195,98 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	})
 }
 
+func TestSidecarOutboundHTTPRouteConfigWithVirtualServiceHosts(t *testing.T) {
+	virtualService1 := &networking.VirtualService{
+		Hosts:    []string{"service-A", "service-A.v2", "service-A.v3"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{":authority": {MatchType: &networking.StringMatch_Exact{Exact: "service-A.v2"}}},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "service-A",
+							Subset: "v2",
+						},
+					},
+				},
+			},
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{":authority": {MatchType: &networking.StringMatch_Exact{Exact: "service-A.v3"}}},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "service-A",
+							Subset: "v3",
+						},
+					},
+				},
+			},
+		},
+	}
+	services := []*model.Service{
+		buildHTTPService("service-A", visibility.Public, "", "default", 8888),
+	}
+	config := []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "vs-1",
+			},
+			Spec: virtualService1,
+		},
+	}
+
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: services,
+		Configs:  config,
+	})
+
+	vHostCache := make(map[int][]*route.VirtualHost)
+	routeName := "8888"
+	routeCfg := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(cg.SetupProxy(nil), cg.PushContext(), routeName, vHostCache)
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
+	if routeCfg == nil {
+		t.Fatalf("got nil route for %s", routeName)
+	}
+	expectedHosts := map[string][]string{
+		"allow_any":         {"*"},
+		"service-A.v2:8888": {"service-A.v2", "service-A.v2:8888"},
+		"service-A.v3:8888": {"service-A.v3", "service-A.v3:8888"},
+		"service-A:8888":    {"service-A", "service-A:8888"},
+	}
+	expectedDestination := map[string][]string{
+		"allow_any":         {"PassthroughCluster"},
+		"service-A.v2:8888": {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
+		"service-A.v3:8888": {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
+		"service-A:8888":    {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
+	}
+	got := map[string][]string{}
+	clusters := map[string][]string{}
+	for _, vh := range routeCfg.VirtualHosts {
+		got[vh.Name] = vh.Domains
+		for _, route := range vh.GetRoutes() {
+			clusters[vh.Name] = append(clusters[vh.Name], route.GetRoute().GetCluster())
+		}
+	}
+
+	if !reflect.DeepEqual(expectedHosts, got) {
+		t.Fatalf("unexpected virtual hosts\n%v, wanted\n%v", got, expectedHosts)
+	}
+
+	if !reflect.DeepEqual(expectedDestination, clusters) {
+		t.Fatalf("unexpected destinations\n%v, wanted\n%v", clusters, expectedDestination)
+	}
+}
+
 func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"test-duplicate-domains.default.svc.cluster.local", "test-duplicate-domains.default"},
