@@ -95,7 +95,7 @@ func ReadTarFile(filePath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if hdr.Name != filepath.Base(filePath) {
+		if hdr.Name != strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath)) {
 			continue
 		}
 		contents, err := ioutil.ReadAll(tr)
