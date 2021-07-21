@@ -50,6 +50,9 @@ func TestCNIVersionSkew(t *testing.T) {
 		NewTest(t).
 		Features("traffic.cni").
 		Run(func(t framework.TestContext) {
+			if !i.Settings().EnableCNI {
+				t.Skip("CNI version skew test is only tested when CNI is enabled.")
+			}
 			for _, v := range versions {
 				installCNIOrFail(t, v)
 				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), "kube-system", "k8s-app=istio-cni-node")
