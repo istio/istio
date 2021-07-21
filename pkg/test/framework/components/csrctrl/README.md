@@ -20,6 +20,8 @@ $ make docker.csrctrl
 
 User can find the CSR controller image by `docker images`, and see the $HUB/csrctrl with tag value $TAG.
 
+**Note: it only supports signer from istio.io/ for now.**
+
 ## How to deploy CSR controller in Kubernetes cluster in test code?
 
 If user want to deploy this CSR controller to do some test, there should be some template codes in user's test case:
