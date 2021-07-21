@@ -3113,11 +3113,13 @@ func appendValidation(v Validation, vs ...error) Validation {
 }
 
 // appendErrorf appends a formatted error string
+// nolint: unparam
 func appendErrorf(v Validation, format string, a ...interface{}) Validation {
 	return appendValidation(v, fmt.Errorf(format, a...))
 }
 
 // appendWarningf appends a formatted warning string
+// nolint: unparam
 func appendWarningf(v Validation, format string, a ...interface{}) Validation {
 	return appendValidation(v, Warningf(format, a...))
 }
@@ -3384,9 +3386,17 @@ func validateTelemetryMetrics(metrics []*telemetry.Metrics) (v Validation) {
 		}
 		v = appendValidation(v, validateTelemetryProviders(l.Providers))
 		for _, o := range l.Overrides {
+			if o == nil {
+				v = appendErrorf(v, "tagOverrides may not be null")
+				continue
+			}
 			for tagName, to := range o.TagOverrides {
 				if tagName == "" {
 					v = appendWarningf(v, "tagOverrides.name may not be empty")
+				}
+				if to == nil {
+					v = appendErrorf(v, "tagOverrides may not be null")
+					continue
 				}
 				switch to.Operation {
 				case telemetry.MetricsOverrides_TagOverride_UPSERT:
@@ -3414,7 +3424,7 @@ func validateTelemetryMetrics(metrics []*telemetry.Metrics) (v Validation) {
 
 func validateTelemetryProviders(providers []*telemetry.ProviderRef) error {
 	for _, p := range providers {
-		if p.Name == "" {
+		if p == nil || p.Name == "" {
 			return fmt.Errorf("providers.name may not be empty")
 		}
 	}
