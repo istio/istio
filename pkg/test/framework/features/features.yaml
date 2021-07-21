@@ -148,7 +148,8 @@ features:
       cluster_local:
       multimaster:
       remote:
-      centralremotekubeconfig:
+    external:
+      externalcontrolplane:
     helm:
       default:
         install:
