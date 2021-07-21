@@ -539,10 +539,13 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, c cluster.Clus
 	// Set the clusterName for the local cluster.
 	// This MUST match the clusterName in the remote secret for this cluster.
 	if i.environment.IsMulticluster() {
-		clusterName := c.Name()
 		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 			// enable namespace controller writing to remote clusters
 			installSettings = append(installSettings, "--set", "values.pilot.env.EXTERNAL_ISTIOD=true")
+		}
+		clusterName := c.Name()
+		if !c.IsConfig() {
+			clusterName = c.ConfigName()
 		}
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+clusterName)
 	}
