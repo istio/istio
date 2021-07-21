@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
@@ -80,8 +81,8 @@ func NormalizePath(originalPath string) (string, error) {
 }
 
 // ReadTarFile reads a tar compress file from the embedded
-func ReadTarFile(f string) (string, error) {
-	b, err := ioutil.ReadFile(f)
+func ReadTarFile(filePath string) (string, error) {
+	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}
@@ -94,7 +95,7 @@ func ReadTarFile(f string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if hdr.Name != f {
+		if hdr.Name != filepath.Base(filePath) {
 			continue
 		}
 		contents, err := ioutil.ReadAll(tr)
