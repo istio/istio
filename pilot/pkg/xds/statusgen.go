@@ -119,31 +119,24 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 		con.proxy.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
 		if isProxy(con) {
-			xdsConfigs := []*status.PerXdsConfig{}
+			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
 			for _, stype := range stypes {
-				pxc := &status.PerXdsConfig{}
+				pxc := &status.ClientConfig_GenericXdsConfig{}
 				if watchedResource, ok := con.proxy.WatchedResources[stype]; ok {
-					pxc.Status = debugSyncStatus(watchedResource)
+					pxc.ConfigStatus = debugSyncStatus(watchedResource)
 				} else {
-					pxc.Status = status.ConfigStatus_NOT_SENT
+					pxc.ConfigStatus = status.ConfigStatus_NOT_SENT
 				}
-				switch stype {
-				case v3.ListenerType:
-					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
-				case v3.RouteType:
-					pxc.PerXdsConfig = &status.PerXdsConfig_RouteConfig{}
-				case v3.EndpointType:
-					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
-				case v3.ClusterType:
-					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
-				}
+
+				pxc.TypeUrl = stype
+
 				xdsConfigs = append(xdsConfigs, pxc)
 			}
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
 					Id: con.proxy.ID,
 				},
-				XdsConfig: xdsConfigs,
+				GenericXdsConfigs: xdsConfigs,
 			}
 			res = append(res, &discovery.Resource{
 				Name:     clientConfig.Node.Id,
