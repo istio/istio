@@ -22,6 +22,7 @@ import (
 	"time"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/google/go-cmp/cmp"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -267,7 +268,7 @@ func TestSidecarOutboundHTTPRouteConfigWithVirtualServiceHosts(t *testing.T) {
 		"allow_any":         {"PassthroughCluster"},
 		"service-A.v2:8888": {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
 		"service-A.v3:8888": {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
-		"service-A:8888":    {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
+		"service-A:8888":    {"outbound|888d8|v2|service-A", "outbound|8888|v3|service-A"},
 	}
 	got := map[string][]string{}
 	clusters := map[string][]string{}
@@ -278,12 +279,12 @@ func TestSidecarOutboundHTTPRouteConfigWithVirtualServiceHosts(t *testing.T) {
 		}
 	}
 
-	if !reflect.DeepEqual(expectedHosts, got) {
-		t.Fatalf("unexpected virtual hosts\n%v, wanted\n%v", got, expectedHosts)
+	if diff := cmp.Diff(expectedHosts, got); diff != "" {
+		t.Fatalf("unexpected virtual hosts\n%v", diff)
 	}
 
-	if !reflect.DeepEqual(expectedDestination, clusters) {
-		t.Fatalf("unexpected destinations\n%v, wanted\n%v", clusters, expectedDestination)
+	if diff := cmp.Diff(expectedDestination, clusters); diff != "" {
+		t.Fatalf("unexpected virtual hosts\n%v", diff)
 	}
 }
 
