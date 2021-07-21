@@ -26,11 +26,14 @@ docker: docker.all
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
 docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 docker.app_sidecar_centos_7 \
-docker.istioctl docker.operator docker.install-cni
+docker.istioctl docker.operator docker.install-cni docker.csrctrl
 
 # Echo docker directory and the template to pass image name and version to for VM testing
 ECHO_DOCKER ?= pkg/test/echo/docker
 VM_OS_DOCKERFILE_TEMPLATE ?= Dockerfile.app_sidecar
+
+# CSR controller docker directory
+CSRCONTROLLER_DOCKER ?= pkg/test/csrctrl/docker
 
 $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 	mkdir -p $@
@@ -112,6 +115,13 @@ docker.app: $(ECHO_DOCKER)/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/client
 docker.app: $(ISTIO_OUT_LINUX)/server
 docker.app: $(ISTIO_DOCKER)/certs
+	$(DOCKER_RULE)
+
+# Test CSR controller
+docker.csrctrl: BUILD_PRE=
+docker.csrctrl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.csrctrl: $(CSRCONTROLLER_DOCKER)/Dockerfile.csrctrl
+docker.csrctrl: $(ISTIO_OUT_LINUX)/csrctrl
 	$(DOCKER_RULE)
 
 # Test application bundled with the sidecar with ubuntu:xenial (for non-k8s).
