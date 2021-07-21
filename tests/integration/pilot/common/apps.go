@@ -229,7 +229,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				Ports:     common.EchoPorts,
 				Subsets: []echo.SubsetConfig{{
 					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-  ISTIO_META_ISTIO_DELTA_XDS: "true"`),
+  ISTIO_DELTA_XDS: "true"`),
 				}},
 				WorkloadOnlyPorts: common.WorkloadPorts,
 			})
