@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	capi "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +27,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	// +kubebuilder:scaffold:imports
-
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/csrctrl/signer"

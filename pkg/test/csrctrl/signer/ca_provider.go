@@ -19,6 +19,7 @@ import (
 	"crypto"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +32,17 @@ import (
 
 func newCAProvider(signerRoot, signerName string) (*caProvider, error) {
 	strRoot := signerRoot + "/" + signerName + "/"
+	// create the folder if it does not exist
+	if _, err := os.Stat(strRoot); os.IsNotExist(err) {
+		dErr := os.MkdirAll(strRoot, os.ModePerm)
+		if dErr != nil {
+			return nil, fmt.Errorf("error creating CA cert folder %s: %v", strRoot, dErr)
+		}
+		cErr := os.Chmod(strRoot, os.ModePerm)
+		if cErr != nil {
+			return nil, fmt.Errorf("error change mode of CA cert folder %s: %v", strRoot, cErr)
+		}
+	}
 	caLoader, err := ca.NewRoot(strRoot)
 	if err != nil {
 		return nil, fmt.Errorf("error reading CA cert file %s: %v", strRoot, err)

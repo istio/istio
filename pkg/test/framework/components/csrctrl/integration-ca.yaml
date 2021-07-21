@@ -67,24 +67,6 @@ rules:
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: signer-ca-proxy-role
-rules:
-- apiGroups:
-  - authentication.k8s.io
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - create
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: manager:istio-io-signer
@@ -109,34 +91,6 @@ subjects:
 - kind: ServiceAccount
   name: default
   namespace: sig-ca-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: signer-ca-proxy-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: signer-ca-proxy-role
-subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: sig-ca-system
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    control-plane: controller-manager
-  name: signer-ca-controller-manager
-  namespace: sig-ca-system
-spec:
-  ports:
-  - name: https
-    port: 8443
-    targetPort: https
-  selector:
-    control-plane: controller-manager
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -174,13 +128,9 @@ spec:
             cpu: 100m
             memory: 20Mi
         volumeMounts:
-        - mountPath: /tmp/pki/signer/istio.io/foo/
-          name: etc-pki-foo
-        - mountPath: /tmp/pki/signer/istio.io/bar/
-          name: etc-pki-bar
+          - mountPath: "{{.SignerRootPath}}"
+            name: signer-pki
       terminationGracePeriodSeconds: 10
       volumes:
-      - name: etc-pki-foo
-        emptyDir: {}
-      - name: etc-pki-bar
+      - name: signer-pki
         emptyDir: {}
