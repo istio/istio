@@ -323,14 +323,16 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
-			tlsMode := ep.TLSMode
-			if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
-				tlsMode = ""
-			}
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
-			util.MaybeUpdateTLSModeLabel(ep.EnvoyEndpoint.Metadata, tlsMode)
+			if features.EnableAutomTLSCheckPolicies {
+				tlsMode := ep.TLSMode
+				if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
+					tlsMode = ""
+				}
+				util.MaybeUpdateTLSModeLabel(ep.EnvoyEndpoint.Metadata, tlsMode)
+			}
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
