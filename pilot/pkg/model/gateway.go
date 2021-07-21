@@ -173,7 +173,11 @@ func MergeGateways(gateways []gatewayWithInstances) *MergedGateway {
 						if len(serverIdentifier) == 0 {
 							serverIdentifier = s.Port.Name
 						}
-						s.Tls.CipherSuites = filteredCipherSuites(s.Tls.CipherSuites, serverIdentifier, gatewayName)
+						filtered := filteredCipherSuites(s.Tls.CipherSuites, serverIdentifier, gatewayName)
+						if len(s.Tls.CipherSuites) != len(filtered) {
+							s = s.DeepCopy()
+							s.Tls.CipherSuites = filtered
+						}
 					}
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
