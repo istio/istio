@@ -13,18 +13,16 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package centralremotekubeconfig
+package externalcontrolplane
 
 import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
-	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/multicluster"
+	"istio.io/istio/tests/integration/external"
 )
 
 var ist istio.Instance
@@ -35,19 +33,6 @@ func TestMain(m *testing.M) {
 		// Skip("https://github.com/istio/istio/pull/33045").
 		Label(label.Multicluster).
 		RequireMinClusters(2).
-		Setup(func(ctx resource.Context) error {
-			// TODO, this should be exclusively configurable outside of the framework
-			configCluster := ctx.Clusters()[1]
-			externalControlPlaneCluster := ctx.Clusters()[0]
-			for _, c := range ctx.Clusters() {
-				c.(*kubecluster.Cluster).OverrideTopology(func(c cluster.Topology) cluster.Topology {
-					return c.
-						WithConfig(configCluster.Name()).
-						WithPrimary(externalControlPlaneCluster.Name())
-				})
-			}
-			return nil
-		}).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ConfigClusterValues = `
@@ -74,7 +59,7 @@ values:
 			cfg.ControlPlaneValues = `
 components:
   base:
-    enabled: false
+    enabled: true
   pilot:
     enabled: true
     k8s:
@@ -110,7 +95,7 @@ components:
       - name: EXTERNAL_ISTIOD
         value: "true"
       - name: CLUSTER_ID
-        value: remote
+        value: config
       - name: SHARED_MESH_CONFIG
         value: istio
   ingressGateways:
@@ -123,11 +108,13 @@ values:
   global:
     operatorManageWebhooks: true
     configValidation: false
+  base:
+    enableCRDTemplates: true
 `
 		})).
 		Run()
 }
 
 func TestIngressGateway(t *testing.T) {
-	multicluster.GatewayTest(t, "installation.multicluster.centralremotekubeconfig")
+	external.GatewayTest(t, "installation.external.externalcontrolplane")
 }
