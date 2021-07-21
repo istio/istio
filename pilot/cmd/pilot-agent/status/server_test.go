@@ -85,7 +85,7 @@ func TestNewServer(t *testing.T) {
 		// map key is not well formed.
 		{
 			probe: `{"abc": {"path": "/app-foo/health"}}`,
-			err:   "invalid key",
+			err:   "invalid path",
 		},
 		// invalid probe type
 		{

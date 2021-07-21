@@ -658,8 +658,9 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 	port := prober.TCPSocket.Port.IntValue()
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	// FIXME(phil9909): Currently, the IP table rules still seem to redirect traffic from inside the pod into the envoy when connection using the external IP of the pod
-	// Therefore we hardcode it to localhost for now. See https://istio.io/latest/blog/2021/upcoming-networking-changes/
+	// FIXME(phil9909): Currently, the IP table rules still seem to redirect traffic from inside the pod into the envoy
+	// when connection using the external IP of the pod. Therefore we hardcode it to localhost for now.
+	// See https://istio.io/latest/blog/2021/upcoming-networking-changes/
 	// addr := fmt.Sprintf("%s:%d", s.appProbersDestination, port)
 	addr := fmt.Sprintf("localhost:%d", port)
 	conn, err := net.DialTimeout("tcp", addr, timeout)
