@@ -5,7 +5,8 @@ area: traffic-management
 issue: []
 
 releaseNotes:
-- '**Improved** TCP probes now working as expected: When using TCP probes with older versions of istio the check was always successful, even if the application didn't open the port.'
+- |
+  '**Improved** TCP probes now working as expected: When using TCP probes with older versions of istio the check was always successful, even if the application didn't open the port.'
 
 upgradeNotes:
   - title: TCP probes now working as expected
