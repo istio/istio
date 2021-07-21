@@ -135,6 +135,11 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(creds), nil
 }
 
+// GetRootCertBundle: Google Mesh CA doesn't publish any endpoint to retrieve CA certs
+func (cl *googleCAClient) GetRootCertBundle() ([]string, error) {
+	return []string{}, nil
+}
+
 func parseZone(clusterURL string) string {
 	// for Hub IDNS, the input is https://gkehub.googleapis.com/projects/HUB_PROJECT_ID/locations/global/memberships/MEMBERSHIP_ID which is global
 	if strings.HasPrefix(clusterURL, hubIDPPrefix) {
@@ -148,8 +153,4 @@ func parseZone(clusterURL string) string {
 		return ""
 	}
 	return rs[2]
-}
-
-func (cl *googleCAClient) GetRootCertBundle() ([]string, error) {
-	return []string{}, nil
 }
