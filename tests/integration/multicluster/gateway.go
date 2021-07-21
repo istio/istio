@@ -65,11 +65,11 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 								if err != nil {
 									return err
 								}
-								if len(pods.Items) == 0 {
-									return fmt.Errorf("still waiting the ingress gateway pod to start")
+								if len(pods.Items) == 0 || pods.Items[0].Status.Phase != v1.PodRunning {
+									return fmt.Errorf("still waiting for the ingress gateway pod to start")
 								}
-								if pods.Items[0].Status.Phase != v1.PodRunning {
-									return fmt.Errorf("still waiting the ingress gateway pod to start")
+								if !pods.Items[0].Status.ContainerStatuses[0].Ready {
+									return fmt.Errorf("still waiting for ingress gateway pod container to be ready")
 								}
 								return nil
 							}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))

@@ -884,7 +884,7 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, c c
 				{
 					Name:     "tls-webhook",
 					Protocol: kubeApiCore.ProtocolTCP,
-					Port:     15017,
+					Port:     443,
 				},
 				{
 					Name:     "tls",
@@ -892,7 +892,6 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, c c
 					Port:     15443,
 				},
 			},
-			ClusterIP: "None",
 		},
 	}
 	_, err = c.CoreV1().Services(cfg.SystemNamespace).Create(context.TODO(), svc, kubeApiMeta.CreateOptions{})
@@ -920,7 +919,7 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, c c
 					{
 						Name:     "tls-webhook",
 						Protocol: kubeApiCore.ProtocolTCP,
-						Port:     15017,
+						Port:     443,
 					},
 				},
 			},
