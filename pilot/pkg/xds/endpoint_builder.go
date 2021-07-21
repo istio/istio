@@ -266,19 +266,6 @@ func (e *LocLbEndpointsAndOptions) AssertInvarianceInTest() {
 	}
 }
 
-func needConstructEnvoyendpoint(tlsMode string, e *endpoint.LbEndpoint) bool {
-	if e == nil {
-		return true
-	}
-	epTLSMode := ""
-	if e.Metadata != nil && e.Metadata.FilterMetadata == nil {
-		if v, ok := e.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey]; ok {
-			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
-		}
-	}
-	return tlsMode != epTLSMode
-}
-
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	shards *EndpointShards,
@@ -340,9 +327,10 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
 				tlsMode = ""
 			}
-			if needConstructEnvoyendpoint(tlsMode, ep.EnvoyEndpoint) {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, tlsMode)
+			if ep.EnvoyEndpoint == nil {
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
+			util.MaybeUpdateTLSModeLabel(ep.EnvoyEndpoint.Metadata, tlsMode)
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
@@ -409,7 +397,7 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(e *model.IstioEndpoint, tlsMode string) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 
 	ep := &endpoint.LbEndpoint{
@@ -426,7 +414,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, tlsMode string) *endpoint.LbEn
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not removepilot/pkg/xds/fake.go
-	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, tlsMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	return ep
 }
@@ -503,7 +491,6 @@ func (c *mtlsChecker) mtlsDisabledByPeerAuthentication(ep *model.IstioEndpoint) 
 		// avoid recomputing since most EPs will have the same labels/port
 		return value
 	}
-	// NOTE(incfly): okay already created this reference in the endpoint builder code.
 	c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
 		NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
 		GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
