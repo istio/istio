@@ -126,6 +126,7 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzIntoResourceFile", FuzzIntoResourceFile},
 		{"FuzzTranslateFromValueToSpec", FuzzTranslateFromValueToSpec},
 		{"FuzzConfigValidation2", FuzzConfigValidation2},
+		{"FuzzBNMUnmarshalJSON", FuzzBNMUnmarshalJSON},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {

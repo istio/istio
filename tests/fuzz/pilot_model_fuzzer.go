@@ -205,3 +205,9 @@ func FuzzInitContext(data []byte) int {
 	_ = pc.InitContext(env, nil, nil)
 	return 1
 }
+
+func FuzzBNMUnmarshalJSON(data []byte) int {
+	var bnm model.BootstrapNodeMetadata
+	_ = bnm.UnmarshalJSON(data)
+	return 1
+}
