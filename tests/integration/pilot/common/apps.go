@@ -219,17 +219,21 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			AutoRegisterVM:    true,
 			Subsets:           []echo.SubsetConfig{{}},
 			WorkloadOnlyPorts: common.WorkloadPorts,
-		}).
-		WithConfig(echo.Config{
-			Service:   DeltaSvc,
-			Namespace: apps.Namespace,
-			Ports:     common.EchoPorts,
-			Subsets: []echo.SubsetConfig{{
-				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
-  ISTIO_META_ISTIO_DELTA_XDS: "true"`),
-			}},
-			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
+
+	if !t.Settings().SkipDelta {
+		builder = builder.
+			WithConfig(echo.Config{
+				Service:   DeltaSvc,
+				Namespace: apps.Namespace,
+				Ports:     common.EchoPorts,
+				Subsets: []echo.SubsetConfig{{
+					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
+  ISTIO_META_ISTIO_DELTA_XDS: "true"`),
+				}},
+				WorkloadOnlyPorts: common.WorkloadPorts,
+			})
+	}
 
 	if !t.Clusters().IsMulticluster() {
 		builder = builder.
