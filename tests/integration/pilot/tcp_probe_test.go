@@ -51,9 +51,9 @@ func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //n
 
 	var tcpProbe echo.Instance
 	cfg := echo.Config{
-		Namespace:                  ns,
-		Service:                    name,
-		AlternativeTCPLivenessPort: "1234", // this port must not be opened from the app
+		Namespace:        ns,
+		Service:          name,
+		ReadinessTCPPort: "1234", // this port must not be opened from the app
 		Subsets: []echo.SubsetConfig{
 			{
 				Annotations: echo.NewAnnotations().SetBool(echo.SidecarRewriteAppHTTPProbers, rewrite),

@@ -101,6 +101,9 @@ type Config struct {
 	// become ready.
 	ReadinessTimeout time.Duration
 
+	// ReadinessTCPPort if set, use this port for the TCP readiness probe (instead of using a HTTP probe).
+	ReadinessTCPPort string
+
 	// Subsets contains the list of Subsets config belonging to this echo
 	// service instance.
 	Subsets []SubsetConfig
@@ -128,9 +131,6 @@ type Config struct {
 	// the CUSTOM authorization policy when the ext-authz server is deployed locally with the application container in
 	// the same pod.
 	IncludeExtAuthz bool
-
-	// If set, use this port for the tcp liveness probe
-	AlternativeTCPLivenessPort string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).
