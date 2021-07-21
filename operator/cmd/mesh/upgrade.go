@@ -273,7 +273,7 @@ func platformBasedTar() (tarExtension string) {
 	case "linux":
 		tarExtension = runtime.GOOS + "-" + runtime.GOARCH + ".tar.gz"
 	case "windows":
-		tarExtension = runtime.GOOS + ".zip"
+		tarExtension = "win.zip"
 	case "darwin":
 		tarExtension = defaultExtension
 	default:
