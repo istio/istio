@@ -48,7 +48,7 @@ var versions = []string{NMinusOne}
 func TestCNIVersionSkew(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.cni").
+		Features("traffic.cni.upgrade").
 		Run(func(t framework.TestContext) {
 			if !i.Settings().EnableCNI {
 				t.Skip("CNI version skew test is only tested when CNI is enabled.")

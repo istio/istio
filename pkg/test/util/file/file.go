@@ -103,5 +103,5 @@ func ReadTarFile(f string) (string, error) {
 		}
 		return string(contents), nil
 	}
-	return "", fmt.Errorf("file not found")
+	return "", fmt.Errorf("file not found %v", f)
 }
