@@ -146,6 +146,11 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
 
+	EnableAutomTLSCheckPolicies = env.RegisterBoolVar(
+		"ENABLE_AUTO_MTLS_CHECK_POLICIES", true,
+		"Enable the auto mTLS EDS output to consult the PeerAuthentication Policy, only set the {tlsMode: istio} "+
+			" when server side policy enables mTLS PERMISSIVE or STRICT.").Get()
+
 	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
 		true,

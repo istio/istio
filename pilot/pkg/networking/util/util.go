@@ -524,6 +524,32 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 	return metadata
 }
 
+// MaybeUpdateTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
+func MaybeUpdateTLSModeLabel(metadata *core.Metadata, tlsMode string) bool {
+	if metadata == nil {
+		return false
+	}
+	epTLSMode := ""
+	if metadata.FilterMetadata != nil {
+		if v, ok := metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
+			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
+		}
+	}
+	if epTLSMode == tlsMode {
+		return false
+	}
+	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
+		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
+	} else {
+		delete(metadata.FilterMetadata, EnvoyTransportSocketMetadataKey)
+	}
+	return true
+}
+
 func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Value) {
 	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
 		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
