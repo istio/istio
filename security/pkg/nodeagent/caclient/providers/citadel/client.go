@@ -244,6 +244,7 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	return nil
 }
 
+// GetRootCertBundle: Citadel (Istiod) CA doesn't publish any endpoint to retrieve CA certs
 func (c *CitadelClient) GetRootCertBundle() ([]string, error) {
 	return []string{}, nil
 }
