@@ -307,11 +307,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[int]*inboundListenerEntry) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
-	// unix domain socket, localhost, endpoint IP, and service
-	// VIP. Localhost bypasses the proxy and doesn't need any TCP
-	// route config. Endpoint IP is handled below and Service IP is handled
-	// by outbound routes. Traffic sent to our service VIP is redirected by
-	// remote services' kubeproxy to our specific endpoint IP.
+	// unix domain socket, localhost, endpoint IP, and service VIP
+	// Localhost bypasses the proxy and doesn't need any TCP route config.
+	// Endpoint IP is handled below and Service IP is handled by outbound routes.
+	// Traffic sent to our service VIP is redirected by remote services' kubeproxy to our specific endpoint IP.
 
 	listenerOpts.class = ListenerClassSidecarInbound
 
