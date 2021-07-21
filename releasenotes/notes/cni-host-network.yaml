@@ -7,25 +7,3 @@ issue:
 releaseNotes:
   - |
     **Removed** `hostNetwork` enablement from `istio-cni-node` DaemonSet.
-
-upgradeNotes:
-  - title: Removal of hostNetwork enablement at `istio-cni-node` DaemonSet
-    content: |
-      Due to potential port confliction within host network namespace, hostNetwork enablement is removed from the CNI DaemonSet.
-      On most platforms, Istio CNI DaemonSet should not need access to the host network.
-      However, on OpenShift platform, hostNetwork enablement is necessary for Istio CNI DaemonSet to access host path.
-      To enable hostNetwork at istio CNI DaemonSet, you can add the the following k8s overlay to the CNI component.
-
-      {{< text yaml >}}
-      components:
-        cni:
-          enabled: true
-          namespace: kube-system
-          k8s:
-            overlays:
-              - kind: DaemonSet
-                name: istio-cni-node
-                patches:
-                  - path: spec.template.spec.hostNetwork
-                    value: true
-      {{< /text >}}
