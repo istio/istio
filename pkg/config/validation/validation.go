@@ -1874,7 +1874,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule.Jwks != "" {
 		_, err := jwt.Parse([]byte(rule.Jwks))
 		if err != nil {
-			errs = multierror.Append(errs, errors.New("jwks parse error"))
+			errs = multierror.Append(errs, fmt.Errorf("jwks parse error: %v", err))
 		}
 	}
 
