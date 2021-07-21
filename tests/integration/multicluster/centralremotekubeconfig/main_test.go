@@ -104,9 +104,9 @@ components:
             mountPath: /var/lib/istio/inject
       env:
       - name: INJECTION_WEBHOOK_CONFIG_NAME
-        value: ""
+        value: "istio-sidecar-injector-istio-system"
       - name: VALIDATION_WEBHOOK_CONFIG_NAME
-        value: ""
+        value: "istio-istio-system"
       - name: EXTERNAL_ISTIOD
         value: "true"
       - name: CLUSTER_ID
