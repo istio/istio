@@ -18,7 +18,7 @@ data:
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
       proxyMetadata: {}
-      tracing: null
+      tracing: {}
     enablePrometheusMerge: true
     rootNamespace: istio-system
     trustDomain: cluster.local
