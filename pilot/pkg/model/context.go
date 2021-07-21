@@ -199,7 +199,7 @@ type XdsLogDetails struct {
 	AdditionalInfo string
 }
 
-var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
+var DefaultXdsLogDetails = XdsLogDetails{}
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
