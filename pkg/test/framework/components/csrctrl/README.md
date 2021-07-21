@@ -26,27 +26,22 @@ If user want to deploy this CSR controller to do some test, there should be some
 
 ```go
 ......
-import "istio.io/istio/pkg/test/framework/components/csrctrl" 
+import "istio.io/istio/pkg/test/framework/components/csrctrl"
 ......
 
-
 func TestCSRSigningViaCSRController(t *testing.T) {
-	xxx  :=  csrctrl.NewOrFail(xxxxsinger...)
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-
-			mycsrctrl := csrctrl.NewOrFail(t, t, csrctrl.Config{
-				SignerNames:     "istio.io/foo,istio.io/bar",
-				SignerRootPath:  "/tmp/pki/signer",
-			})
-
-			// User's test code
-			......
-		})
+  framework.
+    NewTest(t).
+    RequiresSingleCluster().
+    Run(func(t framework.TestContext) {
+      g := NewWithT(t)
+      mycsrctrl := csrctrl.NewOrFail(t, t, csrctrl.Config{
+        SignerNames:    "istio.io/foo,istio.io/bar",
+        SignerRootPath: "/tmp/pki/signer",
+      })
+      // User's test code
+      ......
+  })
 }
 ```
 
