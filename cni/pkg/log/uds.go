@@ -18,13 +18,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pkg/uds"
 	"istio.io/pkg/log"
 )
 
@@ -57,8 +56,7 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 		return nil
 	}
 	log.Info("Start a UDS server for CNI plugin logs")
-	_ = os.Remove(sockAddress)
-	unixListener, err := net.Listen("unix", sockAddress)
+	unixListener, err := uds.NewListener(sockAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create UDS listener: %v", err)
 	}
