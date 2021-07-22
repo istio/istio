@@ -1573,7 +1573,7 @@ spec:
           optional: true
 ---
 # Source: istio-discovery/templates/autoscale.yaml
-apiVersion: autoscaling/v2beta1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: istiod
