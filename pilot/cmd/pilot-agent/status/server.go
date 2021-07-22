@@ -129,7 +129,7 @@ type Server struct {
 	lastProbeSuccessful   bool
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
-	ipv6                  bool
+	upstreamLocalAddress  *net.TCPAddr
 }
 
 func init() {
@@ -150,8 +150,10 @@ func init() {
 // NewServer creates a new status server.
 func NewServer(config Options) (*Server, error) {
 	localhost := localHostIPv4
+	upstreamLocalAddress := UpstreamLocalAddressIPv4
 	if config.IPv6 {
 		localhost = localHostIPv6
+		upstreamLocalAddress = UpstreamLocalAddressIPv6
 	}
 	probes := make([]ready.Prober, 0)
 	if !config.NoEnvoy {
@@ -174,7 +176,7 @@ func NewServer(config Options) (*Server, error) {
 		appProbersDestination: wrapIPv6(config.PodIP),
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
-		ipv6:                  config.IPv6,
+		upstreamLocalAddress:  upstreamLocalAddress,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -220,12 +222,8 @@ func NewServer(config Options) (*Server, error) {
 			return nil, err
 		}
 		if prober.HTTPGet != nil {
-			localAddr := UpstreamLocalAddressIPv4
-			if config.IPv6 {
-				localAddr = UpstreamLocalAddressIPv6
-			}
 			d := &net.Dialer{
-				LocalAddr: localAddr,
+				LocalAddr: s.upstreamLocalAddress,
 			}
 			// Construct a http client and cache it in order to reuse the connection.
 			s.appProbeClient[path] = &http.Client{
@@ -660,12 +658,8 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 	port := prober.TCPSocket.Port.IntValue()
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	localAddr := UpstreamLocalAddressIPv4
-	if s.ipv6 {
-		localAddr = UpstreamLocalAddressIPv6
-	}
 	d := &net.Dialer{
-		LocalAddr: localAddr,
+		LocalAddr: s.upstreamLocalAddress,
 		Timeout:   timeout,
 	}
 

@@ -527,6 +527,7 @@ func TestAppProbe(t *testing.T) {
 		probePath  string
 		config     KubeAppProbers
 		podIP      string
+		ipv6       bool
 		statusCode int
 	}{
 		{
@@ -622,6 +623,7 @@ func TestAppProbe(t *testing.T) {
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
 			podIP:      "::1",
+			ipv6:       true,
 		},
 		{
 			name:       "tcp-livez-wrapped-ipv6",
@@ -629,6 +631,7 @@ func TestAppProbe(t *testing.T) {
 			config:     simpleTCPConfig,
 			statusCode: http.StatusOK,
 			podIP:      "[::1]",
+			ipv6:       true,
 		},
 		{
 			name:       "tcp-livez-localhost",
@@ -648,6 +651,7 @@ func TestAppProbe(t *testing.T) {
 				StatusPort:     0,
 				KubeAppProbers: string(appProber),
 				PodIP:          tc.podIP,
+				IPv6:           tc.ipv6,
 			}
 			// Starts the pilot agent status server.
 			server, err := NewServer(config)
@@ -657,6 +661,10 @@ func TestAppProbe(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			go server.Run(ctx)
+
+			if tc.ipv6 {
+				server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
+			}
 
 			var statusPort uint16
 			for statusPort == 0 {
