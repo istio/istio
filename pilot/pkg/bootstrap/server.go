@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"net"
 	"net/http"
 	"os"
@@ -264,6 +265,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
+
+	s.XDSServer.Generators["api"] = apigen.NewGenerator(e.IstioConfigStore)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
