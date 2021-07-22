@@ -56,18 +56,18 @@ func TestCNIVersionSkew(t *testing.T) {
 			for _, v := range versions {
 				installCNIOrFail(t, v)
 				podFetchFn := kube.NewSinglePodFetch(t.Clusters().Default(), "kube-system", "k8s-app=istio-cni-node")
-				// Make sure CNI image has applied version.
+				// Make sure CNI pod is using image with applied version.
 				retry.UntilSuccessOrFail(t, func() error {
 					pods, err := podFetchFn()
-					if err != nil || len(pods) != 0 {
-						return fmt.Errorf("failed to get CNI pods")
+					if err != nil {
+						return fmt.Errorf("failed to get CNI pods %v", err)
 					}
 					if len(pods) == 0 {
-						return fmt.Errorf("cannot find any ready CNI pods")
+						return fmt.Errorf("cannot find any CNI pods")
 					}
 					for _, p := range pods {
 						if !strings.Contains(p.Spec.Containers[0].Image, v) {
-							return fmt.Errorf("pods does not match wanted CNI version")
+							return fmt.Errorf("pods image does not match wanted CNI version")
 						}
 					}
 					return nil
@@ -79,7 +79,7 @@ func TestCNIVersionSkew(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				// Restart all apps so that newly deployed CNI could configure IPTables for it.
+				// Restart all apps so that newly deployed CNI could configure IPTables for them.
 				for _, app := range apps.All {
 					app.Restart()
 				}
