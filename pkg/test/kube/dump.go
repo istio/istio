@@ -214,13 +214,13 @@ func containerRestarts(pod corev1.Pod, container string) int {
 	return 0
 }
 
-func containerCrashed(pod corev1.Pod, container string) bool {
+func containerCrashed(pod corev1.Pod, container string) (bool, *corev1.ContainerStateTerminated) {
 	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.Name == container {
-			return cs.State.Terminated != nil
+		if cs.Name == container && cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
+			return true, cs.State.Terminated
 		}
 	}
-	return false
+	return false, nil
 }
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
@@ -259,8 +259,8 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 				}
 			}
 
-			if containerCrashed(pod, container.Name) {
-				scopes.Framework.Errorf("FAIL: pod %v/%v crashed with status: terminated", pod.Name, container.Name)
+			if crashed, terminateState := containerCrashed(pod, container.Name); crashed {
+				scopes.Framework.Errorf("FAIL: pod %v/%v crashed with status: %+v", pod.Name, container.Name, terminateState)
 			}
 
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
