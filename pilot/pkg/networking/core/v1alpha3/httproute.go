@@ -285,11 +285,15 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
-			virtualHosts = append(virtualHosts, buildVirtualHost(hostname, virtualHostWrapper, nil))
+			if vhost := buildVirtualHost(hostname, virtualHostWrapper, nil); vhost != nil {
+				virtualHosts = append(virtualHosts, vhost)
+			}
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			virtualHosts = append(virtualHosts, buildVirtualHost(string(svc.Hostname), virtualHostWrapper, svc))
+			if vhost := buildVirtualHost(string(svc.Hostname), virtualHostWrapper, svc); vhost != nil {
+				virtualHosts = append(virtualHosts, vhost)
+			}
 		}
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
