@@ -1078,6 +1078,8 @@ message BaseConfig {
 message IstiodRemoteConfig {
   // URL to use for sidecar injector webhook.
   string injectionURL = 1;
+  // Path to use for the sidecar injector webhook service.
+  string injectionPath = 2;
 }
 
 message Values {
