@@ -427,6 +427,15 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
 	}
 
+	// Now filter virtual services of listeners and select the virtual services by matching given services' host names.
+	for _, listener := range out.EgressListeners {
+		servicesByName := make(map[host.Name]*Service)
+		for _, svc := range listener.services {
+			servicesByName[svc.Hostname] = svc
+		}
+		listener.virtualServices = listener.filterVirtualServices(listener.virtualServices, servicesByName)
+	}
+
 	return out
 }
 
@@ -458,9 +467,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 	out.virtualServices = out.selectVirtualServices(vses, out.listenerHosts)
-	svces := ps.Services(&dummyNode)
-	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
-
+	out.services = out.selectServices(ps.Services(&dummyNode), configNamespace, out.listenerHosts)
 	return out
 }
 
@@ -630,13 +637,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 		}
 	}
 
-	servicesByName := make(map[host.Name]*Service)
-	for _, svc := range ilw.Services() {
-		servicesByName[svc.Hostname] = svc
-	}
-
-	// Now filter virtual services and select the virtual services by matching given services' host names.
-	return ilw.filterVirtualServices(importedVirtualServices, servicesByName)
+	return importedVirtualServices
 }
 
 // filterVirtualServices selects the virtual services by matching given services' host names.
