@@ -268,7 +268,7 @@ func TestSidecarOutboundHTTPRouteConfigWithVirtualServiceHosts(t *testing.T) {
 		"allow_any":         {"PassthroughCluster"},
 		"service-A.v2:8888": {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
 		"service-A.v3:8888": {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
-		"service-A:8888":    {"outbound|888d8|v2|service-A", "outbound|8888|v3|service-A"},
+		"service-A:8888":    {"outbound|8888|v2|service-A", "outbound|8888|v3|service-A"},
 	}
 	got := map[string][]string{}
 	clusters := map[string][]string{}
