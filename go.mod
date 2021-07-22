@@ -95,13 +95,12 @@ require (
 	istio.io/api v0.0.0-20210722205239-36794c332d01
 	istio.io/client-go v0.0.0-20210722210141-34b9f3c93a34
 	istio.io/gogo-genproto v0.0.0-20210713185313-36d0f033bd9f
-	istio.io/pkg v0.0.0-20210716112334-7ebec3684725
+	istio.io/pkg v0.0.0-20210723041419-45b42acb93b7
 	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.21.2
 	k8s.io/apimachinery v0.21.2
 	k8s.io/cli-runtime v0.21.2
 	k8s.io/client-go v0.21.2
-	k8s.io/klog/v2 v2.8.0
 	k8s.io/kube-openapi v0.0.0-20210527164424-3c818078ee3d
 	k8s.io/kubectl v0.21.2
 	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b
