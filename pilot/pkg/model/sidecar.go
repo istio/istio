@@ -428,6 +428,8 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	}
 
 	// Now filter virtual services of listeners and select the virtual services by matching given services' host names.
+	// This has to be done at the end because we will have to look at all virtual service destinations while computing
+	// services for sidecar.
 	for _, listener := range out.EgressListeners {
 		servicesByName := make(map[host.Name]*Service)
 		for _, svc := range listener.services {
