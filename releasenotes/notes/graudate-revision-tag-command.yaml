@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: promotion
+area: istioctl
+releaseNotes:
+  - |
+    **Promoted** the `istioctl experimental revision tag` command group to `istioctl tag`.
