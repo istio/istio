@@ -207,7 +207,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, agentOpts *AgentOptions, sopts *sec
 	}
 }
 
-// EnvoyDisabled if true inidcates calling Run will not run and wait for Envoy.
+// EnvoyDisabled if true indicates calling Run will not run and wait for Envoy.
 func (a *Agent) EnvoyDisabled() bool {
 	return a.envoyOpts.TestOnly || a.cfg.DisableEnvoy
 }
@@ -373,7 +373,7 @@ func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) erro
 	return nil
 }
 
-// Receive refers to a request to the xDS proxy.
+// Recv receives refers to a request to the xDS proxy.
 func (b *bootstrapDiscoveryRequest) Recv() (*discovery.DiscoveryRequest, error) {
 	if b.sent {
 		<-b.envoyWaitCh
@@ -423,7 +423,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		}
 	}
 
-	if a.cfg.GRPCBootstrapPath != "" {
+	if a.GRPCBootstrapPath() != "" {
 		if err := a.generateGRPCBootstrap(); err != nil {
 			return nil, fmt.Errorf("failed generating gRPC XDS bootstrap: %v", err)
 		}
@@ -496,7 +496,7 @@ func (a *Agent) generateGRPCBootstrap() error {
 		XdsUdsPath:       a.cfg.XdsUdsPath,
 		DiscoveryAddress: a.proxyConfig.DiscoveryAddress,
 		CertDir:          a.secOpts.OutputKeyCertToDir,
-	}, a.cfg.GRPCBootstrapPath)
+	}, a.GRPCBootstrapPath())
 	if err != nil {
 		return err
 	}
@@ -588,7 +588,7 @@ func fileExists(path string) bool {
 	return false
 }
 
-// Find the root CA to use when connecting to the CA (Istiod or external).
+// FindRootCAForCA finds the root CA to use when connecting to the CA (Istiod or external).
 func (a *Agent) FindRootCAForCA() (string, error) {
 	var rootCAPath string
 

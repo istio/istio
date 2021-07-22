@@ -96,7 +96,7 @@ func LoadBootstrap(file string) (*Bootstrap, error) {
 	if err := json.Unmarshal(data, b); err != nil {
 		return nil, err
 	}
-	return b, err
+	return b, nil
 }
 
 type GenerateBootstrapOptions struct {
@@ -143,7 +143,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 
 		bootstrap.CertProviders = map[string]CertificateProvider{
 			"default": {
-				PluginName: "file_watcher",
+				PluginName: FileWatcherCertProviderName,
 				Config: FileWatcherCertProviderConfig{
 					PrivateKeyFile:    path.Join(opts.CertDir, "key.pem"),
 					CertificateFile:   path.Join(opts.CertDir, "cert-chain.pem"),

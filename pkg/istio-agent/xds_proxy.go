@@ -77,7 +77,7 @@ var connectionNumber = atomic.NewUint32(0)
 // resource.
 type ResponseHandler func(resp *any.Any) error
 
-// XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing
+// XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
 // single tcp connection with multiple gRPC streams.

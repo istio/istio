@@ -41,7 +41,7 @@ var (
 		monitoring.WithLabels(disconnectionTypeTag),
 	)
 
-	// TODO: Add type url as type for requeasts and responses if needed.
+	// TODO: Add type url as type for requests and responses if needed.
 
 	// XdsProxyRequests records total number of downstream requests.
 	XdsProxyRequests = monitoring.NewSum(

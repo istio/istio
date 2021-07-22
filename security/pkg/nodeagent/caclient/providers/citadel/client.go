@@ -80,7 +80,7 @@ func (c *CitadelClient) Close() {
 	}
 }
 
-// CSR Sign calls Citadel to sign a CSR.
+// CSRSign calls Citadel to sign a CSR.
 func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
 	crMetaStruct := &types.Struct{
 		Fields: map[string]*types.Value{
