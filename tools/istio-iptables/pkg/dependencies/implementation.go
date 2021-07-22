@@ -141,7 +141,9 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		stderrStr := stderr.String()
 
 		// Transform to xtables-specific error messages with more useful and actionable hints.
-		stderrStr = transformToXTablesErrorMessage(stderrStr, err)
+		if err != nil {
+			stderrStr = transformToXTablesErrorMessage(stderrStr, err)
+		}
 
 		log.Errorf("Command error output: %v", stderrStr)
 	}
