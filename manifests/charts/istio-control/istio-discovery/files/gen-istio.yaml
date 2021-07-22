@@ -2829,7 +2829,7 @@ webhooks:
     service:
       name: istiod
       namespace: istio-system
-      path: /inject
+      path: "/inject"
       port: 443
     caBundle: ""
   sideEffects: None
@@ -2859,7 +2859,7 @@ webhooks:
     service:
       name: istiod
       namespace: istio-system
-      path: /inject
+      path: "/inject"
       port: 443
     caBundle: ""
   sideEffects: None
@@ -2891,7 +2891,7 @@ webhooks:
     service:
       name: istiod
       namespace: istio-system
-      path: /inject
+      path: "/inject"
       port: 443
     caBundle: ""
   sideEffects: None
@@ -2919,7 +2919,7 @@ webhooks:
     service:
       name: istiod
       namespace: istio-system
-      path: /inject
+      path: "/inject"
       port: 443
     caBundle: ""
   sideEffects: None
