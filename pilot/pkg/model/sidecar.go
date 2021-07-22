@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -586,11 +587,28 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 // sidecarScope object. Selection is based on labels at the moment.
 func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
-	vsMap := map[string]struct{}{}
+	vsset := sets.NewSet()
+	addVirtualService := func(vs config.Config, hosts host.Names) {
+		vsname := vs.Name
+		rule := vs.Spec.(*networking.VirtualService)
+		for _, ih := range hosts {
+			// Check if the hostnames match per usual hostname matching rules
+			if vsset.Contains(vsname) {
+				break
+			}
+			for _, h := range rule.Hosts {
+				// VirtualServices can have many hosts, so we need to avoid appending
+				// duplicated virtualservices to slice importedVirtualServices
+				if ih.Matches(host.Name(h)) {
+					importedVirtualServices = append(importedVirtualServices, vs)
+					vsset.Insert(vsname)
+					break
+				}
+			}
+		}
+	}
 	for _, c := range virtualServices {
 		configNamespace := c.Namespace
-		vsName := c.Name
-		rule := c.Spec.(*networking.VirtualService)
 
 		// Selection algorithm:
 		// virtualservices have a list of hosts in the API spec
@@ -603,44 +621,66 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
-					break
-				}
-				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts, so we need to avoid appending
-					// duplicated virtualservices to slice importedVirtualServices
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
-						break
-					}
-				}
-			}
+			addVirtualService(c, importedHosts)
 		}
 
 		// Check if there is an import of form */host or */*
 		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
-					break
-				}
-				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts, so we need to avoid appending
-					// duplicated virtualservices to slice importedVirtualServices
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
-						break
-					}
-				}
-			}
+			addVirtualService(c, importedHosts)
 		}
 	}
 
-	return importedVirtualServices
+	servicesByName := make(map[host.Name]*Service)
+	for _, svc := range ilw.Services() {
+		servicesByName[svc.Hostname] = svc
+	}
+
+	// Now filter virtual services and select the virtual services by matching given services' host names.
+	return ilw.filterVirtualServices(importedVirtualServices, servicesByName)
+}
+
+// filterVirtualServices selects the virtual services by matching given services' host names.
+func (ilw *IstioEgressListenerWrapper) filterVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*Service) []config.Config {
+	// This is hack to keep consistent with previous behavior.
+	if ilw.IstioListener != nil && ilw.IstioListener.Port != nil && ilw.IstioListener.Port.Number == 80 {
+		return virtualServices
+	}
+	out := make([]config.Config, 0)
+	for _, c := range virtualServices {
+		rule := c.Spec.(*networking.VirtualService)
+		var match bool
+
+		// Selection algorithm:
+		// virtualservices have a list of hosts in the API spec
+		// if any host in the list matches one service hostname, select the virtual service
+		// and break out of the loop.
+		for _, h := range rule.Hosts {
+			// TODO: This is a bug. VirtualServices can have many hosts
+			// while the user might be importing only a single host
+			// We need to generate a new VirtualService with just the matched host
+			if servicesByName[host.Name(h)] != nil {
+				match = true
+				break
+			}
+
+			for svcHost := range servicesByName {
+				if host.Name(h).Matches(svcHost) {
+					match = true
+					break
+				}
+			}
+
+			if match {
+				break
+			}
+		}
+
+		if match {
+			out = append(out, c)
+		}
+	}
+
+	return out
 }
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.

@@ -181,47 +181,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	return out
 }
 
-// TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
-// selectVirtualServices selects the virtual services by matching given services' host names.
-func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
-	out := make([]config.Config, 0)
-	for _, c := range virtualServices {
-		rule := c.Spec.(*networking.VirtualService)
-		var match bool
-
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// if any host in the list matches one service hostname, select the virtual service
-		// and break out of the loop.
-		for _, h := range rule.Hosts {
-			// TODO: This is a bug. VirtualServices can have many hosts
-			// while the user might be importing only a single host
-			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(h)] != nil {
-				match = true
-				break
-			}
-
-			for svcHost := range servicesByName {
-				if host.Name(h).Matches(svcHost) {
-					match = true
-					break
-				}
-			}
-
-			if match {
-				break
-			}
-		}
-
-		if match {
-			out = append(out, c)
-		}
-	}
-
-	return out
-}
-
 func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
 	var virtualServices []config.Config
@@ -256,7 +215,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
-			servicesByName[svc.Hostname] = svc
+			servicesByName[svc.Hostname] = svc.DeepCopy() // To ensure further changes does not affect service registy.
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			servicesByName[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
@@ -271,11 +230,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		}
 	}
 
-	// This is hack to keep consistent with previous behavior.
-	if listenerPort != 80 {
-		// only select virtualServices that matches a service
-		virtualServices = selectVirtualServices(virtualServices, servicesByName)
-	}
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push, servicesByName, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)
@@ -291,6 +245,38 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		}
 	}
 
+	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
+		name := domainName(hostname, vhwrapper.Port)
+		if duplicateVirtualHost(name, vhosts) {
+			// This means this virtual host has caused duplicate virtual host name.
+			push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+			return nil
+		}
+		var domains []string
+		var altHosts []string
+		if svc == nil {
+			domains = []string{hostname, name}
+		} else {
+			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node)
+		}
+		dl := len(domains)
+		domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
+		if dl != len(domains) {
+			// This means this virtual host has caused duplicate virtual host domain.
+			push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+		}
+		if len(domains) > 0 {
+			return &route.VirtualHost{
+				Name:                       name,
+				Domains:                    domains,
+				Routes:                     vhwrapper.Routes,
+				IncludeRequestAttemptCount: true,
+			}
+		}
+
+		return nil
+	}
+
 	for _, virtualHostWrapper := range virtualHostWrappers {
 		// If none of the routes matched by source, skip this virtual host
 		if len(virtualHostWrapper.Routes) == 0 {
@@ -299,68 +285,23 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
-			name := domainName(hostname, virtualHostWrapper.Port)
-			duplicate := duplicateVirtualHost(name, vhosts)
-			if !duplicate {
-				domains := []string{hostname, name}
-				dl := len(domains)
-				domains = dedupeDomains(domains, vhdomains, nil, nil)
-				if dl != len(domains) {
-					duplicate = true
-				}
-				if len(domains) > 0 {
-					virtualHosts = append(virtualHosts, &route.VirtualHost{
-						Name:                       name,
-						Domains:                    domains,
-						Routes:                     virtualHostWrapper.Routes,
-						IncludeRequestAttemptCount: true,
-					})
-				}
-			}
-
-			if duplicate {
-				// This means this virtual host has caused duplicate virtual host name/domain.
-				push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from virtual service: %s", name))
-			}
+			virtualHosts = append(virtualHosts, buildVirtualHost(hostname, virtualHostWrapper, nil))
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			name := domainName(string(svc.Hostname), virtualHostWrapper.Port)
-			duplicate := duplicateVirtualHost(name, vhosts)
-			if !duplicate {
-				domains, altHosts := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
-				dl := len(domains)
-				domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
-				if dl != len(domains) {
-					duplicate = true
-				}
-				if len(domains) > 0 {
-					virtualHosts = append(virtualHosts, &route.VirtualHost{
-						Name:                       name,
-						Domains:                    domains,
-						Routes:                     virtualHostWrapper.Routes,
-						IncludeRequestAttemptCount: true,
-					})
-				}
-			}
-
-			if duplicate {
-				// This means we have hit a duplicate virtual host name/ domain name.
-				push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from service: %s", name))
-			}
+			virtualHosts = append(virtualHosts, buildVirtualHost(string(svc.Hostname), virtualHostWrapper, svc))
 		}
-
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 
-	var tmpVirtualHosts []*route.VirtualHost
+	var out []*route.VirtualHost
 	if listenerPort == 0 {
-		tmpVirtualHosts = mergeAllVirtualHosts(vHostPortMap)
+		out = mergeAllVirtualHosts(vHostPortMap)
 	} else {
-		tmpVirtualHosts = vHostPortMap[listenerPort]
+		out = vHostPortMap[listenerPort]
 	}
 
-	return tmpVirtualHosts
+	return out
 }
 
 // duplicateVirtualHost checks whether the virtual host with the same name exists in the route.
