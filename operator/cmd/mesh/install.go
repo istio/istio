@@ -186,7 +186,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	// Make this revision the default if none exists
+	// Make this revision the  if none exists
 	exists, err := revtag.DefaultRevisionExists(context.Background(), kubeClient)
 	if err != nil {
 		return err
@@ -202,13 +202,13 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			Revision:  rev,
 			Overwrite: true,
 		}
+		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o)
-		if err != nil {
-			return err
-		}
-		err = revtag.Create(kubeClient, tagManifests)
-		if err != nil {
-			return err
+		if err == nil {
+			err = revtag.Create(kubeClient, tagManifests)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
