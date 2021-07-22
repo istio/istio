@@ -619,6 +619,8 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	if proxy.Metadata.Network != "" {
 		entry.Network = proxy.Metadata.Network
 	}
+	// proxy.Locality is unset when auto registration takes place, because its
+	// state is not fully initialized. Therefore, we check the bootstrap node.
 	if proxy.XdsNode.Locality != nil {
 		entry.Locality = util.LocalityToString(proxy.XdsNode.Locality)
 	}
