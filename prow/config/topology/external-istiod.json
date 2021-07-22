@@ -22,7 +22,7 @@
   },
   {
     "kind": "Kubernetes",
-    "clusterName": "additional",
+    "clusterName": "remote",
     "podSubnet": "10.30.0.0/16",
     "svcSubnet": "10.255.30.0/24",
     "network": "network-2",

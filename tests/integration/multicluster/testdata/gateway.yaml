@@ -1,0 +1,12 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  components:
+    ingressGateways:
+      - name: test-gateway
+        enabled: true
+  values:
+    gateways:
+      istio-ingressgateway:
+        injectionTemplate: gateway
