@@ -21,6 +21,8 @@ spec:
   - type: Resource
     resource:
       name: cpu
-      targetAverageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
 ---
 {{- end }}

@@ -22,6 +22,8 @@ spec:
     - type: Resource
       resource:
         name: cpu
-        targetAverageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+        target:
+          type: Utilization
+          averageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
 ---
 {{- end }}
