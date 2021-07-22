@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/file"
@@ -46,6 +47,8 @@ const (
 // Currently only test CNI with one version behind.
 var versions = []string{NMinusOne}
 
+// TestCNIVersionSkew runs all traffic tests with older versions of CNI and lastest Istio.
+// This is to simulate the case where CNI and Istio control plane versions are out of sync during upgrade.
 func TestCNIVersionSkew(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -92,7 +95,7 @@ func TestCNIVersionSkew(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		// Label(label.Postsubmit).
+		Label(label.Postsubmit).
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
 			return common.SetupApps(t, i, apps)
