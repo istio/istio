@@ -508,7 +508,7 @@ messages:
   - name: "ImageAutoWithoutInjectionWarning"
     code: IST0146
     level: Warning
-    description: "Pods and Deployments with `image: auto` should be targeted for injection."
+    description: "Deployments with `image: auto` should be targeted for injection."
     template: "%s %s contains `image: auto` but does not match any Istio injection webhook selectors."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0146/"
     args:
@@ -520,9 +520,9 @@ messages:
   - name: "ImageAutoWithoutInjectionError"
     code: IST0147
     level: Error
-    description: "Pods and Deployments with `image: auto` should be targeted for injection."
+    description: "Pods with `image: auto` should be targeted for injection."
     template: "%s %s contains `image: auto` but does not match any Istio injection webhook selectors."
-    url: "https://istio.io/latest/docs/reference/config/analysis/ist0146/"
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0147/"
     args:
       - name: resourceType
         type: string

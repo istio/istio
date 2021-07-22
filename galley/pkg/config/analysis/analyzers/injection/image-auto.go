@@ -35,7 +35,10 @@ type ImageAutoAnalyzer struct{}
 
 var _ analysis.Analyzer = &ImageAutoAnalyzer{}
 
-const manualInjectionImage = "auto"
+const (
+	istioProxyContainerName = "istio-proxy"
+	manualInjectionImage    = "auto"
+)
 
 // Metadata implements Analyzer.
 func (a *ImageAutoAnalyzer) Metadata() analysis.Metadata {
@@ -65,14 +68,12 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 	})
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(resource *resource.Instance) bool {
 		p := resource.Message.(*v1.Pod)
+		// If a pod has `image: auto` it is broken whether the webhooks match or not
 		if !hasAutoImage(&p.Spec) {
 			return true
 		}
-		nsLabels := getNamespaceLabels(c, p.Namespace)
-		if !matchesWebhooks(nsLabels, p.Labels, istioWebhooks) {
-			m := msg.NewImageAutoWithoutInjectionError(resource, "Pod", p.Name)
-			c.Report(collections.K8SCoreV1Pods.Name(), m)
-		}
+		m := msg.NewImageAutoWithoutInjectionError(resource, "Pod", p.Name)
+		c.Report(collections.K8SCoreV1Pods.Name(), m)
 		return true
 	})
 	c.ForEach(collections.K8SAppsV1Deployments.Name(), func(resource *resource.Instance) bool {
@@ -91,7 +92,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 
 func hasAutoImage(spec *v1.PodSpec) bool {
 	for _, c := range spec.Containers {
-		if c.Image == manualInjectionImage {
+		if c.Name == istioProxyContainerName && c.Image == manualInjectionImage {
 			return true
 		}
 	}
