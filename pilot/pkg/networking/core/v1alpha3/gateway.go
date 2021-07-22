@@ -987,10 +987,8 @@ func filteredCipherSuites(server *networking.Server) []string {
 	for _, s := range suites {
 		if security.IsValidCipherSuite(s) {
 			ret = append(ret, s)
-		} else {
-			if log.DebugEnabled() {
-				log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
-			}
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
 		}
 	}
 	return ret
