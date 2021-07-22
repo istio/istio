@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
