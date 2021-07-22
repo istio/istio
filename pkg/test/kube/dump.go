@@ -216,7 +216,7 @@ func containerRestarts(pod corev1.Pod, container string) int {
 
 func containerCrashed(pod corev1.Pod, container string) (bool, *corev1.ContainerStateTerminated) {
 	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.Name == container && cs.State.Terminated != nil {
+		if cs.Name == container && cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
 			return true, cs.State.Terminated
 		}
 	}
