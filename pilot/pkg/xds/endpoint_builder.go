@@ -331,7 +331,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
 					tlsMode = ""
 				}
-				if nep, modified := util.MaybeUpdateTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
+				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
 					ep.EnvoyEndpoint = nep
 				}
 			}

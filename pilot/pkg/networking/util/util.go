@@ -524,8 +524,8 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 	return metadata
 }
 
-// MaybeUpdateTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
-func MaybeUpdateTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.LbEndpoint, bool) {
+// MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
+func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.LbEndpoint, bool) {
 	if ep == nil || ep.Metadata == nil {
 		// if metadata == nil {
 		return nil, false
@@ -547,7 +547,8 @@ func MaybeUpdateTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint
 	if epTLSMode == tlsMode {
 		return nil, false
 	}
-	log.Warnf("jianfeih debug diff clone, tlsMode %v, epTLSMode %v", tlsMode, epTLSMode)
+	// We make a copy instead of modifying on existing endpoint pointer directly to avoid data race.
+	// See https://github.com/istio/istio/issues/34227 for details.
 	newEndpoint := proto.Clone(ep).(*endpoint.LbEndpoint)
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
 		newEndpoint.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
