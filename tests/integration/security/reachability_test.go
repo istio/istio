@@ -89,29 +89,30 @@ func TestReachability(t *testing.T) {
 					ExpectMTLS:             Never,
 					SkippedForMulticluster: true,
 				},
-				{
-					ConfigFile: "beta-mtls-automtls-workload.yaml",
-					Namespace:  apps.Namespace1,
-					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return (apps.B.Contains(src) || apps.IsNaked(src)) &&
-							(apps.A.Contains(opts.Target) || apps.B.Contains(opts.Target))
-					},
-					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Sidecar injected client always succeed.
-						if apps.B.Contains(src) {
-							return true
-						}
-						// For naked app as client, only requests targeted to mTLS disabled endpoints succeed:
-						// A are disabled by workload selector for entire service.
-						// B port 8090 http port are disabled.
-						return apps.A.Contains(opts.Target) || (apps.B.Contains(opts.Target) && opts.PortName == "http")
-					},
-					// Only when the source is B and the destination does not disable mTLS.
-					ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
-						return apps.B.Contains(src) && opts.PortName != "http" && !apps.A.Contains(opts.Target)
-					},
-					SkippedForMulticluster: true,
-				},
+				// Skipped for https://github.com/istio/istio/issues/34227
+				//{
+				//	ConfigFile: "beta-mtls-automtls-workload.yaml",
+				//	Namespace:  apps.Namespace1,
+				//	Include: func(src echo.Instance, opts echo.CallOptions) bool {
+				//		return (apps.B.Contains(src) || apps.IsNaked(src)) &&
+				//			(apps.A.Contains(opts.Target) || apps.B.Contains(opts.Target))
+				//	},
+				//	ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
+				//		// Sidecar injected client always succeed.
+				//		if apps.B.Contains(src) {
+				//			return true
+				//		}
+				//		// For naked app as client, only requests targeted to mTLS disabled endpoints succeed:
+				//		// A are disabled by workload selector for entire service.
+				//		// B port 8090 http port are disabled.
+				//		return apps.A.Contains(opts.Target) || (apps.B.Contains(opts.Target) && opts.PortName == "http")
+				//	},
+				//	// Only when the source is B and the destination does not disable mTLS.
+				//	ExpectMTLS: func(src echo.Instance, opts echo.CallOptions) bool {
+				//		return apps.B.Contains(src) && opts.PortName != "http" && !apps.A.Contains(opts.Target)
+				//	},
+				//	SkippedForMulticluster: true,
+				//},
 				{
 					ConfigFile:             "plaintext-to-permissive.yaml",
 					Namespace:              systemNM,
