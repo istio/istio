@@ -786,11 +786,6 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	node.PrevSidecarScope = sidecarScope
 }
 
-func (node *Proxy) ServiceInSidecarScope(service *Service) bool {
-	_, exists := node.SidecarScope.servicesByHostname[service.Hostname]
-	return exists
-}
-
 // SetGatewaysForProxy merges the Gateway objects associated with this
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to

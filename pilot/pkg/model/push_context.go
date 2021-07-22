@@ -280,9 +280,6 @@ type PushRequest struct {
 	// The kind of resources are defined in pkg/config/schemas.
 	ConfigsUpdated map[ConfigKey]struct{}
 
-	// UpdateTypes tracks the action (add, update, delete) that was taken on a configuration.
-	UpdateTypes map[ConfigKey]Event
-
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
 	Push *PushContext

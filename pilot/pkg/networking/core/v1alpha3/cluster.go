@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/pkg/log"
 	"math"
 	"strconv"
 	"strings"
@@ -77,7 +76,6 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-// if attemptDeltas is set to true, then BuildClusters will attempt to build delta clusters for that proxy
 func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext) ([]*discovery.Resource, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
@@ -128,10 +126,10 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 // BuildDeltaClusters will generate the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
-func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) ([]*discovery.Resource, []*discovery.Resource, model.XdsLogDetails) {
+func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
-	removedResources := model.Resources{}
+	removedClusterNames := make([]string, 0)
 	services := make([]*model.Service, 0)
 	deletedServices := make([]*model.Service, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
@@ -139,29 +137,18 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	instances := proxy.ServiceInstances
 	// delta when only services are modified and we attempt deltas
 	// we can progressively optimize this
-	log.Infof("adiprerepa: update types: %v", updates.UpdateTypes)
 	delta := updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry)
 	// if we can't use delta, fall back to generate all
-	if !delta || updates == nil || len(updates.ConfigsUpdated) == 0 {
+	if !delta || len(updates.ConfigsUpdated) == 0 {
 		cl, lg := configgen.BuildClusters(proxy, push)
-		return cl, make([]*discovery.Resource, 0), lg
+		return cl, make([]string, 0), lg
 	}
-	configs := model.ConfigsOfKind(updates.ConfigsUpdated, gvk.ServiceEntry)
-	for s := range configs {
+	for s := range updates.ConfigsUpdated {
 		// get service that changed
 		service := proxy.SidecarScope.Service(host.Name(s.Name))
-		// SidecarScope.Service will return nil if the proxy doesn't care about the service.
+		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
+		// we can just send that it was a removed_resource, because even if it wasn't, envoy will silently ignore.
 		if service == nil {
-			log.Infof("service for hostname %v nil", s.Name)
-			continue
-		}
-		log.Infof("service: %v", service)
-		// these are the services we need to push
-		if updates.UpdateTypes[s] == model.EventUpdate || updates.UpdateTypes[s] == model.EventAdd {
-			services = append(services, service)
-		}
-		// we also need to update proxies of deleted config for delta
-		if updates.UpdateTypes[s] == model.EventDelete {
 			deletedServices = append(deletedServices, service)
 		}
 	}
@@ -174,7 +161,9 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		resources = append(resources, ob...)
 		clusterCacheStats = clusterCacheStats.merge(cs)
 		ob, cs = configgen.buildOutboundClustersWithServices(cb, outboundPatcher, deletedServices)
-		removedResources = append(removedResources, ob...)
+		for _, o := range ob {
+			removedClusterNames = append(removedClusterNames, o.Name)
+		}
 		clusterCacheStats = clusterCacheStats.merge(cs)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
@@ -208,18 +197,14 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	resources = cb.normalizeClusters(resources)
 
 	if clusterCacheStats.empty() {
-		return resources, removedResources, model.DefaultXdsLogDetails
+		return resources, removedClusterNames, model.DefaultXdsLogDetails
 	}
-	return resources, removedResources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", clusterCacheStats.hits, clusterCacheStats.hits+clusterCacheStats.miss)}
+	return resources, removedClusterNames, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", clusterCacheStats.hits, clusterCacheStats.hits+clusterCacheStats.miss)}
 }
 
 func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}, cfg config.GroupVersionKind) bool {
-	keys := make([]model.ConfigKey, 0)
 	for k := range cfgs {
-		keys = append(keys, k)
-	}
-	for _, m := range keys {
-		if m.Kind != cfg {
+		if k.Kind != cfg {
 			return false
 		}
 	}

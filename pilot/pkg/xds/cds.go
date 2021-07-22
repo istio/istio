@@ -86,8 +86,7 @@ func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext
 	if !cdsNeedsPush(updates, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, nil
 	}
-	log.Infof("YO: %v %v", updates.UpdateTypes, updates.ConfigsUpdated)
-	updatedClusters, removedClusters, logs := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, push, updates)
+	updatedClusters, removedClusters, logs := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, push, updates, nil)
 	log.Infof("UPDATED: %v REMOVED %v", updatedClusters, removedClusters)
 	return updatedClusters, removedClusters, logs, nil
 }
