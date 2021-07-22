@@ -178,11 +178,11 @@ var (
 	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
 
 	// ImageAutoWithoutInjectionWarning defines a diag.MessageType for message "ImageAutoWithoutInjectionWarning".
-	// Description: Pods and Deployments with `image: auto` should be targeted for injection.
+	// Description: Deployments with `image: auto` should be targeted for injection.
 	ImageAutoWithoutInjectionWarning = diag.NewMessageType(diag.Warning, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
 
 	// ImageAutoWithoutInjectionError defines a diag.MessageType for message "ImageAutoWithoutInjectionError".
-	// Description: Pods and Deployments with `image: auto` should be targeted for injection.
+	// Description: Pods with `image: auto` should be targeted for injection.
 	ImageAutoWithoutInjectionError = diag.NewMessageType(diag.Error, "IST0147", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
 )
 

@@ -38,7 +38,7 @@ webhooks:
       matchLabels:
         sidecar.istio.io/inject: "true"
 ---
-# Injected because of namespace, should not produce error!
+# Should produce error!
 apiVersion: v1
 kind: Pod
 metadata:
@@ -46,8 +46,8 @@ metadata:
   namespace: default
 spec:
   containers:
-    - image: istio-proxy
-      name: auto
+    - image: auto
+      name: istio-proxy
 ---
 # Not injected, should produce error!
 apiVersion: apps/v1
@@ -70,7 +70,7 @@ spec:
         - name: istio-proxy
           image: auto
 ---
-# Injected because of object selector, should not produce error!
+# No image auto, should not produce error!
 apiVersion: v1
 kind: Pod
 metadata:
@@ -82,5 +82,5 @@ metadata:
     sidecar.istio.io/inject: "true"
 spec:
   containers:
-    - image: auto
-      name: istio-proxy
+    - image: ubuntu
+      name: ubuntu
