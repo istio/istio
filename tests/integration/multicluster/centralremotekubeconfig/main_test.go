@@ -32,13 +32,13 @@ var ist istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Skip("https://github.com/istio/istio/pull/33045").
+		// Skip("https://github.com/istio/istio/pull/33045").
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(func(ctx resource.Context) error {
 			// TODO, this should be exclusively configurable outside of the framework
-			configCluster := ctx.Clusters()[0]
-			externalControlPlaneCluster := ctx.Clusters()[1]
+			configCluster := ctx.Clusters()[1]
+			externalControlPlaneCluster := ctx.Clusters()[0]
 			for _, c := range ctx.Clusters() {
 				c.(*kubecluster.Cluster).OverrideTopology(func(c cluster.Topology) cluster.Topology {
 					return c.
@@ -50,27 +50,27 @@ func TestMain(m *testing.M) {
 		}).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			// Set the control plane values on the config.
-			cfg.ConfigClusterValues =
-				`components:
+			cfg.ConfigClusterValues = `
+components:
   base:
     enabled: false
   pilot:
     enabled: false
-  telemetry:
-    enabled: false
   ingressGateways:
-  - enabled: false
-    name: istio-ingressgateway
+  - name: istio-ingressgateway
+    enabled: false
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: false
   istiodRemote:
     enabled: true
 values:
   global:
     externalIstiod: true
+    omitSidecarInjectorConfigMap: true
     configCluster: true
-  istiodRemote:
-    injectionURL: https://istiod.istio-system.svc:15017/inject
-  base:
-    validationURL: https://istiod.istio-system.svc:15017/validate`
+  pilot:
+    configMap: true`
 			cfg.ControlPlaneValues = `
 components:
   base:
@@ -80,15 +80,49 @@ components:
     k8s:
       service:
         type: LoadBalancer
+      overlays:
+      - kind: Deployment
+        name: istiod
+        patches:
+        - path: spec.template.spec.volumes[100]
+          value: |-
+            name: config-volume
+            configMap:
+              name: istio
+        - path: spec.template.spec.volumes[100]
+          value: |-
+            name: inject-volume
+            configMap:
+              name: istio-sidecar-injector
+        - path: spec.template.spec.containers[0].volumeMounts[100]
+          value: |-
+            name: config-volume
+            mountPath: /etc/istio/config
+        - path: spec.template.spec.containers[0].volumeMounts[100]
+          value: |-
+            name: inject-volume
+            mountPath: /var/lib/istio/inject
+      env:
+      - name: INJECTION_WEBHOOK_CONFIG_NAME
+        value: "istio-sidecar-injector-istio-system"
+      - name: VALIDATION_WEBHOOK_CONFIG_NAME
+        value: "istio-istio-system"
+      - name: EXTERNAL_ISTIOD
+        value: "true"
+      - name: CLUSTER_ID
+        value: remote
+      - name: SHARED_MESH_CONFIG
+        value: istio
   ingressGateways:
-  - enabled: false
-    name: istio-ingressgateway
+  - name: istio-ingressgateway
+    enabled: false
   egressGateways:
-  - enabled: false
-    name: istio-egressgateway
+  - name: istio-egressgateway
+    enabled: false
 values:
   global:
     operatorManageWebhooks: true
+    configValidation: false
 `
 		})).
 		Run()
