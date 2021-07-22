@@ -10,7 +10,7 @@ spec:
           - kind: DaemonSet
             name: istio-cni-node
             patches:
-              - path: spec.template.spec.hostNetwork
+              - path: spec.template.spec.containers[0].securityContext.privileged
                 value: true
   values:
     cni:
