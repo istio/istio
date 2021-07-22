@@ -92,7 +92,7 @@ func TestCNIVersionSkew(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		// Label(label.Postsubmit).
+		Label(label.Postsubmit).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
