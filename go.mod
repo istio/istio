@@ -90,7 +90,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
-	helm.sh/helm/v3 v3.6.0
+	helm.sh/helm/v3 v3.6.1
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 	istio.io/api v0.0.0-20210722205239-36794c332d01
 	istio.io/client-go v0.0.0-20210722210141-34b9f3c93a34
