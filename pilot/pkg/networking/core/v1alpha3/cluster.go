@@ -30,8 +30,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
-	// galleyutil "istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -44,8 +42,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
 )
-
-
 // defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
 // or those whose label value does not match "istio"
 var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{

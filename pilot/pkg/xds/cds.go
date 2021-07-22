@@ -18,10 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-
 )
-
-
 type CdsGenerator struct {
 	Server *DiscoveryServer
 }

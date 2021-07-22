@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
-var lg = log.RegisterScope("servicedisc", "s debugging", 0)
+
 var _ serviceregistry.Instance = &ServiceEntryStore{}
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -264,7 +264,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 	// only when services have changed - otherwise, just push endpoint updates.
 	var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
-	lg.Infof("adiprerepa: YO FAM IN THE SERVICE ENTRY HANDLER. event: %v", event.String())
+
 	switch event {
 	case model.EventUpdate:
 		os := convertServices(old)

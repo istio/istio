@@ -84,7 +84,8 @@ func NewDebugGen(s *DiscoveryServer, systemNamespace string) *DebugGen {
 }
 
 // Generate XDS debug responses according to the incoming debug request
-func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 	var buffer bytes.Buffer
 	if w.ResourceNames == nil {
