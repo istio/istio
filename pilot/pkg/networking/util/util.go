@@ -536,7 +536,7 @@ func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.
 			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}
 	}
-	// Normalize the tls label name before comparision. This ensure we want falsely cloning
+	// Normalize the tls label name before comparison. This ensure we want falsely cloning
 	// the endpoint when they are "" and model.DisabledTLSModeLabel.
 	if epTLSMode == model.DisabledTLSModeLabel {
 		epTLSMode = ""
