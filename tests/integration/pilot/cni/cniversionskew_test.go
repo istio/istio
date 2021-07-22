@@ -38,7 +38,8 @@ var (
 )
 
 const (
-	NMinusOne    = "1.10.3"
+	// TODO: replace this with official 1.11 release once available.
+	NMinusOne    = "1.11.0-beta.1"
 	CNIConfigDir = "tests/integration/pilot/testdata/upgrade"
 )
 
