@@ -47,6 +47,7 @@ LDFLAGS=${LDFLAGS:--extldflags -static}
 GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 # Split GOBUILDFLAGS by spaces into an array called GOBUILDFLAGS_ARRAY.
 IFS=' ' read -r -a GOBUILDFLAGS_ARRAY <<< "$GOBUILDFLAGS"
+echo $GOBUILDFLAGS
 
 GCFLAGS=${GCFLAGS:-}
 export CGO_ENABLED=${CGO_ENABLED:-0}
@@ -83,7 +84,9 @@ if [ "${DEBUG}" == "1" ]; then
     OPTIMIZATION_FLAGS=()
 fi
 
+export CGO_ENABLED=1
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
+        -race \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
         -o "${OUT}" \
         "${OPTIMIZATION_FLAGS[@]}" \

@@ -525,29 +525,40 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 }
 
 // MaybeUpdateTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
-func MaybeUpdateTLSModeLabel(metadata *core.Metadata, tlsMode string) bool {
-	if metadata == nil {
-		return false
+func MaybeUpdateTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.LbEndpoint, bool) {
+	if ep == nil || ep.Metadata == nil {
+		// if metadata == nil {
+		return nil, false
 	}
 	epTLSMode := ""
-	if metadata.FilterMetadata != nil {
-		if v, ok := metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
+	if ep.Metadata.FilterMetadata != nil {
+		if v, ok := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
 			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}
 	}
-	if epTLSMode == tlsMode {
-		return false
+	// Normalize the tls label name before comparision. This ensure we want falsely cloning
+	// the endpoint when they are "" and model.DisabledTLSModeLabel.
+	if epTLSMode == model.DisabledTLSModeLabel {
+		epTLSMode = ""
 	}
+	if tlsMode == model.DisabledTLSModeLabel {
+		tlsMode = ""
+	}
+	if epTLSMode == tlsMode {
+		return nil, false
+	}
+	log.Warnf("jianfeih debug diff clone, tlsMode %v, epTLSMode %v", tlsMode, epTLSMode)
+	newEndpoint := proto.Clone(ep).(*endpoint.LbEndpoint)
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
-		metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+		newEndpoint.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{
 				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
 			},
 		}
 	} else {
-		delete(metadata.FilterMetadata, EnvoyTransportSocketMetadataKey)
+		delete(newEndpoint.Metadata.FilterMetadata, EnvoyTransportSocketMetadataKey)
 	}
-	return true
+	return newEndpoint, true
 }
 
 func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Value) {
