@@ -201,7 +201,3 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	citadelClientLog.Errorf("recreated connection")
 	return nil
 }
-
-func (c *CitadelClient) GetRootCertBundle() ([]string, error) {
-	return []string{}, nil
-}
