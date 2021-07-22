@@ -147,6 +147,7 @@ features:
       cluster_local:
       multimaster:
       remote:
+      centralremotekubeconfig:
     istiodremote:
     helm:
       default:
