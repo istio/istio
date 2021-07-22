@@ -68,6 +68,7 @@ func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	return model.Resources{&discovery.Resource{Resource: gogo.MessageToAny(pc)}}, model.DefaultXdsLogDetails, nil
 }
 
-func (p *PcdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
-	return nil, nil, model.XdsLogDetails{}, nil
+func (p *PcdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
+	res, logs, err := p.Generate(proxy, push, w, updates)
+	return res, make([]string, 0), logs, err
 }

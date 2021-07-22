@@ -24,7 +24,6 @@ import (
 
 type CdsGenerator struct {
 	Server *DiscoveryServer
-	Delta  bool
 }
 
 var _ model.XdsResourceGenerator = &CdsGenerator{}
@@ -82,7 +81,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	return clusters, logs, nil
 }
 
-func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
+func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	if !cdsNeedsPush(updates, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, nil
 	}

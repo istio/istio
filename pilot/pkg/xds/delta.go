@@ -416,7 +416,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 
 	t0 := time.Now()
 
-	res, deletedRes, logdata, err := gen.GenerateDeltas(con.proxy, push, req)
+	res, deletedRes, logdata, err := gen.GenerateDeltas(con.proxy, push, req, nil)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {

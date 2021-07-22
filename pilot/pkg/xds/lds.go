@@ -71,6 +71,7 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	return resources, model.DefaultXdsLogDetails, nil
 }
 
-func (l *LdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
-	return nil, nil, model.XdsLogDetails{}, nil
+func (l *LdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
+	res, logs, err := l.Generate(proxy, push, w, updates)
+	return res, make([]string, 0), logs, err
 }

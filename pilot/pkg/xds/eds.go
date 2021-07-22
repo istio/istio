@@ -424,8 +424,9 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	}, nil
 }
 
-func (e *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest) (model.Resources, model.Resources, model.XdsLogDetails, error) {
-	return nil, nil, model.XdsLogDetails{}, nil
+func (e *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
+	res, logs, err := e.Generate(proxy, push, w, updates)
+	return res, make([]string, 0), logs, err
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
