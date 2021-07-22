@@ -13,7 +13,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package externalcontrolplane
+package base
 
 import (
 	"testing"
@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/external"
+	"istio.io/istio/tests/integration/istiodremote"
 )
 
 var ist istio.Instance
@@ -30,7 +30,6 @@ var ist istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		// Skip("https://github.com/istio/istio/pull/33045").
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
@@ -59,7 +58,7 @@ values:
 			cfg.ControlPlaneValues = `
 components:
   base:
-    enabled: true
+    enabled: false
   pilot:
     enabled: true
     k8s:
@@ -108,13 +107,11 @@ values:
   global:
     operatorManageWebhooks: true
     configValidation: false
-  base:
-    enableCRDTemplates: true
 `
 		})).
 		Run()
 }
 
 func TestIngressGateway(t *testing.T) {
-	external.GatewayTest(t, "installation.external.externalcontrolplane")
+	istiodremote.GatewayTest(t, "installation.istiodremote")
 }

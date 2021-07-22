@@ -148,8 +148,7 @@ features:
       cluster_local:
       multimaster:
       remote:
-    external:
-      externalcontrolplane:
+    istiodremote:
     helm:
       default:
         install:
