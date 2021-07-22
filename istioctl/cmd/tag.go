@@ -112,6 +112,10 @@ injection labels.`,
  # Change the revision tag to reference the "1-8-1" revision
  istioctl tag set prod --revision 1-8-1 --overwrite
 
+ # Make revision "1-8-1" the default revision, both resulting in that revision handling injection for "istio-injection=enabled"
+ # and validating resources cluster-wide
+ istioctl tag set default --revision 1-8-1
+
  # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
  kubectl rollout restart deployments -n test-ns
 `,
