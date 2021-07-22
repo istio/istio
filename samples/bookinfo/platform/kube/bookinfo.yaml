@@ -36,7 +36,6 @@ metadata:
   labels:
     app: details
     service: details
-    foo: bar
 spec:
   ports:
   - port: 9080

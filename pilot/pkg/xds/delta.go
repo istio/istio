@@ -448,8 +448,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
-
-	resp.RemovedResources = extractNames(deletedRes)
+	resp.RemovedResources = deletedRes
 	if len(resp.RemovedResources) > 0 {
 		log.Infof("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
 	}
