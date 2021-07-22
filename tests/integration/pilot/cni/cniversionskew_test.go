@@ -78,14 +78,11 @@ func TestCNIVersionSkew(t *testing.T) {
 				})
 
 				// Make sure CNI pod is ready
-				_, err := kube.WaitUntilPodsAreReady(podFetchFn)
-				if err != nil {
+				if _, err := kube.WaitUntilPodsAreReady(podFetchFn); err != nil {
 					t.Fatal(err)
 				}
-
-				// Restart all apps so that newly deployed CNI could configure IPTables for them.
-				for _, app := range apps.All {
-					app.Restart()
+				if err := apps.Restart(); err != nil {
+					t.Fatalf("Failed to restart apps %v", err)
 				}
 				common.RunAllTrafficTests(t, i, apps)
 			}
@@ -95,7 +92,8 @@ func TestCNIVersionSkew(t *testing.T) {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Postsubmit).
+		// Label(label.Postsubmit).
+		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
 			return common.SetupApps(t, i, apps)
@@ -103,6 +101,8 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
+// installCNIOrFail installs CNI DaemonSet for the given version.
+// It looks for tar compressed CNI manifest and apply that in the cluster.
 func installCNIOrFail(t framework.TestContext, ver string) {
 	cniFilePath := filepath.Join(env.IstioSrc, CNIConfigDir,
 		fmt.Sprintf("%s-cni-install.yaml.tar", ver))
