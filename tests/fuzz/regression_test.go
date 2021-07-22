@@ -130,6 +130,7 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConfigValidation2", FuzzConfigValidation2},
 		{"FuzzBNMUnmarshalJSON", FuzzBNMUnmarshalJSON},
 		{"FuzzValidateClusters", FuzzValidateClusters},
+		{"FuzzK8sObject", FuzzK8sObject},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {

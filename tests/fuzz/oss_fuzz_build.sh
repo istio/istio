@@ -29,6 +29,7 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzIntoResourceFile fuzz_into_resou
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzTranslateFromValueToSpec fuzz_translate_from_value_to_spec
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzBNMUnmarshalJSON fuzz_bnm_unmarshal_json
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzValidateClusters fuzz_validate_clusters
+compile_go_fuzzer istio.io/istio/tests/fuzz FuzzK8sObject fuzz_k8s_object
 
 # Create seed corpora:
 zip "${OUT}"/fuzz_analyzer_seed_corpus.zip "${SRC}"/istio/galley/pkg/config/analysis/analyzers/testdata/*.yaml
