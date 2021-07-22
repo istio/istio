@@ -129,6 +129,7 @@ type Server struct {
 	lastProbeSuccessful   bool
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
+	ipv6                  bool
 }
 
 func init() {
@@ -173,6 +174,7 @@ func NewServer(config Options) (*Server, error) {
 		appProbersDestination: wrapIPv6(config.PodIP),
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
+		ipv6:                  config.IPv6,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -658,12 +660,16 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 	port := prober.TCPSocket.Port.IntValue()
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	// FIXME(phil9909): Currently, the IP table rules still seem to redirect traffic from inside the pod into the envoy
-	// when connection using the external IP of the pod. Therefore we hardcode it to localhost for now.
-	// See https://istio.io/latest/blog/2021/upcoming-networking-changes/
-	// addr := fmt.Sprintf("%s:%d", s.appProbersDestination, port)
-	addr := fmt.Sprintf("localhost:%d", port)
-	conn, err := net.DialTimeout("tcp", addr, timeout)
+	localAddr := UpstreamLocalAddressIPv4
+	if s.ipv6 {
+		localAddr = UpstreamLocalAddressIPv6
+	}
+	d := &net.Dialer{
+		LocalAddr: localAddr,
+		Timeout:   timeout,
+	}
+
+	conn, err := d.Dial("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
