@@ -43,6 +43,7 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -519,23 +520,33 @@ func validateServerBind(port *networking.Port, bind string) (errs error) {
 	return
 }
 
-func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
+func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
+	}
+
+	invalidCiphers := sets.NewSet()
+	for _, cs := range tls.CipherSuites {
+		if !security.IsValidCipherSuite(cs) {
+			invalidCiphers.Insert(cs)
+		}
+	}
+	if len(invalidCiphers) > 0 {
+		return WrapWarning(fmt.Errorf("ignoring invalid cipher suites: %v", invalidCiphers.SortedList()))
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set
 		if tls.ServerCertificate != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
 		}
 		if tls.PrivateKey != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
 		}
 		if tls.CaCertificates != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
 
 		return
@@ -548,20 +559,20 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 	}
 	if tls.Mode == networking.ServerTLSSettings_SIMPLE {
 		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
+			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
+			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
 	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
 		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a private key"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a private key"))
 		}
 		if tls.CaCertificates == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
 		}
 	}
 	return
