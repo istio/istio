@@ -126,9 +126,15 @@ sidecarInjectorWebhook:
   # defaultTemplates: ["sidecar", "hello"]
   defaultTemplates: []
 istiodRemote:
-  # Sidecar injector mutating webhook configuration url
+  # Sidecar injector mutating webhook configuration clientConfig.url value.
   # For example: https://$remotePilotAddress:15017/inject
+  # The host should not refer to a service running in the cluster; use a service reference by specifying
+  # the clientConfig.service field instead.
   injectionURL: ""
+
+  # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
+  # Override to pass env variables, for example: /inject/cluster/remote/net/network2
+  injectionPath: "/inject"
 telemetry:
   enabled: true
   v2:
