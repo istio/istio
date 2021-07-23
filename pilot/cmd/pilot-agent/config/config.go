@@ -33,7 +33,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-// return proxyConfig and trustDomain
+// ConstructProxyConfig returns proxyConfig
 func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
 	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
@@ -142,7 +142,7 @@ func applyAnnotations(config *meshconfig.ProxyConfig, annos map[string]string) *
 	if v, f := annos[annotation.SidecarStatusPort.Name]; f {
 		p, err := strconv.Atoi(v)
 		if err != nil {
-			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
+			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort.Name, v, err)
 		}
 		config.StatusPort = int32(p)
 	}
