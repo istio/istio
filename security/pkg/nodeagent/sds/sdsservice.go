@@ -178,7 +178,7 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 func (s *sdsservice) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	res, logs, err := s.Generate(proxy, push, w, updates)
-	return res, make([]string, 0), logs, err
+	return res, nil, logs, err
 }
 
 // register adds the SDS handle to the grpc server

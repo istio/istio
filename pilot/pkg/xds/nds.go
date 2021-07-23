@@ -83,5 +83,5 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 func (n *NdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	res, logs, err := n.Generate(proxy, push, w, updates)
-	return res, make([]string, 0), logs, err
+	return res, nil, logs, err
 }

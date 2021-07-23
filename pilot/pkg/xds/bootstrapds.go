@@ -69,7 +69,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 func (e *BootstrapGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	res, logs, err := e.Generate(proxy, push, w, updates)
-	return res, make([]string, 0), logs, err
+	return res, nil, logs, err
 }
 
 func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *model.Proxy, push *model.PushContext) *bootstrapv3.Bootstrap {
