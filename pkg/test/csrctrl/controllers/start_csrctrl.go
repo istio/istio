@@ -15,7 +15,6 @@
 package csrctrl
 
 import (
-	"context"
 	"os"
 	"strings"
 	"time"
@@ -45,7 +44,7 @@ var (
 	_              = corev1.AddToScheme(scheme)
 )
 
-func RunCSRController(_ context.Context, signerNames string) {
+func RunCSRController(signerNames string) {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
