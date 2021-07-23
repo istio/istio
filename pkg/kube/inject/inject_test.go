@@ -284,6 +284,16 @@ func TestInjection(t *testing.T) {
 			in:   "tcp-probes.yaml",
 			want: "tcp-probes.yaml.injected",
 		},
+		{
+			in:   "tcp-probes.yaml",
+			want: "tcp-probes-disabled.yaml.injected",
+			setup: func() {
+				features.RewriteTCPProbes = false
+			},
+			teardown: func() {
+				features.RewriteTCPProbes = true
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones

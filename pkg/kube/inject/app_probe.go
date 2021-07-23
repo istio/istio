@@ -26,6 +26,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/log"
 )
 
@@ -63,7 +64,7 @@ func FindContainer(name string, containers []corev1.Container) *corev1.Container
 func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
 	if probe != nil && probe.HTTPGet != nil {
 		return convertAppProberHTTPGet(probe, newURL, statusPort)
-	} else if probe != nil && probe.TCPSocket != nil {
+	} else if probe != nil && probe.TCPSocket != nil && features.RewriteTCPProbes {
 		return convertAppProberTCPSocket(probe, newURL, statusPort)
 	}
 
@@ -218,7 +219,7 @@ func kubeProbeToInternalProber(probe *corev1.Probe) *Prober {
 		}
 	}
 
-	if probe.TCPSocket != nil {
+	if probe.TCPSocket != nil && features.RewriteTCPProbes {
 		return &Prober{
 			TCPSocket:      probe.TCPSocket,
 			TimeoutSeconds: probe.TimeoutSeconds,
