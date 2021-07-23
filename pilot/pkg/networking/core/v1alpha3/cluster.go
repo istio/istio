@@ -144,6 +144,9 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
 		// we can just send that it was a removed_resource, because even if it wasn't, envoy will silently ignore.
 		if service == nil {
+			// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>
+			// so, we can check if the cluster names contains the service name, and determine if it is deleted by that
 			for _, n := range watched.ResourceNames {
 				if strings.Contains(n, s.Name) {
 					removedClusterNames = append(removedClusterNames, n)
