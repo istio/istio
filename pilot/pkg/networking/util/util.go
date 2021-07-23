@@ -527,7 +527,6 @@ func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namesp
 // MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
 func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.LbEndpoint, bool) {
 	if ep == nil || ep.Metadata == nil {
-		// if metadata == nil {
 		return nil, false
 	}
 	epTLSMode := ""
@@ -536,7 +535,7 @@ func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.
 			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
 		}
 	}
-	// Normalize the tls label name before comparison. This ensure we want falsely cloning
+	// Normalize the tls label name before comparison. This ensure we won't falsely cloning
 	// the endpoint when they are "" and model.DisabledTLSModeLabel.
 	if epTLSMode == model.DisabledTLSModeLabel {
 		epTLSMode = ""
