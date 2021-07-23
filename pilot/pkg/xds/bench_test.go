@@ -192,7 +192,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, &model.PushRequest{Push: s.PushContext()})
+				c, _, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, &model.PushRequest{Full: true, Push: s.PushContext()})
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
