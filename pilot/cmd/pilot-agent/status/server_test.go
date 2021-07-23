@@ -56,7 +56,9 @@ const (
 var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/header" {
+	segments := strings.Split(r.URL.Path[1:], "/")
+	switch segments[0] {
+	case "header":
 		if r.Host != testHostValue {
 			log.Errorf("Missing expected host header, got %v", r.Host)
 			w.WriteHeader(http.StatusBadRequest)
@@ -65,11 +67,21 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Errorf("Missing expected Some-Header, got %v", r.Header)
 			w.WriteHeader(http.StatusBadRequest)
 		}
-	}
-	if r.URL.Path != "/hello/sunnyvale" && r.URL.Path != "/" {
+	case "redirect":
+		http.Redirect(w, r, "/", http.StatusMovedPermanently)
+	case "redirect-loop":
+		http.Redirect(w, r, "/redirect-loop", http.StatusMovedPermanently)
+	case "remote-redirect":
+		http.Redirect(w, r, "http://example.com/foo", http.StatusMovedPermanently)
+	case "", "hello/sunnyvale":
+		w.Write([]byte("welcome, it works"))
+	case "status":
+		code, _ := strconv.Atoi(segments[1])
+		w.Header().Set("Location", "/")
+		w.WriteHeader(code)
+	default:
 		return
 	}
-	w.Write([]byte("welcome, it works"))
 }
 
 func TestNewServer(t *testing.T) {
@@ -522,14 +534,15 @@ func TestAppProbe(t *testing.T) {
 		},
 	}
 
-	testCases := []struct {
+	type test struct {
 		name       string
 		probePath  string
 		config     KubeAppProbers
 		podIP      string
 		ipv6       bool
 		statusCode int
-	}{
+	}
+	testCases := []test{
 		{
 			name:       "http-bad-path",
 			probePath:  "bad-path-should-be-404",
@@ -640,54 +653,121 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 			podIP:      "localhost",
 		},
+		{
+			name:      "redirect",
+			probePath: "app-health/redirect/livez",
+			config: KubeAppProbers{
+				"/app-health/redirect/livez": &Prober{
+					HTTPGet: &apimirror.HTTPGetAction{
+						Path: "redirect",
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			name:      "redirect loop",
+			probePath: "app-health/redirect-loop/livez",
+			config: KubeAppProbers{
+				"/app-health/redirect-loop/livez": &Prober{
+					HTTPGet: &apimirror.HTTPGetAction{
+						Path: "redirect-loop",
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
+			statusCode: http.StatusInternalServerError,
+		},
+		{
+			name:      "remote redirect",
+			probePath: "app-health/remote-redirect/livez",
+			config: KubeAppProbers{
+				"/app-health/remote-redirect/livez": &Prober{
+					HTTPGet: &apimirror.HTTPGetAction{
+						Path: "remote-redirect",
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+	}
+	testFn := func(t *testing.T, tc test) {
+		appProber, err := json.Marshal(tc.config)
+		if err != nil {
+			t.Fatalf("invalid app probers")
+		}
+		config := Options{
+			StatusPort:     0,
+			KubeAppProbers: string(appProber),
+			PodIP:          tc.podIP,
+			IPv6:           tc.ipv6,
+		}
+		// Starts the pilot agent status server.
+		server, err := NewServer(config)
+		if err != nil {
+			t.Fatalf("failed to create status server %v", err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go server.Run(ctx)
+
+		if tc.ipv6 {
+			server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
+		}
+
+		var statusPort uint16
+		for statusPort == 0 {
+			server.mutex.RLock()
+			statusPort = server.statusPort
+			server.mutex.RUnlock()
+		}
+
+		client := http.Client{}
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
+		if err != nil {
+			t.Fatalf("[%v] failed to create request", tc.probePath)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal("request failed: ", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != tc.statusCode {
+			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+		}
 	}
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			appProber, err := json.Marshal(tc.config)
-			if err != nil {
-				t.Fatalf("invalid app probers")
-			}
-			config := Options{
-				StatusPort:     0,
-				KubeAppProbers: string(appProber),
-				PodIP:          tc.podIP,
-				IPv6:           tc.ipv6,
-			}
-			// Starts the pilot agent status server.
-			server, err := NewServer(config)
-			if err != nil {
-				t.Fatalf("failed to create status server %v", err)
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			go server.Run(ctx)
-
-			if tc.ipv6 {
-				server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
-			}
-
-			var statusPort uint16
-			for statusPort == 0 {
-				server.mutex.RLock()
-				statusPort = server.statusPort
-				server.mutex.RUnlock()
-			}
-
-			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
-			if err != nil {
-				t.Fatalf("[%v] failed to create request", tc.probePath)
-			}
-			resp, err := client.Do(req)
-			if err != nil {
-				t.Fatal("request failed: ", err)
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != tc.statusCode {
-				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-			}
-		})
+		t.Run(tc.name, func(t *testing.T) { testFn(t, tc) })
 	}
+	// Next we check ever
+	t.Run("status codes", func(t *testing.T) {
+		for code := http.StatusOK; code <= http.StatusNetworkAuthenticationRequired; code++ {
+			if http.StatusText(code) == "" { // Not a valid HTTP code
+				continue
+			}
+			expect := code
+			if isRedirect(code) {
+				expect = 200
+			}
+			t.Run(fmt.Sprint(code), func(t *testing.T) {
+				testFn(t, test{
+					probePath: "app-health/code/livez",
+					config: KubeAppProbers{
+						"/app-health/code/livez": &Prober{
+							TimeoutSeconds: 1,
+							HTTPGet: &apimirror.HTTPGetAction{
+								Path: fmt.Sprintf("status/%d", code),
+								Port: intstr.IntOrString{IntVal: int32(appPort)},
+							},
+						},
+					},
+					statusCode: expect,
+				})
+			})
+		}
+	})
 }
 
 func TestHttpsAppProbe(t *testing.T) {
