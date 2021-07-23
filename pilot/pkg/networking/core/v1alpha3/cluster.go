@@ -20,6 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/config/schema/gvk"
+
+	"istio.io/istio/pkg/config/schema/gvk"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -121,10 +125,19 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-// BuildDeltaClusters will generate the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
+// BuildDeltaClusters generates the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, push *model.PushContext,
 	updates *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails) {
+	// delta when only services are modified and we attempt deltas
+	// we can progressively optimize this
+	delta := updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry) &&
+		len(updates.ConfigsUpdated) > 0
+	// if we can't use delta, fall back to generate all
+	if !delta {
+		cl, lg := configgen.BuildClusters(proxy, push)
+		return cl, make([]string, 0), lg
+	}
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	removedClusterNames := make([]string, 0)
@@ -132,26 +145,18 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, push, configgen.Cache)
 	instances := proxy.ServiceInstances
-	// delta when only services are modified and we attempt deltas
-	// we can progressively optimize this
-	delta := updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry)
-	// if we can't use delta, fall back to generate all
-	if !delta || len(updates.ConfigsUpdated) == 0 {
-		cl, lg := configgen.BuildClusters(proxy, push)
-		return cl, make([]string, 0), lg
-	}
-	for s := range updates.ConfigsUpdated {
+	for key := range updates.ConfigsUpdated {
 		// get service that changed
-		service := proxy.SidecarScope.Service(host.Name(s.Name))
+		service := push.ServiceForHostname(proxy, host.Name(key.Name))
 		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
-		// we can just send that it was a removed_resource, because even if it wasn't, envoy will silently ignore.
+		// we can cross reference with WatchedResources to figure out which services were deleted.
 		if service == nil {
 			// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>
 			// so, we can check if the cluster names contains the service name, and determine if it is deleted by that
 			for _, n := range watched.ResourceNames {
 				_, _, svcHost, _ := model.ParseSubsetKey(n)
-				if svcHost == host.Name(s.Name) {
+				if svcHost == host.Name(key.Name) {
 					removedClusterNames = append(removedClusterNames, n)
 				}
 			}

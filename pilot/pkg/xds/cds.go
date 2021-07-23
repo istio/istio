@@ -69,9 +69,6 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	// todo -- right now, we push some clusters (inbound for sidecars, passthrough and blackhole for sidecars and gateways) regardless.
-	// 	for delta, therefore, it doesn't make sense to check if we need to push on a per-resource basis, for now, scoping to a per-type basis should
-	// 	be a good first step.
 	if !cdsNeedsPush(updates, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
@@ -79,6 +76,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	return clusters, logs, nil
 }
 
+// GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	if !cdsNeedsPush(updates, proxy) {
