@@ -281,7 +281,6 @@ endif
 AGENT_BINARIES:=./pilot/cmd/pilot-agent
 STANDARD_BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
-  ./pkg/test/csrctrl/csrctrl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./operator/cmd/operator \

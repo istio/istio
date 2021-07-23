@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // An example implementation of a CSR Controller.
-package controllers
+package csrctrl
 
 import (
 	"context"
