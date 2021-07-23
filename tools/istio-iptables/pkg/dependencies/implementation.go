@@ -82,6 +82,8 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 	externalCommand.Stdout = stdout
 	externalCommand.Stderr = stderr
 
+	err := externalCommand.Run()
+
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
 	}
@@ -90,7 +92,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 		log.Errorf("Command error output: \n%v", stderr.String())
 	}
 
-	return externalCommand.Run()
+	return err
 }
 
 func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) (err error) {
