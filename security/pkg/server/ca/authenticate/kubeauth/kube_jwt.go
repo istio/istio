@@ -17,6 +17,7 @@ package kubeauth
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
@@ -74,9 +75,11 @@ func (a *KubeJWTAuthenticator) AuthenticatorType() string {
 	return KubeJWTAuthenticatorType
 }
 
-var defaultAllowedKubernetesAudiences = map[string]bool{
-	"kubernetes.default.svc":               true,
-	"kubernetes.default.svc.cluster.local": true,
+func isAllowedKubernetesAudience(a string) bool {
+	// We do not use url.Parse() as it *requires* the protocol.
+	a = strings.TrimPrefix(a, "https://")
+	a = strings.TrimPrefix(a, "http://")
+	return strings.HasPrefix(a, "kubernetes.default.svc")
 }
 
 func (a *KubeJWTAuthenticator) AuthenticateRequest(req *http.Request) (*security.Caller, error) {
@@ -115,7 +118,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	// tolerate the unbound tokens.
 	if !util.IsK8SUnbound(targetJWT) || security.Require3PToken.Get() {
 		aud = security.TokenAudiences
-		if tokenAud, _ := util.ExtractJwtAud(targetJWT); len(tokenAud) == 1 && defaultAllowedKubernetesAudiences[tokenAud[0]] {
+		if tokenAud, _ := util.ExtractJwtAud(targetJWT); len(tokenAud) == 1 && isAllowedKubernetesAudience(tokenAud[0]) {
 			if a.jwtPolicy == jwt.PolicyFirstParty && !security.Require3PToken.Get() {
 				// For backwards compatibility, if first-party-jwt is used and they don't require 3p, allow it but warn
 				// This is intended to support first-party-jwt on Kubernetes 1.21+, where BoundServiceAccountTokenVolume
@@ -124,9 +127,8 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 				log.Warnf("Insecure first-party-jwt option used to validate token; use third-party-jwt")
 				aud = nil
 			} else {
-				log.Warnf("Received token with aud %q, but expected one of %q. BoundServiceAccountTokenVolume, "+
-					"default in Kubernetes 1.21+, is not compatible with first-party-jwt",
-					defaultAllowedKubernetesAudiences, aud)
+				log.Warnf("Received token with aud %q, but expected 'kubernetes.default.svc'. BoundServiceAccountTokenVolume, "+
+					"default in Kubernetes 1.21+, is not compatible with first-party-jwt", aud)
 			}
 		}
 		// TODO: check the audience from token, no need to call
