@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
 )
+
 // defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
 // or those whose label value does not match "istio"
 var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
@@ -122,7 +123,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 
 // BuildDeltaClusters will generate the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
-func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails) {
+func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, push *model.PushContext,
+	updates *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	removedClusterNames := make([]string, 0)

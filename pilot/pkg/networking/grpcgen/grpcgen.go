@@ -63,7 +63,8 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 	return nil, model.DefaultXdsLogDetails, nil
 }
 
-func (g *GrpcConfigGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
+func (g *GrpcConfigGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	res, logs, err := g.Generate(proxy, push, w, updates)
 	return res, make([]string, 0), logs, err
 }

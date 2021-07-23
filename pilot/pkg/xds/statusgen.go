@@ -97,7 +97,8 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 	return res, model.DefaultXdsLogDetails, nil
 }
 
-func (sg *StatusGen) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
+func (sg *StatusGen) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	res, logs, err := sg.Generate(proxy, push, w, updates)
 	return res, make([]string, 0), logs, err
 }

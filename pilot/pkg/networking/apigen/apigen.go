@@ -170,7 +170,8 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	return resp, model.DefaultXdsLogDetails, nil
 }
 
-func (g *APIGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
+func (g *APIGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	res, logs, err := g.Generate(proxy, push, w, updates)
 	return res, make([]string, 0), logs, err
 }

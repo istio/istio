@@ -66,8 +66,9 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 	}, model.DefaultXdsLogDetails, nil
 }
 
-func (g *BootstrapGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest, w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
-	res, logs, err := g.Generate(proxy, push, w, updates)
+func (e *BootstrapGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
+	res, logs, err := e.Generate(proxy, push, w, updates)
 	return res, make([]string, 0), logs, err
 }
 
