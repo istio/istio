@@ -1606,7 +1606,7 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		return err
 	}
 
-	sort.SliceStable(envoyFilterConfigs, func(i, j int) bool {
+	sort.Slice(envoyFilterConfigs, func(i, j int) bool {
 		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
 		jfilter := envoyFilterConfigs[j].Spec.(*networking.EnvoyFilter)
 		if ifilter.Priority != jfilter.Priority {
