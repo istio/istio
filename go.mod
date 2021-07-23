@@ -94,8 +94,8 @@ require (
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 	istio.io/api v0.0.0-20210723143944-8e3a05140b04
 	istio.io/client-go v1.11.0-beta.1.0.20210723144826-207eeedbeccb
-	istio.io/gogo-genproto v0.0.0-20210715130222-d988e2d1358a
-	istio.io/pkg v0.0.0-20210715130123-2ae77570220b
+	istio.io/gogo-genproto v0.0.0-20210723144243-bee02fe4a315
+	istio.io/pkg v0.0.0-20210723181842-d0e26aec6f00
 	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.21.2
 	k8s.io/apimachinery v0.21.2
