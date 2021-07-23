@@ -148,7 +148,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>
 			// so, we can check if the cluster names contains the service name, and determine if it is deleted by that
 			for _, n := range watched.ResourceNames {
-				if strings.Contains(n, s.Name) {
+				_, _, svcHost, _ := model.ParseSubsetKey(n)
+				if svcHost == host.Name(s.Name) {
 					removedClusterNames = append(removedClusterNames, n)
 				}
 			}
