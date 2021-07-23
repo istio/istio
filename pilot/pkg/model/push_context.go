@@ -1735,7 +1735,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	if proxy == nil {
 		return nil
 	}
-	out := make([]gatewayWithInstances, 0)
+	gatewayInstances := make([]gatewayWithInstances, 0)
 
 	var configs []config.Config
 	if features.ScopeGatewayToNamespace {
@@ -1760,11 +1760,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 			// Only if we have a matching instance should we apply the configuration
 			if len(matchingInstances) > 0 {
-				out = append(out, gatewayWithInstances{cfg, false, matchingInstances})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, false, matchingInstances})
 			}
 		} else if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1773,16 +1773,16 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 			}
 		}
 	}
 
-	if len(out) == 0 {
+	if len(gatewayInstances) == 0 {
 		return nil
 	}
 
-	return MergeGateways(out)
+	return MergeGateways(gatewayInstances)
 }
 
 // GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers
