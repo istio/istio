@@ -16,20 +16,46 @@
 package fuzz
 
 import (
+	"os"
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pkg/test"
 )
 
 func init() {
 	testing.Init()
 }
 
+type NopTester struct{}
+
+func (n NopTester) Fail() {}
+
+func (n NopTester) FailNow() {}
+
+func (n NopTester) Fatal(args ...interface{}) {}
+
+func (n NopTester) Fatalf(format string, args ...interface{}) {}
+
+func (n NopTester) Log(args ...interface{}) {}
+
+func (n NopTester) Logf(format string, args ...interface{}) {}
+
+func (n NopTester) TempDir() string {
+	tempDir, _ := os.MkdirTemp("", "test")
+	return tempDir
+}
+
+func (n NopTester) Helper() {}
+
+func (n NopTester) Cleanup(f func()) {}
+
+var _ test.Failer = NopTester{}
+
 func FuzzValidateClusters(data []byte) int {
-	t := &testing.T{}
 	proxy := model.Proxy{}
 	f := fuzz.NewConsumer(data)
 	err := f.GenerateStruct(&proxy)
@@ -41,7 +67,7 @@ func FuzzValidateClusters(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	cg := v1alpha3.NewConfigGenTest(t, to)
+	cg := v1alpha3.NewConfigGenTest(NopTester{}, to)
 	p := cg.SetupProxy(&proxy)
 	_ = cg.Clusters(p)
 	_ = cg.Routes(p)
