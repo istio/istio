@@ -95,7 +95,7 @@ spec:
   - matches:
     - path:
         type: Prefix
-        value: /get
+        value: /get/
     forwardTo:
     - serviceName: b
       port: 80
@@ -139,15 +139,18 @@ spec:
 `)
 
 			t.NewSubTest("http").Run(func(t framework.TestContext) {
-				_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
-					Port: &echo.Port{
-						Protocol: protocol.HTTP,
-					},
-					Path: "/get",
-					Headers: map[string][]string{
-						"Host": {"my.domain.example"},
-					},
-				})
+				paths := []string{"/get", "/get/", "/get/prefix"}
+				for _, path := range paths {
+					_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: path,
+						Headers: map[string][]string{
+							"Host": {"my.domain.example"},
+						},
+					})
+				}
 			})
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				host, port := apps.Ingress.TCPAddress()
