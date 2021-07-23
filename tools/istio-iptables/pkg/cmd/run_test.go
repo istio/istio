@@ -180,10 +180,18 @@ func TestIptables(t *testing.T) {
 		{
 			"dns-uid-gid",
 			func(cfg *config.Config) {
-				cfg.DryRun = true
 				cfg.RedirectDNS = true
 				cfg.DNSServersV4 = []string{"127.0.0.53"}
 				cfg.EnableInboundIPv6 = false
+				cfg.ProxyGID = "1,2"
+				cfg.ProxyUID = "3,4"
+			},
+		},
+		{
+			"ipv6-dns-uid-gid",
+			func(cfg *config.Config) {
+				cfg.EnableInboundIPv6 = true
+				cfg.RedirectDNS = true
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 			},
