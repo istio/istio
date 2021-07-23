@@ -322,6 +322,23 @@ spec:
 					path: "/test",
 				},
 				{
+					// Prefix /prefix/should MATCHES prefix/should/match
+					name: "http-prefix-matches-subpath",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/prefix/should/match",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/should",
+				},
+				{
 					// Prefix /prefix/test/ should match path /prefix/test
 					name: "http-prefix-matches-without-trailing-backslash",
 					call: echo.CallOptions{
