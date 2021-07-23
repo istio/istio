@@ -535,13 +535,12 @@ func TestKubeInject(t *testing.T) {
 }
 
 func TestRemoteClusters(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/34192")
 	framework.NewTest(t).Features("usability.observability.remote-clusters").
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			for _, cluster := range t.Clusters().Primaries() {
 				cluster := cluster
-				t.NewSubTest(cluster.StableName()).RunParallel(func(t framework.TestContext) {
+				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
 					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: cluster})
 					var output string
 					args := []string{"x", "remote-clusters"}
