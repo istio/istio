@@ -22,7 +22,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/golang-lru/simplelru"
-	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -122,23 +121,14 @@ type CacheToken uint64
 // XdsCache interface defines a store for caching XDS responses.
 // All operations are thread safe.
 type XdsCache interface {
-	// Add adds the given XdsCacheEntry with the value to the cache. A token, returned from Get, must
-	// be included or writes will be (silently) dropped. Additionally, if the cache has been
-	// invalided between when a token is fetched from Get and when Add is called, the write will be
-	// dropped. This ensures stale data does not overwrite fresh data when dealing with concurrent
+	// Add adds the given XdsCacheEntry with the value for the given pushContext to the cache.
+	// If the cache has been updated to a newer push context, the write will be dropped silently.
+	// This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
-	Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource)
+	Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource)
 	// Get retrieves the cached value if it exists. The boolean indicates
 	// whether the entry exists in the cache.
-	//
-	// A CacheToken is additionally included in the response. This must be used for subsequent writes
-	// to this key. This ensures that if the cache is invalidated between our read and write, we do
-	// not persist stale data.
-	//
-	// Standard usage:
-	// if obj, token, f := cache.Get(key); f { ...do something... }
-	// else { computed := expensive(); cache.Add(key, token, computed); }
-	Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bool)
+	Get(entry XdsCacheEntry) (*discovery.Resource, bool)
 	// Clear removes the cache entries that are dependent on the configs passed.
 	Clear(map[ConfigKey]struct{})
 	// ClearAll clears the entire cache.
@@ -156,7 +146,6 @@ func NewXdsCache() XdsCache {
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
-		nextToken:        atomic.NewUint64(0),
 	}
 }
 
@@ -167,16 +156,15 @@ func NewLenientXdsCache() XdsCache {
 		store:            newLru(),
 		configIndex:      map[ConfigKey]sets.Set{},
 		typesIndex:       map[config.GroupVersionKind]sets.Set{},
-		nextToken:        atomic.NewUint64(0),
 	}
 }
 
 type lruCache struct {
 	enableAssertions bool
 	store            simplelru.LRUCache
-	// nextToken stores the next token to use. The content here doesn't matter, we just need a cheap
-	// unique identifier.
-	nextToken   *atomic.Uint64
+	// token stores the latest token of the store, used to prevent stale data overwrite.
+	// It is refreshed when Clear or ClearAll are called
+	token       CacheToken
 	mu          sync.RWMutex
 	configIndex map[ConfigKey]sets.Set
 	typesIndex  map[config.GroupVersionKind]sets.Set
@@ -222,36 +210,35 @@ func (l *lruCache) assertUnchanged(key string, existing *discovery.Resource, rep
 	}
 }
 
-func (l *lruCache) Add(entry XdsCacheEntry, token CacheToken, value *discovery.Resource) {
-	if !entry.Cacheable() {
+func (l *lruCache) Add(entry XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {
+	if !entry.Cacheable() || pushReq == nil || pushReq.Start.Equal(time.Time{}) {
 		return
 	}
+	// It will not overflow until year 2262
+	token := CacheToken(pushReq.Start.UnixNano())
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	k := entry.Key()
 	cur, f := l.store.Get(k)
-	toWrite := cacheValue{value: value}
 	if f {
-		if token != cur.(cacheValue).token {
+		// This is the stale resource
+		if token < cur.(cacheValue).token || token < l.token {
 			// entry may be stale, we need to drop it. This can happen when the cache is invalidated
 			// after we call Get.
 			return
 		}
-		// Otherwise, make sure we write the current token again. We don't change the key on writes; the
-		// same token will be used for a value until its invalidated
-		toWrite.token = cur.(cacheValue).token
-	} else {
-		// This is our first time seeing this; this means it was invalidated recently and this is our
-		// first write, or we forgot to call Get before.
+		if l.enableAssertions {
+			l.assertUnchanged(k, cur.(cacheValue).value, value)
+		}
+	}
+
+	if token < l.token {
 		return
 	}
-	if l.enableAssertions {
-		if toWrite.token == 0 {
-			panic("token cannot be empty. was Get() called before Add()?")
-		}
-		l.assertUnchanged(k, cur.(cacheValue).value, value)
-	}
+
+	toWrite := cacheValue{value: value, token: token}
 	l.store.Add(k, toWrite)
+	l.token = token
 	indexConfig(l.configIndex, k, entry)
 	indexType(l.typesIndex, k, entry)
 	size(l.store.Len())
@@ -262,9 +249,9 @@ type cacheValue struct {
 	token CacheToken
 }
 
-func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bool) {
+func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, bool) {
 	if !entry.Cacheable() {
-		return nil, 0, false
+		return nil, false
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -272,28 +259,21 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*discovery.Resource, CacheToken, bo
 	val, ok := l.store.Get(k)
 	if !ok {
 		miss()
-		// If the entry is not found at all, this is our first read of it. We will generate and store
-		// a new token. Subsequent writes must include it.
-		tok := CacheToken(l.nextToken.Inc())
-		l.store.Add(k, cacheValue{token: tok})
-		indexConfig(l.configIndex, k, entry)
-		indexType(l.typesIndex, k, entry)
-		return nil, tok, false
+		return nil, false
 	}
 	cv := val.(cacheValue)
 	if cv.value == nil {
 		miss()
-		// We have generated a token previously, so return that, but this is still a cache miss as
-		// no value is stored.
-		return nil, cv.token, false
+		return nil, false
 	}
 	hit()
-	return cv.value, cv.token, true
+	return cv.value, true
 }
 
 func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.token = CacheToken(time.Now().UnixNano())
 	for ckey := range configs {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
@@ -312,6 +292,7 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 func (l *lruCache) ClearAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.token = CacheToken(time.Now().UnixNano())
 	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
 	l.typesIndex = map[config.GroupVersionKind]sets.Set{}
@@ -350,10 +331,10 @@ type DisabledCache struct{}
 
 var _ XdsCache = &DisabledCache{}
 
-func (d DisabledCache) Add(key XdsCacheEntry, token CacheToken, value *discovery.Resource) {}
+func (d DisabledCache) Add(key XdsCacheEntry, pushReq *PushRequest, value *discovery.Resource) {}
 
-func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, CacheToken, bool) {
-	return nil, 0, false
+func (d DisabledCache) Get(XdsCacheEntry) (*discovery.Resource, bool) {
+	return nil, false
 }
 
 func (d DisabledCache) Clear(configsUpdated map[ConfigKey]struct{}) {}

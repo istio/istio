@@ -73,6 +73,6 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	if !cdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, push)
+	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, req)
 	return clusters, logs, nil
 }
