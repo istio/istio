@@ -247,7 +247,7 @@ spec:
             backend:
               serviceName: b
               servicePort: 80
-          - path: /prefix%s
+          - path: %s
             pathType: Prefix
             backend:
               serviceName: b
@@ -287,7 +287,7 @@ spec:
             name: b
             port:
               number: 80
-        path: /prefix%s
+        path: %s
         pathType: Prefix
 `
 			}
@@ -319,7 +319,8 @@ spec:
 						Validator: successValidator,
 						Count:     count,
 					},
-					path: "/test",
+					path:       "/test",
+					prefixPath: "/prefix",
 				},
 				{
 					// Prefix /prefix/should MATCHES prefix/should/match
@@ -336,7 +337,7 @@ spec:
 						Count:     count,
 					},
 					path:       "/test",
-					prefixPath: "/should",
+					prefixPath: "/prefix/should",
 				},
 				{
 					// Prefix /prefix/test/ should match path /prefix/test
@@ -353,7 +354,7 @@ spec:
 						Count:     count,
 					},
 					path:       "/test",
-					prefixPath: "/test/",
+					prefixPath: "/prefix/test/",
 				},
 				{
 					// Prefix /prefix/test should match /prefix/test/
@@ -370,7 +371,7 @@ spec:
 						Count:     count,
 					},
 					path:       "/test",
-					prefixPath: "/test",
+					prefixPath: "/prefix/test",
 				},
 				{
 					// Prefix /prefix/test should NOT match /prefix/testrandom
@@ -387,7 +388,7 @@ spec:
 						Count:     count,
 					},
 					path:       "/test",
-					prefixPath: "/test",
+					prefixPath: "/prefix/test",
 				},
 				{
 					// Basic HTTPS call for foo. CaCert matches the secret
@@ -404,7 +405,8 @@ spec:
 						Validator: successValidator,
 						Count:     count,
 					},
-					path: "/test",
+					path:       "/test",
+					prefixPath: "/prefix",
 				},
 				{
 					// Basic HTTPS call for bar. CaCert matches the secret
@@ -421,7 +423,8 @@ spec:
 						Validator: successValidator,
 						Count:     count,
 					},
-					path: "/test",
+					path:       "/test",
+					prefixPath: "/prefix",
 				},
 				{
 					// HTTPS call for bar with namedport route. CaCert matches the secret
@@ -438,7 +441,8 @@ spec:
 						Validator: successValidator,
 						Count:     count,
 					},
-					path: "/test",
+					path:       "/test",
+					prefixPath: "/prefix",
 				},
 			}
 
