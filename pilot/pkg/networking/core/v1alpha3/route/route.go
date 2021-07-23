@@ -90,8 +90,7 @@ func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, 
 
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, listenPort)
-		out = append(out, wrappers...)
+		out = append(out, buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, listenPort)...)
 	}
 
 	// compute services missing virtual service configs
