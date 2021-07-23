@@ -127,7 +127,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	resources := model.Resources{}
 	removedClusterNames := make([]string, 0)
 	services := make([]*model.Service, 0)
-	deletedServices := make([]*model.Service, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, push, configgen.Cache)
 	instances := proxy.ServiceInstances
@@ -145,7 +144,13 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
 		// we can just send that it was a removed_resource, because even if it wasn't, envoy will silently ignore.
 		if service == nil {
-			deletedServices = append(deletedServices, service)
+			for _, n := range watched.ResourceNames {
+				if strings.Contains(n, s.Name) {
+					removedClusterNames = append(removedClusterNames, n)
+				}
+			}
+		} else {
+			services = append(services, service)
 		}
 	}
 	clusterCacheStats := cacheStats{}
@@ -155,11 +160,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		ob, cs := configgen.buildOutboundClustersWithServices(cb, outboundPatcher, services)
 		resources = append(resources, ob...)
-		clusterCacheStats = clusterCacheStats.merge(cs)
-		ob, cs = configgen.buildOutboundClustersWithServices(cb, outboundPatcher, deletedServices)
-		for _, o := range ob {
-			removedClusterNames = append(removedClusterNames, o.Name)
-		}
 		clusterCacheStats = clusterCacheStats.merge(cs)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
