@@ -284,13 +284,13 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespondDelta(con, req)
-
 	var request *model.PushRequest
+	push := s.globalPushContext()
 	if shouldRespond {
 		debugRequest(req)
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
-		request = &model.PushRequest{Full: true}
+		request = &model.PushRequest{Full: true, Push: push}
 	} else {
 		// Check if we have a blocked push. If this was an ACK, we will send it.
 		// Either way we remove the blocked push as we will send a push.
@@ -309,7 +309,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		}
 	}
 
-	push := s.globalPushContext()
 	return s.pushDeltaXds(con, push, versionInfo(), con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)
 }
 
