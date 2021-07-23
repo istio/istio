@@ -23,7 +23,6 @@ import (
 	capi "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	// +kubebuilder:scaffold:imports
@@ -34,8 +33,8 @@ import (
 const (
 	// Define the root path for signer to store CA and private key files.
 	signerRoot = "/tmp/pki/signer/"
-	
-	// The duration of the signed certificates 
+
+	// The duration of the signed certificates
 	certificateDuration = 1 * time.Hour
 )
 
@@ -56,7 +55,6 @@ func RunCSRController(_ context.Context, signerNames string) {
 		Scheme: scheme,
 		Port:   9443,
 	})
-
 	if err != nil {
 		log.Infof("Unable to start manager error: %v", err)
 		os.Exit(-1)
