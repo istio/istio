@@ -92,9 +92,6 @@ var (
 
 	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/gcemetadata/gce_metadata_server.yaml")
-
-	// CSRControllerInstallFilePath is the CSR controller installation file.
-	CSRControllerInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/csrctrl/integration-ca.yaml")
 )
 
 var (
