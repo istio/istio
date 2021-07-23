@@ -49,6 +49,8 @@
       {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
       {{/* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */}}
 {{ toYaml $.Values.meshConfig.defaultConfig.tracing | indent 8 }}
+      {{- else }}
+        {}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
       {{- if not .Values.global.externalIstiod }}
