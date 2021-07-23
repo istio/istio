@@ -34,14 +34,11 @@ set -x
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
-go install sigs.k8s.io/kind@v0.11.0
-kind version
-
 # shellcheck source=common/scripts/kind_provisioner.sh
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.22.0-beta.2"
+NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.20.5"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 
