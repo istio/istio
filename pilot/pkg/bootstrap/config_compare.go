@@ -26,9 +26,8 @@ type CompareFunc func(prev config.Config, curr config.Config) bool
 
 var compareFuncs = make(map[string]CompareFunc)
 
-func registerCompareFunc(name string, compare CompareFunc) CompareFunc {
+func registerCompareFunc(name string, compare CompareFunc) {
 	compareFuncs[name] = compare
-	return compare
 }
 
 // compareDestinationRule checks proxy policies
