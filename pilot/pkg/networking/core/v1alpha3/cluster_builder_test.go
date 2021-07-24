@@ -275,10 +275,10 @@ func TestApplyDestinationRule(t *testing.T) {
 				Services:       []*model.Service{tt.service},
 			})
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
+			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.push.DestinationRule(cb.proxy, tt.service)
+			destRule := cb.req.Push.DestinationRule(cb.proxy, tt.service)
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
@@ -805,7 +805,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &mesh})
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
+			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
 			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
@@ -1221,7 +1221,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				Instances:  tt.instances,
 			})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext(), nil)
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
 			nv := map[network.ID]bool{
 				"nw-0":               true,
 				"nw-1":               true,
@@ -1267,7 +1267,7 @@ func TestBuildPassthroughClusters(t *testing.T) {
 			proxy := &model.Proxy{IPAddresses: tt.ips}
 			cg := NewConfigGenTest(t, TestOptions{})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext(), nil)
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
 			clusters := cb.buildInboundPassthroughClusters()
 
 			var hasIpv4, hasIpv6 bool
@@ -1488,7 +1488,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	push := model.NewPushContext()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cb := NewClusterBuilder(proxy, push, model.DisabledCache{})
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
 			opts := &buildClusterOpts{
 				mutable: NewMutableCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},

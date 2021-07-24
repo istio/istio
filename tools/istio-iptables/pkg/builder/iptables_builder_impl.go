@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -37,16 +38,27 @@ type Rules struct {
 // IptablesBuilder is an implementation for IptablesBuilder interface
 type IptablesBuilder struct {
 	rules Rules
+	cfg   *config.Config
 }
 
 // NewIptablesBuilders creates a new IptablesBuilder
-func NewIptablesBuilder() *IptablesBuilder {
+func NewIptablesBuilder(cfg *config.Config) *IptablesBuilder {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
 	return &IptablesBuilder{
 		rules: Rules{
 			rulesv4: []*Rule{},
 			rulesv6: []*Rule{},
 		},
+		cfg: cfg,
 	}
+}
+
+func (rb *IptablesBuilder) InsertRule(chain string, table string, position int, params ...string) *IptablesBuilder {
+	rb.InsertRuleV4(chain, table, position, params...)
+	rb.InsertRuleV6(chain, table, position, params...)
+	return rb
 }
 
 func (rb *IptablesBuilder) InsertRuleV4(chain string, table string, position int, params ...string) *IptablesBuilder {
@@ -59,6 +71,9 @@ func (rb *IptablesBuilder) InsertRuleV4(chain string, table string, position int
 }
 
 func (rb *IptablesBuilder) InsertRuleV6(chain string, table string, position int, params ...string) *IptablesBuilder {
+	if !rb.cfg.EnableInboundIPv6 {
+		return rb
+	}
 	rb.rules.rulesv6 = append(rb.rules.rulesv6, &Rule{
 		chain:  chain,
 		table:  table,
@@ -76,7 +91,16 @@ func (rb *IptablesBuilder) AppendRuleV4(chain string, table string, params ...st
 	return rb
 }
 
+func (rb *IptablesBuilder) AppendRule(chain string, table string, params ...string) *IptablesBuilder {
+	rb.AppendRuleV4(chain, table, params...)
+	rb.AppendRuleV6(chain, table, params...)
+	return rb
+}
+
 func (rb *IptablesBuilder) AppendRuleV6(chain string, table string, params ...string) *IptablesBuilder {
+	if !rb.cfg.EnableInboundIPv6 {
+		return rb
+	}
 	rb.rules.rulesv6 = append(rb.rules.rulesv6, &Rule{
 		chain:  chain,
 		table:  table,

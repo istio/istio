@@ -264,7 +264,12 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(bugReportCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(bugReportCmd)
 
+	tagCmd := tagCommand()
+	hideInheritedFlags(tagCommand(), "namespace", "istioNamespace", "charts")
+	rootCmd.AddCommand(tagCmd)
+
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
+	experimentalCmd.AddCommand(clustersCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

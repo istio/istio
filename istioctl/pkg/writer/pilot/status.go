@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/xds"
+	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/log"
 )
 
@@ -170,9 +171,7 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
-				// FIXME: https://github.com/istio/istio/issues/33980
-				// nolint: staticcheck
-				cds, lds, eds, rds := getSyncStatus(clientConfig.GetXdsConfig())
+				cds, lds, eds, rds := getSyncStatus(&clientConfig)
 				cp := multixds.CpInfo(dr)
 				fullStatus = append(fullStatus, &xdsWriterStatus{
 					proxyID:        clientConfig.GetNode().GetId(),
@@ -226,22 +225,55 @@ func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
 	return err
 }
 
-func getSyncStatus(configs []*xdsstatus.PerXdsConfig) (cds, lds, eds, rds string) {
+func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds string) {
+	configs := handleAndGetXdsConfigs(clientConfig)
 	for _, config := range configs {
-		switch val := config.PerXdsConfig.(type) {
-		case *xdsstatus.PerXdsConfig_ListenerConfig:
-			lds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_ClusterConfig:
-			cds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_RouteConfig:
-			rds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_EndpointConfig:
-			eds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_ScopedRouteConfig:
-			// ignore; Istiod doesn't send these
+		cfgType := config.GetTypeUrl()
+		switch cfgType {
+		case xdsresource.ListenerType:
+			lds = config.GetConfigStatus().String()
+		case xdsresource.ClusterType:
+			cds = config.GetConfigStatus().String()
+		case xdsresource.RouteType:
+			rds = config.GetConfigStatus().String()
+		case xdsresource.EndpointType:
+			eds = config.GetConfigStatus().String()
 		default:
-			log.Infof("PerXdsConfig unexpected type %T\n", val)
+			log.Infof("GenericXdsConfig unexpected type %s\n", xdsresource.GetShortType(cfgType))
 		}
 	}
 	return
+}
+
+func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.ClientConfig_GenericXdsConfig {
+	configs := make([]*xdsstatus.ClientConfig_GenericXdsConfig, 0)
+	if clientConfig.GetGenericXdsConfigs() != nil {
+		configs = clientConfig.GetGenericXdsConfigs()
+		return configs
+	}
+
+	// FIXME: currently removing the deprecated code below may result in functions not working
+	// if there is a mismatch of versions between istiod and istioctl
+	// nolint: staticcheck
+	for _, config := range clientConfig.GetXdsConfig() {
+		var typeURL string
+		switch config.PerXdsConfig.(type) {
+		case *xdsstatus.PerXdsConfig_ListenerConfig:
+			typeURL = xdsresource.ListenerType
+		case *xdsstatus.PerXdsConfig_ClusterConfig:
+			typeURL = xdsresource.ClusterType
+		case *xdsstatus.PerXdsConfig_RouteConfig:
+			typeURL = xdsresource.RouteType
+		case *xdsstatus.PerXdsConfig_EndpointConfig:
+			typeURL = xdsresource.EndpointType
+		}
+
+		if typeURL != "" {
+			configs = append(configs, &xdsstatus.ClientConfig_GenericXdsConfig{
+				TypeUrl:      typeURL,
+				ConfigStatus: config.Status,
+			})
+		}
+	}
+	return configs
 }

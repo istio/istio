@@ -1874,7 +1874,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule.Jwks != "" {
 		_, err := jwt.Parse([]byte(rule.Jwks))
 		if err != nil {
-			errs = multierror.Append(errs, errors.New("jwks parse error"))
+			errs = multierror.Append(errs, fmt.Errorf("jwks parse error: %v", err))
 		}
 	}
 
@@ -3054,18 +3054,16 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				}
 			}
 			if len(serviceEntry.Addresses) > 0 {
-				var hasTCPPort bool
 				for _, port := range serviceEntry.Ports {
 					p := protocol.Parse(port.Protocol)
 					if p.IsTCP() {
-						hasTCPPort = true
+						if len(serviceEntry.Hosts) > 1 {
+							// TODO: prevent this invalid setting, maybe in 1.11+
+							errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry can not have more than one host specified "+
+								"simultaneously with address and tcp port")))
+						}
 						break
 					}
-				}
-				if hasTCPPort && len(serviceEntry.Hosts) > 1 {
-					// TODO: prevent this invalid setting, maybe in 1.11+
-					errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry can not have more than one host specified "+
-						"simultaneously with address and tcp port")))
 				}
 			}
 		default:
@@ -3081,17 +3079,12 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		// hosts so we consider it invalid, unless the resolution type is NONE
 		// (because the hosts are ignored).
 		if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
-			canDifferentiate := true
 			for _, port := range serviceEntry.Ports {
 				p := protocol.Parse(port.Protocol)
 				if !p.IsHTTP() && !p.IsTLS() {
-					canDifferentiate = false
+					errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
 					break
 				}
-			}
-
-			if !canDifferentiate {
-				errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
 			}
 		}
 

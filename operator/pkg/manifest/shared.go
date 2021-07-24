@@ -212,6 +212,9 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	if ns := GetValueForSetFlag(setFlags, "values.global.istioNamespace"); ns != "" {
 		finalIOP.Namespace = ns
 	}
+	if finalIOP.Spec.Profile == "" {
+		finalIOP.Spec.Profile = name.DefaultProfileName
+	}
 	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
 }
 

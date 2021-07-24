@@ -113,6 +113,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	if scrtErr != nil && readCertRetryInterval > time.Duration(0) {
 		pkiCaLog.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
 		ticker := time.NewTicker(readCertRetryInterval)
+		defer ticker.Stop()
 		for scrtErr != nil {
 			select {
 			case <-ticker.C:

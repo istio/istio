@@ -539,10 +539,13 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, c cluster.Clus
 	// Set the clusterName for the local cluster.
 	// This MUST match the clusterName in the remote secret for this cluster.
 	if i.environment.IsMulticluster() {
-		clusterName := c.Name()
 		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 			// enable namespace controller writing to remote clusters
 			installSettings = append(installSettings, "--set", "values.pilot.env.EXTERNAL_ISTIOD=true")
+		}
+		clusterName := c.Name()
+		if !c.IsConfig() {
+			clusterName = c.ConfigName()
 		}
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+clusterName)
 	}
@@ -884,7 +887,7 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, c c
 				{
 					Name:     "tls-webhook",
 					Protocol: kubeApiCore.ProtocolTCP,
-					Port:     15017,
+					Port:     443,
 				},
 				{
 					Name:     "tls",
@@ -892,7 +895,6 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, c c
 					Port:     15443,
 				},
 			},
-			ClusterIP: "None",
 		},
 	}
 	_, err = c.CoreV1().Services(cfg.SystemNamespace).Create(context.TODO(), svc, kubeApiMeta.CreateOptions{})
@@ -920,7 +922,7 @@ func configureRemoteConfigClusterDiscovery(i *operatorComponent, cfg Config, c c
 					{
 						Name:     "tls-webhook",
 						Protocol: kubeApiCore.ProtocolTCP,
-						Port:     15017,
+						Port:     443,
 					},
 				},
 			},
@@ -957,7 +959,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 		return err
 	}
 
-	scopes.Framework.Infof("configuring external control plane to use config cluster in %s", c.Name())
+	scopes.Framework.Infof("configuring external control plane in %s to use config cluster in %s", c.Name(), configCluster.Name())
 	// ensure system namespace exists
 	_, err = c.CoreV1().Namespaces().
 		Create(context.TODO(), &kubeApiCore.Namespace{

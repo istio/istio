@@ -199,7 +199,7 @@ type XdsLogDetails struct {
 	AdditionalInfo string
 }
 
-var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
+var DefaultXdsLogDetails = XdsLogDetails{}
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
 // with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
@@ -225,7 +225,7 @@ type Proxy struct {
 
 	// IPAddresses is the IP addresses of the proxy used to identify it and its
 	// co-located service instances. Example: "10.60.1.6". In some cases, the host
-	// where the poxy and service instances reside may have more than one IP address
+	// where the proxy and service instances reside may have more than one IP address
 	IPAddresses []string
 
 	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and

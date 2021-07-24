@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -51,6 +53,8 @@ var (
 		Template: &v1alpha3.WorkloadEntry{
 			Ports:          map[string]uint32{"http": 80},
 			Labels:         map[string]string{"app": "a"},
+			Network:        "nw0",
+			Locality:       "reg0/zone0/subzone0",
 			Weight:         1,
 			ServiceAccount: "sa-a",
 		},
@@ -115,9 +119,16 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	go c1.Run(stop1)
 	go c2.Run(stop2)
 
+	n := fakeNode("reg1", "zone1", "subzone1")
+
 	p := fakeProxy("1.2.3.4", wgA, "nw1")
+	p.XdsNode = n
+
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2")
+	p2.XdsNode = n
+
 	p3 := fakeProxy("1.2.3.5", wgA, "nw1")
+	p3.XdsNode = n
 
 	// allows associating a Register call with Unregister
 	var origConnTime time.Time
@@ -125,24 +136,24 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
 		c1.RegisterWorkload(p, time.Now())
-		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
+		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
 		c2.RegisterWorkload(p2, time.Now())
-		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
-		checkEntryOrFail(t, store, wgA, p2, c2.instanceID)
+		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
+		checkEntryOrFail(t, store, wgA, p2, n, c2.instanceID)
 	})
 	t.Run("fast reconnect", func(t *testing.T) {
 		t.Run("same instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect meta
 			c1.QueueUnregisterWorkload(p, time.Now())
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
-			checkEntryOrFail(t, store, wgA, p, "")
+			checkEntryOrFail(t, store, wgA, p, n, "")
 			// reconnect, ensure entry is there with the same instance id
 			origConnTime = time.Now()
 			c1.RegisterWorkload(p, origConnTime)
-			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
+			checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 		})
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
 			// reconnect, ensure entry is there with the same instance id
@@ -151,17 +162,17 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 			// make sure entry is still there with disconnect meta
 			c1.QueueUnregisterWorkload(p, origConnTime)
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
-			checkEntryOrFail(t, store, wgA, p, c1.instanceID)
+			checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 		})
 		t.Run("different instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect metadata
 			c1.QueueUnregisterWorkload(p, time.Now())
 			time.Sleep(features.WorkloadEntryCleanupGracePeriod / 2)
-			checkEntryOrFail(t, store, wgA, p, "")
+			checkEntryOrFail(t, store, wgA, p, n, "")
 			// reconnect, ensure entry is there with the new instance id
 			origConnTime = time.Now()
 			c2.RegisterWorkload(p, origConnTime)
-			checkEntryOrFail(t, store, wgA, p, c2.instanceID)
+			checkEntryOrFail(t, store, wgA, p, n, c2.instanceID)
 		})
 	})
 	t.Run("slow reconnect", func(t *testing.T) {
@@ -173,7 +184,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		// reconnect
 		origConnTime = time.Now()
 		c1.RegisterWorkload(p, origConnTime)
-		checkEntryOrFail(t, store, wgA, p, c1.instanceID)
+		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
 		// disconnect, kill the cleanup queue from the first controller
@@ -211,6 +222,7 @@ func TestUpdateHealthCondition(t *testing.T) {
 	go ig.Run(stop)
 	go ig2.Run(stop)
 	p := fakeProxy("1.2.3.4", wgA, "litNw")
+	p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
 	ig.RegisterWorkload(p, time.Now())
 	t.Run("auto registered healthy health", func(t *testing.T) {
 		ig.QueueWorkloadEntryHealth(p, HealthEvent{
@@ -246,11 +258,14 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 				Ports:          map[string]uint32{"http": 80},
 				Labels:         map[string]string{"app": "a"},
 				Weight:         1,
+				Network:        "nw0",
+				Locality:       "rgn1/zone1/subzone1",
 				ServiceAccount: "sa-a",
 			},
 		},
 	}
 	proxy := fakeProxy("10.0.0.1", group, "nw1")
+	proxy.XdsNode = fakeNode("rgn2", "zone2", "subzone2")
 
 	wantLabels := map[string]string{
 		"app":   "a",   // from WorkloadEntry template
@@ -283,6 +298,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 			},
 			Labels:         wantLabels,
 			Network:        "nw1",
+			Locality:       "rgn2/zone2/subzone2",
 			Weight:         1,
 			ServiceAccount: "sa-a",
 		},
@@ -319,6 +335,7 @@ func checkEntry(
 	store model.ConfigStoreCache,
 	wg config.Config,
 	proxy *model.Proxy,
+	node *core.Node,
 	connectedTo string,
 ) (err error) {
 	name := wg.Name + "-" + proxy.IPAddresses[0]
@@ -350,6 +367,14 @@ func checkEntry(
 		if we.Network != tmpl.Template.Network {
 			err = multierror.Append(fmt.Errorf("entry has network %s; expected to match group template network %s", we.Network, tmpl.Template.Network))
 		}
+	}
+
+	loc := tmpl.Template.Locality
+	if node.Locality != nil {
+		loc = util.LocalityToString(node.Locality)
+	}
+	if we.Locality != loc {
+		err = multierror.Append(fmt.Errorf("entry has locality %s; expected %s", we.Locality, loc))
 	}
 
 	// check controller annotations
@@ -390,9 +415,10 @@ func checkEntryOrFail(
 	store model.ConfigStoreCache,
 	wg config.Config,
 	proxy *model.Proxy,
+	node *core.Node,
 	connectedTo string,
 ) {
-	if err := checkEntry(store, wg, proxy, connectedTo); err != nil {
+	if err := checkEntry(store, wg, proxy, node, connectedTo); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -451,6 +477,16 @@ func fakeProxy(ip string, wg config.Config, nw network.ID) *model.Proxy {
 			Namespace:         wg.Namespace,
 			Network:           nw,
 			Labels:            map[string]string{"merge": "me"},
+		},
+	}
+}
+
+func fakeNode(r, z, sz string) *core.Node {
+	return &core.Node{
+		Locality: &core.Locality{
+			Region:  r,
+			Zone:    z,
+			SubZone: sz,
 		},
 	}
 }

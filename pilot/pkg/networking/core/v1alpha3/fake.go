@@ -237,7 +237,7 @@ func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 }
 
 func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
-	raw, _ := f.ConfigGen.BuildClusters(p, f.PushContext())
+	raw, _ := f.ConfigGen.BuildClusters(p, &model.PushRequest{Push: f.PushContext()})
 	res := make([]*cluster.Cluster, 0, len(raw))
 	for _, r := range raw {
 		c := &cluster.Cluster{}

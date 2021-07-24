@@ -638,24 +638,11 @@ func buildGatewayListenerTLSContext(
 		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
-			CipherSuites:              filteredCipherSuites(server.Tls.CipherSuites),
+			CipherSuites:              filteredCipherSuites(server),
 		}
 	}
 
 	return ctx
-}
-
-// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
-func filteredCipherSuites(suites []string) []string {
-	ret := make([]string, 0, len(suites))
-	for _, s := range suites {
-		if security.IsValidCipherSuite(s) {
-			ret = append(ret, s)
-		} else {
-			log.Debugf("ignoring unsupported cipherSuite: %q", s)
-		}
-	}
-	return ret
 }
 
 func convertTLSProtocol(in networking.ServerTLSSettings_TLSProtocol) tls.TlsParameters_TlsProtocol {
@@ -991,4 +978,18 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 		domains = append(domains, hostname+":*")
 	}
 	return domains
+}
+
+// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
+func filteredCipherSuites(server *networking.Server) []string {
+	suites := server.Tls.CipherSuites
+	ret := make([]string, 0, len(suites))
+	for _, s := range suites {
+		if security.IsValidCipherSuite(s) {
+			ret = append(ret, s)
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
+		}
+	}
+	return ret
 }

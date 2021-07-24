@@ -180,6 +180,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(callback func(*Pro
 	// Send the first request immediately
 	doCheck()
 	periodTicker := time.NewTicker(w.config.CheckFrequency)
+	defer periodTicker.Stop()
 	for {
 		select {
 		case <-quit:

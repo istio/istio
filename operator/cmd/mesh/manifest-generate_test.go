@@ -363,6 +363,10 @@ func TestManifestGeneratePilot(t *testing.T) {
 			desc:       "pilot_merge_meshconfig",
 			diffSelect: "ConfigMap:*:istio$",
 		},
+		{
+			desc:       "pilot_disable_tracing",
+			diffSelect: "ConfigMap:*:istio$",
+		},
 	})
 }
 
