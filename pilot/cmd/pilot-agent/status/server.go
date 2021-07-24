@@ -513,7 +513,7 @@ func (s *Server) scrape(url string, header http.Header) ([]byte, string, error) 
 			defer cancel()
 		}
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -544,7 +544,7 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
 		return
 	}
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -578,7 +578,7 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	} else {
 		url = fmt.Sprintf("http://%s:%v%s", s.appProbersDestination, prober.HTTPGet.Port.IntValue(), proberPath)
 	}
-	appReq, err := http.NewRequest("GET", url, nil)
+	appReq, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Errorf("Failed to create request to probe app %v, original url %v", err, path)
 		w.WriteHeader(http.StatusInternalServerError)
