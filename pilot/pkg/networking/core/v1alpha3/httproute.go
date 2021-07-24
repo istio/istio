@@ -288,7 +288,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		name := domainName(hostname, vhwrapper.Port)
 		if duplicateVirtualHost(name, vhosts) {
 			// This means this virtual host has caused duplicate virtual host name.
-			push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+			var msg string
+			if svc == nil {
+				msg = fmt.Sprintf("duplicate domain from virtual service: %s", name)
+			} else {
+				msg = fmt.Sprintf("duplicate domain from service: %s", name)
+			}
+			push.AddMetric(model.DuplicatedDomains, name, node.ID, msg)
 			return nil
 		}
 		var domains []string
@@ -301,8 +307,14 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		dl := len(domains)
 		domains = dedupeDomains(domains, vhdomains, altHosts, knownFQDN)
 		if dl != len(domains) {
+			var msg string
+			if svc == nil {
+				msg = fmt.Sprintf("duplicate domain from virtual service: %s", name)
+			} else {
+				msg = fmt.Sprintf("duplicate domain from service: %s", name)
+			}
 			// This means this virtual host has caused duplicate virtual host domain.
-			push.AddMetric(model.DuplicatedDomains, name, node.ID, fmt.Sprintf("duplicate domain from virtual service: %s", name))
+			push.AddMetric(model.DuplicatedDomains, name, node.ID, msg)
 		}
 		if len(domains) > 0 {
 			return &route.VirtualHost{
