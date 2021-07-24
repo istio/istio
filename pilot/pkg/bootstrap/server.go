@@ -566,6 +566,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			for _, cs := range meshConfig.ConfigSources {
 				if cs.Address == string(Kubernetes)+"://" {
 					hasK8SConfigStore = true
+					break
 				}
 			}
 		} else if args.RegistryOptions.KubeConfig != "" {
@@ -660,7 +661,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	} else {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multiplexing gRPC on http port ", args.ServerOptions.HTTPAddr)
+		log.Info("multiplexing gRPC on http addr ", args.ServerOptions.HTTPAddr)
 		s.MultiplexGRPC = true
 	}
 }
