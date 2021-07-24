@@ -206,13 +206,18 @@ func TestIngress(t *testing.T) {
 				ingressutil.DeleteKubeSecret(t, []string{credName2})
 			})
 
-			ingressClassConfig := `
-apiVersion: networking.k8s.io/v1beta1
+			apiVersion := "v1beta1"
+			if t.Clusters().Default().MinKubeVersion(19) {
+				apiVersion = "v1"
+			}
+
+			ingressClassConfig := fmt.Sprintf(`
+apiVersion: networking.k8s.io/%s
 kind: IngressClass
 metadata:
   name: istio-test
 spec:
-  controller: istio.io/ingress-controller`
+  controller: istio.io/ingress-controller`, apiVersion)
 
 			ingressConfigTemplate := `
 apiVersion: networking.k8s.io/v1beta1
@@ -237,6 +242,38 @@ spec:
             backend:
               serviceName: b
               servicePort: 80`
+			if apiVersion == "v1" {
+				ingressConfigTemplate = `
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: %s
+spec:
+  ingressClassName: %s
+  tls:
+  - hosts: ["foo.example.com"]
+    secretName: k8s-ingress-secret-foo
+  - hosts: ["bar.example.com"]
+    secretName: k8s-ingress-secret-bar
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: b
+            port:
+              name: http
+        path: %s/namedport
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: b
+            port:
+              number: 80
+        path: %s
+        pathType: ImplementationSpecific
+`
+			}
 
 			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
 				fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
@@ -323,7 +360,24 @@ spec:
 				host, _ := apps.Ingress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
-					ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+					if apiVersion == "v1beta1" {
+						ing, err := t.Clusters().Default().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
+						if err != nil {
+							return err
+						}
+						if len(ing.Status.LoadBalancer.Ingress) < 1 {
+							return fmt.Errorf("unexpected ingress status, ingress is empty")
+						}
+						got := ing.Status.LoadBalancer.Ingress[0].Hostname
+						if hostIsIP {
+							got = ing.Status.LoadBalancer.Ingress[0].IP
+						}
+						if got != host {
+							return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
+						}
+						return nil
+					}
+					ing, err := t.Clusters().Default().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}

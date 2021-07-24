@@ -195,4 +195,8 @@ func skipIfK8sVersionUnsupported(t framework.TestContext) {
 	if !t.Clusters().Default().MinKubeVersion(16) {
 		t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.16")
 	}
+	// Kubernetes 1.22 drops support for a number of legacy resources, so we cannot install the old versions
+	if !t.Clusters().Default().MaxKubeVersion(21) {
+		t.Skipf("k8s version not supported for %s (>%s)", t.Name(), "1.21")
+	}
 }
