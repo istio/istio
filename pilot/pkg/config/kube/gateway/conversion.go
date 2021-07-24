@@ -231,7 +231,7 @@ func convertResources(r *KubernetesResources) OutputResources {
 	return result
 }
 
-// Unique key to identify a route
+// RouteKey is unique key to identify a route
 type RouteKey struct {
 	Gvk       config.GroupVersionKind
 	Name      string
@@ -501,6 +501,9 @@ func buildTCPVirtualService(obj config.Config, gateways []gatewayReference, doma
 		route, err := buildTCPDestination(r.ForwardTo, obj.Namespace, domain)
 		if err != nil {
 			reportError(err)
+			return nil
+		}
+		if len(route) == 0 {
 			return nil
 		}
 		ir := &istio.TCPRoute{

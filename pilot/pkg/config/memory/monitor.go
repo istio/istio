@@ -55,7 +55,7 @@ func NewMonitor(store model.ConfigStore) Monitor {
 	return newBufferedMonitor(store, BufferSize, false)
 }
 
-// NewMonitor returns new Monitor implementation which will process events synchronously
+// NewSyncMonitor returns new Monitor implementation which will process events synchronously
 func NewSyncMonitor(store model.ConfigStore) Monitor {
 	return newBufferedMonitor(store, BufferSize, true)
 }

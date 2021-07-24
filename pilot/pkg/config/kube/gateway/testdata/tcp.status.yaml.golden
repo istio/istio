@@ -80,3 +80,12 @@ status:
       name: gateway
       namespace: istio-system
 ---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TCPRoute
+metadata:
+  creationTimestamp: null
+  namespace: default
+spec: null
+status:
+  gateways: null
+---

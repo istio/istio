@@ -59,7 +59,7 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 	return nil
 }
 
-// Memory implementation is always synchronized with cache
+// HasSynced always returns true, memory implementation is always synchronized with cache
 func (c *controller) HasSynced() bool {
 	return true
 }

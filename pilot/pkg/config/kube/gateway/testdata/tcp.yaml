@@ -37,3 +37,6 @@ spec:
   - forwardTo:
     - serviceName: httpbin
       port: 9090
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TCPRoute

@@ -96,7 +96,7 @@ var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
-// Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
+// V1Available checks if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
 func V1Available(client kube.Client) bool {
 	// check kubernetes version to use new ingress package or not
 	version119, _ := version.ParseGeneric("v1.19.0")
@@ -115,7 +115,7 @@ func V1Available(client kube.Client) bool {
 	return runningVersion.AtLeast(version119)
 }
 
-// Check if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
+// NetworkingIngressAvailable checks if the "networking" group Ingress is available. Implementation borrowed from ingress-nginx
 func NetworkingIngressAvailable(client kube.Client) bool {
 	// check kubernetes version to use new ingress package or not
 	version118, _ := version.ParseGeneric("v1.18.0")
