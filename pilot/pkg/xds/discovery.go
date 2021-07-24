@@ -407,8 +407,8 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
 			if req != nil {
 				pushCounter++
-				log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-					pushCounter, debouncedEvents,
+				log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
+					pushCounter, debouncedEvents, configsUpdated(req),
 					quietTime, eventDelay, req.Full)
 
 				free = false
@@ -453,6 +453,18 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			return
 		}
 	}
+}
+
+func configsUpdated(req *model.PushRequest) string {
+	configs := ""
+	for key := range req.ConfigsUpdated {
+		configs += key.String()
+		break
+	}
+	if len(req.ConfigsUpdated) > 1 {
+		configs += " ..."
+	}
+	return configs
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
