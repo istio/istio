@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -586,11 +587,29 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 // sidecarScope object. Selection is based on labels at the moment.
 func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
-	vsMap := map[string]struct{}{}
+
+	vsset := sets.NewSet()
+	addVirtualService := func(vs config.Config, hosts host.Names) {
+		vsname := vs.Name
+		rule := vs.Spec.(*networking.VirtualService)
+		for _, ih := range hosts {
+			// Check if the hostnames match per usual hostname matching rules
+			if vsset.Contains(vsname) {
+				break
+			}
+			for _, h := range rule.Hosts {
+				// VirtualServices can have many hosts, so we need to avoid appending
+				// duplicated virtualservices to slice importedVirtualServices
+				if ih.Matches(host.Name(h)) {
+					importedVirtualServices = append(importedVirtualServices, vs)
+					vsset.Insert(vsname)
+					break
+				}
+			}
+		}
+	}
 	for _, c := range virtualServices {
 		configNamespace := c.Namespace
-		vsName := c.Name
-		rule := c.Spec.(*networking.VirtualService)
 
 		// Selection algorithm:
 		// virtualservices have a list of hosts in the API spec
@@ -603,40 +622,12 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
-					break
-				}
-				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts, so we need to avoid appending
-					// duplicated virtualservices to slice importedVirtualServices
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
-						break
-					}
-				}
-			}
+			addVirtualService(c, importedHosts)
 		}
 
 		// Check if there is an import of form */host or */*
 		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
-					break
-				}
-				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts, so we need to avoid appending
-					// duplicated virtualservices to slice importedVirtualServices
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
-						break
-					}
-				}
-			}
+			addVirtualService(c, importedHosts)
 		}
 	}
 
