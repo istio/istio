@@ -22,18 +22,42 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/tests/integration/istiodremote"
+	"istio.io/istio/tests/integration/multicluster"
 )
 
-var ist istio.Instance
+var (
+	ist    istio.Instance
+	appCtx multicluster.AppContext
+)
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.Multicluster).
-		RequireMinClusters(2).
+		RequireMinClusters(3).
+		Setup(multicluster.Setup(&appCtx)).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			// Set the control plane values on the config.
+			cfg.RemoteClusterValues = `
+components:
+  base:
+    enabled: false
+  pilot:
+    enabled: false
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: false
+  istiodRemote:
+    enabled: true
+values:
+  global:
+    externalIstiod: true
+  istiodRemote:
+    injectionPath: /inject/cluster/remote/net/network-2
+`
 			cfg.ConfigClusterValues = `
 components:
   base:
@@ -54,7 +78,8 @@ values:
     omitSidecarInjectorConfigMap: true
     configCluster: true
   pilot:
-    configMap: true`
+    configMap: true
+`
 			cfg.ControlPlaneValues = `
 components:
   base:
@@ -109,9 +134,10 @@ values:
     enableCRDTemplates: true
 `
 		})).
+		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
 }
 
-func TestIngressGateway(t *testing.T) {
-	istiodremote.GatewayTest(t, "installation.istiodremote")
+func TestMulticlusterReachability(t *testing.T) {
+	multicluster.ReachabilityTest(t, appCtx, "installation.istiodremote.multicluster")
 }
