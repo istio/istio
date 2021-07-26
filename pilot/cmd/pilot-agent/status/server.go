@@ -93,8 +93,9 @@ type KubeAppProbers map[string]*Prober
 
 // Prober represents a single container prober
 type Prober struct {
-	HTTPGet        *apimirror.HTTPGetAction `json:"httpGet"`
-	TimeoutSeconds int32                    `json:"timeoutSeconds,omitempty"`
+	HTTPGet        *apimirror.HTTPGetAction   `json:"httpGet,omitempty"`
+	TCPSocket      *apimirror.TCPSocketAction `json:"tcpSocket,omitempty"`
+	TimeoutSeconds int32                      `json:"timeoutSeconds,omitempty"`
 }
 
 // Options for the status server.
@@ -128,6 +129,7 @@ type Server struct {
 	lastProbeSuccessful   bool
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
+	upstreamLocalAddress  *net.TCPAddr
 }
 
 func init() {
@@ -148,8 +150,10 @@ func init() {
 // NewServer creates a new status server.
 func NewServer(config Options) (*Server, error) {
 	localhost := localHostIPv4
+	upstreamLocalAddress := UpstreamLocalAddressIPv4
 	if config.IPv6 {
 		localhost = localHostIPv6
+		upstreamLocalAddress = UpstreamLocalAddressIPv6
 	}
 	probes := make([]ready.Prober, 0)
 	if !config.NoEnvoy {
@@ -169,9 +173,10 @@ func NewServer(config Options) (*Server, error) {
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
-		appProbersDestination: config.PodIP,
+		appProbersDestination: wrapIPv6(config.PodIP),
 		envoyStatsPort:        config.EnvoyPrometheusPort,
 		fetchDNS:              config.FetchDNS,
+		upstreamLocalAddress:  upstreamLocalAddress,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -212,35 +217,47 @@ func NewServer(config Options) (*Server, error) {
 	s.appProbeClient = make(map[string]*http.Client, len(s.appKubeProbers))
 	// Validate the map key matching the regex pattern.
 	for path, prober := range s.appKubeProbers {
-		if !appProberPattern.Match([]byte(path)) {
-			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern %v`, appProberPattern)
+		err := validateAppKubeProber(path, prober)
+		if err != nil {
+			return nil, err
 		}
-		if prober.HTTPGet == nil {
-			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
-		}
-		if prober.HTTPGet.Port.Type != intstr.Int {
-			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
-		}
-		localAddr := UpstreamLocalAddressIPv4
-		if config.IPv6 {
-			localAddr = UpstreamLocalAddressIPv6
-		}
-		d := &net.Dialer{
-			LocalAddr: localAddr,
-		}
-		// Construct a http client and cache it in order to reuse the connection.
-		s.appProbeClient[path] = &http.Client{
-			Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
-			// We skip the verification since kubelet skips the verification for HTTPS prober as well
-			// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-				DialContext:     d.DialContext,
-			},
+		if prober.HTTPGet != nil {
+			d := &net.Dialer{
+				LocalAddr: s.upstreamLocalAddress,
+			}
+			// Construct a http client and cache it in order to reuse the connection.
+			s.appProbeClient[path] = &http.Client{
+				Timeout: time.Duration(prober.TimeoutSeconds) * time.Second,
+				// We skip the verification since kubelet skips the verification for HTTPS prober as well
+				// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+					DialContext:     d.DialContext,
+				},
+			}
 		}
 	}
 
 	return s, nil
+}
+
+func validateAppKubeProber(path string, prober *Prober) error {
+	if !appProberPattern.Match([]byte(path)) {
+		return fmt.Errorf(`invalid path, must be in form of regex pattern %v`, appProberPattern)
+	}
+	if prober.HTTPGet == nil && prober.TCPSocket == nil {
+		return fmt.Errorf(`invalid prober type, must be of type httpGet or tcpSocket`)
+	}
+	if prober.HTTPGet != nil && prober.TCPSocket != nil {
+		return fmt.Errorf(`invalid prober, type must be either httpGet or tcpSocket`)
+	}
+	if prober.HTTPGet != nil && prober.HTTPGet.Port.Type != intstr.Int {
+		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
+	}
+	if prober.TCPSocket != nil && prober.TCPSocket.Port.Type != intstr.Int {
+		return fmt.Errorf("invalid prober config for %v, the port must be int type", path)
+	}
+	return nil
 }
 
 // FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
@@ -568,6 +585,15 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if prober.HTTPGet != nil {
+		s.handleAppProbeHTTPGet(w, req, prober, path)
+	}
+	if prober.TCPSocket != nil {
+		s.handleAppProbeTCPSocket(w, prober)
+	}
+}
+
+func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request, prober *Prober, path string) {
 	proberPath := prober.HTTPGet.Path
 	if !strings.HasPrefix(proberPath, "/") {
 		proberPath = "/" + proberPath
@@ -628,6 +654,24 @@ func (s *Server) handleAppProbe(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(response.StatusCode)
 }
 
+func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
+	port := prober.TCPSocket.Port.IntValue()
+	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
+
+	d := &net.Dialer{
+		LocalAddr: s.upstreamLocalAddress,
+		Timeout:   timeout,
+	}
+
+	conn, err := d.Dial("tcp", fmt.Sprintf("%s:%d", s.appProbersDestination, port))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		conn.Close()
+	}
+}
+
 func (s *Server) handleNdsz(w http.ResponseWriter, r *http.Request) {
 	if !isRequestFromLocalhost(r) {
 		http.Error(w, "Only requests from localhost are allowed", http.StatusForbidden)
@@ -668,4 +712,16 @@ func notifyExit() {
 	if err := p.Signal(syscall.SIGTERM); err != nil {
 		log.Errorf("failed to send SIGTERM to self: %v", err)
 	}
+}
+
+// wrapIPv6 wraps the ip into "[]" in case of ipv6
+func wrapIPv6(ipAddr string) string {
+	addr := net.ParseIP(ipAddr)
+	if addr == nil {
+		return ipAddr
+	}
+	if addr.To4() != nil {
+		return ipAddr
+	}
+	return fmt.Sprintf("[%s]", ipAddr)
 }

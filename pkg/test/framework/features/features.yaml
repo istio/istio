@@ -66,6 +66,7 @@ features:
       remote-clusters:
       analysis:
         line-numbers:
+      tcp-probe:
     helpers:
       add-to-mesh:
       remove-from-mesh:

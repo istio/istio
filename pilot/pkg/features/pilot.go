@@ -518,6 +518,12 @@ var (
 		false,
 		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
+
+	RewriteTCPProbes = env.RegisterBoolVar(
+		"REWRITE_TCP_PROBES",
+		true,
+		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

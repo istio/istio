@@ -26,6 +26,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/log"
 )
 
@@ -61,9 +62,17 @@ func FindContainer(name string, containers []corev1.Container) *corev1.Container
 
 // convertAppProber returns an overwritten `Probe` for pilot agent to take over.
 func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
-	if probe == nil || probe.HTTPGet == nil {
-		return nil
+	if probe != nil && probe.HTTPGet != nil {
+		return convertAppProberHTTPGet(probe, newURL, statusPort)
+	} else if probe != nil && probe.TCPSocket != nil && features.RewriteTCPProbes {
+		return convertAppProberTCPSocket(probe, newURL, statusPort)
 	}
+
+	return nil
+}
+
+// convertAppProberHTTPGet returns an overwritten `Probe` (HttpGet) for pilot agent to take over.
+func convertAppProberHTTPGet(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
 	p := probe.DeepCopy()
 	// Change the application container prober config.
 	p.HTTPGet.Port = intstr.FromInt(statusPort)
@@ -77,12 +86,25 @@ func convertAppProber(probe *corev1.Probe, newURL string, statusPort int) *corev
 	return p
 }
 
+// convertAppProberTCPSocket returns an overwritten `Probe` (TcpSocket) for pilot agent to take over.
+func convertAppProberTCPSocket(probe *corev1.Probe, newURL string, statusPort int) *corev1.Probe {
+	p := probe.DeepCopy()
+	// the sidecar intercepts all tcp connections, so we change it to a HTTP probe and the sidecar will check tcp
+	p.HTTPGet = &corev1.HTTPGetAction{}
+	p.HTTPGet.Port = intstr.FromInt(statusPort)
+	p.HTTPGet.Path = newURL
+
+	p.TCPSocket = nil
+	return p
+}
+
 type KubeAppProbers map[string]*Prober
 
 // Prober represents a single container prober
 type Prober struct {
-	HTTPGet        *corev1.HTTPGetAction `json:"httpGet"`
-	TimeoutSeconds int32                 `json:"timeoutSeconds,omitempty"`
+	HTTPGet        *corev1.HTTPGetAction   `json:"httpGet,omitempty"`
+	TCPSocket      *corev1.TCPSocketAction `json:"tcpSocket,omitempty"`
+	TimeoutSeconds int32                   `json:"timeoutSeconds,omitempty"`
 }
 
 // DumpAppProbers returns a json encoded string as `status.KubeAppProbers`.
@@ -90,16 +112,24 @@ type Prober struct {
 func DumpAppProbers(podspec *corev1.PodSpec, targetPort int32) string {
 	out := KubeAppProbers{}
 	updateNamedPort := func(p *Prober, portMap map[string]int32) *Prober {
-		if p == nil || p.HTTPGet == nil {
+		if p == nil || (p.HTTPGet == nil && p.TCPSocket == nil) {
 			return nil
 		}
-		if p.HTTPGet.Port.Type == intstr.String {
-			port, exists := portMap[p.HTTPGet.Port.StrVal]
+
+		var probePort *intstr.IntOrString
+		if p.HTTPGet != nil {
+			probePort = &p.HTTPGet.Port
+		} else {
+			probePort = &p.TCPSocket.Port
+		}
+
+		if probePort.Type == intstr.String {
+			port, exists := portMap[probePort.StrVal]
 			if !exists {
 				return nil
 			}
-			p.HTTPGet.Port = intstr.FromInt(int(port))
-		} else if p.HTTPGet.Port.IntVal == targetPort {
+			*probePort = intstr.FromInt(int(port))
+		} else if probePort.IntVal == targetPort {
 			// Already is rewritten
 			return nil
 		}
@@ -182,12 +212,19 @@ func kubeProbeToInternalProber(probe *corev1.Probe) *Prober {
 		return nil
 	}
 
-	if probe.HTTPGet == nil {
-		return nil
+	if probe.HTTPGet != nil {
+		return &Prober{
+			HTTPGet:        probe.HTTPGet,
+			TimeoutSeconds: probe.TimeoutSeconds,
+		}
 	}
 
-	return &Prober{
-		HTTPGet:        probe.HTTPGet,
-		TimeoutSeconds: probe.TimeoutSeconds,
+	if probe.TCPSocket != nil && features.RewriteTCPProbes {
+		return &Prober{
+			TCPSocket:      probe.TCPSocket,
+			TimeoutSeconds: probe.TimeoutSeconds,
+		}
 	}
+
+	return nil
 }
