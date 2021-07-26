@@ -131,7 +131,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		len(updates.ConfigsUpdated) > 0
 	// if we can't use delta, fall back to generate all
 	if !delta {
-		cl, lg := configgen.BuildClusters(proxy, push)
+		cl, lg := configgen.BuildClusters(proxy, updates)
 		return cl, make([]string, 0), lg, false
 	}
 	clusters := make([]*cluster.Cluster, 0)
@@ -139,7 +139,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	removedClusterNames := make([]string, 0)
 	services := make([]*model.Service, 0)
 	envoyFilterPatches := push.EnvoyFilters(proxy)
-	cb := NewClusterBuilder(proxy, push, configgen.Cache)
+	cb := NewClusterBuilder(proxy, updates, configgen.Cache)
 	instances := proxy.ServiceInstances
 	for key := range updates.ConfigsUpdated {
 		// get service that changed
@@ -189,7 +189,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
-			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
+			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, updates, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
