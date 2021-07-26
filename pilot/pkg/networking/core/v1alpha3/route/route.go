@@ -88,7 +88,9 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
-	dependentDestinationRule := []*config.Config{}
+	// dependentDestinationRules includes all the destinationrules referenced by the virtualservices, which have consistent hash policy.
+	dependentDestinationRules := []*config.Config{}
+	// consistent hash policies for the http route destinations
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, virtualService := range virtualServices {
 		for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
@@ -103,7 +105,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 				hash, destinationRule := GetHashForHTTPDestination(push, node, destination, configNamespace)
 				if hash != nil {
 					hashByDestination[destination] = hash
-					dependentDestinationRule = append(dependentDestinationRule, destinationRule)
+					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
 			}
 		}
@@ -132,14 +134,14 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 						hashByService[svc.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
 					}
 					hashByService[svc.Hostname][port.Port] = hash
-					dependentDestinationRule = append(dependentDestinationRule, destinationRule)
+					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
 			}
 		}
 	}
 
 	if routeCache != nil {
-		routeCache.DestinationRules = dependentDestinationRule
+		routeCache.DestinationRules = dependentDestinationRules
 	}
 
 	// append default hosts for the service missing virtual Services

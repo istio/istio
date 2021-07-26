@@ -15,9 +15,11 @@
 package route
 
 import (
-	"strings"
+	"crypto/md5"
+	"encoding/hex"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -91,5 +93,11 @@ func (r *Cache) Key() string {
 	for _, dr := range r.DestinationRules {
 		params = append(params, dr.Name+"/"+dr.Namespace)
 	}
-	return "rds://" + strings.Join(params, "~")
+
+	hash := md5.New()
+	for _, param := range params {
+		hash.Write([]byte(param))
+	}
+	sum := hash.Sum(nil)
+	return hex.EncodeToString(sum)
 }
