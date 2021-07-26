@@ -883,6 +883,13 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(prev config.Config, curr config.Config, event model.Event) {
+			defer func() {
+				if event != model.EventDelete {
+					s.statusReporter.AddInProgressResource(curr)
+				} else {
+					s.statusReporter.DeleteInProgressResource(curr)
+				}
+			}()
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {
 				log.Debugf("skipping push for %s as spec has not changed", prev.Key())
@@ -898,11 +905,6 @@ func (s *Server) initRegistryEventHandlers() {
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
 			s.XDSServer.ConfigUpdate(pushReq)
-			if event != model.EventDelete {
-				s.statusReporter.AddInProgressResource(curr)
-			} else {
-				s.statusReporter.DeleteInProgressResource(curr)
-			}
 		}
 		schemas := collections.Pilot.All()
 		if features.EnableServiceApis {
