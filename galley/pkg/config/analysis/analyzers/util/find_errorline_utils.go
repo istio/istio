@@ -100,7 +100,7 @@ const (
 
 	// Path for DestinationRule port-level tls certificate.
 	// Required parameters: portLevelSettings index.
-	DestinationRuleTLSPortLevelCert = "{.spec.trafficPolicy.portLevelSettings[%d].tls.caCertificates"
+	DestinationRuleTLSPortLevelCert = "{.spec.trafficPolicy.portLevelSettings[%d].tls.caCertificates}"
 )
 
 // ErrorLine returns the line number of the input path key in the resource
