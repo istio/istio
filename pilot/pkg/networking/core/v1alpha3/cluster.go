@@ -138,14 +138,15 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	clusterKey := &clusterCache{
 		clusterName:     clusterName,
-		service:         service,
-		networkView:     cb.proxy.GetNetworkView(),
-		pushVersion:     cb.req.Push.PushVersion,
-		destinationRule: cb.req.Push.DestinationRule(cb.proxy, service),
 		locality:        cb.proxy.Locality,
+		proxyClusterID:  string(cb.proxy.Metadata.ClusterID),
 		proxySidecar:    cb.proxy.Type == model.SidecarProxy,
+		networkView:     cb.proxy.GetNetworkView(),
 		http2:           port.Protocol.IsHTTP2(),
 		downstreamAuto:  cb.proxy.Type == model.SidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		service:         service,
+		destinationRule: cb.req.Push.DestinationRule(cb.proxy, service),
+		pushVersion:     cb.req.Push.PushVersion,
 	}
 	return clusterKey
 }

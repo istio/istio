@@ -318,24 +318,34 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 }
 
 type clusterCache struct {
-	clusterName     string
-	destinationRule *config.Config
+	clusterName string
+
+	// proxy metadata
+	//
 	// locality identifies the locality the cluster is generated for
 	locality *core.Locality
 	// proxyClusterID identifies the cluster a proxy is in. Note cluster here refers to Kubernetes cluster, not Envoy cluster
 	proxyClusterID string
 	// proxySidecar identifies if this proxy is a Sidecar
 	proxySidecar bool
-	// http2 identifies if thi cluster is for an http2 service
+	networkView  map[network.ID]bool
+
+	// service attributes
+	//
+	// http2 identifies if the cluster is for an http2 service
 	http2          bool
 	downstreamAuto bool
+
+	// Dependent configs
+	//
+	service         *model.Service
+	destinationRule *config.Config
+
 	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
 	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
 	// Hypothetically we could get smarter and determine the exact set of all configs we use and their versions,
 	// which we probably will need for proper delta XDS, but for now this is sufficient.
 	pushVersion string
-	service     *model.Service
-	networkView map[network.ID]bool
 }
 
 func (t *clusterCache) Key() string {
