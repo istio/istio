@@ -21,9 +21,7 @@ import (
 	"time"
 
 	capi "k8s.io/api/certificates/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,12 +33,11 @@ import (
 // CertificateSigningRequestSigningReconciler reconciles a CertificateSigningRequest object
 type CertificateSigningRequestSigningReconciler struct {
 	client.Client
-	SignerRoot    string
-	CtrlCertTTL   time.Duration
-	Scheme        *runtime.Scheme
-	SignerNames   []string
-	Signers       map[string]*signer.Signer
-	EventRecorder record.EventRecorder
+	SignerRoot  string
+	CtrlCertTTL time.Duration
+	Scheme      *runtime.Scheme
+	SignerNames []string
+	Signers     map[string]*signer.Signer
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
@@ -71,7 +68,6 @@ func (r *CertificateSigningRequestSigningReconciler) Reconcile(_ context.Context
 		x509cr, err := util.ParsePemEncodedCSR(csr.Spec.Request)
 		if err != nil {
 			log.Infof("unable to parse csr: %v", err)
-			r.EventRecorder.Event(&csr, v1.EventTypeWarning, "SigningFailed", "Unable to parse the CSR request")
 			return ctrl.Result{}, nil
 		}
 
@@ -89,7 +85,7 @@ func (r *CertificateSigningRequestSigningReconciler) Reconcile(_ context.Context
 		if err := r.Client.Status().Patch(context.TODO(), &csr, patch); err != nil {
 			return ctrl.Result{}, fmt.Errorf("error patching CSR: %v", err)
 		}
-		r.EventRecorder.Event(&csr, v1.EventTypeNormal, "Signed", "The CSR has been signed")
+		log.Infof("The CSR [%s] has been signed", csr.Spec.SignerName)
 	}
 	return ctrl.Result{}, nil
 }

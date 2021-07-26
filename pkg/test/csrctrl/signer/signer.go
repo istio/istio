@@ -16,6 +16,7 @@
 package signer
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -58,10 +59,21 @@ func (s *Signer) Sign(x509cr *x509.CertificateRequest, usages []capi.KeyUsage) (
 		return nil, err
 	}
 
-	rootCerts, err := util.AppendRootCerts(der, s.caProvider.caLoader.CertFile)
+	_, err = x509.ParseCertificate(der)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding DER certificate bytes: %s", err.Error())
+	}
+
+	pemBytes := bytes.NewBuffer([]byte{})
+	err = pem.Encode(pemBytes, &pem.Block{Type: "CERTIFICATE", Bytes: der})
+	if err != nil {
+		return nil, fmt.Errorf("error encoding certificate PEM: %s", err.Error())
+	}
+
+	rootCerts, err := util.AppendRootCerts(pemBytes.Bytes(), s.caProvider.caLoader.CertFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 	}
 
-	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCerts}), nil
+	return rootCerts, nil
 }
