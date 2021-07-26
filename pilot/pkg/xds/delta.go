@@ -412,7 +412,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if gen == nil {
 		return nil
 	}
-	log.Infof("TYPE TYPE TYPE: %v", w.TypeUrl)
 	t0 := time.Now()
 
 	res, deletedRes, logdata, usedDelta, err := gen.GenerateDeltas(con.proxy, push, req, w)
