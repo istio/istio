@@ -183,9 +183,9 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 }
 
 func (s *SecretGen) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	res, logs, err := s.Generate(proxy, push, w, updates)
-	return res, nil, logs, false, err
+	return res, nil, logs, err
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {

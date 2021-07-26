@@ -78,10 +78,11 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 
 // GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, error) {
 	if !cdsNeedsPush(updates, proxy) {
-		return nil, nil, model.DefaultXdsLogDetails, false, nil
+		return nil, nil, model.DefaultXdsLogDetails, nil
 	}
-	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, push, updates, w)
-	return updatedClusters, removedClusters, logs, usedDelta, nil
+	updatedClusters, removedClusters, logs := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, push, updates, w)
+	log.Infof("UPDATED: %v REMOVED %v", updatedClusters, removedClusters)
+	return updatedClusters, removedClusters, logs, nil
 }
