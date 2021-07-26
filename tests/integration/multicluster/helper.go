@@ -88,15 +88,17 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 
 		builder := echoboot.NewBuilder(ctx)
 		for _, cluster := range ctx.Clusters() {
-			echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
-			echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
+			if !cluster.IsExternalControlPlane() {
+				echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
+				echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
 
-			builder = builder.
-				WithConfig(echoLbCfg).
-				WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
-			for i := 0; i < uniqSvcPerCluster; i++ {
-				svcName := fmt.Sprintf("echo-%s-%d", cluster.StableName(), i)
-				builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
+				builder = builder.
+					WithConfig(echoLbCfg).
+					WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
+				for i := 0; i < uniqSvcPerCluster; i++ {
+					svcName := fmt.Sprintf("echo-%s-%d", cluster.StableName(), i)
+					builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
+				}
 			}
 		}
 		echos, err := builder.Build()

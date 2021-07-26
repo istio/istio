@@ -115,6 +115,10 @@ func (c Topology) IsRemote() bool {
 	return !c.IsPrimary()
 }
 
+func (c Topology) IsExternalControlPlane() bool {
+	return c.IsPrimary() && !c.IsConfig()
+}
+
 func (c Topology) Primary() Cluster {
 	cluster, ok := c.AllClusters[c.PrimaryClusterName]
 	if !ok || cluster == nil {

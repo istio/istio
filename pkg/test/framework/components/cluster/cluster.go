@@ -184,6 +184,10 @@ type Cluster interface {
 	// residing in another cluster.
 	IsRemote() bool
 
+	// IsExternalControlPlane returns true if this is a cluster containing an instance
+	// of the Istio control plane but with its source of config in another cluster.
+	IsExternalControlPlane() bool
+
 	// Primary returns the primary cluster for this cluster. Will return itself if
 	// IsPrimary.
 	Primary() Cluster
