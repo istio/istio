@@ -30,7 +30,7 @@ func TestNeedsPush(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "differnt gvk",
+			name: "different gvk",
 			prev: config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.VirtualService,
