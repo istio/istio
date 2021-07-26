@@ -298,25 +298,25 @@ type PushRequest struct {
 type TriggerReason string
 
 const (
-	// Describes a push triggered by an Endpoint change
+	// EndpointUpdate describes a push triggered by an Endpoint change
 	EndpointUpdate TriggerReason = "endpoint"
-	// Describes a push triggered by a config (generally and Istio CRD) change.
+	// ConfigUpdate describes a push triggered by a config (generally and Istio CRD) change.
 	ConfigUpdate TriggerReason = "config"
-	// Describes a push triggered by a Service change
+	// ServiceUpdate describes a push triggered by a Service change
 	ServiceUpdate TriggerReason = "service"
-	// Describes a push triggered by a change to an individual proxy (such as label change)
+	// ProxyUpdate describes a push triggered by a change to an individual proxy (such as label change)
 	ProxyUpdate TriggerReason = "proxy"
-	// Describes a push triggered by a change to global config, such as mesh config
+	// GlobalUpdate describes a push triggered by a change to global config, such as mesh config
 	GlobalUpdate TriggerReason = "global"
-	// Describes a push triggered by an unknown reason
+	// UnknownTrigger describes a push triggered by an unknown reason
 	UnknownTrigger TriggerReason = "unknown"
-	// Describes a push triggered for debugging
+	// DebugTrigger describes a push triggered for debugging
 	DebugTrigger TriggerReason = "debug"
-	// Describes a push triggered for a Secret change
+	// SecretTrigger describes a push triggered for a Secret change
 	SecretTrigger TriggerReason = "secret"
-	// Describes a push triggered for Networks change
+	// NetworksTrigger describes a push triggered for Networks change
 	NetworksTrigger TriggerReason = "networks"
-	// Desribes a push triggered based on proxy request
+	// ProxyRequest desribes a push triggered based on proxy request
 	ProxyRequest TriggerReason = "proxyrequest"
 )
 
@@ -544,7 +544,7 @@ func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][
 	}
 }
 
-// JSON implements json.Marshaller, with a lock.
+// StatusJSON implements json.Marshaller, with a lock.
 func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
@@ -1339,13 +1339,7 @@ func getGatewayNames(vs *networking.VirtualService) []string {
 		return meshGateways
 	}
 	res := make([]string, 0, len(vs.Gateways))
-	for _, g := range vs.Gateways {
-		if g == constants.IstioMeshGateway {
-			res = append(res, constants.IstioMeshGateway)
-		} else {
-			res = append(res, g)
-		}
-	}
+	res = append(res, vs.Gateways...)
 	return res
 }
 
@@ -1664,9 +1658,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		// merge EnvoyFilterWrapper
 		for _, efw := range matchedEnvoyFilters {
 			for applyTo, cps := range efw.Patches {
-				if out.Patches[applyTo] == nil {
-					out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
-				}
 				for _, cp := range cps {
 					if proxyMatch(proxy, cp) {
 						out.Patches[applyTo] = append(out.Patches[applyTo], cp)
