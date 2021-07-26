@@ -48,6 +48,9 @@ spec:
       - serviceName: httpbin-other
         port: 8080
         weight: 3
+      - serviceName: httpbin-zero
+        port: 8080
+        weight: 0
   - matches:
     - path:
         type: Prefix

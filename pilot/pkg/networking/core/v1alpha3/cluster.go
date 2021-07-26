@@ -73,11 +73,11 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *model.PushContext) ([]*discovery.Resource, model.XdsLogDetails) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
-	envoyFilterPatches := push.EnvoyFilters(proxy)
-	cb := NewClusterBuilder(proxy, push, configgen.Cache)
+	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
+	cb := NewClusterBuilder(proxy, req, configgen.Cache)
 	instances := proxy.ServiceInstances
 	cacheStats := cacheStats{}
 	switch proxy.Type {
@@ -105,7 +105,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
 		clusters = patcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster())
 		if proxy.Type == model.Router && proxy.MergedGateway != nil && proxy.MergedGateway.ContainsAutoPassthroughGateways {
-			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, push, patcher)...)
+			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
 	}
@@ -233,14 +233,15 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	clusterKey := &clusterCache{
 		clusterName:     clusterName,
-		service:         service,
-		networkView:     cb.proxy.GetNetworkView(),
-		pushVersion:     cb.push.PushVersion,
-		destinationRule: cb.push.DestinationRule(cb.proxy, service),
 		locality:        cb.proxy.Locality,
+		proxyClusterID:  string(cb.proxy.Metadata.ClusterID),
 		proxySidecar:    cb.proxy.Type == model.SidecarProxy,
+		networkView:     cb.proxy.GetNetworkView(),
 		http2:           port.Protocol.IsHTTP2(),
 		downstreamAuto:  cb.proxy.Type == model.SidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		service:         service,
+		destinationRule: cb.req.Push.DestinationRule(cb.proxy, service),
+		pushVersion:     cb.req.Push.PushVersion,
 	}
 	return clusterKey
 }
@@ -249,9 +250,9 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher) ([]*discovery.Resource, cacheStats) {
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && cb.proxy.Type == model.Router {
-		services = cb.push.GatewayServices(cb.proxy)
+		services = cb.req.Push.GatewayServices(cb.proxy)
 	} else {
-		services = cb.push.Services(cb.proxy)
+		services = cb.req.Push.Services(cb.proxy)
 	}
 	return configgen.buildOutboundClustersWithServices(cb, cp, services)
 }
@@ -265,7 +266,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClustersWithServices(cb *Clus
 				continue
 			}
 			clusterKey := buildClusterKey(service, port, cb)
-			cached, tokens, allFound := cb.getAllCachedSubsetClusters(*clusterKey)
+			cached, allFound := cb.getAllCachedSubsetClusters(*clusterKey)
 			if allFound && !features.EnableUnsafeAssertions {
 				hit += len(cached)
 				resources = append(resources, cached...)
@@ -285,8 +286,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClustersWithServices(cb *Clus
 				continue
 			}
 			// If stat name is configured, build the alternate stats name.
-			if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
+			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
+				defaultCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, service.Attributes)
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, clusterKey.networkView, clusterKey.destinationRule)
@@ -294,7 +295,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClustersWithServices(cb *Clus
 			if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
 				if features.EnableCDSCaching {
-					cb.cache.Add(clusterKey, tokens[clusterKey.clusterName], patched)
+					cb.cache.Add(clusterKey, cb.req, patched)
 				}
 			}
 			for _, ss := range subsetClusters {
@@ -303,7 +304,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClustersWithServices(cb *Clus
 					nk.clusterName = ss.Name
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
-						cb.cache.Add(&nk, tokens[ss.Name], patched)
+						cb.cache.Add(&nk, cb.req, patched)
 					}
 				}
 			}
@@ -356,14 +357,14 @@ func (p clusterPatcher) hasPatches() bool {
 // SniDnat clusters do not have any TLS setting, as they simply forward traffic to upstream
 // All SniDnat clusters are internal services in the mesh.
 // TODO enable cache - there is no blockers here, skipped to simplify the original caching implementation
-func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, push *model.PushContext,
+func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.Proxy, req *model.PushRequest,
 	cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	cb := NewClusterBuilder(proxy, push, nil)
+	cb := NewClusterBuilder(proxy, req, nil)
 
 	networkView := proxy.GetNetworkView()
 
-	for _, service := range push.Services(proxy) {
+	for _, service := range req.Push.Services(proxy) {
 		if service.MeshExternal {
 			continue
 		}
@@ -381,7 +382,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			destRule := cb.push.DestinationRule(cb.proxy, service)
+			destRule := cb.req.Push.DestinationRule(cb.proxy, service)
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)

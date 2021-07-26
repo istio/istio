@@ -529,6 +529,9 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 }
 
 func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security.SecretItem, error) {
+	var trustBundlePEM []string = []string{}
+	var rootCertPEM []byte
+
 	if sc.caClient == nil {
 		return nil, fmt.Errorf("attempted to fetch secret, but ca client is nil")
 	}
@@ -559,6 +562,9 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	numOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
 	timeBeforeCSR := time.Now()
 	certChainPEM, err := sc.caClient.CSRSign(csrPEM, int64(sc.configOptions.SecretTTL.Seconds()))
+	if err == nil {
+		trustBundlePEM, err = sc.caClient.GetRootCertBundle()
+	}
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(monitoring.CSR)).Record(csrLatency)
 	if err != nil {
@@ -579,13 +585,21 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	}
 
 	cacheLog.WithLabels("latency", time.Since(t0), "ttl", time.Until(expireTime)).Info("generated new workload certificate")
+
+	if len(trustBundlePEM) > 0 {
+		rootCertPEM = concatCerts(trustBundlePEM)
+	} else {
+		// If CA Client has no explicit mechanism to retrieve CA root, infer it from the root of the certChain
+		rootCertPEM = []byte(certChainPEM[len(certChainPEM)-1])
+	}
+
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
 		ResourceName:     resourceName,
 		CreatedTime:      time.Now(),
 		ExpireTime:       expireTime,
-		RootCert:         []byte(certChainPEM[len(certChainPEM)-1]),
+		RootCert:         rootCertPEM,
 	}, nil
 }
 

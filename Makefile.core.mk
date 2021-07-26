@@ -19,10 +19,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.11-dev
+export VERSION ?= 1.12-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.11-dev.4
+BASE_VERSION ?= 1.12-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -432,13 +432,11 @@ ${ISTIO_OUT}/release/istioctl-win.exe: depend
 	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
-${ISTIO_OUT}/release/istioctl.bash: istioctl
-	${LOCAL_OUT}/istioctl collateral --bash && \
-	mv istioctl.bash ${ISTIO_OUT}/release/istioctl.bash
+${ISTIO_OUT}/release/istioctl.bash: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion bash > ${ISTIO_OUT}/release/istioctl.bash
 
-${ISTIO_OUT}/release/_istioctl: istioctl
-	${LOCAL_OUT}/istioctl collateral --zsh && \
-	mv _istioctl ${ISTIO_OUT}/release/_istioctl
+${ISTIO_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion zsh > ${ISTIO_OUT}/release/_istioctl
 
 .PHONY: binaries-test
 binaries-test:

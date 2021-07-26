@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -81,9 +82,17 @@ func (c *CitadelClient) Close() {
 
 // CSR Sign calls Citadel to sign a CSR.
 func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+	crMetaStruct := &types.Struct{
+		Fields: map[string]*types.Value{
+			security.CertSigner: {
+				Kind: &types.Value_StringValue{StringValue: c.opts.CertSigner},
+			},
+		},
+	}
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
+		Metadata:         crMetaStruct,
 	}
 	if err := c.reconnectIfNeeded(); err != nil {
 		return nil, err
@@ -233,4 +242,9 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	citadelClientLog.Errorf("recreated connection")
 	return nil
+}
+
+// GetRootCertBundle: Citadel (Istiod) CA doesn't publish any endpoint to retrieve CA certs
+func (c *CitadelClient) GetRootCertBundle() ([]string, error) {
+	return []string{}, nil
 }

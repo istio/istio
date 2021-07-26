@@ -19,6 +19,7 @@ cni:
 
   excludeNamespaces:
     - istio-system
+    - kube-system
 
   # Custom annotations on pod level, if you need them
   podAnnotations: {}

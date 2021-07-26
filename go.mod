@@ -90,12 +90,12 @@ require (
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
-	helm.sh/helm/v3 v3.6.0
+	helm.sh/helm/v3 v3.6.1
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210713184933-b719f46511e4
-	istio.io/client-go v0.0.0-20210713195242-59adb375bae9
+	istio.io/api v0.0.0-20210723234849-325052a3e043
+	istio.io/client-go v0.0.0-20210723235801-9b31377cdd6b
 	istio.io/gogo-genproto v0.0.0-20210713185313-36d0f033bd9f
-	istio.io/pkg v0.0.0-20210713185124-c4e9ef29f747
+	istio.io/pkg v0.0.0-20210716112334-7ebec3684725
 	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.21.2
 	k8s.io/apimachinery v0.21.2

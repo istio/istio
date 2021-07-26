@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/http2"
@@ -152,6 +153,10 @@ type Server struct {
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
 
+	// certWatcher watches the certificates for changes and triggers a notification to Istiod.
+	cacertsWatcher *fsnotify.Watcher
+	dnsNames       []string
+
 	certController *chiron.WebhookController
 	CA             *ca.IstioCA
 	RA             ra.RegistrationAuthority
@@ -241,9 +246,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
-		TrustDomain:    s.environment.Mesh().TrustDomain,
-		Namespace:      args.Namespace,
-		ExternalCAType: ra.CaExternalType(externalCaType),
+		TrustDomain:      s.environment.Mesh().TrustDomain,
+		Namespace:        args.Namespace,
+		ExternalCAType:   ra.CaExternalType(externalCaType),
+		CertSignerDomain: features.CertSignerDomain,
 	}
 
 	if caOpts.ExternalCAType == ra.ExtCAK8s {
@@ -258,6 +264,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	if err := s.initControllers(args); err != nil {
 		return nil, err
 	}
+
+	s.XDSServer.InitGenerators(e, args.Namespace)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -558,6 +566,7 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			for _, cs := range meshConfig.ConfigSources {
 				if cs.Address == string(Kubernetes)+"://" {
 					hasK8SConfigStore = true
+					break
 				}
 			}
 		} else if args.RegistryOptions.KubeConfig != "" {
@@ -652,7 +661,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	} else {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		log.Info("multiplexing gRPC on http port ", args.ServerOptions.HTTPAddr)
+		log.Info("multiplexing gRPC on http addr ", args.ServerOptions.HTTPAddr)
 		s.MultiplexGRPC = true
 	}
 }
@@ -664,6 +673,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		close(s.internalStop)
 		s.fileWatcher.Close()
 
+		if s.cacertsWatcher != nil {
+			s.cacertsWatcher.Close()
+		}
 		// Stop gRPC services.  If gRPC services fail to stop in the shutdown duration,
 		// force stop them. This does not happen normally.
 		stopped := make(chan struct{})
@@ -929,6 +941,25 @@ func (s *Server) initIstiodCertLoader() error {
 func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 	// Skip all certificates
 	var err error
+
+	// Append custom hostname if there is any
+	customHost := features.IstiodServiceCustomHost
+	s.dnsNames = []string{host}
+	if customHost != "" && customHost != host {
+		log.Infof("Adding custom hostname %s", customHost)
+		s.dnsNames = append(s.dnsNames, customHost)
+	}
+
+	// The first is the recommended one, also used by Apiserver for webhooks.
+	// add a few known hostnames
+	for _, altName := range []string{"istiod", "istiod-remote", "istio-pilot"} {
+		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
+		if name == host || name == customHost {
+			continue
+		}
+		s.dnsNames = append(s.dnsNames, name)
+	}
+
 	if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
 		// Use the DNS certificate provided via args.
 		err = s.initCertificateWatches(args.ServerOptions.TLSOptions)
@@ -942,13 +973,13 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 		return nil
 	} else if s.EnableCA() && features.PilotCertProvider == constants.CertProviderIstiod {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, features.IstiodServiceCustomHost, args.Namespace)
+		err = s.initDNSCerts(host, args.Namespace)
 		if err == nil {
 			err = s.initIstiodCertLoader()
 		}
 	} else if features.PilotCertProvider == constants.CertProviderKubernetes {
 		log.Infof("initializing Istiod DNS certificates host: %s, custom host: %s", host, features.IstiodServiceCustomHost)
-		err = s.initDNSCerts(host, features.IstiodServiceCustomHost, args.Namespace)
+		err = s.initDNSCerts(host, args.Namespace)
 		if err == nil {
 			err = s.initIstiodCertLoader()
 		}

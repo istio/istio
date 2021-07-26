@@ -146,7 +146,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			log.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
 			continue
 		}
-		cachedItem, token, f := s.cache.Get(sr)
+		cachedItem, f := s.cache.Get(sr)
 		if f && !features.EnableUnsafeAssertions {
 			// If it is in the Cache, add it and continue
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
@@ -162,7 +162,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			if secret != nil {
 				res := toEnvoyCaSecret(sr.ResourceName, secret)
 				results = append(results, res)
-				s.cache.Add(sr, token, res)
+				s.cache.Add(sr, req, res)
 			} else {
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
@@ -172,7 +172,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			if key != nil && cert != nil {
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
-				s.cache.Add(sr, token, res)
+				s.cache.Add(sr, req, res)
 			} else {
 				pilotSDSCertificateErrors.Increment()
 				log.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)

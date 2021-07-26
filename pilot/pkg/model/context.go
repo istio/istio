@@ -70,7 +70,7 @@ type Environment struct {
 	// service registries.
 	mesh.NetworksWatcher
 
-	// PushContext holds informations during push generation. It is reset on config change, at the beginning
+	// PushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
@@ -199,7 +199,7 @@ type XdsLogDetails struct {
 	AdditionalInfo string
 }
 
-var DefaultXdsLogDetails XdsLogDetails = XdsLogDetails{}
+var DefaultXdsLogDetails = XdsLogDetails{}
 
 // XdsResourceGenerator creates the response for a typeURL DiscoveryRequest or DeltaDiscoveryRequest. If no generator
 // is associated with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
@@ -228,7 +228,7 @@ type Proxy struct {
 
 	// IPAddresses is the IP addresses of the proxy used to identify it and its
 	// co-located service instances. Example: "10.60.1.6". In some cases, the host
-	// where the poxy and service instances reside may have more than one IP address
+	// where the proxy and service instances reside may have more than one IP address
 	IPAddresses []string
 
 	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
@@ -670,7 +670,7 @@ func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Converts this to a protobuf structure. This should be used only for debugging - performance is bad.
+// ToStruct converts NodeMetadata to a protobuf structure. This should be used only for debugging - performance is bad.
 func (m NodeMetadata) ToStruct() *structpb.Struct {
 	j, err := json.Marshal(m)
 	if err != nil {

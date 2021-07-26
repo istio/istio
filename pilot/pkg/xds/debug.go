@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/network"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -559,7 +560,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
+	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, &model.PushRequest{Push: s.globalPushContext()})
 
 	for _, cs := range clusters {
 		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs.Resource})
@@ -672,6 +673,8 @@ func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
 
 // PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	model.LastPushMutex.Lock()
+	defer model.LastPushMutex.Unlock()
 	if model.LastPushStatus == nil {
 		return
 	}
@@ -688,19 +691,14 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[string][]*model.NetworkGateway
+	NetworkGateways       map[network.ID][]*model.NetworkGateway
 }
 
 // PushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, _ *http.Request) {
-	gateways := s.globalPushContext().NetworkManager().AllGateways()
-	byNetwork := make(map[string][]*model.NetworkGateway)
-	for _, gateway := range gateways {
-		byNetwork[string(gateway.Network)] = append(byNetwork[string(gateway.Network)], gateway)
-	}
 	push := PushContextDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
-		NetworkGateways:       byNetwork,
+		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
 	}
 
 	writeJSON(w, push)

@@ -17,6 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -252,4 +253,25 @@ func newRetryOptions(opts ...retry.Option) []retry.Option {
 	out = append(out, defaultRetryTimeout, defaultRetryDelay)
 	out = append(out, opts...)
 	return out
+}
+
+// MutatingWebhookConfigurationsExists returns true if all of the given mutating webhook configs exist.
+func MutatingWebhookConfigurationsExists(a kubernetes.Interface, names []string) bool {
+	cfgs, err := a.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), kubeApiMeta.ListOptions{})
+	if err != nil {
+		return false
+	}
+
+	if len(cfgs.Items) != len(names) {
+		return false
+	}
+
+	sort.Strings(names)
+	for _, cfg := range cfgs.Items {
+		if idx := sort.SearchStrings(names, cfg.Name); idx == len(names) {
+			return false
+		}
+	}
+
+	return true
 }

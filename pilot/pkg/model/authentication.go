@@ -84,7 +84,7 @@ type AuthenticationPolicies struct {
 
 	peerAuthentications map[string][]config.Config
 
-	// namespaceMutualTLSMode is the MutualTLSMode correspoinding to the namespace-level PeerAuthentication.
+	// namespaceMutualTLSMode is the MutualTLSMode corresponding to the namespace-level PeerAuthentication.
 	// All namespace-level policies, and only them, are added to this map. If the policy mTLS mode is set
 	// to UNSET, it will be resolved to the value set by mesh policy if exist (i.e not UNKNOWN), or MTLSPermissive
 	// otherwise.
@@ -169,7 +169,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 					policy.globalMutualTLSMode = ConvertToMutualTLSMode(mode)
 				}
 			} else {
-				// For regular namespace, just add to the intemediate map.
+				// For regular namespace, just add to the intermediate map.
 				foundNamespaceMTLS[config.Namespace] = mode
 			}
 		}
@@ -187,7 +187,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 
 	inheritedMTLSMode := policy.globalMutualTLSMode
 	if inheritedMTLSMode == MTLSUnknown {
-		// If the mesh policy is not explicitly presented, use default valude MTLSPermissive.
+		// If the mesh policy is not explicitly presented, use default value MTLSPermissive.
 		inheritedMTLSMode = MTLSPermissive
 	}
 	for ns, mtlsMode := range foundNamespaceMTLS {

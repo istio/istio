@@ -21,6 +21,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
 	"istio.io/istio/cni/pkg/config"
@@ -30,8 +31,11 @@ import (
 	"istio.io/istio/cni/pkg/monitoring"
 	"istio.io/istio/cni/pkg/repair"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/collateral"
 	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (
@@ -41,7 +45,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
-	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition",
+	Short: "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if err := log.Configure(logOptions); err != nil {
 			log.Errorf("Failed to configure log %v", err)
@@ -105,33 +109,42 @@ func init() {
 	logOptions.AttachCobraFlags(rootCmd)
 	ctrlzOptions.AttachCobraFlags(rootCmd)
 
-	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI networks are installed")
+	rootCmd.AddCommand(version.CobraCommand())
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+		Title:   "Istio CNI Plugin Installer",
+		Section: "install-cni CLI",
+		Manual:  "Istio CNI Plugin Installer",
+	}))
+
+	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI network plugins are installed")
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
-	registerStringParameter(constants.CNINetworkConfig, "", "CNI config template as a string")
+	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
-	registerStringParameter(constants.KubeconfigFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")
+	registerStringParameter(constants.KubeconfigFilename, "ZZZ-istio-cni-kubeconfig",
+		"Name of the kubeconfig file which CNI plugin will use when interacting with API server")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
-	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the pod one")
+	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
-	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
-	registerStringArrayParameter(constants.SkipCNIBinaries, []string{}, "Binaries that should not be installed")
-	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve metrics")
-	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to.")
+	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Whether to refresh existing binaries when installing CNI")
+	registerStringArrayParameter(constants.SkipCNIBinaries, []string{},
+		"Binaries that should not be installed. Currently Istio only installs one binary `istio-cni`")
+	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
+	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
 
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
-	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods")
-	registerBooleanParameter(constants.RepairLabelPods, false, "Controller will label pods")
+	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
+	registerBooleanParameter(constants.RepairLabelPods, false, "Controller will label pods when detecting pod broken by race condition")
 	registerBooleanParameter(constants.RepairRunAsDaemon, false, "Controller will run in a loop")
 	registerStringParameter(constants.RepairLabelKey, "cni.istio.io/uninitialized",
-		"The key portion of the label which will be set by the reconciler if --label-pods is true")
+		"The key portion of the label which will be set by the ace repair if label pods is true")
 	registerStringParameter(constants.RepairLabelValue, "true",
-		"The value portion of the label which will be set by the reconciler if --label-pods is true")
+		"The value portion of the label which will be set by the race repair if label pods is true")
 	registerStringParameter(constants.RepairNodeName, "", "The name of the managed node (will manage all nodes if unset)")
 	registerStringParameter(constants.RepairSidecarAnnotation, "sidecar.istio.io/status",
 		"An annotation key that indicates this pod contains an istio sidecar. All pods without this annotation will be ignored."+
@@ -150,21 +163,37 @@ func init() {
 
 func registerStringParameter(name, value, usage string) {
 	rootCmd.Flags().String(name, value, usage)
+	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
+	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
+	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
+	env.RegisterStringVar(envName, value, usage)
 	bindViper(name)
 }
 
 func registerStringArrayParameter(name string, value []string, usage string) {
 	rootCmd.Flags().StringArray(name, value, usage)
+	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
+	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
+	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
+	env.RegisterStringVar(envName, strings.Join(value, ","), usage)
 	bindViper(name)
 }
 
 func registerIntegerParameter(name string, value int, usage string) {
 	rootCmd.Flags().Int(name, value, usage)
+	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
+	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
+	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
+	env.RegisterIntVar(envName, value, usage)
 	bindViper(name)
 }
 
 func registerBooleanParameter(name string, value bool, usage string) {
+	envName := strings.Replace(strings.ToUpper(name), "-", "_", -1)
 	rootCmd.Flags().Bool(name, value, usage)
+	// Note: we do not rely on istio env package to retrieve configuration. We relies on viper.
+	// This is just to make sure the reference doc tool can generate doc with these vars as env variable at istio.io.
+	env.RegisterBoolVar(envName, value, usage)
 	bindViper(name)
 }
 

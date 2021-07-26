@@ -44,31 +44,30 @@ func TestXdsCacheToken(t *testing.T) {
 		return &discovery.Resource{Resource: &any.Any{TypeUrl: fmt.Sprint(n)}}
 	}
 	k := EndpointBuilder{clusterName: "key", service: &model.Service{Hostname: "foo.com"}}
-	work := func() {
-		_, tok, f := c.Get(k)
-		if f {
-			return
-		}
-		v := mkv(n.Load())
+	work := func(start time.Time, n int32) {
+		v := mkv(n)
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
-		c.Add(k, tok, v)
+		req := &model.PushRequest{Start: start}
+		c.Add(k, req, v)
 	}
+	// 5 round of xds push
 	for vals := 0; vals < 5; vals++ {
+		c.ClearAll()
+		n.Inc()
+		start := time.Now()
 		for i := 0; i < 5; i++ {
-			go work()
+			go work(start, n.Load())
 		}
 		retry.UntilOrFail(t, func() bool {
-			val, _, f := c.Get(k)
-			return f && val.Resource.TypeUrl == fmt.Sprint(n)
+			val, f := c.Get(k)
+			return f && val.Resource.TypeUrl == fmt.Sprint(n.Load())
 		})
-		n.Inc()
-		c.ClearAll()
 		for i := 0; i < 5; i++ {
-			val, _, f := c.Get(k)
-			if f {
-				t.Log("found unexpected write", val.Resource.TypeUrl)
+			val, f := c.Get(k)
+			if !f {
+				t.Fatalf("no cache found")
 			}
-			if f && val.Resource.TypeUrl != fmt.Sprint(n) {
+			if f && val.Resource.TypeUrl != fmt.Sprint(n.Load()) {
 				t.Fatalf("got bad write: %v", val.Resource.TypeUrl)
 			}
 			time.Sleep(time.Millisecond * time.Duration(rand.Intn(20)))
@@ -85,135 +84,167 @@ func TestXdsCache(t *testing.T) {
 		clusterName: "outbound|2||foo.com",
 		service:     &model.Service{Hostname: "foo.com"},
 	}
-	addWithToken := func(c model.XdsCache, entry model.XdsCacheEntry, value *discovery.Resource) {
-		_, tok, _ := c.Get(entry)
-		c.Add(entry, tok, value)
-	}
 	t.Run("simple", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-
-		addWithToken(c, ep1, any1)
+		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
 		if !reflect.DeepEqual(c.Keys(), []string{ep1.Key()}) {
 			t.Fatalf("unexpected keys: %v, want %v", c.Keys(), ep1.Key())
 		}
-		if got, _, _ := c.Get(ep1); got != any1 {
+		if got, _ := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
-
-		addWithToken(c, ep1, any2)
-		if got, _, _ := c.Get(ep1); got != any2 {
+		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any2)
+		if got, _ := c.Get(ep1); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "foo.com"}: {}})
-		if _, _, f := c.Get(ep1); f {
+		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
 
 	t.Run("multiple hostnames", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-		addWithToken(c, ep1, any1)
-		addWithToken(c, ep2, any2)
+		start := time.Now()
+		c.Add(ep1, &model.PushRequest{Start: start}, any1)
+		c.Add(ep2, &model.PushRequest{Start: start}, any2)
 
-		if got, _, _ := c.Get(ep1); got != any1 {
+		if got, _ := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
-		if got, _, _ := c.Get(ep2); got != any2 {
+		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "foo.com"}: {}})
-		if _, _, f := c.Get(ep1); f {
+		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, _, f := c.Get(ep2); f {
+		if _, f := c.Get(ep2); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
 
 	t.Run("multiple destinationRules", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
+
 		ep1 := ep1
 		ep1.destinationRule = &config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}
 		ep2 := ep2
 		ep2.destinationRule = &config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}
-		addWithToken(c, ep1, any1)
-		addWithToken(c, ep2, any2)
-		if got, _, _ := c.Get(ep1); got != any1 {
+		start := time.Now()
+		c.Add(ep1, &model.PushRequest{Start: start}, any1)
+		c.Add(ep2, &model.PushRequest{Start: start}, any2)
+		if got, _ := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
-		if got, _, _ := c.Get(ep2); got != any2 {
+		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "a", Namespace: "b"}: {}})
-		if _, _, f := c.Get(ep1); f {
+		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if got, _, _ := c.Get(ep2); got != any2 {
+		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "b", Namespace: "b"}: {}})
-		if _, _, f := c.Get(ep1); f {
+		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, _, f := c.Get(ep2); f {
+		if _, f := c.Get(ep2); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
 
 	t.Run("clear all", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-		addWithToken(c, ep1, any1)
-		addWithToken(c, ep2, any2)
+		start := time.Now()
+		c.Add(ep1, &model.PushRequest{Start: start}, any1)
+		c.Add(ep2, &model.PushRequest{Start: start}, any2)
 
 		c.ClearAll()
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}
-		if _, _, f := c.Get(ep1); f {
+		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, _, f := c.Get(ep2); f {
+		if _, f := c.Get(ep2); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
 
 	t.Run("dependent type clears all", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-		addWithToken(c, ep1, any1)
-		addWithToken(c, ep2, any2)
+		start := time.Now()
+		c.Add(ep1, &model.PushRequest{Start: start}, any1)
+		c.Add(ep2, &model.PushRequest{Start: start}, any2)
 
 		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.PeerAuthentication}: {}})
 		if len(c.Keys()) != 0 {
 			t.Fatalf("expected no keys, got: %v", c.Keys())
 		}
-		if _, _, f := c.Get(ep1); f {
+		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
-		if _, _, f := c.Get(ep2); f {
+		if _, f := c.Get(ep2); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
 
-	t.Run("write without token", func(t *testing.T) {
+	t.Run("write without token does nothing", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-		c.Add(ep1, 0, any1)
-		if len(c.Keys()) != 0 {
-			t.Fatalf("expected no keys, got: %v", c.Keys())
+		c.Add(ep1, &model.PushRequest{}, any1)
+		if got, f := c.Get(ep1); f {
+			t.Fatalf("unexpected result: %v, want none", got)
 		}
 	})
 
 	t.Run("write with evicted token", func(t *testing.T) {
 		c := model.NewLenientXdsCache()
-		addWithToken(c, ep1, any1)
+		t1 := time.Now()
+		t2 := t1.Add(1 * time.Nanosecond)
+		c.Add(ep1, &model.PushRequest{Start: t2}, any1)
+		c.Add(ep1, &model.PushRequest{Start: t1}, any2)
 		if len(c.Keys()) != 1 {
 			t.Fatalf("expected 1 keys, got: %v", c.Keys())
 		}
-		_, tok, _ := c.Get(ep1)
+		if got, _ := c.Get(ep1); got != any1 {
+			t.Fatalf("unexpected result: %v, want %v", got, any1)
+		}
+	})
+
+	t.Run("write with expired token", func(t *testing.T) {
+		c := model.NewLenientXdsCache()
+		t1 := time.Now()
+		t2 := t1.Add(-1 * time.Nanosecond)
+
+		c.Add(ep1, &model.PushRequest{Start: t1}, any1)
 		c.ClearAll()
-		c.Add(ep1, tok, any1)
-		if len(c.Keys()) != 0 {
-			t.Fatalf("expected no keys, got: %v", c.Keys())
+		// prevented, this is stale token
+		c.Add(ep1, &model.PushRequest{Start: t2}, any2)
+		if got, _ := c.Get(ep1); got != nil {
+			t.Fatalf("expected no cache, but got %v", got)
+		}
+	})
+
+	t.Run("disallow write with stale token after clear", func(t *testing.T) {
+		c := model.NewLenientXdsCache()
+		t1 := time.Now()
+
+		c.Add(ep1, &model.PushRequest{Start: t1}, any1)
+		c.ClearAll()
+		// prevented, this can be stale data after `disallowCacheSameToken`
+		c.Add(ep1, &model.PushRequest{Start: t1}, any2)
+		if got, _ := c.Get(ep1); got != nil {
+			t.Fatalf("expected no cache, but got %v", got)
+		}
+
+		// cache with newer token
+		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
+		if got, _ := c.Get(ep1); got != any1 {
+			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
 	})
 }

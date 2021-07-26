@@ -68,7 +68,7 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 			t.Fatal("failed to create test directory")
 		}
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
-		h := helm.New(cs.Filename(), ChartPath)
+		h := helm.New(cs.Filename())
 		s, err := image.SettingsFromCommandLine()
 		if err != nil {
 			t.Fatal(err)
@@ -78,9 +78,9 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)
 		}
-		InstallIstio(t, cs, h, "", overrideValuesFile)
+		InstallIstio(t, cs, h, "", overrideValuesFile, ManifestsChartPath, "", true)
 
-		VerifyInstallation(t, cs)
+		VerifyInstallation(t, cs, true)
 
 		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {

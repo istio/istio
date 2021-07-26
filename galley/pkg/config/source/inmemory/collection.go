@@ -116,7 +116,7 @@ func (c *Collection) Clear() {
 
 func (c *Collection) dispatchEvent(e event.Event) {
 	if scope.Source.DebugEnabled() {
-		scope.Source.Debugf(">>> Collection.dispatchEvent: (col: %-50s): %v", c.schema.Name(), e)
+		scope.Source.Debugf("Collection.dispatchEvent: (col: %-50s): %v", c.schema.Name(), e)
 	}
 	if c.handler != nil {
 		c.handler.Handle(e)

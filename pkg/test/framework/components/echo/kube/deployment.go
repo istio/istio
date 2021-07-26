@@ -219,7 +219,7 @@ spec:
 {{- end }}
         ports:
 {{- range $i, $p := $.ContainerPorts }}
-        - containerPort: {{ $p.Port }} 
+        - containerPort: {{ $p.Port }}
 {{- if eq .Port 3333 }}
           name: tcp-health-port
 {{- end }}
@@ -238,9 +238,14 @@ spec:
           value: info
 {{- end }}
         readinessProbe:
+{{- if $.ReadinessTCPPort }}
+          tcpSocket:
+            port: {{ $.ReadinessTCPPort }}
+{{- else }}
           httpGet:
             path: /
             port: 8080
+{{- end }}
           initialDelaySeconds: 1
           periodSeconds: 2
           failureThreshold: 10
@@ -673,6 +678,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
+		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
