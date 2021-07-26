@@ -323,7 +323,7 @@ func sortIngressByCreationTime(configs []interface{}) []*ingress.Ingress {
 	for _, i := range configs {
 		ingr = append(ingr, i.(*ingress.Ingress))
 	}
-	sort.SliceStable(ingr, func(i, j int) bool {
+	sort.Slice(ingr, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.

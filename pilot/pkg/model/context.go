@@ -70,7 +70,7 @@ type Environment struct {
 	// service registries.
 	mesh.NetworksWatcher
 
-	// PushContext holds informations during push generation. It is reset on config change, at the beginning
+	// PushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
