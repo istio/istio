@@ -21,24 +21,24 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-// CompareFunc defines a comparison func for an API proto.
-type CompareFunc func(prev config.Config, curr config.Config) bool
+// EqualsFunc defines a comparison func for an API proto.
+type EqualsFunc func(prev config.Config, curr config.Config) bool
 
-var compareFuncs = make(map[string]CompareFunc)
+var equalsFuncs = make(map[string]EqualsFunc)
 
-func registerCompareFunc(name string, compare CompareFunc) {
-	compareFuncs[name] = compare
+func registerEqualsFunc(name string, equals EqualsFunc) {
+	equalsFuncs[name] = equals
 }
 
-// compareDestinationRule checks proxy policies
-var compareDestinationRule = func(prev config.Config, curr config.Config) bool {
+// destinationRuleEquals checks proxy policies
+var destinationRuleEquals = func(prev config.Config, curr config.Config) bool {
 	prevspec := prev.Spec
 	currspec := curr.Spec
 	// TODO(ramaraochavali): optimize this by comparing relevant fields only.
 	return reflect.DeepEqual(prevspec, currspec)
 }
 
-var compareVirtuaService = func(prev config.Config, curr config.Config) bool {
+var virtualServiceEquals = func(prev config.Config, curr config.Config) bool {
 	prevspec := prev.Spec
 	currspec := curr.Spec
 	// TODO(ramaraochavali): optimize this by comparing relevant fields only.
@@ -47,16 +47,21 @@ var compareVirtuaService = func(prev config.Config, curr config.Config) bool {
 
 func init() {
 	// TODO(ramaraochavali): add functions for other configs.
-	registerCompareFunc(gvk.DestinationRule.String(), compareDestinationRule)
-	registerCompareFunc(gvk.VirtualService.String(), compareVirtuaService)
+	registerEqualsFunc(gvk.DestinationRule.String(), destinationRuleEquals)
+	registerEqualsFunc(gvk.VirtualService.String(), virtualServiceEquals)
 }
 
-func equals(prev config.Config, curr config.Config) bool {
+// needsPush checks whether the passed in config are same from config generation perspective
+// and a push needs to be triggered. This is to avoid unnecessary pushes only when labels
+// have changed for example.
+func needsPush(prev config.Config, curr config.Config) bool {
 	if prev.GroupVersionKind != curr.GroupVersionKind {
-		return true
+		// This should never happen.
+		return false
 	}
-	if cf, exists := compareFuncs[prev.GroupVersionKind.String()]; exists {
-		return cf(prev, curr)
+	if ef, exists := equalsFuncs[prev.GroupVersionKind.String()]; exists {
+		// We should trigger push if configs are not equal.
+		return !ef(prev, curr)
 	}
 	return true
 }
