@@ -60,7 +60,7 @@ func (key ConfigKey) HashCode() uint64 {
 }
 
 func (key ConfigKey) String() string {
-	return key.Kind.String() + "/" + key.Namespace + "/" + key.Name
+	return key.Kind.Kind + "/" + key.Namespace + "/" + key.Name
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
