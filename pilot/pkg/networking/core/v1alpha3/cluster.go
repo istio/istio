@@ -20,6 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/config/schema/gvk"
+
+	"istio.io/istio/pkg/config/schema/gvk"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
