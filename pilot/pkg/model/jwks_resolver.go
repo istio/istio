@@ -188,12 +188,16 @@ func newJwksResolverWithCABundlePaths(
 		caCertsFound = false
 		log.Errorf("Failed to fetch Cert from SystemCertPool: %v", err)
 	}
-	for _, pemFile := range caBundlePaths {
-		caCert, err := ioutil.ReadFile(pemFile)
-		if err == nil {
-			caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
+
+	if caCertPool != nil {
+		for _, pemFile := range caBundlePaths {
+			caCert, err := ioutil.ReadFile(pemFile)
+			if err == nil {
+				caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
+			}
 		}
 	}
+
 	if caCertsFound {
 		ret.secureHTTPClient = &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,

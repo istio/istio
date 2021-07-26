@@ -118,7 +118,7 @@ func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionK
 // treated as read-only. Modifying them violates thread-safety.
 type ConfigStore interface {
 	// Schemas exposes the configuration type schema known by the config store.
-	// The type schema defines the bidrectional mapping between configuration
+	// The type schema defines the bidirectional mapping between configuration
 	// types and the protobuf encoding schema.
 	Schemas() collection.Schemas
 
@@ -184,7 +184,6 @@ type ConfigStoreCache interface {
 
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
-// nolint
 type IstioConfigStore interface {
 	ConfigStore
 
