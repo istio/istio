@@ -296,6 +296,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 		routeCache = &istio_route.Cache{
 			RouteName:       routeName,
+			DNSDomain:       node.DNSDomain,
 			ListenerPort:    listenerPort,
 			Services:        services,
 			VirtualServices: virtualServices,

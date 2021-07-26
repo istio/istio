@@ -28,6 +28,7 @@ import (
 // Implements XdsCacheEntry interface.
 type Cache struct {
 	RouteName string
+	DNSDomain string
 
 	ListenerPort     int
 	Services         []*model.Service
@@ -82,7 +83,7 @@ func (r *Cache) DependentTypes() []config.GroupVersionKind {
 }
 
 func (r *Cache) Key() string {
-	params := []string{r.RouteName, r.PushVersion}
+	params := []string{r.RouteName, r.DNSDomain, r.PushVersion}
 	for _, svc := range r.Services {
 		params = append(params, string(svc.Hostname)+"/"+svc.Attributes.Namespace)
 	}
