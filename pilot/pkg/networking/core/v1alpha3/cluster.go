@@ -132,7 +132,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	// if we can't use delta, fall back to generate all
 	if !delta {
 		cl, lg := configgen.BuildClusters(proxy, updates)
-		return cl, make([]string, 0), lg, false
+		return cl, nil, lg, false
 	}
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
