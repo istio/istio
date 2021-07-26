@@ -59,6 +59,10 @@ func (key ConfigKey) HashCode() uint64 {
 	return binary.BigEndian.Uint64(sum)
 }
 
+func (key ConfigKey) String() string {
+	return key.Kind.String() + "/" + key.Namespace + "/" + key.Name
+}
+
 // ConfigsOfKind extracts configs of the specified kind.
 func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[ConfigKey]struct{} {
 	ret := make(map[ConfigKey]struct{})
