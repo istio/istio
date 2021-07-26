@@ -178,7 +178,7 @@ func reportGatewayCondition(obj config.Config, conditions map[string]*condition)
 func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
-		if index >= len(gs.Listeners) {
+		for index >= len(gs.Listeners) {
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
 		}
 		cond := gs.Listeners[index].Conditions
