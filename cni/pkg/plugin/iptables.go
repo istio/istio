@@ -17,10 +17,7 @@
 package plugin
 
 import (
-	"github.com/spf13/viper"
-
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -37,26 +34,27 @@ func newIPTables() InterceptRuleMgr {
 // Program defines a method which programs iptables based on the parameters
 // provided in Redirect.
 func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
-	viper.Set(constants.CNIMode, true)
-	viper.Set(constants.NetworkNamespace, netns)
-	viper.Set(constants.EnvoyPort, rdrct.targetPort)
-	viper.Set(constants.ProxyUID, rdrct.noRedirectUID)
-	viper.Set(constants.InboundInterceptionMode, rdrct.redirectMode)
-	viper.Set(constants.ServiceCidr, rdrct.includeIPCidrs)
-	viper.Set(constants.InboundPorts, rdrct.includePorts)
-	viper.Set(constants.LocalExcludePorts, rdrct.excludeInboundPorts)
-	viper.Set(constants.LocalOutboundPortsExclude, rdrct.excludeOutboundPorts)
-	viper.Set(constants.ServiceExcludeCidr, rdrct.excludeIPCidrs)
-	viper.Set(constants.KubeVirtInterfaces, rdrct.kubevirtInterfaces)
+	cfg := cmd.ConstructConfig(cmd.GetDefaultConfig())
+	cfg.CNIMode = true
+	cfg.NetworkNamespace = netns
+	cfg.ProxyPort = rdrct.targetPort
+	cfg.ProxyUID = rdrct.noRedirectUID
+	cfg.InboundInterceptionMode = rdrct.redirectMode
+	cfg.OutboundIPRangesInclude = rdrct.includeIPCidrs
+	cfg.InboundPortsInclude = rdrct.includePorts
+	cfg.InboundPortsExclude = rdrct.excludeInboundPorts
+	cfg.OutboundPortsExclude = rdrct.excludeOutboundPorts
+	cfg.OutboundIPRangesExclude = rdrct.excludeIPCidrs
+	cfg.KubevirtInterfaces = rdrct.kubevirtInterfaces
 	drf := dryRunFilePath.Get()
-	viper.Set(constants.DryRun, drf != "")
-	viper.Set(constants.OutputPath, drf)
-	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
-	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
-	iptablesCmd := cmd.GetCommand()
+	cfg.DryRun = (drf != "")
+	cfg.OutputPath = drf
+	cfg.RedirectDNS = rdrct.dnsRedirect
+	cfg.CaptureAllDNS = rdrct.dnsRedirect
+
 	log.Infof("============= Start iptables configuration for %v =============", podName)
 	defer log.Infof("============= End iptables configuration for %v =============", podName)
-	if err := iptablesCmd.Execute(); err != nil {
+	if err := cmd.SetupIPTables(cfg); err != nil {
 		return err
 	}
 	return nil

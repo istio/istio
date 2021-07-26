@@ -88,6 +88,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
 	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
 	b.WriteString(fmt.Sprintf("OUTPUT_PATH=%s\n", c.OutputPath))
+	b.WriteString(fmt.Sprintf("DRY_RUN=%t\n", c.DryRun))
 	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
 	b.WriteString(fmt.Sprintf("CNI_MODE=%s", strconv.FormatBool(c.CNIMode)))
 	log.Infof("Istio iptables variables:\n%s", b.String())

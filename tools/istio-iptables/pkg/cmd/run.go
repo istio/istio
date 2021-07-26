@@ -133,7 +133,7 @@ func (iptConfigurator *IptablesConfigurator) logConfig() {
 	iptConfigurator.cfg.Print()
 }
 
-func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
+func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() error {
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If not set, no inbound port will be intercepted by istio iptablesOrFail.
 	var table string
@@ -150,9 +150,11 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
 			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
 			// TODO: (abhide): Move this out of this method
-			iptConfigurator.ext.RunOrFail(
+			if err := iptConfigurator.ext.Run(
 				constants.IP, "-f", "inet", "rule", "add", "fwmark", iptConfigurator.cfg.InboundTProxyMark, "lookup",
-				iptConfigurator.cfg.InboundTProxyRouteTable)
+				iptConfigurator.cfg.InboundTProxyRouteTable); err != nil {
+				return err
+			}
 			// In routing table ${INBOUND_TPROXY_ROUTE_TABLE}, create a single default rule to route all traffic to
 			// the loopback interface.
 			// TODO: (abhide): Move this out of this method
@@ -160,7 +162,8 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 				iptConfigurator.cfg.InboundTProxyRouteTable)
 			if err != nil {
 				// TODO: (abhide): Move this out of this method
-				iptConfigurator.ext.RunOrFail(constants.IP, "route", "show", "table", "all")
+				_ = iptConfigurator.ext.Run(constants.IP, "route", "show", "table", "all")
+				return err
 			}
 
 			// Create a new chain for redirecting inbound traffic to the common Envoy
@@ -210,6 +213,7 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			}
 		}
 	}
+	return nil
 }
 
 func (iptConfigurator *IptablesConfigurator) handleInboundRules(
@@ -260,7 +264,7 @@ func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	return
 }
 
-func (iptConfigurator *IptablesConfigurator) run() {
+func (iptConfigurator *IptablesConfigurator) run() error {
 	defer func() {
 		// Best effort since we don't know if the commands exist
 		_ = iptConfigurator.ext.Run(constants.IPTABLESSAVE)
@@ -283,7 +287,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	ipv4RangesInclude, ipv6RangesInclude, err := iptConfigurator.separateV4V6(iptConfigurator.cfg.OutboundIPRangesInclude)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	redirectDNS := iptConfigurator.cfg.RedirectDNS
@@ -291,7 +295,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		// TODO: (abhide): Move this out of this method
-		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
+		if err := iptConfigurator.ext.Run(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo"); err != nil {
+			return err
+		}
 	}
 
 	// Do not capture internal interface.
@@ -313,7 +319,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.iptables.AppendRule(constants.ISTIOINREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT,
 		"--to-ports", iptConfigurator.cfg.InboundCapturePort)
 
-	iptConfigurator.handleInboundPortsInclude()
+	if err := iptConfigurator.handleInboundPortsInclude(); err != nil {
+		return err
+	}
 
 	// TODO: change the default behavior to not intercept any output - user may use http_proxy or another
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
@@ -497,7 +505,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.iptables.InsertRuleV4(constants.ISTIOINBOUND, constants.MANGLE, 3,
 			"-p", constants.TCP, "-i", "lo", "-m", "mark", "!", "--mark", outboundMark, "-j", constants.RETURN)
 	}
-	iptConfigurator.executeCommands()
+	return iptConfigurator.executeCommands()
 }
 
 type UDPRuleApplier struct {
@@ -637,14 +645,19 @@ func (iptConfigurator *IptablesConfigurator) createRulesFile(f *os.File, content
 	return err
 }
 
-func (iptConfigurator *IptablesConfigurator) executeIptablesCommands(commands [][]string) {
+func (iptConfigurator *IptablesConfigurator) executeIptablesCommands(commands [][]string) error {
 	for _, cmd := range commands {
 		if len(cmd) > 1 {
-			iptConfigurator.ext.RunOrFail(cmd[0], cmd[1:]...)
+			if err := iptConfigurator.ext.Run(cmd[0], cmd[1:]...); err != nil {
+				return err
+			}
 		} else {
-			iptConfigurator.ext.RunOrFail(cmd[0])
+			if err := iptConfigurator.ext.Run(cmd[0]); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) error {
@@ -678,29 +691,33 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		return err
 	}
 	// --noflush to prevent flushing/deleting previous contents from table
-	iptConfigurator.ext.RunOrFail(cmd, "--noflush", rulesFile.Name())
+	if err := iptConfigurator.ext.Run(cmd, "--noflush", rulesFile.Name()); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (iptConfigurator *IptablesConfigurator) executeCommands() {
+func (iptConfigurator *IptablesConfigurator) executeCommands() error {
 	if iptConfigurator.cfg.RestoreFormat {
 		// Execute iptables-restore
 		err := iptConfigurator.executeIptablesRestoreCommand(true)
 		if err != nil {
-			log.Errorf("Failed to execute iptables-restore command: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to execute iptables-restore command: %v", err)
 		}
 		// Execute ip6tables-restore
 		err = iptConfigurator.executeIptablesRestoreCommand(false)
 		if err != nil {
-			log.Errorf("Failed to execute iptables-restore command: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to execute iptables-restore command: %v", err)
 		}
 	} else {
 		// Execute iptables commands
-		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV4())
+		if err := iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV4()); err != nil {
+			return err
+		}
 		// Execute ip6tables commands
-		iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV6())
-
+		if err := iptConfigurator.executeIptablesCommands(iptConfigurator.iptables.BuildV6()); err != nil {
+			return err
+		}
 	}
+	return nil
 }
