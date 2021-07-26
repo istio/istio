@@ -17,7 +17,6 @@ package grpcgen_test
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/util/retry"
 	"math"
 	"net"
 	"runtime"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const grpcEchoPort = 14058
