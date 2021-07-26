@@ -124,7 +124,7 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 // BuildDeltaClusters generates the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, push *model.PushContext,
-	updates *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails) {
+	updates *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
 	// delta when only services are modified and we attempt deltas
 	// we can progressively optimize this
 	delta := updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry) &&
@@ -132,7 +132,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	// if we can't use delta, fall back to generate all
 	if !delta {
 		cl, lg := configgen.BuildClusters(proxy, push)
-		return cl, make([]string, 0), lg
+		return cl, make([]string, 0), lg, false
 	}
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
@@ -200,9 +200,9 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	resources = cb.normalizeClusters(resources)
 
 	if clusterCacheStats.empty() {
-		return resources, removedClusterNames, model.DefaultXdsLogDetails
+		return resources, removedClusterNames, model.DefaultXdsLogDetails, true
 	}
-	return resources, removedClusterNames, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", clusterCacheStats.hits, clusterCacheStats.hits+clusterCacheStats.miss)}
+	return resources, removedClusterNames, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", clusterCacheStats.hits, clusterCacheStats.hits+clusterCacheStats.miss)}, true
 }
 
 func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}, cfg config.GroupVersionKind) bool {
