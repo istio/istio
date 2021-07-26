@@ -413,10 +413,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if gen == nil {
 		return nil
 	}
-
+	log.Infof("TYPE TYPE TYPE: %v", w.TypeUrl)
 	t0 := time.Now()
 
-	res, deletedRes, logdata, err := gen.GenerateDeltas(con.proxy, push, req, w)
+	res, deletedRes, logdata, usedDelta, err := gen.GenerateDeltas(con.proxy, push, req, w)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -448,7 +448,14 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
-	resp.RemovedResources = deletedRes
+	if usedDelta {
+		resp.RemovedResources = deletedRes
+	} else {
+		// similar to sotw
+		cur := sets.NewSet(w.ResourceNames...)
+		cur.Delete(originalNames...)
+		resp.RemovedResources = cur.SortedList()
+	}
 	if len(resp.RemovedResources) > 0 {
 		log.Infof("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
 	}
