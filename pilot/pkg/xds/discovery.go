@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -407,10 +408,15 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
 			if req != nil {
 				pushCounter++
-				log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
-					pushCounter, debouncedEvents, configsUpdated(req),
-					quietTime, eventDelay, req.Full)
-
+				if req.ConfigsUpdated == nil {
+					log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents,
+						quietTime, eventDelay, req.Full)
+				} else {
+					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, configsUpdated(req),
+						quietTime, eventDelay, req.Full)
+				}
 				free = false
 				go push(req, debouncedEvents)
 				req = nil
@@ -462,7 +468,8 @@ func configsUpdated(req *model.PushRequest) string {
 		break
 	}
 	if len(req.ConfigsUpdated) > 1 {
-		configs += " ..."
+		more := fmt.Sprintf(", %d more...", len(req.ConfigsUpdated)-1)
+		configs += more
 	}
 	return configs
 }
