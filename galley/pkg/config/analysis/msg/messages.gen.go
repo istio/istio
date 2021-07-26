@@ -172,6 +172,14 @@ var (
 	// InvalidApplicationUID defines a diag.MessageType for message "InvalidApplicationUID".
 	// Description: Application pods should not run as user ID (UID) 1337
 	InvalidApplicationUID = diag.NewMessageType(diag.Warning, "IST0144", "User ID (UID) 1337 is reserved for the sidecar proxy.")
+
+	// ImageAutoWithoutInjectionWarning defines a diag.MessageType for message "ImageAutoWithoutInjectionWarning".
+	// Description: Deployments with `image: auto` should be targeted for injection.
+	ImageAutoWithoutInjectionWarning = diag.NewMessageType(diag.Warning, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
+
+	// ImageAutoWithoutInjectionError defines a diag.MessageType for message "ImageAutoWithoutInjectionError".
+	// Description: Pods with `image: auto` should be targeted for injection.
+	ImageAutoWithoutInjectionError = diag.NewMessageType(diag.Error, "IST0147", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
 )
 
 // All returns a list of all known message types.
@@ -218,6 +226,8 @@ func All() []*diag.MessageType {
 		UnsupportedKubernetesVersion,
 		LocalhostListener,
 		InvalidApplicationUID,
+		ImageAutoWithoutInjectionWarning,
+		ImageAutoWithoutInjectionError,
 	}
 }
 
@@ -627,5 +637,25 @@ func NewInvalidApplicationUID(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		InvalidApplicationUID,
 		r,
+	)
+}
+
+// NewImageAutoWithoutInjectionWarning returns a new diag.Message based on ImageAutoWithoutInjectionWarning.
+func NewImageAutoWithoutInjectionWarning(r *resource.Instance, resourceType string, resourceName string) diag.Message {
+	return diag.NewMessage(
+		ImageAutoWithoutInjectionWarning,
+		r,
+		resourceType,
+		resourceName,
+	)
+}
+
+// NewImageAutoWithoutInjectionError returns a new diag.Message based on ImageAutoWithoutInjectionError.
+func NewImageAutoWithoutInjectionError(r *resource.Instance, resourceType string, resourceName string) diag.Message {
+	return diag.NewMessage(
+		ImageAutoWithoutInjectionError,
+		r,
+		resourceType,
+		resourceName,
 	)
 }

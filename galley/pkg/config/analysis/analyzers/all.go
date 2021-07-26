@@ -46,6 +46,7 @@ func All() []analysis.Analyzer {
 		&gateway.SecretAnalyzer{},
 		&injection.Analyzer{},
 		&injection.ImageAnalyzer{},
+		&injection.ImageAutoAnalyzer{},
 		&multicluster.MeshNetworksAnalyzer{},
 		&service.PortNameAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},
