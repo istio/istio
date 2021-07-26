@@ -154,7 +154,6 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 		return "", nil, err
 	}
 
-	ccold := ""
 	// Merge k8s specific values.
 	if kubeConfig != nil {
 		kubeOverrides, err := getClusterSpecificValues(kubeConfig, skipValidation, l)
@@ -162,8 +161,6 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 			return "", nil, err
 		}
 		installerScope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
-		ccold = outYAML
-		fmt.Sprintf(ccold)
 		outYAML, err = util.OverlayYAML(outYAML, kubeOverrides)
 		if err != nil {
 			return "", nil, err

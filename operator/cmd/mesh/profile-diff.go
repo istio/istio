@@ -70,7 +70,7 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs, logOpts *log.Op
 func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string, logOpts *log.Options) (bool, error) {
 	initLogsOrExit(rootArgs)
 
-	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
+	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), nil)
 	setFlags := make([]string, 0)
 	if pfArgs.manifestsPath != "" {
 		setFlags = append(setFlags, fmt.Sprintf("installPackagePath=%s", pfArgs.manifestsPath))
@@ -82,12 +82,12 @@ func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs
 }
 
 func profileDiffInternal(profileA, profileB string, setFlags []string, writer io.Writer, l clog.Logger) (bool, error) {
-	a, _, err := manifest.GenIOPFromProfile(profileA, "", setFlags, false, false, nil, l)
+	a, _, err := manifest.GenIOPFromProfile(profileA, "", setFlags, true, true, nil, l)
 	if err != nil {
 		return false, fmt.Errorf("could not read %q: %v", profileA, err)
 	}
 
-	b, _, err := manifest.GenIOPFromProfile(profileB, "", setFlags, false, false, nil, l)
+	b, _, err := manifest.GenIOPFromProfile(profileB, "", setFlags, true, true, nil, l)
 	if err != nil {
 		return false, fmt.Errorf("could not read %q: %v", profileB, err)
 	}
