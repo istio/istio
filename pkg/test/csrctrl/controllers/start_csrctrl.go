@@ -22,6 +22,7 @@ import (
 	capi "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	// +kubebuilder:scaffold:imports
@@ -44,15 +45,16 @@ var (
 	_              = corev1.AddToScheme(scheme)
 )
 
-func RunCSRController(signerNames string) {
+func RunCSRController(signerNames string, config *rest.Config) {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
 		os.Exit(-1)
 	}
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(config, ctrl.Options{
 		Scheme: scheme,
-		Port:   9443,
+		// disabel the metric server to avoid the port conflicting
+		MetricsBindAddress: "0",
 	})
 	if err != nil {
 		log.Infof("Unable to start manager error: %v", err)
@@ -71,13 +73,12 @@ func RunCSRController(signerNames string) {
 	}
 
 	if err := (&CertificateSigningRequestSigningReconciler{
-		Client:        mgr.GetClient(),
-		SignerRoot:    signerRoot,
-		CtrlCertTTL:   certificateDuration,
-		Scheme:        mgr.GetScheme(),
-		SignerNames:   arrSingers,
-		Signers:       signersMap,
-		EventRecorder: mgr.GetEventRecorderFor("CSRSigningReconciler"),
+		Client:      mgr.GetClient(),
+		SignerRoot:  signerRoot,
+		CtrlCertTTL: certificateDuration,
+		Scheme:      mgr.GetScheme(),
+		SignerNames: arrSingers,
+		Signers:     signersMap,
 	}).SetupWithManager(mgr); err != nil {
 		log.Infof("Unable to create Controller fro controller CSRSigningReconciler, error: %v", err)
 		os.Exit(-1)
