@@ -11,14 +11,14 @@ typedConfig:
                 rules:
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[0\]-to\[0\]-host\[1\]
+                    stringMatch:
+                      exact: rule[0]-to[0]-host[1]
+                      ignoreCase: true
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[0\]-to\[0\]-host\[2\]
+                    stringMatch:
+                      exact: rule[0]-to[0]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:
@@ -53,14 +53,14 @@ typedConfig:
                 rules:
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[0\]-to\[1\]-host\[1\]
+                    stringMatch:
+                      exact: rule[0]-to[1]-host[1]
+                      ignoreCase: true
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[0\]-to\[1\]-host\[2\]
+                    stringMatch:
+                      exact: rule[0]-to[1]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:
@@ -247,14 +247,14 @@ typedConfig:
                 rules:
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[1\]-to\[0\]-host\[1\]
+                    stringMatch:
+                      exact: rule[1]-to[0]-host[1]
+                      ignoreCase: true
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[1\]-to\[0\]-host\[2\]
+                    stringMatch:
+                      exact: rule[1]-to[0]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:
@@ -281,14 +281,14 @@ typedConfig:
                 rules:
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[1\]-to\[1\]-host\[1\]
+                    stringMatch:
+                      exact: rule[1]-to[1]-host[1]
+                      ignoreCase: true
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)rule\[1\]-to\[1\]-host\[2\]
+                    stringMatch:
+                      exact: rule[1]-to[1]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:

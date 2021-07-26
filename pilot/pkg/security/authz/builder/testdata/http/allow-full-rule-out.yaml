@@ -11,19 +11,19 @@ typedConfig:
                 rules:
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)exact\.com
+                    stringMatch:
+                      exact: exact.com
+                      ignoreCase: true
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i).*\.suffix\.com
+                    stringMatch:
+                      ignoreCase: true
+                      suffix: .suffix.com
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)prefix\..*
+                    stringMatch:
+                      ignoreCase: true
+                      prefix: prefix.
                 - header:
                     name: :authority
                     presentMatch: true
@@ -32,19 +32,19 @@ typedConfig:
                   rules:
                   - header:
                       name: :authority
-                      safeRegexMatch:
-                        googleRe2: {}
-                        regex: (?i)not-exact\.com
+                      stringMatch:
+                        exact: not-exact.com
+                        ignoreCase: true
                   - header:
                       name: :authority
-                      safeRegexMatch:
-                        googleRe2: {}
-                        regex: (?i).*\.not-suffix\.com
+                      stringMatch:
+                        ignoreCase: true
+                        suffix: .not-suffix.com
                   - header:
                       name: :authority
-                      safeRegexMatch:
-                        googleRe2: {}
-                        regex: (?i)not-prefix\..*
+                      stringMatch:
+                        ignoreCase: true
+                        prefix: not-prefix.
                   - header:
                       name: :authority
                       presentMatch: true

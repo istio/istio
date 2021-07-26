@@ -15,7 +15,6 @@
 package matcher
 
 import (
-	"regexp"
 	"strings"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -58,7 +57,8 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 
 // HostMatcher creates a host matcher for a host.
 func HostMatcher(k, v string) *routepb.HeaderMatcher {
-	var regex string
+	// We must check "*" first to make sure we'll generate a non empty value in the prefix/suffix case.
+	// Empty prefix/suffix value is invalid in HeaderMatcher.
 	if v == "*" {
 		return &routepb.HeaderMatcher{
 			Name: k,
@@ -67,20 +67,38 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 			},
 		}
 	} else if strings.HasPrefix(v, "*") {
-		regex = `.*` + regexp.QuoteMeta(v[1:])
+		return &routepb.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+				StringMatch: &matcherpb.StringMatcher{
+					IgnoreCase: true,
+					MatchPattern: &matcherpb.StringMatcher_Suffix{
+						Suffix: v[1:],
+					},
+				},
+			},
+		}
 	} else if strings.HasSuffix(v, "*") {
-		regex = regexp.QuoteMeta(v[:len(v)-1]) + `.*`
-	} else {
-		regex = regexp.QuoteMeta(v)
+		return &routepb.HeaderMatcher{
+			Name: k,
+			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+				StringMatch: &matcherpb.StringMatcher{
+					IgnoreCase: true,
+					MatchPattern: &matcherpb.StringMatcher_Prefix{
+						Prefix: v[:len(v)-1],
+					},
+				},
+			},
+		}
 	}
 	return &routepb.HeaderMatcher{
 		Name: k,
-		HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &matcherpb.RegexMatcher{
-				EngineType: &matcherpb.RegexMatcher_GoogleRe2{
-					GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+		HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+			StringMatch: &matcherpb.StringMatcher{
+				IgnoreCase: true,
+				MatchPattern: &matcherpb.StringMatcher_Exact{
+					Exact: v,
 				},
-				Regex: `(?i)` + regex,
 			},
 		},
 	}

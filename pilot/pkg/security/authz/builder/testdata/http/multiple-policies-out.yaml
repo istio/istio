@@ -43,14 +43,14 @@ typedConfig:
                 rules:
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)google\.com
+                    stringMatch:
+                      exact: google.com
+                      ignoreCase: true
                 - header:
                     name: :authority
-                    safeRegexMatch:
-                      googleRe2: {}
-                      regex: (?i)httpbin\.org
+                    stringMatch:
+                      exact: httpbin.org
+                      ignoreCase: true
         principals:
         - andIds:
             ids:
