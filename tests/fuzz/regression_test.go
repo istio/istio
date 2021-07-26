@@ -38,6 +38,7 @@ var baseCases = [][]byte{
 // failure is publicly disclosed!
 var brokenCases = map[string]string{
 	"6169070276837376": "https://github.com/go-yaml/yaml/issues/666",
+	"6087702507290624": "https://github.com/go-yaml/yaml/issues/768",
 }
 
 func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
