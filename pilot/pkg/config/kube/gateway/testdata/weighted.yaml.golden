@@ -59,7 +59,7 @@ spec:
   http:
   - match:
     - uri:
-        prefix: /get
+        regex: /get((\/).*)?
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -73,7 +73,7 @@ spec:
       weight: 60
   - match:
     - uri:
-        prefix: /weighted-100
+        regex: /weighted-100((\/).*)?
     route:
     - destination:
         host: foo-svc.default.svc.domain.suffix

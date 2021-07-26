@@ -101,7 +101,7 @@ spec:
       weight: 100
   - match:
     - uri:
-        prefix: /sub/path/
+        regex: /sub/path((\/).*)?
     route:
     - destination:
         host: service1.ns.svc.mydomain
@@ -110,7 +110,7 @@ spec:
       weight: 100
   - match:
     - uri:
-        prefix: /sub/path/
+        regex: /sub/path((\/).*)?
     route:
     - destination:
         host: service1.ns.svc.mydomain
