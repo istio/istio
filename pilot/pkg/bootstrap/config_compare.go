@@ -63,5 +63,6 @@ func needsPush(prev config.Config, curr config.Config) bool {
 		// We should trigger push if configs are not equal.
 		return !ef(prev, curr)
 	}
+	// If equals func does not exist, we need to push.
 	return true
 }
