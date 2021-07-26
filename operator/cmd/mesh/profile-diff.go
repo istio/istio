@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/pkg/log"
 )
 
 type profileDiffArgs struct {
@@ -36,7 +37,7 @@ func addProfileDiffFlags(cmd *cobra.Command, args *profileDiffArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
-func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command {
+func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "diff <profile|file1.yaml> <profile|file2.yaml>",
 		Short: "Diffs two Istio configuration profiles",
@@ -53,7 +54,7 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			isdifferent, err := profileDiff(cmd, rootArgs, pfArgs, args)
+			isdifferent, err := profileDiff(cmd, rootArgs, pfArgs, args, logOpts)
 			if err != nil {
 				return err
 			}
@@ -66,21 +67,27 @@ func profileDiffCmd(rootArgs *rootArgs, pfArgs *profileDiffArgs) *cobra.Command 
 }
 
 // profileDiff compare two profile files.
-func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string) (bool, error) {
+func profileDiff(cmd *cobra.Command, rootArgs *rootArgs, pfArgs *profileDiffArgs, args []string, logOpts *log.Options) (bool, error) {
 	initLogsOrExit(rootArgs)
 
-	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	setFlags := []string{fmt.Sprintf("installPackagePath=%s", pfArgs.manifestsPath)}
+	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
+	setFlags := make([]string, 0)
+	if pfArgs.manifestsPath != "" {
+		setFlags = append(setFlags, fmt.Sprintf("installPackagePath=%s", pfArgs.manifestsPath))
+	}
+	if err := configLogs(logOpts); err != nil {
+		return false, fmt.Errorf("could not configure logs: %s", err)
+	}
 	return profileDiffInternal(args[0], args[1], setFlags, cmd.OutOrStdout(), l)
 }
 
 func profileDiffInternal(profileA, profileB string, setFlags []string, writer io.Writer, l clog.Logger) (bool, error) {
-	a, _, err := manifest.GenIOPFromProfile(profileA, "", setFlags, true, true, nil, l)
+	a, _, err := manifest.GenIOPFromProfile(profileA, "", setFlags, false, false, nil, l)
 	if err != nil {
 		return false, fmt.Errorf("could not read %q: %v", profileA, err)
 	}
 
-	b, _, err := manifest.GenIOPFromProfile(profileB, "", setFlags, true, true, nil, l)
+	b, _, err := manifest.GenIOPFromProfile(profileB, "", setFlags, false, false, nil, l)
 	if err != nil {
 		return false, fmt.Errorf("could not read %q: %v", profileB, err)
 	}
