@@ -17,6 +17,7 @@ package route
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"strconv"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -28,7 +29,16 @@ import (
 // Implements XdsCacheEntry interface.
 type Cache struct {
 	RouteName string
+	// proxy cluster ID
+	ClusterID string
+	// proxy dns domain
 	DNSDomain string
+	// DNSCapture indicates whether the workload has enabled dns capture
+	DNSCapture bool
+	// DNSAutoAllocate indicates whether the workload should have auto allocated addresses for ServiceEntry
+	// This allows resolving ServiceEntries, which is especially useful for distinguishing TCP traffic
+	// This depends on DNSCapture.
+	DNSAutoAllocate bool
 
 	ListenerPort     int
 	Services         []*model.Service
@@ -83,7 +93,10 @@ func (r *Cache) DependentTypes() []config.GroupVersionKind {
 }
 
 func (r *Cache) Key() string {
-	params := []string{r.RouteName, r.DNSDomain, r.PushVersion}
+	params := []string{
+		r.RouteName, r.ClusterID, r.DNSDomain,
+		strconv.FormatBool(r.DNSCapture), strconv.FormatBool(r.DNSAutoAllocate), r.PushVersion,
+	}
 	for _, svc := range r.Services {
 		params = append(params, string(svc.Hostname)+"/"+svc.Attributes.Namespace)
 	}
