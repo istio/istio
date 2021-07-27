@@ -266,7 +266,7 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	}
 }
 
-// a custom comparison of workload instances based on the fields that we need
+// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need
 // i.e. excluding the ports. Returns true if equal, false otherwise.
 func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
@@ -681,7 +681,9 @@ func (s *Service) DeepCopy() *Service {
 	attrs := copyInternal(s.Attributes)
 	ports := copyInternal(s.Ports)
 	accounts := copyInternal(s.ServiceAccounts)
+	s.Mutex.RLock()
 	clusterVIPs := copyInternal(s.ClusterVIPs)
+	s.Mutex.RUnlock()
 
 	return &Service{
 		Attributes:      attrs.(ServiceAttributes),
