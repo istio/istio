@@ -93,27 +93,6 @@ func TestNeedsPush(t *testing.T) {
 			},
 			expected: true,
 		},
-		{
-			name: "non registered gvk",
-			prev: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.Gateway,
-					Name:             "acme2-v1",
-					Namespace:        "not-default",
-				},
-				Spec: &networking.Gateway{},
-			},
-			curr: config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.Gateway,
-					Name:             "acme2-v1",
-					Namespace:        "not-default",
-					Labels:           map[string]string{"test": "test-v1"},
-				},
-				Spec: &networking.Gateway{},
-			},
-			expected: true,
-		},
 	}
 
 	for _, c := range cases {
