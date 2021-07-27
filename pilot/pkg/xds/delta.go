@@ -412,10 +412,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if gen == nil {
 		return nil
 	}
-
 	t0 := time.Now()
 
-	res, logdata, err := gen.Generate(con.proxy, push, w, req)
+	res, deletedRes, logdata, usedDelta, err := gen.GenerateDeltas(con.proxy, push, req, w)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -447,11 +446,14 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
-	// We take the set of watched resources and anything not in the response is sent as RemovedResources
-	// This is similar to SotW, but done on the server side instead of the client.
-	cur := sets.NewSet(w.ResourceNames...)
-	cur.Delete(originalNames...)
-	resp.RemovedResources = cur.SortedList()
+	if usedDelta {
+		resp.RemovedResources = deletedRes
+	} else {
+		// similar to sotw
+		cur := sets.NewSet(w.ResourceNames...)
+		cur.Delete(originalNames...)
+		resp.RemovedResources = cur.SortedList()
+	}
 	if len(resp.RemovedResources) > 0 {
 		log.Debugf("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
 	}

@@ -70,3 +70,9 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w 
 	}
 	return resources, model.DefaultXdsLogDetails, nil
 }
+
+func (e *EcdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := e.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
+}

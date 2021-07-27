@@ -126,3 +126,9 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	})
 	return res, model.DefaultXdsLogDetails, nil
 }
+
+func (dg *DebugGen) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := dg.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
+}
