@@ -673,6 +673,8 @@ func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
 
 // PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	model.LastPushMutex.Lock()
+	defer model.LastPushMutex.Unlock()
 	if model.LastPushStatus == nil {
 		return
 	}

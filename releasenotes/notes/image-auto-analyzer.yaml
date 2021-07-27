@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** a new analyzer to check for `image: auto` in Pods and Deployments that will not be injected.

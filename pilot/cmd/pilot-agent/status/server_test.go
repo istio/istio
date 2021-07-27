@@ -85,14 +85,28 @@ func TestNewServer(t *testing.T) {
 		// map key is not well formed.
 		{
 			probe: `{"abc": {"path": "/app-foo/health"}}`,
-			err:   "invalid key",
+			err:   "invalid path",
 		},
 		// invalid probe type
 		{
-			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "8888"}}}`,
+			probe: `{"/app-health/hello-world/readyz": {"exec": {"command": [ "true" ]}}}`,
 			err:   "invalid prober type",
 		},
-		// Port is not Int typed.
+		// tcp probes are valid as well
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}}}`,
+		},
+		// probes must be tcp or http, not both
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}, "httpGet": {"path": "/", "port": 7777}}}`,
+			err:   "must be either httpGet or tcpSocket",
+		},
+		// Port is not Int typed (tcpSocket).
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "tcp"}}}`,
+			err:   "must be int type",
+		},
+		// Port is not Int typed (httpGet).
 		{
 			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}}`,
 			err:   "must be int type",
@@ -482,7 +496,7 @@ func TestAppProbe(t *testing.T) {
 	go http.Serve(listener, &handler{})
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
-	simpleConfig := KubeAppProbers{
+	simpleHTTPConfig := KubeAppProbers{
 		"/app-health/hello-world/readyz": &Prober{
 			HTTPGet: &apimirror.HTTPGetAction{
 				Path: "/hello/sunnyvale",
@@ -495,28 +509,54 @@ func TestAppProbe(t *testing.T) {
 			},
 		},
 	}
+	simpleTCPConfig := KubeAppProbers{
+		"/app-health/hello-world/readyz": &Prober{
+			TCPSocket: &apimirror.TCPSocketAction{
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
+		"/app-health/hello-world/livez": &Prober{
+			TCPSocket: &apimirror.TCPSocketAction{
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
+	}
 
 	testCases := []struct {
+		name       string
 		probePath  string
 		config     KubeAppProbers
+		podIP      string
+		ipv6       bool
 		statusCode int
 	}{
 		{
+			name:       "http-bad-path",
 			probePath:  "bad-path-should-be-404",
-			config:     simpleConfig,
+			config:     simpleHTTPConfig,
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "http-readyz",
 			probePath:  "app-health/hello-world/readyz",
-			config:     simpleConfig,
+			config:     simpleHTTPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "http-livez",
 			probePath:  "app-health/hello-world/livez",
-			config:     simpleConfig,
+			config:     simpleHTTPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "http-livez-localhost",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleHTTPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "localhost",
+		},
+		{
+			name:      "http-readyz-header",
 			probePath: "app-health/header/readyz",
 			config: KubeAppProbers{
 				"/app-health/header/readyz": &Prober{
@@ -533,6 +573,7 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:      "http-readyz-path",
 			probePath: "app-health/hello-world/readyz",
 			config: KubeAppProbers{
 				"/app-health/hello-world/readyz": &Prober{
@@ -545,6 +586,7 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:      "http-livez-path",
 			probePath: "app-health/hello-world/livez",
 			config: KubeAppProbers{
 				"/app-health/hello-world/livez": &Prober{
@@ -556,9 +598,51 @@ func TestAppProbe(t *testing.T) {
 			},
 			statusCode: http.StatusOK,
 		},
+		{
+			name:       "tcp-readyz",
+			probePath:  "app-health/hello-world/readyz",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "tcp-livez",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "tcp-livez-ipv4",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "127.0.0.1",
+		},
+		{
+			name:       "tcp-livez-ipv6",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "::1",
+			ipv6:       true,
+		},
+		{
+			name:       "tcp-livez-wrapped-ipv6",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "[::1]",
+			ipv6:       true,
+		},
+		{
+			name:       "tcp-livez-localhost",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "localhost",
+		},
 	}
 	for _, tc := range testCases {
-		t.Run(tc.probePath, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			appProber, err := json.Marshal(tc.config)
 			if err != nil {
 				t.Fatalf("invalid app probers")
@@ -566,6 +650,8 @@ func TestAppProbe(t *testing.T) {
 			config := Options{
 				StatusPort:     0,
 				KubeAppProbers: string(appProber),
+				PodIP:          tc.podIP,
+				IPv6:           tc.ipv6,
 			}
 			// Starts the pilot agent status server.
 			server, err := NewServer(config)
@@ -575,6 +661,10 @@ func TestAppProbe(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			go server.Run(ctx)
+
+			if tc.ipv6 {
+				server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
+			}
 
 			var statusPort uint16
 			for statusPort == 0 {

@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -852,6 +853,10 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 	return res, nil
 }
 
+// prefixMatchRegex optionally matches "/..." at the end of a path.
+// regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
+const prefixMatchRegex = `((\/).*)?`
+
 func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
 	tp := k8s.PathMatchPrefix
 	if match.Path.Type != nil {
@@ -864,7 +869,7 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	switch tp {
 	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
+			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(dest) + prefixMatchRegex},
 		}, nil
 	case k8s.PathMatchExact:
 		return &istio.StringMatch{
