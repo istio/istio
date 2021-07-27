@@ -963,7 +963,7 @@ data:
             - name: "GRPC_XDS_BOOTSTRAP"
               value: "/var/lib/istio/data/grpc-bootstrap.json"
             - name: "GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"
-              value: "/var/lib/istio/data/grpc-bootstrap.json"
+              value: "true"
             volumeMounts:
             - mountPath: /var/lib/istio/data
               name: istio-data
