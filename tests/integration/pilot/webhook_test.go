@@ -32,12 +32,11 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var vwcName = "istio-validator"
-
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			vwcName := "istio-validator"
 			if t.Settings().Revisions.Default() != "" {
 				vwcName = fmt.Sprintf("%s-%s", vwcName, t.Settings().Revisions.Default())
 			}
@@ -61,7 +60,7 @@ func TestWebhook(t *testing.T) {
 
 				if _, err := cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(),
 					updated, kubeApiMeta.UpdateOptions{}); err != nil {
-					return fmt.Errorf("could not update validating webhook config: %s", updated.Name)
+					return fmt.Errorf("could not update validating webhook config %q: %v", updated.Name, err)
 				}
 				return nil
 			})
@@ -90,7 +89,7 @@ func getValidatingWebhookConfiguration(client kubernetes.Interface, name string)
 	whc, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
 		name, kubeApiMeta.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
+		return nil, fmt.Errorf("could not get validating webhook config %q: %v", name, err)
 	}
 	return whc, nil
 }

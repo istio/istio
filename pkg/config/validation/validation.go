@@ -41,6 +41,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
@@ -159,6 +160,12 @@ func WrapError(e error) Validation {
 // WrapWarning turns an error into a Validation as a warning
 func WrapWarning(e error) Validation {
 	return Validation{Warning: e}
+}
+
+// Warningf formats according to a format specifier and returns the string as a
+// value that satisfies error. Like Errorf, but for warnings.
+func Warningf(format string, a ...interface{}) Validation {
+	return WrapWarning(fmt.Errorf(format, a...))
 }
 
 func (v Validation) Unwrap() (Warning, error) {
@@ -3133,6 +3140,18 @@ func appendValidation(v Validation, vs ...error) Validation {
 	return v
 }
 
+// appendErrorf appends a formatted error string
+// nolint: unparam
+func appendErrorf(v Validation, format string, a ...interface{}) Validation {
+	return appendValidation(v, fmt.Errorf(format, a...))
+}
+
+// appendWarningf appends a formatted warning string
+// nolint: unparam
+func appendWarningf(v Validation, format string, a ...interface{}) Validation {
+	return appendValidation(v, Warningf(format, a...))
+}
+
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
 // error is nil (allowing validation without branching).
 func appendErrors(err error, errs ...error) error {
@@ -3307,4 +3326,135 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 
 func (aae *AnalysisAwareError) Error() string {
 	return aae.Msg
+}
+
+// ValidateTelemetry validates a Telemetry.
+var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
+	func(cfg config.Config) (Warning, error) {
+		spec, ok := cfg.Spec.(*telemetry.Telemetry)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to service entry")
+		}
+
+		errs := Validation{}
+
+		errs = appendValidation(errs,
+			validateWorkloadSelector(spec.Selector),
+			validateTelemetryMetrics(spec.Metrics),
+			validateTelemetryTracing(spec.Tracing),
+			validateTelemetryAccessLogging(spec.AccessLogging),
+		)
+		return errs.Unwrap()
+	})
+
+func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Validation) {
+	if len(logging) > 1 {
+		v = appendWarningf(v, "multiple accessLogging is not currently supported")
+	}
+	for idx, l := range logging {
+		if l == nil {
+			continue
+		}
+		if len(l.Providers) > 1 {
+			v = appendValidation(v, Warningf("accessLogging[%d]: multiple providers is not currently supported", idx))
+		}
+		v = appendValidation(v, validateTelemetryProviders(l.Providers))
+	}
+	return
+}
+
+func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
+	if len(tracing) > 1 {
+		v = appendWarningf(v, "multiple tracing is not currently supported")
+	}
+	for _, l := range tracing {
+		if l == nil {
+			continue
+		}
+		if len(l.Providers) > 1 {
+			v = appendWarningf(v, "multiple providers is not currently supported")
+		}
+		v = appendValidation(v, validateTelemetryProviders(l.Providers))
+		if l.RandomSamplingPercentage.GetValue() < 0 || l.RandomSamplingPercentage.GetValue() > 100 {
+			v = appendErrorf(v, "randomSamplingPercentage must be in range [0.0, 100.0]")
+		}
+		for name, tag := range l.CustomTags {
+			if name == "" {
+				v = appendErrorf(v, "tag name may not be empty")
+			}
+			switch t := tag.Type.(type) {
+			case *telemetry.Tracing_CustomTag_Literal:
+				if t.Literal.GetValue() == "" {
+					v = appendErrorf(v, "literal tag value may not be empty")
+				}
+			case *telemetry.Tracing_CustomTag_Header:
+				if t.Header.GetName() == "" {
+					v = appendErrorf(v, "header tag name may not be empty")
+				}
+			case *telemetry.Tracing_CustomTag_Environment:
+				if t.Environment.GetName() == "" {
+					v = appendErrorf(v, "environment tag name may not be empty")
+				}
+			}
+		}
+	}
+	return
+}
+
+func validateTelemetryMetrics(metrics []*telemetry.Metrics) (v Validation) {
+	if len(metrics) > 1 {
+		v = appendWarningf(v, "multiple metrics is not currently supported")
+	}
+	for _, l := range metrics {
+		if l == nil {
+			continue
+		}
+		if len(l.Providers) > 1 {
+			v = appendWarningf(v, "multiple providers is not currently supported")
+		}
+		v = appendValidation(v, validateTelemetryProviders(l.Providers))
+		for _, o := range l.Overrides {
+			if o == nil {
+				v = appendErrorf(v, "tagOverrides may not be null")
+				continue
+			}
+			for tagName, to := range o.TagOverrides {
+				if tagName == "" {
+					v = appendWarningf(v, "tagOverrides.name may not be empty")
+				}
+				if to == nil {
+					v = appendErrorf(v, "tagOverrides may not be null")
+					continue
+				}
+				switch to.Operation {
+				case telemetry.MetricsOverrides_TagOverride_UPSERT:
+					if to.Value == "" {
+						v = appendErrorf(v, "tagOverrides.value must be set set when operation is UPSERT")
+					}
+				case telemetry.MetricsOverrides_TagOverride_REMOVE:
+					if to.Value != "" {
+						v = appendErrorf(v, "tagOverrides.value may only be set when operation is UPSERT")
+					}
+				}
+			}
+			if o.Match != nil {
+				switch mm := o.Match.MetricMatch.(type) {
+				case *telemetry.MetricSelector_CustomMetric:
+					if mm.CustomMetric == "" {
+						v = appendErrorf(v, "customMetric may not be empty")
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
+func validateTelemetryProviders(providers []*telemetry.ProviderRef) error {
+	for _, p := range providers {
+		if p == nil || p.Name == "" {
+			return fmt.Errorf("providers.name may not be empty")
+		}
+	}
+	return nil
 }
