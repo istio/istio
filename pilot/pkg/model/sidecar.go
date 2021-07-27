@@ -474,6 +474,13 @@ func (sc *SidecarScope) Services() []*Service {
 	return sc.services
 }
 
+func (sc *SidecarScope) Service(serviceHostname host.Name) *Service {
+	if sc == nil {
+		return nil
+	}
+	return sc.servicesByHostname[serviceHostname]
+}
+
 // DestinationRule returns the destination rule applicable for a given hostname
 // used by CDS code
 func (sc *SidecarScope) DestinationRule(hostname host.Name) *config.Config {
