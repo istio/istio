@@ -296,7 +296,7 @@ spec:
 			}
 
 			successValidator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(apps.PodB.Clusters()))
-			failureValidator := echo.And(echo.ExpectCode("404"))
+			failureValidator := echo.ExpectCode("404")
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())
@@ -459,7 +459,7 @@ spec:
 								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)); err != nil {
 								t.Fatal(err)
 							}
-							ingr.CallWithRetryOrFail(t, c.call, retry.Converge(3), retry.Delay(500*time.Millisecond), retry.Timeout(time.Minute*2))
+							ingr.CallWithRetryOrFail(t, c.call, retry.Converge(3), retry.Delay(time.Second*2), retry.Timeout(time.Minute*2))
 						})
 					}
 				})
@@ -575,10 +575,10 @@ spec:
 
 			for _, c := range ingressUpdateCases {
 				c := c
-				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, c.path)
-				t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
+					updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, "/prefix"+c.path)
+					t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
+					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Delay(time.Second), retry.Timeout(time.Minute))
 				})
 			}
 		})
