@@ -93,6 +93,26 @@ func TestNeedsPush(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "non istio resource",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "test-v1"},
+				},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "test-v1"},
+				},
+			},
+			expected: true,
+		},
 	}
 
 	for _, c := range cases {
