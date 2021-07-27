@@ -4,4 +4,4 @@ metadata:
   name: invalid
 spec:
   tracing:
-    asdfasdf: asdfasd
+  - randomSamplingPercentage: 101

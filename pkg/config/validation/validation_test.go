@@ -27,6 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
@@ -6575,6 +6576,94 @@ func Test_validateExportTo(t *testing.T) {
 			if err := validateExportTo(tt.namespace, tt.exportTo, tt.isServiceEntry); (err != nil) != tt.wantErr {
 				t.Errorf("validateExportTo() error = %v, wantErr %v", err, tt.wantErr)
 			}
+		})
+	}
+}
+
+func TestValidateTelemetry(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{"empty", &telemetry.Telemetry{}, "", ""},
+		{"invalid message", &networking.Server{}, "cannot cast", ""},
+		{
+			"multiple providers",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					Providers: []*telemetry.ProviderRef{
+						{Name: "a"},
+						{Name: "b"},
+					},
+				}},
+			},
+			"", "multiple providers",
+		},
+		{
+			"multiple tracers",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{}, {}},
+			},
+			"", "multiple tracing",
+		},
+		{
+			"bad randomSamplingPercentage",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					RandomSamplingPercentage: &types.DoubleValue{Value: 101},
+				}},
+			},
+			"randomSamplingPercentage", "",
+		},
+		{
+			"bad metrics operation",
+			&telemetry.Telemetry{
+				Metrics: []*telemetry.Metrics{{
+					Overrides: []*telemetry.MetricsOverrides{
+						{
+							TagOverrides: map[string]*telemetry.MetricsOverrides_TagOverride{
+								"my-tag": {
+									Operation: telemetry.MetricsOverrides_TagOverride_UPSERT,
+									Value:     "",
+								},
+							},
+						},
+					},
+				}},
+			},
+			"must be set set when operation is UPSERT", "",
+		},
+		{
+			"good metrics operation",
+			&telemetry.Telemetry{
+				Metrics: []*telemetry.Metrics{{
+					Overrides: []*telemetry.MetricsOverrides{
+						{
+							TagOverrides: map[string]*telemetry.MetricsOverrides_TagOverride{
+								"my-tag": {
+									Operation: telemetry.MetricsOverrides_TagOverride_UPSERT,
+									Value:     "some-cel-expression",
+								},
+							},
+						},
+					},
+				}},
+			},
+			"", "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warn, err := ValidateTelemetry(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
 }

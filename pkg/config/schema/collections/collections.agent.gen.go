@@ -281,7 +281,7 @@ var (
 			ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateTelemetry,
 		}.MustBuild(),
 	}.MustBuild()
 
