@@ -42,6 +42,8 @@ func FuzzValidateClusters(data []byte) int {
 		return 0
 	}
 	cg := v1alpha3.NewConfigGenTest(t, to)
-	_ = cg.Clusters(cg.SetupProxy(&proxy))
+	p := cg.SetupProxy(&proxy)
+	_ = cg.Clusters(p)
+	_ = cg.Routes(p)
 	return 1
 }
