@@ -24,6 +24,10 @@ import (
 // to be triggered. This is to avoid unnecessary pushes only when labels have changed
 // for example.
 func needsPush(prev config.Config, curr config.Config) bool {
+	if prev.GroupVersionKind != curr.GroupVersionKind {
+		// This should never happen.
+		return false
+	}
 	prevspec, ok := prev.Spec.(proto.Message)
 	if !ok {
 		return false

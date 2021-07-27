@@ -30,6 +30,26 @@ func TestNeedsPush(t *testing.T) {
 		expected bool
 	}{
 		{
+			name: "different gvk",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+				},
+				Spec: &networking.VirtualService{},
+			},
+			expected: false,
+		},
+		{
 			name: "same gvk label change",
 			prev: config.Config{
 				Meta: config.Meta{
