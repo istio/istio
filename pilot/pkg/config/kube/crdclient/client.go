@@ -472,16 +472,8 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
-	if ch, f := cl.kinds[s.Resource().GroupVersionKind()]; f {
+	if _, f := cl.kinds[resourceGVK]; f {
 		scope.Debugf("added resource that already exists: %v", resourceGVK)
-		// Wait for it to sync again. This ensures that SyncAll will properly wait
-		cache.WaitForCacheSync(nil, func() bool {
-			if ch.informer.HasSynced() {
-				return true
-			}
-			scope.Infof("waiting for %v to sync...", resourceGVK)
-			return false
-		})
 		return
 	}
 	var i informers.GenericInformer

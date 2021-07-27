@@ -70,7 +70,7 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 }
 
 func createCacheHandler(cl *Client, schema collection.Schema, i informers.GenericInformer) *cacheHandler {
-	scope.Debugf("registered CRD %v", schema.Resource())
+	scope.Debugf("registered CRD %v", schema.Resource().GroupVersionKind())
 	h := &cacheHandler{
 		client:   cl,
 		schema:   schema,
