@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 const (
@@ -174,7 +173,6 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			successes = 0
 		}
 		if err != nil {
-			scopes.Framework.Errorf("SAM ERROR: %v", err)
 			lasterr = err
 		}
 
