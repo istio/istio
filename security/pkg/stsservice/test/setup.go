@@ -216,8 +216,10 @@ func (e *Env) WaitForStsFlowReady(t *testing.T) {
 		if err == nil {
 			if resp.StatusCode == http.StatusOK && resp.Header.Get("Content-Type") == "application/json" {
 				t.Logf("%s all servers in the STS flow are up and ready", time.Now().String())
+				resp.Body.Close()
 				return
 			}
+			resp.Body.Close()
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

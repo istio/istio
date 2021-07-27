@@ -55,6 +55,7 @@ func makeReq(t *testing.T, url, endpoint string, expectedStatusCode int) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer res.Body.Close()
 	if res.StatusCode != expectedStatusCode {
 		t.Fatalf("expected status code from %s: %d, got: %d", endpoint, expectedStatusCode, res.StatusCode)
 	}

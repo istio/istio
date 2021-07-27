@@ -162,6 +162,7 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, port int) {
 		if err != nil {
 			return err
 		}
+		defer resp.Body.Close()
 
 		// The handler applies server readiness when handling HTTP requests. Since the
 		// server won't become ready until all endpoints (including this one) report
