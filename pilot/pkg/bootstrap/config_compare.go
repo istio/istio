@@ -15,6 +15,8 @@
 package bootstrap
 
 import (
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/istio/pkg/config"
@@ -27,6 +29,10 @@ func needsPush(prev config.Config, curr config.Config) bool {
 	if prev.GroupVersionKind != curr.GroupVersionKind {
 		// This should never happen.
 		return false
+	}
+	// If the config is not Istio, let us just push.
+	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
+		return true
 	}
 	prevspec, ok := prev.Spec.(proto.Message)
 	if !ok {
