@@ -21,6 +21,7 @@ import (
 	"net"
 	"runtime"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const grpcEchoPort = 14058
@@ -182,29 +184,31 @@ spec:
 
 `,
 	}, echoCfg{version: "v1"}, echoCfg{version: "v2"})
-	cw := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
 
-	distribution := map[string]int{}
-
-	for i := 0; i < 100; i++ {
-		res, err := cw.Echo(context.Background(), &proto.EchoRequest{Message: "needle"})
-		if err != nil {
-			t.Fatal(err)
+	retry.UntilSuccessOrFail(tt.T, func() error {
+		cw := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+		distribution := map[string]int{}
+		for i := 0; i < 100; i++ {
+			res, err := cw.Echo(context.Background(), &proto.EchoRequest{Message: "needle"})
+			if err != nil {
+				return err
+			}
+			distribution[res.Version]++
 		}
-		distribution[res.Version]++
-	}
 
-	if err := expectAlmost(distribution["v1"], 20); err != nil {
-		t.Fatal(err)
-	}
-	if err := expectAlmost(distribution["v2"], 80); err != nil {
-		t.Fatal(err)
-	}
+		if err := expectAlmost(distribution["v1"], 20); err != nil {
+			return err
+		}
+		if err := expectAlmost(distribution["v2"], 80); err != nil {
+			return err
+		}
+		return nil
+	}, retry.Timeout(5*time.Second), retry.Delay(0))
 }
 
 func expectAlmost(got, want int) error {
 	if math.Abs(float64(want-got)) > 10 {
-		return fmt.Errorf("expected ~%d but got %d", want, got)
+		return fmt.Errorf("expected within %d of %d but got %d", 10, want, got)
 	}
 	return nil
 }
