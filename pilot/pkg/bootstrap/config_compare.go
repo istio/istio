@@ -36,11 +36,11 @@ func needsPush(prev config.Config, curr config.Config) bool {
 	}
 	prevspec, ok := prev.Spec.(proto.Message)
 	if !ok {
-		return false
+		return true
 	}
 	currspec, ok := curr.Spec.(proto.Message)
 	if !ok {
-		return false
+		return true
 	}
 	return !proto.Equal(prevspec, currspec)
 }
