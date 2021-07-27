@@ -453,3 +453,28 @@ messages:
     level: Warning
     description: "Application pods should not run as user ID (UID) 1337"
     template: "User ID (UID) 1337 is reserved for the sidecar proxy."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0144/"
+
+  - name: "ImageAutoWithoutInjectionWarning"
+    code: IST0146
+    level: Warning
+    description: "Deployments with `image: auto` should be targeted for injection."
+    template: "%s %s contains `image: auto` but does not match any Istio injection webhook selectors."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0146/"
+    args:
+      - name: resourceType
+        type: string
+      - name: resourceName
+        type: string
+
+  - name: "ImageAutoWithoutInjectionError"
+    code: IST0147
+    level: Error
+    description: "Pods with `image: auto` should be targeted for injection."
+    template: "%s %s contains `image: auto` but does not match any Istio injection webhook selectors."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0147/"
+    args:
+      - name: resourceType
+        type: string
+      - name: resourceName
+        type: string
