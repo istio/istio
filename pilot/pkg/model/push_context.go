@@ -1569,6 +1569,7 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 	for ns := range exportedDestRulesByNamespace {
 		sort.Sort(host.Names(exportedDestRulesByNamespace[ns].hosts))
 	}
+	sort.Sort(host.Names(rootNamespaceLocalDestRules.hosts))
 
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace
