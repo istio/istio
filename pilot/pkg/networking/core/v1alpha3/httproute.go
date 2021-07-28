@@ -56,8 +56,10 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 	switch node.Type {
 	case model.SidecarProxy:
 		vHostCache := make(map[int][]*route.VirtualHost)
+		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
+		envoyfilterKeys := efw.Keys()
 		for _, routeName := range routeNames {
-			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw)
+			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
 			if cached && !features.EnableUnsafeAssertions {
 				hit++
 			} else {
@@ -136,6 +138,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	routeName string,
 	vHostCache map[int][]*route.VirtualHost,
 	efw *model.EnvoyFilterWrapper,
+	efKeys []string,
 ) (*discovery.Resource, bool) {
 	var virtualHosts []*route.VirtualHost
 	listenerPort := 0
@@ -178,7 +181,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		}
 	}
 	if !cacheHit {
-		virtualHosts, resource, routeCache = BuildSidecarOutboundVirtualHosts(node, req.Push, routeName, listenerPort, configgen.Cache)
+		virtualHosts, resource, routeCache = BuildSidecarOutboundVirtualHosts(node, req.Push, routeName, listenerPort, efKeys, configgen.Cache)
 		if resource != nil {
 			return resource, true
 		}
@@ -225,6 +228,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string,
 	listenerPort int,
+	efKeys []string,
 	xdsCache model.XdsCache) ([]*route.VirtualHost, *discovery.Resource, *istio_route.Cache) {
 	var virtualServices []config.Config
 	var services []*model.Service
@@ -296,6 +300,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 		routeCache = &istio_route.Cache{
 			RouteName:       routeName,
+			ProxyVersion:    node.Metadata.IstioVersion,
 			ClusterID:       string(node.Metadata.ClusterID),
 			DNSDomain:       node.DNSDomain,
 			DNSCapture:      bool(node.Metadata.DNSCapture),
@@ -303,6 +308,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			ListenerPort:    listenerPort,
 			Services:        services,
 			VirtualServices: virtualServices,
+			EnvoyFilterKeys: efKeys,
 			PushVersion:     push.PushVersion,
 		}
 	}

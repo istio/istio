@@ -18,6 +18,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"strconv"
+	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -29,6 +30,8 @@ import (
 // Implements XdsCacheEntry interface.
 type Cache struct {
 	RouteName string
+
+	ProxyVersion string
 	// proxy cluster ID
 	ClusterID string
 	// proxy dns domain
@@ -44,6 +47,7 @@ type Cache struct {
 	Services         []*model.Service
 	VirtualServices  []config.Config
 	DestinationRules []*config.Config
+	EnvoyFilterKeys  []string
 	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
 	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
 	// Hypothetically we could get smarter and determine the exact set of all configs we use and their versions,
@@ -85,6 +89,11 @@ func (r *Cache) DependentConfigs() []model.ConfigKey {
 	for _, dr := range r.DestinationRules {
 		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: dr.Name, Namespace: dr.Namespace})
 	}
+
+	for _, efKey := range r.EnvoyFilterKeys {
+		items := strings.Split(efKey, "/")
+		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]})
+	}
 	return configs
 }
 
@@ -94,8 +103,9 @@ func (r *Cache) DependentTypes() []config.GroupVersionKind {
 
 func (r *Cache) Key() string {
 	params := []string{
-		r.RouteName, r.ClusterID, r.DNSDomain,
-		strconv.FormatBool(r.DNSCapture), strconv.FormatBool(r.DNSAutoAllocate), r.PushVersion,
+		r.RouteName, r.ProxyVersion, r.ClusterID, r.DNSDomain,
+		strconv.FormatBool(r.DNSCapture), strconv.FormatBool(r.DNSAutoAllocate),
+		r.PushVersion,
 	}
 	for _, svc := range r.Services {
 		params = append(params, string(svc.Hostname)+"/"+svc.Attributes.Namespace)
@@ -106,6 +116,7 @@ func (r *Cache) Key() string {
 	for _, dr := range r.DestinationRules {
 		params = append(params, dr.Name+"/"+dr.Namespace)
 	}
+	params = append(params, r.EnvoyFilterKeys...)
 
 	hash := md5.New()
 	for _, param := range params {
