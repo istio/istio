@@ -117,4 +117,13 @@ spec:
         port:
           number: 4209
       weight: 100
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: service1.ns.svc.mydomain
+        port:
+          number: 4210
+      weight: 100
 ---

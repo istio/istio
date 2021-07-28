@@ -69,7 +69,7 @@ spec:
   - matches:
     - path:
         type: Prefix
-        value: /second
+        value: /
     forwardTo:
     - serviceName: httpbin-second
       port: 80
