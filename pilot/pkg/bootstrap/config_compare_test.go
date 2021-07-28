@@ -19,6 +19,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -100,7 +101,7 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					Labels:           map[string]string{"istio.io/alwayspush": "true"},
+					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			curr: config.Config{
@@ -108,7 +109,7 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					Labels:           map[string]string{"istio.io/alwayspush": "true"},
+					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
 			},
 			expected: true,

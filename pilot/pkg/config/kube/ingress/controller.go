@@ -96,8 +96,6 @@ var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
-const alwaysPushLabel = "istio.io/alwayspush"
-
 // Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
 func V1Available(client kube.Client) bool {
 	// check kubernetes version to use new ingress package or not
@@ -262,14 +260,14 @@ func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) erro
 		Namespace:        ing.Namespace,
 		GroupVersionKind: gvk.VirtualService,
 		// Set this label so that we do not compare configs and just push.
-		Labels: map[string]string{alwaysPushLabel: "true"},
+		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
 	gatewaymetadata := config.Meta{
 		Name:             ing.Name + "-" + "gateway",
 		Namespace:        ing.Namespace,
 		GroupVersionKind: gvk.Gateway,
 		// Set this label so that we do not compare configs and just push.
-		Labels: map[string]string{alwaysPushLabel: "true"},
+		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
 
 	// Trigger updates for Gateway and VirtualService
