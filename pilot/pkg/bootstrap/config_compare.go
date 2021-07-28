@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/config"
 )
 
-// Label to skip config comparision.
+// Label to skip config comparison.
 const alwaysPushLabel = "istio.io/alwayspush"
 
 // needsPush checks whether the passed in config has same spec and hence push needs
