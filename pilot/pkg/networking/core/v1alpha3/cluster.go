@@ -125,12 +125,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 // Otherwise, we fall back onto generating everything.
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, push *model.PushContext,
 	updates *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
-	// delta when only services are modified and we attempt deltas
-	// we can progressively optimize this
-	delta := updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry) &&
-		len(updates.ConfigsUpdated) > 0
 	// if we can't use delta, fall back to generate all
-	if !delta {
+	if !shouldUseDelta(updates) {
 		cl, lg := configgen.BuildClusters(proxy, updates)
 		return cl, nil, lg, false
 	}
@@ -204,6 +200,12 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	}
 	return resources, removedClusterNames,
 		model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", clusterCacheStats.hits, clusterCacheStats.hits+clusterCacheStats.miss)}, true
+}
+
+func shouldUseDelta(updates *model.PushRequest) bool {
+	// Use delta when "only" services are modified. We will relax this restriction
+	// as we enhance delta code to handle other complex/mixed config changes.
+	return updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry) && len(updates.ConfigsUpdated) > 0
 }
 
 func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}, cfg config.GroupVersionKind) bool {
