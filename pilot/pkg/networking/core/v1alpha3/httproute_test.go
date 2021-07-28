@@ -862,6 +862,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
 				},
+				"match-no-service.not-default:80": {"match-no-service.not-default": true, "match-no-service.not-default:80": true},
 				"allow_any": {
 					"*": true,
 				},

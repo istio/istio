@@ -426,18 +426,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	} else {
 		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
 	}
-
-	// Now filter virtual services of listeners and select the virtual services by matching given services' host names.
-	// This has to be done at the end because we will have to look at all virtual service destinations while computing
-	// services for sidecar.
-	for _, listener := range out.EgressListeners {
-		servicesByName := make(map[host.Name]*Service)
-		for _, svc := range listener.services {
-			servicesByName[svc.Hostname] = svc
-		}
-		listener.virtualServices = listener.filterVirtualServices(listener.virtualServices, servicesByName)
-	}
-
 	return out
 }
 
@@ -551,6 +539,12 @@ func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
 	return ilw.virtualServices
 }
 
+// VirtualServicesForRDS returns the list of virtual services imported by this
+// egress listener used for computing routes
+func (ilw *IstioEgressListenerWrapper) VirtualServicesForRDS(servicesByName map[host.Name]*Service) []config.Config {
+	return ilw.filterVirtualServices(ilw.virtualServices, servicesByName)
+}
+
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
@@ -644,10 +638,6 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 
 // filterVirtualServices selects the virtual services by matching given services' host names.
 func (ilw *IstioEgressListenerWrapper) filterVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*Service) []config.Config {
-	// This is hack to keep consistent with previous behavior.
-	if ilw.IstioListener != nil && ilw.IstioListener.Port != nil && ilw.IstioListener.Port.Number == 80 {
-		return virtualServices
-	}
 	out := make([]config.Config, 0)
 	for _, c := range virtualServices {
 		rule := c.Spec.(*networking.VirtualService)
