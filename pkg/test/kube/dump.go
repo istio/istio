@@ -125,7 +125,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 			findDumps := fmt.Sprintf("find %s -name core.*", coredumpDir)
 			stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, findDumps)
 			if err != nil {
-				scopes.Framework.Warnf("Unable to get core dumps for pod: %s/%s", pod.Namespace, pod.Name)
+				scopes.Framework.Warnf("Unable to get core dumps for pod: %s/%s: %v", pod.Namespace, pod.Name, err)
 				continue
 			}
 			for _, cd := range strings.Split(stdout, "\n") {
@@ -134,7 +134,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 				}
 				stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat "+cd)
 				if err != nil {
-					scopes.Framework.Warnf("Unable to get core dumps %v for pod: %s/%s", cd, pod.Namespace, pod.Name)
+					scopes.Framework.Warnf("Unable to get core dumps %v for pod: %s/%s: %v", cd, pod.Namespace, pod.Name, err)
 					continue
 				}
 				fname := podOutputPath(workDir, c, pod, filepath.Base(cd))
