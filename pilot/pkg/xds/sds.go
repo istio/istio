@@ -106,7 +106,7 @@ func parseResources(names []string, proxy *model.Proxy) []SecretResource {
 			pilotSDSCertificateErrors.Increment()
 			log.Warnf("requested secret %v not accessible for proxy %v: SDS is currently only supporting accessing secret within the same namespace. "+
 				"Secret namespace %q does not match proxy namespace %q",
-				sr.ResourceName, proxy.ID, err, sr.Namespace, proxy.VerifiedIdentity.Namespace)
+				sr.ResourceName, proxy.ID, sr.Namespace, proxy.VerifiedIdentity.Namespace)
 			continue
 		}
 		res = append(res, sr)
