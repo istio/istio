@@ -30,7 +30,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
-	"k8s.io/client-go/kubernetes/fake"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -38,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -380,10 +378,9 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 		Configs:                configs,
 		KubernetesObjectString: k8sConfig,
 		// Allow debounce to avoid overwhelming with writes
-		DebounceTime: time.Millisecond * 10,
+		DebounceTime:               time.Millisecond * 10,
+		DisableSecretAuthorization: true,
 	})
-
-	kubesecrets.DisableAuthorizationForTest(s.KubeClient().Kube().(*fake.Clientset))
 
 	return s, proxy
 }
