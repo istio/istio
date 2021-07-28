@@ -93,28 +93,64 @@ func needsUpdate(proxy *model.Proxy, updates model.XdsUpdates) bool {
 	return false
 }
 
-// Currently only same namespace is allowed. In the future this will be expanded.
-func (s *SecretGen) proxyAuthorizedForSecret(proxy *model.Proxy, sr SecretResource) error {
-	if proxy.ConfigNamespace != sr.Namespace {
-		return fmt.Errorf("SDS is currently only supporting accessing secret within the same namespace. Secret namespace %q does not match proxy namespace %q",
-			sr.Namespace, proxy.ConfigNamespace)
+func parseResources(names []string, proxy *model.Proxy) []SecretResource {
+	res := make([]SecretResource, 0, len(names))
+	for _, resource := range names {
+		sr, err := parseResourceName(resource, proxy.VerifiedIdentity.Namespace, string(proxy.Metadata.ClusterID))
+		if err != nil {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("error parsing resource name: %v", err)
+			continue
+		}
+		if proxy.VerifiedIdentity.Namespace != sr.Namespace {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("requested secret %v not accessible for proxy %v: SDS is currently only supporting accessing secret within the same namespace. "+
+				"Secret namespace %q does not match proxy namespace %q",
+				sr.ResourceName, proxy.ID, err, sr.Namespace, proxy.VerifiedIdentity.Namespace)
+			continue
+		}
+		res = append(res, sr)
 	}
-	return nil
+	return res
+}
+
+type AuthorizationMode int
+
+const (
+	// OnlyLocalCertificateReferences indicates that all certificates requested come from Gateways that
+	// are in the same namespace as the proxy.
+	// For the new gateway-api, this is *always* the case. This allows deploying a gateway without any roles,
+	// while still allowing SDS access.
+	// For the old API, its still possible to hit this if we happen to only have Gateways in the proxy namespace.
+	// In this case, we get a small performance improvement.
+	OnlyLocalCertificateReferences AuthorizationMode = iota
+	// CrossNamespaceCertificateReferences indicates we have a cross namespace certificate reference.
+	// Note that the Secret still needs to be in the same namespace as the proxy, but it may only be referenced by a
+	// Gateway in another namespace.
+	// Because we check the Secret namespace already, it may be a bit overkill to check authorization here at all
+	// (since any pods in the namespace can already mount the Secret), but it does improve the security posture a bit
+	// by disallowing someone with an identity in a namespace to access ANY secret in the namespace (such as citadel private key)
+	// if the identity doesn't already have Kubernetes RBAC permission to access it.
+	CrossNamespaceCertificateReferences
+)
+
+func getAuthorizationMode(resources []SecretResource, proxy *model.Proxy) AuthorizationMode {
+	if proxy.MergedGateway == nil {
+		return CrossNamespaceCertificateReferences
+	}
+	verifiedCertificateReferences := proxy.MergedGateway.VerifiedCertificateReferences
+	for _, r := range resources {
+		if !verifiedCertificateReferences.Contains(r.Name) {
+			return CrossNamespaceCertificateReferences
+		}
+	}
+	return OnlyLocalCertificateReferences
 }
 
 func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
 	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil, model.DefaultXdsLogDetails, nil
-	}
-	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
-	if err != nil {
-		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
-		return nil, model.DefaultXdsLogDetails, nil
-	}
-	if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
-		log.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
@@ -124,16 +160,29 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	if !req.Full {
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret)
 	}
+
+	// TODO: For the new gateway-api, we should always search the config namespace and stop reading across all clusters
+	secrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
+	if err != nil {
+		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
+		pilotSDSCertificateErrors.Increment()
+		return nil, model.DefaultXdsLogDetails, nil
+	}
+
+	resources := parseResources(w.ResourceNames, proxy)
+	authMode := getAuthorizationMode(resources, proxy)
+	if authMode != OnlyLocalCertificateReferences {
+		if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
+			log.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
+			pilotSDSCertificateErrors.Increment()
+			return nil, model.DefaultXdsLogDetails, nil
+		}
+	}
+
 	results := model.Resources{}
 	cached, regenerated := 0, 0
-	for _, resource := range w.ResourceNames {
-		sr, err := parseResourceName(resource, proxy.ConfigNamespace, string(proxy.Metadata.ClusterID))
-		if err != nil {
-			pilotSDSCertificateErrors.Increment()
-			log.Warnf("error parsing resource name: %v", err)
-			continue
-		}
 
+	for _, sr := range resources {
 		if updatedSecrets != nil {
 			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: gvk.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
@@ -141,11 +190,6 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			}
 		}
 
-		if err := s.proxyAuthorizedForSecret(proxy, sr); err != nil {
-			pilotSDSCertificateErrors.Increment()
-			log.Warnf("requested secret %v not accessible for proxy %v: %v", sr.ResourceName, proxy.ID, err)
-			continue
-		}
 		cachedItem, f := s.cache.Get(sr)
 		if f && !features.EnableUnsafeAssertions {
 			// If it is in the Cache, add it and continue
