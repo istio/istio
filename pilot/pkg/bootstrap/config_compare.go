@@ -31,7 +31,7 @@ func needsPush(prev config.Config, curr config.Config) bool {
 		return false
 	}
 	// If the config is not Istio, let us just push.
-	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
+	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") || strings.HasPrefix(prev.GroupVersionKind.Group, "core") {
 		return true
 	}
 	prevspec, ok := prev.Spec.(proto.Message)
