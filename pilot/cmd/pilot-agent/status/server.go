@@ -193,7 +193,7 @@ func NewServer(config Options) (*Server, error) {
 			return nil, fmt.Errorf("failed to unmarshal %s: %v", PrometheusScrapingConfig.Name, err)
 		}
 		log.Infof("Prometheus scraping configuration: %v", prom)
-		if (&prom.Scrape != "false") {
+		if (prom.Scrape != "false") {
 			s.prometheus = &prom
 			if s.prometheus.Path == "" {
 				s.prometheus.Path = "/metrics"
