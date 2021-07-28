@@ -188,10 +188,10 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
-	for port, service := range serviceByPort {
+	for port, services := range serviceByPort {
 		out = append(out, VirtualHostWrapper{
 			Port:                port,
-			Services:            service,
+			Services:            services,
 			VirtualServiceHosts: hosts,
 			Routes:              routes,
 		})
