@@ -20,6 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/config/schema/gvk"
+
+	"istio.io/istio/pkg/config/schema/gvk"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -137,23 +141,42 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, updates, configgen.Cache)
 	instances := proxy.ServiceInstances
+
 	for key := range updates.ConfigsUpdated {
 		// get service that changed
-		service := push.ServiceForHostname(proxy, host.Name(key.Name))
-		// SidecarScope.Service will return nil if the proxy doesn't care about the service OR it was deleted.
-		// we can cross reference with WatchedResources to figure out which services were deleted.
-		if service == nil {
-			// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-			// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>
-			// so, we can check if the cluster names contains the service name, and determine if it is deleted by that
-			for _, n := range watched.ResourceNames {
-				_, _, svcHost, _ := model.ParseSubsetKey(n)
-				if svcHost == host.Name(key.Name) {
-					removedClusterNames = append(removedClusterNames, n)
-				}
+		if key.Kind == gvk.Service {
+			service := push.ServiceForHostname(proxy, host.Name(key.Name))
+			// SidecarScope.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
+			// we can cross reference with WatchedResources to figure out which services were deleted.
+			if service == nil {
+				// we assume a service was deleted, it doesn't hurt to have positives for removedResources when a resource included
+				// does not exist.
+				// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
+				// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>
+				// so, we can check if the cluster names contains the service name, and determine if it is deleted by that
+				removedClusterNames = append(removedClusterNames, getRemovedClusterName(watched.ResourceNames, key.Name))
+			} else {
+				services = append(services, service)
 			}
 		} else {
-			services = append(services, service)
+			// destination rules
+			cfg := proxy.SidecarScope.DestinationRuleByName(key.Name)
+			if cfg == nil {
+				// a destinationrule was deleted, get the populated destinationRule from PrevSidecarScope
+				prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(key.Name)
+				if prevCfg == nil {
+					// something went wrong, skip -- we shouldn't be nil here
+					break
+				}
+				dr := prevCfg.Spec.(*networking.DestinationRule)
+				removedClusterNames = append(removedClusterNames, getRemovedClusterName(watched.ResourceNames, dr.Host))
+			} else {
+				// destination exists, was updated
+				// generate cluster based on service associated with destinationrule
+				dr := cfg.Spec.(*networking.DestinationRule)
+				service := push.ServiceForHostname(proxy, host.Name(dr.Host))
+				services = append(services, service)
+			}
 		}
 	}
 	clusterCacheStats := cacheStats{}
@@ -202,10 +225,35 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", clusterCacheStats.hits, clusterCacheStats.hits+clusterCacheStats.miss)}, true
 }
 
+// getRemovedClusterName finds the name of the removed cluster given a hostname and list of cluster names.
+func getRemovedClusterName(resNames []string, target string) string {
+	for _, n := range resNames {
+		_, _, svcHost, _ := model.ParseSubsetKey(n)
+		if svcHost == host.Name(target) {
+			return n
+		}
+	}
+	return ""
+}
+
 func shouldUseDelta(updates *model.PushRequest) bool {
 	// Use delta when "only" services are modified. We will relax this restriction
 	// as we enhance delta code to handle other complex/mixed config changes.
-	return updates != nil && allConfigKeysOfType(updates.ConfigsUpdated, gvk.ServiceEntry) && len(updates.ConfigsUpdated) > 0
+	return updates != nil && AllConfigKeysAreOfTypes(updates.ConfigsUpdated, []config.GroupVersionKind{gvk.ServiceEntry, gvk.DestinationRule}) && len(updates.ConfigsUpdated) > 0
+}
+
+// AllConfigKeysAreOfTypes returns whether or not the configs provided only consist of the gvks in target.
+func AllConfigKeysAreOfTypes(cfgs map[model.ConfigKey]struct{}, target []config.GroupVersionKind) bool {
+	deduped := make(map[config.GroupVersionKind]struct{}, 0)
+
+	for k := range cfgs {
+		// k needs to be in target
+		deduped[k.Kind] = struct{}{}
+	}
+	for _, t := range target {
+		delete(deduped, t)
+	}
+	return len(deduped) == 0
 }
 
 func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}, cfg config.GroupVersionKind) bool {
