@@ -34,6 +34,24 @@ func TestMain(m *testing.M) {
 		RequireMinClusters(2).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			// Set the control plane values on the config.
+			cfg.RemoteClusterValues = `
+components:
+  base:
+    enabled: false
+  pilot:
+    enabled: false
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
+  egressGateways:
+  - name: istio-egressgateway
+    enabled: false
+  istiodRemote:
+    enabled: true
+values:
+  global:
+    externalIstiod: true
+`
 			cfg.ConfigClusterValues = `
 components:
   base:

@@ -33,23 +33,21 @@ func ReachabilityTest(t *testing.T, apps AppContext, features ...features.Featur
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {
-					clusters := ctx.Clusters()
+					clusters := ctx.Clusters().DataPlane()
 					for _, src := range apps.UniqueEchos {
 						for _, dstCluster := range clusters {
-							if !dstCluster.IsExternalControlPlane() {
-								src := src
-								dest := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(dstCluster))
-								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-									src.Config().Service,
-									"http",
-									dest.Config().Service,
-									"http",
-									"/")
-								ctx.NewSubTest(subTestName).
-									RunParallel(func(ctx framework.TestContext) {
-										callOrFail(ctx, src, dest, nil)
-									})
-							}
+							src := src
+							dest := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(dstCluster))
+							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
+								src.Config().Service,
+								"http",
+								dest.Config().Service,
+								"http",
+								"/")
+							ctx.NewSubTest(subTestName).
+								RunParallel(func(ctx framework.TestContext) {
+									callOrFail(ctx, src, dest, nil)
+								})
 						}
 					}
 				})
