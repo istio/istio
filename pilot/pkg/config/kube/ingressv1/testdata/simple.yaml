@@ -82,3 +82,11 @@ spec:
             name: service1
             port:
               number: 4209
+        # With a root path, Prefix match
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: service1
+            port:
+              number: 4210
