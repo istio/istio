@@ -56,7 +56,6 @@ func NewXdsTest(t test.Failer, conn *grpc.ClientConn, getClient func(conn *grpc.
 		conn:          conn,
 		context:       ctx,
 		cancelContext: cancel,
-		t:             t,
 		ID:            "sidecar~1.1.1.1~test.default~default.svc.cluster.local",
 		timeout:       time.Second,
 		Type:          v3.ClusterType,
@@ -74,7 +73,6 @@ type AdsTest struct {
 	client    DiscoveryClient
 	responses chan *discovery.DiscoveryResponse
 	error     chan error
-	t         test.Failer
 	conn      *grpc.ClientConn
 	metadata  model.NodeMetadata
 
@@ -125,7 +123,6 @@ func (a *AdsTest) adsReceiveChannel() {
 
 // DrainResponses reads all responses, but does nothing to them
 func (a *AdsTest) DrainResponses() {
-	a.t.Helper()
 	for {
 		select {
 		case <-a.context.Done():
@@ -137,28 +134,28 @@ func (a *AdsTest) DrainResponses() {
 }
 
 // ExpectResponse waits until a response is received and returns it
-func (a *AdsTest) ExpectResponse() *discovery.DiscoveryResponse {
-	a.t.Helper()
+func (a *AdsTest) ExpectResponse(t test.Failer) *discovery.DiscoveryResponse {
+	t.Helper()
 	select {
 	case <-time.After(a.timeout):
-		a.t.Fatalf("did not get response in time")
+		t.Fatalf("did not get response in time")
 	case resp := <-a.responses:
 		if resp == nil || len(resp.Resources) == 0 {
-			a.t.Fatalf("got empty response")
+			t.Fatalf("got empty response")
 		}
 		return resp
 	case err := <-a.error:
-		a.t.Fatalf("got error: %v", err)
+		t.Fatalf("got error: %v", err)
 	}
 	return nil
 }
 
 // ExpectError waits until an error is received and returns it
-func (a *AdsTest) ExpectError() error {
-	a.t.Helper()
+func (a *AdsTest) ExpectError(t test.Failer) error {
+	t.Helper()
 	select {
 	case <-time.After(a.timeout):
-		a.t.Fatalf("did not get error in time")
+		t.Fatalf("did not get error in time")
 	case err := <-a.error:
 		return err
 	}
@@ -166,13 +163,13 @@ func (a *AdsTest) ExpectError() error {
 }
 
 // ExpectNoResponse waits a short period of time and ensures no response is received
-func (a *AdsTest) ExpectNoResponse() {
-	a.t.Helper()
+func (a *AdsTest) ExpectNoResponse(t test.Failer) {
+	t.Helper()
 	select {
 	case <-time.After(time.Millisecond * 50):
 		return
 	case resp := <-a.responses:
-		a.t.Fatalf("got unexpected response: %v", resp)
+		t.Fatalf("got unexpected response: %v", resp)
 	}
 }
 
@@ -192,36 +189,37 @@ func (a *AdsTest) fillInRequestDefaults(req *discovery.DiscoveryRequest) *discov
 	return req
 }
 
-func (a *AdsTest) Request(req *discovery.DiscoveryRequest) {
+func (a *AdsTest) Request(t test.Failer, req *discovery.DiscoveryRequest) {
+	t.Helper()
 	req = a.fillInRequestDefaults(req)
 	if err := a.client.Send(req); err != nil {
-		a.t.Fatal(err)
+		t.Fatal(err)
 	}
 }
 
 // RequestResponseAck does a full XDS exchange: Send a request, get a response, and ACK the response
-func (a *AdsTest) RequestResponseAck(req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse {
-	a.t.Helper()
+func (a *AdsTest) RequestResponseAck(t test.Failer, req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse {
+	t.Helper()
 	req = a.fillInRequestDefaults(req)
-	a.Request(req)
-	resp := a.ExpectResponse()
+	a.Request(t, req)
+	resp := a.ExpectResponse(t)
 	req.ResponseNonce = resp.Nonce
 	req.VersionInfo = resp.VersionInfo
-	a.Request(req)
+	a.Request(t, req)
 	return resp
 }
 
 // RequestResponseAck does a full XDS exchange with an error: Send a request, get a response, and NACK the response
-func (a *AdsTest) RequestResponseNack(req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse {
-	a.t.Helper()
+func (a *AdsTest) RequestResponseNack(t test.Failer, req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse {
+	t.Helper()
 	if req == nil {
 		req = &discovery.DiscoveryRequest{}
 	}
-	a.Request(req)
-	resp := a.ExpectResponse()
+	a.Request(t, req)
+	resp := a.ExpectResponse(t)
 	req.ResponseNonce = resp.Nonce
 	req.ErrorDetail = &status.Status{Message: "Test request NACK"}
-	a.Request(req)
+	a.Request(t, req)
 	return resp
 }
 

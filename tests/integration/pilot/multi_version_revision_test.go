@@ -31,15 +31,19 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
-	NMinusOne   = "1.9.0"
-	NMinusTwo   = "1.8.3"
-	NMinusThree = "1.7.6"
-	NMinusFour  = "1.6.11"
+	NMinusOne   = "1.10.0"
+	NMinusTwo   = "1.9.5"
+	NMinusThree = "1.8.6"
+	NMinusFour  = "1.7.6"
+	NMinusFive  = "1.6.11"
 )
+
+var versions = []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour, NMinusFive}
 
 type revisionedNamespace struct {
 	revision  string
@@ -52,11 +56,11 @@ func TestMultiVersionRevision(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Features("installation.upgrade").
+		// Requires installation of CPs from manifests, won't succeed
+		// if existing CPs have different root cert
+		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			skipIfK8sVersionUnsupported(t)
-
-			// keep these at the latest patch version of each minor version
-			installVersions := []string{NMinusOne, NMinusTwo, NMinusThree, NMinusFour}
 
 			// keep track of applied configurations and clean up after the test
 			configs := make(map[string]string)
@@ -67,7 +71,7 @@ func TestMultiVersionRevision(t *testing.T) {
 			})
 
 			revisionedNamespaces := []revisionedNamespace{}
-			for _, v := range installVersions {
+			for _, v := range versions {
 				installRevisionOrFail(t, v, configs)
 
 				// create a namespace pointed to the revisioned control plane we just installed
@@ -194,5 +198,9 @@ func ReadInstallFile(f string) (string, error) {
 func skipIfK8sVersionUnsupported(t framework.TestContext) {
 	if !t.Clusters().Default().MinKubeVersion(16) {
 		t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.16")
+	}
+	// Kubernetes 1.22 drops support for a number of legacy resources, so we cannot install the old versions
+	if !t.Clusters().Default().MaxKubeVersion(21) {
+		t.Skipf("k8s version not supported for %s (>%s)", t.Name(), "1.21")
 	}
 }

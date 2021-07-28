@@ -47,12 +47,8 @@ pilot:
 
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
-  configMap: true
+  configMap: false
 sidecarInjectorWebhook:
-  # If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
-  # requests in Istiod, rather than at the webhook selection level.
-  # This is option is intended for migration purposes only and will be removed in Istio 1.10.
-  useLegacySelectors: false
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
   # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
@@ -108,9 +104,14 @@ sidecarInjectorWebhook:
   # defaultTemplates: ["sidecar", "hello"]
   defaultTemplates: []
 istiodRemote:
-  # Sidecar injector mutating webhook configuration url
+  # Sidecar injector mutating webhook configuration clientConfig.url value.
   # For example: https://$remotePilotAddress:15017/inject
+  # The host should not refer to a service running in the cluster; use a service reference by specifying
+  # the clientConfig.service field instead.
   injectionURL: ""
+  # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
+  # Override to pass env variables, for example: /inject/cluster/remote/net/network2
+  injectionPath: "/inject"
 telemetry:
   enabled: false
   v2:
@@ -228,7 +229,7 @@ global:
   # If empty, default scope and level will be used as configured in code
   logging:
     level: "default:info"
-  omitSidecarInjectorConfigMap: false
+  omitSidecarInjectorConfigMap: true
   # Whether to restrict the applications namespace the controller manages;
   # If not set, controller watches all namespaces
   oneNamespace: false
@@ -327,8 +328,12 @@ global:
   # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
   # If not set explicitly, default to the Istio discovery address.
   caAddress: ""
-  # External istiod controls all remote clusters: disabled by default
+  # Configure a remote cluster data plane controlled by an external istiod.
+  # When set to true, istiod is not deployed locally and only a subset of the other
+  # discovery charts are enabled.
   externalIstiod: true
+  #  Configure a remote cluster as the config cluster for an external istiod.
+  configCluster: false
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"

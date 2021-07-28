@@ -26,7 +26,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -35,6 +35,8 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials/xds"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -69,10 +71,13 @@ func newProtocol(cfg Config) (protocol, error) {
 		}
 	}
 
+	// Do not use url.Parse() as it will fail to parse paths with invalid encoding that we intentionally used in the test.
 	rawURL := cfg.Request.Url
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed parsing request URL %s: %v", cfg.Request.Url, err)
+	var urlScheme string
+	if i := strings.IndexByte(rawURL, ':'); i > 0 {
+		urlScheme = strings.ToLower(rawURL[0:i])
+	} else {
+		return nil, fmt.Errorf("missing protocol scheme in the request URL: %s", rawURL)
 	}
 
 	timeout := common.GetTimeout(cfg.Request)
@@ -153,7 +158,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	if cfg.Request.FollowRedirects {
 		redirectFn = nil
 	}
-	switch scheme.Instance(u.Scheme) {
+	switch s := scheme.Instance(urlScheme); s {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
 			tlsConfig.NextProtos = []string{"http/1.1"}
@@ -174,14 +179,14 @@ func newProtocol(cfg Config) (protocol, error) {
 			},
 			do: cfg.Dialer.HTTP,
 		}
-		if cfg.Request.Http3 && scheme.Instance(u.Scheme) == scheme.HTTP {
+		if cfg.Request.Http3 && scheme.Instance(urlScheme) == scheme.HTTP {
 			return nil, fmt.Errorf("http3 requires HTTPS")
 		} else if cfg.Request.Http3 {
 			proto.client.Transport = &http3.RoundTripper{
 				TLSClientConfig: tlsConfig,
 				QuicConfig:      &quic.Config{},
 			}
-		} else if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
+		} else if cfg.Request.Http2 && scheme.Instance(urlScheme) == scheme.HTTPS {
 			if cfg.Request.Alpn == nil {
 				tlsConfig.NextProtos = []string{"h2"}
 			}
@@ -204,18 +209,30 @@ func newProtocol(cfg Config) (protocol, error) {
 			}
 		}
 		return proto, nil
-	case scheme.GRPC:
+	case scheme.GRPC, scheme.XDS:
+		// NOTE: XDS load-balancing happens per-ForwardEchoRequest since we create a new client each time
+
 		// grpc-go sets incorrect authority header
 		authority := headers.Get(hostHeader)
 
 		// transport security
 		security := grpc.WithInsecure()
+		if s == scheme.XDS {
+			creds, err := xds.NewClientCredentials(xds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
+			if err != nil {
+				return nil, err
+			}
+			security = grpc.WithTransportCredentials(creds)
+		}
 		if getClientCertificate != nil {
 			security = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 		}
 
-		// Strip off the scheme from the address.
-		address := rawURL[len(u.Scheme+"://"):]
+		// Strip off the scheme from the address (for regular gRPC).
+		address := rawURL
+		if urlScheme == string(scheme.GRPC) {
+			address = rawURL[len(urlScheme+"://"):]
+		}
 
 		// Connect to the GRPC server.
 		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
@@ -248,7 +265,7 @@ func newProtocol(cfg Config) (protocol, error) {
 				dialer := net.Dialer{
 					Timeout: timeout,
 				}
-				address := rawURL[len(u.Scheme+"://"):]
+				address := rawURL[len(urlScheme+"://"):]
 
 				ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
 				defer cancel()
@@ -261,5 +278,5 @@ func newProtocol(cfg Config) (protocol, error) {
 		}, nil
 	}
 
-	return nil, fmt.Errorf("unrecognized protocol %q", u.String())
+	return nil, fmt.Errorf("unrecognized protocol %q", urlScheme)
 }

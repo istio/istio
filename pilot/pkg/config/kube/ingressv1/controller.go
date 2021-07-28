@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -255,10 +256,11 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	go func() {
-		cache.WaitForCacheSync(stop, c.HasSynced)
-		c.queue.Run(stop)
-	}()
+	if !cache.WaitForCacheSync(stop, c.HasSynced) {
+		log.Error("Failed to sync controller cache")
+		return
+	}
+	c.queue.Run(stop)
 	<-stop
 }
 
@@ -277,7 +279,7 @@ func sortIngressByCreationTime(configs []interface{}) []*knetworking.Ingress {
 	for _, i := range configs {
 		ingr = append(ingr, i.(*knetworking.Ingress))
 	}
-	sort.SliceStable(ingr, func(i, j int) bool {
+	sort.Slice(ingr, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.

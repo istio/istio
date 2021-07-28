@@ -21,12 +21,11 @@ spec:
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
         status.sidecar.istio.io/port: "123"
       creationTimestamp: null
       labels:
         app: status
-        istio.io/rev: default
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: status
         service.istio.io/canonical-revision: latest
@@ -196,16 +195,6 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-          - path: cpu-limit
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: limits.cpu
-          - path: cpu-request
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:

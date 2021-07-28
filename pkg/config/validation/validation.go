@@ -32,6 +32,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
+	"github.com/lestrrat-go/jwx/jwt"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -40,8 +41,10 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -66,6 +69,9 @@ const (
 	// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 	// ServiceEntry.Endpoint.Address message.
 	UnixAddressPrefix = "unix://"
+
+	matchExact  = "exact:"
+	matchPrefix = "prefix:"
 )
 
 var (
@@ -130,6 +136,20 @@ type AnalysisAwareError struct {
 	Parameters []interface{}
 }
 
+// OverlappingMatchValidationForHTTPRoute holds necessary information from virtualservice
+// to do such overlapping match validation
+type OverlappingMatchValidationForHTTPRoute struct {
+	RouteStr         string
+	MatchStr         string
+	Prefix           string
+	MatchPort        uint32
+	MatchMethod      string
+	MatchAuthority   string
+	MatchHeaders     map[string]string
+	MatchQueryParams map[string]string
+	MatchNonHeaders  map[string]string
+}
+
 var _ error = Validation{}
 
 // WrapError turns an error into a Validation
@@ -140,6 +160,12 @@ func WrapError(e error) Validation {
 // WrapWarning turns an error into a Validation as a warning
 func WrapWarning(e error) Validation {
 	return Validation{Warning: e}
+}
+
+// Warningf formats according to a format specifier and returns the string as a
+// value that satisfies error. Like Errorf, but for warnings.
+func Warningf(format string, a ...interface{}) Validation {
+	return WrapWarning(fmt.Errorf(format, a...))
 }
 
 func (v Validation) Unwrap() (Warning, error) {
@@ -302,6 +328,19 @@ func ValidateHTTPHeaderWithAuthorityOperationName(name string) error {
 	return nil
 }
 
+// ValidateHTTPHeaderWithHostOperationName validates a header name when used to destination specific add/set in request.
+// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with ValidateHTTPHeaderWithAuthorityOperationName
+func ValidateHTTPHeaderWithHostOperationName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	// Authority header is validated later
+	if isInternalHeader(name) && !strings.EqualFold(name, "host") {
+		return fmt.Errorf(`invalid header %q: header cannot have ":" prefix`, name)
+	}
+	return nil
+}
+
 // ValidateHTTPHeaderOperationName validates a header name when used to remove from request or modify response.
 func ValidateHTTPHeaderOperationName(name string) error {
 	if name == "" {
@@ -438,42 +477,42 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 		return v.Unwrap()
 	})
 
-func validateServer(server *networking.Server) (errs error) {
+func validateServer(server *networking.Server) (v Validation) {
 	if server == nil {
-		return fmt.Errorf("cannot have nil server")
+		return WrapError(fmt.Errorf("cannot have nil server"))
 	}
 	if len(server.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
+		v = appendValidation(v, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, hostname := range server.Hosts {
-			errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, true))
+			v = appendValidation(v, validateNamespaceSlashWildcardHostname(hostname, true))
 		}
 	}
 	portErr := validateServerPort(server.Port)
 	if portErr != nil {
-		errs = appendErrors(errs, portErr)
+		v = appendValidation(v, portErr)
 	}
-	errs = appendErrors(errs, validateServerBind(server.Port, server.Bind))
-	errs = appendErrors(errs, validateTLSOptions(server.Tls))
+	v = appendValidation(v, validateServerBind(server.Port, server.Bind))
+	v = appendValidation(v, validateTLSOptions(server.Tls))
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
 	if portErr == nil {
 		p := protocol.Parse(server.Port.Protocol)
 		if p.IsTLS() && server.Tls == nil {
-			errs = appendErrors(errs, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
+			v = appendValidation(v, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
 		} else if !p.IsTLS() && server.Tls != nil {
 			// only tls redirect is allowed if this is a HTTP server
 			if p.IsHTTP() {
 				if !gateway.IsPassThroughServer(server) ||
 					server.Tls.CaCertificates != "" || server.Tls.PrivateKey != "" || server.Tls.ServerCertificate != "" {
-					errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
+					v = appendValidation(v, fmt.Errorf("server cannot have TLS settings for plain text HTTP ports"))
 				}
 			} else {
-				errs = appendErrors(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
+				v = appendValidation(v, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
 			}
 		}
 	}
-	return errs
+	return v
 }
 
 func validateServerPort(port *networking.Port) (errs error) {
@@ -505,23 +544,33 @@ func validateServerBind(port *networking.Port, bind string) (errs error) {
 	return
 }
 
-func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
+func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
+	}
+
+	invalidCiphers := sets.NewSet()
+	for _, cs := range tls.CipherSuites {
+		if !security.IsValidCipherSuite(cs) {
+			invalidCiphers.Insert(cs)
+		}
+	}
+	if len(invalidCiphers) > 0 {
+		return WrapWarning(fmt.Errorf("ignoring invalid cipher suites: %v", invalidCiphers.SortedList()))
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths
 		// therefore, we should fail validation if other TLS fields are set
 		if tls.ServerCertificate != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated server certificate"))
 		}
 		if tls.PrivateKey != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated private key"))
 		}
 		if tls.CaCertificates != "" {
-			errs = appendErrors(errs, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
+			v = appendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
 
 		return
@@ -534,20 +583,20 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 	}
 	if tls.Mode == networking.ServerTLSSettings_SIMPLE {
 		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
+			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a private key"))
+			v = appendValidation(v, fmt.Errorf("SIMPLE TLS requires a private key"))
 		}
 	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL {
 		if tls.ServerCertificate == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
 		if tls.PrivateKey == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a private key"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a private key"))
 		}
 		if tls.CaCertificates == "" {
-			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
+			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
 		}
 	}
 	return
@@ -724,6 +773,11 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 					listenerMatch := cp.Match.GetListener()
 					if listenerMatch.FilterChain != nil {
 						if listenerMatch.FilterChain.Filter != nil {
+							if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
+								// This would be an error but is a warning for backwards compatibility
+								errs = appendValidation(errs, WrapWarning(
+									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: golint,stylecheck
+							}
 							// filter names are required if network filter matches are being made
 							if listenerMatch.FilterChain.Filter.Name == "" {
 								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: golint,stylecheck
@@ -907,7 +961,8 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
-	func(cfg config.Config) (warnings Warning, errs error) {
+	func(cfg config.Config) (Warning, error) {
+		errs := Validation{}
 		rule, ok := cfg.Spec.(*networking.Sidecar)
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to Sidecar")
@@ -924,40 +979,40 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		portMap := make(map[uint32]struct{})
 		for _, i := range rule.Ingress {
 			if i == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ingress may not be null"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: ingress may not be null"))
 				continue
 			}
 			if i.Port == nil {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
 				continue
 			}
 
 			bind := i.GetBind()
-			errs = appendErrors(errs, validateSidecarIngressPortAndBind(i.Port, bind))
+			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
 			if _, found := portMap[i.Port.Number]; found {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 			}
 			portMap[i.Port.Number] = struct{}{}
 
 			if len(i.DefaultEndpoint) != 0 {
 				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
-					errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
 				} else {
 					// format should be 127.0.0.1:port or :port
 					parts := strings.Split(i.DefaultEndpoint, ":")
 					if len(parts) < 2 {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 					} else {
 						if len(parts[0]) > 0 && parts[0] != "127.0.0.1" && parts[0] != "0.0.0.0" {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
+							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint must be of form 127.0.0.1:<port>, 0.0.0.0:<port>, unix://filepath, or unset"))
 						}
 
 						port, err := strconv.Atoi(parts[1])
 						if err != nil {
-							errs = appendErrors(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
+							errs = appendValidation(errs, fmt.Errorf("sidecar: defaultEndpoint port (%s) is not a number: %v", parts[1], err))
 						} else {
-							errs = appendErrors(errs, ValidatePort(port))
+							errs = appendValidation(errs, ValidatePort(port))
 						}
 					}
 				}
@@ -967,56 +1022,89 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		portMap = make(map[uint32]struct{})
 		udsMap := make(map[string]struct{})
 		catchAllEgressListenerFound := false
-		for index, i := range rule.Egress {
-			if i == nil {
-				errs = appendErrors(errs, errors.New("egress listener may not be null"))
+		for index, egress := range rule.Egress {
+			if egress == nil {
+				errs = appendValidation(errs, errors.New("egress listener may not be null"))
 				continue
 			}
 			// there can be only one catch all egress listener with empty port, and it should be the last listener.
-			if i.Port == nil {
+			if egress.Port == nil {
 				if !catchAllEgressListenerFound {
 					if index == len(rule.Egress)-1 {
 						catchAllEgressListenerFound = true
 					} else {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: the egress listener with empty port should be the last listener in the list"))
 					}
 				} else {
-					errs = appendErrors(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
+					errs = appendValidation(errs, fmt.Errorf("sidecar: egress can have only one listener with empty port"))
 					continue
 				}
 			} else {
-				bind := i.GetBind()
-				captureMode := i.GetCaptureMode()
-				errs = appendErrors(errs, validateSidecarEgressPortBindAndCaptureMode(i.Port, bind, captureMode))
+				bind := egress.GetBind()
+				captureMode := egress.GetCaptureMode()
+				errs = appendValidation(errs, validateSidecarEgressPortBindAndCaptureMode(egress.Port, bind, captureMode))
 
-				if i.Port.Number == 0 {
+				if egress.Port.Number == 0 {
 					if _, found := udsMap[bind]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
+						errs = appendValidation(errs, fmt.Errorf("sidecar: unix domain socket values for listeners must be unique"))
 					}
 					udsMap[bind] = struct{}{}
 				} else {
-					if _, found := portMap[i.Port.Number]; found {
-						errs = appendErrors(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
+					if _, found := portMap[egress.Port.Number]; found {
+						errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
 					}
-					portMap[i.Port.Number] = struct{}{}
+					portMap[egress.Port.Number] = struct{}{}
 				}
 			}
 
 			// validate that the hosts field is a slash separated value
 			// of form ns1/host, or */host, or */*, or ns1/*, or ns1/*.example.com
-			if len(i.Hosts) == 0 {
-				errs = appendErrors(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
+			if len(egress.Hosts) == 0 {
+				errs = appendValidation(errs, fmt.Errorf("sidecar: egress listener must contain at least one host"))
 			} else {
-				for _, hostname := range i.Hosts {
-					errs = appendErrors(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+				nssSvcs := map[string]map[string]bool{}
+				for _, hostname := range egress.Hosts {
+					parts := strings.SplitN(hostname, "/", 2)
+					if len(parts) == 2 {
+						ns := parts[0]
+						svc := parts[1]
+						if ns == "." {
+							ns = cfg.Namespace
+						}
+						if _, ok := nssSvcs[ns]; !ok {
+							nssSvcs[ns] = map[string]bool{}
+						}
+
+						// test/a
+						// test/a
+						// test/*
+						if svc != "*" {
+							if _, ok := nssSvcs[ns][svc]; ok || nssSvcs[ns]["*"] {
+								// already exists
+								// TODO: prevent this invalid setting, maybe in 1.12+
+								errs = appendValidation(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
+							}
+						} else {
+							if len(nssSvcs[ns]) != 0 {
+								errs = appendValidation(errs, WrapWarning(fmt.Errorf("duplicated egress host: %s", hostname)))
+							}
+						}
+						nssSvcs[ns][svc] = true
+					}
+					errs = appendValidation(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+				}
+				// */*
+				// test/a
+				if nssSvcs["*"]["*"] && len(nssSvcs) != 1 {
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf("`*/*` host select all resources, no other hosts can be added")))
 				}
 			}
 
 		}
 
-		errs = appendErrors(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
+		errs = appendValidation(errs, validateSidecarOutboundTrafficPolicy(rule.OutboundTrafficPolicy))
 
-		return
+		return errs.Unwrap()
 	})
 
 func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) (errs error) {
@@ -1121,6 +1209,10 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
 		scope.Warnf(warn)
 		errs = appendValidation(errs, WrapWarning(errors.New(warn)))
+	}
+	if !outlier.SplitExternalLocalOriginErrors && outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
+		err := "outlier detection consecutive local origin failures is specified, but split external local origin errors is set to false"
+		errs = appendValidation(errs, errors.New(err))
 	}
 	if outlier.Interval != nil {
 		errs = appendValidation(errs, ValidateDurationGogo(outlier.Interval))
@@ -1503,7 +1595,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ServiceCluster == "" {
 		errs = multierror.Append(errs, errors.New("service cluster must be set"))
 	}
-
 	if err := ValidateParentAndDrain(config.DrainDuration, config.ParentShutdownDuration); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid parent and drain time combination"))
 	}
@@ -1571,14 +1662,22 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
 
-	switch config.ControlPlaneAuthPolicy {
-	case meshconfig.AuthenticationPolicy_NONE, meshconfig.AuthenticationPolicy_MUTUAL_TLS:
-	default:
-		errs = multierror.Append(errs,
-			fmt.Errorf("unrecognized control plane auth policy %q", config.ControlPlaneAuthPolicy))
+	if err := ValidateControlPlaneAuthPolicy(config.ControlPlaneAuthPolicy); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid authentication policy:"))
+	}
+
+	if err := ValidatePort(int(config.StatusPort)); err != nil {
+		errs = multierror.Append(errs, multierror.Prefix(err, "invalid status port:"))
 	}
 
 	return
+}
+
+func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) error {
+	if policy == meshconfig.AuthenticationPolicy_NONE || policy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
+		return nil
+	}
+	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
@@ -1779,6 +1878,13 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 		}
 	}
 
+	if rule.Jwks != "" {
+		_, err := jwt.Parse([]byte(rule.Jwks))
+		if err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("jwks parse error: %v", err))
+		}
+	}
+
 	for _, location := range rule.FromHeaders {
 		if location == nil {
 			errs = multierror.Append(errs, errors.New("location header name must be non-null"))
@@ -1931,7 +2037,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		warnIneffective := func(ruleno, matchno, dupno string) {
 			errs = appendValidation(errs, WrapWarning(&AnalysisAwareError{
 				Type:       "VirtualServiceIneffectiveMatch",
-				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicates a match in rule %v)", ruleno, matchno, dupno),
+				Msg:        fmt.Sprintf("virtualService rule %v match %v is not used (duplicate/overlapping match in rule %v)", ruleno, matchno, dupno),
 				Parameters: []interface{}{ruleno, matchno, dupno},
 			}))
 		}
@@ -1943,10 +2049,174 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		return errs.Unwrap()
 	})
 
+func assignExactOrPrefix(exact, prefix string) string {
+	if exact != "" {
+		return matchExact + exact
+	}
+	if prefix != "" {
+		return matchPrefix + prefix
+	}
+	return ""
+}
+
+// genMatchHTTPRoutes build the match rules into struct OverlappingMatchValidationForHTTPRoute
+// based on particular HTTPMatchRequest, according to comments on https://github.com/istio/istio/pull/32701
+// only support Match's port, method, authority, headers, query params and nonheaders for now.
+func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatchRequest,
+	rulen, matchn int) (matchHTTPRoutes *OverlappingMatchValidationForHTTPRoute) {
+	// skip current match if no match field for current route
+	if match == nil {
+		return nil
+	}
+	// skip current match if no URI field
+	if match.Uri == nil {
+		return nil
+	}
+	// store all httproute with prefix match uri
+	tmpPrefix := match.Uri.GetPrefix()
+	if tmpPrefix != "" {
+		// set Method
+		methodExact := match.Method.GetExact()
+		methodPrefix := match.Method.GetPrefix()
+		methodMatch := assignExactOrPrefix(methodExact, methodPrefix)
+		// if no method information, it should be GET by default
+		if methodMatch == "" {
+			methodMatch = matchExact + "GET"
+		}
+
+		// set Authority
+		authorityExact := match.Authority.GetExact()
+		authorityPrefix := match.Authority.GetPrefix()
+		authorityMatch := assignExactOrPrefix(authorityExact, authorityPrefix)
+
+		// set Headers
+		headerMap := make(map[string]string)
+		for hkey, hvalue := range match.Headers {
+			hvalueExact := hvalue.GetExact()
+			hvaluePrefix := hvalue.GetPrefix()
+			hvalueMatch := assignExactOrPrefix(hvalueExact, hvaluePrefix)
+			headerMap[hkey] = hvalueMatch
+		}
+
+		// set QueryParams
+		QPMap := make(map[string]string)
+		for qpkey, qpvalue := range match.QueryParams {
+			qpvalueExact := qpvalue.GetExact()
+			qpvaluePrefix := qpvalue.GetPrefix()
+			qpvalueMatch := assignExactOrPrefix(qpvalueExact, qpvaluePrefix)
+			QPMap[qpkey] = qpvalueMatch
+		}
+
+		// set WithoutHeaders
+		noHeaderMap := make(map[string]string)
+		for nhkey, nhvalue := range match.WithoutHeaders {
+			nhvalueExact := nhvalue.GetExact()
+			nhvaluePrefix := nhvalue.GetPrefix()
+			nhvalueMatch := assignExactOrPrefix(nhvalueExact, nhvaluePrefix)
+			noHeaderMap[nhkey] = nhvalueMatch
+		}
+
+		matchHTTPRoutes = &OverlappingMatchValidationForHTTPRoute{
+			routeName(route, rulen),
+			requestName(match, matchn),
+			tmpPrefix,
+			match.Port,
+			methodMatch,
+			authorityMatch,
+			headerMap,
+			QPMap,
+			noHeaderMap,
+		}
+		return
+	}
+	return nil
+}
+
+// coveredValidation validate the overlapping match between two instance of OverlappingMatchValidationForHTTPRoute
+func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
+	// check the URI overlapping match, such as vB.Prefix is '/debugs' and vA.Prefix is '/debug'
+	if strings.HasPrefix(vB.Prefix, vA.Prefix) {
+		// check the port field
+		if vB.MatchPort != vA.MatchPort {
+			return false
+		}
+
+		// check the match method
+		if vA.MatchMethod != vB.MatchMethod {
+			if !strings.HasPrefix(vA.MatchMethod, vB.MatchMethod) {
+				return false
+			}
+		}
+
+		// check the match authority
+		if vA.MatchAuthority != vB.MatchAuthority {
+			if !strings.HasPrefix(vA.MatchAuthority, vB.MatchAuthority) {
+				return false
+			}
+		}
+
+		// check the match Headers
+		vAHeaderLen := len(vA.MatchHeaders)
+		vBHeaderLen := len(vB.MatchHeaders)
+		if vAHeaderLen != vBHeaderLen {
+			return false
+		}
+		for hdKey, hdValue := range vA.MatchHeaders {
+			vBhdValue, ok := vB.MatchHeaders[hdKey]
+			if !ok {
+				return false
+			} else if hdValue != vBhdValue {
+				if !strings.HasPrefix(hdValue, vBhdValue) {
+					return false
+				}
+			}
+		}
+
+		// check the match QueryParams
+		vAQPLen := len(vA.MatchQueryParams)
+		vBQPLen := len(vB.MatchQueryParams)
+		if vAQPLen != vBQPLen {
+			return false
+		}
+		for qpKey, qpValue := range vA.MatchQueryParams {
+			vBqpValue, ok := vB.MatchQueryParams[qpKey]
+			if !ok {
+				return false
+			} else if qpValue != vBqpValue {
+				if !strings.HasPrefix(qpValue, vBqpValue) {
+					return false
+				}
+			}
+		}
+
+		// check the match NonHeaders
+		vANonHDLen := len(vA.MatchNonHeaders)
+		vBNonHDLen := len(vB.MatchNonHeaders)
+		if vANonHDLen != vBNonHDLen {
+			return false
+		}
+		for nhKey, nhValue := range vA.MatchNonHeaders {
+			vBnhValue, ok := vB.MatchNonHeaders[nhKey]
+			if !ok {
+				return false
+			} else if nhValue != vBnhValue {
+				if !strings.HasPrefix(nhValue, vBnhValue) {
+					return false
+				}
+			}
+		}
+	} else {
+		// no URI overlapping match
+		return false
+	}
+	return true
+}
+
 func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 	reportUnreachable func(ruleno, reason string), reportIneffective func(ruleno, matchno, dupno string)) {
 	matchesEncountered := make(map[string]int)
 	emptyMatchEncountered := -1
+	var matchHTTPRoutes []*OverlappingMatchValidationForHTTPRoute
 	for rulen, route := range routes {
 		if route == nil {
 			continue
@@ -1965,12 +2235,47 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 			if ok {
 				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
 				duplicateMatches++
+				// no need to handle for totally duplicated match rules
+				continue
 			} else {
 				matchesEncountered[asJSON(match)] = rulen
+			}
+			// build the match rules into struct OverlappingMatchValidationForHTTPRoute based on current match
+			matchHTTPRoute := genMatchHTTPRoutes(route, match, rulen, matchn)
+			if matchHTTPRoute != nil {
+				matchHTTPRoutes = append(matchHTTPRoutes, matchHTTPRoute)
 			}
 		}
 		if duplicateMatches == len(route.Match) {
 			reportUnreachable(routeName(route, rulen), "all matches used by prior rules")
+		}
+	}
+
+	// at least 2 prefix matched routes for overlapping match validation
+	if len(matchHTTPRoutes) > 1 {
+		// check the overlapping match from the first prefix information
+		for routeIndex, routePrefix := range matchHTTPRoutes {
+			for rIndex := routeIndex + 1; rIndex < len(matchHTTPRoutes); rIndex++ {
+				// exclude the duplicate-match cases which have been validated above
+				if strings.Compare(matchHTTPRoutes[rIndex].Prefix, routePrefix.Prefix) == 0 {
+					continue
+				}
+				// Valid from A to B for matchHTTPRoutes
+				isAtoBCover := coveredValidation(routePrefix, matchHTTPRoutes[rIndex])
+				if isAtoBCover {
+					prefixMatchA := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix
+					prefixMatchB := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix + " on " + routePrefix.RouteStr
+					reportIneffective(matchHTTPRoutes[rIndex].RouteStr, prefixMatchA, prefixMatchB)
+				}
+
+				// Valid from B to A for matchHTTPRoutes
+				isBtoACover := coveredValidation(matchHTTPRoutes[rIndex], routePrefix)
+				if isBtoACover {
+					prefixMatchA := routePrefix.MatchStr + " of prefix " + routePrefix.Prefix
+					prefixMatchB := matchHTTPRoutes[rIndex].MatchStr + " of prefix " + matchHTTPRoutes[rIndex].Prefix + " on " + matchHTTPRoutes[rIndex].RouteStr
+					reportIneffective(routePrefix.RouteStr, prefixMatchA, prefixMatchB)
+				}
+			}
 		}
 	}
 }
@@ -2076,7 +2381,7 @@ func routeName(route interface{}, routen int) string {
 func requestName(match interface{}, matchn int) string {
 	switch mr := match.(type) {
 	case *networking.HTTPMatchRequest:
-		if mr.Name != "" {
+		if mr != nil && mr.Name != "" {
 			return fmt.Sprintf("%q", mr.Name)
 		}
 
@@ -2180,9 +2485,14 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 }
 
 func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
+	switch sm.GetMatchType().(type) {
+	case *networking.StringMatch_Regex:
+	default:
+		return nil
+	}
 	re := sm.GetRegex()
 	if re == "" {
-		return nil
+		return fmt.Errorf("%q: regex string match should not be empty", where)
 	}
 
 	_, err := regexp.Compile(re)
@@ -2237,11 +2547,11 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 
 		// header manipulations
 		for name, val := range weight.Headers.GetRequest().GetAdd() {
-			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderWithHostOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for name, val := range weight.Headers.GetRequest().GetSet() {
-			errs = appendErrors(errs, ValidateHTTPHeaderOperationName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderWithHostOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetRequest().GetRemove() {
@@ -2682,6 +2992,13 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("service entry port %d already defined", port.Number))
 			}
 			servicePortNumbers[port.Number] = true
+			if port.TargetPort != 0 {
+				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
+			}
+			errs = appendValidation(errs,
+				ValidatePortName(port.Name),
+				ValidateProtocol(port.Protocol),
+				ValidatePort(int(port.Number)))
 		}
 
 		switch serviceEntry.Resolution {
@@ -2744,18 +3061,16 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				}
 			}
 			if len(serviceEntry.Addresses) > 0 {
-				var hasTCPPort bool
 				for _, port := range serviceEntry.Ports {
 					p := protocol.Parse(port.Protocol)
 					if p.IsTCP() {
-						hasTCPPort = true
+						if len(serviceEntry.Hosts) > 1 {
+							// TODO: prevent this invalid setting, maybe in 1.11+
+							errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry can not have more than one host specified "+
+								"simultaneously with address and tcp port")))
+						}
 						break
 					}
-				}
-				if hasTCPPort && len(serviceEntry.Hosts) > 1 {
-					// TODO: prevent this invalid setting, maybe in 1.11+
-					errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry can not have more than one host specified "+
-						"simultaneously with address and tcp port")))
 				}
 			}
 		default:
@@ -2771,29 +3086,13 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		// hosts so we consider it invalid, unless the resolution type is NONE
 		// (because the hosts are ignored).
 		if serviceEntry.Resolution != networking.ServiceEntry_NONE && len(serviceEntry.Hosts) > 1 {
-			canDifferentiate := true
 			for _, port := range serviceEntry.Ports {
 				p := protocol.Parse(port.Protocol)
 				if !p.IsHTTP() && !p.IsTLS() {
-					canDifferentiate = false
+					errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
 					break
 				}
 			}
-
-			if !canDifferentiate {
-				errs = appendValidation(errs, fmt.Errorf("multiple hosts provided with non-HTTP, non-TLS ports"))
-			}
-		}
-
-		for _, port := range serviceEntry.Ports {
-			if port == nil {
-				errs = appendValidation(errs, errors.New("port may not be null"))
-				continue
-			}
-			errs = appendValidation(errs,
-				ValidatePortName(port.Name),
-				ValidateProtocol(port.Protocol),
-				ValidatePort(int(port.Number)))
 		}
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true))
@@ -2839,6 +3138,18 @@ func appendValidation(v Validation, vs ...error) Validation {
 		}
 	}
 	return v
+}
+
+// appendErrorf appends a formatted error string
+// nolint: unparam
+func appendErrorf(v Validation, format string, a ...interface{}) Validation {
+	return appendValidation(v, fmt.Errorf(format, a...))
+}
+
+// appendWarningf appends a formatted warning string
+// nolint: unparam
+func appendWarningf(v Validation, format string, a ...interface{}) Validation {
+	return appendValidation(v, Warningf(format, a...))
 }
 
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
@@ -3015,4 +3326,135 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 
 func (aae *AnalysisAwareError) Error() string {
 	return aae.Msg
+}
+
+// ValidateTelemetry validates a Telemetry.
+var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
+	func(cfg config.Config) (Warning, error) {
+		spec, ok := cfg.Spec.(*telemetry.Telemetry)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to service entry")
+		}
+
+		errs := Validation{}
+
+		errs = appendValidation(errs,
+			validateWorkloadSelector(spec.Selector),
+			validateTelemetryMetrics(spec.Metrics),
+			validateTelemetryTracing(spec.Tracing),
+			validateTelemetryAccessLogging(spec.AccessLogging),
+		)
+		return errs.Unwrap()
+	})
+
+func validateTelemetryAccessLogging(logging []*telemetry.AccessLogging) (v Validation) {
+	if len(logging) > 1 {
+		v = appendWarningf(v, "multiple accessLogging is not currently supported")
+	}
+	for idx, l := range logging {
+		if l == nil {
+			continue
+		}
+		if len(l.Providers) > 1 {
+			v = appendValidation(v, Warningf("accessLogging[%d]: multiple providers is not currently supported", idx))
+		}
+		v = appendValidation(v, validateTelemetryProviders(l.Providers))
+	}
+	return
+}
+
+func validateTelemetryTracing(tracing []*telemetry.Tracing) (v Validation) {
+	if len(tracing) > 1 {
+		v = appendWarningf(v, "multiple tracing is not currently supported")
+	}
+	for _, l := range tracing {
+		if l == nil {
+			continue
+		}
+		if len(l.Providers) > 1 {
+			v = appendWarningf(v, "multiple providers is not currently supported")
+		}
+		v = appendValidation(v, validateTelemetryProviders(l.Providers))
+		if l.RandomSamplingPercentage.GetValue() < 0 || l.RandomSamplingPercentage.GetValue() > 100 {
+			v = appendErrorf(v, "randomSamplingPercentage must be in range [0.0, 100.0]")
+		}
+		for name, tag := range l.CustomTags {
+			if name == "" {
+				v = appendErrorf(v, "tag name may not be empty")
+			}
+			switch t := tag.Type.(type) {
+			case *telemetry.Tracing_CustomTag_Literal:
+				if t.Literal.GetValue() == "" {
+					v = appendErrorf(v, "literal tag value may not be empty")
+				}
+			case *telemetry.Tracing_CustomTag_Header:
+				if t.Header.GetName() == "" {
+					v = appendErrorf(v, "header tag name may not be empty")
+				}
+			case *telemetry.Tracing_CustomTag_Environment:
+				if t.Environment.GetName() == "" {
+					v = appendErrorf(v, "environment tag name may not be empty")
+				}
+			}
+		}
+	}
+	return
+}
+
+func validateTelemetryMetrics(metrics []*telemetry.Metrics) (v Validation) {
+	if len(metrics) > 1 {
+		v = appendWarningf(v, "multiple metrics is not currently supported")
+	}
+	for _, l := range metrics {
+		if l == nil {
+			continue
+		}
+		if len(l.Providers) > 1 {
+			v = appendWarningf(v, "multiple providers is not currently supported")
+		}
+		v = appendValidation(v, validateTelemetryProviders(l.Providers))
+		for _, o := range l.Overrides {
+			if o == nil {
+				v = appendErrorf(v, "tagOverrides may not be null")
+				continue
+			}
+			for tagName, to := range o.TagOverrides {
+				if tagName == "" {
+					v = appendWarningf(v, "tagOverrides.name may not be empty")
+				}
+				if to == nil {
+					v = appendErrorf(v, "tagOverrides may not be null")
+					continue
+				}
+				switch to.Operation {
+				case telemetry.MetricsOverrides_TagOverride_UPSERT:
+					if to.Value == "" {
+						v = appendErrorf(v, "tagOverrides.value must be set set when operation is UPSERT")
+					}
+				case telemetry.MetricsOverrides_TagOverride_REMOVE:
+					if to.Value != "" {
+						v = appendErrorf(v, "tagOverrides.value may only be set when operation is UPSERT")
+					}
+				}
+			}
+			if o.Match != nil {
+				switch mm := o.Match.MetricMatch.(type) {
+				case *telemetry.MetricSelector_CustomMetric:
+					if mm.CustomMetric == "" {
+						v = appendErrorf(v, "customMetric may not be empty")
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
+func validateTelemetryProviders(providers []*telemetry.ProviderRef) error {
+	for _, p := range providers {
+		if p == nil || p.Name == "" {
+			return fmt.Errorf("providers.name may not be empty")
+		}
+	}
+	return nil
 }

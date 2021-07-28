@@ -21,18 +21,28 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
+// ExpectContains specifies the expected value to be found in the HTTP responses. Every value must be found in order to
+// to make the test pass. Every NotValue must not be found in order to make the test pass.
+type ExpectContains struct {
+	Key       string
+	Values    []string
+	NotValues []string
+}
+
 type TestCase struct {
-	NamePrefix    string
-	Request       connection.Checker
-	ExpectAllowed bool
-	Jwt           string
-	Headers       map[string]string
+	NamePrefix         string
+	Request            connection.Checker
+	ExpectAllowed      bool
+	ExpectHTTPResponse []ExpectContains
+	Jwt                string
+	Headers            map[string]string
 }
 
 func getError(req connection.Checker, expect, actual string) error {
@@ -43,6 +53,25 @@ func getError(req connection.Checker, expect, actual string) error {
 		req.Options.Path,
 		expect,
 		actual)
+}
+
+func checkValues(i int, response *client.ParsedResponse, want []ExpectContains) error {
+	for _, w := range want {
+		key := w.Key
+		for _, value := range w.Values {
+			if !strings.Contains(response.RawResponse[key], value) {
+				return fmt.Errorf("response[%d]: HTTP code %s, want value %s in key %s, but not found in %s",
+					i, response.Code, value, key, response.RawResponse)
+			}
+		}
+		for _, value := range w.NotValues {
+			if strings.Contains(response.RawResponse[key], value) {
+				return fmt.Errorf("response[%d]: HTTP code %s, do not want value %s in key %s, but found in %s",
+					i, response.Code, value, key, response.RawResponse)
+			}
+		}
+	}
+	return nil
 }
 
 // CheckRBACRequest checks if a request is successful under RBAC policies.
@@ -73,6 +102,11 @@ func (tc TestCase) CheckRBACRequest() error {
 		if err != nil {
 			return getError(req, "allow with code 200", fmt.Sprintf("error: %v", err))
 		}
+		if err := resp.Check(func(i int, parsedResponse *client.ParsedResponse) error {
+			return checkValues(i, parsedResponse, tc.ExpectHTTPResponse)
+		}); err != nil {
+			return err
+		}
 		if req.DestClusters.IsMulticluster() {
 			return resp.CheckReachedClusters(req.DestClusters)
 		}
@@ -99,6 +133,11 @@ func (tc TestCase) CheckRBACRequest() error {
 			}
 			if result != "" {
 				return getError(req, "deny with code 403", result)
+			}
+			if err := resp.Check(func(i int, parsedResponse *client.ParsedResponse) error {
+				return checkValues(i, parsedResponse, tc.ExpectHTTPResponse)
+			}); err != nil {
+				return err
 			}
 		}
 	}

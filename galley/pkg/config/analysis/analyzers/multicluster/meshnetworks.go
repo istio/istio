@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -36,10 +36,10 @@ type MeshNetworksAnalyzer struct{}
 var _ analysis.Analyzer = &MeshNetworksAnalyzer{}
 
 // Service Registries that are known to istio.
-var serviceRegistries = []serviceregistry.ProviderID{
-	serviceregistry.Mock,
-	serviceregistry.Kubernetes,
-	serviceregistry.External,
+var serviceRegistries = []provider.ID{
+	provider.Mock,
+	provider.Kubernetes,
+	provider.External,
 }
 
 // Metadata implements Analyzer
@@ -60,7 +60,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 		if r.Metadata.Labels[secretcontroller.MultiClusterSecretLabel] == "true" {
 			s := r.Message.(*v1.Secret)
 			for c := range s.Data {
-				serviceRegistries = append(serviceRegistries, serviceregistry.ProviderID(c))
+				serviceRegistries = append(serviceRegistries, provider.ID(c))
 			}
 		}
 		return true
@@ -75,7 +75,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 				case *v1alpha1.Network_NetworkEndpoints_FromRegistry:
 					found := false
 					for _, s := range serviceRegistries {
-						if serviceregistry.ProviderID(re.FromRegistry) == s {
+						if provider.ID(re.FromRegistry) == s {
 							found = true
 						}
 					}

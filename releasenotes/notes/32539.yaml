@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 32539
+releaseNotes:
+  - |
+    **Fixed** an issue where subject alternate names specified in service entry are not considered while building TLS context.

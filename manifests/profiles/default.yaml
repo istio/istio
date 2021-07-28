@@ -34,7 +34,7 @@ spec:
     cni:
       enabled: false
     
-    # istiod remote configuration when istiod isn't installed on the cluster
+    # Remote and config cluster configuration for an external istiod
     istiodRemote:
       enabled: false
 

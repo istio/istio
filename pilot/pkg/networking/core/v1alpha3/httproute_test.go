@@ -25,10 +25,12 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -39,11 +41,12 @@ import (
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
-		name    string
-		service *model.Service
-		port    int
-		node    *model.Proxy
-		want    []string
+		name        string
+		service     *model.Service
+		port        int
+		node        *model.Proxy
+		want        []string
+		wantWithMCS []string
 	}{
 		{
 			name: "same domain",
@@ -56,6 +59,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
+				"foo", "foo.local.campus.net",
+				"foo:80", "foo.local.campus.net:80",
+			},
+			wantWithMCS: []string{
 				"foo", "foo.local.campus.net",
 				"foo:80", "foo.local.campus.net:80",
 			},
@@ -74,6 +81,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
 			},
+			wantWithMCS: []string{
+				"foo.local", "foo.local.campus", "foo.local.campus.net",
+				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
+			},
 		},
 		{
 			name: "different domains with no shared dns",
@@ -85,7 +96,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			want:        []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			wantWithMCS: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
 		},
 		{
 			name: "k8s service with default domain",
@@ -100,6 +112,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			want: []string{
 				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
 				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+			},
+			wantWithMCS: []string{
+				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.clusterset.local", "echo.default.svc.clusterset.local:8123",
 			},
 		},
 		{
@@ -116,6 +133,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
 				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
 			},
+			wantWithMCS: []string{
+				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.clusterset.local", "echo.default.svc.clusterset.local:8123",
+			},
 		},
 		{
 			name: "k8s service with custom domain 2",
@@ -127,18 +149,50 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "foo.svc.custom.k8s.local",
 			},
-			want: []string{"google.local", "google.local:8123"},
+			want:        []string{"google.local", "google.local:8123"},
+			wantWithMCS: []string{"google.local", "google.local:8123"},
 		},
 	}
 
-	for _, c := range cases {
-		out, _ := generateVirtualHostDomains(c.service, c.port, c.node)
-		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
+	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
+		out, _ := generateVirtualHostDomains(service, port, node)
+		sort.SliceStable(want, func(i, j int) bool { return want[i] < want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
-		if !reflect.DeepEqual(out, c.want) {
-			t.Errorf("buildVirtualHostDomains(%s): \ngot %v\n want %v", c.name, out, c.want)
+		if !reflect.DeepEqual(out, want) {
+			return fmt.Errorf("unexpected virtual hosts:\ngot  %v\nwant %v", out, want)
 		}
+		return nil
 	}
+
+	t.Run("MCS disabled", func(t *testing.T) {
+		origEnableMCSHost := features.EnableMCSHost
+		features.EnableMCSHost = false
+		defer func() { features.EnableMCSHost = origEnableMCSHost }()
+
+		for _, c := range cases {
+			c := c
+			t.Run(c.name, func(t *testing.T) {
+				if err := testFn(c.service, c.port, c.node, c.want); err != nil {
+					t.Error(err)
+				}
+			})
+		}
+	})
+
+	t.Run("MCS enabled", func(t *testing.T) {
+		origEnableMCSHost := features.EnableMCSHost
+		features.EnableMCSHost = true
+		defer func() { features.EnableMCSHost = origEnableMCSHost }()
+
+		for _, c := range cases {
+			c := c
+			t.Run(c.name, func(t *testing.T) {
+				if err := testFn(c.service, c.port, c.node, c.wantWithMCS); err != nil {
+					t.Error(err)
+				}
+			})
+		}
+	})
 }
 
 func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
@@ -292,8 +346,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": "PassthroughCluster",
 				// From the service, go to the service
 				"test.default.svc.cluster.local:80": "outbound|80||test.default.svc.cluster.local",
-				// From the VS, go to VS destination
-				"test.default:80": "outbound|80||test.default",
+				"test.default:80":                   "outbound|80||test.default",
 			},
 		},
 		{
@@ -643,6 +696,22 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec6 := &networking.VirtualService{
+		Hosts:    []string{"match-no-service"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "non-exist-service",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -682,6 +751,14 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec5,
+	}
+	virtualService6 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec6,
 	}
 
 	// With the config above, RDS should return a valid route for the following route names
@@ -768,6 +845,24 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
 				},
+				"allow_any": {
+					"*": true,
+				},
+			},
+			registryOnly: false,
+		},
+
+		{
+			name:                  "sidecar config with allow any and virtual service includes non existing service",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: []*config.Config{&virtualService6},
+			expectedHosts: map[string]map[string]bool{
+				// does not include `match-no-service`
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"match-no-service.not-default:80": {"match-no-service.not-default": true, "match-no-service.not-default:80": true},
 				"allow_any": {
 					"*": true,
 				},
@@ -1056,9 +1151,6 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test.com:8080": {
 					"test.com:8080": true, "8.8.8.8:8080": true,
 				},
-				"test-svc.testns.svc.cluster.local:80": {
-					"test-svc.testns.svc.cluster.local": true, "test-svc.testns.svc.cluster.local:80": true,
-				},
 				"block_all": {
 					"*": true,
 				},
@@ -1072,6 +1164,192 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
 				c.routeName, c.expectedHosts, c.registryOnly)
 		})
+	}
+}
+
+func TestSelectVirtualService(t *testing.T) {
+	services := []*model.Service{
+		buildHTTPService("bookinfo.com", visibility.Public, wildcardIP, "default", 9999, 70),
+		buildHTTPService("private.com", visibility.Private, wildcardIP, "default", 9999, 80),
+		buildHTTPService("test.com", visibility.Public, "8.8.8.8", "not-default", 8080),
+		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
+		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
+		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
+	}
+
+	servicesByName := make(map[host.Name]*model.Service, len(services))
+	for _, svc := range services {
+		servicesByName[svc.Hostname] = svc
+	}
+
+	virtualServiceSpec1 := &networking.VirtualService{
+		Hosts:    []string{"test-private-2.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							// Subset: "some-subset",
+							Host: "example.org",
+							Port: &networking.PortSelector{
+								Number: 61,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec2 := &networking.VirtualService{
+		Hosts:    []string{"test-private-2.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 62,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec3 := &networking.VirtualService{
+		Hosts:    []string{"test-private-3.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 63,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec4 := &networking.VirtualService{
+		Hosts:    []string{"test-headless.com", "example.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec5 := &networking.VirtualService{
+		Hosts:    []string{"test-svc.testns.svc.cluster.local"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-svc.testn.svc.cluster.local",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec6 := &networking.VirtualService{
+		Hosts:    []string{"match-no-service"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "non-exist-service",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualService1 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme2-v1",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec1,
+	}
+	virtualService2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v2",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec2,
+	}
+	virtualService3 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec3,
+	}
+	virtualService4 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v4",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec4,
+	}
+	virtualService5 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec5,
+	}
+	virtualService6 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec6,
+	}
+	configs := selectVirtualServices(
+		[]config.Config{virtualService1, virtualService2, virtualService3, virtualService4, virtualService5, virtualService6},
+		servicesByName)
+	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name}
+	if len(expectedVS) != len(configs) {
+		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
+	}
+	for i, config := range configs {
+		if config.Name != expectedVS[i] {
+			t.Fatalf("Unexpected virtualService, got %s, epxected %s", config.Name, expectedVS[i])
+		}
 	}
 }
 
@@ -1144,10 +1422,10 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		CreationTime: tnow,
 		Hostname:     host.Name(hostname),
 		Address:      ip,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Resolution:   model.DNSLB,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: string(serviceregistry.Kubernetes),
+			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
 			ExportTo:        map[visibility.Instance]bool{v: true},
 		},

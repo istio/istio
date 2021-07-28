@@ -15,22 +15,10 @@
 package grpcgen
 
 import (
-	"net"
-	"strconv"
-	"strings"
-
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/pkg/log"
+	istiolog "istio.io/pkg/log"
 )
 
 // Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
@@ -49,183 +37,34 @@ import (
 // using the generic structures. "Classical" CDS/LDS/RDS/EDS use separate logic -
 // this is used for the API-based LDS and generic messages.
 
-type GrpcConfigGenerator struct {
-	model.BaseGenerator
+var log = istiolog.RegisterScope("grpcgen", "xDS Generator for Proxyless gRPC", 0)
+
+type GrpcConfigGenerator struct{}
+
+func clusterKey(hostname string, port int) string {
+	return subsetClusterKey("", hostname, port)
+}
+
+func subsetClusterKey(subset, hostname string, port int) string {
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, subset, host.Name(hostname), port)
 }
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
-	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	switch w.TypeUrl {
 	case v3.ListenerType:
-		return g.BuildListeners(proxy, push, w.ResourceNames), nil
+		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), nil
+		return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	case v3.RouteType:
-		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), nil
+		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
 	}
 
-	return nil, nil
+	return nil, model.DefaultXdsLogDetails, nil
 }
 
-// handleLDSApiType handles a LDS request, returning listeners of ApiListener type.
-// The request may include a list of resource names, using the full_hostname[:port] format to select only
-// specific services.
-func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
-	resp := model.Resources{}
-
-	filter := map[string]bool{}
-	for _, name := range names {
-		if strings.Contains(name, ":") {
-			n, _, err := net.SplitHostPort(name)
-			if err == nil {
-				name = n
-			}
-		}
-		filter[name] = true
-	}
-
-	for _, el := range node.SidecarScope.EgressListeners {
-		for _, sv := range el.Services() {
-			shost := string(sv.Hostname)
-			if len(filter) > 0 {
-				// DiscReq has a filter - only return services that match
-				if !filter[shost] {
-					continue
-				}
-			}
-			for _, p := range sv.Ports {
-				hp := net.JoinHostPort(shost, strconv.Itoa(p.Port))
-				ll := &listener.Listener{
-					Name: hp,
-				}
-
-				ll.Address = &core.Address{
-					Address: &core.Address_SocketAddress{
-						SocketAddress: &core.SocketAddress{
-							Address: sv.Address,
-							PortSpecifier: &core.SocketAddress_PortValue{
-								PortValue: uint32(p.Port),
-							},
-						},
-					},
-				}
-				hcm := &hcm.HttpConnectionManager{
-					RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-						Rds: &hcm.Rds{
-							ConfigSource: &core.ConfigSource{
-								ConfigSourceSpecifier: &core.ConfigSource_Ads{
-									Ads: &core.AggregatedConfigSource{},
-								},
-							},
-							RouteConfigName: hp,
-						},
-					},
-				}
-				hcmAny := util.MessageToAny(hcm)
-				// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
-				ll.ApiListener = &listener.ApiListener{
-					ApiListener: hcmAny,
-				}
-				resp = append(resp, &discovery.Resource{
-					Name:     hp,
-					Resource: util.MessageToAny(ll),
-				})
-			}
-		}
-	}
-
-	return resp
-}
-
-// Handle a gRPC CDS request, used with the 'ApiListener' style of requests.
-// The main difference is that the request includes Resources.
-func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
-	resp := model.Resources{}
-	// gRPC doesn't currently support any of the APIs - returning just the expected EDS result.
-	// Since the code is relatively strict - we'll add info as needed.
-	for _, n := range names {
-		hn, portn, err := net.SplitHostPort(n)
-		if err != nil {
-			log.Warn("Failed to parse ", n, " ", err)
-			continue
-		}
-		rc := &cluster.Cluster{
-			Name:                 n,
-			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-			EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
-				ServiceName: "outbound|" + portn + "||" + hn,
-				EdsConfig: &core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_Ads{
-						Ads: &core.AggregatedConfigSource{},
-					},
-				},
-			},
-		}
-		resp = append(resp, &discovery.Resource{
-			Name:     n,
-			Resource: util.MessageToAny(rc),
-		})
-	}
-	return resp
-}
-
-// handleSplitRDS supports per-VIP routes, as used by GRPC.
-// This mode is indicated by using names containing full host:port instead of just port.
-// Returns true of the request is of this type.
-func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) model.Resources {
-	resp := model.Resources{}
-
-	// Currently this mode is only used by GRPC, to extract Cluster for the default
-	// route.
-	for _, n := range routeNames {
-		hn, portn, err := net.SplitHostPort(n)
-		if err != nil {
-			log.Warn("Failed to parse ", n, " ", err)
-			continue
-		}
-		port, err := strconv.Atoi(portn)
-		if err != nil {
-			log.Warn("Failed to parse port ", n, " ", err)
-			continue
-		}
-		el := node.SidecarScope.GetEgressListenerForRDS(port, "")
-		// TODO: use VirtualServices instead !
-		// Currently gRPC doesn't support matching the path.
-		svc := el.Services()
-		for _, s := range svc {
-			if s.Hostname.Matches(host.Name(hn)) {
-				// Only generate the required route for grpc. Will need to generate more
-				// as GRPC adds more features.
-				rc := &route.RouteConfiguration{
-					Name: n,
-					VirtualHosts: []*route.VirtualHost{
-						{
-							Name:    hn,
-							Domains: []string{hn, n},
-
-							Routes: []*route.Route{
-								{
-									Match: &route.RouteMatch{
-										PathSpecifier: &route.RouteMatch_Prefix{Prefix: ""},
-									},
-									Action: &route.Route_Route{
-										Route: &route.RouteAction{
-											ClusterSpecifier: &route.RouteAction_Cluster{
-												Cluster: n,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-				resp = append(resp, &discovery.Resource{
-					Name:     n,
-					Resource: util.MessageToAny(rc),
-				})
-			}
-		}
-	}
-	return resp
+func (g *GrpcConfigGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := g.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
 }

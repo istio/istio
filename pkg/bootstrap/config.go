@@ -78,7 +78,7 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
 
 	xdsType := "GRPC"
-	if features.DeltaXds.Get() {
+	if features.DeltaXds {
 		xdsType = "DELTA_GRPC"
 	}
 
@@ -255,7 +255,10 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts, getStatsOptions(node.Metadata)...)
 
-	opts = append(opts, option.NodeMetadata(node.Metadata, node.RawMetadata))
+	opts = append(opts,
+		option.NodeMetadata(node.Metadata, node.RawMetadata),
+		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
+		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
 }
 
@@ -456,6 +459,8 @@ type MetadataOptions struct {
 	OutlierLogPath      string
 	ProvCert            string
 	annotationFilePath  string
+	EnvoyStatusPort     int
+	EnvoyPrometheusPort int
 }
 
 // GetNodeMetaData function uses an environment variable contract
@@ -494,6 +499,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if options.StsPort != 0 {
 		meta.StsPort = strconv.Itoa(options.StsPort)
 	}
+	meta.EnvoyStatusPort = options.EnvoyStatusPort
+	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
@@ -648,7 +655,7 @@ func ReadPodAnnotations(path string) (map[string]string, error) {
 	return ParseDownwardAPI(string(b))
 }
 
-// Fields are stored as format `%s=%q`, we will parse this back to a map
+// ParseDownwardAPI parses fields which are stored as format `%s=%q` back to a map
 func ParseDownwardAPI(i string) (map[string]string, error) {
 	res := map[string]string{}
 	for _, line := range strings.Split(i, "\n") {

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 34129
+releaseNotes:
+  - |
+    **Fixed** Gateway API xRoute does not forward the traffic to that backend when weight `0`.

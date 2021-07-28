@@ -25,13 +25,35 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 )
+
+var caBundle0 = []byte(`-----BEGIN CERTIFICATE-----
+MIIC9DCCAdygAwIBAgIJAIFe3lWPaalKMA0GCSqGSIb3DQEBCwUAMA4xDDAKBgNV
+BAMMA19jYTAgFw0xNzEyMjIxODA0MjRaGA8yMjkxMTAwNzE4MDQyNFowDjEMMAoG
+A1UEAwwDX2NhMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuBdxj+Hi
+8h0TkId1f64TprLydwgzzLwXAs3wpmXz+BfnW1oMQPNyN7vojW6VzqJGGYLsc1OB
+MgwObU/VeFNc6YUCmu6mfFJwoPfXMPnhmGuSwf/kjXomlejAYjxClU3UFVWQht54
+xNLjTi2M1ZOnwNbECOhXC3Tw3G8mCtfanMAO0UXM5yObbPa8yauUpJKkpoxWA7Ed
+qiuUD9qRxluFPqqw/z86V8ikmvnyjQE9960j+8StlAbRs82ArtnrhRgkDO0Smtf7
+4QZsb/hA1KNMm73bOGS6+SVU+eH8FgVOzcTQYFRpRT3Mhi6dKZe9twIO8mpZK4wk
+uygRxBM32Ag9QQIDAQABo1MwUTAdBgNVHQ4EFgQUc8tvoNNBHyIkoVV8XCXy63Ya
+BEQwHwYDVR0jBBgwFoAUc8tvoNNBHyIkoVV8XCXy63YaBEQwDwYDVR0TAQH/BAUw
+AwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAVmaUkkYESfcfgnuPeZ4sTNs2nk2Y+Xpd
+lxkMJhChb8YQtlCe4uiLvVe7er1sXcBLNCm/+2K9AT71gnxBSeS5mEOzWmCPErhy
+RmYtSxeRyXAaUWVYLs/zMlBQ0Iz4dpY+FVVbMjIurelVwHF0NBk3VtU5U3lHyKdZ
+j4C2rMjvTxmkyIcR1uBEeVvuGU8R70nZ1yfo3vDwmNGMcLwW+4QK+WcfwfjLXhLs
+5550arfEYdTzYFMxY60HJT/LvbGrjxY0PQUWWDbPiRfsdRjOFduAbM0/EVRda/Oo
+Fg72WnHeojDUhqEz4UyFZbnRJ4x6leQhnrIcVjWX4FFFktiO9rqqfw==
+-----END CERTIFICATE-----`)
 
 func TestMutatingWebhookPatch(t *testing.T) {
 	testRevision := "test-revision"
 	wrongRevision := "wrong-revision"
 	testRevisionLabel := map[string]string{label.IoIstioRev.Name: testRevision}
 	wrongRevisionLabel := map[string]string{label.IoIstioRev.Name: wrongRevision}
+	watcher := &keycertbundle.Watcher{}
+	watcher.SetAndNotify(nil, nil, caBundle0)
 	ts := []struct {
 		name        string
 		configs     admissionregistrationv1.MutatingWebhookConfigurationList
@@ -47,7 +69,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			[]byte("fake CA"),
+			caBundle0,
 			"\"config1\" not found",
 		},
 		{
@@ -65,7 +87,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			[]byte("fake CA"),
+			caBundle0,
 			errNoWebhookWithName.Error(),
 		},
 		{
@@ -89,7 +111,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			[]byte("fake CA"),
+			caBundle0,
 			"",
 		},
 		{
@@ -113,7 +135,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			[]byte("fake CA"),
+			caBundle0,
 			"",
 		},
 		{
@@ -136,7 +158,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			[]byte("fake CA"),
+			caBundle0,
 			errWrongRevision.Error(),
 		},
 		{
@@ -160,7 +182,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			[]byte("fake CA"),
+			caBundle0,
 			errWrongRevision.Error(),
 		},
 		{
@@ -188,7 +210,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			[]byte("fake CA"),
+			caBundle0,
 			"",
 		},
 	}
@@ -196,10 +218,10 @@ func TestMutatingWebhookPatch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := fake.NewSimpleClientset(tc.configs.DeepCopyObject())
 			whPatcher := WebhookCertPatcher{
-				client:      client,
-				revision:    tc.revision,
-				webhookName: tc.webhookName,
-				caCertPem:   tc.pemData,
+				client:          client,
+				revision:        tc.revision,
+				webhookName:     tc.webhookName,
+				CABundleWatcher: watcher,
 			}
 
 			err := whPatcher.patchMutatingWebhookConfig(client.AdmissionregistrationV1().MutatingWebhookConfigurations(),

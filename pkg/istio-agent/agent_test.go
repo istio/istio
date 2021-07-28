@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -40,6 +41,7 @@ import (
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/bootstrap"
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/file"
@@ -53,6 +55,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/tests/util/leak"
+	pkgenv "istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -85,17 +88,18 @@ func TestAgent(t *testing.T) {
 		}, retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 	}
 
+	// NOTE: Long test names may result in weird errors on bind; see https://github.com/golang/go/issues/6895
 	t.Run("Kubernetes defaults", func(t *testing.T) {
 		// XDS and CA are both using JWT authentication and TLS. Root certificates distributed in
 		// configmap to each namespace.
-		Setup(t).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		Setup(t).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("RSA", func(t *testing.T) {
 		// All of the other tests use ECC for speed. Here we make sure RSA still works
 		Setup(t, func(a AgentTest) AgentTest {
 			a.Security.ECCSigAlg = ""
 			return a
-		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("Kubernetes defaults output key and cert", func(t *testing.T) {
 		// same as "Kubernetes defaults", but also output the key and cert. This can be used for tools
@@ -105,7 +109,7 @@ func TestAgent(t *testing.T) {
 			a.Security.OutputKeyCertToDir = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
-		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// Ensure we output the certs
 		checkCertsWritten(t, dir)
@@ -152,7 +156,7 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, "root-cert.pem")
 			a.Security.FileMountedCerts = true
 			return a
-		}).Check(cfg.GetRootResourceName(), cfg.GetResourceName())
+		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
 	t.Run("Implicit file mounted certs", func(t *testing.T) {
 		// User mounts certificates in /etc/certs (hardcoded path). CA communication is disabled.
@@ -167,7 +171,7 @@ func TestAgent(t *testing.T) {
 			// Ensure we don't try to connect to CA
 			a.CaAuthenticator.Set("", "")
 			return a
-		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("VMs", func(t *testing.T) {
 		// Bootstrap sets up a short lived JWT token and root certificate. The initial run will fetch
@@ -181,12 +185,12 @@ func TestAgent(t *testing.T) {
 				a.Security.ProvCert = dir
 				return a
 			})
-			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 			// Switch out our auth to only allow mTLS. In practice, the real server would allow JWT, but we
 			// don't have a good way to expire JWTs here. Instead, we just deny all JWTs to ensure mTLS is used
 			a.CaAuthenticator.Set("", filepath.Join(dir, "cert-chain.pem"))
-			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		})
 		t.Run("reboot", func(t *testing.T) {
 			// Switch the JWT to a bogus path, to simulate the VM being rebooted
@@ -199,15 +203,15 @@ func TestAgent(t *testing.T) {
 				return a
 			})
 			// Ensure we can still make requests
-			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-			a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+			a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		})
 	})
 	t.Run("VMs to etc/certs", func(t *testing.T) {
 		// Handle special edge case where we output certs to /etc/certs, which has magic implicit
 		// reading from file logic
 		dir := "./etc/certs"
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() {
@@ -220,7 +224,7 @@ func TestAgent(t *testing.T) {
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
 		})
-		sds := a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		sds := a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// Ensure we output the certs
 		checkCertsWritten(t, dir)
@@ -244,7 +248,7 @@ func TestAgent(t *testing.T) {
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
-		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// The provisioning certificates should not be touched
 		go sds[security.WorkloadKeyCertResourceName].DrainResponses()
@@ -264,7 +268,7 @@ func TestAgent(t *testing.T) {
 			a.Security.ProvCert = dir
 			a.Security.SecretRotationGracePeriodRatio = 1
 			return a
-		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 
 		// The provisioning certificates should not be touched
 		go sds[security.WorkloadKeyCertResourceName].DrainResponses()
@@ -277,7 +281,7 @@ func TestAgent(t *testing.T) {
 			a.CaAuthenticator.Set("some-token", "")
 			a.Security.TokenExchanger = camock.NewMockTokenExchangeServer(map[string]string{"fake": "some-token"})
 			return a
-		}).Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("Token exchange with credential fetcher", func(t *testing.T) {
 		// This is used with platform credentials, where the platform provides some underlying
@@ -295,7 +299,7 @@ func TestAgent(t *testing.T) {
 			return a
 		})
 
-		a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 	})
 	t.Run("Token exchange with credential fetcher downtime", func(t *testing.T) {
 		// This ensures our pre-warming is resilient to temporary downtime of the CA
@@ -329,17 +333,77 @@ func TestAgent(t *testing.T) {
 			a.CaAuthenticator.Set("some-token", "")
 		}()
 
-		a.Check(security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		a.Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+	})
+	envoyReady := func(t test.Failer, name string, port int) {
+		retry.UntilSuccessOrFail(t, func() error {
+			code, _, _ := env.HTTPGet(fmt.Sprintf("http://localhost:%d/ready", port))
+			if code != 200 {
+				return fmt.Errorf("envoy %q is not ready", name)
+			}
+			return nil
+		}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*15))
+	}
+	t.Run("Envoy lifecycle", func(t *testing.T) {
+		Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.ProxyConfig.StatusPort = 15020
+			a.ProxyConfig.ProxyAdminPort = 15000
+			a.AgentConfig.EnvoyPrometheusPort = 15090
+			a.AgentConfig.EnvoyStatusPort = 15021
+			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
+			return a
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		envoyReady(t, "first agent", 15000)
+		Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.ProxyConfig.StatusPort = 25020
+			a.ProxyConfig.ProxyAdminPort = 25000
+			a.AgentConfig.EnvoyPrometheusPort = 25090
+			a.AgentConfig.EnvoyStatusPort = 25021
+			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
+			return a
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		envoyReady(t, "second agent", 25000)
+	})
+	t.Run("Envoy bootstrap discovery", func(t *testing.T) {
+		Setup(t, func(a AgentTest) AgentTest {
+			a.envoyEnable = true
+			a.ProxyConfig.StatusPort = 15020
+			a.ProxyConfig.ProxyAdminPort = 15000
+			a.AgentConfig.EnvoyPrometheusPort = 15090
+			a.AgentConfig.EnvoyStatusPort = 15021
+			a.AgentConfig.EnableDynamicBootstrap = true
+			return a
+		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
+		envoyReady(t, "bootstrap discovery", 15000)
+	})
+	t.Run("gRPC XDS bootstrap", func(t *testing.T) {
+		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
+		a := Setup(t, func(a AgentTest) AgentTest {
+			a.Security.OutputKeyCertToDir = "/cert/path"
+			a.AgentConfig.GRPCBootstrapPath = bootstrapPath
+			a.envoyEnable = false
+			return a
+		})
+		got, err := ioutil.ReadFile(bootstrapPath)
+		if err != nil {
+			t.Fatalf("could not read bootstrap config: %v", err)
+		}
+		// make UDS path in file deterministic
+		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
+		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
 	})
 }
 
 type AgentTest struct {
-	t                *testing.T
 	ProxyConfig      meshconfig.ProxyConfig
 	Security         security.Options
 	AgentConfig      AgentOptions
 	XdsAuthenticator *security.FakeAuthenticator
 	CaAuthenticator  *security.FakeAuthenticator
+
+	envoyEnable bool
 
 	agent *Agent
 }
@@ -347,7 +411,6 @@ type AgentTest struct {
 func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	d := t.TempDir()
 	resp := AgentTest{
-		t:                t,
 		XdsAuthenticator: security.NewFakeAuthenticator("xds").Set("fake", ""),
 		CaAuthenticator:  security.NewFakeAuthenticator("ca").Set("fake", ""),
 	}
@@ -368,6 +431,12 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		// our CI, causing flakes. We use ECC as the default to speed this up.
 		ECCSigAlg: string(pkiutil.EcdsaSigAlg),
 	}
+	proxy := &model.Proxy{
+		ID:          "pod1.fake-namespace",
+		DNSDomain:   "fake-namespace.svc.cluster.local",
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"127.0.0.1"},
+	}
 	resp.ProxyConfig = mesh.DefaultProxyConfig()
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
@@ -377,53 +446,73 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CARootCerts:           rootCert,
 		XDSRootCerts:          rootCert,
 		XdsUdsPath:            filepath.Join(d, "XDS"),
+		ServiceNode:           proxy.ServiceNode(),
 	}
+
+	// Set-up envoy defaults
+	resp.ProxyConfig.ProxyBootstrapTemplatePath = filepath.Join(env.IstioSrc, "./tools/packaging/common/envoy_bootstrap.json")
+	resp.ProxyConfig.ConfigPath = d
+	resp.ProxyConfig.BinaryPath = filepath.Join(env.LocalOut, "envoy")
+	if path, exists := pkgenv.RegisterStringVar("ENVOY_PATH", "", "Specifies the path to an Envoy binary.").Lookup(); exists {
+		resp.ProxyConfig.BinaryPath = path
+	}
+	resp.ProxyConfig.TerminationDrainDuration = nil           // no need to be graceful in a test
+	resp.AgentConfig.ProxyIPAddresses = []string{"127.0.0.1"} // ensures IPv4 binding
+	resp.AgentConfig.Platform = &platform.Unknown{}           // disable discovery
+
 	// Run through opts again to apply settings
 	for _, opt := range opts {
 		resp = opt(resp)
 	}
-	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: true})
+	a := NewAgent(&resp.ProxyConfig, &resp.AgentConfig, &resp.Security, envoy.ProxyConfig{TestOnly: !resp.envoyEnable})
 	t.Cleanup(a.Close)
-	if err := a.Run(context.Background()); err != nil {
+	ctx, done := context.WithCancel(context.Background())
+
+	wait, err := a.Run(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
+	// First signal to terminate, then wait for completion (reverse order semantics).
+	t.Cleanup(wait)
+	t.Cleanup(done)
+
 	resp.agent = a
 	return &resp
 }
 
-func (a *AgentTest) Check(expectedSDS ...string) map[string]*xds.AdsTest {
+func (a *AgentTest) Check(t *testing.T, expectedSDS ...string) map[string]*xds.AdsTest {
 	// Ensure we can send XDS requests
-	meta := proxyConfigToMetadata(a.t, a.ProxyConfig)
+	meta := proxyConfigToMetadata(t, a.ProxyConfig)
 
 	// We add a retry around XDS since some of the auth methods are eventually consistent, relying on
 	// the CSR flow to complete first. This mirrors Envoy, which will also retry indefinitely
 	var resp *discovery.DiscoveryResponse
-	retry.UntilSuccessOrFail(a.t, func() error {
+	retry.UntilSuccessOrFail(t, func() error {
 		return test.Wrap(func(t test.Failer) {
 			conn := setupDownstreamConnectionUDS(t, a.AgentConfig.XdsUdsPath)
 			xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
-			resp = xdsc.RequestResponseAck(nil)
+			resp = xdsc.RequestResponseAck(t, nil)
 		})
 	}, retry.Timeout(time.Second*15), retry.Delay(time.Millisecond*200))
 
 	sdsStreams := map[string]*xds.AdsTest{}
 	gotKeys := []string{}
-	for _, res := range xdstest.ExtractSecretResources(a.t, resp.Resources) {
-		sds := xds.NewSdsTest(a.t, setupDownstreamConnectionUDS(a.t, a.Security.WorkloadUDSPath)).
+	for _, res := range xdstest.ExtractSecretResources(t, resp.Resources) {
+		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, a.Security.WorkloadUDSPath)).
 			WithMetadata(meta).
 			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
-		sds.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{res}})
+		sds.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{res}})
 		sdsStreams[res] = sds
 		gotKeys = append(gotKeys, res)
 	}
 	if !reflect.DeepEqual(expectedSDS, gotKeys) {
-		a.t.Errorf("expected SDS resources %v got %v", expectedSDS, gotKeys)
+		t.Errorf("expected SDS resources %v got %v", expectedSDS, gotKeys)
 	}
 	return sdsStreams
 }
 
 func copyCerts(t *testing.T, dir string) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/cert-chain.pem"), dir, "cert-chain.pem"); err != nil {

@@ -68,7 +68,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	if ids != nil {
 		log.Debugf("Authenticated XDS: %v with identity %v", peerAddr, ids)
 	} else {
-		log.Debug("Unauthenticated XDS: ", peerAddr)
+		log.Debugf("Unauthenticated XDS: %v", peerAddr)
 	}
 
 	// InitContext returns immediately if the context was already initialized.
@@ -284,13 +284,13 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespondDelta(con, req)
-
 	var request *model.PushRequest
+	push := s.globalPushContext()
 	if shouldRespond {
 		debugRequest(req)
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
-		request = &model.PushRequest{Full: true}
+		request = &model.PushRequest{Full: true, Push: push}
 	} else {
 		// Check if we have a blocked push. If this was an ACK, we will send it.
 		// Either way we remove the blocked push as we will send a push.
@@ -309,7 +309,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		}
 	}
 
-	push := s.globalPushContext()
 	return s.pushDeltaXds(con, push, versionInfo(), con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)
 }
 
@@ -413,10 +412,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if gen == nil {
 		return nil
 	}
-
 	t0 := time.Now()
 
-	res, err := gen.Generate(con.proxy, push, w, req)
+	res, deletedRes, logdata, usedDelta, err := gen.GenerateDeltas(con.proxy, push, req, w)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -448,13 +446,16 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
-	// We take the set of watched resources and anything not in the response is sent as RemovedResources
-	// This is similar to SotW, but done on the server side instead of the client.
-	cur := sets.NewSet(w.ResourceNames...)
-	cur.Delete(originalNames...)
-	resp.RemovedResources = cur.SortedList()
+	if usedDelta {
+		resp.RemovedResources = deletedRes
+	} else {
+		// similar to sotw
+		cur := sets.NewSet(w.ResourceNames...)
+		cur.Delete(originalNames...)
+		resp.RemovedResources = cur.SortedList()
+	}
 	if len(resp.RemovedResources) > 0 {
-		log.Infof("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
+		log.Debugf("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
 	}
 	if isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
@@ -471,17 +472,31 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		return err
 	}
 
-	// Some types handle logs inside Generate, skip them here.
-	if !gen.Metadata().LogsDetails {
-		if log.DebugEnabled() {
-			// Add additional information to logs when debug mode enabled
-			log.Infof("%s: PUSH for node:%s resources:%d size:%s nonce:%v version:%v",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)), resp.Nonce, resp.SystemVersionInfo)
-		} else {
-			log.Infof("%s: PUSH for node:%s resources:%d size:%s",
-				v3.GetShortType(w.TypeUrl), con.proxy.ID, len(res), util.ByteCount(ResourceSize(res)))
-		}
+	ptype := "PUSH"
+	info := ""
+	if logdata.Incremental {
+		ptype = "PUSH INC"
 	}
+	if len(logdata.AdditionalInfo) > 0 {
+		info = " " + logdata.AdditionalInfo
+	}
+
+	switch {
+	case logdata.Incremental:
+		if log.DebugEnabled() {
+			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.ConID, len(res), util.ByteCount(configSize), info)
+		}
+	default:
+		debug := ""
+		if log.DebugEnabled() {
+			// Add additional information to logs when debug mode enabled.
+			debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
+		}
+		log.Infof("%s: %s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, con.proxy.ID, len(res),
+			util.ByteCount(ResourceSize(res)), info, debug)
+	}
+
 	return nil
 }
 

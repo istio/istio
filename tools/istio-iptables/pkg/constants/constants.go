@@ -21,6 +21,7 @@ const (
 	MANGLE = "mangle"
 	NAT    = "nat"
 	FILTER = "filter"
+	RAW    = "raw"
 )
 
 // Built-in iptables chains
@@ -51,6 +52,7 @@ const (
 	REJECT   = "REJECT"
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
+	CT       = "CT"
 )
 
 // iptables chains
@@ -89,6 +91,9 @@ const (
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
 	CaptureAllDNS             = "capture-all-dns"
+	OutputPath                = "output-paths"
+	NetworkNamespace          = "network-namespace"
+	CNIMode                   = "cni-mode"
 )
 
 const (
@@ -110,6 +115,7 @@ const (
 	IP6TABLESRESTORE = "ip6tables-restore"
 	IP6TABLESSAVE    = "ip6tables-save"
 	IP               = "ip"
+	NSENTER          = "nsenter"
 )
 
 // Constants for syscall

@@ -20,12 +20,15 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		// Requires custom CP installations. Consider merging into pilot/revisions
+		Label(label.CustomSetup).
 		RequireSingleCluster().
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `

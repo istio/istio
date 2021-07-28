@@ -119,7 +119,7 @@ var (
 
 	// VirtualServiceIneffectiveMatch defines a diag.MessageType for message "VirtualServiceIneffectiveMatch".
 	// Description: A VirtualService rule match duplicates a match in a previous rule.
-	VirtualServiceIneffectiveMatch = diag.NewMessageType(diag.Info, "IST0131", "VirtualService rule %v match %v is not used (duplicates a match in rule %v).")
+	VirtualServiceIneffectiveMatch = diag.NewMessageType(diag.Info, "IST0131", "VirtualService rule %v match %v is not used (duplicate/overlapping match in rule %v).")
 
 	// VirtualServiceHostNotFoundInGateway defines a diag.MessageType for message "VirtualServiceHostNotFoundInGateway".
 	// Description: Host defined in VirtualService not found in Gateway.
@@ -135,7 +135,7 @@ var (
 
 	// DeprecatedAnnotation defines a diag.MessageType for message "DeprecatedAnnotation".
 	// Description: A resource is using a deprecated Istio annotation.
-	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated and may not work in future Istio versions.")
+	DeprecatedAnnotation = diag.NewMessageType(diag.Info, "IST0135", "Annotation %q has been deprecated%s and may not work in future Istio versions.")
 
 	// AlphaAnnotation defines a diag.MessageType for message "AlphaAnnotation".
 	// Description: An Istio annotation may not be suitable for production.
@@ -176,6 +176,14 @@ var (
 	// ConflictingGateways defines a diag.MessageType for message "ConflictingGateways".
 	// Description: Gateway should not have the same selector, port and matched hosts of server
 	ConflictingGateways = diag.NewMessageType(diag.Error, "IST0145", "Conflict with gateways %s (workload selector %s, port %s, hosts %v).")
+
+	// ImageAutoWithoutInjectionWarning defines a diag.MessageType for message "ImageAutoWithoutInjectionWarning".
+	// Description: Deployments with `image: auto` should be targeted for injection.
+	ImageAutoWithoutInjectionWarning = diag.NewMessageType(diag.Warning, "IST0146", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
+
+	// ImageAutoWithoutInjectionError defines a diag.MessageType for message "ImageAutoWithoutInjectionError".
+	// Description: Pods with `image: auto` should be targeted for injection.
+	ImageAutoWithoutInjectionError = diag.NewMessageType(diag.Error, "IST0147", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
 )
 
 // All returns a list of all known message types.
@@ -223,6 +231,8 @@ func All() []*diag.MessageType {
 		LocalhostListener,
 		InvalidApplicationUID,
 		ConflictingGateways,
+		ImageAutoWithoutInjectionWarning,
+		ImageAutoWithoutInjectionError,
 	}
 }
 
@@ -541,11 +551,12 @@ func NewServiceEntryAddressesRequired(r *resource.Instance) diag.Message {
 }
 
 // NewDeprecatedAnnotation returns a new diag.Message based on DeprecatedAnnotation.
-func NewDeprecatedAnnotation(r *resource.Instance, annotation string) diag.Message {
+func NewDeprecatedAnnotation(r *resource.Instance, annotation string, extra string) diag.Message {
 	return diag.NewMessage(
 		DeprecatedAnnotation,
 		r,
 		annotation,
+		extra,
 	)
 }
 
@@ -644,5 +655,25 @@ func NewConflictingGateways(r *resource.Instance, gateway string, selector strin
 		selector,
 		portnumber,
 		hosts,
+	)
+}
+
+// NewImageAutoWithoutInjectionWarning returns a new diag.Message based on ImageAutoWithoutInjectionWarning.
+func NewImageAutoWithoutInjectionWarning(r *resource.Instance, resourceType string, resourceName string) diag.Message {
+	return diag.NewMessage(
+		ImageAutoWithoutInjectionWarning,
+		r,
+		resourceType,
+		resourceName,
+	)
+}
+
+// NewImageAutoWithoutInjectionError returns a new diag.Message based on ImageAutoWithoutInjectionError.
+func NewImageAutoWithoutInjectionError(r *resource.Instance, resourceType string, resourceName string) diag.Message {
+	return diag.NewMessage(
+		ImageAutoWithoutInjectionError,
+		r,
+		resourceType,
+		resourceName,
 	)
 }

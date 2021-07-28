@@ -137,7 +137,7 @@ func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string) (map[string][
 	return c.Results, nil
 }
 
-func (c MockClient) EnvoyDo(_ context.Context, podName, _, _, _ string, _ []byte) ([]byte, error) {
+func (c MockClient) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
 	results, ok := c.Results[podName]
 	if !ok {
 		return nil, fmt.Errorf("unable to retrieve Pod: pods %q not found", podName)
@@ -222,6 +222,10 @@ func (c MockClient) GetKubernetesVersion() (*kubeVersion.Info, error) {
 
 func (c MockClient) GetIstioPods(_ context.Context, _ string, _ map[string]string) ([]v1.Pod, error) {
 	return nil, fmt.Errorf("TODO MockClient doesn't implement IstioPods")
+}
+
+func (c MockClient) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error) {
+	return "", "", fmt.Errorf("TODO MockClient doesn't implement exec")
 }
 
 func (c MockClient) PodExec(_, _, _ string, _ string) (string, string, error) {

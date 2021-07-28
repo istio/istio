@@ -28,9 +28,6 @@ import (
 )
 
 const (
-	// SDSStatPrefix is the human readable prefix to use when emitting statistics for the SDS service.
-	SDSStatPrefix = "sdsstat"
-
 	// SDSClusterName is the name of the cluster for SDS connections
 	SDSClusterName = "sds-grpc"
 
@@ -94,48 +91,6 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 
 // Preconfigured SDS configs to avoid excessive memory allocations
 var (
-	// set the fetch timeout to 0 here in legacyDefaultSDSConfig and rootSDSConfig
-	// because workload certs are guaranteed exist.
-	legacyDefaultSDSConfig = &tls.SdsSecretConfig{
-		Name: SDSDefaultResourceName,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:             core.ApiConfigSource_GRPC,
-					TransportApiVersion: core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: durationpb.New(time.Second * 0),
-		},
-	}
-	legacyRootSDSConfig = &tls.SdsSecretConfig{
-		Name: SDSRootResourceName,
-		SdsConfig: &core.ConfigSource{
-			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:             core.ApiConfigSource_GRPC,
-					TransportApiVersion: core.ApiVersion_V3,
-					GrpcServices: []*core.GrpcService{
-						{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
-							},
-						},
-					},
-				},
-			},
-			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: durationpb.New(time.Second * 0),
-		},
-	}
 	defaultSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSDefaultResourceName,
 		SdsConfig: &core.ConfigSource{
@@ -181,22 +136,16 @@ var (
 )
 
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
 
 	if name == SDSDefaultResourceName {
-		if util.IsIstioVersionGE19(node) {
-			return defaultSDSConfig
-		}
-		return legacyDefaultSDSConfig
+		return defaultSDSConfig
 	}
 	if name == SDSRootResourceName {
-		if util.IsIstioVersionGE19(node) {
-			return rootSDSConfig
-		}
-		return legacyRootSDSConfig
+		return rootSDSConfig
 	}
 
 	cfg := &tls.SdsSecretConfig{
@@ -204,8 +153,9 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
-					ApiType:             core.ApiConfigSource_GRPC,
-					TransportApiVersion: core.ApiVersion_V3,
+					SetNodeOnFirstMessageOnly: true,
+					ApiType:                   core.ApiConfigSource_GRPC,
+					TransportApiVersion:       core.ApiVersion_V3,
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -219,29 +169,7 @@ func ConstructSdsSecretConfig(name string, node *model.Proxy) *tls.SdsSecretConf
 		},
 	}
 
-	if util.IsIstioVersionGE19(node) {
-		cfg.SdsConfig.GetApiConfigSource().SetNodeOnFirstMessageOnly = true
-	}
 	return cfg
-}
-
-// ConstructValidationContext constructs ValidationContext in CommonTLSContext.
-func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string) *tls.CommonTlsContext_ValidationContext {
-	ret := &tls.CommonTlsContext_ValidationContext{
-		ValidationContext: &tls.CertificateValidationContext{
-			TrustedCa: &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: rootCAFilePath,
-				},
-			},
-		},
-	}
-
-	if len(subjectAltNames) > 0 {
-		ret.ValidationContext.MatchSubjectAltNames = util.StringToExactMatch(subjectAltNames)
-	}
-
-	return ret
 }
 
 func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
@@ -276,12 +204,12 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), proxy),
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
 			},
 		}
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), proxy),
+		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
 	}
 }
 

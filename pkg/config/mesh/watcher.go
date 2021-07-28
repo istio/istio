@@ -45,6 +45,12 @@ type Watcher interface {
 	HandleUserMeshConfig(string)
 }
 
+// MultiWatcher is a struct wrapping the internal injector to let users know that both
+type MultiWatcher struct {
+	InternalWatcher
+	InternalNetworkWatcher
+}
+
 var _ Watcher = &InternalWatcher{}
 
 type InternalWatcher struct {

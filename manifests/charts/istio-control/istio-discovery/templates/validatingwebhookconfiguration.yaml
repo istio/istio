@@ -1,0 +1,86 @@
+{{- if .Values.global.configValidation }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-validator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+    istio: istiod
+    istio.io/rev: {{ .Values.revision | default "default" }}
+webhooks:
+  # Webhook handling per-revision validation. Mostly here so we can determine whether webhooks
+  # are rejecting invalid configs on a per-revision basis.
+  - name: rev.validation.istio.io
+    clientConfig:
+      # Should change from base but cannot for API compat
+      {{- if .Values.base.validationURL }}
+      url: {{ .Values.base.validationURL }}
+      {{- else }}
+      service:
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+        namespace: {{ .Values.global.istioNamespace }}
+        path: "/validate"
+      {{- end }}
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: In
+          values:
+          {{- if (eq .Values.revision "") }}
+          - "default"
+          {{- else }}
+          - "{{ .Values.revision }}"
+          {{- end }}
+  # Webhook handling default validation
+  - name: validation.istio.io
+    clientConfig:
+      # Should change from base but cannot for API compat
+      {{- if .Values.base.validationURL }}
+      url: {{ .Values.base.validationURL }}
+      {{- else }}
+      service:
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+        namespace: {{ .Values.global.istioNamespace }}
+        path: "/validate"
+      {{- end }}
+      caBundle: ""
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+          - telemetry.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: DoesNotExist
+---
+{{- end }}

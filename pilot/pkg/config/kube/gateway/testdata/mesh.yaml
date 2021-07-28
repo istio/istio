@@ -9,7 +9,7 @@ apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: default
+  namespace: istio-system
 spec:
   gatewayClassName: istio
   listeners:
@@ -17,6 +17,8 @@ spec:
     port: 80
     protocol: HTTP
     routes:
+      namespaces:
+        from: All
       kind: HTTPRoute
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
@@ -48,7 +50,7 @@ spec:
       - name: mesh
         namespace: istio-system
       - name: gateway
-        namespace: default
+        namespace: istio-system
   hostnames: ["foo.example.com"]
   rules:
   - forwardTo:

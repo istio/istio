@@ -25,14 +25,17 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 )
 
 // Return the tunnel type for this endpoint builder. If the endpoint builder builds h2tunnel, the final endpoint
@@ -40,7 +43,7 @@ import (
 // support multi-cluster service.
 // Revisit non-tunnel endpoint decision once the gateways supports tunnel.
 // TODO(lambdai): Propose to istio api.
-func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.PushContext) networking.TunnelType {
+func GetTunnelBuilderType(_ string, proxy *model.Proxy, _ *model.PushContext) networking.TunnelType {
 	if proxy == nil || proxy.Metadata == nil || proxy.Metadata.ProxyConfig == nil {
 		return networking.NoTunnel
 	}
@@ -58,12 +61,13 @@ func GetTunnelBuilderType(clusterName string, proxy *model.Proxy, push *model.Pu
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
-	network         string
-	networkView     map[string]bool
-	clusterID       string
+	network         network.ID
+	networkView     map[network.ID]bool
+	clusterID       cluster.ID
 	locality        *core.Locality
 	destinationRule *config.Config
 	service         *model.Service
+	clusterLocal    bool
 	tunnelType      networking.TunnelType
 
 	// These fields are provided for convenience only
@@ -71,6 +75,7 @@ type EndpointBuilder struct {
 	hostname   host.Name
 	port       int
 	push       *model.PushContext
+	proxy      *model.Proxy
 
 	mtlsChecker *mtlsChecker
 }
@@ -86,17 +91,26 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
+		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
 		tunnelType:      GetTunnelBuilderType(clusterName, proxy, push),
 
 		push:       push,
+		proxy:      proxy,
 		subsetName: subsetName,
 		hostname:   hostname,
 		port:       port,
 	}
-	if b.MultiNetworkConfigured() || model.IsDNSSrvSubsetKey(clusterName) {
-		// We only need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH
-		// As an optimization, we skip this logic entirely for everything else.
+
+	enableMtlsChecker := false
+	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
+	if b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
+		enableMtlsChecker = true
+	}
+	if features.EnableAutomTLSCheckPolicies {
+		enableMtlsChecker = true
+	}
+	if enableMtlsChecker {
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b
@@ -111,7 +125,14 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
-	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality), b.tunnelType.ToString()}
+	params := []string{
+		b.clusterName,
+		string(b.network),
+		string(b.clusterID),
+		strconv.FormatBool(b.clusterLocal),
+		util.LocalityToString(b.locality),
+		b.tunnelType.ToString(),
+	}
 	if b.push != nil && b.push.AuthnPolicies != nil {
 		params = append(params, b.push.AuthnPolicies.AggregateVersion)
 	}
@@ -124,17 +145,12 @@ func (b EndpointBuilder) Key() string {
 	if b.networkView != nil {
 		nv := make([]string, 0, len(b.networkView))
 		for nw := range b.networkView {
-			nv = append(nv, nw)
+			nv = append(nv, string(nw))
 		}
 		sort.Strings(nv)
 		params = append(params, nv...)
 	}
-	return strings.Join(params, "~")
-}
-
-// MultiNetworkConfigured determines if we have gateways to use for building cross-network endpoints.
-func (b *EndpointBuilder) MultiNetworkConfigured() bool {
-	return b.push.NetworkGateways() != nil && len(b.push.NetworkGateways()) > 0
+	return "eds://" + strings.Join(params, "~")
 }
 
 func (b EndpointBuilder) Cacheable() bool {
@@ -161,7 +177,7 @@ func (b EndpointBuilder) DependentTypes() []config.GroupVersionKind {
 	return edsDependentTypes
 }
 
-func (b *EndpointBuilder) canViewNetwork(network string) bool {
+func (b *EndpointBuilder) canViewNetwork(network network.ID) bool {
 	if b.networkView == nil {
 		return true
 	}
@@ -177,7 +193,7 @@ type EndpointTunnelApplier interface {
 type EndpointNoTunnelApplier struct{}
 
 // Note that this will not return error if another tunnel typs requested.
-func (t *EndpointNoTunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelType networking.TunnelType) (*endpoint.LbEndpoint, error) {
+func (t *EndpointNoTunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, _ networking.TunnelType) (*endpoint.LbEndpoint, error) {
 	return lep, nil
 }
 
@@ -205,6 +221,7 @@ func (t *EndpointH2TunnelApplier) ApplyTunnel(lep *endpoint.LbEndpoint, tunnelTy
 }
 
 type LocLbEndpointsAndOptions struct {
+	istioEndpoints []*model.IstioEndpoint
 	// The protobuf message which contains LbEndpoint slice.
 	llbEndpoints endpoint.LocalityLbEndpoints
 	// The runtime information of the LbEndpoint slice. Each LbEndpoint has individual metadata at the same index.
@@ -212,14 +229,15 @@ type LocLbEndpointsAndOptions struct {
 }
 
 // Return prefer H2 tunnel metadata.
-func MakeTunnelApplier(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelApplier {
+func MakeTunnelApplier(_ *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) EndpointTunnelApplier {
 	if tunnelOpt.SupportH2Tunnel() {
 		return &EndpointH2TunnelApplier{}
 	}
 	return &EndpointNoTunnelApplier{}
 }
 
-func (e *LocLbEndpointsAndOptions) append(le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
+func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.LbEndpoint, tunnelOpt networking.TunnelAbility) {
+	e.istioEndpoints = append(e.istioEndpoints, ep)
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
 	e.tunnelMetadata = append(e.tunnelMetadata, MakeTunnelApplier(le, tunnelOpt))
 }
@@ -259,7 +277,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := b.push.IsClusterLocal(b.service)
+	isClusterLocal := b.clusterLocal
 
 	shards.mutex.Lock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output. Since
@@ -278,11 +296,14 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 		endpoints := shards.Shards[clusterID]
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (clusterID != b.clusterID) {
+		if isClusterLocal && (cluster.ID(clusterID) != b.clusterID) {
 			continue
 		}
-
 		for _, ep := range endpoints {
+			// TODO(nmittler): Consider merging discoverability policy with cluster-local
+			if !ep.IsDiscoverableFromProxy(b.proxy) {
+				continue
+			}
 			if svcPort.Name != ep.ServicePortName {
 				continue
 			}
@@ -294,18 +315,27 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			locLbEps, found := localityEpMap[ep.Locality.Label]
 			if !found {
 				locLbEps = &LocLbEndpointsAndOptions{
-					endpoint.LocalityLbEndpoints{
+					llbEndpoints: endpoint.LocalityLbEndpoints{
 						Locality:    util.ConvertLocality(ep.Locality.Label),
 						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
 					},
-					make([]EndpointTunnelApplier, 0, len(endpoints)),
+					tunnelMetadata: make([]EndpointTunnelApplier, 0, len(endpoints)),
 				}
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
-			locLbEps.append(ep.EnvoyEndpoint, ep.TunnelAbility)
+			if features.EnableAutomTLSCheckPolicies {
+				tlsMode := ep.TLSMode
+				if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
+					tlsMode = ""
+				}
+				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
+					ep.EnvoyEndpoint = nep
+				}
+			}
+			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
@@ -374,13 +404,9 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocLbEndpointsA
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
 
-	epWeight := e.LbWeight
-	if epWeight == 0 {
-		epWeight = 1
-	}
 	ep := &endpoint.LbEndpoint{
 		LoadBalancingWeight: &wrappers.UInt32Value{
-			Value: epWeight,
+			Value: e.GetLoadBalancingWeight(),
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{

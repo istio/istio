@@ -1,0 +1,43 @@
+* mangle
+-N ISTIO_DIVERT
+-N ISTIO_TPROXY
+-N ISTIO_INBOUND
+-A ISTIO_DIVERT -j MARK --set-mark 1337
+-A ISTIO_DIVERT -j ACCEPT
+-A ISTIO_TPROXY ! -d 127.0.0.1/32 -p tcp -j TPROXY --tproxy-mark 1337/0xffffffff --on-port 15006
+-A PREROUTING -p tcp -j ISTIO_INBOUND
+-A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
+-A ISTIO_INBOUND -p tcp --dport 15020 -j RETURN
+-A ISTIO_INBOUND -p tcp --dport 15021 -j RETURN
+-A ISTIO_INBOUND -p tcp --dport 15090 -j RETURN
+-A ISTIO_INBOUND -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ISTIO_DIVERT
+-A ISTIO_INBOUND -p tcp -j ISTIO_TPROXY
+-A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
+-A OUTPUT -p tcp -o lo -m mark --mark 1337 -j RETURN
+-A OUTPUT ! -d 127.0.0.1/32 -p tcp -o lo -m owner --uid-owner 1337 -j MARK --set-mark 1338
+-A OUTPUT ! -d 127.0.0.1/32 -p tcp -o lo -m owner --gid-owner 1337 -j MARK --set-mark 1338
+-A OUTPUT -p tcp -m connmark --mark 1337 -j CONNMARK --restore-mark
+-I ISTIO_INBOUND 1 -p tcp -m mark --mark 1337 -j RETURN
+-I ISTIO_INBOUND 2 -p tcp -s 127.0.0.6/32 -i lo -j RETURN
+-I ISTIO_INBOUND 3 -p tcp -i lo -m mark ! --mark 1338 -j RETURN
+COMMIT
+* nat
+-N ISTIO_INBOUND
+-N ISTIO_REDIRECT
+-N ISTIO_IN_REDIRECT
+-N ISTIO_OUTPUT
+-A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
+-A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
+-A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+-A OUTPUT -p tcp -j ISTIO_OUTPUT
+-A ISTIO_OUTPUT -p tcp --dport 15020 -j RETURN
+-A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
+-A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 1337 -j ISTIO_IN_REDIRECT
+-A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 1337 -j RETURN
+-A ISTIO_OUTPUT -m owner --uid-owner 1337 -j RETURN
+-A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
+-A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN
+-A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
+-A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+-A ISTIO_OUTPUT -j ISTIO_REDIRECT
+COMMIT

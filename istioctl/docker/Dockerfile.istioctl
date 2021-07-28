@@ -2,5 +2,6 @@
 ARG BASE_VERSION=latest
 FROM gcr.io/istio-release/base:${BASE_VERSION}
 USER 1000:1000
-COPY istioctl /usr/local/bin/
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/istioctl /usr/local/bin/istioctl
 ENTRYPOINT ["/usr/local/bin/istioctl"]

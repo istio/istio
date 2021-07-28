@@ -19,6 +19,7 @@ features:
   observability:
     telemetry:
       stackdriver:
+      logging:
       stats:
         prometheus:
           customize-metric:
@@ -49,7 +50,10 @@ features:
       envoy:
     original-source-ip:
     mcs:
-      serviceexport:
+      autoexport:
+      servicediscovery:
+    cni:
+      race-condition-repair:
   usability:
     observability:
       describe:
@@ -59,8 +63,10 @@ features:
       proxy-config:
       proxy-status:
       authz-check:
+      remote-clusters:
       analysis:
         line-numbers:
+      tcp-probe:
     helpers:
       add-to-mesh:
       remove-from-mesh:
@@ -121,6 +127,10 @@ features:
         jwt:
         webhook:
       plugin-cert:
+    normalization:
+    fuzz:
+      authorization:
+      jwt:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
     wasm:

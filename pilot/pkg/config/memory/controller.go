@@ -118,7 +118,7 @@ func (c *controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRev
 	default:
 		return "", fmt.Errorf("unsupported merge type: %s", typ)
 	}
-	if newRevision, err = c.configStore.Update(cfg); err == nil {
+	if newRevision, err = c.configStore.Patch(cfg, patchFn); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    orig,
 			config: cfg,

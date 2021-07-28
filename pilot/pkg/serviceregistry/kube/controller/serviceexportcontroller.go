@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
@@ -48,7 +49,7 @@ type ServiceExportController struct {
 // ServiceExportOptions provide options for creating a ServiceExportController.
 type ServiceExportOptions struct {
 	Client       kube.Client
-	ClusterID    string
+	ClusterID    cluster.ID
 	DomainSuffix string
 	ClusterLocal model.ClusterLocalProvider
 }
@@ -101,7 +102,10 @@ func (c *ServiceExportController) onServiceAdd(obj interface{}) {
 }
 
 func (c *ServiceExportController) Run(stopCh <-chan struct{}) {
-	cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced)
+	if !cache.WaitForCacheSync(stopCh, c.serviceInformer.HasSynced) {
+		log.Error("Failed to sync ServiceExport controller cache")
+		return
+	}
 	log.Infof("ServiceExport controller started")
 	go c.queue.Run(stopCh)
 }

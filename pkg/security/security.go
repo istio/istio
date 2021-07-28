@@ -17,6 +17,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -30,17 +31,14 @@ const (
 	// i.e. mounted Secret or external plugin.
 	// If present, FileMountedCerts should be true.
 
-	// The well-known path for an existing certificate chain file
+	// DefaultCertChainFilePath is the well-known path for an existing certificate chain file
 	DefaultCertChainFilePath = "./etc/certs/cert-chain.pem"
 
-	// The well-known path for an existing key file
+	// DefaultKeyFilePath is the well-known path for an existing key file
 	DefaultKeyFilePath = "./etc/certs/key.pem"
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
-
-	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
-	DefaultLocalSDSPath = "./etc/istio/proxy/SDS"
 
 	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
 	SystemRootCerts = "SYSTEM"
@@ -53,19 +51,24 @@ const (
 	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
-	// Credential fetcher type
-	GCE  = "GoogleComputeEngine"
+	// GCE is Credential fetcher type of Google plugin
+	GCE = "GoogleComputeEngine"
+
+	// Mock is Credential fetcher type of mock plugin
 	Mock = "Mock" // testing only
 
 	// GoogleCAProvider uses the Google CA for workload certificate signing
 	GoogleCAProvider = "GoogleCA"
+
+	// GoogleCASProvider uses the Google certificate Authority Service to sign workload certificates
+	GoogleCASProvider = "GoogleCAS"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
 var (
-	// Require 3P TOKEN disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
+	// Require3PToken disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
 	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
 	// the Apiserver.
 	Require3PToken = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false,
@@ -76,8 +79,15 @@ var (
 	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
 		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
 			"The token is accepted if it matches with one of the audiences").Get(), ",")
+)
 
-	BearerTokenPrefix = "Bearer" + " "
+const (
+	BearerTokenPrefix = "Bearer "
+
+	K8sTokenPrefix = "Istio "
+
+	// CertSigner info
+	CertSigner = "CertSigner"
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -170,6 +180,9 @@ type Options struct {
 
 	// Token manager for the token exchange of XDS
 	TokenManager TokenManager
+
+	// Cert signer info
+	CertSigner string
 }
 
 // TokenManager contains methods for generating token.
@@ -221,6 +234,8 @@ type StsRequestParameters struct {
 type Client interface {
 	CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error)
 	Close()
+	// Retrieve CA root certs If CA publishes API endpoint for this
+	GetRootCertBundle() ([]string, error)
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -263,7 +278,7 @@ type CredFetcher interface {
 	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
 	GetType() string
 
-	// The name of the IdentityProvider that can authenticate the workload credential.
+	// GetIdentityProvider returns the name of the IdentityProvider that can authenticate the workload credential.
 	GetIdentityProvider() string
 
 	// Stop releases resources and cleans up.
@@ -279,9 +294,6 @@ const (
 )
 
 const (
-	// IdentityTemplate is the SPIFFE format template of the identity.
-	IdentityTemplate = "spiffe://%s/ns/%s/sa/%s"
-
 	authorizationMeta = "authorization"
 )
 
@@ -294,6 +306,7 @@ type Caller struct {
 type Authenticator interface {
 	Authenticate(ctx context.Context) (*Caller, error)
 	AuthenticatorType() string
+	AuthenticateRequest(req *http.Request) (*Caller, error)
 }
 
 func ExtractBearerToken(ctx context.Context) (string, error) {
@@ -311,6 +324,22 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 		if strings.HasPrefix(value, BearerTokenPrefix) {
 			return strings.TrimPrefix(value, BearerTokenPrefix), nil
 		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
+}
+
+func ExtractRequestToken(req *http.Request) (string, error) {
+	value := req.Header.Get(authorizationMeta)
+	if value == "" {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	if strings.HasPrefix(value, BearerTokenPrefix) {
+		return strings.TrimPrefix(value, BearerTokenPrefix), nil
+	}
+	if strings.HasPrefix(value, K8sTokenPrefix) {
+		return strings.TrimPrefix(value, K8sTokenPrefix), nil
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")

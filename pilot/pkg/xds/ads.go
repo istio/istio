@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/env"
@@ -208,10 +209,11 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	shouldRespond := s.shouldRespond(con, req)
 
 	var request *model.PushRequest
+	push := s.globalPushContext()
 	if shouldRespond {
 		// This is a request, trigger a full push for this type. Override the blocked push (if it exists),
 		// as this full push is guaranteed to be a superset of what we would have pushed from the blocked push.
-		request = &model.PushRequest{Full: true}
+		request = &model.PushRequest{Full: true, Push: push}
 	} else {
 		// Check if we have a blocked push. If this was an ACK, we will send it.
 		// Either way we remove the blocked push as we will send a push.
@@ -230,7 +232,6 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 		}
 	}
 
-	push := s.globalPushContext()
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
 }
@@ -342,7 +343,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 			s.StatusGen.OnNack(con.proxy, request)
 		}
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl].NonceNacked = request.ResponseNonce
+		if w, f := con.proxy.WatchedResources[request.TypeUrl]; f {
+			w.NonceNacked = request.ResponseNonce
+		}
 		con.proxy.Unlock()
 		return false
 	}
@@ -464,7 +467,7 @@ func listEqualUnordered(a []string, b []string) bool {
 	return true
 }
 
-// update the node associated with the connection, after receiving a a packet from envoy, also adds the connection
+// update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error {
 	// Setup the initial proxy metadata
@@ -571,8 +574,6 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.Connect); err != nil {
 		return err
 	}
-
-	proxy.SetWorkloadLabels(s.Env)
 	s.computeProxyState(proxy, nil)
 
 	// Get the locality from the proxy's service instances.
@@ -619,7 +620,8 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushReq
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetServiceInstances(s.globalPushContext().ServiceDiscovery)
+	proxy.SetWorkloadLabels(s.Env)
+	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
@@ -679,10 +681,7 @@ func (s *DiscoveryServer) shouldProcessRequest(proxy *model.Proxy, req *discover
 // The delta protocol changes the request, adding unsubscribe/subscribe instead of sending full
 // list of resources. On the response it adds 'removed resources' and sends changes for everything.
 func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	if features.DeltaXds.Get() {
-		return s.StreamDeltas(stream)
-	}
-	return status.Errorf(codes.Unimplemented, "not implemented")
+	return s.StreamDeltas(stream)
 }
 
 // Compute and send the new configuration for a connection.
@@ -802,7 +801,7 @@ func (s *DiscoveryServer) adsClientCount() int {
 	return len(s.adsClients)
 }
 
-func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
+func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 	var connection *Connection
 
 	for _, v := range s.Clients() {
@@ -844,13 +843,6 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
-	// If we don't know what updated, cannot safely cache. Clear the whole cache
-	if len(req.ConfigsUpdated) == 0 {
-		s.Cache.ClearAll()
-	} else {
-		// Otherwise, just clear the updated configs
-		s.Cache.Clear(req.ConfigsUpdated)
-	}
 	if !req.Full {
 		log.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d Version:%s",
 			version, s.adsClientCount(), req.Push.PushVersion)
@@ -871,12 +863,11 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 
 // Send a signal to all connections, with a push event.
 func (s *DiscoveryServer) startPush(req *model.PushRequest) {
-	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
-	// the same connection table
+	// Push config changes, iterating over connected envoys.
 	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
 		if currentlyPending != 0 {
-			log.Infof("Starting new push while %v were still pending", currentlyPending)
+			log.Debugf("Starting new push while %v were still pending", currentlyPending)
 		}
 	}
 	req.Start = time.Now()

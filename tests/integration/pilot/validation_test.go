@@ -41,7 +41,7 @@ func (t testData) isSkipped() bool {
 }
 
 func (t testData) load() (string, error) {
-	by, err := validation.Asset(path.Join("dataset", string(t)))
+	by, err := validation.FS.ReadFile(path.Join("dataset", string(t)))
 	if err != nil {
 		return "", err
 	}
@@ -50,14 +50,14 @@ func (t testData) load() (string, error) {
 }
 
 func loadTestData(t framework.TestContext) []testData {
-	entries, err := validation.AssetDir("dataset")
+	entries, err := validation.FS.ReadDir("dataset")
 	if err != nil {
 		t.Fatalf("Error loading test data: %v", err)
 	}
 
 	var result []testData
 	for _, e := range entries {
-		result = append(result, testData(e))
+		result = append(result, testData(e.Name()))
 		t.Logf("Found test data: %v", e)
 	}
 
@@ -78,10 +78,8 @@ func TestValidation(t *testing.T) {
 				// We are only checking the string literals of the rejection reasons
 				// from the webhook and the k8s api server as the returned errors are not
 				// k8s typed errors.
-				return strings.Contains(err.Error(), "denied the request") ||
-					strings.Contains(err.Error(), "error validating data") ||
-					strings.Contains(err.Error(), "Invalid value") ||
-					strings.Contains(err.Error(), "is invalid")
+				// Note: this explicitly does NOT catch OpenAPI schema rejections - only validating webhook rejections.
+				return strings.Contains(err.Error(), "denied the request")
 			}
 
 			for _, cluster := range t.Clusters().Primaries() {

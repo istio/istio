@@ -42,11 +42,19 @@ func (t *T) Setup(setupFn srcSetupFn) *T {
 }
 
 func (t *T) setup(ctx framework.TestContext, srcInstances echo.Callers) {
+	if !t.hasSourceSetup() {
+		ctx.SkipDumping()
+		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+	}
 	for _, setupFn := range t.sourceDeploymentSetup {
 		if err := setupFn(ctx, srcInstances); err != nil {
 			ctx.Fatal(err)
 		}
 	}
+}
+
+func (t *T) hasSourceSetup() bool {
+	return len(t.sourceDeploymentSetup) > 0
 }
 
 // SetupForPair runs the given function for every source instance in every cluster in combination with every
@@ -72,24 +80,28 @@ func (t *T) SetupForServicePair(setupFn svcPairSetupFn) *T {
 	return t
 }
 
-func (t *T) setupPair(ctx framework.TestContext, src echo.Callers, dsts echo.Services) {
-	for _, setupFn := range t.deploymentPairSetup {
-		if err := setupFn(ctx, src, dsts); err != nil {
-			ctx.Fatal(err)
-		}
-	}
-	t.setupDst(ctx, dsts.Instances())
-}
-
 // SetupForDestination is run each time the destination Service (but not destination cluser) changes.
 func (t *T) SetupForDestination(setupFn dstSetupFn) *T {
 	t.destinationDeploymentSetup = append(t.destinationDeploymentSetup, setupFn)
 	return t
 }
 
-func (t *T) setupDst(ctx framework.TestContext, dsts echo.Instances) {
+func (t *T) hasDestinationSetup() bool {
+	return len(t.deploymentPairSetup)+len(t.destinationDeploymentSetup) > 0
+}
+
+func (t *T) setupPair(ctx framework.TestContext, src echo.Callers, dsts echo.Services) {
+	if !t.hasDestinationSetup() {
+		ctx.SkipDumping()
+		ctx.Logf("No echotest setup; skipping test dump at this scope.")
+	}
+	for _, setupFn := range t.deploymentPairSetup {
+		if err := setupFn(ctx, src, dsts); err != nil {
+			ctx.Fatal(err)
+		}
+	}
 	for _, setupFn := range t.destinationDeploymentSetup {
-		if err := setupFn(ctx, dsts); err != nil {
+		if err := setupFn(ctx, dsts.Instances()); err != nil {
 			ctx.Fatal(err)
 		}
 	}

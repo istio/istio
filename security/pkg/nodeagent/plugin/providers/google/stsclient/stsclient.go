@@ -51,7 +51,7 @@ type federatedTokenResponse struct {
 	ExpiresIn       int64  `json:"expires_in"` // Expiration time in seconds
 }
 
-// TokenExchanger for google securetoken api interaction.
+// SecureTokenServiceExchanger for google securetoken api interaction.
 type SecureTokenServiceExchanger struct {
 	httpClient  *http.Client
 	credFetcher security.CredFetcher
@@ -74,7 +74,10 @@ func NewSecureTokenServiceExchanger(credFetcher security.CredFetcher, trustDomai
 }
 
 func retryable(code int) bool {
-	return code >= 500 && !(code == 501 || code == 505 || code == 511)
+	return code >= 500 &&
+		!(code == http.StatusNotImplemented ||
+			code == http.StatusHTTPVersionNotSupported ||
+			code == http.StatusNetworkAuthenticationRequired)
 }
 
 func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte, error) {
@@ -97,8 +100,8 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
 			return body, err
 		}
 		body, _ := ioutil.ReadAll(resp.Body)
@@ -108,10 +111,11 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 			break
 		}
 		monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.TokenExchange)).Increment()
-		if !stsClientLog.DebugEnabled() {
+		if stsClientLog.DebugEnabled() {
+			stsClientLog.Debugf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
+		} else {
 			stsClientLog.Errorf("token exchange request failed: status code %v", resp.StatusCode)
 		}
-		stsClientLog.Debugf("token exchange request failed: status code %v, body %v", resp.StatusCode, string(body))
 		time.Sleep(p.backoff)
 	}
 	return nil, fmt.Errorf("exchange failed all retries, last error: %v", lastError)

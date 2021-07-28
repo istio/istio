@@ -20,6 +20,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -51,18 +53,23 @@ type ProxyConfig struct {
 	ParentShutdownDuration *types.Duration
 	Concurrency            int32
 
-	// Disables all envoy agent features (for unit testing)
-	TestOnly bool
+	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
+	TestOnly    bool
+	AgentIsRoot bool
 }
 
 // NewProxy creates an instance of the proxy control commands
 func NewProxy(cfg ProxyConfig) Proxy {
 	// inject tracing flag for higher levels
 	var args []string
-	if cfg.LogLevel != "" {
-		args = append(args, "-l", cfg.LogLevel)
+	logLevel, componentLogs := splitComponentLog(cfg.LogLevel)
+	if logLevel != "" {
+		args = append(args, "-l", logLevel)
 	}
-	if cfg.ComponentLogLevel != "" {
+	if len(componentLogs) > 0 {
+		args = append(args, "--component-log-level", strings.Join(componentLogs, ","))
+	} else if cfg.ComponentLogLevel != "" {
+		// Use the old setting if we don't set any component log levels in LogLevel
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
 
@@ -70,6 +77,26 @@ func NewProxy(cfg ProxyConfig) Proxy {
 		ProxyConfig: cfg,
 		extraArgs:   args,
 	}
+}
+
+// splitComponentLog breaks down an argument string into a log level (ie "info") and component log levels (ie "misc:error").
+// This allows using a single log level API, with the same semantics as Istio's logging, to configure Envoy which
+// has two different settings
+func splitComponentLog(level string) (string, []string) {
+	levels := strings.Split(level, ",")
+	var logLevel string
+	var componentLogs []string
+	for _, sl := range levels {
+		spl := strings.Split(sl, ":")
+		if len(spl) == 1 {
+			logLevel = spl[0]
+		} else if len(spl) == 2 {
+			componentLogs = append(componentLogs, sl)
+		} else {
+			log.Warnf("dropping invalid log level: %v", sl)
+		}
+	}
+	return logLevel, componentLogs
 }
 
 func (e *envoy) Drain() error {
@@ -99,6 +126,13 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.ParentShutdownDuration) / time.Second)),
 		"--local-address-ip-version", proxyLocalAddressType,
 		"--bootstrap-version", "3",
+		// Reduce default flush interval from 10s to 1s. The access log buffer size is 64k and each log is ~256 bytes
+		// This means access logs will be written once we have ~250 requests, or ever 1s, which ever comes first.
+		// Reducing this to 1s optimizes for UX while retaining performance.
+		// At low QPS access logs are unlikely a bottleneck, and these users will now see logs after 1s rather than 10s.
+		// At high QPS (>250 QPS) we will log the same amount as we will log due to exceeding buffer size, rather
+		// than the flush interval.
+		"--file-flush-interval-msec", "1000",
 		"--disable-hot-restart", // We don't use it, so disable it to simplify Envoy's logic
 	}
 	if e.ProxyConfig.LogAsJSON {
@@ -141,6 +175,14 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 	cmd := exec.Command(e.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if e.AgentIsRoot {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		cmd.SysProcAttr.Credential = &syscall.Credential{
+			Uid: 1337,
+			Gid: 1337,
+		}
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}

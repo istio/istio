@@ -28,6 +28,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -61,7 +62,7 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 
 func TestAuthenticate(t *testing.T) {
 	primaryCluster := "Kubernetes"
-	remoteCluster := "remote"
+	remoteCluster := cluster.ID("remote")
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
 
@@ -155,7 +156,7 @@ func TestAuthenticate(t *testing.T) {
 				})
 			}
 
-			remoteKubeClientGetter := func(clusterID string) kubernetes.Interface {
+			remoteKubeClientGetter := func(clusterID cluster.ID) kubernetes.Interface {
 				if clusterID == remoteCluster {
 					client := fake.NewSimpleClientset()
 					if tc.remoteCluster {
@@ -189,6 +190,28 @@ func TestAuthenticate(t *testing.T) {
 
 			if !reflect.DeepEqual(actualCaller, expectedCaller) {
 				t.Errorf("Case %q: Unexpected token: want %v but got %v", id, expectedCaller, actualCaller)
+			}
+		})
+	}
+}
+
+func TestIsAllowedKubernetesAudience(t *testing.T) {
+	tests := []struct {
+		in   string
+		want bool
+	}{
+		{"kubernetes.default.svc", true},
+		{"kubernetes.default.svc.cluster.local", true},
+		{"https://kubernetes.default.svc", true},
+		{"https://kubernetes.default.svc.cluster.local", true},
+		{"foo.default.svc", false},
+		{"foo.default.svc:80", false},
+		{"https://foo.default.svc:80", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			if got := isAllowedKubernetesAudience(tt.in); got != tt.want {
+				t.Errorf("isAllowedKubernetesAudience() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -61,7 +61,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 	cmd := exec.Command(genGatewayScript, args...)
 	gwIOP, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed generating eastwestgateway operator yaml: %v", err)
+		return fmt.Errorf("failed generating eastwestgateway operator yaml: %v: %v", err, string(gwIOP))
 	}
 	iopFile := path.Join(i.workDir, fmt.Sprintf("eastwest-%s.yaml", cluster.Name()))
 	if err := ioutil.WriteFile(iopFile, gwIOP, os.ModePerm); err != nil {
@@ -80,6 +80,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 		"--set", "hub=" + imgSettings.Hub,
 		"--set", "tag=" + imgSettings.Tag,
 		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
+		"--set", "values.gateways.istio-ingressgateway.autoscaleEnabled=false",
 		"-f", iopFile,
 	}
 	if revision != "" {

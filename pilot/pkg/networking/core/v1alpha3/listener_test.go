@@ -46,10 +46,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -238,7 +239,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "udp",
@@ -256,7 +257,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test5.com"),
 		Address:      "8.8.8.8",
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "MySQL",
@@ -274,7 +275,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test6.com"),
 		Address:      "2.2.2.2",
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "unknown",
@@ -391,20 +392,20 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
+	svc.Attributes.ServiceRegistry = provider.Kubernetes
 	services := []*model.Service{svc}
 
 	autoSvc := buildServiceWithPort("test.com", 9999, protocol.Unsupported, tnow)
 	autoSvc.Resolution = model.Passthrough
-	autoSvc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
+	autoSvc.Attributes.ServiceRegistry = provider.Kubernetes
 
 	extSvc := buildServiceWithPort("example1.com", 9999, protocol.TCP, tnow)
 	extSvc.Resolution = model.Passthrough
-	extSvc.Attributes.ServiceRegistry = serviceregistry.External
+	extSvc.Attributes.ServiceRegistry = provider.External
 
 	extSvcSelector := buildServiceWithPort("example2.com", 9999, protocol.TCP, tnow)
 	extSvcSelector.Resolution = model.Passthrough
-	extSvcSelector.Attributes.ServiceRegistry = serviceregistry.External
+	extSvcSelector.Attributes.ServiceRegistry = provider.External
 	extSvcSelector.Attributes.LabelSelectors = map[string]string{"foo": "bar"}
 
 	tests := []struct {
@@ -527,7 +528,7 @@ func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 		CreationTime: tnow.Add(1 * time.Second),
 		Hostname:     host.Name("test4.com"),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -552,7 +553,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[cluster.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -569,7 +570,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test1.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[cluster.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "foo",
@@ -592,7 +593,7 @@ func TestOutboundTls(t *testing.T) {
 			CreationTime: tnow,
 			Hostname:     host.Name("test.com"),
 			Address:      wildcardIP,
-			ClusterVIPs:  make(map[string]string),
+			ClusterVIPs:  make(map[cluster.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -764,8 +765,8 @@ func TestFilterChainMatchFields(t *testing.T) {
 	fcm := listener.FilterChainMatch{}
 	e := reflect.ValueOf(&fcm).Elem()
 	// If this fails, that means new fields have been added to FilterChainMatch, filterChainMatchEqual function needs to be updated.
-	if e.NumField() != 13 {
-		t.Fatalf("Expected 13 fields, got %v. This means we need to update filterChainMatchEqual implementation", e.NumField())
+	if e.NumField() != 14 {
+		t.Fatalf("Expected 14 fields, got %v. This means we need to update filterChainMatchEqual implementation", e.NumField())
 	}
 }
 
@@ -1529,7 +1530,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env, nil)
+	listeners := buildAllListeners(p, env)
 	found := false
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
@@ -1555,7 +1556,7 @@ func TestOutboundListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env, nil)
+	listeners = buildAllListeners(p, env)
 	for _, l := range listeners {
 		if l.Name == model.VirtualOutboundListenerName {
 			validateAccessLog(t, l, "format modified")
@@ -1568,7 +1569,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	p := &fakePlugin{}
 	env := buildListenerEnv(nil)
 	env.Mesh().AccessLogFile = "foo"
-	listeners := buildAllListeners(p, env, nil)
+	listeners := buildAllListeners(p, env)
 	for _, l := range listeners {
 
 		if l.AccessLog == nil {
@@ -1585,7 +1586,7 @@ func TestListenerAccessLogs(t *testing.T) {
 	accessLogBuilder.reset()
 
 	// Validate that access log filter uses the new format.
-	listeners = buildAllListeners(p, env, nil)
+	listeners = buildAllListeners(p, env)
 	for _, l := range listeners {
 		if l.AccessLog[0].Filter == nil {
 			t.Fatal("expected filter config in listener access log configuration")
@@ -2320,7 +2321,7 @@ func getOldestService(services ...*model.Service) *model.Service {
 	return oldestService
 }
 
-func buildAllListeners(p plugin.Plugin, env *model.Environment, proxyVersion *model.IstioVersion) []*listener.Listener {
+func buildAllListeners(p plugin.Plugin, env *model.Environment) []*listener.Listener {
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
@@ -2330,7 +2331,6 @@ func buildAllListeners(p plugin.Plugin, env *model.Environment, proxyVersion *mo
 	proxy := getProxy()
 	proxy.ServiceInstances = nil
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	proxy.IstioVersion = proxyVersion
 	builder := NewListenerBuilder(proxy, env.PushContext)
 	return configgen.buildSidecarListeners(builder).getListeners()
 }
@@ -2478,7 +2478,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 		CreationTime: creationTime,
 		Hostname:     host.Name(hostname),
 		Address:      ip,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -2498,7 +2498,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 		CreationTime: creationTime,
 		Hostname:     host.Name(hostname),
 		Address:      wildcardIP,
-		ClusterVIPs:  make(map[string]string),
+		ClusterVIPs:  make(map[cluster.ID]string),
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",

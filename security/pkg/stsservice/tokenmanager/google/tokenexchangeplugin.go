@@ -240,10 +240,8 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
 		dReq.Header.Set("Content-Type", contentType)
 
-		if pluginLog.DebugEnabled() {
-			reqDump, _ := httputil.DumpRequest(dReq, true)
-			pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
-		}
+		reqDump, _ := httputil.DumpRequest(dReq, true)
+		pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
 	} else {
 		pluginLog.Infof("Prepared federated token request for aud %q", aud)
 	}
@@ -434,7 +432,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 	} else {
 		tokenExp = exp
 	}
-	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", tokenExp).Infof("fetched access token")
+	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", time.Until(tokenExp)).Infof("fetched access token")
 	// Update cache and reset cache hit counter.
 	p.tokens.Store(accessToken, stsservice.TokenInfo{
 		TokenType:  accessToken,
@@ -472,7 +470,7 @@ func (p *Plugin) generateSTSRespInner(token string, expire int64) ([]byte, error
 	statusJSON, err := json.MarshalIndent(stsRespParam, "", " ")
 	if pluginLog.DebugEnabled() {
 		stsRespParam.AccessToken = "redacted"
-		pluginLog.Infof("Populated STS response parameters: %+v", stsRespParam)
+		pluginLog.Debugf("Populated STS response parameters: %+v", stsRespParam)
 	}
 	return statusJSON, err
 }

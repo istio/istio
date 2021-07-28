@@ -17,6 +17,7 @@ package inject
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -252,6 +253,13 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "traffic-annotations.yaml",
+			want: "traffic-annotations.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"] = "/etc/identity/client/keys/client-key.pem"
+			},
+		},
+		{
 			in:   "proxy-override.yaml",
 			want: "proxy-override.yaml.injected",
 		},
@@ -271,6 +279,20 @@ func TestInjection(t *testing.T) {
 			in:         "custom-template.yaml",
 			want:       "custom-template.yaml.injected",
 			inFilePath: "custom-template.iop.yaml",
+		},
+		{
+			in:   "tcp-probes.yaml",
+			want: "tcp-probes.yaml.injected",
+		},
+		{
+			in:   "tcp-probes.yaml",
+			want: "tcp-probes-disabled.yaml.injected",
+			setup: func() {
+				features.RewriteTCPProbes = false
+			},
+			teardown: func() {
+				features.RewriteTCPProbes = true
+			},
 		},
 	}
 	// Keep track of tests we add options above
@@ -845,6 +867,40 @@ func Test_updateClusterEnvs(t *testing.T) {
 			updateClusterEnvs(tt.args.container, tt.args.newKVs)
 			if !cmp.Equal(tt.args.container.Env, tt.want.Env) {
 				t.Fatalf("updateClusterEnvs got \n%+v, expected \n%+v", tt.args.container.Env, tt.want.Env)
+			}
+		})
+	}
+}
+
+func TestQuantityConversion(t *testing.T) {
+	for _, tt := range []struct {
+		in  string
+		out int
+		err error
+	}{
+		{
+			in:  "4000m",
+			out: 4,
+		},
+		{
+			in:  "6500m",
+			out: 7,
+		},
+		{
+			in:  "200mi",
+			err: errors.New("unable to parse"),
+		},
+	} {
+		t.Run(tt.in, func(t *testing.T) {
+			got, err := quantityToConcurrency(tt.in)
+			if err != nil {
+				if tt.err == nil {
+					t.Errorf("expected no error, got %v", err)
+				}
+			} else {
+				if tt.out != got {
+					t.Errorf("got %v, want %v", got, tt.out)
+				}
 			}
 		})
 	}

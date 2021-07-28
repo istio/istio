@@ -84,7 +84,7 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm: init
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=&& chmod 755 ${SIDECAR} pilot-agent && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
+docker.proxyv2: BUILD_PRE=&& chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
 docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} --build-arg SIDECAR=${SIDECAR}
 docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
@@ -97,7 +97,7 @@ docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm
 	$(DOCKER_RULE)
 
-docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery && chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
+docker.pilot: BUILD_PRE=&& chmod 644 envoy_bootstrap.json gcp_envoy_bootstrap.json
 docker.pilot: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 docker.pilot: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
@@ -106,7 +106,7 @@ docker.pilot: pilot/docker/Dockerfile.pilot
 	$(DOCKER_RULE)
 
 # Test application
-docker.app: BUILD_PRE=&& chmod 755 server client
+docker.app: BUILD_PRE=
 docker.app: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.app: $(ECHO_DOCKER)/Dockerfile.app
 docker.app: $(ISTIO_OUT_LINUX)/client
@@ -205,7 +205,6 @@ docker.operator: $(ISTIO_OUT_LINUX)/operator
 # CNI
 docker.install-cni: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
-docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-repair
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
 docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint
@@ -226,7 +225,7 @@ DOCKER_ARCHITECTURES ?= linux/amd64
 # We then override the docker rule and "build" all of these, where building just copies the dependencies
 # We then generate a "bake" file, which defines all of the docker files in the repo
 # Finally, we call `docker buildx bake` to generate the images.
-dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp -rp $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
+dockerx: DOCKER_RULE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKERX_BUILD_TOP)/$@ && cd $(DOCKERX_BUILD_TOP)/$@ $(BUILD_PRE)
 dockerx: RENAME_TEMPLATE?=mkdir -p $(DOCKERX_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKERX_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 dockerx: docker | $(ISTIO_DOCKER_TAR)
 dockerx:
@@ -242,7 +241,7 @@ dockerx:
 		./tools/buildx-gen.sh $(DOCKERX_BUILD_TOP) $(DOCKER_TARGETS)
 	@# Retry works around https://github.com/docker/buildx/issues/298
 	DOCKER_CLI_EXPERIMENTAL=enabled bin/retry.sh "read: connection reset by peer" docker buildx bake $(BUILDX_BAKE_EXTRA_OPTIONS) -f $(DOCKERX_BUILD_TOP)/docker-bake.hcl $(DOCKER_BUILD_VARIANTS) || \
-		{ docker logs buildx_buildkit_container-builder0; exit 1; }
+		{ tools/dump-docker-logs.sh; exit 1; }
 
 # Support individual images like `dockerx.pilot`
 dockerx.%:
@@ -308,7 +307,7 @@ docker.distroless: docker/Dockerfile.distroless
 DOCKER_BUILD_VARIANTS ?= default
 DOCKER_ALL_VARIANTS ?= default distroless
 DEFAULT_DISTRIBUTION=default
-DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -rp $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
+DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 RENAME_TEMPLATE ?= mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKER_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 
 # This target will package all docker images used in test and release, without re-building

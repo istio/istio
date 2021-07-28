@@ -64,10 +64,13 @@ func GetTelemetries(env *Environment) (*Telemetries, error) {
 	return telemetries, nil
 }
 
-func (t *Telemetries) EffectiveTelemetry(namespace string, workload labels.Collection) *tpb.Telemetry {
+func (t *Telemetries) EffectiveTelemetry(proxy *Proxy) *tpb.Telemetry {
 	if t == nil {
 		return nil
 	}
+
+	namespace := proxy.ConfigNamespace
+	workload := labels.Collection{proxy.Metadata.Labels}
 
 	var effectiveSpec *tpb.Telemetry
 	if t.RootNamespace != "" {
@@ -111,23 +114,24 @@ func shallowMerge(parent, child *tpb.Telemetry) *tpb.Telemetry {
 	if child == nil {
 		return parent
 	}
-	return shallowMergeTracing(parent, child)
+	merged := parent.DeepCopy()
+	shallowMergeTracing(merged, child)
+	shallowMergeAccessLogs(merged, child)
+	return merged
 }
 
-func shallowMergeTracing(parent, child *tpb.Telemetry) *tpb.Telemetry {
-	if parent.GetTracing() == nil || len(parent.GetTracing()) == 0 {
-		return child
+func shallowMergeTracing(parent, child *tpb.Telemetry) {
+	if len(parent.GetTracing()) == 0 {
+		parent.Tracing = child.Tracing
+		return
 	}
-	if child.GetTracing() == nil || len(child.GetTracing()) == 0 {
-		return parent
+	if len(child.GetTracing()) == 0 {
+		return
 	}
-
-	merged := parent.DeepCopy()
-	childCopy := child.DeepCopy()
 
 	// only use the first Tracing for now (all that is supported)
-	childTracing := childCopy.Tracing[0]
-	mergedTracing := merged.Tracing[0]
+	childTracing := child.Tracing[0]
+	mergedTracing := parent.Tracing[0]
 	if len(childTracing.Providers) != 0 {
 		mergedTracing.Providers = childTracing.Providers
 	}
@@ -143,6 +147,25 @@ func shallowMergeTracing(parent, child *tpb.Telemetry) *tpb.Telemetry {
 	if childTracing.GetRandomSamplingPercentage() != nil {
 		mergedTracing.RandomSamplingPercentage = childTracing.RandomSamplingPercentage
 	}
+}
 
-	return merged
+func shallowMergeAccessLogs(parent *tpb.Telemetry, child *tpb.Telemetry) {
+	if len(parent.GetAccessLogging()) == 0 {
+		parent.AccessLogging = child.AccessLogging
+		return
+	}
+	if len(child.GetAccessLogging()) == 0 {
+		return
+	}
+
+	// Only use the first AccessLogging for now (all that is supported)
+	childLogging := child.AccessLogging[0]
+	mergedLogging := parent.AccessLogging[0]
+	if len(childLogging.Providers) != 0 {
+		mergedLogging.Providers = childLogging.Providers
+	}
+
+	if childLogging.GetDisabled() != nil {
+		mergedLogging.Disabled = childLogging.Disabled
+	}
 }

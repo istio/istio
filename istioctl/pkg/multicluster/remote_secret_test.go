@@ -31,8 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -287,7 +289,7 @@ func TestCreateRemoteSecrets(t *testing.T) {
 
 			env := newFakeEnvironmentOrDie(t, c.config, c.objs...)
 
-			got, err := CreateRemoteSecret(opts, env) // TODO
+			got, _, err := CreateRemoteSecret(opts, env) // TODO
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -438,16 +440,54 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 	}
 }
 
+func TestGenerateServiceAccount(t *testing.T) {
+	opts := RemoteSecretOptions{
+		CreateServiceAccount: true,
+		ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
+		KubeOptions: KubeOptions{
+			Namespace: "istio-system",
+		},
+	}
+	yaml, err := generateServiceAccountYAML(opts)
+	if err != nil {
+		t.Fatalf("failed to generate service account YAML: %v", err)
+	}
+	objs, err := object.ParseK8sObjectsFromYAMLManifest(yaml)
+	if err != nil {
+		t.Fatalf("could not parse k8s objects from generated YAML: %v", err)
+	}
+
+	mustFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
+	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRole")
+	mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
+}
+
+func mustFindObject(t test.Failer, objs object.K8sObjects, name, kind string) {
+	t.Helper()
+	var obj *object.K8sObject
+	for _, o := range objs {
+		if o.Kind == kind && o.Name == name {
+			obj = o
+			break
+		}
+	}
+	if obj == nil {
+		t.Fatalf("expected %v/%v", name, kind)
+	}
+}
+
 func TestGetClusterServerFromKubeconfig(t *testing.T) {
-	wantServer := "server0"
+	server := "server0"
 	context := "context0"
 	cluster := "cluster0"
 
 	cases := []struct {
-		name       string
-		config     *api.Config
-		context    string
-		wantErrStr string
+		name        string
+		config      *api.Config
+		context     string
+		wantServer  string
+		wantErrStr  string
+		wantWarning bool
 	}{
 		{
 			name:       "bad starting config",
@@ -486,9 +526,25 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 					context: {Cluster: cluster},
 				},
 				Clusters: map[string]*api.Cluster{
-					cluster: {Server: wantServer},
+					cluster: {Server: server},
 				},
 			},
+			wantServer: server,
+		},
+		{
+			name:    "warning",
+			context: context,
+			config: &api.Config{
+				CurrentContext: context,
+				Contexts: map[string]*api.Context{
+					context: {Cluster: cluster},
+				},
+				Clusters: map[string]*api.Cluster{
+					cluster: {Server: "http://127.0.0.1:12345"},
+				},
+			},
+			wantWarning: true,
+			wantServer:  "http://127.0.0.1:12345",
 		},
 		{
 			name:    "use explicit Context different from current-context",
@@ -499,16 +555,22 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 					context: {Cluster: cluster},
 				},
 				Clusters: map[string]*api.Cluster{
-					cluster: {Server: wantServer},
+					cluster: {Server: server},
 				},
 			},
+			wantServer: server,
 		},
 	}
 
 	for i := range cases {
 		c := &cases[i]
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			gotServer, err := getServerFromKubeconfig(c.context, c.config)
+			gotServer, warn, err := getServerFromKubeconfig(c.context, c.config)
+			if c.wantWarning && warn == nil {
+				t.Fatalf("wanted warning but got nil")
+			} else if !c.wantWarning && warn != nil {
+				t.Fatalf("wanted non-warning but got: %v", warn)
+			}
 			if c.wantErrStr != "" {
 				if err == nil {
 					t.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -517,8 +579,8 @@ func TestGetClusterServerFromKubeconfig(t *testing.T) {
 				}
 			} else if c.wantErrStr == "" && err != nil {
 				t.Fatalf("wanted non-error but got %q", err)
-			} else if gotServer != wantServer {
-				t.Errorf("got server %v want %v", gotServer, wantServer)
+			} else if gotServer != c.wantServer {
+				t.Errorf("got server %v want %v", gotServer, server)
 			}
 		})
 	}

@@ -16,6 +16,7 @@ package options
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -34,10 +35,10 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	o := &security.Options{
 		CAEndpoint:                     caEndpointEnv,
 		CAProviderName:                 caProviderEnv,
-		PilotCertProvider:              features.PilotCertProvider.Get(),
+		PilotCertProvider:              features.PilotCertProvider,
 		OutputKeyCertToDir:             outputKeyCertToDir,
 		ProvCert:                       provCert,
-		WorkloadUDSPath:                security.DefaultLocalSDSPath,
+		WorkloadUDSPath:                filepath.Join(proxyConfig.ConfigPath, "SDS"),
 		ClusterID:                      clusterIDVar.Get(),
 		FileMountedCerts:               fileMountedCertsEnv,
 		WorkloadNamespace:              PodNamespaceVar.Get(),
@@ -49,6 +50,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		SecretTTL:                      secretTTLEnv,
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 		STSPort:                        stsPort,
+		CertSigner:                     certSigner.Get(),
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
@@ -71,13 +73,14 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.Options, jwtPolicy,
 	credFetcherTypeEnv, credIdentityProvider string) (*security.Options, error) {
 	var jwtPath string
-	if jwtPolicy == jwt.PolicyThirdParty {
+	switch jwtPolicy {
+	case jwt.PolicyThirdParty:
 		log.Info("JWT policy is third-party-jwt")
 		jwtPath = constants.TrustworthyJWTPath
-	} else if jwtPolicy == jwt.PolicyFirstParty {
+	case jwt.PolicyFirstParty:
 		log.Info("JWT policy is first-party-jwt")
 		jwtPath = securityModel.K8sSAJwtFileName
-	} else {
+	default:
 		log.Info("Using existing certs")
 	}
 
@@ -105,7 +108,7 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CAProviderName = security.GoogleCAProvider
 	}
 	// TODO extract this logic out to a plugin
-	if o.CAProviderName == security.GoogleCAProvider {
+	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
 		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
 	}
 

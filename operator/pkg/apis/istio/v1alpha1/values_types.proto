@@ -405,8 +405,11 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
+  
+  // Controls whether a remote cluster is the config cluster for an external istiod
+  google.protobuf.BoolValue configCluster = 64;
 
-  // The next available key is 64
+  // The next available key is 65
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -899,6 +902,7 @@ enum tracer {
   datadog = 2;
   stackdriver = 3;
   openCensusAgent = 4;
+  none = 5;
 }
 
 // Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
@@ -1004,7 +1008,7 @@ message SidecarInjectorConfig {
   // If enabled, the legacy webhook selection logic will be used. This relies on filtering of webhook
   // requests in Istiod, rather than at the webhook selection level.
   // This is option is intended for migration purposes only and will be removed in Istio 1.10.
-  google.protobuf.BoolValue useLegacySelectors = 4;
+  google.protobuf.BoolValue useLegacySelectors = 4 [deprecated=true];
 }
 
 // Configuration for each of the supported tracers.
@@ -1075,6 +1079,8 @@ message BaseConfig {
 message IstiodRemoteConfig {
   // URL to use for sidecar injector webhook.
   string injectionURL = 1;
+  // Path to use for the sidecar injector webhook service.
+  string injectionPath = 2;
 }
 
 message Values {

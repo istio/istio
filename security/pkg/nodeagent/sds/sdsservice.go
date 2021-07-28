@@ -74,6 +74,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
 			if names.Contains(name.Name) {
 				found = true
+				break
 			}
 		}
 		return found
@@ -155,14 +156,14 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 
 // Generate implements the XDS Generator interface. This allows the XDS server to dispatch requests
 // for SecretTypeV3 to our server to generate the Envoy response.
-func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// updates.Full indicates we should do a complete push of all updated resources
 	// In practice, all pushes should be incremental (ie, if the `default` cert changes we won't push
 	// all file certs).
 	if updates.Full {
 		resp, err := s.generate(w.ResourceNames)
-		pushLog(w.ResourceNames, err)
-		return resp, err
+		return resp, pushLog(w.ResourceNames), err
 	}
 	names := []string{}
 	watched := sets.NewSet(w.ResourceNames...)
@@ -172,14 +173,13 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 		}
 	}
 	resp, err := s.generate(names)
-	pushLog(names, err)
-	return resp, err
+	return resp, pushLog(names), err
 }
 
-var sdsGeneratorMetadata = &model.GeneratorMetadata{LogsDetails: true}
-
-func (s *sdsservice) Metadata() *model.GeneratorMetadata {
-	return sdsGeneratorMetadata
+func (s *sdsservice) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := s.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
 }
 
 // register adds the SDS handle to the grpc server
@@ -242,13 +242,10 @@ func toEnvoySecret(s *security.SecretItem) *tls.Secret {
 	return secret
 }
 
-func pushLog(names []string, err error) {
-	if err != nil {
-		return
-	}
+func pushLog(names []string) model.XdsLogDetails {
 	if len(names) == 1 {
-		sdsServiceLog.WithLabels("resource", names[0]).Infof("SDS: PUSH")
-	} else {
-		sdsServiceLog.WithLabels("resources", len(names)).Infof("SDS: PUSH")
+		// For common case of single resource, show which resource it was
+		return model.XdsLogDetails{AdditionalInfo: "resource:" + names[0]}
 	}
+	return model.DefaultXdsLogDetails
 }

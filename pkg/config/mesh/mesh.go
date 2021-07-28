@@ -98,6 +98,20 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DnsRefreshRate:                 types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
 		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
+
+		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
+			AccessLogging: []string{"envoy"},
+		},
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -105,18 +119,26 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 // will not be modified.
 func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	mc := proto.Clone(&meshConfig).(*meshconfig.MeshConfig)
-	if err := gogoprotomarshal.ApplyYAML(yaml, mc.DefaultConfig); err != nil {
-		return nil, fmt.Errorf("could not parse proxy config: %v", err)
+	pc, err := applyProxyConfig(yaml, mc.DefaultConfig)
+	if err != nil {
+		return nil, err
 	}
+	mc.DefaultConfig = pc
 	return mc, nil
 }
 
-func extractProxyConfig(yamlText string) (string, error) {
-	mp := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(yamlText), &mp); err != nil {
-		return "", err
+func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
+	origMetadata := proxyConfig.ProxyMetadata
+	if err := gogoprotomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
+		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
-	proxyConfig := mp["defaultConfig"]
+	newMetadata := proxyConfig.ProxyMetadata
+	proxyConfig.ProxyMetadata = mergeMap(origMetadata, newMetadata)
+	return proxyConfig, nil
+}
+
+func extractYamlField(key string, mp map[string]interface{}) (string, error) {
+	proxyConfig := mp[key]
 	if proxyConfig == nil {
 		return "", nil
 	}
@@ -125,6 +147,14 @@ func extractProxyConfig(yamlText string) (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
+}
+
+func toMap(yamlText string) (map[string]interface{}, error) {
+	mp := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(yamlText), &mp); err != nil {
+		return nil, err
+	}
+	return mp, nil
 }
 
 // ApplyMeshConfig returns a new MeshConfig decoded from the
@@ -136,6 +166,9 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 
 	// Store the current set proxy config so we don't wipe it out, we will configure this later
 	prevProxyConfig := defaultConfig.DefaultConfig
+	prevDefaultProvider := defaultConfig.DefaultProviders
+	prevExtensionProviders := defaultConfig.ExtensionProviders
+
 	defaultProxyConfig := DefaultProxyConfig()
 	defaultConfig.DefaultConfig = &defaultProxyConfig
 	if err := gogoprotomarshal.ApplyYAML(yaml, &defaultConfig); err != nil {
@@ -143,15 +176,47 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 	}
 	defaultConfig.DefaultConfig = prevProxyConfig
 
+	raw, err := toMap(yaml)
+	if err != nil {
+		return nil, err
+	}
 	// Get just the proxy config yaml
-	pc, err := extractProxyConfig(yaml)
+	pc, err := extractYamlField("defaultConfig", raw)
 	if err != nil {
 		return nil, multierror.Prefix(err, "failed to extract proxy config")
 	}
 	if pc != "" {
-		// Apply proxy config yaml on to the merged mesh config. This gives us "merge" semantics for proxy config
-		if err := gogoprotomarshal.ApplyYAML(pc, defaultConfig.DefaultConfig); err != nil {
-			return nil, multierror.Prefix(err, "failed to convert to proto.")
+		pc, err := applyProxyConfig(pc, defaultConfig.DefaultConfig)
+		if err != nil {
+			return nil, err
+		}
+		defaultConfig.DefaultConfig = pc
+	}
+
+	defaultConfig.DefaultProviders = prevDefaultProvider
+	dp, err := extractYamlField("defaultProviders", raw)
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed to extract default providers")
+	}
+	if dp != "" {
+		if err := gogoprotomarshal.ApplyYAML(dp, defaultConfig.DefaultProviders); err != nil {
+			return nil, fmt.Errorf("could not parse default providers: %v", err)
+		}
+	}
+
+	newExtensionProviders := defaultConfig.ExtensionProviders
+	defaultConfig.ExtensionProviders = prevExtensionProviders
+	for _, p := range newExtensionProviders {
+		found := false
+		for _, e := range defaultConfig.ExtensionProviders {
+			if p.Name == e.Name {
+				e.Provider = p.Provider
+				found = true
+				break
+			}
+		}
+		if !found {
+			defaultConfig.ExtensionProviders = append(defaultConfig.ExtensionProviders, p)
 		}
 	}
 
@@ -160,6 +225,19 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 	}
 
 	return &defaultConfig, nil
+}
+
+func mergeMap(original map[string]string, merger map[string]string) map[string]string {
+	if original == nil && merger == nil {
+		return nil
+	}
+	if original == nil {
+		original = map[string]string{}
+	}
+	for k, v := range merger {
+		original[k] = v
+	}
+	return original
 }
 
 // ApplyMeshConfigDefaults returns a new MeshConfig decoded from the

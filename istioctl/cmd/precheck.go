@@ -227,7 +227,7 @@ func checkCanCreateResources(c kube.ExtendedClient, namespace, group, version, n
 func checkServerVersion(cli kube.ExtendedClient) (diag.Messages, error) {
 	v, err := cli.GetKubernetesVersion()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get the Kubernetes version: %v", err)
 	}
 	compatible, err := k8sversion.CheckKubernetesVersion(v)
 	if err != nil {
@@ -274,8 +274,7 @@ func checkListeners(cli kube.ExtendedClient, namespace string) (diag.Messages, e
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 			// Fetch list of all clusters to get which ports we care about
-			resp, err := cli.EnvoyDo(context.Background(), pod.Name, pod.Namespace,
-				"GET", "config_dump?resource=dynamic_active_clusters&mask=cluster.name", nil)
+			resp, err := cli.EnvoyDo(context.Background(), pod.Name, pod.Namespace, "GET", "config_dump?resource=dynamic_active_clusters&mask=cluster.name")
 			if err != nil {
 				fmt.Println("failed to get config dump: ", err)
 				return nil

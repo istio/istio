@@ -23,7 +23,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -31,9 +31,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-// Experimental/WIP: this is not yet ready for production use.
-// You can continue to use 1.5 Galley until this is ready.
-//
 // APIGenerator supports generation of high-level API resources, similar with the MCP
 // protocol. This is a replacement for MCP, using XDS (and in future UDPA) as a transport.
 // Based on lessons from MCP, the protocol allows incremental updates by
@@ -44,7 +41,14 @@ import (
 //
 // TODO: we can also add a special marker in the header)
 type APIGenerator struct {
-	model.BaseGenerator
+	// ConfigStore interface for listing istio api resources.
+	store model.IstioConfigStore `json:"-"`
+}
+
+func NewGenerator(store model.IstioConfigStore) *APIGenerator {
+	return &APIGenerator{
+		store: store,
+	}
 }
 
 // TODO: take 'updates' into account, don't send pushes for resources that haven't changed
@@ -58,7 +62,8 @@ type APIGenerator struct {
 // This provides similar functionality with MCP and :8080/debug/configz.
 //
 // Names are based on the current resource naming in istiod stores.
-func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates *model.PushRequest) (model.Resources, error) {
+func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	resp := model.Resources{}
 
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
@@ -71,7 +76,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	if len(kind) != 3 {
 		log.Warnf("ADS: Unknown watched resources %s", w.TypeUrl)
 		// Still return an empty response - to not break waiting code. It is fine to not know about some resource.
-		return resp, nil
+		return resp, model.DefaultXdsLogDetails, nil
 	}
 	// TODO: extra validation may be needed - at least logging that a resource
 	// of unknown type was requested. This should not be an error - maybe client asks
@@ -92,7 +97,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 				Resource: a,
 			})
 		}
-		return resp, nil
+		return resp, model.DefaultXdsLogDetails, nil
 	}
 
 	// TODO: what is the proper way to handle errors ?
@@ -100,10 +105,10 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	// even if k8s is disconnected, we still cache all previous results.
 	// This needs further consideration - I don't think XDS or MCP transports
 	// have a clear recommendation.
-	cfg, err := push.IstioConfigStore.List(rgvk, "")
+	cfg, err := g.store.List(rgvk, "")
 	if err != nil {
 		log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
-		return resp, nil
+		return resp, model.DefaultXdsLogDetails, nil
 	}
 	for _, c := range cfg {
 		// Right now model.Config is not a proto - until we change it, mcp.Resource.
@@ -137,7 +142,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		svcs := push.Services(proxy)
 		for _, s := range svcs {
 			// Ignore services that are result of conversion from ServiceEntry.
-			if s.Attributes.ServiceRegistry == serviceregistry.External {
+			if s.Attributes.ServiceRegistry == provider.External {
 				continue
 			}
 			c := serviceentry.ServiceToServiceEntry(s)
@@ -162,7 +167,13 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		}
 	}
 
-	return resp, nil
+	return resp, model.DefaultXdsLogDetails, nil
+}
+
+func (g *APIGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := g.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
 }
 
 // Convert from model.Config, which has no associated proto, to MCP Resource proto.

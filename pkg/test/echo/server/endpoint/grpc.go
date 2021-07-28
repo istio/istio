@@ -24,11 +24,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/admin"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/utils/env"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -41,7 +44,8 @@ var _ Instance = &grpcInstance{}
 
 type grpcInstance struct {
 	Config
-	server *grpc.Server
+	server   *grpc.Server
+	cleanups []func()
 }
 
 func newGRPC(config Config) Instance {
@@ -79,7 +83,13 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		Config: s.Config,
 	})
 	reflection.Register(s.server)
-
+	if val, _ := env.GetBool("EXPOSE_GRPC_ADMIN", false); val {
+		cleanup, err := admin.Register(s.server)
+		if err != nil {
+			return err
+		}
+		s.cleanups = append(s.cleanups, cleanup)
+	}
 	// Start serving GRPC traffic.
 	go func() {
 		err := s.server.Serve(listener)
@@ -124,6 +134,9 @@ func (s *grpcInstance) Close() error {
 	if s.server != nil {
 		s.server.Stop()
 	}
+	for _, cleanup := range s.cleanups {
+		cleanup()
+	}
 	return nil
 }
 
@@ -133,7 +146,6 @@ type grpcHandler struct {
 
 func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.EchoResponse, error) {
 	defer common.Metrics.GrpcRequests.With(common.PortLabel.Value(strconv.Itoa(h.Port.Port))).Increment()
-	host := "-"
 	body := bytes.Buffer{}
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
@@ -144,7 +156,6 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 			field := response.Field(key)
 			if key == ":authority" {
 				field = response.HostField
-				host = values[0]
 			}
 			for _, value := range values {
 				writeField(&body, field, value)
@@ -152,7 +163,8 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 		}
 	}
 
-	epLog.Infof("GRPC Request:\n  Host: %s\n  Message: %s\n  Headers: %v\n", host, req.GetMessage(), md)
+	id := uuid.New()
+	epLog.WithLabels("message", req.GetMessage(), "headers", md, "id", id).Infof("GRPC Request")
 
 	portNumber := 0
 	if h.Port != nil {
@@ -176,11 +188,14 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 		writeField(&body, response.HostnameField, hostname)
 	}
 
+	epLog.WithLabels("id", id).Infof("GRPC Response")
 	return &proto.EchoResponse{Message: body.String()}, nil
 }
 
 func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
-	epLog.Infof("ForwardEcho[%s] request", req.Url)
+	id := uuid.New()
+	l := epLog.WithLabels("url", req.Url, "id", id)
+	l.Infof("ForwardEcho request")
 	t0 := time.Now()
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
@@ -192,6 +207,10 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	defer instance.Close()
 
 	ret, err := instance.Run(ctx)
-	epLog.Infof("ForwardEcho[%s] response in %v: %v and error %v", req.Url, time.Since(t0), ret.GetOutput(), err)
+	if err == nil {
+		l.WithLabels("latency", time.Since(t0)).Infof("ForwardEcho response complete: %v", ret.GetOutput())
+	} else {
+		l.WithLabels("latency", time.Since(t0)).Infof("ForwardEcho response failed: %v", err)
+	}
 	return ret, err
 }

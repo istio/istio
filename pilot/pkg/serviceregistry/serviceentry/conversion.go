@@ -22,13 +22,14 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -142,8 +143,6 @@ func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	creationTime := cfg.CreationTimestamp
 
-	out := make([]*model.Service, 0)
-
 	var resolution model.Resolution
 	switch serviceEntry.Resolution {
 	case networking.ServiceEntry_NONE:
@@ -193,14 +192,13 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
-	out = append(out, buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime)...)
-	return out
+	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
 }
 
 func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
-	ctime time.Time) []*model.Service {
+	ctime time.Time, labels map[string]string) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
@@ -211,9 +209,10 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 			Ports:        ports,
 			Resolution:   resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.External),
+				ServiceRegistry: provider.External,
 				Name:            ha.host,
 				Namespace:       namespace,
+				Labels:          labels,
 				ExportTo:        exportTo,
 				LabelSelectors:  selectors,
 			},
@@ -252,7 +251,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Address:         addr,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
-			Network:         endpoint.Network,
+			Network:         network.ID(endpoint.Network),
 			Locality: model.Locality{
 				Label: endpoint.Locality,
 			},
@@ -363,8 +362,8 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 	return out
 }
 
-// Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
-// port names) and the namespace - k8s will consume this service instance when selecting workload entries
+// Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
+// port names) and the namespace - k8s will consume this workload instance when selecting workload entries
 func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
 	// we will merge labels from metadata with spec, with precedence to the metadata
@@ -393,7 +392,7 @@ func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadIn
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			// Not setting ports here as its done by k8s controller
-			Network: we.Network,
+			Network: network.ID(we.Network),
 			Locality: model.Locality{
 				Label: we.Locality,
 			},

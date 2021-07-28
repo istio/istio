@@ -53,6 +53,8 @@ func callInternal(srcName string, opts *echo.CallOptions, send sendFunc,
 		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), opts.Address)
 	case scheme.TCP:
 		targetURL = fmt.Sprintf("%s://%s", string(opts.Scheme), addressAndPort)
+	case scheme.XDS:
+		targetURL = fmt.Sprintf("%s:///%s", string(opts.Scheme), addressAndPort)
 	default:
 		targetURL = fmt.Sprintf("%s://%s%s", string(opts.Scheme), addressAndPort, opts.Path)
 	}
@@ -131,8 +133,9 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 			return nil, err
 		}
 		defer instance.Close()
-
-		ret, err := instance.Run(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+		defer cancel()
+		ret, err := instance.Run(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -194,10 +197,10 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 		} else {
 			// Look up the port.
 			found := false
-			for _, port := range targetPorts {
+			for i, port := range targetPorts {
 				if opts.PortName == port.Name {
 					found = true
-					opts.Port = &port
+					opts.Port = &targetPorts[i]
 					break
 				}
 			}
@@ -231,6 +234,9 @@ func fillInCallOptions(opts *echo.CallOptions) error {
 	// Initialize the headers and add a default Host header if none provided.
 	if opts.Headers == nil {
 		opts.Headers = make(http.Header)
+	} else {
+		// Avoid mutating input, which can lead to concurrent writes
+		opts.Headers = opts.Headers.Clone()
 	}
 	if h := opts.Headers["Host"]; len(h) == 0 && opts.Target != nil {
 		// No host specified, use the hostname for the service.

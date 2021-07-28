@@ -94,6 +94,7 @@ $IOP
         k8s:
           env:
             # sni-dnat adds the clusters required for AUTO_PASSTHROUGH mode
+            # This is not required in Istio 1.11+, but we add it just in case.
             - name: ISTIO_META_ROUTER_MODE
               value: "sni-dnat"
 EOF

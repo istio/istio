@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// apimirror contains copies of Kubernetes APIs. This allows json serialization, without worrying about
+// Package apimirror contains copies of Kubernetes APIs. This allows json serialization, without worrying about
 // importing the massive 15mb+ Kubernetes API libraries.
 // This is intended for import only by istio-agent. Any other binaries (Istiod) should likely import the
 // upstream Kubernetes API instead.
@@ -58,4 +58,15 @@ type HTTPHeader struct {
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
 	// The header field value
 	Value string `json:"value" protobuf:"bytes,2,opt,name=value"`
+}
+
+// TCPSocketAction describes an action based on opening a socket
+type TCPSocketAction struct {
+	// Number or name of the port to access on the container.
+	// Number must be in the range 1 to 65535.
+	// Name must be an IANA_SVC_NAME.
+	Port intstr.IntOrString `json:"port" protobuf:"bytes,1,opt,name=port"`
+	// Optional: Host name to connect to, defaults to the pod IP.
+	// +optional
+	Host string `json:"host,omitempty" protobuf:"bytes,2,opt,name=host"`
 }

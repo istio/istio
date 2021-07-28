@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -34,22 +35,33 @@ type Rules struct {
 	rulesv6 []*Rule
 }
 
-// IptablesBuilderImpl is an implementation for IptablesBuilder interface
-type IptablesBuilderImpl struct {
+// IptablesBuilder is an implementation for IptablesBuilder interface
+type IptablesBuilder struct {
 	rules Rules
+	cfg   *config.Config
 }
 
 // NewIptablesBuilders creates a new IptablesBuilder
-func NewIptablesBuilder() *IptablesBuilderImpl {
-	return &IptablesBuilderImpl{
+func NewIptablesBuilder(cfg *config.Config) *IptablesBuilder {
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	return &IptablesBuilder{
 		rules: Rules{
 			rulesv4: []*Rule{},
 			rulesv6: []*Rule{},
 		},
+		cfg: cfg,
 	}
 }
 
-func (rb *IptablesBuilderImpl) InsertRuleV4(chain string, table string, position int, params ...string) IptablesProducer {
+func (rb *IptablesBuilder) InsertRule(chain string, table string, position int, params ...string) *IptablesBuilder {
+	rb.InsertRuleV4(chain, table, position, params...)
+	rb.InsertRuleV6(chain, table, position, params...)
+	return rb
+}
+
+func (rb *IptablesBuilder) InsertRuleV4(chain string, table string, position int, params ...string) *IptablesBuilder {
 	rb.rules.rulesv4 = append(rb.rules.rulesv4, &Rule{
 		chain:  chain,
 		table:  table,
@@ -58,7 +70,10 @@ func (rb *IptablesBuilderImpl) InsertRuleV4(chain string, table string, position
 	return rb
 }
 
-func (rb *IptablesBuilderImpl) InsertRuleV6(chain string, table string, position int, params ...string) IptablesProducer {
+func (rb *IptablesBuilder) InsertRuleV6(chain string, table string, position int, params ...string) *IptablesBuilder {
+	if !rb.cfg.EnableInboundIPv6 {
+		return rb
+	}
 	rb.rules.rulesv6 = append(rb.rules.rulesv6, &Rule{
 		chain:  chain,
 		table:  table,
@@ -67,7 +82,7 @@ func (rb *IptablesBuilderImpl) InsertRuleV6(chain string, table string, position
 	return rb
 }
 
-func (rb *IptablesBuilderImpl) AppendRuleV4(chain string, table string, params ...string) IptablesProducer {
+func (rb *IptablesBuilder) AppendRuleV4(chain string, table string, params ...string) *IptablesBuilder {
 	rb.rules.rulesv4 = append(rb.rules.rulesv4, &Rule{
 		chain:  chain,
 		table:  table,
@@ -76,7 +91,16 @@ func (rb *IptablesBuilderImpl) AppendRuleV4(chain string, table string, params .
 	return rb
 }
 
-func (rb *IptablesBuilderImpl) AppendRuleV6(chain string, table string, params ...string) IptablesProducer {
+func (rb *IptablesBuilder) AppendRule(chain string, table string, params ...string) *IptablesBuilder {
+	rb.AppendRuleV4(chain, table, params...)
+	rb.AppendRuleV6(chain, table, params...)
+	return rb
+}
+
+func (rb *IptablesBuilder) AppendRuleV6(chain string, table string, params ...string) *IptablesBuilder {
+	if !rb.cfg.EnableInboundIPv6 {
+		return rb
+	}
 	rb.rules.rulesv6 = append(rb.rules.rulesv6, &Rule{
 		chain:  chain,
 		table:  table,
@@ -85,7 +109,7 @@ func (rb *IptablesBuilderImpl) AppendRuleV6(chain string, table string, params .
 	return rb
 }
 
-func (rb *IptablesBuilderImpl) buildRules(command string, rules []*Rule) [][]string {
+func (rb *IptablesBuilder) buildRules(command string, rules []*Rule) [][]string {
 	output := [][]string{}
 	chainTableLookupMap := make(map[string]struct{})
 	for _, r := range rules {
@@ -107,15 +131,15 @@ func (rb *IptablesBuilderImpl) buildRules(command string, rules []*Rule) [][]str
 	return output
 }
 
-func (rb *IptablesBuilderImpl) BuildV4() [][]string {
+func (rb *IptablesBuilder) BuildV4() [][]string {
 	return rb.buildRules(constants.IPTABLES, rb.rules.rulesv4)
 }
 
-func (rb *IptablesBuilderImpl) BuildV6() [][]string {
+func (rb *IptablesBuilder) BuildV6() [][]string {
 	return rb.buildRules(constants.IP6TABLES, rb.rules.rulesv6)
 }
 
-func (rb *IptablesBuilderImpl) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {
+func (rb *IptablesBuilder) constructIptablesRestoreContents(tableRulesMap map[string][]string) string {
 	var b strings.Builder
 	for table, rules := range tableRulesMap {
 		if len(rules) > 0 {
@@ -129,7 +153,7 @@ func (rb *IptablesBuilderImpl) constructIptablesRestoreContents(tableRulesMap ma
 	return b.String()
 }
 
-func (rb *IptablesBuilderImpl) buildRestore(rules []*Rule) string {
+func (rb *IptablesBuilder) buildRestore(rules []*Rule) string {
 	tableRulesMap := map[string][]string{
 		constants.FILTER: {},
 		constants.NAT:    {},
@@ -155,10 +179,10 @@ func (rb *IptablesBuilderImpl) buildRestore(rules []*Rule) string {
 	return rb.constructIptablesRestoreContents(tableRulesMap)
 }
 
-func (rb *IptablesBuilderImpl) BuildV4Restore() string {
+func (rb *IptablesBuilder) BuildV4Restore() string {
 	return rb.buildRestore(rb.rules.rulesv4)
 }
 
-func (rb *IptablesBuilderImpl) BuildV6Restore() string {
+func (rb *IptablesBuilder) BuildV6Restore() string {
 	return rb.buildRestore(rb.rules.rulesv6)
 }

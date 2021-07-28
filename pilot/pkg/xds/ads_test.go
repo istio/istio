@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util/leak"
 )
 
 const (
@@ -44,12 +43,7 @@ const (
 	routeB = "https.443.https.my-gateway.testns"
 )
 
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
-
 func TestStatusEvents(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	ads := s.Connect(
@@ -90,14 +84,14 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
-	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
+	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
 	// Close the connection and reconnect
 	ads.Cleanup()
 
 	ads = s.ConnectADS().WithType(v3.EndpointType)
 
 	// Reconnect with the same resources
-	ads.RequestResponseAck(&discovery.DiscoveryRequest{
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		ResourceNames: []string{"fake-cluster"},
 		ResponseNonce: res.Nonce,
 		VersionInfo:   res.VersionInfo,
@@ -108,42 +102,40 @@ func TestAdsUnsubscribe(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
-	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
+	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
 
-	ads.Request(&discovery.DiscoveryRequest{
+	ads.Request(t, &discovery.DiscoveryRequest{
 		ResourceNames: nil,
 		ResponseNonce: res.Nonce,
 		VersionInfo:   res.VersionInfo,
 	})
-	ads.ExpectNoResponse()
+	ads.ExpectNoResponse(t)
 }
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
-	ads.RequestResponseAck(nil)
+	ads.RequestResponseAck(t, nil)
 
 	// envoy restarts and reconnects
 	ads2 := s.ConnectADS().WithType(v3.ClusterType)
-	ads2.RequestResponseAck(nil)
+	ads2.RequestResponseAck(t, nil)
 
 	// closes old process
 	ads.Cleanup()
 
 	// event happens, expect push to the remaining connection
 	xds.AdsPushAll(s.Discovery)
-	ads2.ExpectResponse()
+	ads2.ExpectResponse(t)
 }
 
 // Regression for connection with a bad ID
 func TestAdsBadId(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithID("").WithType(v3.ClusterType)
 	xds.AdsPushAll(s.Discovery)
-	ads.ExpectNoResponse()
+	ads.ExpectNoResponse(t)
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
@@ -153,7 +145,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 	version := ""
 	nonce := ""
 	sendEDSReqAndVerify := func(clusterName string) {
-		res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			ResourceNames: []string{clusterName},
 			VersionInfo:   version,
 			ResponseNonce: nonce,
@@ -177,7 +169,6 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 // nolint: lll
 func TestAdsPushScoping(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	const (
@@ -778,7 +769,7 @@ func TestAdsUpdate(t *testing.T) {
 		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))
 
 	cluster := "outbound|2080||adsupdate.default.svc.cluster.local"
-	res := ads.RequestResponseAck(&discovery.DiscoveryRequest{
+	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		ResourceNames: []string{cluster},
 		TypeUrl:       v3.EndpointType,
 	})
@@ -796,28 +787,28 @@ func TestAdsUpdate(t *testing.T) {
 	// will trigger recompute and push for all clients - including some that may be closing
 	// This reproduced the 'push on closed connection' bug.
 	xds.AdsPushAll(s.Discovery)
-	res1 := ads.ExpectResponse()
+	res1 := ads.ExpectResponse(t)
 	xdstest.UnmarshalClusterLoadAssignment(t, res1.GetResources())
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
-	ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
+	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 
 	xds.AdsPushAll(s.Discovery)
-	res := ads.ExpectResponse()
+	res := ads.ExpectResponse(t)
 
 	// send empty response and validate no response is returned.
-	ads.Request(&discovery.DiscoveryRequest{
+	ads.Request(t, &discovery.DiscoveryRequest{
 		ResourceNames: nil,
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
 	})
-	ads.ExpectNoResponse()
+	ads.ExpectNoResponse(t)
 
 	// Refresh routes
-	ads.Request(&discovery.DiscoveryRequest{
+	ads.Request(t, &discovery.DiscoveryRequest{
 		ResourceNames: []string{routeA, routeB},
 		VersionInfo:   res.VersionInfo,
 		ResponseNonce: res.Nonce,
@@ -833,65 +824,65 @@ func TestBlockedPush(t *testing.T) {
 		features.EnableFlowControl = true
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
-		ads.RequestResponseAck(nil)
+		ads.RequestResponseAck(t, nil)
 		// Send push, get a response but do not ACK it
 		xds.AdsPushAll(s.Discovery)
-		res := ads.ExpectResponse()
+		res := ads.ExpectResponse(t)
 
 		// Another push results in no response as we are blocked
 		xds.AdsPushAll(s.Discovery)
-		ads.ExpectNoResponse()
+		ads.ExpectNoResponse(t)
 
 		// ACK, unblocking the previous push
-		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		res = ads.ExpectResponse()
+		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		res = ads.ExpectResponse(t)
 
 		// ACK again, ensure we do not response
-		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		ads.ExpectNoResponse()
+		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		ads.ExpectNoResponse(t)
 
 		// request new resources, expect response
-		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo"}})
-		res = ads.ExpectResponse()
+		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo"}})
+		res = ads.ExpectResponse(t)
 		// request new resources, expect response, even without explicit ACK
-		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo", "bar"}})
-		ads.ExpectResponse()
+		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ResourceNames: []string{"foo", "bar"}})
+		ads.ExpectResponse(t)
 	})
 	t.Run("flow control enabled NACK", func(t *testing.T) {
 		features.EnableFlowControl = true
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
-		ads.RequestResponseAck(nil)
+		ads.RequestResponseAck(t, nil)
 
 		// Send push, get a response and NACK it
 		xds.AdsPushAll(s.Discovery)
-		res := ads.ExpectResponse()
-		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ErrorDetail: &status.Status{Message: "Test request NACK"}})
+		res := ads.ExpectResponse(t)
+		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce, ErrorDetail: &status.Status{Message: "Test request NACK"}})
 
 		// Another push results in a response as we are not blocked (NACK unblocks)
 		xds.AdsPushAll(s.Discovery)
-		ads.ExpectResponse()
+		ads.ExpectResponse(t)
 
 		// ACK should not get push
-		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		ads.ExpectNoResponse()
+		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		ads.ExpectNoResponse(t)
 	})
 	t.Run("flow control disabled", func(t *testing.T) {
 		features.EnableFlowControl = false
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ClusterType)
-		ads.RequestResponseAck(nil)
+		ads.RequestResponseAck(t, nil)
 		// Send push, get a response but do not ACK it
 		xds.AdsPushAll(s.Discovery)
-		res := ads.ExpectResponse()
+		res := ads.ExpectResponse(t)
 
 		// Another push results in response as we do not care that we are blocked
 		xds.AdsPushAll(s.Discovery)
-		ads.ExpectResponse()
+		ads.ExpectResponse(t)
 
 		// ACK gets no response as we don't have flow control enabled
-		ads.Request(&discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
-		ads.ExpectNoResponse()
+		ads.Request(t, &discovery.DiscoveryRequest{ResponseNonce: res.Nonce})
+		ads.ExpectNoResponse(t)
 	})
 }
 
@@ -905,23 +896,23 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 	}
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
-	resp := ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
+	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 	expectRoutes(resp, routeA)
 
 	xds.AdsPushAll(s.Discovery)
-	resp = ads.ExpectResponse()
+	resp = ads.ExpectResponse(t)
 	expectRoutes(resp, routeA)
 
 	// Test update from A -> B
-	resp = ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeB}})
+	resp = ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeB}})
 	expectRoutes(resp, routeB)
 
 	// Test update from B -> A, B
-	resp = ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA, routeB}})
+	resp = ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA, routeB}})
 	expectRoutes(resp, routeA, routeB)
 
 	// Test update from B, B -> A
-	resp = ads.RequestResponseAck(&discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
+	resp = ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 	expectRoutes(resp, routeA)
 }
 

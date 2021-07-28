@@ -1,0 +1,331 @@
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: GatewayClass
+metadata:
+  creationTimestamp: null
+  name: istio
+  namespace: default
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Handled by Istio controller
+    reason: Handled
+    status: "True"
+    type: Admitted
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: gateway
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: ListenersValid
+    status: "True"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
+  listeners:
+  - conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    hostname: '*.domain.example'
+    port: 80
+    protocol: HTTP
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: invalid-service
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: 'failed to assign to any requested addresses: hostname "fake-service.com"
+      not found'
+    reason: AddressNotAssigned
+    status: "False"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
+  listeners:
+  - conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    hostname: '*.example'
+    port: 80
+    protocol: HTTP
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: target-port-reference
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: 'failed to assign to any requested addresses: port 8080 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
+      port should be specified, not the workload port. Did you mean one of these ports:
+      [80]?)'
+    reason: AddressNotAssigned
+    status: "False"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
+  listeners:
+  - conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    hostname: '*.example'
+    port: 8080
+    protocol: HTTP
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: invalid-gateway-address
+  namespace: invalid-gateway-address
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: 'failed to assign to any requested addresses: Only NamedAddress is supported,
+      ignoring [1.2.3.4]'
+    reason: AddressNotAssigned
+    status: "False"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
+  listeners:
+  - conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    hostname: '*.domain.example'
+    port: 80
+    protocol: HTTP
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: invalid-tls
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: One or more listeners was not valid
+    reason: ListenersNotValid
+    status: "False"
+    type: Ready
+  - lastTransitionTime: fake
+    message: Resources available
+    reason: ResourcesAvailable
+    status: "True"
+    type: Scheduled
+  listeners:
+  - conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: invalid certificate reference {core unknown my-cert-http}, only secret
+        is allowed
+      reason: Invalid
+      status: "False"
+      type: Ready
+    - lastTransitionTime: fake
+      message: invalid certificate reference {core unknown my-cert-http}, only secret
+        is allowed
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    hostname: domain.example
+    port: 34000
+    protocol: HTTPS
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-filter
+  namespace: default
+spec: null
+status:
+  gateways:
+  - conditions:
+    - lastTransitionTime: fake
+      message: unsupported filter type "ExtensionRef"
+      reason: InvalidFilter
+      status: "False"
+      type: Admitted
+    gatewayRef:
+      controller: istio.io/gateway-controller
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-backendRef
+  namespace: default
+spec: null
+status:
+  gateways:
+  - conditions:
+    - lastTransitionTime: fake
+      message: referencing unsupported destination; backendRef is not supported
+      reason: InvalidDestination
+      status: "False"
+      type: Admitted
+    gatewayRef:
+      controller: istio.io/gateway-controller
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: BackendPolicy
+metadata:
+  creationTimestamp: null
+  name: bad-ca-cert
+  namespace: default
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: invalid certificate reference {core unknown ca-cert}, only secret is
+      allowed
+    reason: InvalidTLS
+    status: "False"
+    type: Admitted
+  - lastTransitionTime: fake
+    message: All backends are valid
+    reason: BackendValid
+    status: "False"
+    type: NoSuchBackend
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: BackendPolicy
+metadata:
+  creationTimestamp: null
+  name: bad-backend
+  namespace: default
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Configuration was valid
+    reason: Admitted
+    status: "True"
+    type: Admitted
+  - lastTransitionTime: fake
+    message: 'unsupported backendRef: {Group:core Kind:unknown Name:httpbin1 Port:<nil>}'
+    reason: InvalidDestination
+    status: "True"
+    type: NoSuchBackend
+---

@@ -40,9 +40,9 @@ type NetworksWatcher interface {
 	AddNetworksHandler(func())
 }
 
-var _ NetworksWatcher = &networksWatcher{}
+var _ NetworksWatcher = &InternalNetworkWatcher{}
 
-type networksWatcher struct {
+type InternalNetworkWatcher struct {
 	mutex    sync.Mutex
 	handlers []func()
 	networks *meshconfig.MeshNetworks
@@ -51,7 +51,7 @@ type networksWatcher struct {
 // NewFixedNetworksWatcher creates a new NetworksWatcher that always returns the given config.
 // It will never fire any events, since the config never changes.
 func NewFixedNetworksWatcher(networks *meshconfig.MeshNetworks) NetworksWatcher {
-	return &networksWatcher{
+	return &InternalNetworkWatcher{
 		networks: networks,
 	}
 }
@@ -67,7 +67,7 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 	networksdump, _ := gogoprotomarshal.ToJSONWithIndent(meshNetworks, "   ")
 	log.Infof("mesh networks configuration: %s", networksdump)
 
-	w := &networksWatcher{
+	w := &InternalNetworkWatcher{
 		networks: meshNetworks,
 	}
 
@@ -85,12 +85,12 @@ func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (N
 }
 
 // Networks returns the latest network configuration for the mesh.
-func (w *networksWatcher) Networks() *meshconfig.MeshNetworks {
+func (w *InternalNetworkWatcher) Networks() *meshconfig.MeshNetworks {
 	return (*meshconfig.MeshNetworks)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.networks))))
 }
 
 // SetNetworks will use the given value for mesh networks and notify all handlers of the change
-func (w *networksWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
+func (w *InternalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
 	var handlers []func()
 
 	w.mutex.Lock()
@@ -112,7 +112,7 @@ func (w *networksWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
 }
 
 // AddMeshHandler registers a callback handler for changes to the mesh network config.
-func (w *networksWatcher) AddNetworksHandler(h func()) {
+func (w *InternalNetworkWatcher) AddNetworksHandler(h func()) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 

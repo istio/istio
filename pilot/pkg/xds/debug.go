@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"sort"
@@ -40,9 +41,12 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/network"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -135,18 +139,19 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 
 	sctl.AddRegistry(serviceregistry.Simple{
 		ClusterID:        "v2-debug",
-		ProviderID:       serviceregistry.Mock,
+		ProviderID:       provider.Mock,
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.Controller,
 	})
-	s.AddDebugHandlers(mux, enableProfiling, fetchWebhook)
+	internalMux := http.NewServeMux()
+	s.AddDebugHandlers(mux, internalMux, enableProfiling, fetchWebhook)
 	debugGen, ok := (s.Generators[TypeDebug]).(*DebugGen)
 	if ok {
-		debugGen.DebugMux = mux
+		debugGen.DebugMux = internalMux
 	}
 }
 
-func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
+func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enableProfiling bool, webhook func() map[string]string) {
 	// Debug handlers on HTTP ports are added for backward compatibility.
 	// They will be exposed on XDS-over-TLS in future releases.
 	if !features.EnableDebugOnHTTP {
@@ -154,54 +159,103 @@ func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling b
 	}
 
 	if enableProfiling {
-		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
-		s.addDebugHandler(mux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
-		s.addDebugHandler(mux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
-		s.addDebugHandler(mux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
-		s.addDebugHandler(mux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/", "Displays pprof index", pprof.Index)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/cmdline", "The command line invocation of the current program", pprof.Cmdline)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/profile", "CPU profile", pprof.Profile)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/symbol", "Symbol looks up the program counters listed in the request", pprof.Symbol)
+		s.addDebugHandler(mux, internalMux, "/debug/pprof/trace", "A trace of execution of the current program.", pprof.Trace)
 	}
 
 	mux.HandleFunc("/debug", s.Debug)
 
 	if features.EnableUnsafeAdminEndpoints {
-		s.addDebugHandler(mux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
+		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
 	}
 
-	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
-	s.addDebugHandler(mux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
-	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
-	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
+	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
+	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
+	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
+	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
-	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
-	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
+	s.addDebugHandler(mux, internalMux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
+	s.addDebugHandler(mux, internalMux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
-	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
-	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
-	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
-	s.addDebugHandler(mux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
-	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
-	s.addDebugHandler(mux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
-	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
-	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
+	s.addDebugHandler(mux, internalMux, "/debug/registryz", "Debug support for registry", s.registryz)
+	s.addDebugHandler(mux, internalMux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, internalMux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
+	s.addDebugHandler(mux, internalMux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
+	s.addDebugHandler(mux, internalMux, "/debug/cachez?sizes=true", "Info about the size of the internal XDS caches", s.cachez)
+	s.addDebugHandler(mux, internalMux, "/debug/configz", "Debug support for config", s.configz)
+	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
+	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
+	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
-	s.addDebugHandler(mux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
-	s.addDebugHandler(mux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
-	s.addDebugHandler(mux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
-	s.addDebugHandler(mux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
-	s.addDebugHandler(mux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
-	s.addDebugHandler(mux, "/debug/connections", "Info about the connected XDS clients", s.ConnectionsHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
+	s.addDebugHandler(mux, internalMux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
+	s.addDebugHandler(mux, internalMux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/connections", "Info about the connected XDS clients", s.ConnectionsHandler)
 
-	s.addDebugHandler(mux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
-	s.addDebugHandler(mux, "/debug/mesh", "Active mesh config", s.MeshHandler)
-	s.addDebugHandler(mux, "/debug/networkz", "List cross-network gateways", s.networkz)
+	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
+	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
+	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
+	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
 
-	s.addDebugHandler(mux, "/debug/list", "List all supported debug commands in json", s.List)
+	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
 }
 
-func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help string,
-	handler func(http.ResponseWriter, *http.Request)) {
+func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.ServeMux,
+	path string, help string, handler func(http.ResponseWriter, *http.Request)) {
 	s.debugHandlers[path] = help
-	mux.HandleFunc(path, handler)
+	// Add handler without auth. This mux is never exposed on an HTTP server and only used internally
+	if internalMux != nil {
+		internalMux.HandleFunc(path, handler)
+	}
+	// Add handler with auth; this is expose on an HTTP server
+	mux.HandleFunc(path, s.allowAuthenticatedOrLocalhost(http.HandlerFunc(handler)))
+}
+
+func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		// Request is from localhost, no need to authenticate
+		if isRequestFromLocalhost(req) {
+			next.ServeHTTP(w, req)
+			return
+		}
+		// Authenticate request with the same method as XDS
+		authFailMsgs := make([]string, 0)
+		var ids []string
+		for _, authn := range s.Authenticators {
+			u, err := authn.AuthenticateRequest(req)
+			// If one authenticator passes, return
+			if u != nil && u.Identities != nil && err == nil {
+				ids = u.Identities
+				break
+			}
+			authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
+		}
+		if ids == nil {
+			istiolog.Errorf("Failed to authenticate %s %v", req.URL, authFailMsgs)
+			// Not including detailed info in the response, XDS doesn't either (returns a generic "authentication failure).
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// TODO: Check that the identity contains istio-system namespace, else block or restrict to only info that
+		// is visible to the authenticated SA. Will require changes in docs and istioctl too.
+		next.ServeHTTP(w, req)
+	}
+}
+
+func isRequestFromLocalhost(r *http.Request) bool {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return false
+	}
+
+	userIP := net.ParseIP(ip)
+	return userIP.IsLoopback()
 }
 
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
@@ -249,6 +303,27 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 }
 
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
+	if err := req.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("Failed to parse request\n"))
+		return
+	}
+	if req.Form.Get("sizes") != "" {
+		snapshot := s.Cache.Snapshot()
+		res := make(map[string]string, len(snapshot))
+		totalSize := 0
+		for k, v := range snapshot {
+			if v == nil {
+				continue
+			}
+			sz := len(v.Resource.GetValue())
+			res[k] = util.ByteCount(sz)
+			totalSize += sz
+		}
+		res["total"] = util.ByteCount(totalSize)
+		writeJSON(w, res)
+		return
+	}
 	keys := s.Cache.Keys()
 	sort.Strings(keys)
 	writeJSON(w, keys)
@@ -277,7 +352,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	svc, _ := s.Env.ServiceDiscovery.Services()
-	resp := []endpointzResponse{}
+	resp := make([]endpointzResponse, 0)
 	for _, ss := range svc {
 		for _, p := range ss.Ports {
 			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
@@ -327,8 +402,8 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 	}
 }
 
-// The Config Version is only used as the nonce prefix, but we can reconstruct it because is is a
-// b64 encoding of a 64 bit array, which will always be 12 chars in length.
+// VersionLen is the Config Version and is only used as the nonce prefix, but we can reconstruct
+// it because is is a b64 encoding of a 64 bit array, which will always be 12 chars in length.
 // len = ceil(bitlength/(2^6))+1
 const VersionLen = 12
 
@@ -368,7 +443,7 @@ func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
-	configs := []kubernetesConfig{}
+	configs := make([]kubernetesConfig, 0)
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
@@ -390,7 +465,7 @@ func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
 
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
-	schemas := []config.GroupVersionKind{}
+	schemas := make([]config.GroupVersionKind, 0)
 	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
 		schemas = append(schemas, schema.Resource().GroupVersionKind())
 		return false
@@ -485,14 +560,10 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
+	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, &model.PushRequest{Push: s.globalPushContext()})
 
 	for _, cs := range clusters {
-		cluster, err := anypb.New(cs)
-		if err != nil {
-			return nil, err
-		}
-		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cluster})
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs.Resource})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
@@ -541,7 +612,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 
 	secretsDump := &adminapi.SecretsConfigDump{}
 	if s.Generators[v3.SecretType] != nil {
-		secrets, _ := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
+		secrets, _, _ := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
 		if len(secrets) > 0 {
 			for _, secretAny := range secrets {
 				secret := &tls.Secret{}
@@ -602,6 +673,8 @@ func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
 
 // PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	model.LastPushMutex.Lock()
+	defer model.LastPushMutex.Unlock()
 	if model.LastPushStatus == nil {
 		return
 	}
@@ -618,20 +691,20 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[string][]*model.Gateway
+	NetworkGateways       map[network.ID][]*model.NetworkGateway
 }
 
 // PushContextHandler dumps the current PushContext
-func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, _ *http.Request) {
 	push := PushContextDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
-		NetworkGateways:       s.globalPushContext().NetworkGateways(),
+		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
 	}
 
 	writeJSON(w, push)
 }
 
-// lists all the supported debug endpoints.
+// Debug lists all the supported debug endpoints.
 func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	type debugEndpoint struct {
 		Name string
@@ -654,11 +727,11 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 
 	if err := indexTmpl.Execute(w, deps); err != nil {
 		istiolog.Errorf("Error in rendering index template %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
-// lists all the supported debug commands in json.
+// List all the supported debug commands in json.
 func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 	var cmdNames []string
 	for k := range s.debugHandlers {
@@ -690,7 +763,7 @@ func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if s.Generators[v3.NameTableType] != nil {
-		nds, _ := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
+		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, s.globalPushContext(), nil, nil)
 		if len(nds) == 0 {
 			return
 		}
@@ -749,8 +822,50 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, instances)
 }
 
-func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, s.Env.NetworkGateways())
+func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
+	// Merge the gateways from the service registries with those configured statically with MeshNetworks.
+	mgr := model.NewNetworkManager(s.Env)
+	writeJSON(w, mgr.AllGateways())
+}
+
+func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
+	aggregateController, ok := s.Env.ServiceDiscovery.(*aggregate.Controller)
+	if !ok {
+		writeJSON(w, nil)
+		return
+	}
+
+	type ServiceExporter interface {
+		ExportedServices() []string
+	}
+
+	jsonMap := make(map[cluster.ID][]string)
+	for _, registry := range aggregateController.GetRegistries() {
+		if ctrl, ok := registry.(ServiceExporter); ok {
+			for _, export := range ctrl.ExportedServices() {
+				parts := strings.Split(export, ":")
+				if len(parts) == 2 {
+					clusterID := cluster.ID(parts[0])
+					namespacedName := parts[1]
+
+					// Append the export and keep the array sorted.
+					svcs := append(jsonMap[clusterID], namespacedName)
+					sort.Strings(svcs)
+					jsonMap[clusterID] = svcs
+				}
+			}
+		}
+	}
+
+	writeJSON(w, jsonMap)
+}
+
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ *http.Request) {
+	if s.ListRemoteClusters == nil {
+		w.WriteHeader(400)
+		return
+	}
+	writeJSON(w, s.ListRemoteClusters())
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.

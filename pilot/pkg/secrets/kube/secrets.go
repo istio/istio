@@ -26,13 +26,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	informersv1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/secrets"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
@@ -61,7 +61,7 @@ type SecretsController struct {
 	secrets informersv1.SecretInformer
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
-	clusterID string
+	clusterID cluster.ID
 
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
@@ -76,9 +76,7 @@ type authorizationResponse struct {
 
 var _ secrets.Controller = &SecretsController{}
 
-type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
-
-func NewSecretsController(client kube.Client, clusterID string) *SecretsController {
+func NewSecretsController(client kube.Client, clusterID cluster.ID) *SecretsController {
 	// Informer is lazy loaded, load it now
 	_ = client.KubeInformer().Core().V1().Secrets().Informer()
 

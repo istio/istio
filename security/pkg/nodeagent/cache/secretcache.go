@@ -241,6 +241,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
+	cacheLog.Debugf("generate secret %q", resourceName)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -405,11 +406,19 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
-	certChain, err := sc.readFileWithTimeout(certChainPath)
+	// There is a remote possibility that key is written and cert is not written yet.
+	// To handle that case, we wait for some time here.
+	timer := time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+	<-timer
+	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
+}
+
+func (sc *SecretManagerClient) keyCertSecretItem(cert, key, resource string) (*security.SecretItem, error) {
+	certChain, err := sc.readFileWithTimeout(cert)
 	if err != nil {
 		return nil, err
 	}
-	keyPEM, err := sc.readFileWithTimeout(keyPath)
+	keyPEM, err := sc.readFileWithTimeout(key)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +433,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
-		ResourceName:     resourceName,
+		ResourceName:     resource,
 		CreatedTime:      now,
 		ExpireTime:       certExpireTime,
 	}, nil
@@ -434,6 +443,7 @@ func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, k
 // if it is not able to read file after timeout.
 func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) {
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
+	timeout := time.After(totalTimeout)
 	for {
 		cert, err := ioutil.ReadFile(path)
 		if err == nil {
@@ -442,7 +452,7 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 		select {
 		case <-time.After(time.Duration(retryBackoffInMS)):
 			retryBackoffInMS *= 2
-		case <-time.After(totalTimeout):
+		case <-timeout:
 			return nil, err
 		case <-sc.stop:
 			return nil, err
@@ -519,6 +529,9 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 }
 
 func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security.SecretItem, error) {
+	var trustBundlePEM []string = []string{}
+	var rootCertPEM []byte
+
 	if sc.caClient == nil {
 		return nil, fmt.Errorf("attempted to fetch secret, but ca client is nil")
 	}
@@ -549,6 +562,9 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	numOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
 	timeBeforeCSR := time.Now()
 	certChainPEM, err := sc.caClient.CSRSign(csrPEM, int64(sc.configOptions.SecretTTL.Seconds()))
+	if err == nil {
+		trustBundlePEM, err = sc.caClient.GetRootCertBundle()
+	}
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(monitoring.CSR)).Record(csrLatency)
 	if err != nil {
@@ -569,13 +585,21 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	}
 
 	cacheLog.WithLabels("latency", time.Since(t0), "ttl", time.Until(expireTime)).Info("generated new workload certificate")
+
+	if len(trustBundlePEM) > 0 {
+		rootCertPEM = concatCerts(trustBundlePEM)
+	} else {
+		// If CA Client has no explicit mechanism to retrieve CA root, infer it from the root of the certChain
+		rootCertPEM = []byte(certChainPEM[len(certChainPEM)-1])
+	}
+
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
 		ResourceName:     resourceName,
 		CreatedTime:      time.Now(),
 		ExpireTime:       expireTime,
-		RootCert:         []byte(certChainPEM[len(certChainPEM)-1]),
+		RootCert:         rootCertPEM,
 	}, nil
 }
 
@@ -610,27 +634,8 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 }
 
 func (sc *SecretManagerClient) handleFileWatch() {
-	var timerC <-chan time.Time
-	events := make(map[string]fsnotify.Event)
-
 	for {
 		select {
-		case <-timerC:
-			timerC = nil
-			for resource, event := range events {
-				cacheLog.Infof("file certificate %s changed with event %s, pushing to proxy", resource, event.Op.String())
-				sc.certMutex.RLock()
-				resources := sc.fileCerts
-				sc.certMutex.RUnlock()
-				// Trigger callbacks for all resources referencing this file. This is practically always
-				// a single resource.
-				for k := range resources {
-					if k.Filename == resource {
-						sc.CallUpdateCallback(k.ResourceName)
-					}
-				}
-			}
-			events = make(map[string]fsnotify.Event)
 		case event, ok := <-sc.certWatcher.Events:
 			// Channel is closed.
 			if !ok {
@@ -640,14 +645,31 @@ func (sc *SecretManagerClient) handleFileWatch() {
 			if !(isWrite(event) || isRemove(event) || isCreate(event)) {
 				continue
 			}
-			// Typically inotify notifies about file change after the event i.e. write is complete. It only
-			// does some housekeeping tasks after the event is generated. However in some cases, multiple events
-			// are triggered in quick succession - to handle that case we debounce here.
-			// Use a timer to debounce watch updates
-			cacheLog.Infof("event for file certificate %s : %s, debouncing ", event.Name, event.Op.String())
-			if timerC == nil {
-				timerC = time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
-				events[event.Name] = event
+			sc.certMutex.RLock()
+			resources := make(map[FileCert]struct{})
+			for k, v := range sc.fileCerts {
+				resources[k] = v
+			}
+			sc.certMutex.RUnlock()
+			// Trigger callbacks for all resources referencing this file. This is practically always
+			// a single resource.
+			cacheLog.Infof("event for file certificate %s : %s, pushing to proxy", event.Name, event.Op.String())
+			for k := range resources {
+				if k.Filename == event.Name {
+					sc.CallUpdateCallback(k.ResourceName)
+				}
+			}
+			// If it is remove event - cleanup from file certs so that if it is added again, we can watch.
+			if isRemove(event) {
+				sc.certMutex.Lock()
+				for fc := range sc.fileCerts {
+					if fc.Filename == event.Name {
+						cacheLog.Debugf("removing file %s from file certs", event.Name)
+						delete(sc.fileCerts, fc)
+						break
+					}
+				}
+				sc.certMutex.Unlock()
 			}
 		case err, ok := <-sc.certWatcher.Errors:
 			// Channel is closed.

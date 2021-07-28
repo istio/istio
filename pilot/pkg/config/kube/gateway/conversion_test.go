@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -28,8 +29,12 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -44,13 +49,59 @@ func TestConvertResources(t *testing.T) {
 		"tls",
 		"mismatch",
 		"weighted",
+		"zero",
 		"backendpolicy",
 		"mesh",
+		"invalid",
+		"multi-gateway",
+		"delegated",
 	}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt), validator)
+			// Setup a few preconfigured services
+			ports := []*model.Port{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: "HTTP",
+				},
+				{
+					Name:     "tcp",
+					Port:     34000,
+					Protocol: "TCP",
+				},
+			}
+			ingressSvc := &model.Service{
+				Attributes: model.ServiceAttributes{
+					Name:      "istio-ingressgateway",
+					Namespace: "istio-system",
+					ClusterExternalAddresses: map[cluster.ID][]string{
+						"Kubernetes": {"1.2.3.4"},
+					},
+				},
+				Ports:    ports,
+				Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
+			}
+			altIngressSvc := &model.Service{
+				Attributes: model.ServiceAttributes{
+					Namespace: "istio-system",
+				},
+				Ports:    ports,
+				Hostname: "example.com",
+			}
+			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+				Services: []*model.Service{ingressSvc, altIngressSvc},
+				Instances: []*model.ServiceInstance{
+					{Service: ingressSvc, ServicePort: ingressSvc.Ports[0], Endpoint: &model.IstioEndpoint{EndpointPort: 8080}},
+					{Service: ingressSvc, ServicePort: ingressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[0], Endpoint: &model.IstioEndpoint{}},
+					{Service: altIngressSvc, ServicePort: altIngressSvc.Ports[1], Endpoint: &model.IstioEndpoint{}},
+				},
+			},
+			)
 			kr := splitInput(input)
+			kr.Context = model.NewGatewayContext(cg.PushContext())
 			output := convertResources(kr)
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
@@ -90,15 +141,13 @@ func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
 		cfgs = append(cfgs, cl...)
 	}
 	for i, c := range cfgs {
-		ws := c.Status.(*kstatus.WrappedStatus)
-		if !ws.Dirty {
-			continue
-		}
 		c = c.DeepCopy()
 		c.Spec = nil
 		c.Labels = nil
 		c.Annotations = nil
-		c.Status = c.Status.(*kstatus.WrappedStatus).Status
+		if c.Status.(*kstatus.WrappedStatus) != nil {
+			c.Status = c.Status.(*kstatus.WrappedStatus).Status
+		}
 		cfgs[i] = c
 	}
 	return timestampRegex.ReplaceAll(marshalYaml(t, cfgs), []byte("lastTransitionTime: fake"))
@@ -128,7 +177,9 @@ func splitOutput(configs []config.Config) OutputResources {
 
 func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
+	namespaces := sets.NewSet()
 	for _, c := range configs {
+		namespaces.Insert(c.Namespace)
 		switch c.GroupVersionKind {
 		case gvk.GatewayClass:
 			out.GatewayClass = append(out.GatewayClass, c)
@@ -142,6 +193,12 @@ func splitInput(configs []config.Config) *KubernetesResources {
 			out.TLSRoute = append(out.TLSRoute, c)
 		case gvk.BackendPolicy:
 			out.BackendPolicy = append(out.BackendPolicy, c)
+		}
+	}
+	out.Namespaces = map[string]*corev1.Namespace{}
+	for ns := range namespaces {
+		out.Namespaces[ns] = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: ns},
 		}
 	}
 	out.Domain = "domain.suffix"
@@ -218,7 +275,6 @@ func TestStandardizeWeight(t *testing.T) {
 		{"single", []int{1}, []int{0}},
 		{"double", []int{1, 1}, []int{50, 50}},
 		{"zero", []int{1, 0}, []int{100, 0}},
-		{"all zero", []int{0, 0}, []int{50, 50}},
 		{"overflow", []int{1, 1, 1}, []int{34, 33, 33}},
 		{"skewed", []int{9, 1}, []int{90, 10}},
 		{"multiple overflow", []int{1, 1, 1, 1, 1, 1}, []int{17, 17, 17, 17, 16, 16}},
@@ -427,6 +483,24 @@ func TestIsRouteMatch(t *testing.T) {
 			got := isRouteMatch(tt.cfg, tt.gateway, tt.routes, namespaces)
 			if got != tt.expected {
 				t.Fatalf("expected match=%v, got match=%v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestHumanReadableJoin(t *testing.T) {
+	tests := []struct {
+		input []string
+		want  string
+	}{
+		{[]string{"a"}, "a"},
+		{[]string{"a", "b"}, "a and b"},
+		{[]string{"a", "b", "c"}, "a, b, and c"},
+	}
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.input, "_"), func(t *testing.T) {
+			if got := humanReadableJoin(tt.input); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
 			}
 		})
 	}

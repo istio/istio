@@ -168,16 +168,6 @@ spec:
         - path: "annotations"
           fieldRef:
             fieldPath: metadata.annotations
-        - path: "cpu-limit"
-          resourceFieldRef:
-            containerName: istio-proxy
-            resource: limits.cpu
-            divisor: 1m
-        - path: "cpu-request"
-          resourceFieldRef:
-            containerName: istio-proxy
-            resource: requests.cpu
-            divisor: 1m
   {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
   - name: istio-token
     projected:

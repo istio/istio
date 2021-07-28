@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -33,6 +34,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -86,14 +88,15 @@ const (
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta       metav1.TypeMeta
-	DeploymentMeta metav1.ObjectMeta
-	ObjectMeta     metav1.ObjectMeta
-	Spec           corev1.PodSpec
-	ProxyConfig    *meshconfig.ProxyConfig
-	MeshConfig     *meshconfig.MeshConfig
-	Values         map[string]interface{}
-	Revision       string
+	TypeMeta             metav1.TypeMeta
+	DeploymentMeta       metav1.ObjectMeta
+	ObjectMeta           metav1.ObjectMeta
+	Spec                 corev1.PodSpec
+	ProxyConfig          *meshconfig.ProxyConfig
+	MeshConfig           *meshconfig.MeshConfig
+	Values               map[string]interface{}
+	Revision             string
+	EstimatedConcurrency int
 }
 
 type (
@@ -144,7 +147,6 @@ const (
 )
 
 // UnmarshalConfig unmarshals the provided YAML configuration, while normalizing the resulting configuration
-// nolint: staticcheck
 func UnmarshalConfig(yml []byte) (Config, error) {
 	var injectConfig Config
 	if err := yaml.Unmarshal(yml, &injectConfig); err != nil {
@@ -333,14 +335,15 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	}
 
 	data := SidecarTemplateData{
-		TypeMeta:       params.typeMeta,
-		DeploymentMeta: params.deployMeta,
-		ObjectMeta:     strippedPod.ObjectMeta,
-		Spec:           strippedPod.Spec,
-		ProxyConfig:    meshConfig.GetDefaultConfig(),
-		MeshConfig:     meshConfig,
-		Values:         values,
-		Revision:       params.revision,
+		TypeMeta:             params.typeMeta,
+		DeploymentMeta:       params.deployMeta,
+		ObjectMeta:           strippedPod.ObjectMeta,
+		Spec:                 strippedPod.Spec,
+		ProxyConfig:          meshConfig.GetDefaultConfig(),
+		MeshConfig:           meshConfig,
+		Values:               values,
+		Revision:             params.revision,
+		EstimatedConcurrency: estimateConcurrency(meshConfig.GetDefaultConfig(), metadata.Annotations, valuesStruct),
 	}
 	funcMap := CreateInjectionFuncmap()
 
@@ -461,10 +464,10 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 
 	// default case when injected pod has explicit status
 	var iStatus SidecarInjectionStatus
-	if err := json.Unmarshal(statusBytes, &iStatus); err == nil {
-		return &iStatus
+	if err := json.Unmarshal(statusBytes, &iStatus); err != nil {
+		return nil
 	}
-	return nil
+	return &iStatus
 }
 
 func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarTemplateData) (bytes.Buffer, error) {
@@ -665,7 +668,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		return nil, err
 	}
 	if patchBytes == nil {
-		if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
 			return out, nil
 		}
@@ -727,6 +730,7 @@ type SidecarInjectionStatus struct {
 	Containers       []string `json:"containers"`
 	Volumes          []string `json:"volumes"`
 	ImagePullSecrets []string `json:"imagePullSecrets"`
+	Revision         string   `json:"revision"`
 }
 
 func potentialPodName(metadata metav1.ObjectMeta) string {
@@ -772,4 +776,55 @@ func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 		envVars = append(envVars, corev1.EnvVar{Name: key, Value: val, ValueFrom: nil})
 	}
 	container.Env = envVars
+}
+
+// Uses the default concurrency 2, unless either overridden by proxy config to a positive number,
+// or special value 0, in which case the value is computed from CPU limits/requests.
+func estimateConcurrency(cfg *meshconfig.ProxyConfig, annotations map[string]string, valuesStruct *opconfig.Values) int {
+	if cfg != nil && cfg.Concurrency != nil {
+		concurrency := int(cfg.Concurrency.Value)
+		if concurrency > 0 {
+			return concurrency
+		}
+		if limit, ok := annotations[annotation.SidecarProxyCPULimit.Name]; ok {
+			out, err := quantityToConcurrency(limit)
+			if err == nil {
+				return out
+			}
+		} else if request, ok := annotations[annotation.SidecarProxyCPU.Name]; ok {
+			out, err := quantityToConcurrency(request)
+			if err == nil {
+				return out
+			}
+		} else if resources := valuesStruct.GetGlobal().GetProxy().GetResources(); resources != nil { // nolint: staticcheck
+			if resources.Limits != nil {
+				if limit, ok := resources.Limits["cpu"]; ok {
+					out, err := quantityToConcurrency(limit)
+					if err == nil {
+						return out
+					}
+				}
+			}
+			if resources.Requests != nil {
+				if request, ok := resources.Requests["cpu"]; ok {
+					out, err := quantityToConcurrency(request)
+					if err == nil {
+						return out
+					}
+				}
+			}
+		}
+	}
+	return 2
+}
+
+// Convert k8s quantity to its milli value (e.g. ceil(quantity * 1000)) and then to concurrency.
+// With the resource setting, we round up to single integer number; for example, if we have a 500m limit
+// the pod will get concurrency=1. With 6500m, it will get concurrency=7.
+func quantityToConcurrency(quantity string) (int, error) {
+	q, err := resource.ParseQuantity(quantity)
+	if err != nil {
+		return 0, err
+	}
+	return int(math.Ceil(float64(q.MilliValue()) / 1000)), nil
 }

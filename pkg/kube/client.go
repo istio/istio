@@ -83,8 +83,6 @@ import (
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
-	discoveryContainer  = "discovery"
-	pilotDiscoveryPath  = "/usr/local/bin/pilot-discovery"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -111,7 +109,7 @@ type Client interface {
 	// Istio returns the Istio kube client.
 	Istio() istioclient.Interface
 
-	// GatewayApi returns the gateway-api kube client.
+	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
 	// MCSApis returns the mcs-apis kube client.
@@ -129,7 +127,7 @@ type Client interface {
 	// IstioInformer returns an informer for the istio client
 	IstioInformer() istioinformer.SharedInformerFactory
 
-	// GatewayApiInformer returns an informer for the gateway-api client
+	// GatewayAPIInformer returns an informer for the gateway-api client
 	GatewayAPIInformer() gatewayapiinformer.SharedInformerFactory
 
 	// MCSApisInformer returns an informer for the mcs-apis client
@@ -150,7 +148,7 @@ type ExtendedClient interface {
 	Revision() string
 
 	// EnvoyDo makes an http request to the Envoy in the specified pod.
-	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, body []byte) ([]byte, error)
+	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
 	// AllDiscoveryDo makes an http request to each Istio discovery instance.
 	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
@@ -163,6 +161,9 @@ type ExtendedClient interface {
 
 	// GetIstioPods retrieves the pod objects for Istio deployments
 	GetIstioPods(ctx context.Context, namespace string, params map[string]string) ([]v1.Pod, error)
+
+	// PodExecCommands takes a list of commands and the pod data to run the commands in the specified pod.
+	PodExecCommands(podName, podNamespace, container string, commands []string) (stdout string, stderr string, err error)
 
 	// PodExec takes a command and the pod data to run the command in the specified pod.
 	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
@@ -375,11 +376,10 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 	c.mcsapisInformers = mcsapisInformer.NewSharedInformerFactory(c.mcsapis, resyncInterval)
 
-	ext, err := kubeExtClient.NewForConfig(c.config)
+	c.extSet, err = kubeExtClient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
-	c.extSet = ext
 
 	return &c, nil
 }
@@ -460,16 +460,23 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.gatewayapiInformer.Start(stop)
+	c.mcsapisInformers.Start(stop)
 	if c.fastSync {
 		// WaitForCacheSync will virtually never be synced on the first call, as its called immediately after Start()
 		// This triggers a 100ms delay per call, which is often called 2-3 times in a test, delaying tests.
 		// Instead, we add an aggressive sync polling
-		fastWaitForCacheSync(c.kubeInformer)
-		fastWaitForCacheSyncDynamic(c.dynamicInformer)
-		fastWaitForCacheSyncDynamic(c.metadataInformer)
-		fastWaitForCacheSync(c.istioInformer)
-		fastWaitForCacheSync(c.gatewayapiInformer)
-		_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+		fastWaitForCacheSync(stop, c.kubeInformer)
+		fastWaitForCacheSyncDynamic(stop, c.dynamicInformer)
+		fastWaitForCacheSyncDynamic(stop, c.metadataInformer)
+		fastWaitForCacheSync(stop, c.istioInformer)
+		fastWaitForCacheSync(stop, c.gatewayapiInformer)
+		fastWaitForCacheSync(stop, c.mcsapisInformers)
+		_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+			select {
+			case <-stop:
+				return false, fmt.Errorf("channel closed")
+			default:
+			}
 			if c.informerWatchesPending.Load() == 0 {
 				return true, nil
 			}
@@ -481,6 +488,7 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 		c.metadataInformer.WaitForCacheSync(stop)
 		c.istioInformer.WaitForCacheSync(stop)
 		c.gatewayapiInformer.WaitForCacheSync(stop)
+		c.mcsapisInformers.WaitForCacheSync(stop)
 	}
 }
 
@@ -503,10 +511,15 @@ type dynamicInformerSync interface {
 
 // Wait for cache sync immediately, rather than with 100ms delay which slows tests
 // See https://github.com/kubernetes/kubernetes/issues/95262#issuecomment-703141573
-func fastWaitForCacheSync(informerFactory reflectInformerSync) {
+func fastWaitForCacheSync(stop <-chan struct{}, informerFactory reflectInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		select {
+		case <-stop:
+			return false, fmt.Errorf("channel closed")
+		default:
+		}
 		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
 			if !synced {
 				return false, nil
@@ -516,10 +529,15 @@ func fastWaitForCacheSync(informerFactory reflectInformerSync) {
 	})
 }
 
-func fastWaitForCacheSyncDynamic(informerFactory dynamicInformerSync) {
+func fastWaitForCacheSyncDynamic(stop <-chan struct{}, informerFactory dynamicInformerSync) {
 	returnImmediately := make(chan struct{})
 	close(returnImmediately)
-	_ = wait.PollImmediate(time.Microsecond, wait.ForeverTestTimeout, func() (bool, error) {
+	_ = wait.PollImmediate(time.Microsecond*100, wait.ForeverTestTimeout, func() (bool, error) {
+		select {
+		case <-stop:
+			return false, fmt.Errorf("channel closed")
+		default:
+		}
 		for _, synced := range informerFactory.WaitForCacheSync(returnImmediately) {
 			if !synced {
 				return false, nil
@@ -548,19 +566,19 @@ func (c *client) Revision() string {
 	return c.revision
 }
 
-func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
+func (c *client) PodExecCommands(podName, podNamespace, container string, commands []string) (stdout, stderr string, err error) {
 	defer func() {
 		if err != nil {
 			if len(stderr) > 0 {
 				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v\n%s",
-					podName, podNamespace, container, err, stderr)
+					podNamespace, podName, container, err, stderr)
+			} else {
+				err = fmt.Errorf("error exec'ing into %s/%s %s container: %v",
+					podNamespace, podName, container, err)
 			}
-			err = fmt.Errorf("error exec'ing into %s/%s %s container: %v",
-				podName, podNamespace, container, err)
 		}
 	}()
 
-	commandFields := strings.Fields(command)
 	req := c.restClient.Post().
 		Resource("pods").
 		Name(podName).
@@ -569,7 +587,7 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 		Param("container", container).
 		VersionedParams(&v1.PodExecOptions{
 			Container: container,
-			Command:   commandFields,
+			Command:   commands,
 			Stdin:     false,
 			Stdout:    true,
 			Stderr:    true,
@@ -596,6 +614,11 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
 	return
+}
+
+func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
+	commandFields := strings.Fields(command)
+	return c.PodExecCommands(podName, podNamespace, container, commandFields)
 }
 
 func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container string, previousLog bool) (string, error) {
@@ -628,24 +651,12 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	if len(istiods) == 0 {
 		return nil, errors.New("unable to find any Istiod instances")
 	}
-	var errs error
+
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.CoreV1().Pods(istiod.Namespace).ProxyGet("", istiod.Name, "15014", path, nil).DoRaw(ctx)
+		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
 		if err != nil {
-			execRes, execErr := c.extractExecResult(istiod.Name, istiod.Namespace, discoveryContainer,
-				fmt.Sprintf("%s request GET %s", pilotDiscoveryPath, path))
-			if execErr != nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s.%s: %v", istiod.Name, istiod.Namespace, err),
-					execErr,
-				)
-				continue
-			}
-			if len(execRes) > 0 {
-				result[istiod.Name] = []byte(execRes)
-			}
-			continue
+			return nil, err
 		}
 		if len(res) > 0 {
 			result[istiod.Name] = res
@@ -655,15 +666,19 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	if len(result) > 0 {
 		return result, nil
 	}
-	return nil, errs
+	return nil, nil
 }
 
-func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
+func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
+	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
+}
+
+func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
 	formatError := func(err error) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, 15000)
+	fw, err := c.NewPortForwarder(podName, podNamespace, "127.0.0.1", 0, port)
 	if err != nil {
 		return nil, err
 	}
@@ -721,9 +736,9 @@ func (c *client) extractExecResult(podName, podNamespace, container, cmd string)
 	stdout, stderr, err := c.PodExec(podName, podNamespace, container, cmd)
 	if err != nil {
 		if stderr != "" {
-			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podName, podNamespace, container, err, stderr)
+			return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w\n%s", podNamespace, podName, container, err, stderr)
 		}
-		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podName, podNamespace, container, err)
+		return "", fmt.Errorf("error exec'ing into %s/%s %s container: %w", podNamespace, podName, container, err)
 	}
 	return stdout, nil
 }
@@ -753,7 +768,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			bi, execErr := c.getIstioVersionUsingExec(&pod)
 			if execErr != nil {
 				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Name, pod.Namespace, err),
+					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Namespace, pod.Name, err),
 					execErr,
 				)
 				continue

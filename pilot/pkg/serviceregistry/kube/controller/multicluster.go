@@ -17,7 +17,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,28 +29,22 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
 	"istio.io/istio/pkg/webhooks"
+	"istio.io/istio/pkg/webhooks/validation/controller"
 )
 
 const (
 	// Name of the webhook config in the config - no need to change it.
 	webhookName = "sidecar-injector.istio.io"
-)
-
-var (
-	validationWebhookConfigNameTemplateVar = "${namespace}"
-	// These should be an invalid DNS-1123 label to ensure the user
-	// doesn't specific a valid name that matches out template.
-	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
 )
 
 type kubeController struct {
@@ -77,8 +70,7 @@ type Multicluster struct {
 	XDSUpdater        model.XDSUpdater
 
 	m                     sync.Mutex // protects remoteKubeControllers
-	remoteKubeControllers map[string]*kubeController
-	networksWatcher       mesh.NetworksWatcher
+	remoteKubeControllers map[cluster.ID]*kubeController
 	clusterLocal          model.ClusterLocalProvider
 
 	// fetchCaRoot maps the certificate name to the certificate
@@ -103,11 +95,10 @@ func NewMulticluster(
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	fetchCaRoot func() map[string]string,
-	networksWatcher mesh.NetworksWatcher,
 	clusterLocal model.ClusterLocalProvider,
 	s server.Instance,
 ) *Multicluster {
-	remoteKubeController := make(map[string]*kubeController)
+	remoteKubeController := make(map[cluster.ID]*kubeController)
 	mc := &Multicluster{
 		serverID:              serverID,
 		opts:                  opts,
@@ -118,7 +109,6 @@ func NewMulticluster(
 		fetchCaRoot:           fetchCaRoot,
 		XDSUpdater:            opts.XDSUpdater,
 		remoteKubeControllers: remoteKubeController,
-		networksWatcher:       networksWatcher,
 		clusterLocal:          clusterLocal,
 		secretNamespace:       secretNamespace,
 		syncInterval:          opts.GetSyncInterval(),
@@ -140,7 +130,7 @@ func (m *Multicluster) close() (err error) {
 	m.closing = true
 
 	// Gather all of the member clusters.
-	var clusterIDs []string
+	var clusterIDs []cluster.ID
 	for clusterID := range m.remoteKubeControllers {
 		clusterIDs = append(clusterIDs, clusterID)
 	}
@@ -161,7 +151,7 @@ func (m *Multicluster) close() (err error) {
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.Cluster) error {
+func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
 	m.m.Lock()
 
 	if m.closing {
@@ -254,10 +244,10 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		// Patch injection webhook cert
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
-		if features.InjectionWebhookConfigName.Get() != "" && m.caBundleWatcher != nil {
+		if features.InjectionWebhookConfigName != "" && m.caBundleWatcher != nil {
 			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
 			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher.GetCABundle())
+			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher)
 			if err != nil {
 				log.Errorf("could not initialize webhook cert patcher: %v", err)
 			} else {
@@ -266,18 +256,13 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 		}
 		// Patch validation webhook cert
 		if m.caBundleWatcher != nil {
-			webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
-			validationWebhookController := webhooks.CreateValidationWebhookController(client, webhookConfigName,
-				m.secretNamespace, m.caBundleWatcher)
-			if validationWebhookController != nil {
-				go validationWebhookController.Start(clusterStopCh)
-			}
+			go controller.NewValidatingWebhookController(client, m.revision, m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
 		}
 	}
 
 	// setting up the serviceexport controller if and only if it is turned on in the meshconfig.
 	// TODO(nmittler): Need a better solution. Leader election doesn't take into account locality.
-	if features.EnableMCSServiceExport {
+	if features.EnableMCSAutoExport {
 		log.Infof("joining leader-election for %s in %s on cluster %s",
 			leaderelection.ServiceExportController, options.SystemNamespace, options.ClusterID)
 		// Block server exit on graceful termination of the leader controller.
@@ -307,7 +292,7 @@ func (m *Multicluster) AddMemberCluster(clusterID string, rc *secretcontroller.C
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clusterID string, rc *secretcontroller.Cluster) error {
+func (m *Multicluster) UpdateMemberCluster(clusterID cluster.ID, rc *secretcontroller.Cluster) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
@@ -317,10 +302,10 @@ func (m *Multicluster) UpdateMemberCluster(clusterID string, rc *secretcontrolle
 // DeleteMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is deleted.  Also must clear the cache so remote resources
 // are removed.
-func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
+func (m *Multicluster) DeleteMemberCluster(clusterID cluster.ID) error {
 	m.m.Lock()
 	defer m.m.Unlock()
-	m.serviceController.DeleteRegistry(clusterID, serviceregistry.Kubernetes)
+	m.serviceController.DeleteRegistry(clusterID, provider.Kubernetes)
 	kc, ok := m.remoteKubeControllers[clusterID]
 	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
@@ -330,7 +315,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	if kc.workloadEntryStore != nil {
-		m.serviceController.DeleteRegistry(clusterID, serviceregistry.External)
+		m.serviceController.DeleteRegistry(clusterID, provider.External)
 	}
 	delete(m.remoteKubeControllers, clusterID)
 	if m.XDSUpdater != nil {
@@ -359,13 +344,13 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
-			Reason: []model.TriggerReason{model.UnknownTrigger},
+			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
 		m.XDSUpdater.ConfigUpdate(req)
 	}
 }
 
-func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interface {
+func (m *Multicluster) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface {
 	m.m.Lock()
 	defer m.m.Unlock()
 	if c := m.remoteKubeControllers[clusterID]; c != nil {
@@ -374,10 +359,11 @@ func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interfac
 	return nil
 }
 
-func (m *Multicluster) InitSecretController(stop <-chan struct{}) {
+func (m *Multicluster) InitSecretController(stop <-chan struct{}) *secretcontroller.Controller {
 	m.secretController = secretcontroller.StartSecretController(
 		m.client, m.AddMemberCluster, m.UpdateMemberCluster, m.DeleteMemberCluster,
 		m.secretNamespace, m.syncInterval, stop)
+	return m.secretController
 }
 
 func (m *Multicluster) HasSynced() bool {

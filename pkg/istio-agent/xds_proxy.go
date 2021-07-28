@@ -50,9 +50,9 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
-	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
@@ -116,8 +116,9 @@ type XdsProxy struct {
 	// TODO(bianpengyuan): this relies on the fact that istiod versions all ECDS resources
 	// the same in a update response. This needs update to support per resource versioning,
 	// in case istiod changes its behavior, or a different ECDS server is used.
-	ecdsLastAckVersion atomic.String
-	ecdsLastNonce      atomic.String
+	ecdsLastAckVersion    atomic.String
+	ecdsLastNonce         atomic.String
+	downstreamGrpcOptions []grpc.ServerOption
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -133,25 +134,29 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	if ia.cfg.IsIPv6 {
 		localHostAddr = localHostIPv6
 	}
-	envoyProbe := &ready.Probe{
-		AdminPort:     uint16(ia.proxyConfig.ProxyAdminPort),
-		LocalHostAddr: localHostAddr,
+	var envoyProbe ready.Prober
+	if !ia.cfg.DisableEnvoy {
+		envoyProbe = &ready.Probe{
+			AdminPort:     uint16(ia.proxyConfig.ProxyAdminPort),
+			LocalHostAddr: localHostAddr,
+		}
 	}
 	proxy := &XdsProxy{
-		istiodAddress:  ia.proxyConfig.DiscoveryAddress,
-		clusterID:      ia.secOpts.ClusterID,
-		handlers:       map[string]ResponseHandler{},
-		stopChan:       make(chan struct{}),
-		healthChecker:  health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
-		xdsHeaders:     ia.cfg.XDSHeaders,
-		xdsUdsPath:     ia.cfg.XdsUdsPath,
-		wasmCache:      wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInteval, wasm.DefaultWasmModuleExpiry),
-		proxyAddresses: ia.cfg.ProxyIPAddresses,
+		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
+		clusterID:             ia.secOpts.ClusterID,
+		handlers:              map[string]ResponseHandler{},
+		stopChan:              make(chan struct{}),
+		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
+		xdsHeaders:            ia.cfg.XDSHeaders,
+		xdsUdsPath:            ia.cfg.XdsUdsPath,
+		wasmCache:             wasm.NewLocalFileCache(constants.IstioDataDir, wasm.DefaultWasmModulePurgeInterval, wasm.DefaultWasmModuleExpiry),
+		proxyAddresses:        ia.cfg.ProxyIPAddresses,
+		downstreamGrpcOptions: ia.cfg.DownstreamGrpcOptions,
 	}
 
 	if ia.localDNSServer != nil {
 		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
-			var nt nds.NameTable
+			var nt dnsProto.NameTable
 			// nolint: staticcheck
 			if err := ptypes.UnmarshalAny(resp, &nt); err != nil {
 				log.Errorf("failed to unmarshall name table: %v", err)
@@ -231,17 +236,22 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 // to the upstream XDS request we will resend this request.
 func (p *XdsProxy) PersistRequest(req *discovery.DiscoveryRequest) {
 	var ch chan *discovery.DiscoveryRequest
+	var stop chan struct{}
 
 	p.connectedMutex.Lock()
 	if p.connected != nil {
 		ch = p.connected.requestsChan
+		stop = p.connected.stopChan
 	}
 	p.initialRequest = req
 	p.connectedMutex.Unlock()
 
 	// Immediately send if we are currently connect
 	if ch != nil {
-		ch <- req
+		select {
+		case ch <- req:
+		case <-stop:
+		}
 	}
 }
 
@@ -279,6 +289,15 @@ type ProxyConnection struct {
 	upstreamDeltas     discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 }
 
+// sendRequest is a small wrapper around sending to con.requestsChan. This ensures that we do not
+// block forever on
+func (con *ProxyConnection) sendRequest(req *discovery.DiscoveryRequest) {
+	select {
+	case con.requestsChan <- req:
+	case <-con.stopChan:
+	}
+}
+
 type adsStream interface {
 	Send(*discovery.DiscoveryResponse) error
 	Recv() (*discovery.DiscoveryRequest, error)
@@ -310,37 +329,38 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 	// Handle downstream xds
 	initialRequestsSent := false
 	go func() {
-		// Send initial request
-		p.connectedMutex.RLock()
-		initialRequest := p.initialRequest
-		p.connectedMutex.RUnlock()
-
 		for {
 			// From Envoy
 			req, err := downstream.Recv()
 			if err != nil {
-				con.downstreamError <- err
+				select {
+				case con.downstreamError <- err:
+				case <-con.stopChan:
+				}
 				return
 			}
 			// forward to istiod
-			con.requestsChan <- req
+			con.sendRequest(req)
 			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
 				// fire off an initial NDS request
 				if _, f := p.handlers[v3.NameTableType]; f {
-					con.requestsChan <- &discovery.DiscoveryRequest{
+					con.sendRequest(&discovery.DiscoveryRequest{
 						TypeUrl: v3.NameTableType,
-					}
+					})
 				}
 				// fire off an initial PCDS request
 				if _, f := p.handlers[v3.ProxyConfigType]; f {
-					con.requestsChan <- &discovery.DiscoveryRequest{
+					con.sendRequest(&discovery.DiscoveryRequest{
 						TypeUrl: v3.ProxyConfigType,
-					}
+					})
 				}
 				// Fire of a configured initial request, if there is one
+				p.connectedMutex.RLock()
+				initialRequest := p.initialRequest
 				if initialRequest != nil {
-					con.requestsChan <- initialRequest
+					con.sendRequest(initialRequest)
 				}
+				p.connectedMutex.RUnlock()
 				initialRequestsSent = true
 			}
 		}
@@ -382,12 +402,18 @@ func (p *XdsProxy) HandleUpstream(ctx context.Context, con *ProxyConnection, xds
 	go func() {
 		for {
 			// from istiod
-			resp, err := upstream.Recv()
+			resp, err := con.upstream.Recv()
 			if err != nil {
-				con.upstreamError <- err
+				select {
+				case con.upstreamError <- err:
+				case <-con.stopChan:
+				}
 				return
 			}
-			con.responsesChan <- resp
+			select {
+			case con.responsesChan <- resp:
+			case <-con.stopChan:
+			}
 		}
 	}()
 
@@ -470,12 +496,12 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 					}
 				}
 				// Send ACK/NACK
-				con.requestsChan <- &discovery.DiscoveryRequest{
+				con.sendRequest(&discovery.DiscoveryRequest{
 					VersionInfo:   resp.VersionInfo,
 					TypeUrl:       resp.TypeUrl,
 					ResponseNonce: resp.Nonce,
 					ErrorDetail:   errorResp,
-				}
+				})
 				continue
 			}
 			switch resp.TypeUrl {
@@ -504,7 +530,7 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 	sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
 	if sendNack {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
-		con.requestsChan <- &discovery.DiscoveryRequest{
+		con.sendRequest(&discovery.DiscoveryRequest{
 			VersionInfo:   p.ecdsLastAckVersion.Load(),
 			TypeUrl:       v3.ExtensionConfigurationType,
 			ResponseNonce: resp.Nonce,
@@ -512,7 +538,7 @@ func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.Disco
 				// TODO(bianpengyuan): make error message more informative.
 				Message: "failed to fetch wasm module",
 			},
-		}
+		})
 		return
 	}
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
@@ -571,7 +597,9 @@ func (p *XdsProxy) initDownstreamServer() error {
 		return err
 	}
 	// TODO: Expose keepalive options to agent cmd line flags.
-	grpcs := grpc.NewServer(istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+	opts := p.downstreamGrpcOptions
+	opts = append(opts, istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+	grpcs := grpc.NewServer(opts...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)
 	p.downstreamGrpcServer = grpcs
@@ -722,7 +750,7 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	defer p.tapMutex.Unlock()
 
 	// Send to Istiod
-	p.connected.requestsChan <- req
+	p.connected.sendRequest(req)
 
 	// Wait for expected response or timeout
 	for {
@@ -741,7 +769,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	return func(w http.ResponseWriter, req *http.Request) {
 		qp, err := url.ParseQuery(req.URL.RawQuery)
 		if err != nil {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}
@@ -755,14 +783,14 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		}
 		response, err := p.tapRequest(&dr, 5*time.Second)
 		if err != nil {
-			w.WriteHeader(503)
+			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}
 
 		if response == nil {
 			log.Infof("timed out waiting for Istiod to respond to %q", typeURL)
-			w.WriteHeader(504)
+			w.WriteHeader(http.StatusGatewayTimeout)
 			return
 		}
 
@@ -772,7 +800,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		var buf bytes.Buffer
 		err = jsonm.Marshal(&buf, response)
 		if err == nil {
-			_, _ = w.Write(buf.Bytes())
+			_, err = w.Write(buf.Bytes())
 			if err != nil {
 				log.Infof("fail to write debug response: %v", err)
 			}
@@ -784,7 +812,7 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 		j, err := json.Marshal(response)
 		if err != nil {
 			// Couldn't unmarshal at all
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "%v\n", err)
 			return
 		}

@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
@@ -82,20 +81,16 @@ const (
 
 // Init starts all the read only features of the reporter, used for nonce generation
 // and responding to istioctl wait.
-func (r *Reporter) Init(ledger ledger.Ledger) {
+func (r *Reporter) Init(ledger ledger.Ledger, stop <-chan struct{}) {
 	r.ledger = ledger
 	if r.clock == nil {
 		r.clock = clock.RealClock{}
-	}
-	// default UpdateInterval
-	if r.UpdateInterval == 0 {
-		r.UpdateInterval = 500 * time.Millisecond
 	}
 	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
 	r.reverseStatus = make(map[string]map[string]struct{})
 	r.inProgressResources = make(map[string]*inProgressEntry)
-	go r.readFromEventQueue()
+	go r.readFromEventQueue(stop)
 }
 
 // Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
@@ -114,13 +109,10 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 	ctx := NewIstioContext(stop)
 	x, err := clientSet.CoreV1().Pods(namespace).Get(ctx, podname, metav1.GetOptions{})
 	if err != nil {
-		scope.Errorf("can't identify pod context: %s", err)
+		scope.Errorf("can't identify pod %s context: %s", podname, err)
 	} else {
 		r.cm.OwnerReferences = []metav1.OwnerReference{
-			*metav1.NewControllerRef(x, schema.GroupVersionKind{
-				Version: "v1",
-				Kind:    "Pod",
-			}),
+			*metav1.NewControllerRef(x, metav1.SchemeGroupVersion.WithKind("Pod")),
 		}
 	}
 	go func() {
@@ -219,14 +211,14 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 func (r *Reporter) AddInProgressResource(res config.Config) {
 	tryLedgerPut(r.ledger, res)
 	myRes := ResourceFromModelConfig(res)
-	if myRes == nil {
+	if myRes == (Resource{}) {
 		scope.Errorf("Unable to locate schema for %v, will not update status.", res)
 		return
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.inProgressResources[myRes.ToModelKey()] = &inProgressEntry{
-		Resource:            *myRes,
+		Resource:            myRes,
 		completedIterations: 0,
 	}
 }
@@ -306,10 +298,15 @@ func (r *Reporter) RegisterEvent(conID string, distributionType xds.EventType, n
 	}
 }
 
-func (r *Reporter) readFromEventQueue() {
-	for ev := range r.distributionEventQueue {
-		// TODO might need to batch this to prevent lock contention
-		r.processEvent(ev.conID, ev.distributionType, ev.nonce)
+func (r *Reporter) readFromEventQueue(stop <-chan struct{}) {
+	for {
+		select {
+		case ev := <-r.distributionEventQueue:
+			// TODO might need to batch this to prevent lock contention
+			r.processEvent(ev.conID, ev.distributionType, ev.nonce)
+		case <-stop:
+			return
+		}
 	}
 }
 

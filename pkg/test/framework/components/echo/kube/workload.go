@@ -53,10 +53,11 @@ type workload struct {
 	client *client.Instance
 
 	workloadConfig
-	forwarder istioKube.PortForwarder
-	sidecar   *sidecar
-	ctx       resource.Context
-	mutex     sync.Mutex
+	forwarder  istioKube.PortForwarder
+	sidecar    *sidecar
+	ctx        resource.Context
+	mutex      sync.Mutex
+	connectErr error
 }
 
 func newWorkload(cfg workloadConfig, ctx resource.Context) (*workload, error) {
@@ -97,6 +98,7 @@ func (w *workload) Update(pod kubeCore.Pod) error {
 
 	if isPodReady(pod) && !w.isConnected() {
 		if err := w.connect(pod); err != nil {
+			w.connectErr = err
 			return err
 		}
 	} else if !isPodReady(pod) && w.isConnected() {

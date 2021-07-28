@@ -1,3 +1,4 @@
-Minimal control plane configuration for Istio remote data plane. Mutating webhook configuration and sidecar injector configuration are included.
+Install for a remote cluster using an external control plane.
 
-
+The templates in this directory are copies of base and istio-discovery templates.
+DO NOT EDIT! Make changes in the corresponding files in base or istio-discovery and they will be copied here by make gen.

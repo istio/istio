@@ -9,6 +9,101 @@ metadata:
     chart: istio
     heritage: Tiller
     release: istio
+  name: wasmplugins.extensions.istio.io
+spec:
+  group: extensions.istio.io
+  names:
+    categories:
+    - istio-io
+    - extensions-istio-io
+    kind: WasmPlugin
+    listKind: WasmPluginList
+    plural: wasmplugins
+    singular: wasmplugin
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: 'CreationTimestamp is a timestamp representing the server time
+        when this object was created. It is not guaranteed to be set in happens-before
+        order across separate operations. Clients may not set this value. It is represented
+        in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+        lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              imagePullPolicy:
+                description: The pull behaviour to be applied when fetching an OCI
+                  image.
+                enum:
+                - UNSPECIFIED_POLICY
+                - IfNotPresent
+                - Always
+                type: string
+              imagePullSecret:
+                description: Credentials to use for OCI image pulling.
+                type: string
+              phase:
+                description: Determines where in the filter chain this `WasmPlugin`
+                  is to be injected.
+                enum:
+                - UNSPECIFIED_PHASE
+                - AUTHN
+                - AUTHZ
+                - STATS
+                type: string
+              pluginConfig:
+                description: The configuration that will be passed on to the plugin.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              pluginName:
+                type: string
+              priority:
+                description: Determines ordering of `WasmPlugins` in the same `phase`.
+                nullable: true
+                type: integer
+              selector:
+                properties:
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
+              sha256:
+                description: SHA256 checksum that will be used to verify Wasm module
+                  or OCI container.
+                type: string
+              url:
+                description: URL of a Wasm module or OCI container.
+                type: string
+              verificationKey:
+                type: string
+            type: object
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    app: istio-pilot
+    chart: istio
+    heritage: Tiller
+    release: istio
   name: destinationrules.networking.istio.io
 spec:
   group: networking.istio.io
@@ -49,24 +144,20 @@ spec:
                 description: A list of namespaces to which this destination rule is
                   exported.
                 items:
-                  format: string
                   type: string
                 type: array
               host:
                 description: The name of a service from the service registry.
-                format: string
                 type: string
               subsets:
                 items:
                   properties:
                     labels:
                       additionalProperties:
-                        format: string
                         type: string
                       type: object
                     name:
                       description: Name of the subset.
-                      format: string
                       type: string
                     trafficPolicy:
                       description: Traffic policies that apply to this subset.
@@ -200,11 +291,9 @@ spec:
                                   properties:
                                     name:
                                       description: Name of the cookie.
-                                      format: string
                                       type: string
                                     path:
                                       description: Path to set for the cookie.
-                                      format: string
                                       type: string
                                     ttl:
                                       description: Lifetime of the cookie.
@@ -212,12 +301,10 @@ spec:
                                   type: object
                                 httpHeaderName:
                                   description: Hash based on a specific HTTP header.
-                                  format: string
                                   type: string
                                 httpQueryParameterName:
                                   description: Hash based on a specific HTTP query
                                     parameter.
-                                  format: string
                                   type: string
                                 minimumRingSize:
                                   type: integer
@@ -235,7 +322,6 @@ spec:
                                       from:
                                         description: Originating locality, '/' separated,
                                           e.g.
-                                        format: string
                                         type: string
                                       to:
                                         additionalProperties:
@@ -258,10 +344,8 @@ spec:
                                     properties:
                                       from:
                                         description: Originating region.
-                                        format: string
                                         type: string
                                       to:
-                                        format: string
                                         type: string
                                     type: object
                                   type: array
@@ -292,6 +376,9 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
+                            consecutiveLocalOriginFailures:
+                              nullable: true
+                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -301,6 +388,10 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
+                            splitExternalLocalOriginErrors:
+                              description: Determines whether to distinguish local
+                                origin failures from external errors.
+                              type: boolean
                           type: object
                         portLevelSettings:
                           description: Traffic policies specific to individual ports.
@@ -439,11 +530,9 @@ spec:
                                         properties:
                                           name:
                                             description: Name of the cookie.
-                                            format: string
                                             type: string
                                           path:
                                             description: Path to set for the cookie.
-                                            format: string
                                             type: string
                                           ttl:
                                             description: Lifetime of the cookie.
@@ -452,12 +541,10 @@ spec:
                                       httpHeaderName:
                                         description: Hash based on a specific HTTP
                                           header.
-                                        format: string
                                         type: string
                                       httpQueryParameterName:
                                         description: Hash based on a specific HTTP
                                           query parameter.
-                                        format: string
                                         type: string
                                       minimumRingSize:
                                         type: integer
@@ -475,7 +562,6 @@ spec:
                                             from:
                                               description: Originating locality, '/'
                                                 separated, e.g.
-                                              format: string
                                               type: string
                                             to:
                                               additionalProperties:
@@ -498,10 +584,8 @@ spec:
                                           properties:
                                             from:
                                               description: Originating region.
-                                              format: string
                                               type: string
                                             to:
-                                              format: string
                                               type: string
                                           type: object
                                         type: array
@@ -532,6 +616,9 @@ spec:
                                       host is ejected from the connection pool.
                                     nullable: true
                                     type: integer
+                                  consecutiveLocalOriginFailures:
+                                    nullable: true
+                                    type: integer
                                   interval:
                                     description: Time interval between ejection sweep
                                       analysis.
@@ -542,6 +629,10 @@ spec:
                                   minHealthPercent:
                                     format: int32
                                     type: integer
+                                  splitExternalLocalOriginErrors:
+                                    description: Determines whether to distinguish
+                                      local origin failures from external errors.
+                                    type: boolean
                                 type: object
                               port:
                                 properties:
@@ -553,14 +644,11 @@ spec:
                                   to the upstream service.
                                 properties:
                                   caCertificates:
-                                    format: string
                                     type: string
                                   clientCertificate:
                                     description: REQUIRED if mode is `MUTUAL`.
-                                    format: string
                                     type: string
                                   credentialName:
-                                    format: string
                                     type: string
                                   mode:
                                     enum:
@@ -571,16 +659,13 @@ spec:
                                     type: string
                                   privateKey:
                                     description: REQUIRED if mode is `MUTUAL`.
-                                    format: string
                                     type: string
                                   sni:
                                     description: SNI string to present to the server
                                       during TLS handshake.
-                                    format: string
                                     type: string
                                   subjectAltNames:
                                     items:
-                                      format: string
                                       type: string
                                     type: array
                                 type: object
@@ -591,14 +676,11 @@ spec:
                             upstream service.
                           properties:
                             caCertificates:
-                              format: string
                               type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             credentialName:
-                              format: string
                               type: string
                             mode:
                               enum:
@@ -609,16 +691,13 @@ spec:
                               type: string
                             privateKey:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             sni:
                               description: SNI string to present to the server during
                                 TLS handshake.
-                              format: string
                               type: string
                             subjectAltNames:
                               items:
-                                format: string
                                 type: string
                               type: array
                           type: object
@@ -756,11 +835,9 @@ spec:
                             properties:
                               name:
                                 description: Name of the cookie.
-                                format: string
                                 type: string
                               path:
                                 description: Path to set for the cookie.
-                                format: string
                                 type: string
                               ttl:
                                 description: Lifetime of the cookie.
@@ -768,11 +845,9 @@ spec:
                             type: object
                           httpHeaderName:
                             description: Hash based on a specific HTTP header.
-                            format: string
                             type: string
                           httpQueryParameterName:
                             description: Hash based on a specific HTTP query parameter.
-                            format: string
                             type: string
                           minimumRingSize:
                             type: integer
@@ -790,7 +865,6 @@ spec:
                                 from:
                                   description: Originating locality, '/' separated,
                                     e.g.
-                                  format: string
                                   type: string
                                 to:
                                   additionalProperties:
@@ -812,10 +886,8 @@ spec:
                               properties:
                                 from:
                                   description: Originating region.
-                                  format: string
                                   type: string
                                 to:
-                                  format: string
                                   type: string
                               type: object
                             type: array
@@ -846,6 +918,9 @@ spec:
                           from the connection pool.
                         nullable: true
                         type: integer
+                      consecutiveLocalOriginFailures:
+                        nullable: true
+                        type: integer
                       interval:
                         description: Time interval between ejection sweep analysis.
                         type: string
@@ -855,6 +930,10 @@ spec:
                       minHealthPercent:
                         format: int32
                         type: integer
+                      splitExternalLocalOriginErrors:
+                        description: Determines whether to distinguish local origin
+                          failures from external errors.
+                        type: boolean
                     type: object
                   portLevelSettings:
                     description: Traffic policies specific to individual ports.
@@ -989,11 +1068,9 @@ spec:
                                   properties:
                                     name:
                                       description: Name of the cookie.
-                                      format: string
                                       type: string
                                     path:
                                       description: Path to set for the cookie.
-                                      format: string
                                       type: string
                                     ttl:
                                       description: Lifetime of the cookie.
@@ -1001,12 +1078,10 @@ spec:
                                   type: object
                                 httpHeaderName:
                                   description: Hash based on a specific HTTP header.
-                                  format: string
                                   type: string
                                 httpQueryParameterName:
                                   description: Hash based on a specific HTTP query
                                     parameter.
-                                  format: string
                                   type: string
                                 minimumRingSize:
                                   type: integer
@@ -1024,7 +1099,6 @@ spec:
                                       from:
                                         description: Originating locality, '/' separated,
                                           e.g.
-                                        format: string
                                         type: string
                                       to:
                                         additionalProperties:
@@ -1047,10 +1121,8 @@ spec:
                                     properties:
                                       from:
                                         description: Originating region.
-                                        format: string
                                         type: string
                                       to:
-                                        format: string
                                         type: string
                                     type: object
                                   type: array
@@ -1081,6 +1153,9 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
+                            consecutiveLocalOriginFailures:
+                              nullable: true
+                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -1090,6 +1165,10 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
+                            splitExternalLocalOriginErrors:
+                              description: Determines whether to distinguish local
+                                origin failures from external errors.
+                              type: boolean
                           type: object
                         port:
                           properties:
@@ -1101,14 +1180,11 @@ spec:
                             upstream service.
                           properties:
                             caCertificates:
-                              format: string
                               type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             credentialName:
-                              format: string
                               type: string
                             mode:
                               enum:
@@ -1119,16 +1195,13 @@ spec:
                               type: string
                             privateKey:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             sni:
                               description: SNI string to present to the server during
                                 TLS handshake.
-                              format: string
                               type: string
                             subjectAltNames:
                               items:
-                                format: string
                                 type: string
                               type: array
                           type: object
@@ -1139,14 +1212,11 @@ spec:
                       service.
                     properties:
                       caCertificates:
-                        format: string
                         type: string
                       clientCertificate:
                         description: REQUIRED if mode is `MUTUAL`.
-                        format: string
                         type: string
                       credentialName:
-                        format: string
                         type: string
                       mode:
                         enum:
@@ -1157,16 +1227,13 @@ spec:
                         type: string
                       privateKey:
                         description: REQUIRED if mode is `MUTUAL`.
-                        format: string
                         type: string
                       sni:
                         description: SNI string to present to the server during TLS
                           handshake.
-                        format: string
                         type: string
                       subjectAltNames:
                         items:
-                          format: string
                           type: string
                         type: array
                     type: object
@@ -1205,24 +1272,20 @@ spec:
                 description: A list of namespaces to which this destination rule is
                   exported.
                 items:
-                  format: string
                   type: string
                 type: array
               host:
                 description: The name of a service from the service registry.
-                format: string
                 type: string
               subsets:
                 items:
                   properties:
                     labels:
                       additionalProperties:
-                        format: string
                         type: string
                       type: object
                     name:
                       description: Name of the subset.
-                      format: string
                       type: string
                     trafficPolicy:
                       description: Traffic policies that apply to this subset.
@@ -1356,11 +1419,9 @@ spec:
                                   properties:
                                     name:
                                       description: Name of the cookie.
-                                      format: string
                                       type: string
                                     path:
                                       description: Path to set for the cookie.
-                                      format: string
                                       type: string
                                     ttl:
                                       description: Lifetime of the cookie.
@@ -1368,12 +1429,10 @@ spec:
                                   type: object
                                 httpHeaderName:
                                   description: Hash based on a specific HTTP header.
-                                  format: string
                                   type: string
                                 httpQueryParameterName:
                                   description: Hash based on a specific HTTP query
                                     parameter.
-                                  format: string
                                   type: string
                                 minimumRingSize:
                                   type: integer
@@ -1391,7 +1450,6 @@ spec:
                                       from:
                                         description: Originating locality, '/' separated,
                                           e.g.
-                                        format: string
                                         type: string
                                       to:
                                         additionalProperties:
@@ -1414,10 +1472,8 @@ spec:
                                     properties:
                                       from:
                                         description: Originating region.
-                                        format: string
                                         type: string
                                       to:
-                                        format: string
                                         type: string
                                     type: object
                                   type: array
@@ -1448,6 +1504,9 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
+                            consecutiveLocalOriginFailures:
+                              nullable: true
+                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -1457,6 +1516,10 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
+                            splitExternalLocalOriginErrors:
+                              description: Determines whether to distinguish local
+                                origin failures from external errors.
+                              type: boolean
                           type: object
                         portLevelSettings:
                           description: Traffic policies specific to individual ports.
@@ -1595,11 +1658,9 @@ spec:
                                         properties:
                                           name:
                                             description: Name of the cookie.
-                                            format: string
                                             type: string
                                           path:
                                             description: Path to set for the cookie.
-                                            format: string
                                             type: string
                                           ttl:
                                             description: Lifetime of the cookie.
@@ -1608,12 +1669,10 @@ spec:
                                       httpHeaderName:
                                         description: Hash based on a specific HTTP
                                           header.
-                                        format: string
                                         type: string
                                       httpQueryParameterName:
                                         description: Hash based on a specific HTTP
                                           query parameter.
-                                        format: string
                                         type: string
                                       minimumRingSize:
                                         type: integer
@@ -1631,7 +1690,6 @@ spec:
                                             from:
                                               description: Originating locality, '/'
                                                 separated, e.g.
-                                              format: string
                                               type: string
                                             to:
                                               additionalProperties:
@@ -1654,10 +1712,8 @@ spec:
                                           properties:
                                             from:
                                               description: Originating region.
-                                              format: string
                                               type: string
                                             to:
-                                              format: string
                                               type: string
                                           type: object
                                         type: array
@@ -1688,6 +1744,9 @@ spec:
                                       host is ejected from the connection pool.
                                     nullable: true
                                     type: integer
+                                  consecutiveLocalOriginFailures:
+                                    nullable: true
+                                    type: integer
                                   interval:
                                     description: Time interval between ejection sweep
                                       analysis.
@@ -1698,6 +1757,10 @@ spec:
                                   minHealthPercent:
                                     format: int32
                                     type: integer
+                                  splitExternalLocalOriginErrors:
+                                    description: Determines whether to distinguish
+                                      local origin failures from external errors.
+                                    type: boolean
                                 type: object
                               port:
                                 properties:
@@ -1709,14 +1772,11 @@ spec:
                                   to the upstream service.
                                 properties:
                                   caCertificates:
-                                    format: string
                                     type: string
                                   clientCertificate:
                                     description: REQUIRED if mode is `MUTUAL`.
-                                    format: string
                                     type: string
                                   credentialName:
-                                    format: string
                                     type: string
                                   mode:
                                     enum:
@@ -1727,16 +1787,13 @@ spec:
                                     type: string
                                   privateKey:
                                     description: REQUIRED if mode is `MUTUAL`.
-                                    format: string
                                     type: string
                                   sni:
                                     description: SNI string to present to the server
                                       during TLS handshake.
-                                    format: string
                                     type: string
                                   subjectAltNames:
                                     items:
-                                      format: string
                                       type: string
                                     type: array
                                 type: object
@@ -1747,14 +1804,11 @@ spec:
                             upstream service.
                           properties:
                             caCertificates:
-                              format: string
                               type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             credentialName:
-                              format: string
                               type: string
                             mode:
                               enum:
@@ -1765,16 +1819,13 @@ spec:
                               type: string
                             privateKey:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             sni:
                               description: SNI string to present to the server during
                                 TLS handshake.
-                              format: string
                               type: string
                             subjectAltNames:
                               items:
-                                format: string
                                 type: string
                               type: array
                           type: object
@@ -1912,11 +1963,9 @@ spec:
                             properties:
                               name:
                                 description: Name of the cookie.
-                                format: string
                                 type: string
                               path:
                                 description: Path to set for the cookie.
-                                format: string
                                 type: string
                               ttl:
                                 description: Lifetime of the cookie.
@@ -1924,11 +1973,9 @@ spec:
                             type: object
                           httpHeaderName:
                             description: Hash based on a specific HTTP header.
-                            format: string
                             type: string
                           httpQueryParameterName:
                             description: Hash based on a specific HTTP query parameter.
-                            format: string
                             type: string
                           minimumRingSize:
                             type: integer
@@ -1946,7 +1993,6 @@ spec:
                                 from:
                                   description: Originating locality, '/' separated,
                                     e.g.
-                                  format: string
                                   type: string
                                 to:
                                   additionalProperties:
@@ -1968,10 +2014,8 @@ spec:
                               properties:
                                 from:
                                   description: Originating region.
-                                  format: string
                                   type: string
                                 to:
-                                  format: string
                                   type: string
                               type: object
                             type: array
@@ -2002,6 +2046,9 @@ spec:
                           from the connection pool.
                         nullable: true
                         type: integer
+                      consecutiveLocalOriginFailures:
+                        nullable: true
+                        type: integer
                       interval:
                         description: Time interval between ejection sweep analysis.
                         type: string
@@ -2011,6 +2058,10 @@ spec:
                       minHealthPercent:
                         format: int32
                         type: integer
+                      splitExternalLocalOriginErrors:
+                        description: Determines whether to distinguish local origin
+                          failures from external errors.
+                        type: boolean
                     type: object
                   portLevelSettings:
                     description: Traffic policies specific to individual ports.
@@ -2145,11 +2196,9 @@ spec:
                                   properties:
                                     name:
                                       description: Name of the cookie.
-                                      format: string
                                       type: string
                                     path:
                                       description: Path to set for the cookie.
-                                      format: string
                                       type: string
                                     ttl:
                                       description: Lifetime of the cookie.
@@ -2157,12 +2206,10 @@ spec:
                                   type: object
                                 httpHeaderName:
                                   description: Hash based on a specific HTTP header.
-                                  format: string
                                   type: string
                                 httpQueryParameterName:
                                   description: Hash based on a specific HTTP query
                                     parameter.
-                                  format: string
                                   type: string
                                 minimumRingSize:
                                   type: integer
@@ -2180,7 +2227,6 @@ spec:
                                       from:
                                         description: Originating locality, '/' separated,
                                           e.g.
-                                        format: string
                                         type: string
                                       to:
                                         additionalProperties:
@@ -2203,10 +2249,8 @@ spec:
                                     properties:
                                       from:
                                         description: Originating region.
-                                        format: string
                                         type: string
                                       to:
-                                        format: string
                                         type: string
                                     type: object
                                   type: array
@@ -2237,6 +2281,9 @@ spec:
                                 is ejected from the connection pool.
                               nullable: true
                               type: integer
+                            consecutiveLocalOriginFailures:
+                              nullable: true
+                              type: integer
                             interval:
                               description: Time interval between ejection sweep analysis.
                               type: string
@@ -2246,6 +2293,10 @@ spec:
                             minHealthPercent:
                               format: int32
                               type: integer
+                            splitExternalLocalOriginErrors:
+                              description: Determines whether to distinguish local
+                                origin failures from external errors.
+                              type: boolean
                           type: object
                         port:
                           properties:
@@ -2257,14 +2308,11 @@ spec:
                             upstream service.
                           properties:
                             caCertificates:
-                              format: string
                               type: string
                             clientCertificate:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             credentialName:
-                              format: string
                               type: string
                             mode:
                               enum:
@@ -2275,16 +2323,13 @@ spec:
                               type: string
                             privateKey:
                               description: REQUIRED if mode is `MUTUAL`.
-                              format: string
                               type: string
                             sni:
                               description: SNI string to present to the server during
                                 TLS handshake.
-                              format: string
                               type: string
                             subjectAltNames:
                               items:
-                                format: string
                                 type: string
                               type: array
                           type: object
@@ -2295,14 +2340,11 @@ spec:
                       service.
                     properties:
                       caCertificates:
-                        format: string
                         type: string
                       clientCertificate:
                         description: REQUIRED if mode is `MUTUAL`.
-                        format: string
                         type: string
                       credentialName:
-                        format: string
                         type: string
                       mode:
                         enum:
@@ -2313,16 +2355,13 @@ spec:
                         type: string
                       privateKey:
                         description: REQUIRED if mode is `MUTUAL`.
-                        format: string
                         type: string
                       sni:
                         description: SNI string to present to the server during TLS
                           handshake.
-                        format: string
                         type: string
                       subjectAltNames:
                         items:
-                          format: string
                           type: string
                         type: array
                     type: object
@@ -2385,6 +2424,7 @@ spec:
                       - HTTP_ROUTE
                       - CLUSTER
                       - EXTENSION_CONFIG
+                      - BOOTSTRAP
                       type: string
                     match:
                       description: Match on listener/route configuration/cluster.
@@ -2409,7 +2449,6 @@ spec:
                           properties:
                             name:
                               description: The exact name of the cluster to match.
-                              format: string
                               type: string
                             portNumber:
                               description: The service port for which this cluster
@@ -2418,11 +2457,9 @@ spec:
                             service:
                               description: The fully qualified service name for this
                                 cluster.
-                              format: string
                               type: string
                             subset:
                               description: The subset associated with the service.
-                              format: string
                               type: string
                           type: object
                         context:
@@ -2442,7 +2479,6 @@ spec:
                               properties:
                                 applicationProtocols:
                                   description: Applies only to sidecars.
-                                  format: string
                                   type: string
                                 destinationPort:
                                   description: The destination_port value used by
@@ -2454,36 +2490,29 @@ spec:
                                   properties:
                                     name:
                                       description: The filter name to match on.
-                                      format: string
                                       type: string
                                     subFilter:
                                       properties:
                                         name:
                                           description: The filter name to match on.
-                                          format: string
                                           type: string
                                       type: object
                                   type: object
                                 name:
                                   description: The name assigned to the filter chain.
-                                  format: string
                                   type: string
                                 sni:
                                   description: The SNI value used by a filter chain's
                                     match condition.
-                                  format: string
                                   type: string
                                 transportProtocol:
                                   description: Applies only to `SIDECAR_INBOUND` context.
-                                  format: string
                                   type: string
                               type: object
                             name:
                               description: Match a specific listener by its name.
-                              format: string
                               type: string
                             portName:
-                              format: string
                               type: string
                             portNumber:
                               type: integer
@@ -2493,33 +2522,27 @@ spec:
                           properties:
                             metadata:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                             proxyVersion:
-                              format: string
                               type: string
                           type: object
                         routeConfiguration:
                           description: Match on envoy HTTP route configuration attributes.
                           properties:
                             gateway:
-                              format: string
                               type: string
                             name:
                               description: Route configuration name to match on.
-                              format: string
                               type: string
                             portName:
                               description: Applicable only for GATEWAY context.
-                              format: string
                               type: string
                             portNumber:
                               type: integer
                             vhost:
                               properties:
                                 name:
-                                  format: string
                                   type: string
                                 route:
                                   description: Match a specific route within the virtual
@@ -2535,7 +2558,6 @@ spec:
                                       - DIRECT_RESPONSE
                                       type: string
                                     name:
-                                      format: string
                                       type: string
                                   type: object
                               type: object
@@ -2571,11 +2593,15 @@ spec:
                       type: object
                   type: object
                 type: array
+              priority:
+                description: Priority defines the order in which patch sets are applied
+                  within a context.
+                format: int32
+                type: integer
               workloadSelector:
                 properties:
                   labels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -2625,7 +2651,6 @@ spec:
             properties:
               selector:
                 additionalProperties:
-                  format: string
                   type: string
                 type: object
               servers:
@@ -2633,34 +2658,28 @@ spec:
                 items:
                   properties:
                     bind:
-                      format: string
                       type: string
                     defaultEndpoint:
-                      format: string
                       type: string
                     hosts:
                       description: One or more hosts exposed by this gateway.
                       items:
-                        format: string
                         type: string
                       type: array
                     name:
                       description: An optional name of the server, when set must be
                         unique across all servers.
-                      format: string
                       type: string
                     port:
                       properties:
                         name:
                           description: Label assigned to the port.
-                          format: string
                           type: string
                         number:
                           description: A valid non-negative integer port number.
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
-                          format: string
                           type: string
                         targetPort:
                           type: integer
@@ -2671,17 +2690,14 @@ spec:
                       properties:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL`.
-                          format: string
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
                             cipher list.'
                           items:
-                            format: string
                             type: string
                           type: array
                         credentialName:
-                          format: string
                           type: string
                         httpsRedirect:
                           type: boolean
@@ -2713,25 +2729,20 @@ spec:
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                          format: string
                           type: string
                         serverCertificate:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                          format: string
                           type: string
                         subjectAltNames:
                           items:
-                            format: string
                             type: string
                           type: array
                         verifyCertificateHash:
                           items:
-                            format: string
                             type: string
                           type: array
                         verifyCertificateSpki:
                           items:
-                            format: string
                             type: string
                           type: array
                       type: object
@@ -2756,7 +2767,6 @@ spec:
             properties:
               selector:
                 additionalProperties:
-                  format: string
                   type: string
                 type: object
               servers:
@@ -2764,34 +2774,28 @@ spec:
                 items:
                   properties:
                     bind:
-                      format: string
                       type: string
                     defaultEndpoint:
-                      format: string
                       type: string
                     hosts:
                       description: One or more hosts exposed by this gateway.
                       items:
-                        format: string
                         type: string
                       type: array
                     name:
                       description: An optional name of the server, when set must be
                         unique across all servers.
-                      format: string
                       type: string
                     port:
                       properties:
                         name:
                           description: Label assigned to the port.
-                          format: string
                           type: string
                         number:
                           description: A valid non-negative integer port number.
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
-                          format: string
                           type: string
                         targetPort:
                           type: integer
@@ -2802,17 +2806,14 @@ spec:
                       properties:
                         caCertificates:
                           description: REQUIRED if mode is `MUTUAL`.
-                          format: string
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
                             cipher list.'
                           items:
-                            format: string
                             type: string
                           type: array
                         credentialName:
-                          format: string
                           type: string
                         httpsRedirect:
                           type: boolean
@@ -2844,25 +2845,20 @@ spec:
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                          format: string
                           type: string
                         serverCertificate:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
-                          format: string
                           type: string
                         subjectAltNames:
                           items:
-                            format: string
                             type: string
                           type: array
                         verifyCertificateHash:
                           items:
-                            format: string
                             type: string
                           type: array
                         verifyCertificateSpki:
                           items:
-                            format: string
                             type: string
                           type: array
                       type: object
@@ -2937,7 +2933,6 @@ spec:
               addresses:
                 description: The virtual IP addresses associated with the service.
                 items:
-                  format: string
                   type: string
                 type: array
               endpoints:
@@ -2945,20 +2940,16 @@ spec:
                 items:
                   properties:
                     address:
-                      format: string
                       type: string
                     labels:
                       additionalProperties:
-                        format: string
                         type: string
                       description: One or more labels associated with the endpoint.
                       type: object
                     locality:
                       description: The locality associated with the endpoint.
-                      format: string
                       type: string
                     network:
-                      format: string
                       type: string
                     ports:
                       additionalProperties:
@@ -2966,7 +2957,6 @@ spec:
                       description: Set of ports associated with the endpoint.
                       type: object
                     serviceAccount:
-                      format: string
                       type: string
                     weight:
                       description: The load balancing weight associated with the endpoint.
@@ -2976,13 +2966,11 @@ spec:
               exportTo:
                 description: A list of namespaces to which this service is exported.
                 items:
-                  format: string
                   type: string
                 type: array
               hosts:
                 description: The hosts associated with the ServiceEntry.
                 items:
-                  format: string
                   type: string
                 type: array
               location:
@@ -2996,14 +2984,12 @@ spec:
                   properties:
                     name:
                       description: Label assigned to the port.
-                      format: string
                       type: string
                     number:
                       description: A valid non-negative integer port number.
                       type: integer
                     protocol:
                       description: The protocol exposed on the port.
-                      format: string
                       type: string
                     targetPort:
                       type: integer
@@ -3018,7 +3004,6 @@ spec:
                 type: string
               subjectAltNames:
                 items:
-                  format: string
                   type: string
                 type: array
               workloadSelector:
@@ -3026,7 +3011,6 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -3072,7 +3056,6 @@ spec:
               addresses:
                 description: The virtual IP addresses associated with the service.
                 items:
-                  format: string
                   type: string
                 type: array
               endpoints:
@@ -3080,20 +3063,16 @@ spec:
                 items:
                   properties:
                     address:
-                      format: string
                       type: string
                     labels:
                       additionalProperties:
-                        format: string
                         type: string
                       description: One or more labels associated with the endpoint.
                       type: object
                     locality:
                       description: The locality associated with the endpoint.
-                      format: string
                       type: string
                     network:
-                      format: string
                       type: string
                     ports:
                       additionalProperties:
@@ -3101,7 +3080,6 @@ spec:
                       description: Set of ports associated with the endpoint.
                       type: object
                     serviceAccount:
-                      format: string
                       type: string
                     weight:
                       description: The load balancing weight associated with the endpoint.
@@ -3111,13 +3089,11 @@ spec:
               exportTo:
                 description: A list of namespaces to which this service is exported.
                 items:
-                  format: string
                   type: string
                 type: array
               hosts:
                 description: The hosts associated with the ServiceEntry.
                 items:
-                  format: string
                   type: string
                 type: array
               location:
@@ -3131,14 +3107,12 @@ spec:
                   properties:
                     name:
                       description: Label assigned to the port.
-                      format: string
                       type: string
                     number:
                       description: A valid non-negative integer port number.
                       type: integer
                     protocol:
                       description: The protocol exposed on the port.
-                      format: string
                       type: string
                     targetPort:
                       type: integer
@@ -3153,7 +3127,6 @@ spec:
                 type: string
               subjectAltNames:
                 items:
-                  format: string
                   type: string
                 type: array
               workloadSelector:
@@ -3161,7 +3134,6 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -3211,7 +3183,6 @@ spec:
                 items:
                   properties:
                     bind:
-                      format: string
                       type: string
                     captureMode:
                       enum:
@@ -3221,7 +3192,6 @@ spec:
                       type: string
                     hosts:
                       items:
-                        format: string
                         type: string
                       type: array
                     port:
@@ -3229,14 +3199,12 @@ spec:
                       properties:
                         name:
                           description: Label assigned to the port.
-                          format: string
                           type: string
                         number:
                           description: A valid non-negative integer port number.
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
-                          format: string
                           type: string
                         targetPort:
                           type: integer
@@ -3248,7 +3216,6 @@ spec:
                   properties:
                     bind:
                       description: The IP to which the listener should be bound.
-                      format: string
                       type: string
                     captureMode:
                       enum:
@@ -3257,21 +3224,18 @@ spec:
                       - NONE
                       type: string
                     defaultEndpoint:
-                      format: string
                       type: string
                     port:
                       description: The port associated with the listener.
                       properties:
                         name:
                           description: Label assigned to the port.
-                          format: string
                           type: string
                         number:
                           description: A valid non-negative integer port number.
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
-                          format: string
                           type: string
                         targetPort:
                           type: integer
@@ -3285,7 +3249,6 @@ spec:
                     properties:
                       host:
                         description: The name of a service from the service registry.
-                        format: string
                         type: string
                       port:
                         description: Specifies the port on the host that is being
@@ -3296,7 +3259,6 @@ spec:
                         type: object
                       subset:
                         description: The name of a subset within the service.
-                        format: string
                         type: string
                     type: object
                   mode:
@@ -3309,7 +3271,6 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -3334,7 +3295,6 @@ spec:
                 items:
                   properties:
                     bind:
-                      format: string
                       type: string
                     captureMode:
                       enum:
@@ -3344,7 +3304,6 @@ spec:
                       type: string
                     hosts:
                       items:
-                        format: string
                         type: string
                       type: array
                     port:
@@ -3352,14 +3311,12 @@ spec:
                       properties:
                         name:
                           description: Label assigned to the port.
-                          format: string
                           type: string
                         number:
                           description: A valid non-negative integer port number.
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
-                          format: string
                           type: string
                         targetPort:
                           type: integer
@@ -3371,7 +3328,6 @@ spec:
                   properties:
                     bind:
                       description: The IP to which the listener should be bound.
-                      format: string
                       type: string
                     captureMode:
                       enum:
@@ -3380,21 +3336,18 @@ spec:
                       - NONE
                       type: string
                     defaultEndpoint:
-                      format: string
                       type: string
                     port:
                       description: The port associated with the listener.
                       properties:
                         name:
                           description: Label assigned to the port.
-                          format: string
                           type: string
                         number:
                           description: A valid non-negative integer port number.
                           type: integer
                         protocol:
                           description: The protocol exposed on the port.
-                          format: string
                           type: string
                         targetPort:
                           type: integer
@@ -3408,7 +3361,6 @@ spec:
                     properties:
                       host:
                         description: The name of a service from the service registry.
-                        format: string
                         type: string
                       port:
                         description: Specifies the port on the host that is being
@@ -3419,7 +3371,6 @@ spec:
                         type: object
                       subset:
                         description: The name of a subset within the service.
-                        format: string
                         type: string
                     type: object
                   mode:
@@ -3432,7 +3383,6 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -3501,20 +3451,17 @@ spec:
                 description: A list of namespaces to which this virtual service is
                   exported.
                 items:
-                  format: string
                   type: string
                 type: array
               gateways:
                 description: The names of gateways and sidecars that should apply
                   these routes.
                 items:
-                  format: string
                   type: string
                 type: array
               hosts:
                 description: The destination hosts to which traffic is being sent.
                 items:
-                  format: string
                   type: string
                 type: array
               http:
@@ -3529,21 +3476,18 @@ spec:
                           type: boolean
                         allowHeaders:
                           items:
-                            format: string
                             type: string
                           type: array
                         allowMethods:
                           description: List of HTTP methods allowed to access the
                             resource.
                           items:
-                            format: string
                             type: string
                           type: array
                         allowOrigin:
                           description: The list of origins that are allowed to perform
                             CORS requests.
                           items:
-                            format: string
                             type: string
                           type: array
                         allowOrigins:
@@ -3566,20 +3510,16 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           type: array
                         exposeHeaders:
                           items:
-                            format: string
                             type: string
                           type: array
                         maxAge:
@@ -3589,12 +3529,10 @@ spec:
                       properties:
                         name:
                           description: Name specifies the name of the delegate VirtualService.
-                          format: string
                           type: string
                         namespace:
                           description: Namespace specifies the namespace where the
                             delegate VirtualService resides.
-                          format: string
                           type: string
                       type: object
                     fault:
@@ -3619,10 +3557,8 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
-                              format: string
                               type: string
                             http2Error:
-                              format: string
                               type: string
                             httpStatus:
                               description: HTTP status code to use to abort the Http
@@ -3678,17 +3614,14 @@ spec:
                           properties:
                             add:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                             remove:
                               items:
-                                format: string
                                 type: string
                               type: array
                             set:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                           type: object
@@ -3696,17 +3629,14 @@ spec:
                           properties:
                             add:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                             remove:
                               items:
-                                format: string
                                 type: string
                               type: array
                             set:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                           type: object
@@ -3732,21 +3662,17 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           gateways:
                             description: Names of gateways where the rule should be
                               applied.
                             items:
-                              format: string
                               type: string
                             type: array
                           headers:
@@ -3768,14 +3694,11 @@ spec:
                                 - regex
                               properties:
                                 exact:
-                                  format: string
                                   type: string
                                 prefix:
-                                  format: string
                                   type: string
                                 regex:
                                   description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                  format: string
                                   type: string
                               type: object
                             type: object
@@ -3801,19 +3724,15 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           name:
                             description: The name assigned to a match.
-                            format: string
                             type: string
                           port:
                             description: Specifies the ports on the host that is being
@@ -3838,14 +3757,11 @@ spec:
                                 - regex
                               properties:
                                 exact:
-                                  format: string
                                   type: string
                                 prefix:
-                                  format: string
                                   type: string
                                 regex:
                                   description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                  format: string
                                   type: string
                               type: object
                             description: Query parameters for matching.
@@ -3868,25 +3784,20 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           sourceLabels:
                             additionalProperties:
-                              format: string
                               type: string
                             type: object
                           sourceNamespace:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
-                            format: string
                             type: string
                           uri:
                             oneOf:
@@ -3906,14 +3817,11 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           withoutHeaders:
@@ -3935,14 +3843,11 @@ spec:
                                 - regex
                               properties:
                                 exact:
-                                  format: string
                                   type: string
                                 prefix:
-                                  format: string
                                   type: string
                                 regex:
                                   description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                  format: string
                                   type: string
                               type: object
                             description: withoutHeader has the same syntax with the
@@ -3954,7 +3859,6 @@ spec:
                       properties:
                         host:
                           description: The name of a service from the service registry.
-                          format: string
                           type: string
                         port:
                           description: Specifies the port on the host that is being
@@ -3965,7 +3869,6 @@ spec:
                           type: object
                         subset:
                           description: The name of a subset within the service.
-                          format: string
                           type: string
                       type: object
                     mirror_percent:
@@ -3988,19 +3891,16 @@ spec:
                       type: object
                     name:
                       description: The name assigned to the route for debugging purposes.
-                      format: string
                       type: string
                     redirect:
                       description: A HTTP rule can either redirect or forward (default)
                         traffic.
                       properties:
                         authority:
-                          format: string
                           type: string
                         redirectCode:
                           type: integer
                         uri:
-                          format: string
                           type: string
                       type: object
                     retries:
@@ -4018,7 +3918,6 @@ spec:
                         retryOn:
                           description: Specifies the conditions under which retry
                             takes place.
-                          format: string
                           type: string
                         retryRemoteLocalities:
                           description: Flag to specify whether the retries should
@@ -4032,10 +3931,8 @@ spec:
                         authority:
                           description: rewrite the Authority/Host header with this
                             value.
-                          format: string
                           type: string
                         uri:
-                          format: string
                           type: string
                       type: object
                     route:
@@ -4048,7 +3945,6 @@ spec:
                               host:
                                 description: The name of a service from the service
                                   registry.
-                                format: string
                                 type: string
                               port:
                                 description: Specifies the port on the host that is
@@ -4059,7 +3955,6 @@ spec:
                                 type: object
                               subset:
                                 description: The name of a subset within the service.
-                                format: string
                                 type: string
                             type: object
                           headers:
@@ -4068,17 +3963,14 @@ spec:
                                 properties:
                                   add:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                   remove:
                                     items:
-                                      format: string
                                       type: string
                                     type: array
                                   set:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                 type: object
@@ -4086,17 +3978,14 @@ spec:
                                 properties:
                                   add:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                   remove:
                                     items:
-                                      format: string
                                       type: string
                                     type: array
                                   set:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                 type: object
@@ -4122,14 +4011,12 @@ spec:
                             description: IPv4 or IPv6 ip addresses of destination
                               with optional subnet.
                             items:
-                              format: string
                               type: string
                             type: array
                           gateways:
                             description: Names of gateways where the rule should be
                               applied.
                             items:
-                              format: string
                               type: string
                             type: array
                           port:
@@ -4138,18 +4025,15 @@ spec:
                             type: integer
                           sourceLabels:
                             additionalProperties:
-                              format: string
                               type: string
                             type: object
                           sourceNamespace:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
-                            format: string
                             type: string
                           sourceSubnet:
                             description: IPv4 or IPv6 ip address of source with optional
                               subnet.
-                            format: string
                             type: string
                         type: object
                       type: array
@@ -4163,7 +4047,6 @@ spec:
                               host:
                                 description: The name of a service from the service
                                   registry.
-                                format: string
                                 type: string
                               port:
                                 description: Specifies the port on the host that is
@@ -4174,7 +4057,6 @@ spec:
                                 type: object
                               subset:
                                 description: The name of a subset within the service.
-                                format: string
                                 type: string
                             type: object
                           weight:
@@ -4194,14 +4076,12 @@ spec:
                             description: IPv4 or IPv6 ip addresses of destination
                               with optional subnet.
                             items:
-                              format: string
                               type: string
                             type: array
                           gateways:
                             description: Names of gateways where the rule should be
                               applied.
                             items:
-                              format: string
                               type: string
                             type: array
                           port:
@@ -4211,18 +4091,15 @@ spec:
                           sniHosts:
                             description: SNI (server name indicator) to match on.
                             items:
-                              format: string
                               type: string
                             type: array
                           sourceLabels:
                             additionalProperties:
-                              format: string
                               type: string
                             type: object
                           sourceNamespace:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
-                            format: string
                             type: string
                         type: object
                       type: array
@@ -4236,7 +4113,6 @@ spec:
                               host:
                                 description: The name of a service from the service
                                   registry.
-                                format: string
                                 type: string
                               port:
                                 description: Specifies the port on the host that is
@@ -4247,7 +4123,6 @@ spec:
                                 type: object
                               subset:
                                 description: The name of a subset within the service.
-                                format: string
                                 type: string
                             type: object
                           weight:
@@ -4295,20 +4170,17 @@ spec:
                 description: A list of namespaces to which this virtual service is
                   exported.
                 items:
-                  format: string
                   type: string
                 type: array
               gateways:
                 description: The names of gateways and sidecars that should apply
                   these routes.
                 items:
-                  format: string
                   type: string
                 type: array
               hosts:
                 description: The destination hosts to which traffic is being sent.
                 items:
-                  format: string
                   type: string
                 type: array
               http:
@@ -4323,21 +4195,18 @@ spec:
                           type: boolean
                         allowHeaders:
                           items:
-                            format: string
                             type: string
                           type: array
                         allowMethods:
                           description: List of HTTP methods allowed to access the
                             resource.
                           items:
-                            format: string
                             type: string
                           type: array
                         allowOrigin:
                           description: The list of origins that are allowed to perform
                             CORS requests.
                           items:
-                            format: string
                             type: string
                           type: array
                         allowOrigins:
@@ -4360,20 +4229,16 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           type: array
                         exposeHeaders:
                           items:
-                            format: string
                             type: string
                           type: array
                         maxAge:
@@ -4383,12 +4248,10 @@ spec:
                       properties:
                         name:
                           description: Name specifies the name of the delegate VirtualService.
-                          format: string
                           type: string
                         namespace:
                           description: Namespace specifies the namespace where the
                             delegate VirtualService resides.
-                          format: string
                           type: string
                       type: object
                     fault:
@@ -4413,10 +4276,8 @@ spec:
                             - http2Error
                           properties:
                             grpcStatus:
-                              format: string
                               type: string
                             http2Error:
-                              format: string
                               type: string
                             httpStatus:
                               description: HTTP status code to use to abort the Http
@@ -4472,17 +4333,14 @@ spec:
                           properties:
                             add:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                             remove:
                               items:
-                                format: string
                                 type: string
                               type: array
                             set:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                           type: object
@@ -4490,17 +4348,14 @@ spec:
                           properties:
                             add:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                             remove:
                               items:
-                                format: string
                                 type: string
                               type: array
                             set:
                               additionalProperties:
-                                format: string
                                 type: string
                               type: object
                           type: object
@@ -4526,21 +4381,17 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           gateways:
                             description: Names of gateways where the rule should be
                               applied.
                             items:
-                              format: string
                               type: string
                             type: array
                           headers:
@@ -4562,14 +4413,11 @@ spec:
                                 - regex
                               properties:
                                 exact:
-                                  format: string
                                   type: string
                                 prefix:
-                                  format: string
                                   type: string
                                 regex:
                                   description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                  format: string
                                   type: string
                               type: object
                             type: object
@@ -4595,19 +4443,15 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           name:
                             description: The name assigned to a match.
-                            format: string
                             type: string
                           port:
                             description: Specifies the ports on the host that is being
@@ -4632,14 +4476,11 @@ spec:
                                 - regex
                               properties:
                                 exact:
-                                  format: string
                                   type: string
                                 prefix:
-                                  format: string
                                   type: string
                                 regex:
                                   description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                  format: string
                                   type: string
                               type: object
                             description: Query parameters for matching.
@@ -4662,25 +4503,20 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           sourceLabels:
                             additionalProperties:
-                              format: string
                               type: string
                             type: object
                           sourceNamespace:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
-                            format: string
                             type: string
                           uri:
                             oneOf:
@@ -4700,14 +4536,11 @@ spec:
                               - regex
                             properties:
                               exact:
-                                format: string
                                 type: string
                               prefix:
-                                format: string
                                 type: string
                               regex:
                                 description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                format: string
                                 type: string
                             type: object
                           withoutHeaders:
@@ -4729,14 +4562,11 @@ spec:
                                 - regex
                               properties:
                                 exact:
-                                  format: string
                                   type: string
                                 prefix:
-                                  format: string
                                   type: string
                                 regex:
                                   description: RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax).
-                                  format: string
                                   type: string
                               type: object
                             description: withoutHeader has the same syntax with the
@@ -4748,7 +4578,6 @@ spec:
                       properties:
                         host:
                           description: The name of a service from the service registry.
-                          format: string
                           type: string
                         port:
                           description: Specifies the port on the host that is being
@@ -4759,7 +4588,6 @@ spec:
                           type: object
                         subset:
                           description: The name of a subset within the service.
-                          format: string
                           type: string
                       type: object
                     mirror_percent:
@@ -4782,19 +4610,16 @@ spec:
                       type: object
                     name:
                       description: The name assigned to the route for debugging purposes.
-                      format: string
                       type: string
                     redirect:
                       description: A HTTP rule can either redirect or forward (default)
                         traffic.
                       properties:
                         authority:
-                          format: string
                           type: string
                         redirectCode:
                           type: integer
                         uri:
-                          format: string
                           type: string
                       type: object
                     retries:
@@ -4812,7 +4637,6 @@ spec:
                         retryOn:
                           description: Specifies the conditions under which retry
                             takes place.
-                          format: string
                           type: string
                         retryRemoteLocalities:
                           description: Flag to specify whether the retries should
@@ -4826,10 +4650,8 @@ spec:
                         authority:
                           description: rewrite the Authority/Host header with this
                             value.
-                          format: string
                           type: string
                         uri:
-                          format: string
                           type: string
                       type: object
                     route:
@@ -4842,7 +4664,6 @@ spec:
                               host:
                                 description: The name of a service from the service
                                   registry.
-                                format: string
                                 type: string
                               port:
                                 description: Specifies the port on the host that is
@@ -4853,7 +4674,6 @@ spec:
                                 type: object
                               subset:
                                 description: The name of a subset within the service.
-                                format: string
                                 type: string
                             type: object
                           headers:
@@ -4862,17 +4682,14 @@ spec:
                                 properties:
                                   add:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                   remove:
                                     items:
-                                      format: string
                                       type: string
                                     type: array
                                   set:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                 type: object
@@ -4880,17 +4697,14 @@ spec:
                                 properties:
                                   add:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                   remove:
                                     items:
-                                      format: string
                                       type: string
                                     type: array
                                   set:
                                     additionalProperties:
-                                      format: string
                                       type: string
                                     type: object
                                 type: object
@@ -4916,14 +4730,12 @@ spec:
                             description: IPv4 or IPv6 ip addresses of destination
                               with optional subnet.
                             items:
-                              format: string
                               type: string
                             type: array
                           gateways:
                             description: Names of gateways where the rule should be
                               applied.
                             items:
-                              format: string
                               type: string
                             type: array
                           port:
@@ -4932,18 +4744,15 @@ spec:
                             type: integer
                           sourceLabels:
                             additionalProperties:
-                              format: string
                               type: string
                             type: object
                           sourceNamespace:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
-                            format: string
                             type: string
                           sourceSubnet:
                             description: IPv4 or IPv6 ip address of source with optional
                               subnet.
-                            format: string
                             type: string
                         type: object
                       type: array
@@ -4957,7 +4766,6 @@ spec:
                               host:
                                 description: The name of a service from the service
                                   registry.
-                                format: string
                                 type: string
                               port:
                                 description: Specifies the port on the host that is
@@ -4968,7 +4776,6 @@ spec:
                                 type: object
                               subset:
                                 description: The name of a subset within the service.
-                                format: string
                                 type: string
                             type: object
                           weight:
@@ -4988,14 +4795,12 @@ spec:
                             description: IPv4 or IPv6 ip addresses of destination
                               with optional subnet.
                             items:
-                              format: string
                               type: string
                             type: array
                           gateways:
                             description: Names of gateways where the rule should be
                               applied.
                             items:
-                              format: string
                               type: string
                             type: array
                           port:
@@ -5005,18 +4810,15 @@ spec:
                           sniHosts:
                             description: SNI (server name indicator) to match on.
                             items:
-                              format: string
                               type: string
                             type: array
                           sourceLabels:
                             additionalProperties:
-                              format: string
                               type: string
                             type: object
                           sourceNamespace:
                             description: Source namespace constraining the applicability
                               of a rule to workloads in that namespace.
-                            format: string
                             type: string
                         type: object
                       type: array
@@ -5030,7 +4832,6 @@ spec:
                               host:
                                 description: The name of a service from the service
                                   registry.
-                                format: string
                                 type: string
                               port:
                                 description: Specifies the port on the host that is
@@ -5041,7 +4842,6 @@ spec:
                                 type: object
                               subset:
                                 description: The name of a subset within the service.
-                                format: string
                                 type: string
                             type: object
                           weight:
@@ -5109,20 +4909,16 @@ spec:
               more details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
             properties:
               address:
-                format: string
                 type: string
               labels:
                 additionalProperties:
-                  format: string
                   type: string
                 description: One or more labels associated with the endpoint.
                 type: object
               locality:
                 description: The locality associated with the endpoint.
-                format: string
                 type: string
               network:
-                format: string
                 type: string
               ports:
                 additionalProperties:
@@ -5130,7 +4926,6 @@ spec:
                 description: Set of ports associated with the endpoint.
                 type: object
               serviceAccount:
-                format: string
                 type: string
               weight:
                 description: The load balancing weight associated with the endpoint.
@@ -5166,20 +4961,16 @@ spec:
               more details at: https://istio.io/docs/reference/config/networking/workload-entry.html'
             properties:
               address:
-                format: string
                 type: string
               labels:
                 additionalProperties:
-                  format: string
                   type: string
                 description: One or more labels associated with the endpoint.
                 type: object
               locality:
                 description: The locality associated with the endpoint.
-                format: string
                 type: string
               network:
-                format: string
                 type: string
               ports:
                 additionalProperties:
@@ -5187,7 +4978,6 @@ spec:
                 description: Set of ports associated with the endpoint.
                 type: object
               serviceAccount:
-                format: string
                 type: string
               weight:
                 description: The load balancing weight associated with the endpoint.
@@ -5248,12 +5038,10 @@ spec:
                 properties:
                   annotations:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                   labels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -5283,7 +5071,6 @@ spec:
                       command:
                         description: Command to run.
                         items:
-                          format: string
                           type: string
                         type: array
                     type: object
@@ -5297,29 +5084,24 @@ spec:
                       host:
                         description: Host name to connect to, defaults to the pod
                           IP.
-                        format: string
                         type: string
                       httpHeaders:
                         description: Headers the proxy will pass on to make the request.
                         items:
                           properties:
                             name:
-                              format: string
                               type: string
                             value:
-                              format: string
                               type: string
                           type: object
                         type: array
                       path:
                         description: Path to access on the HTTP server.
-                        format: string
                         type: string
                       port:
                         description: Port on which the endpoint lives.
                         type: integer
                       scheme:
-                        format: string
                         type: string
                     type: object
                   initialDelaySeconds:
@@ -5340,7 +5122,6 @@ spec:
                     description: Health is determined by if the proxy is able to connect.
                     properties:
                       host:
-                        format: string
                         type: string
                       port:
                         type: integer
@@ -5355,20 +5136,16 @@ spec:
                   resources that belong to this `WorkloadGroup`.
                 properties:
                   address:
-                    format: string
                     type: string
                   labels:
                     additionalProperties:
-                      format: string
                       type: string
                     description: One or more labels associated with the endpoint.
                     type: object
                   locality:
                     description: The locality associated with the endpoint.
-                    format: string
                     type: string
                   network:
-                    format: string
                     type: string
                   ports:
                     additionalProperties:
@@ -5376,7 +5153,6 @@ spec:
                     description: Set of ports associated with the endpoint.
                     type: object
                   serviceAccount:
-                    format: string
                     type: string
                   weight:
                     description: The load balancing weight associated with the endpoint.
@@ -5445,7 +5221,6 @@ spec:
                 properties:
                   name:
                     description: Specifies the name of the extension provider.
-                    format: string
                     type: string
                 type: object
               rules:
@@ -5462,61 +5237,51 @@ spec:
                               ipBlocks:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               namespaces:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notIpBlocks:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notNamespaces:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notPrincipals:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notRemoteIpBlocks:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notRequestPrincipals:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               principals:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               remoteIpBlocks:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               requestPrincipals:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                             type: object
@@ -5532,49 +5297,41 @@ spec:
                               hosts:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               methods:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notHosts:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notMethods:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notPaths:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               notPorts:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               paths:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                               ports:
                                 description: Optional.
                                 items:
-                                  format: string
                                   type: string
                                 type: array
                             type: object
@@ -5586,18 +5343,15 @@ spec:
                         properties:
                           key:
                             description: The name of an Istio attribute.
-                            format: string
                             type: string
                           notValues:
                             description: Optional.
                             items:
-                              format: string
                               type: string
                             type: array
                           values:
                             description: Optional.
                             items:
-                              format: string
                               type: string
                             type: array
                         type: object
@@ -5609,7 +5363,6 @@ spec:
                 properties:
                   matchLabels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -5703,7 +5456,6 @@ spec:
                 properties:
                   matchLabels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -5759,7 +5511,6 @@ spec:
                   properties:
                     audiences:
                       items:
-                        format: string
                         type: string
                       type: array
                     forwardOriginalToken:
@@ -5772,38 +5523,30 @@ spec:
                         properties:
                           name:
                             description: The HTTP header name.
-                            format: string
                             type: string
                           prefix:
                             description: The prefix that should be stripped before
                               decoding the token.
-                            format: string
                             type: string
                         type: object
                       type: array
                     fromParams:
                       description: List of query parameters from which JWT is expected.
                       items:
-                        format: string
                         type: string
                       type: array
                     issuer:
                       description: Identifies the issuer that issued the JWT.
-                      format: string
                       type: string
                     jwks:
                       description: JSON Web Key Set of public keys to validate signature
                         of the JWT.
-                      format: string
                       type: string
                     jwks_uri:
-                      format: string
                       type: string
                     jwksUri:
-                      format: string
                       type: string
                     outputPayloadToHeader:
-                      format: string
                       type: string
                   type: object
                 type: array
@@ -5813,7 +5556,6 @@ spec:
                 properties:
                   matchLabels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -5871,12 +5613,114 @@ spec:
             description: Telemetry defines how the telemetry is generated for workloads
               within a mesh.
             properties:
+              accessLogging:
+                description: Optional.
+                items:
+                  properties:
+                    disabled:
+                      description: Controls logging.
+                      nullable: true
+                      type: boolean
+                    providers:
+                      description: Optional.
+                      items:
+                        properties:
+                          name:
+                            description: Required.
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                type: array
+              metrics:
+                description: Optional.
+                items:
+                  properties:
+                    overrides:
+                      description: Optional.
+                      items:
+                        properties:
+                          disabled:
+                            description: Optional.
+                            nullable: true
+                            type: boolean
+                          match:
+                            description: Match allows provides the scope of the override.
+                            oneOf:
+                            - not:
+                                anyOf:
+                                - required:
+                                  - metric
+                                - required:
+                                  - customMetric
+                            - required:
+                              - metric
+                            - required:
+                              - customMetric
+                            properties:
+                              customMetric:
+                                description: Allows free-form specification of a metric.
+                                type: string
+                              metric:
+                                description: One of the well-known Istio Standard
+                                  Metrics.
+                                enum:
+                                - ALL_METRICS
+                                - REQUEST_COUNT
+                                - REQUEST_DURATION
+                                - REQUEST_SIZE
+                                - RESPONSE_SIZE
+                                - TCP_OPENED_CONNECTIONS
+                                - TCP_CLOSED_CONNECTIONS
+                                - TCP_SENT_BYTES
+                                - TCP_RECEIVED_BYTES
+                                - GRPC_REQUEST_MESSAGES
+                                - GRPC_RESPONSE_MESSAGES
+                                type: string
+                              mode:
+                                description: 'Controls which mode of metrics generation
+                                  is selected: CLIENT and/or SERVER.'
+                                enum:
+                                - CLIENT_AND_SERVER
+                                - CLIENT
+                                - SERVER
+                                type: string
+                            type: object
+                          tagOverrides:
+                            additionalProperties:
+                              properties:
+                                operation:
+                                  description: Operation controls whether or not to
+                                    update/add a tag, or to remove it.
+                                  enum:
+                                  - UPSERT
+                                  - REMOVE
+                                  type: string
+                                value:
+                                  description: Value is only considered if the operation
+                                    is `UPSERT`.
+                                  type: string
+                              type: object
+                            description: Optional.
+                            type: object
+                        type: object
+                      type: array
+                    providers:
+                      description: Optional.
+                      items:
+                        properties:
+                          name:
+                            description: Required.
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                type: array
               selector:
                 description: Optional.
                 properties:
                   matchLabels:
                     additionalProperties:
-                      format: string
                       type: string
                     type: object
                 type: object
@@ -5908,12 +5752,10 @@ spec:
                             properties:
                               defaultValue:
                                 description: Optional.
-                                format: string
                                 type: string
                               name:
                                 description: Name of the environment variable from
                                   which to extract the tag value.
-                                format: string
                                 type: string
                             type: object
                           header:
@@ -5922,12 +5764,10 @@ spec:
                             properties:
                               defaultValue:
                                 description: Optional.
-                                format: string
                                 type: string
                               name:
                                 description: Name of the header from which to extract
                                   the tag value.
-                                format: string
                                 type: string
                             type: object
                           literal:
@@ -5936,7 +5776,6 @@ spec:
                             properties:
                               value:
                                 description: The tag value to use.
-                                format: string
                                 type: string
                             type: object
                         type: object
@@ -5952,7 +5791,6 @@ spec:
                         properties:
                           name:
                             description: Required.
-                            format: string
                             type: string
                         type: object
                       type: array

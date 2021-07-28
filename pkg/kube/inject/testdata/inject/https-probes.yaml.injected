@@ -17,11 +17,10 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
       creationTimestamp: null
       labels:
         app: hello
-        istio.io/rev: default
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: hello
         service.istio.io/canonical-revision: latest
@@ -220,16 +219,6 @@ spec:
           - fieldRef:
               fieldPath: metadata.annotations
             path: annotations
-          - path: cpu-limit
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: limits.cpu
-          - path: cpu-request
-            resourceFieldRef:
-              containerName: istio-proxy
-              divisor: 1m
-              resource: requests.cpu
         name: istio-podinfo
       - name: istio-token
         projected:

@@ -42,10 +42,11 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/strcase"
 	"istio.io/pkg/log"
 )
@@ -122,23 +123,6 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 
 // ALPNDownstream advertises that Proxy is going to talking either tcp(for metadata exchange), http2 or http 1.1.
 var ALPNDownstream = []string{"istio-peer-exchange", "h2", "http/1.1"}
-
-// FallThroughFilterChainBlackHoleService is the blackhole service used for fall though
-// filter chain
-var FallThroughFilterChainBlackHoleService = &model.Service{
-	Hostname: host.Name(BlackHoleCluster),
-	Attributes: model.ServiceAttributes{
-		Name: BlackHoleCluster,
-	},
-}
-
-// FallThroughFilterChainPassthroughService is the passthrough service used for fall though
-var FallThroughFilterChainPassthroughService = &model.Service{
-	Hostname: host.Name(PassthroughCluster),
-	Attributes: model.ServiceAttributes{
-		Name: PassthroughCluster,
-	},
-}
 
 func getMaxCidrPrefix(addr string) uint32 {
 	ip := net.ParseIP(addr)
@@ -265,12 +249,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE19 checks whether the given Istio version is greater than or equals 1.9.
-func IsIstioVersionGE19(node *model.Proxy) bool {
-	return node == nil || node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 9, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -502,17 +480,14 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterID string, labels labels.Instance) *core.Metadata {
-	if network == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
+func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
+	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
+	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) && !features.EndpointTelemetryLabel {
 		return nil
 	}
 
 	metadata := &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{},
-	}
-
-	if network != "" {
-		addIstioEndpointLabel(metadata, "network", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: network}})
 	}
 
 	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
@@ -542,11 +517,48 @@ func BuildLbEndpointMetadata(network, tlsMode, workloadname, namespace, clusterI
 			sb.WriteString(csr)
 		}
 		sb.WriteString(";")
-		sb.WriteString(clusterID)
+		sb.WriteString(clusterID.String())
 		addIstioEndpointLabel(metadata, "workload", &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: sb.String()}})
 	}
 
 	return metadata
+}
+
+// MaybeApplyTLSModeLabel may or may not update the metadata for the Envoy transport socket matches for auto mTLS.
+func MaybeApplyTLSModeLabel(ep *endpoint.LbEndpoint, tlsMode string) (*endpoint.LbEndpoint, bool) {
+	if ep == nil || ep.Metadata == nil {
+		return nil, false
+	}
+	epTLSMode := ""
+	if ep.Metadata.FilterMetadata != nil {
+		if v, ok := ep.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey]; ok {
+			epTLSMode = v.Fields[model.TLSModeLabelShortname].GetStringValue()
+		}
+	}
+	// Normalize the tls label name before comparison. This ensure we won't falsely cloning
+	// the endpoint when they are "" and model.DisabledTLSModeLabel.
+	if epTLSMode == model.DisabledTLSModeLabel {
+		epTLSMode = ""
+	}
+	if tlsMode == model.DisabledTLSModeLabel {
+		tlsMode = ""
+	}
+	if epTLSMode == tlsMode {
+		return nil, false
+	}
+	// We make a copy instead of modifying on existing endpoint pointer directly to avoid data race.
+	// See https://github.com/istio/istio/issues/34227 for details.
+	newEndpoint := proto.Clone(ep).(*endpoint.LbEndpoint)
+	if tlsMode != "" && tlsMode != model.DisabledTLSModeLabel {
+		newEndpoint.Metadata.FilterMetadata[EnvoyTransportSocketMetadataKey] = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				model.TLSModeLabelShortname: {Kind: &pstruct.Value_StringValue{StringValue: tlsMode}},
+			},
+		}
+	} else {
+		delete(newEndpoint.Metadata.FilterMetadata, EnvoyTransportSocketMetadataKey)
+	}
+	return newEndpoint, true
 }
 
 func addIstioEndpointLabel(metadata *core.Metadata, key string, val *pstruct.Value) {
@@ -579,7 +591,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 // shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
 func shortHostName(host string, attributes model.ServiceAttributes) string {
-	if attributes.ServiceRegistry == string(serviceregistry.Kubernetes) {
+	if attributes.ServiceRegistry == provider.Kubernetes {
 		return attributes.Name + "." + attributes.Namespace
 	}
 	return host

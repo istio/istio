@@ -24,8 +24,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/k8s"
 )
@@ -38,21 +40,29 @@ func TestNamespaceController(t *testing.T) {
 	}, client)
 	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
 	client.RunAndWait(stop)
 	nc.Run(stop)
 
 	createNamespace(t, client, "foo", nil)
-	expectConfigMap(t, client, "foo", testdata)
+	expectConfigMap(t, nc.configmapLister, "foo", testdata)
 
 	newData := map[string]string{"key": "value", "foo": "bar"}
 	if err := k8s.InsertDataToConfigMap(client.CoreV1(), nc.configmapLister,
 		metav1.ObjectMeta{Name: CACertNamespaceConfigMap, Namespace: "foo"}, newData); err != nil {
 		t.Fatal(err)
 	}
-	expectConfigMap(t, client, "foo", newData)
+	expectConfigMap(t, nc.configmapLister, "foo", newData)
 
 	deleteConfigMap(t, client, "foo")
-	expectConfigMap(t, client, "foo", testdata)
+	expectConfigMap(t, nc.configmapLister, "foo", testdata)
+
+	for _, namespace := range inject.IgnoredNamespaces {
+		createNamespace(t, client, namespace, testdata)
+		expectConfigMapNotExist(t, nc.configmapLister, namespace)
+	}
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
@@ -84,10 +94,10 @@ func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, label
 	}
 }
 
-func expectConfigMap(t *testing.T, client kubernetes.Interface, ns string, data map[string]string) {
+func expectConfigMap(t *testing.T, client listerv1.ConfigMapLister, ns string, data map[string]string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		cm, err := client.CoreV1().ConfigMaps(ns).Get(context.TODO(), CACertNamespaceConfigMap, metav1.GetOptions{})
+		cm, err := client.ConfigMaps(ns).Get(CACertNamespaceConfigMap)
 		if err != nil {
 			return err
 		}
@@ -96,4 +106,16 @@ func expectConfigMap(t *testing.T, client kubernetes.Interface, ns string, data 
 		}
 		return nil
 	}, retry.Timeout(time.Second*2))
+}
+
+func expectConfigMapNotExist(t *testing.T, client listerv1.ConfigMapLister, ns string) {
+	t.Helper()
+	err := retry.Until(func() bool {
+		_, err := client.ConfigMaps(ns).Get(CACertNamespaceConfigMap)
+		return err == nil
+	}, retry.Timeout(time.Second*2))
+
+	if err == nil {
+		t.Fatalf("%s namespace should not have istio-ca-root-cert configmap.", ns)
+	}
 }

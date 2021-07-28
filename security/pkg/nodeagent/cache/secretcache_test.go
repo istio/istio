@@ -32,13 +32,8 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
-	"istio.io/istio/tests/util/leak"
 	"istio.io/pkg/log"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func TestWorkloadAgentGenerateSecret(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
@@ -61,7 +56,7 @@ func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceN
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, true)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -148,7 +143,7 @@ func (u *UpdateTracker) Reset() {
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	cacheLog.SetOutputLevel(log.DebugLevel)
-	fakeCACli, err := mock.NewMockCAClient(time.Millisecond * 200)
+	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*200, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -332,7 +327,7 @@ func TestFileSecrets(t *testing.T) {
 }
 
 func runFileAgentTest(t *testing.T, sds bool) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -376,7 +371,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 	// We shouldn't get an pushes; these only happen on changes
 	u.Expect(map[string]int{})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.CertificatePath, testcerts.RotatedCert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// Expect update callback
@@ -388,7 +383,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		PrivateKey:       privateKey,
 	})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.PrivateKeyPath, testcerts.RotatedKey, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We do NOT expect update callback. We only watch the cert file, since the key and cert must be updated
@@ -401,7 +396,7 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		PrivateKey:       testcerts.RotatedKey,
 	})
 
-	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
+	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0o644)); err != nil {
 		t.Fatal(err)
 	}
 	// We expect to get an update notification, and the new root cert to be read
@@ -410,6 +405,21 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		ResourceName: rootResource,
 		RootCert:     testcerts.CACert,
 	})
+
+	// Remove the file and add it again and validate that proxy is updated with new cert.
+	if err := os.Remove(sc.existingCertificateFile.CaCertificatePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.AtomicWrite(sc.existingCertificateFile.CaCertificatePath, testcerts.CACert, os.FileMode(0644)); err != nil {
+		t.Fatal(err)
+	}
+	// We expect to get an update notification, and the new root cert to be read
+	u.Expect(map[string]int{workloadResource: 1, rootResource: 2})
+	checkSecret(t, sc, rootResource, security.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     testcerts.CACert,
+	})
+
 	// Double check workload cert is untouched
 	checkSecret(t, sc, workloadResource, security.SecretItem{
 		ResourceName:     workloadResource,
@@ -533,7 +543,7 @@ func TestConcatCerts(t *testing.T) {
 }
 
 func TestProxyConfigAnchors(t *testing.T) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}

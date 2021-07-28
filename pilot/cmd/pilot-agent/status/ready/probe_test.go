@@ -15,6 +15,7 @@
 package ready
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -35,15 +36,31 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.Context = ctx
 
 	err := probe.Check()
 
 	g.Expect(err).NotTo(HaveOccurred())
 }
 
+func TestEnvoyDraining(t *testing.T) {
+	g := NewWithT(t)
+
+	server := testserver.CreateAndStartServer(liveServerStats)
+	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port), Context: ctx}
+	cancel()
+
+	err := probe.isEnvoyReady()
+
+	g.Expect(err).To(HaveOccurred())
+}
+
 func TestEnvoyStats(t *testing.T) {
-	prefix := "config not received from Pilot (is Pilot running?): "
 	cases := []struct {
 		name   string
 		stats  string
@@ -52,18 +69,23 @@ func TestEnvoyStats(t *testing.T) {
 		{
 			"only lds",
 			"listener_manager.lds.update_success: 1",
-			prefix + "cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected",
+			"config not fully received from XDS server: cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected",
 		},
 		{
 			"only cds",
 			"cluster_manager.cds.update_success: 1",
-			prefix + "cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected",
+			"config not fully received from XDS server: cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected",
 		},
 		{
 			"reject CDS",
 			`cluster_manager.cds.update_rejected: 1
 listener_manager.lds.update_success: 1`,
-			prefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected",
+			"config received from XDS server, but was rejected: cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected",
+		},
+		{
+			"no config",
+			``,
+			"config not received from XDS server (is Istiod running?): cds updates: 0 successful, 0 rejected; lds updates: 0 successful, 0 rejected",
 		},
 		{
 			"workers not started",
@@ -89,8 +111,10 @@ server.state: 0`,
 		t.Run(tt.name, func(t *testing.T) {
 			server := testserver.CreateAndStartServer(tt.stats)
 			defer server.Close()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
-
+			probe.Context = ctx
 			err := probe.Check()
 
 			// Expect no error
@@ -113,8 +137,10 @@ func TestEnvoyInitializing(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(initServerStats)
 	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
-
+	probe.Context = ctx
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -125,8 +151,10 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(onlyServerStats)
 	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
-
+	probe.Context = ctx
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -137,8 +165,10 @@ func TestEnvoyNoServerStats(t *testing.T) {
 
 	server := testserver.CreateAndStartServer(noServerStats)
 	defer server.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
-
+	probe.Context = ctx
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
@@ -148,7 +178,10 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	g := NewWithT(t)
 
 	server := testserver.CreateAndStartServer(noServerStats)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
+	probe.Context = ctx
 	err := probe.Check()
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeFalse())

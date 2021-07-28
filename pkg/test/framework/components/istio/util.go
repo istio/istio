@@ -183,7 +183,7 @@ func PatchMeshConfig(t framework.TestContext, ns string, clusters cluster.Cluste
 	mu := sync.RWMutex{}
 
 	cmName := "istio"
-	if rev := t.Settings().Revision; rev != "default" && rev != "" {
+	if rev := t.Settings().Revisions.Default(); rev != "default" && rev != "" {
 		cmName += "-" + rev
 	}
 	for _, c := range clusters.Kube() {

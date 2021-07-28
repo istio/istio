@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+- |
+  **Updated** Prometheus telemetry behavior for inbound traffic to disable host header fallback by default. This will
+  prevent traffic coming from out-of-mesh locations from potential polluting the `destination_service` dimension in
+  metrics with junk data (and exploding metrics cardinality). With this change, it is possible that users relying on
+  host headers for labeling the destination service for inbound traffic from out-of-mesh workloads will see that traffic
+  labeled as `unknown`. The behavior can be restored by modifying Istio configuration to remove the `disable_host_header_fallback: true`
+  configuration.
+upgradeNotes:
+  - title: Host header fallback disabled by default for Prometheus metrics for *all* inbound traffic.
+    content: |
+      Host header fallback for determining values for Prometheus `destination_service` labels has been disabled for all incoming traffic.
+      Previously, this was disabled *only* for traffic arriving at Gateways. If you are relying on host header fallback behavior to properly
+      label the `destination_service` in Prometheus metrics for traffic originating from out-of-mesh workloads, then you will need to update the telemetry
+      configuration to enable host header fallback.
+

@@ -262,10 +262,12 @@ func containRegexMatch(config *networking.StringMatch) bool {
 	if config == nil {
 		return false
 	}
-	if config.GetRegex() != "" {
+	switch config.GetMatchType().(type) {
+	case *networking.StringMatch_Regex:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
 // isInternalHeader returns true if a header refers to an internal value that cannot be modified by Envoy

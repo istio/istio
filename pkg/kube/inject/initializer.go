@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
-var ignoredNamespaces = []string{
+var IgnoredNamespaces = []string{
 	constants.KubeSystemNamespace,
 	constants.KubePublicNamespace,
 	constants.KubeNodeLeaseNamespace,

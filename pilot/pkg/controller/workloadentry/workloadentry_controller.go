@@ -550,7 +550,7 @@ func autoregisteredWorkloadEntryName(proxy *model.Proxy) string {
 	}
 	p := []string{proxy.Metadata.AutoRegisterGroup, proxy.IPAddresses[0]}
 	if proxy.Metadata.Network != "" {
-		p = append(p, proxy.Metadata.Network)
+		p = append(p, string(proxy.Metadata.Network))
 	}
 
 	name := strings.Join(p, "-")
@@ -617,10 +617,12 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 	}
 
 	if proxy.Metadata.Network != "" {
-		entry.Network = proxy.Metadata.Network
+		entry.Network = string(proxy.Metadata.Network)
 	}
-	if proxy.Locality != nil {
-		entry.Locality = util.LocalityToString(proxy.Locality)
+	// proxy.Locality is unset when auto registration takes place, because its
+	// state is not fully initialized. Therefore, we check the bootstrap node.
+	if proxy.XdsNode.Locality != nil {
+		entry.Locality = util.LocalityToString(proxy.XdsNode.Locality)
 	}
 	if proxy.Metadata.ProxyConfig != nil && proxy.Metadata.ProxyConfig.ReadinessProbe != nil {
 		annotations[status.WorkloadEntryHealthCheckAnnotation] = "true"
@@ -663,5 +665,5 @@ func (c *Controller) handleErr(err error, key interface{}) {
 }
 
 func makeProxyKey(proxy *model.Proxy) string {
-	return proxy.Metadata.Network + proxy.IPAddresses[0]
+	return string(proxy.Metadata.Network) + proxy.IPAddresses[0]
 }

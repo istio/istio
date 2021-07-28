@@ -28,7 +28,9 @@
               "static_layer": {
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
                   "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
-                  "re2.max_program_size.error_level": 1024
+                  "re2.max_program_size.error_level": 1024,
+                  "envoy.reloadable_features.treat_host_like_authority": false,
+                  "envoy.reloadable_features.new_tcp_connection_pool": false
               }
           },
           {
@@ -213,7 +215,7 @@
                   "socket_address": {
                     "protocol": "TCP",
                     "address": "{{ .localhost }}",
-                    "port_value": 15020
+                    "port_value": {{ .config.StatusPort }}
                   }
                 }
               }
@@ -241,7 +243,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./etc/istio/proxy/SDS"
+                    "path": "{{ .config.ConfigPath }}/SDS"
                   }
                 }
               }
@@ -310,7 +312,7 @@
                   "socket_address": {{ .pilot_grpc_address }}
                   {{- else }}
                   "pipe": {
-                    "path": "./etc/istio/proxy/XDS"
+                    "path": "{{ .config.ConfigPath }}/XDS"
                   }
                   {{- end }}
                 }
@@ -515,7 +517,7 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "{{ .wildcard }}",
-            "port_value": 15090
+            "port_value": {{ .envoy_prometheus_port }}
           }
         },
         "filter_chains": [
@@ -561,11 +563,11 @@
       },
       {
         "address": {
-          "socket_address": {
-            "protocol": "TCP",
-            "address": "{{ .wildcard }}",
-            "port_value": 15021
-          }
+           "socket_address": {
+             "protocol": "TCP",
+             "address": "{{ .wildcard }}",
+             "port_value": {{ .envoy_status_port }}
+           }
         },
         "filter_chains": [
           {

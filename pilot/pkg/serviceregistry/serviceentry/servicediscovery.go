@@ -27,7 +27,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -68,7 +70,7 @@ type configKey struct {
 type ServiceEntryStore struct { // nolint:golint
 	XdsUpdater model.XDSUpdater
 	store      model.IstioConfigStore
-	clusterID  string
+	clusterID  cluster.ID
 
 	storeMutex sync.RWMutex
 
@@ -97,7 +99,7 @@ func DisableServiceEntryProcessing() ServiceDiscoveryOption {
 	}
 }
 
-func WithClusterID(clusterID string) ServiceDiscoveryOption {
+func WithClusterID(clusterID cluster.ID) ServiceDiscoveryOption {
 	return func(o *ServiceEntryStore) {
 		o.clusterID = clusterID
 	}
@@ -158,10 +160,10 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		si := convertWorkloadEntryToWorkloadInstance(curr)
-		if si != nil {
+		wi := convertWorkloadEntryToWorkloadInstance(curr)
+		if wi != nil {
 			for _, h := range s.workloadHandlers {
-				h(si, event)
+				h(wi, event)
 			}
 		}
 	}
@@ -291,18 +293,18 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	}
 
 	for _, svc := range addedSvcs {
-		s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
+		s.XdsUpdater.SvcUpdate(string(s.Cluster()), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
 	for _, svc := range updatedSvcs {
-		s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
+		s.XdsUpdater.SvcUpdate(string(s.Cluster()), string(svc.Hostname), svc.Attributes.Namespace, model.EventUpdate)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
 	// If service entry is deleted, cleanup endpoint shards for services.
 	for _, svc := range deletedSvcs {
-		s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		s.XdsUpdater.SvcUpdate(string(s.Cluster()), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 		configsUpdated[makeConfigKey(svc)] = struct{}{}
 	}
 
@@ -464,11 +466,11 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 	s.edsUpdate(instances, true)
 }
 
-func (s *ServiceEntryStore) Provider() serviceregistry.ProviderID {
-	return serviceregistry.External
+func (s *ServiceEntryStore) Provider() provider.ID {
+	return provider.External
 }
 
-func (s *ServiceEntryStore) Cluster() string {
+func (s *ServiceEntryStore) Cluster() cluster.ID {
 	// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 	// VIPs or CIDR ranges in the address field
 	return ""
@@ -594,11 +596,11 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 	if len(allInstances) == 0 {
 		if push {
 			for k := range keys {
-				s.XdsUpdater.EDSUpdate(s.Cluster(), string(k.hostname), k.namespace, nil)
+				s.XdsUpdater.EDSUpdate(string(s.Cluster()), string(k.hostname), k.namespace, nil)
 			}
 		} else {
 			for k := range keys {
-				s.XdsUpdater.EDSCacheUpdate(s.Cluster(), string(k.hostname), k.namespace, nil)
+				s.XdsUpdater.EDSCacheUpdate(string(s.Cluster()), string(k.hostname), k.namespace, nil)
 			}
 		}
 		return
@@ -626,11 +628,11 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 
 	if push {
 		for k, eps := range endpoints {
-			s.XdsUpdater.EDSUpdate(s.Cluster(), string(k.hostname), k.namespace, eps)
+			s.XdsUpdater.EDSUpdate(string(s.Cluster()), string(k.hostname), k.namespace, eps)
 		}
 	} else {
 		for k, eps := range endpoints {
-			s.XdsUpdater.EDSCacheUpdate(s.Cluster(), string(k.hostname), k.namespace, eps)
+			s.XdsUpdater.EDSCacheUpdate(string(s.Cluster()), string(k.hostname), k.namespace, eps)
 		}
 	}
 }
@@ -791,7 +793,15 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model
 	for _, ip := range node.IPAddresses {
 		instances, found := s.ip2instance[ip]
 		if found {
-			out = append(out, instances...)
+			for _, i := range instances {
+				// Insert all instances for this IP for services within the same namespace This ensures we
+				// match Kubernetes logic where Services do not cross namespace boundaries and avoids
+				// possibility of other namespaces inserting service instances into namespaces they do not
+				// control.
+				if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
+					out = append(out, i)
+				}
+			}
 		}
 	}
 	return out
@@ -825,7 +835,7 @@ func (s *ServiceEntryStore) GetIstioServiceAccounts(svc *model.Service, ports []
 	return model.GetServiceAccounts(svc, ports, s)
 }
 
-func (s *ServiceEntryStore) NetworkGateways() map[string][]*model.Gateway {
+func (s *ServiceEntryStore) NetworkGateways() []*model.NetworkGateway {
 	// TODO implement mesh networks loading logic from kube controller if needed
 	return nil
 }
@@ -902,7 +912,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
 	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
 	// So we bump X to 511, so that the resulting IP is 240.240.2.1
-	maxIPs := 255 * 255 // are we going to exceeed this limit by processing 64K services?
+	maxIPs := 255 * 255 // are we going to exceed this limit by processing 64K services?
 	x := 0
 	for _, svc := range services {
 		// we can allocate IPs only if

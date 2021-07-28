@@ -35,11 +35,14 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/trustbundle"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/identifier"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/monitoring"
 )
@@ -67,7 +70,7 @@ type Environment struct {
 	// service registries.
 	mesh.NetworksWatcher
 
-	// PushContext holds informations during push generation. It is reset on config change, at the beginning
+	// PushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
@@ -84,6 +87,8 @@ type Environment struct {
 	TrustBundle *trustbundle.TrustBundle
 
 	clusterLocalServices ClusterLocalProvider
+
+	GatewayAPIController GatewayController
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -164,7 +169,7 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
 }
 
-// Request is an alias for array of marshaled resources.
+// Resources is an alias for array of marshaled resources.
 type Resources = []*discovery.Resource
 
 func AnyToUnnamedResources(r []*any.Any) Resources {
@@ -187,30 +192,26 @@ func ResourcesToAny(r Resources) []*any.Any {
 // See for example EDS incremental updates.
 type XdsUpdates = map[ConfigKey]struct{}
 
-// GeneratorMetadata has information about generator it self that processors like ads/delta can use.
-type GeneratorMetadata struct {
-	// LogsDetails indicates whether the generator logs details during the generation.
-	LogsDetails bool
+// XdsLogDetails contains additional metadata that is captured by Generators and used by xds processors
+// like Ads and Delta to uniformly log.
+type XdsLogDetails struct {
+	Incremental    bool
+	AdditionalInfo string
 }
 
-// XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
-// with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
+var DefaultXdsLogDetails = XdsLogDetails{}
+
+// XdsResourceGenerator creates the response for a typeURL DiscoveryRequest or DeltaDiscoveryRequest. If no generator
+// is associated with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 // Note: any errors returned will completely close the XDS stream. Use with caution; typically and empty
 // or no response is preferred.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, error)
-	Metadata() *GeneratorMetadata
-}
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
 
-// BaseGenerator is the base generator.
-type BaseGenerator struct{}
-
-var baseMetadata = &GeneratorMetadata{false}
-
-func (bg *BaseGenerator) Metadata() *GeneratorMetadata {
-	return baseMetadata
+	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
+	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, []string, XdsLogDetails, bool, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -227,7 +228,7 @@ type Proxy struct {
 
 	// IPAddresses is the IP addresses of the proxy used to identify it and its
 	// co-located service instances. Example: "10.60.1.6". In some cases, the host
-	// where the poxy and service instances reside may have more than one IP address
+	// where the proxy and service instances reside may have more than one IP address
 	IPAddresses []string
 
 	// ID is the unique platform-specific sidecar proxy ID. For k8s it is the pod ID and
@@ -539,12 +540,12 @@ type NodeMetadata struct {
 	MeshID string `json:"MESH_ID,omitempty"`
 
 	// ClusterID defines the cluster the node belongs to.
-	ClusterID string `json:"CLUSTER_ID,omitempty"`
+	ClusterID cluster.ID `json:"CLUSTER_ID,omitempty"`
 
 	// Network defines the network the node belongs to. It is an optional metadata,
 	// set at injection time. When set, the Endpoints returned to a node and not on same network
 	// will be replaced with the gateway defined in the settings.
-	Network string `json:"NETWORK,omitempty"`
+	Network network.ID `json:"NETWORK,omitempty"`
 
 	// RequestedNetworkView specifies the networks that the proxy wants to see
 	RequestedNetworkView StringList `json:"REQUESTED_NETWORK_VIEW,omitempty"`
@@ -600,6 +601,12 @@ type NodeMetadata struct {
 	// Used by envoy filters
 	StsPort string `json:"STS_PORT,omitempty"`
 
+	// Envoy status port redirecting to agent status port.
+	EnvoyStatusPort int `json:"ENVOY_STATUS_PORT,omitempty"`
+
+	// Envoy prometheus port redirecting to admin port prometheus endpoint.
+	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
@@ -615,36 +622,34 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 	return def
 }
 
-// UnnamedNetwork is the default network that proxies in the mesh
-// get when they don't request a specific network view.
-const UnnamedNetwork = ""
-
 // GetNetworkView returns the networks that the proxy requested.
 // When sending EDS/CDS-with-dns-endpoints, Pilot will only send
 // endpoints corresponding to the networks that the proxy wants to see.
 // If not set, we assume that the proxy wants to see endpoints in any network.
-func (node *Proxy) GetNetworkView() map[string]bool {
+func (node *Proxy) GetNetworkView() map[network.ID]bool {
 	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
 		return nil
 	}
 
-	nmap := make(map[string]bool)
+	nmap := make(map[network.ID]bool)
 	for _, n := range node.Metadata.RequestedNetworkView {
-		nmap[n] = true
+		nmap[network.ID(n)] = true
 	}
-	nmap[UnnamedNetwork] = true
+	nmap[identifier.Undefined] = true
 
 	return nmap
 }
 
 // InNetwork returns true if the proxy is on the given network, or if either
 // the proxy's network or the given network is unspecified ("").
-func (node *Proxy) InNetwork(network string) bool {
-	return node == nil || IsSameNetwork(network, node.Metadata.Network)
+func (node *Proxy) InNetwork(network network.ID) bool {
+	return node == nil || identifier.IsSameOrEmpty(network.String(), node.Metadata.Network.String())
 }
 
-func IsSameNetwork(a, b string) bool {
-	return a == UnnamedNetwork || b == UnnamedNetwork || a == b
+// InCluster returns true if the proxy is in the given cluster, or if either
+// the proxy's cluster id or the given cluster id is unspecified ("").
+func (node *Proxy) InCluster(cluster cluster.ID) bool {
+	return node == nil || identifier.IsSameOrEmpty(cluster.String(), node.Metadata.ClusterID.String())
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
@@ -665,7 +670,7 @@ func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Converts this to a protobuf structure. This should be used only for debugging - performance is bad.
+// ToStruct converts NodeMetadata to a protobuf structure. This should be used only for debugging - performance is bad.
 func (m NodeMetadata) ToStruct() *structpb.Struct {
 	j, err := json.Marshal(m)
 	if err != nil {
@@ -759,26 +764,6 @@ func (node *Proxy) ServiceNode() string {
 	}, serviceNodeSeparator)
 }
 
-// RouterMode decides the behavior of Istio Gateway (normal or sni-dnat)
-type RouterMode string
-
-const (
-	// StandardRouter is the normal gateway mode
-	StandardRouter RouterMode = "standard"
-
-	// SniDnatRouter is used for bridging two networks
-	SniDnatRouter RouterMode = "sni-dnat"
-)
-
-// GetRouterMode returns the operating mode associated with the router.
-// Assumes that the proxy is of type Router
-func (node *Proxy) GetRouterMode() RouterMode {
-	if RouterMode(node.Metadata.RouterMode) == SniDnatRouter {
-		return SniDnatRouter
-	}
-	return StandardRouter
-}
-
 // SetSidecarScope identifies the sidecar scope object associated with this
 // proxy and updates the proxy Node. This is a convenience hack so that
 // callers can simply call push.Services(node) while the implementation of
@@ -806,6 +791,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
+// Must be called after ServiceInstances are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	if node.Type != Router {
 		return
@@ -837,7 +823,6 @@ func (node *Proxy) SetWorkloadLabels(env *Environment) {
 	if len(node.Metadata.Labels) > 0 {
 		return
 	}
-
 	// Fallback to calling GetProxyWorkloadLabels
 	l := env.GetProxyWorkloadLabels(node)
 	if len(l) > 0 {
@@ -1057,4 +1042,9 @@ func (node *Proxy) GetInterceptionMode() TrafficInterceptionMode {
 func (node *Proxy) IsVM() bool {
 	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
 	return node.Metadata != nil && node.Metadata.Labels[constants.TestVMLabel] != ""
+}
+
+type GatewayController interface {
+	ConfigStoreCache
+	Recompute(GatewayContext) error
 }

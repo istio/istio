@@ -21,13 +21,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"istio.io/istio/tests/util/leak"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func TestResourceLock_Lock(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -52,7 +46,7 @@ func TestResourceLock_Lock(t *testing.T) {
 	var runCount int32
 	x := make(chan struct{})
 	y := make(chan struct{})
-	workers := NewWorkerPool(func(resource *Resource, progress *Progress) {
+	workers := NewProgressWorkerPool(func(resource Resource, progress Progress) {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
 		y <- struct{}{}

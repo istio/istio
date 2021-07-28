@@ -191,5 +191,8 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		func(t *telemetry.Tracing, c fuzz.Continue) {
 			*t = telemetry.Tracing{}
 		},
+		func(t *telemetry.MetricSelector, c fuzz.Continue) {
+			*t = telemetry.MetricSelector{}
+		},
 	}
 }

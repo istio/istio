@@ -31,7 +31,7 @@ func NewListener(path string) (net.Listener, error) {
 	}
 
 	// Attempt to create the folder in case it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		// If we cannot create it, just warn here - we will fail later if there is a real error
 		log.Warnf("Failed to create directory for %v: %v", path, err)
 	}
@@ -46,7 +46,7 @@ func NewListener(path string) (net.Listener, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("uds file %q doesn't exist", path)
 	}
-	if err := os.Chmod(path, 0666); err != nil {
+	if err := os.Chmod(path, 0o666); err != nil {
 		return nil, fmt.Errorf("failed to update %q permission", path)
 	}
 

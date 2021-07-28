@@ -33,8 +33,8 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	operator_validate "istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -272,11 +272,11 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 	v := &validator{}
 
 	var errs, err error
-	var reader io.Reader
+	var reader io.ReadCloser
 	warningsByFilename := map[string]validation.Warning{}
 	for _, filename := range filenames {
 		if filename == "-" {
-			reader = os.Stdin
+			reader = io.NopCloser(os.Stdin)
 		} else {
 			reader, err = os.Open(filename)
 		}
@@ -288,6 +288,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
+		reader.Close()
 		warningsByFilename[filename] = warning
 	}
 
@@ -417,7 +418,7 @@ func servicePortPrefixed(n string) bool {
 
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {
-		istioNamespace = controller.IstioNamespace
+		istioNamespace = constants.IstioSystemNamespace
 	}
 	return istioNamespace
 }

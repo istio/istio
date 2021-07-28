@@ -127,7 +127,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	restConfig, clientset, client, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
+	restConfig, _, client, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
 	if err != nil {
 		return err
 	}
@@ -162,11 +162,6 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 		}
 		opts.ProgressLog.SetState(progress.StateUninstallComplete)
-
-		// If we're removing the default revision, add `istiod` service so we don't break existing revisions
-		if uiArgs.revision == "default" {
-			_ = createIstiodService(clientset, name.IstioDefaultNamespace)
-		}
 		return nil
 	}
 	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},

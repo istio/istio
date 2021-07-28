@@ -20,7 +20,7 @@ Scenarios in which one might want to add a VM test in this doc:
 Most integration tests in Istio use the Echo application. To test connectivity, security and telemetry for a VM
 in the mesh, we deploy an instance of the Echo application as a VM resource. A VM Echo instance will simulate a VM,
 disabling kube-dns, Service Account mount, etc. For more information around VM onboarding,
-refer to this [doc](https://istio.io/latest/docs/examples/virtual-machines/single-network/).
+refer to this [doc](https://istio.io/latest/docs/setup/install/virtual-machine/).
 
 To deploy an echo instance as a VM
 1. Set the ports for the VMs.
@@ -72,7 +72,7 @@ to save time in CI/CD.**
 
 ## Scenario 3: Testing VM Onboarding & Enmeshing
 
-Detailed steps to onboard a VM could be found in [VM onboarding documentation](https://istio.io/latest/docs/examples/virtual-machines/single-network/).
+Detailed steps to onboard a VM could be found in [VM onboarding documentation](https://istio.io/latest/docs/setup/install/virtual-machine/).
 
 Currently, these steps are pre-configured and built in the deployment. However, each of them could be tested
 by tweaking the [VM deployment template](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/kube/deployment.go#L193).

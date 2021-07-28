@@ -26,7 +26,7 @@ import (
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -80,57 +80,27 @@ type VirtualHostWrapper struct {
 	Routes []*route.Route
 }
 
-// BuildSidecarVirtualHostsFromConfigAndRegistry creates virtual hosts from
+// BuildSidecarVirtualHostWrapper creates virtual hosts from
 // the given set of virtual services and a list of services from the
 // service registry. Services are indexed by FQDN hostnames.
 // The list of services is also passed to allow maintaining consistent ordering.
-func BuildSidecarVirtualHostsFromConfigAndRegistry(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+func BuildSidecarVirtualHostWrapper(node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
 	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
 	// translate all virtual service configs into virtual hosts
 	for _, virtualService := range virtualServices {
-		wrappers := buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, listenPort)
-		if len(wrappers) == 0 {
-			// If none of the routes matched by source (i.e. proxyLabels), then discard this entire virtual service
-			continue
-		}
-		out = append(out, wrappers...)
+		out = append(out, buildSidecarVirtualHostsForVirtualService(node, push, virtualService, serviceRegistry, listenPort)...)
 	}
 
 	// compute services missing virtual service configs
-	missing := make(map[host.Name]struct{})
-	for fqdn := range serviceRegistry {
-		missing[fqdn] = struct{}{}
-	}
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
-			delete(missing, service.Hostname)
+			delete(serviceRegistry, service.Hostname)
 		}
 	}
-
 	// append default hosts for the service missing virtual services
-	for hn := range missing {
-		svc := serviceRegistry[hn]
-		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
-				traceOperation := traceOperation(string(svc.Hostname), port.Port)
-				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
-
-				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-				if hashPolicy := getHashPolicyByService(node, push, svc, port); hashPolicy != nil {
-					httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
-				}
-				out = append(out, VirtualHostWrapper{
-					Port:     port.Port,
-					Services: []*model.Service{svc},
-					Routes:   []*route.Route{httpRoute},
-				})
-			}
-		}
-	}
-
+	out = append(out, buildSidecarVirtualHostsForService(node, push, serviceRegistry)...)
 	return out
 }
 
@@ -187,6 +157,12 @@ func buildSidecarVirtualHostsForVirtualService(
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int) []VirtualHostWrapper {
+	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
+	if err != nil || len(routes) == 0 {
+		return nil
+	}
+
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
 
 	// Now group these services by port so that we can infer the destination.port if the user
@@ -203,30 +179,51 @@ func buildSidecarVirtualHostsForVirtualService(
 		}
 	}
 
-	// We need to group the virtual hosts by port, because each http connection manager is
-	// going to send a separate RDS request
-	// Note that we need to build non-default HTTP routes only for the virtual services.
-	// The services in the serviceRegistry will always have a default route (/)
 	if len(serviceByPort) == 0 {
-		// This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
-		// the current code is written.
-		serviceByPort[80] = nil
+		if listenPort == 80 {
+			// TODO: This is a gross HACK. Fix me. Its a much bigger surgery though, due to the way
+			// the current code is written.
+			serviceByPort[80] = nil
+		}
 	}
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+
 	out := make([]VirtualHostWrapper, 0, len(serviceByPort))
-	routes, err := BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, listenPort, meshGateway)
-	if err != nil || len(routes) == 0 {
-		return out
-	}
-	for port, portServices := range serviceByPort {
+	for port, service := range serviceByPort {
 		out = append(out, VirtualHostWrapper{
 			Port:                port,
-			Services:            portServices,
+			Services:            service,
 			VirtualServiceHosts: hosts,
 			Routes:              routes,
 		})
 	}
 
+	return out
+}
+
+func buildSidecarVirtualHostsForService(
+	node *model.Proxy,
+	push *model.PushContext,
+	serviceRegistry map[host.Name]*model.Service) []VirtualHostWrapper {
+	out := make([]VirtualHostWrapper, 0)
+	for _, svc := range serviceRegistry {
+		for _, port := range svc.Ports {
+			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				traceOperation := traceOperation(string(svc.Hostname), port.Port)
+				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
+
+				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
+				if hashPolicy := getHashPolicyByService(node, push, svc, port); hashPolicy != nil {
+					httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
+				}
+				out = append(out, VirtualHostWrapper{
+					Port:     port.Port,
+					Services: []*model.Service{svc},
+					Routes:   []*route.Route{httpRoute},
+				})
+			}
+		}
+	}
 	return out
 }
 
@@ -409,9 +406,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		action.MaxGrpcTimeout = d
 		out.Action = &route.Route_Route{Route: action}
 
-		action.PrefixRewrite = in.Rewrite.GetUri()
-		if in.Rewrite.GetAuthority() != "" {
-			authority = in.Rewrite.GetAuthority()
+		if in.Rewrite != nil {
+			action.PrefixRewrite = in.Rewrite.GetUri()
+			if in.Rewrite.GetAuthority() != "" {
+				authority = in.Rewrite.GetAuthority()
+			}
 		}
 		if authority != "" {
 			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
@@ -449,7 +448,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				Weight: weight,
 			}
 			if dst.Headers != nil {
-				operations := translateHeadersOperations(dst.Headers)
+				operations := translateHeadersOperationsForDestination(dst.Headers)
 				clusterWeight.RequestHeadersToAdd = operations.requestHeadersToAdd
 				clusterWeight.RequestHeadersToRemove = operations.requestHeadersToRemove
 				clusterWeight.ResponseHeadersToAdd = operations.responseHeadersToAdd
@@ -599,6 +598,53 @@ func dropInternal(keys []string) []string {
 		result = append(result, k)
 	}
 	return result
+}
+
+// translateHeadersOperationsForDestination translates headers operations for a HTTPRouteDestination
+// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
+func translateHeadersOperationsForDestination(headers *networking.Headers) headersOperations {
+	req := headers.GetRequest()
+	resp := headers.GetResponse()
+
+	requestHeadersToAdd := translateAppendHeadersForDestination(req.GetSet(), false)
+	reqAdd := translateAppendHeadersForDestination(req.GetAdd(), true)
+	requestHeadersToAdd = append(requestHeadersToAdd, reqAdd...)
+
+	responseHeadersToAdd := translateAppendHeadersForDestination(resp.GetSet(), false)
+	respAdd := translateAppendHeadersForDestination(resp.GetAdd(), true)
+	responseHeadersToAdd = append(responseHeadersToAdd, respAdd...)
+
+	return headersOperations{
+		requestHeadersToAdd:     requestHeadersToAdd,
+		responseHeadersToAdd:    responseHeadersToAdd,
+		requestHeadersToRemove:  dropInternal(req.GetRemove()),
+		responseHeadersToRemove: dropInternal(resp.GetRemove()),
+	}
+}
+
+// translateAppendHeadersForDestination translates headers
+// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with translateHeadersOperations
+func translateAppendHeadersForDestination(headers map[string]string, appendFlag bool) []*core.HeaderValueOption {
+	if len(headers) == 0 {
+		return nil
+	}
+	headerValueOptionList := make([]*core.HeaderValueOption, 0, len(headers))
+	for key, value := range headers {
+		// Unlike for translateHeadersOperations, Host header is fine but : prefix is not.
+		// Controlled by envoy.reloadable_features.treat_host_like_authority; long term Envoy will likely change the API
+		if strings.HasPrefix(key, ":") {
+			continue
+		}
+		headerValueOptionList = append(headerValueOptionList, &core.HeaderValueOption{
+			Header: &core.HeaderValue{
+				Key:   key,
+				Value: value,
+			},
+			Append: &wrappers.BoolValue{Value: appendFlag},
+		})
+	}
+	sort.Stable(SortHeaderValueOption(headerValueOptionList))
+	return headerValueOptionList
 }
 
 // translateHeadersOperations translates headers operations

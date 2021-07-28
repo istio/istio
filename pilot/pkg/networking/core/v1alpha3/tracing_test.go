@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"testing"
 
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hpb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
@@ -31,71 +32,93 @@ import (
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
 func TestConfigureTracing(t *testing.T) {
+	clusterName := "testcluster"
+	providerName := "foo"
+
 	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
-		return "testhost", "testcluster", nil
+		return "testhost", clusterName, nil
 	}
 	defer func() {
 		clusterLookupFn = extensionproviders.LookupCluster
 	}()
 
 	testcases := []struct {
-		name   string
-		opts   buildListenerOpts
-		inSpec *tpb.Telemetry
-		want   *hpb.HttpConnectionManager_Tracing
+		name      string
+		opts      buildListenerOpts
+		inSpec    *tpb.Telemetry
+		want      *hpb.HttpConnectionManager_Tracing
+		wantRfCtx *xdsfilters.RouterFilterContext
 	}{
 		{
-			name: "no telemetry api",
-			opts: fakeOptsNoTelemetryAPI(),
-			want: fakeTracingConfigNoProvider(55.55, 13, append(defaultTracingTags(), fakeEnvTag)),
+			name:      "no telemetry api",
+			opts:      fakeOptsNoTelemetryAPI(),
+			want:      fakeTracingConfigNoProvider(55.55, 13, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: nil,
 		},
 		{
-			name:   "only telemetry api (no provider)",
-			inSpec: fakeTracingSpecNoProvider(99.999, false),
-			opts:   fakeOptsOnlyTelemetryAPI(),
-			want:   fakeTracingConfigNoProvider(99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+			name:      "only telemetry api (no provider)",
+			inSpec:    fakeTracingSpecNoProvider(99.999, false),
+			opts:      fakeOptsOnlyZipkinTelemetryAPI(),
+			want:      fakeTracingConfigNoProvider(99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: nil,
 		},
 		{
-			name:   "only telemetry api (with provider)",
-			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
-			opts:   fakeOptsOnlyTelemetryAPI(),
-			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			name:      "only telemetry api (with provider)",
+			inSpec:    fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
+			opts:      fakeOptsOnlyZipkinTelemetryAPI(),
+			want:      fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: nil,
 		},
 		{
-			name:   "both tracing enabled (no provider)",
-			inSpec: fakeTracingSpecNoProvider(99.999, false),
-			opts:   fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:   fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
+			name:      "both tracing enabled (no provider)",
+			inSpec:    fakeTracingSpecNoProvider(99.999, false),
+			opts:      fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
+			want:      fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: nil,
 		},
 		{
-			name:   "both tracing disabled (no provider)",
-			inSpec: fakeTracingSpecNoProvider(99.999, false),
-			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:   fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
+			name:      "both tracing disabled (no provider)",
+			inSpec:    fakeTracingSpecNoProvider(99.999, false),
+			opts:      fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
+			want:      fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: nil,
 		},
 		{
-			name:   "both tracing enabled (with provider)",
-			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
-			opts:   fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			name:      "both tracing enabled (with provider)",
+			inSpec:    fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
+			opts:      fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
+			want:      fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: nil,
 		},
 		{
-			name:   "both tracing disabled (with provider)",
-			inSpec: fakeTracingSpec(fakeProviders([]string{"foo"}), 99.999, false),
-			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:   fakeTracingConfig(fakeZipkinProvider, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			name:      "both tracing disabled (with provider)",
+			inSpec:    fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
+			opts:      fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
+			want:      fakeTracingConfig(fakeZipkinProvider(clusterName, providerName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: nil,
+		},
+		{
+			name:      "basic config (with skywalking provicer)",
+			inSpec:    fakeTracingSpec(fakeProviders([]string{providerName}), 99.999, false),
+			opts:      fakeOptsOnlySkywalkingTelemetryAPI(),
+			want:      fakeTracingConfig(fakeSkywalkingProvider(clusterName, providerName), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+			wantRfCtx: &xdsfilters.RouterFilterContext{StartChildSpan: true},
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(tt *testing.T) {
 			hcm := &hpb.HttpConnectionManager{}
-			configureTracingFromSpec(tc.inSpec, tc.opts, hcm)
+			gotRfCtx := configureTracingFromSpec(tc.inSpec, tc.opts, hcm)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Errorf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(gotRfCtx, tc.wantRfCtx); diff != "" {
+				t.Errorf("got filter modifier context is unexpected diff (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -167,7 +190,7 @@ func fakeOptsNoTelemetryAPI() buildListenerOpts {
 	return opts
 }
 
-func fakeOptsOnlyTelemetryAPI() buildListenerOpts {
+func fakeOptsOnlyZipkinTelemetryAPI() buildListenerOpts {
 	var opts buildListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -230,6 +253,32 @@ func fakeOptsMeshAndTelemetryAPI(enableTracing bool) buildListenerOpts {
 					},
 				},
 			},
+		},
+	}
+
+	return opts
+}
+
+func fakeOptsOnlySkywalkingTelemetryAPI() buildListenerOpts {
+	var opts buildListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "foo",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Skywalking{
+						Skywalking: &meshconfig.MeshConfig_ExtensionProvider_SkyWalkingTracingProvider{
+							Service: "skywalking-oap.istio-system.svc.cluster.local",
+							Port:    11800,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
 	}
 
@@ -307,17 +356,34 @@ var fakeEnvTag = &tracing.CustomTag{
 	},
 }
 
-var fakeZipkinProviderConfig = &tracingcfg.ZipkinConfig{
-	CollectorCluster:         "testcluster",
-	CollectorEndpoint:        "/api/v2/spans",
-	CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
-	TraceId_128Bit:           true,
-	SharedSpanContext:        wrapperspb.Bool(false),
+func fakeZipkinProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
+	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
+		CollectorCluster:         expectClusterName,
+		CollectorEndpoint:        "/api/v2/spans",
+		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+		TraceId_128Bit:           true,
+		SharedSpanContext:        wrapperspb.Bool(false),
+	}
+	fakeZipkinAny, _ := anypb.New(fakeZipkinProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       expectProviderName,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeZipkinAny},
+	}
 }
 
-var fakeZipkinAny, _ = anypb.New(fakeZipkinProviderConfig)
-
-var fakeZipkinProvider = &tracingcfg.Tracing_Http{
-	Name:       "foo",
-	ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeZipkinAny},
+func fakeSkywalkingProvider(expectClusterName, expectProviderName string) *tracingcfg.Tracing_Http {
+	fakeSkywalkingProviderConfig := &tracingcfg.SkyWalkingConfig{
+		GrpcService: &envoy_config_core_v3.GrpcService{
+			TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+					ClusterName: expectClusterName,
+				},
+			},
+		},
+	}
+	fakeSkywalkingAny, _ := anypb.New(fakeSkywalkingProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       expectProviderName,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeSkywalkingAny},
+	}
 }

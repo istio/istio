@@ -37,6 +37,20 @@ type httpProtocol struct {
 	do     common.HTTPDoFunc
 }
 
+func splitPath(raw string) (url, path string) {
+	schemeSep := "://"
+	schemeBegin := strings.Index(raw, schemeSep)
+	if schemeBegin == -1 {
+		return raw, ""
+	}
+	schemeEnd := schemeBegin + len(schemeSep)
+	pathBegin := strings.IndexByte(raw[schemeEnd:], '/')
+	if pathBegin == -1 {
+		return raw, ""
+	}
+	return raw[:schemeEnd+pathBegin], raw[schemeEnd+pathBegin:]
+}
+
 func (c *httpProtocol) setHost(r *http.Request, host string) {
 	r.Host = host
 
@@ -68,12 +82,16 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 	if method == "" {
 		method = "GET"
 	}
-	httpReq, err := http.NewRequest(method, req.URL, nil)
+
+	// Manually split the path from the URL, the http.NewRequest() will fail to parse paths with invalid encoding that we
+	// intentionally used in the test.
+	u, p := splitPath(req.URL)
+	httpReq, err := http.NewRequest(method, u, nil)
 	if err != nil {
 		return "", err
 	}
 	// Use raw path, we don't want golang normalizing anything since we use this for testing purposes
-	httpReq.URL.Opaque = httpReq.URL.RawPath
+	httpReq.URL.Opaque = p
 
 	// Set the per-request timeout.
 	ctx, cancel := context.WithTimeout(ctx, req.Timeout)

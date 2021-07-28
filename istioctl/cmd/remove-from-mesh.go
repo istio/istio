@@ -54,11 +54,14 @@ The 'add-to-mesh' command can be used to add or restore the sidecar.`,
 
   # Restart all ratings-v1 pods without an Istio sidecar
   istioctl x rm deploy ratings-v1`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
+		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown resource type %q", args[0])
 			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
 			return nil
 		},
 	}

@@ -66,7 +66,7 @@ type DistributionController struct {
 	cmInformer      cache.SharedIndexInformer
 }
 
-func NewController(restConfig rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
+func NewController(restConfig *rest.Config, namespace string, cs model.ConfigStore) *DistributionController {
 	c := &DistributionController{
 		CurrentState:    make(map[Resource]map[string]Progress),
 		ObservationTime: make(map[string]time.Time),
@@ -81,12 +81,12 @@ func NewController(restConfig rest.Config, namespace string, cs model.ConfigStor
 	restConfig.QPS = float32(features.StatusQPS)
 	restConfig.Burst = features.StatusBurst
 	var err error
-	if c.dynamicClient, err = dynamic.NewForConfig(&restConfig); err != nil {
+	if c.dynamicClient, err = dynamic.NewForConfig(restConfig); err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
 
 	// configmap informer
-	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(&restConfig), 1*time.Minute,
+	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute,
 		informers.WithNamespace(namespace),
 		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
 			listOptions.LabelSelector = labels.Set(map[string]string{labelKey: "true"}).AsSelector().String()
@@ -105,9 +105,9 @@ func (c *DistributionController) Start(stop <-chan struct{}) {
 	ctx := NewIstioContext(stop)
 	go c.cmInformer.Run(ctx.Done())
 
-	c.workers = NewWorkerPool(func(resource *Resource, progress *Progress) {
-		c.writeStatus(*resource, *progress)
-	}, uint(features.StatusMaxWorkers.Get()))
+	c.workers = NewProgressWorkerPool(func(resource Resource, progress Progress) {
+		c.writeStatus(resource, progress)
+	}, uint(features.StatusMaxWorkers))
 	c.workers.Run(ctx)
 
 	//  create Status Writer
@@ -223,7 +223,7 @@ func (c *DistributionController) queueWriteStatus(config Resource, state Progres
 
 func (c *DistributionController) configDeleted(res config.Config) {
 	r := ResourceFromModelConfig(res)
-	c.workers.Delete(*r)
+	c.workers.Delete(r)
 }
 
 func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
