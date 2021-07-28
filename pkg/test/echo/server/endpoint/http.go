@@ -129,7 +129,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
-	go s.awaitReady(onReady, port)
+	go s.awaitReady(onReady, listener.Addr().String())
 
 	return nil
 }
@@ -138,7 +138,7 @@ func (s *httpInstance) isUDS() bool {
 	return s.UDSServer != ""
 }
 
-func (s *httpInstance) awaitReady(onReady OnReadyFunc, port int) {
+func (s *httpInstance) awaitReady(onReady OnReadyFunc, address string) {
 	defer onReady()
 
 	client := http.Client{}
@@ -151,10 +151,10 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, port int) {
 			},
 		}
 	} else if s.Port.TLS {
-		url = fmt.Sprintf("https://127.0.0.1:%d", port)
+		url = fmt.Sprintf("https://%s", address)
 		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	} else {
-		url = fmt.Sprintf("http://127.0.0.1:%d", port)
+		url = fmt.Sprintf("http://%s", address)
 	}
 
 	err := retry.UntilSuccess(func() error {
