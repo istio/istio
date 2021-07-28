@@ -94,13 +94,13 @@ func TestNeedsPush(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "non istio resource",
+			name: "config with always push label",
 			prev: config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					Labels:           map[string]string{"test": "test-v1"},
+					Labels:           map[string]string{"istio.io/alwayspush": "true"},
 				},
 			},
 			curr: config.Config{
@@ -108,7 +108,7 @@ func TestNeedsPush(t *testing.T) {
 					GroupVersionKind: gvk.Ingress,
 					Name:             "acme2-v1",
 					Namespace:        "not-default",
-					Labels:           map[string]string{"test": "test-v1"},
+					Labels:           map[string]string{"istio.io/alwayspush": "true"},
 				},
 			},
 			expected: true,

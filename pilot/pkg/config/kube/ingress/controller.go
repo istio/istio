@@ -96,6 +96,8 @@ var ingressNamespace = env.RegisterStringVar("K8S_INGRESS_NS", "", "").Get()
 
 var errUnsupportedOp = errors.New("unsupported operation: the ingress config store is a read-only view")
 
+const alwaysPushLabel = "istio.io/alwayspush"
+
 // Check if the "networking/v1" Ingress is available. Implementation borrowed from ingress-nginx
 func V1Available(client kube.Client) bool {
 	// check kubernetes version to use new ingress package or not
@@ -254,22 +256,29 @@ func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) erro
 	if !shouldProcess {
 		return nil
 	}
+	ing, _ := curObj.(*ingress.Ingress)
+	vsmetadata := config.Meta{
+		Name:             ing.Name + "-" + "virtualservice",
+		Namespace:        ing.Namespace,
+		GroupVersionKind: gvk.VirtualService,
+		// Set this label so that we do not compare configs and just push.
+		Labels: map[string]string{alwaysPushLabel: "true"},
+	}
+	gatewaymetadata := config.Meta{
+		Name:             ing.Name + "-" + "gateway",
+		Namespace:        ing.Namespace,
+		GroupVersionKind: gvk.Gateway,
+		// Set this label so that we do not compare configs and just push.
+		Labels: map[string]string{alwaysPushLabel: "true"},
+	}
 
 	// Trigger updates for Gateway and VirtualService
 	// TODO: we could be smarter here and only trigger when real changes were found
 	for _, f := range c.virtualServiceHandlers {
-		f(config.Config{}, config.Config{
-			Meta: config.Meta{
-				GroupVersionKind: gvk.VirtualService,
-			},
-		}, event)
+		f(config.Config{Meta: vsmetadata}, config.Config{Meta: vsmetadata}, event)
 	}
 	for _, f := range c.gatewayHandlers {
-		f(config.Config{}, config.Config{
-			Meta: config.Meta{
-				GroupVersionKind: gvk.Gateway,
-			},
-		}, event)
+		f(config.Config{Meta: gatewaymetadata}, config.Config{Meta: gatewaymetadata}, event)
 	}
 
 	return nil

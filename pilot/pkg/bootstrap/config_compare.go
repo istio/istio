@@ -15,24 +15,24 @@
 package bootstrap
 
 import (
-	"strings"
-
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/istio/pkg/config"
 )
 
+// Label to skip config comparision.
+const alwaysPushLabel = "istio.io/alwayspush"
+
 // needsPush checks whether the passed in config has same spec and hence push needs
 // to be triggered. This is to avoid unnecessary pushes only when labels have changed
 // for example.
 func needsPush(prev config.Config, curr config.Config) bool {
+	if _, exists := prev.Meta.Labels[alwaysPushLabel]; exists {
+		return true
+	}
 	if prev.GroupVersionKind != curr.GroupVersionKind {
 		// This should never happen.
 		return false
-	}
-	// If the config is not Istio, let us just push.
-	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") || strings.HasPrefix(prev.GroupVersionKind.Group, "core") {
-		return true
 	}
 	prevspec, ok := prev.Spec.(proto.Message)
 	if !ok {
