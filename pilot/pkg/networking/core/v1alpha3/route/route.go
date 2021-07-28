@@ -145,7 +145,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	}
 
 	// append default hosts for the service missing virtual Services
-	out = append(out, buildSidecarVirtualHostsForService(node, serviceRegistry, hashByService)...)
+	out = append(out, buildSidecarVirtualHostsForService(serviceRegistry, hashByService)...)
 	return out
 }
 
@@ -246,7 +246,6 @@ func buildSidecarVirtualHostsForVirtualService(
 }
 
 func buildSidecarVirtualHostsForService(
-	node *model.Proxy,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
 ) []VirtualHostWrapper {
@@ -256,7 +255,7 @@ func buildSidecarVirtualHostsForService(
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := traceOperation(string(svc.Hostname), port.Port)
-				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
+				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation)
 
 				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
 				if hashByPort, ok := hashByService[svc.Hostname]; ok {
@@ -954,7 +953,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
-func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
 	notimeout := durationpb.New(0)
 	routeAction := &route.RouteAction{
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
@@ -981,9 +980,9 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 }
 
 // BuildDefaultHTTPOutboundRoute builds a default outbound route, including a retry policy.
-func BuildDefaultHTTPOutboundRoute(node *model.Proxy, clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPOutboundRoute(clusterName string, operation string) *route.Route {
 	// Start with the same configuration as for inbound.
-	out := BuildDefaultHTTPInboundRoute(node, clusterName, operation)
+	out := BuildDefaultHTTPInboundRoute(clusterName, operation)
 
 	// Add a default retry policy for outbound routes.
 	out.GetRoute().RetryPolicy = retry.DefaultPolicy()
