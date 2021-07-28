@@ -77,28 +77,29 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 		if appCtx.Namespace == nil || appCtx.LocalNamespace == nil {
 			return fmt.Errorf("namespaces not initialized; run Setup first")
 		}
+
+		clusters := ctx.Clusters().DataPlane()
+
 		// set up echos
 		// Running multiple instances in each cluster teases out cases where proxies inconsistently
 		// use wrong different discovery server. For higher numbers of clusters, we already end up
 		// running plenty of services. (see https://github.com/istio/istio/issues/23591).
-		uniqSvcPerCluster := 5 - len(ctx.Clusters())
+		uniqSvcPerCluster := 5 - len(clusters)
 		if uniqSvcPerCluster < 1 {
 			uniqSvcPerCluster = 1
 		}
 
 		builder := echoboot.NewBuilder(ctx)
-		for _, cluster := range ctx.Clusters() {
-			if !cluster.IsExternalControlPlane() {
-				echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
-				echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
+		for _, cluster := range clusters {
+			echoLbCfg := newEchoConfig("echolb", appCtx.Namespace, cluster)
+			echoLbCfg.Subsets = append(echoLbCfg.Subsets, echo.SubsetConfig{Version: "v2"})
 
-				builder = builder.
-					WithConfig(echoLbCfg).
-					WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
-				for i := 0; i < uniqSvcPerCluster; i++ {
-					svcName := fmt.Sprintf("echo-%s-%d", cluster.StableName(), i)
-					builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
-				}
+			builder = builder.
+				WithConfig(echoLbCfg).
+				WithConfig(newEchoConfig("local", appCtx.LocalNamespace, cluster))
+			for i := 0; i < uniqSvcPerCluster; i++ {
+				svcName := fmt.Sprintf("echo-%s-%d", cluster.StableName(), i)
+				builder = builder.WithConfig(newEchoConfig(svcName, appCtx.Namespace, cluster))
 			}
 		}
 		echos, err := builder.Build()

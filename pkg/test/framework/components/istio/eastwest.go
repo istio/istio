@@ -81,6 +81,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 		"--set", "tag=" + imgSettings.Tag,
 		"--set", "values.global.imagePullPolicy=" + imgSettings.PullPolicy,
 		"--set", "values.gateways.istio-ingressgateway.autoscaleEnabled=false",
+		"--set", "values.gateways.istio-ingressgateway.injectionTemplate=gateway",
 		"-f", iopFile,
 	}
 	if revision != "" {
