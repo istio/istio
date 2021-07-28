@@ -412,6 +412,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
+		buildHTTPService("service-A", visibility.Public, "", "default", 7777),
 	}
 
 	sidecarConfig := &config.Config{
@@ -712,6 +713,42 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec7 := &networking.VirtualService{
+		Hosts:    []string{"service-A", "service-A.v2", "service-A.v3"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{":authority": {MatchType: &networking.StringMatch_Exact{Exact: "service-A.v2"}}},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "service-A",
+							Subset: "v2",
+						},
+					},
+				},
+			},
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{":authority": {MatchType: &networking.StringMatch_Exact{Exact: "service-A.v3"}}},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "service-A",
+							Subset: "v3",
+						},
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -760,6 +797,13 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 		Spec: virtualServiceSpec6,
 	}
+	virtualService7 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "vs-1",
+		},
+		Spec: virtualServiceSpec7,
+	}
 
 	// With the config above, RDS should return a valid route for the following route names
 	// port 9000 - [bookinfo.com:9999, *.bookinfo.com:9990], [bookinfo.com:70, *.bookinfo.com:70] but no bookinfo.com
@@ -780,8 +824,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		sidecarConfig         *config.Config
 		virtualServiceConfigs []*config.Config
 		// virtualHost Name and domains
-		expectedHosts map[string]map[string]bool
-		registryOnly  bool
+		expectedHosts  map[string]map[string]bool
+		expectedRoutes int
+		registryOnly   bool
 	}{
 		{
 			name:                  "sidecar config port that is not in any service",
@@ -1151,18 +1196,46 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test.com:8080": {
 					"test.com:8080": true, "8.8.8.8:8080": true,
 				},
+				"service-A:7777": {
+					"service-A:7777": true,
+				},
 				"block_all": {
 					"*": true,
 				},
 			},
 			registryOnly: true,
 		},
+		{
+			name:                  "virtual service hosts with subsets and with existing service",
+			routeName:             "7777",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: []*config.Config{&virtualService7},
+			expectedHosts: map[string]map[string]bool{
+				"allow_any": {
+					"*": true,
+				},
+				"service-A:7777": {
+					"service-A":      true,
+					"service-A:7777": true,
+				},
+				"service-A.v2:7777": {
+					"service-A.v2":      true,
+					"service-A.v2:7777": true,
+				},
+				"service-A.v3:7777": {
+					"service-A.v3":      true,
+					"service-A.v3:7777": true,
+				},
+			},
+			expectedRoutes: 7,
+			registryOnly:   false,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
-				c.routeName, c.expectedHosts, c.registryOnly)
+				c.routeName, c.expectedHosts, c.expectedRoutes, c.registryOnly)
 		})
 	}
 }
@@ -1355,7 +1428,7 @@ func TestSelectVirtualService(t *testing.T) {
 
 func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	sidecarConfig *config.Config, virtualServices []*config.Config, routeName string,
-	expectedHosts map[string]map[string]bool, registryOnly bool) {
+	expectedHosts map[string]map[string]bool, expectedRoutes int, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
@@ -1382,7 +1455,9 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 		t.Fatalf("got nil route for %s", routeName)
 	}
 
-	expectedNumberOfRoutes := len(expectedHosts)
+	if expectedRoutes == 0 {
+		expectedRoutes = len(expectedHosts)
+	}
 	numberOfRoutes := 0
 	for _, vhost := range routeCfg.VirtualHosts {
 		numberOfRoutes += len(vhost.Routes)
@@ -1412,8 +1487,8 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 			t.Fatal("Expected that include request attempt count is set to true, but set to false")
 		}
 	}
-	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
-		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedNumberOfRoutes, numberOfRoutes)
+	if (expectedRoutes >= 0) && (numberOfRoutes != expectedRoutes) {
+		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedRoutes, numberOfRoutes)
 	}
 }
 
