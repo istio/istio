@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/meta/v1alpha1"
@@ -33,19 +34,17 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache {
+func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreCache, kube.ExtendedClient) {
 	features.EnableServiceApis = true
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
-		fake.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), &v1.CustomResourceDefinition{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group()),
-			},
-		}, metav1.CreateOptions{})
+		createCRD(t, fake, s.Resource())
 	}
 	stop := make(chan struct{})
 	config, err := New(fake, "", "")
@@ -58,13 +57,13 @@ func makeClient(t *testing.T, schemas collection.Schemas) model.ConfigStoreCache
 	t.Cleanup(func() {
 		close(stop)
 	})
-	return config
+	return config, fake
 }
 
 // Ensure that the client can run without CRDs present
 func TestClientNoCRDs(t *testing.T) {
 	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
-	store := makeClient(t, schema)
+	store, _ := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
 	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
 	configMeta := config.Meta{
@@ -100,9 +99,62 @@ func TestClientNoCRDs(t *testing.T) {
 	}, retry.Message("expected no items returned for unknown CRD"), retry.Timeout(time.Second*5), retry.Converge(5))
 }
 
+// Ensure that the client can run without CRDs present, but then added later
+func TestClientDelayedCRDs(t *testing.T) {
+	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
+	store, fake := makeClient(t, schema)
+	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
+	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+
+	// Create a virtual service
+	configMeta := config.Meta{
+		Name:             "name",
+		Namespace:        "ns",
+		GroupVersionKind: r.GroupVersionKind(),
+	}
+	pb, err := r.NewInstance()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Create(config.Config{
+		Meta: configMeta,
+		Spec: pb,
+	}); err != nil {
+		t.Fatalf("Create => got %v", err)
+	}
+
+	retry.UntilSuccessOrFail(t, func() error {
+		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
+		// List should actually not return an error in this case; this allows running with missing CRDs
+		// Instead, we just return an empty list.
+		if err != nil {
+			return fmt.Errorf("expected no error, but got %v", err)
+		}
+		if len(l) != 0 {
+			return fmt.Errorf("expected no items returned for unknown CRD")
+		}
+		return nil
+	}, retry.Timeout(time.Second*5), retry.Converge(5))
+
+	createCRD(t, fake, r)
+
+	retry.UntilSuccessOrFail(t, func() error {
+		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
+		// List should actually not return an error in this case; this allows running with missing CRDs
+		// Instead, we just return an empty list.
+		if err != nil {
+			return fmt.Errorf("expected no error, but got %v", err)
+		}
+		if len(l) != 1 {
+			return fmt.Errorf("expected items returned")
+		}
+		return nil
+	}, retry.Timeout(time.Second*10), retry.Converge(5))
+}
+
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
 func TestClient(t *testing.T) {
-	store := makeClient(t, collections.PilotServiceApi)
+	store, _ := makeClient(t, collections.PilotServiceApi)
 	configName := "name"
 	configNamespace := "namespace"
 	timeout := retry.Timeout(time.Millisecond * 200)
@@ -273,4 +325,33 @@ func TestClient(t *testing.T) {
 			return nil
 		})
 	})
+}
+
+func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
+	t.Helper()
+	crd := &v1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%s.%s", r.Plural(), r.Group()),
+		},
+	}
+	if _, err := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Metadata client fake is not kept in sync, so if using a fake clinet update that as well
+	fmc, ok := client.Metadata().(*metadatafake.FakeMetadataClient)
+	if !ok {
+		return
+	}
+	fmg := fmc.Resource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().GroupVersionResource())
+	fmd, ok := fmg.(metadatafake.MetadataClient)
+	if !ok {
+		return
+	}
+	if _, err := fmd.CreateFake(&metav1.PartialObjectMetadata{
+		TypeMeta:   crd.TypeMeta,
+		ObjectMeta: crd.ObjectMeta,
+	}, metav1.CreateOptions{}); err != nil {
+		t.Fatal(err)
+	}
 }
