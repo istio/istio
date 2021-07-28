@@ -51,7 +51,7 @@ func NewSyncController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
-func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(config.Config, config.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
 	c.monitor.AppendEventHandler(kind, f)
 }
 

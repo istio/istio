@@ -80,8 +80,8 @@ type controller struct {
 	domainSuffix string
 
 	queue                  queue.Instance
-	virtualServiceHandlers []func(config.Config, config.Config, model.Event)
-	gatewayHandlers        []func(config.Config, config.Config, model.Event)
+	virtualServiceHandlers []model.EventHandler
+	gatewayHandlers        []model.EventHandler
 
 	ingressInformer cache.SharedInformer
 	serviceInformer cache.SharedInformer
@@ -230,7 +230,7 @@ func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) erro
 	return nil
 }
 
-func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(config.Config, config.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
 	switch kind {
 	case gvk.VirtualService:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)

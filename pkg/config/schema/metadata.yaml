@@ -256,7 +256,7 @@ snapshots:
 resources:
   # Kubernetes specific configuration.
   - kind: "CustomResourceDefinition"
-    plural: "CustomResourceDefinitions"
+    plural: "customresourcedefinitions"
     group: "apiextensions.k8s.io"
     version: "v1"
     proto: "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition"

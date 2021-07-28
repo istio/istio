@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/log"
@@ -78,8 +79,12 @@ type Client struct {
 	revision string
 
 	// kinds keeps track of all cache handlers for known types
-	kinds map[config.GroupVersionKind]*cacheHandler
-	queue queue.Instance
+	kinds   map[config.GroupVersionKind]*cacheHandler
+	kindsMu sync.RWMutex
+	queue   queue.Instance
+
+	// handlers defines a list of event handlers per-type
+	handlers map[config.GroupVersionKind][]model.EventHandler
 
 	// The istio/client-go client we will use to access objects
 	istioClient istioclient.Interface
@@ -90,7 +95,10 @@ type Client struct {
 	// beginSync is set to true when calling SyncAll, it indicates the controller has began sync resources.
 	beginSync *atomic.Bool
 	// initialSync is set to true after performing an initial processing of all objects.
-	initialSync *atomic.Bool
+	initialSync         *atomic.Bool
+	schemasByCRDName    map[string]collection.Schema
+	client              kube.Client
+	crdMetadataInformer cache.SharedIndexInformer
 }
 
 var _ model.ConfigStoreCache = &Client{}
@@ -104,16 +112,27 @@ func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCa
 }
 
 func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuffix string, schemas collection.Schemas) (model.ConfigStoreCache, error) {
+	schemasByCRDName := map[string]collection.Schema{}
+	for _, s := range schemas.All() {
+		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
+		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
+		schemasByCRDName[name] = s
+	}
 	out := &Client{
 		domainSuffix:     domainSuffix,
 		schemas:          schemas,
+		schemasByCRDName: schemasByCRDName,
 		revision:         revision,
 		queue:            queue.NewQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
+		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
+		client:           client,
 		istioClient:      client.Istio(),
 		gatewayAPIClient: client.GatewayAPI(),
-		beginSync:        atomic.NewBool(false),
-		initialSync:      atomic.NewBool(false),
+		crdMetadataInformer: client.MetadataInformer().ForResource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().
+			GroupVersionResource()).Informer(),
+		beginSync:   atomic.NewBool(false),
+		initialSync: atomic.NewBool(false),
 	}
 
 	known, err := knownCRDs(ctx, client.Ext())
@@ -124,20 +143,9 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Resource().Plural(), s.Resource().Group())
 		if _, f := known[name]; f {
-			var i informers.GenericInformer
-			var err error
-			if s.Resource().Group() == "networking.x-k8s.io" {
-				i, err = client.GatewayAPIInformer().ForResource(s.Resource().GroupVersionResource())
-			} else {
-				i, err = client.IstioInformer().ForResource(s.Resource().GroupVersionResource())
-			}
-			if err != nil {
-				return nil, err
-			}
-			out.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(out, s, i)
+			handleCRDAdd(out, name, nil)
 		} else {
 			scope.Warnf("Skipping CRD %v as it is not present", s.Resource().GroupVersionKind())
-			out.schemas = out.schemas.Remove(s)
 		}
 	}
 
@@ -156,18 +164,13 @@ func (cl *Client) checkReadyForEvents(curr interface{}) error {
 	return nil
 }
 
-func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
-	h, exists := cl.kinds[kind]
-	if !exists {
-		return
-	}
-
-	h.handlers = append(h.handlers, handler)
+func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
+	cl.handlers[kind] = append(cl.handlers[kind], handler)
 }
 
 func (cl *Client) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
 	var errs error
-	for _, h := range cl.kinds {
+	for _, h := range cl.allKinds() {
 		if err := h.informer.SetWatchErrorHandler(handler); err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -187,14 +190,29 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	cl.SyncAll()
 	cl.initialSync.Store(true)
 	scope.Info("Pilot K8S CRD controller synced ", time.Since(t0))
+
+	cl.crdMetadataInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			crd, ok := obj.(*metav1.PartialObjectMetadata)
+			if !ok {
+				// Shouldn't happen
+				scope.Errorf("wrong type %T: %v", obj, obj)
+				return
+			}
+			handleCRDAdd(cl, crd.Name, stop)
+		},
+		UpdateFunc: nil,
+		DeleteFunc: nil,
+	})
+
 	cl.queue.Run(stop)
 	scope.Info("controller terminated")
 }
 
 func (cl *Client) informerSynced() bool {
-	for kind, ctl := range cl.kinds {
+	for _, ctl := range cl.allKinds() {
 		if !ctl.informer.HasSynced() {
-			scope.Infof("controller %q is syncing...", kind)
+			scope.Infof("controller %q is syncing...", ctl.schema.Resource().GroupVersionKind())
 			return false
 		}
 	}
@@ -209,8 +227,9 @@ func (cl *Client) HasSynced() bool {
 func (cl *Client) SyncAll() {
 	cl.beginSync.Store(true)
 	wg := sync.WaitGroup{}
-	for _, h := range cl.kinds {
-		if len(h.handlers) == 0 {
+	for _, h := range cl.allKinds() {
+		handlers := cl.handlers[h.schema.Resource().GroupVersionKind()]
+		if len(handlers) == 0 {
 			continue
 		}
 		h := h
@@ -225,7 +244,7 @@ func (cl *Client) SyncAll() {
 					continue
 				}
 				currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
-				for _, f := range h.handlers {
+				for _, f := range handlers {
 					f(config.Config{}, currConfig, model.EventAdd)
 				}
 			}
@@ -241,7 +260,7 @@ func (cl *Client) Schemas() collection.Schemas {
 
 // Get implements store interface
 func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	h, f := cl.kinds[typ]
+	h, f := cl.kind(typ)
 	if !f {
 		scope.Warnf("unknown type: %s", typ)
 		return nil
@@ -319,7 +338,7 @@ func (cl *Client) Delete(typ config.GroupVersionKind, name, namespace string, re
 
 // List implements store interface
 func (cl *Client) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	h, f := cl.kinds[kind]
+	h, f := cl.kind(kind)
 	if !f {
 		return nil, nil
 	}
@@ -347,6 +366,23 @@ func (cl *Client) objectInRevision(o *config.Config) bool {
 	}
 	// Otherwise, only return if the
 	return configEnv == cl.revision
+}
+
+func (cl *Client) allKinds() []*cacheHandler {
+	cl.kindsMu.RLock()
+	defer cl.kindsMu.RUnlock()
+	ret := make([]*cacheHandler, 0, len(cl.kinds))
+	for _, k := range cl.kinds {
+		ret = append(ret, k)
+	}
+	return ret
+}
+
+func (cl *Client) kind(r config.GroupVersionKind) (*cacheHandler, bool) {
+	cl.kindsMu.RLock()
+	defer cl.kindsMu.RUnlock()
+	ch, ok := cl.kinds[r]
+	return ch, ok
 }
 
 // knownCRDs returns all CRDs present in the cluster, with retries
@@ -422,4 +458,49 @@ func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]
 	default:
 		return nil, fmt.Errorf("unsupported patch type: %v. must be one of JSONPatchType or MergePatchType", patchType)
 	}
+}
+
+func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
+	scope.Debugf("adding CRD %q", name)
+	s, f := cl.schemasByCRDName[name]
+	if !f {
+		scope.Debugf("added resource that we are not watching: %v", name)
+		return
+	}
+	resourceGVK := s.Resource().GroupVersionKind()
+	gvr := s.Resource().GroupVersionResource()
+
+	cl.kindsMu.Lock()
+	defer cl.kindsMu.Unlock()
+	if _, f := cl.kinds[resourceGVK]; f {
+		scope.Debugf("added resource that already exists: %v", resourceGVK)
+		return
+	}
+	var i informers.GenericInformer
+	var ifactory starter
+	var err error
+	if s.Resource().Group() == gvk.ServiceApisGateway.Group {
+		ifactory = cl.client.GatewayAPIInformer()
+		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
+	} else {
+		ifactory = cl.client.IstioInformer()
+		i, err = cl.client.IstioInformer().ForResource(gvr)
+	}
+
+	if err != nil {
+		// Shouldn't happen
+		scope.Errorf("failed to create informer for %v", resourceGVK)
+		return
+	}
+	cl.kinds[s.Resource().GroupVersionKind()] = createCacheHandler(cl, s, i)
+	if stop != nil {
+		// Start informer factory, only if stop is defined. In startup case, we will not start here as
+		// we will start all factories once we are ready to initialize.
+		// For dynamically added CRDs, we need to start immediately though
+		ifactory.Start(stop)
+	}
+}
+
+type starter interface {
+	Start(stopCh <-chan struct{})
 }
