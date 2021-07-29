@@ -244,10 +244,14 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 			// Get previous container logs, if applicable
 			if restarts := containerRestarts(pod, container.Name); restarts > 0 {
-				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
-				// a log which will get highlighted in the test logs
-				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-				scopes.Framework.Errorf("FAIL: pod %v/%v container %v restarted %d times", pod.Name, pod.Namespace, container.Name, restarts)
+				// only care about istio components restart
+				if container.Name == "istio-proxy" || container.Name == "discovery" || container.Name == "istio-init" ||
+					container.Name == "istio-validation" || strings.HasPrefix(pod.Name, "istio-cni-node") {
+					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
+					// a log which will get highlighted in the test logs
+					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
+					scopes.Framework.Errorf("FAIL: pod %v/%v container %v restarted %d times", pod.Name, pod.Namespace, container.Name, restarts)
+				}
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
 					scopes.Framework.Warnf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
