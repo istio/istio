@@ -707,7 +707,7 @@ func waitForIstioReady(ctx resource.Context, c cluster.Cluster, cfg Config) erro
 func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, cfg Config) error {
 	// Configure direct access for each control plane to each APIServer. This allows each control plane to
 	// automatically discover endpoints in remote clusters.
-	for _, c := range ctx.Clusters().Kube() {
+	for _, c := range ctx.Clusters().Kube().DataPlane() {
 		if err := i.configureDirectAPIServiceAccessForCluster(ctx, cfg, c); err != nil {
 			return err
 		}
@@ -722,7 +722,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", c.Name(), err)
 	}
-	clusters := ctx.Clusters().Primaries(c)
+	clusters := ctx.Clusters().Configs(c)
 	if len(clusters) == 0 {
 		// giving 0 clusters to ctx.Config() means using all clusters
 		return nil
