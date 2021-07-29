@@ -88,7 +88,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
-	go s.awaitReady(onReady, port)
+	go s.awaitReady(onReady, listener.Addr().String())
 
 	return nil
 }
@@ -166,10 +166,8 @@ func (s *tcpInstance) Close() error {
 	return nil
 }
 
-func (s *tcpInstance) awaitReady(onReady OnReadyFunc, port int) {
+func (s *tcpInstance) awaitReady(onReady OnReadyFunc, address string) {
 	defer onReady()
-
-	address := fmt.Sprintf("127.0.0.1:%d", port)
 
 	err := retry.UntilSuccess(func() error {
 		conn, err := net.Dial("tcp", address)
