@@ -15,7 +15,6 @@
 package grpcgen
 
 import (
-	"istio.io/istio/pilot/pkg/model"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"

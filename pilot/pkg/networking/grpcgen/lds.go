@@ -15,15 +15,24 @@
 package grpcgen
 
 import (
+	"github.com/golang/protobuf/ptypes/wrappers"
+	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
+	"istio.io/istio/pilot/pkg/security/authn"
+	"net"
+	"strconv"
+	"strings"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"net"
-	"strconv"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
 
 // BuildListeners handles a LDS request, returning listeners of ApiListener type.
@@ -31,8 +40,119 @@ import (
 // specific services.
 func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
 	resp := model.Resources{}
-
 	filter := newListenerNameFilter(names)
+
+	buildOutboundListeners(resp, node, filter)
+	buildInboundListeners(resp, node, push, filter.inboundNames())
+
+	return resp
+}
+
+func buildInboundListeners(resp model.Resources, node *model.Proxy, push *model.PushContext, names []string) {
+	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, labels.Collection{node.Metadata.Labels})
+	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
+	for _, si := range node.ServiceInstances {
+		serviceInstancesByPort[si.Endpoint.EndpointPort] = si
+	}
+
+	for _, name := range names {
+		listenAddress := strings.TrimPrefix(name, grpcxds.ServerListenerNamePrefix)
+		listenHost, listenPortStr, err := net.SplitHostPort(listenAddress)
+		if err != nil {
+			log.Errorf("failed parsing address from gRPC listener name %s: %v", name, err)
+			continue
+		}
+		listenPort, err := strconv.Atoi(listenPortStr)
+		if err != nil {
+			log.Errorf("failed parsing port from gRPC listener name %s: %v", name, err)
+			continue
+		}
+		si, ok := serviceInstancesByPort[uint32(listenPort)]
+		if !ok {
+			log.Warnf("%s has no service instance for port %s", node.ID, listenPortStr)
+			continue
+		}
+
+		ll := &listener.Listener{
+			Name: name,
+			Address: &core.Address{Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: listenHost,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(listenPort),
+					},
+				},
+			}},
+			FilterChains: buildFilterChains(node, push, si, policyApplier),
+			// the following must not be set or the client will NACK
+			ListenerFilters: nil,
+			UseOriginalDst:  nil,
+		}
+		resp = append(resp, &discovery.Resource{
+			Name:     ll.Name,
+			Resource: util.MessageToAny(ll),
+		})
+	}
+}
+
+func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
+	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
+
+	var tlsContext *tls.DownstreamTlsContext
+	if mode != model.MTLSDisable && mode != model.MTLSUnknown {
+		tlsContext = &tls.DownstreamTlsContext{
+			CommonTlsContext: buildCommonTLSContext(authnplugin.TrustDomainsForValidation(push.Mesh)),
+			// TODO plain TLS support
+			RequireClientCertificate: &wrappers.BoolValue{Value: true},
+		}
+	}
+
+	if mode == model.MTLSUnknown {
+		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		mode = model.MTLSDisable
+	}
+	if mode == model.MTLSPermissive {
+		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
+		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
+		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		mode = model.MTLSDisable
+	}
+
+	var out []*listener.FilterChain
+	switch mode {
+	case model.MTLSDisable:
+		out = append(out, buildFilterChain("plaintext", nil))
+	case model.MTLSStrict:
+		out = append(out, buildFilterChain("mtls", tlsContext))
+	// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
+	}
+
+	return out
+}
+
+func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
+	out := &listener.FilterChain{
+		Name:             "inbound-" + nameSuffix,
+		FilterChainMatch: nil,
+		Filters: []*listener.Filter{{
+			Name: "inbound-hcm" + nameSuffix,
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+					// TODO gRPC doesn't support httpfilter yet; sending won't cause a NACK but they don't do anything
+				}),
+			},
+		}},
+	}
+	if tlsContext != nil {
+		out.TransportSocket = &core.TransportSocket{
+			Name:       transportSocketName,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+		}
+	}
+	return out
+}
+
+func buildOutboundListeners(resp model.Resources, node *model.Proxy, filter listenerNameFilter) {
 	for _, el := range node.SidecarScope.EgressListeners {
 		for _, sv := range el.Services() {
 			sHost := string(sv.Hostname)
@@ -72,7 +192,6 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 							},
 						}),
 					},
-					// TODO server-side listeners + mTLS
 				}
 
 				resp = append(resp, &discovery.Resource{
@@ -82,8 +201,6 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 			}
 		}
 	}
-
-	return resp
 }
 
 // map[host] -> map[port] -> exists
@@ -113,6 +230,16 @@ func (f listenerNameFilter) includeHostPort(host string, port string) bool {
 	}
 	_, ok = portMap[port]
 	return ok
+}
+
+func (f listenerNameFilter) inboundNames() []string {
+	var out []string
+	for key := range f {
+		if strings.HasPrefix(key, grpcxds.ServerListenerNamePrefix) {
+			out = append(out, key)
+		}
+	}
+	return out
 }
 
 func newListenerNameFilter(names []string) listenerNameFilter {
