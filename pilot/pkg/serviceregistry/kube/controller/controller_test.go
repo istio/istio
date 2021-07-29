@@ -515,6 +515,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod2",
 					Namespace:      "nsa",
+					NodeName:       string(clusterID) + "/" + p.Spec.NodeName,
 				},
 			}
 			if len(podServices) != 1 {
@@ -582,6 +583,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					TLSMode:        model.DisabledTLSModeLabel,
 					WorkloadName:   "pod3",
 					Namespace:      "nsa",
+					NodeName:       string(clusterID) + "/" + p.Spec.NodeName,
 				},
 			}
 			if len(podServices) != 1 {

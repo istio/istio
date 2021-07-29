@@ -77,6 +77,8 @@ type EndpointBuilder struct {
 	port       int
 	push       *model.PushContext
 	proxy      *model.Proxy
+	// The name of the node where the pilot agent is located
+	nodeName string
 
 	mtlsChecker *mtlsChecker
 }
@@ -101,6 +103,12 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		subsetName: subsetName,
 		hostname:   hostname,
 		port:       port,
+	}
+
+	if features.EnableInternalTrafficPolicy && (svc != nil && svc.InternalNodeLocalTrafficPolicy) {
+		if len(proxy.ServiceInstances) != 0 && proxy.ServiceInstances[0].Endpoint != nil {
+			b.nodeName = proxy.ServiceInstances[0].Endpoint.NodeName
+		}
 	}
 
 	enableMtlsChecker := false
@@ -133,6 +141,7 @@ func (b EndpointBuilder) Key() string {
 		strconv.FormatBool(b.clusterLocal),
 		util.LocalityToString(b.locality),
 		b.tunnelType.ToString(),
+		b.nodeName,
 	}
 	if b.push != nil && b.push.AuthnPolicies != nil {
 		params = append(params, b.push.AuthnPolicies.AggregateVersion)
@@ -302,6 +311,12 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			continue
 		}
 		for _, ep := range endpoints {
+			if features.EnableInternalTrafficPolicy {
+				// If endpoint is on a different node than the proxy we are generating for, skip it.
+				if b.service.InternalNodeLocalTrafficPolicy && (b.nodeName != ep.NodeName) {
+					continue
+				}
+			}
 			// TODO(nmittler): Consider merging discoverability policy with cluster-local
 			if !ep.IsDiscoverableFromProxy(b.proxy) {
 				continue

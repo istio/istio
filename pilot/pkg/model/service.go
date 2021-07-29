@@ -110,6 +110,13 @@ type Service struct {
 
 	// ResourceVersion represents the internal version of this object.
 	ResourceVersion string
+
+	// InternalNodeLocalTrafficPolicy specifies if the cluster internal traffic
+	// should be routed to all endpoints or node-local endpoints only.
+	// if true routes internal traffic to a Service to all endpoints.
+	// if false routes traffic to node-local endpoints only,
+	// traffic is dropped if no node-local endpoints are ready.
+	InternalNodeLocalTrafficPolicy bool
 }
 
 func (s *Service) Key() string {
@@ -428,6 +435,9 @@ type IstioEndpoint struct {
 
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
+
+	// The name of the node where the endpoint(pod) is located
+	NodeName string
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.

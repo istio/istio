@@ -109,6 +109,9 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 			LabelSelectors:  svc.Spec.Selector,
 		},
 	}
+	if svc.Spec.InternalTrafficPolicy != nil {
+		istioService.InternalNodeLocalTrafficPolicy = *svc.Spec.InternalTrafficPolicy == coreV1.ServiceInternalTrafficPolicyLocal
+	}
 
 	switch svc.Spec.Type {
 	case coreV1.ServiceTypeNodePort:
