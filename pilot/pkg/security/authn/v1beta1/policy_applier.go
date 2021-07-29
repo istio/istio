@@ -46,7 +46,7 @@ import (
 
 var authnLog = log.RegisterScope("authn", "authn debugging", 0)
 
-// Implemenation of authn.PolicyApplier with v1beta1 API.
+// Implementation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {
 	jwtPolicies []*config.Config
 
@@ -166,7 +166,7 @@ func NewPolicyApplier(rootNamespace string,
 	}
 
 	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
-	// config deteministic.
+	// config deterministic.
 	sort.Slice(processedJwtRules, func(i, j int) bool {
 		return strings.Compare(
 			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
@@ -307,7 +307,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	// If there are more than one provider, filter should OR of
 	// {P1, P2 .., AND of {OR{P1, allow_missing}, OR{P2, allow_missing} ...}}
 	// where the innerAnd enforce a token, if provided, must be valid, and the
-	// outter OR aids the case where providers share the same location (as
+	// outer OR aids the case where providers share the same location (as
 	// it will always fail with the innerAND).
 	outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
 		RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
