@@ -18,8 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pkg/istio-agent/grpcxds"
-	"istio.io/istio/pkg/test/env"
 	"path"
 	"testing"
 	"time"
@@ -30,7 +28,7 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 
-	//  To install the xds resolvers and balancers.
+	// To install the xds resolvers and balancers.
 	grpcxdsresolver "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -38,7 +36,9 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -66,7 +66,7 @@ func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
 	}
 	bootstrapBytes, err := json.Marshal(bootstrap)
 	if err != nil {
-		return nil, fmt.Errorf("failed marshalling bootstrap: %v", err)
+		return nil, fmt.Errorf("failed marshaling bootstrap: %v", err)
 	}
 	return bootstrapBytes, nil
 }

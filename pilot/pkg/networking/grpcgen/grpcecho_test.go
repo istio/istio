@@ -84,6 +84,9 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		host := fmt.Sprintf("127.0.0.%d", i+1)
 		nodeID := fmt.Sprintf("sidecar~%s~echo-%s.%s~cluster.local", host, s.version, s.namespace)
 		bootstrapBytes, err := bootstrapForTest(nodeID, s.namespace)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		ep, err := endpoint.New(endpoint.Config{
 			Port: &common.Port{
