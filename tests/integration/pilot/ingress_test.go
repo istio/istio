@@ -402,12 +402,29 @@ spec:
 				},
 				{
 					// Prefix / should match any path
-					name: "http-root-prefix-should-match-random-path",
+					name: "http-root-prefix-should-match-random-path-continuation",
 					call: echo.CallOptions{
 						Port: &echo.Port{
 							Protocol: protocol.HTTP,
 						},
 						Path: "/testrandom",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/",
+				},
+				{
+					// Prefix / should match any path
+					name: "http-root-prefix-should-match-multi-paths-continuation",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "//",
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
