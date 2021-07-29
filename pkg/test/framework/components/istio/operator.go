@@ -322,15 +322,15 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	// First install for remote-config clusters.
+	// First install remote-config clusters.
 	// We do this first because the external istiod needs to read the config cluster at startup.
 	for _, c := range ctx.Clusters().Kube().Configs().Remotes() {
-		if err = installConfigCluster(i, cfg, c, istioctlConfigFiles.configIopFile, istioctlConfigFiles.configOperatorSpec); err != nil {
+		if err = installConfigCluster(i, cfg, c, istioctlConfigFiles.configIopFile); err != nil {
 			return i, err
 		}
 	}
 
-	// install control plane clusters (can be external or primary)
+	// Install control plane clusters (can be external or primary).
 	errG := multierror.Group{}
 	for _, c := range ctx.Clusters().Kube().Primaries() {
 		c := c
@@ -351,11 +351,12 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
+	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
 	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
 		c := c
 		errG.Go(func() error {
-			if err := installRemoteCluster(i, cfg, c, istioctlConfigFiles.remoteIopFile, istioctlConfigFiles.remoteOperatorSpec); err != nil {
+			if err := installRemoteCluster(i, cfg, c, istioctlConfigFiles.remoteIopFile); err != nil {
 				return fmt.Errorf("failed installing remote cluster %s: %v", c.Name(), err)
 			}
 			return nil
@@ -365,7 +366,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	// configure discovery and east-west gateways for remote clusters
+	// Configure discovery and east-west gateways for remote clusters.
 	for _, c := range ctx.Clusters().Kube().Remotes() {
 		c := c
 		if err = configureRemoteClusterDiscovery(i, cfg, c); err != nil {
@@ -587,19 +588,19 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, c cluster.Clus
 
 // installConfigCluster installs istio to a cluster that runs workloads and provides Istio configuration.
 // The installed components include CRDs, Roles, etc. but not istiod.
-func installConfigCluster(i *operatorComponent, cfg Config, c cluster.Cluster, configIopFile string, spec *opAPI.IstioOperatorSpec) error {
+func installConfigCluster(i *operatorComponent, cfg Config, c cluster.Cluster, configIopFile string) error {
 	scopes.Framework.Infof("setting up %s as config cluster", c.Name())
-	return installRemoteCommon(i, cfg, c, configIopFile, spec)
+	return installRemoteCommon(i, cfg, c, configIopFile)
 }
 
 // installRemoteCluster installs istio to a remote cluster that does not also serve as a config cluster.
-func installRemoteCluster(i *operatorComponent, cfg Config, c cluster.Cluster, remoteIopFile string, spec *opAPI.IstioOperatorSpec) error {
+func installRemoteCluster(i *operatorComponent, cfg Config, c cluster.Cluster, remoteIopFile string) error {
 	scopes.Framework.Infof("setting up %s as remote cluster", c.Name())
-	return installRemoteCommon(i, cfg, c, remoteIopFile, spec)
+	return installRemoteCommon(i, cfg, c, remoteIopFile)
 }
 
 // Common install on a either a remote-config or pure remote cluster.
-func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, remoteIopFile string, spec *opAPI.IstioOperatorSpec) error {
+func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, remoteIopFile string) error {
 	installSettings, err := i.generateCommonInstallSettings(cfg, c, cfg.RemoteClusterIOPFile, remoteIopFile)
 	if err != nil {
 		return err
