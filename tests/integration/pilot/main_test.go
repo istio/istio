@@ -16,7 +16,6 @@
 package pilot
 
 import (
-	"io/ioutil"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -52,16 +51,6 @@ func supportsCRDv1(t resource.Context) bool {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(func(t resource.Context) (err error) {
-			if supportsCRDv1(t) {
-				crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
-				if err != nil {
-					return err
-				}
-				return t.Config().ApplyYAMLNoCleanup("", string(crd))
-			}
-			return nil
-		}).
 		Setup(istio.Setup(&i, nil)).
 		Setup(func(t resource.Context) error {
 			return common.SetupApps(t, i, apps)

@@ -272,7 +272,7 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 	return errUnsupportedOp
 }
 
-func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
+func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
 	// do nothing as c.cache has been registered
 }
 

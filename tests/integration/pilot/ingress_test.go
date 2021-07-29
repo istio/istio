@@ -52,6 +52,13 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
+			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+				t.Fatal(err)
+			}
 			t.Config().ApplyYAMLOrFail(t, "", `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
