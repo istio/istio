@@ -946,6 +946,77 @@ func secretConfigCmd() *cobra.Command {
 	return secretConfigCmd
 }
 
+func rootCACompareConfigCmd() *cobra.Command {
+	var podName1, podName2, podNamespace1, podNamespace2 string
+
+	rootCACompareConfigCmd := &cobra.Command{
+		Use:   "rootca-comp [pod/]<name-1>[.<namespace-1>] [pod/]<name-2>[.<namespace-2>]",
+		Short: "Compare ROOTCA values for given 2 pods",
+		Long:  `Compare ROOTCA values for given 2 pods to check the connectivity availability between them.`,
+		Example: `  # Compare ROOTCA values for given 2 pods to check the connectivity availability between them.
+  istioctl proxy-config rootca-comp <pod-name-1[.namespace]> <pod-name-2[.namespace]>`,
+		Aliases: []string{"rootca-comp", "rc"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (len(args) <= 2) != (configDumpFile == "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("see the usage above, rootca-comp requires 2 pods as arguments")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			var configWriter1, configWriter2 *configdump.ConfigWriter
+			var err error
+			if len(args) == 2 {
+				if podName1, podNamespace1, err = getPodName(args[0]); err != nil {
+					return err
+				}
+				configWriter1, err = setupPodConfigdumpWriter(podName1, podNamespace1, c.OutOrStdout())
+				if err != nil {
+					return err
+				}
+
+				if podName2, podNamespace2, err = getPodName(args[1]); err != nil {
+					return err
+				}
+				configWriter2, err = setupPodConfigdumpWriter(podName2, podNamespace2, c.OutOrStdout())
+				if err != nil {
+					return err
+				}
+			} else {
+				c.Println(c.UsageString())
+				return fmt.Errorf("please see the usage above and make sure that there are 2 pods for the comparison")
+			}
+
+			rootCA1, err1 := configWriter1.PrintPodRootCAFromDynamicSecretDump()
+			if err1 != nil {
+				return fmt.Errorf("error when retrieving ROOTCA of [%s]: %v", args[0], err1)
+			}
+			rootCA2, err2 := configWriter2.PrintPodRootCAFromDynamicSecretDump()
+			if err2 != nil {
+				return fmt.Errorf("error when retrieving ROOTCA of [%s]: %v", args[1], err2)
+			}
+
+			var returnErr error
+			if rootCA1 == rootCA2 {
+				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the identical ROOTCA, theoretically the connectivity between them is available",
+					podName1, podNamespace1, podName2, podNamespace2)
+				c.Println(report)
+				returnErr = nil
+			} else {
+				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
+					podName1, podNamespace1, podName2, podNamespace2)
+				c.Println(report)
+				returnErr = fmt.Errorf(report)
+			}
+			return returnErr
+		},
+		ValidArgsFunction: validPodsNameArgs,
+	}
+
+	rootCACompareConfigCmd.Long += "\n\n" + ExperimentalMsg
+	return rootCACompareConfigCmd
+}
+
 func proxyConfig() *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "proxy-config",
@@ -966,6 +1037,7 @@ func proxyConfig() *cobra.Command {
 	configCmd.AddCommand(bootstrapConfigCmd())
 	configCmd.AddCommand(endpointConfigCmd())
 	configCmd.AddCommand(secretConfigCmd())
+	configCmd.AddCommand(rootCACompareConfigCmd())
 
 	return configCmd
 }
