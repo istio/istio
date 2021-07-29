@@ -166,21 +166,15 @@ func ConvertIngressVirtualService(ingress knetworking.Ingress, domainSuffix stri
 						MatchType: &networking.StringMatch_Exact{Exact: httpPath.Path},
 					}
 				case knetworking.PathTypePrefix:
+					// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
+					// and if the prefix is /foo/bar/ we must match /foo/bar and /foo/bar. We cannot simply strip the
+					// trailing "/" and do a prefix match since we'll match unwanted continuations and we cannot add
+					// a "/" if not present since we won't match the prefix without trailing "/". Must be smarter and
+					// use regex.
 					path := httpPath.Path
-					if path == "/" {
-						httpMatch.Uri = &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: path},
-						}
-					} else {
-						// From the spec: /foo/bar matches /foo/bar/baz, but does not match /foo/barbaz
-						// and if the prefix is /foo/bar/ we must match /foo/bar and /foo/bar. We cannot simply strip the
-						// trailing "/" and do a prefix match since we'll match unwanted continuations and we cannot add
-						// a "/" if not present since we won't match the prefix without trailing "/". Must be smarter and
-						// use regex.
-						path = strings.TrimSuffix(path, "/")
-						httpMatch.Uri = &networking.StringMatch{
-							MatchType: &networking.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
-						}
+					path = strings.TrimSuffix(path, "/")
+					httpMatch.Uri = &networking.StringMatch{
+						MatchType: &networking.StringMatch_Regex{Regex: regexp.QuoteMeta(path) + prefixMatchRegex},
 					}
 				default:
 					// Fallback to the legacy string matching

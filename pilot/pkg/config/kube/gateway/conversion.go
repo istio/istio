@@ -868,11 +868,6 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	}
 	switch tp {
 	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
-		if dest == "/" {
-			return &istio.StringMatch{
-				MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(dest)},
-			}, nil
-		}
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(dest) + prefixMatchRegex},
 		}, nil
