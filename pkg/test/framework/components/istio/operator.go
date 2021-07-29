@@ -282,7 +282,12 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		installManifest: map[string][]string{},
 		ingress:         map[string]map[string]ingress.Instance{},
 	}
-	if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
+	if i.isExternalControlPlane() {
+		cfg.PrimaryClusterIOPFile = IntegrationTestExternalIstiodPrimaryDefaultsIOP
+		cfg.ConfigClusterIOPFile = IntegrationTestExternalIstiodConfigDefaultsIOP
+		cfg.RemoteClusterIOPFile = IntegrationTestExternalIstiodRemoteDefaultsIOP
+		i.settings = cfg
+	} else if cfg.IstiodlessRemotes {
 		cfg.RemoteClusterIOPFile = IntegrationTestIstiodlessRemoteDefaultsIOP
 		i.settings = cfg
 	}
@@ -592,18 +597,18 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, c cluster.Clus
 // The installed components include CRDs, Roles, etc. but not istiod.
 func installConfigCluster(i *operatorComponent, cfg Config, c cluster.Cluster, configIopFile string) error {
 	scopes.Framework.Infof("setting up %s as config cluster", c.Name())
-	return installRemoteCommon(i, cfg, c, configIopFile)
+	return installRemoteCommon(i, cfg, c, cfg.ConfigClusterIOPFile, configIopFile)
 }
 
 // installRemoteCluster installs istio to a remote cluster that does not also serve as a config cluster.
 func installRemoteCluster(i *operatorComponent, cfg Config, c cluster.Cluster, remoteIopFile string) error {
 	scopes.Framework.Infof("setting up %s as remote cluster", c.Name())
-	return installRemoteCommon(i, cfg, c, remoteIopFile)
+	return installRemoteCommon(i, cfg, c, cfg.RemoteClusterIOPFile, remoteIopFile)
 }
 
 // Common install on a either a remote-config or pure remote cluster.
-func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, remoteIopFile string) error {
-	installSettings, err := i.generateCommonInstallSettings(cfg, c, cfg.RemoteClusterIOPFile, remoteIopFile)
+func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, defaultsIOPFile, iopFile string) error {
+	installSettings, err := i.generateCommonInstallSettings(cfg, c, defaultsIOPFile, iopFile)
 	if err != nil {
 		return err
 	}

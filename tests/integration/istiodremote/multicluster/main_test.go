@@ -34,103 +34,10 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.Multicluster).
-		RequireMinClusters(3).
+		RequireMinClusters(2).
 		Setup(multicluster.Setup(&appCtx)).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
-			// Set the control plane values on the config.
-			cfg.RemoteClusterValues = `
-components:
-  base:
-    enabled: false
-  pilot:
-    enabled: false
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: false
-  istiodRemote:
-    enabled: true
-values:
-  global:
-    externalIstiod: true
-`
-			cfg.ConfigClusterValues = `
-components:
-  base:
-    enabled: false
-  pilot:
-    enabled: false
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: false
-  istiodRemote:
-    enabled: true
-values:
-  global:
-    externalIstiod: true
-    omitSidecarInjectorConfigMap: true
-    configCluster: true
-  pilot:
-    configMap: true
-`
-			cfg.ControlPlaneValues = `
-components:
-  base:
-    enabled: true
-  pilot:
-    enabled: true
-    k8s:
-      service:
-        type: LoadBalancer
-      overlays:
-      - kind: Deployment
-        name: istiod
-        patches:
-        - path: spec.template.spec.volumes[100]
-          value: |-
-            name: config-volume
-            configMap:
-              name: istio
-        - path: spec.template.spec.volumes[100]
-          value: |-
-            name: inject-volume
-            configMap:
-              name: istio-sidecar-injector
-        - path: spec.template.spec.containers[0].volumeMounts[100]
-          value: |-
-            name: config-volume
-            mountPath: /etc/istio/config
-        - path: spec.template.spec.containers[0].volumeMounts[100]
-          value: |-
-            name: inject-volume
-            mountPath: /var/lib/istio/inject
-      env:
-      - name: INJECTION_WEBHOOK_CONFIG_NAME
-        value: "istio-sidecar-injector-istio-system"
-      - name: VALIDATION_WEBHOOK_CONFIG_NAME
-        value: "istio-istio-system"
-      - name: EXTERNAL_ISTIOD
-        value: "true"
-      - name: SHARED_MESH_CONFIG
-        value: istio
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: false
-  egressGateways:
-  - name: istio-egressgateway
-    enabled: false
-values:
-  global:
-    operatorManageWebhooks: true
-    configValidation: false
-  base:
-    enableCRDTemplates: true
-`
+			cfg.ControlPlaneValues = appCtx.ControlPlaneValues
 		})).
 		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
