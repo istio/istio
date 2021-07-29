@@ -369,8 +369,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// Configure discovery and east-west gateways for remote clusters.
 	for _, c := range ctx.Clusters().Kube().Remotes() {
 		c := c
-		if err = configureRemoteClusterDiscovery(i, cfg, c); err != nil {
-			return i, err
+		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
+			if err = configureRemoteClusterDiscovery(i, cfg, c); err != nil {
+				return i, err
+			}
 		}
 
 		// remote clusters only need this gateway for multi-network purposes
@@ -619,9 +621,21 @@ func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, re
 	}
 
 	// Configure the cluster and network arguments to pass through the injector webhook.
-	if cfg.IstiodlessRemotes || i.isExternalControlPlane() {
+	if i.isExternalControlPlane() {
 		installSettings = append(installSettings,
 			"--set", fmt.Sprintf("values.istiodRemote.injectionPath=/inject/net/%s/cluster/%s", c.NetworkName(), c.Name()))
+	} else {
+		remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(c)
+		if err != nil {
+			return err
+		}
+		installSettings = append(installSettings, "--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
+		if cfg.IstiodlessRemotes {
+			installSettings = append(installSettings,
+				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject/net/%s/cluster/%s",
+					remoteIstiodAddress.IP.String(), 15017, c.NetworkName(), c.Name()),
+				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+		}
 	}
 
 	if err := install(i, installSettings, istioCtl, c.Name()); err != nil {
