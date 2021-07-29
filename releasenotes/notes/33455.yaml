@@ -1,0 +1,64 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 33455
+
+releaseNotes:
+- |
+  **Improved** the installation of Istio on remote clusters using an external control plane.
+  The istiodRemote component now includes all of the resources needed for either a basic remote or config cluster.
+
+upgradeNotes:
+- title: The istiodRemote installation component now includes config cluster resources.
+  content: |
+    Installing Istio on a remote cluster that is using an external control plane was previously done by disabling the `base` and `pilot`
+    components and enabling the `istiodRemote` component in the IOP:
+
+    {{< text yaml >}}
+    components:
+      base:
+        enabled: false
+      pilot:
+        enabled: false
+      istiodRemote:
+        enabled: true
+    values:
+      global:
+        externalIstiod: true
+    {{< /text >}}
+
+    If the remote cluster also serves as the config cluster for the external control plane,
+    the `base` component would also be enabled:
+
+    {{< text yaml >}}
+    components:
+      base:
+        enabled: true
+      pilot:
+        enabled: false
+      istiodRemote:
+        enabled: true
+    values:
+      global:
+        externalIstiod: true
+    {{< /text >}}
+
+    To simplify the implementation and to completely separate the remote installation from the `base` component,
+    the `istiodRemote` component now includes all of the charts needed for any remote cluster, whether it serves as a config
+    cluster or not. A new variable `values.global.configCluster` is used to enable/disable the resources needed
+    in a config cluster:
+
+    {{< text yaml >}}
+    components:
+      base:
+        enabled: false
+      pilot:
+        enabled: false
+      istiodRemote:
+        enabled: true
+    values:
+      global:
+        externalIstiod: true
+        configCluster: true
+    {{< /text >}}

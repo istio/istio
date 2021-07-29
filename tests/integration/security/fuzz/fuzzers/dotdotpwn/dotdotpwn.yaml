@@ -25,6 +25,7 @@ spec:
       labels:
         app: dotdotpwn
       annotations:
+        # Do not inject Envoy in the fuzzer side to make sure the server Envoy sees the original fuzzed request.
         "sidecar.istio.io/inject": "false"
     spec:
       containers:

@@ -13,6 +13,7 @@ run:
   deadline: 20m
   build-tags:
   - integ
+  - integfuzz
   # which dirs to skip: they won't be analyzed;
   # can use regexp here: generated.*, regexp is applied on full path;
   # default value is empty list, but next dirs are always skipped independently
@@ -29,8 +30,6 @@ run:
   skip-files:
   - ".*\\.pb\\.go"
   - ".*\\.gen\\.go"
-  # This file requires a custom import order for side effects (https://github.com/grpc/grpc-go/issues/4124)
-  - pilot/pkg/networking/grpcgen/grpcgen_test.go
 
 linters:
   disable-all: true

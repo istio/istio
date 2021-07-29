@@ -27,6 +27,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
@@ -164,6 +165,47 @@ func TestValidatePort(t *testing.T) {
 		if got := ValidatePort(port); (got == nil) != valid {
 			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %d", got == nil, valid, got, port)
 		}
+	}
+}
+
+func TestValidateControlPlaneAuthPolicy(t *testing.T) {
+	cases := []struct {
+		name    string
+		policy  meshconfig.AuthenticationPolicy
+		isValid bool
+	}{
+		{
+			name:    "invalid policy",
+			policy:  -1,
+			isValid: false,
+		},
+		{
+			name:    "valid policy",
+			policy:  0,
+			isValid: true,
+		},
+		{
+			name:    "valid policy",
+			policy:  1,
+			isValid: true,
+		},
+		{
+			name:    "invalid policy",
+			policy:  2,
+			isValid: false,
+		},
+		{
+			name:    "invalid policy",
+			policy:  100,
+			isValid: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ValidateControlPlaneAuthPolicy(c.policy); (got == nil) != c.isValid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.isValid, got)
+			}
+		})
 	}
 }
 
@@ -411,6 +453,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"invalid parent and drain time combination invalid parent shutdown duration",
 			"discovery address must be set to the proxy discovery service",
 			"invalid proxy admin port",
+			"invalid status port",
 			"trustDomain: empty domain name not allowed",
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
@@ -448,6 +491,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
 		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
+		StatusPort:             15020,
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
@@ -493,7 +537,17 @@ func TestValidateProxyConfig(t *testing.T) {
 		},
 		{
 			name:    "proxy admin port invalid",
-			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 0 }),
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.ProxyAdminPort = 65536 }),
+			isValid: false,
+		},
+		{
+			name:    "validate status port",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatusPort = 0 }),
+			isValid: false,
+		},
+		{
+			name:    "validate vstatus port",
+			in:      modify(valid, func(c *meshconfig.ProxyConfig) { c.StatusPort = 65536 }),
 			isValid: false,
 		},
 		{
@@ -744,6 +798,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service"},
 		ControlPlaneAuthPolicy: -1,
+		StatusPort:             0,
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
@@ -760,7 +815,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		switch err := err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.Errors) != 12 {
+			if len(err.Errors) != 13 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:
@@ -1037,14 +1092,9 @@ func TestValidateServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateServer(tt.in)
-			if err == nil && tt.out != "" {
-				t.Fatalf("validateServer(%v) = nil, wanted %q", tt.in, tt.out)
-			} else if err != nil && tt.out == "" {
-				t.Fatalf("validateServer(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
-				t.Fatalf("validateServer(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
+			v := validateServer(tt.in)
+			warn, err := v.Unwrap()
+			checkValidationMessage(t, warn, err, "", tt.out)
 		})
 	}
 }
@@ -1110,11 +1160,12 @@ func TestValidateServerPort(t *testing.T) {
 
 func TestValidateTlsOptions(t *testing.T) {
 	tests := []struct {
-		name string
-		in   *networking.ServerTLSSettings
-		out  string
+		name    string
+		in      *networking.ServerTLSSettings
+		out     string
+		warning string
 	}{
-		{"empty", &networking.ServerTLSSettings{}, ""},
+		{"empty", &networking.ServerTLSSettings{}, "", ""},
 		{
 			"simple",
 			&networking.ServerTLSSettings{
@@ -1122,7 +1173,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple with client bundle",
@@ -1132,7 +1183,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple sds with client bundle",
@@ -1143,7 +1194,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple no server cert",
@@ -1152,7 +1203,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				PrivateKey:        "Khan Noonien Singh",
 			},
-			"server certificate",
+			"server certificate", "",
 		},
 		{
 			"simple no private key",
@@ -1161,7 +1212,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "",
 			},
-			"private key",
+			"private key", "",
 		},
 		{
 			"simple sds no server cert",
@@ -1171,7 +1222,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"simple sds no private key",
@@ -1181,7 +1232,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual",
@@ -1191,7 +1242,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual sds",
@@ -1202,7 +1253,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual no server cert",
@@ -1212,7 +1263,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"server certificate",
+			"server certificate", "",
 		},
 		{
 			"mutual sds no server cert",
@@ -1223,7 +1274,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"mutual no client CA bundle",
@@ -1233,7 +1284,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "",
 			},
-			"client CA bundle",
+			"client CA bundle", "",
 		},
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
 		// and both are absent, but requires less rewriting of the testing harness than merging the cases
@@ -1245,7 +1296,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"server certificate",
+			"server certificate", "",
 		},
 		{
 			"mutual no certs",
@@ -1255,7 +1306,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"private key",
+			"private key", "",
 		},
 		{
 			"mutual no certs",
@@ -1265,7 +1316,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"client CA bundle",
+			"client CA bundle", "",
 		},
 		{
 			"pass through sds no certs",
@@ -1275,7 +1326,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "",
 				CredentialName:    "sds-name",
 			},
-			"",
+			"", "",
 		},
 		{
 			"istio_mutual no certs",
@@ -1285,7 +1336,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "",
 				CaCertificates:    "",
 			},
-			"",
+			"", "",
 		},
 		{
 			"istio_mutual with server cert",
@@ -1293,7 +1344,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				Mode:              networking.ServerTLSSettings_ISTIO_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 			},
-			"cannot have associated server cert",
+			"cannot have associated server cert", "",
 		},
 		{
 			"istio_mutual with client bundle",
@@ -1303,7 +1354,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 			},
-			"cannot have associated",
+			"cannot have associated", "",
 		},
 		{
 			"istio_mutual with private key",
@@ -1311,20 +1362,41 @@ func TestValidateTlsOptions(t *testing.T) {
 				Mode:       networking.ServerTLSSettings_ISTIO_MUTUAL,
 				PrivateKey: "Khan Noonien Singh",
 			},
-			"cannot have associated private key",
+			"cannot have associated private key", "",
+		},
+		{
+			"invalid cipher suites",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"not-a-cipher-suite"},
+			},
+			"", "not-a-cipher-suite",
+		},
+		{
+			"valid cipher suites",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"ECDHE-ECDSA-AES128-SHA"},
+			},
+			"", "",
+		},
+		{
+			"cipher suites operations",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				CipherSuites:   []string{"-ECDHE-ECDSA-AES128-SHA"},
+			},
+			"", "",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateTLSOptions(tt.in)
-			if err == nil && tt.out != "" {
-				t.Fatalf("validateTlsOptions(%v) = nil, wanted %q", tt.in, tt.out)
-			} else if err != nil && tt.out == "" {
-				t.Fatalf("validateTlsOptions(%v) = %v, wanted nil", tt.in, err)
-			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
-				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
-			}
+			v := validateTLSOptions(tt.in)
+			warn, err := v.Unwrap()
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
 }
@@ -2609,6 +2681,52 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false, warning: false},
+		{name: "non-method-get", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/product"},
+						},
+					},
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/api/v1/products"},
+						},
+						Method: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{Exact: "GET"},
+						},
+					},
+				},
+			}},
+		}, valid: true, warning: true},
+		{name: "uri-with-prefix-exact", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
+						},
+					},
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{Exact: "/"},
+						},
+						Method: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Exact{Exact: "GET"},
+						},
+					},
+				},
+			}},
+		}, valid: true, warning: false},
 	}
 
 	for _, tc := range testCases {
@@ -4217,6 +4335,37 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "repeat target port", in: networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
+					{Number: 81, Protocol: "http", Name: "http-valid2", TargetPort: 80},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "valid target port", in: networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "invalid target port", in: networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.Port{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
@@ -5077,57 +5226,58 @@ func TestValidateSidecar(t *testing.T) {
 		name  string
 		in    *networking.Sidecar
 		valid bool
+		warn  bool
 	}{
-		{"empty ingress and egress", &networking.Sidecar{}, false},
+		{"empty ingress and egress", &networking.Sidecar{}, false, false},
 		{"default", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"import local namespace with wildcard", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"./*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"import local namespace with fqdn", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"./foo.com"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"import nothing", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"~/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"bad egress host 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"/"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"empty egress host", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"multiple wildcard egress", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5141,7 +5291,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"wildcard egress not in end", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5160,7 +5310,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"invalid Port", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5174,7 +5324,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"Port without name", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5187,7 +5337,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"UDS bind in outbound", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5202,7 +5352,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///@foo/bar/com",
 				},
 			},
-		}, true},
+		}, true, false},
 		{"UDS bind in inbound", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5215,7 +5365,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"UDS bind in outbound 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5230,7 +5380,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///foo/bar/com",
 				},
 			},
-		}, true},
+		}, true, false},
 		{"invalid bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5245,7 +5395,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "foobar:///@foo/bar/com",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"invalid capture mode with uds bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5261,7 +5411,7 @@ func TestValidateSidecar(t *testing.T) {
 					CaptureMode: networking.CaptureMode_IPTABLES,
 				},
 			},
-		}, false},
+		}, false, false},
 		{"duplicate UDS bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5287,7 +5437,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///@foo/bar/com",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"duplicate ports", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -5311,7 +5461,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress without port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5323,7 +5473,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress with duplicate ports", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5348,7 +5498,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5364,7 +5514,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"ingress with invalid default endpoint IP", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5376,7 +5526,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "1.1.1.1:90",
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress with invalid default endpoint uds", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5393,7 +5543,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"ingress with invalid default endpoint port", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5410,7 +5560,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"valid ingress and egress", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5427,7 +5577,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"valid ingress and empty egress", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5439,11 +5589,11 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:9999",
 				},
 			},
-		}, true},
-		{"empty", &networking.Sidecar{}, false},
+		}, true, false},
+		{"empty", &networking.Sidecar{}, false, false},
 		{"just outbound traffic policy", &networking.Sidecar{OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 			Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
-		}}, true},
+		}}, true, false},
 		{"empty protocol", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
@@ -5459,7 +5609,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"ALLOW_ANY sidecar egress policy with no egress proxy ", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5469,7 +5619,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"sidecar egress proxy with RESGISTRY_ONLY(default)", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				EgressProxy: &networking.Destination{
@@ -5485,7 +5635,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"sidecar egress proxy with ALLOW_ANY", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5502,7 +5652,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, true},
+		}, true, false},
 		{"sidecar egress proxy with ALLOW_ANY, service hostname invalid fqdn", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5519,7 +5669,7 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
 		{"sidecar egress proxy(without Port) with ALLOW_ANY", &networking.Sidecar{
 			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -5533,23 +5683,59 @@ func TestValidateSidecar(t *testing.T) {
 					Hosts: []string{"*/*"},
 				},
 			},
-		}, false},
+		}, false, false},
+		{"sidecar egress only one wildcarded", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/*",
+						"test/a.com",
+					},
+				},
+			},
+		}, true, true},
+		{"sidecar egress wildcarded ns", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"*/b.com",
+						"test/a.com",
+					},
+				},
+			},
+		}, true, false},
+		{"sidecar egress duplicated with wildcarded same namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"test/*",
+						"test/a.com",
+					},
+				},
+			},
+		}, true, true},
+		{"sidecar egress duplicated with wildcarded same namespace .", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{
+						"./*",
+						"bar/a.com",
+					},
+				},
+			},
+		}, true, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ValidateSidecar(config.Config{
+			warn, err := ValidateSidecar(config.Config{
 				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "bar",
 				},
 				Spec: tt.in,
 			})
-			if err == nil && !tt.valid {
-				t.Fatalf("ValidateSidecar(%v) = true, wanted false", tt.in)
-			} else if err != nil && tt.valid {
-				t.Fatalf("ValidateSidecar(%v) = %v, wanted true", tt.in, err)
-			}
+			checkValidation(t, warn, err, tt.valid, tt.warn)
 		})
 	}
 }
@@ -5987,6 +6173,44 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name:       "jwks ok",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer: "foo.com",
+						Jwks:   "{ \"keys\":[ {\"e\":\"AQAB\",\"kid\":\"DHFbpoIUqrY8t2zpA2qXfCmr5VO5ZEr4RzHU_-envvQ\",\"kty\":\"RSA\",\"n\":\"xAE7eB6qugXyCAG3yhh7pkDkT65pHymX-P7KfIupjf59vsdo91bSP9C8H07pSAGQO1MV_xFj9VswgsCg4R6otmg5PV2He95lZdHtOcU5DXIg_pbhLdKXbi66GlVeK6ABZOUW3WYtnNHD-91gVuoeJT_DwtGGcp4ignkgXfkiEm4sw-4sfb4qdt5oLbyVpmW6x9cfa7vs2WTfURiCrBoUqgBo_-4WTiULmmHSGZHOjzwa8WtrtOQGsAFjIbno85jp6MnGGGZPYZbDAa_b3y5u-YpW7ypZrvD8BgtKVjgtQgZhLAGezMt0ua3DRrWnKqTZ0BJ_EyxOGuHJrLsn00fnMQ\"}]}", // nolint: lll
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "x-foo",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "jwks error",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer: "foo.com",
+						Jwks:   "foo",
+						FromHeaders: []*security_beta.JWTHeader{
+							{
+								Name:   "x-foo",
+								Prefix: "Bearer ",
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
@@ -6352,6 +6576,94 @@ func Test_validateExportTo(t *testing.T) {
 			if err := validateExportTo(tt.namespace, tt.exportTo, tt.isServiceEntry); (err != nil) != tt.wantErr {
 				t.Errorf("validateExportTo() error = %v, wantErr %v", err, tt.wantErr)
 			}
+		})
+	}
+}
+
+func TestValidateTelemetry(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{"empty", &telemetry.Telemetry{}, "", ""},
+		{"invalid message", &networking.Server{}, "cannot cast", ""},
+		{
+			"multiple providers",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					Providers: []*telemetry.ProviderRef{
+						{Name: "a"},
+						{Name: "b"},
+					},
+				}},
+			},
+			"", "multiple providers",
+		},
+		{
+			"multiple tracers",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{}, {}},
+			},
+			"", "multiple tracing",
+		},
+		{
+			"bad randomSamplingPercentage",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					RandomSamplingPercentage: &types.DoubleValue{Value: 101},
+				}},
+			},
+			"randomSamplingPercentage", "",
+		},
+		{
+			"bad metrics operation",
+			&telemetry.Telemetry{
+				Metrics: []*telemetry.Metrics{{
+					Overrides: []*telemetry.MetricsOverrides{
+						{
+							TagOverrides: map[string]*telemetry.MetricsOverrides_TagOverride{
+								"my-tag": {
+									Operation: telemetry.MetricsOverrides_TagOverride_UPSERT,
+									Value:     "",
+								},
+							},
+						},
+					},
+				}},
+			},
+			"must be set set when operation is UPSERT", "",
+		},
+		{
+			"good metrics operation",
+			&telemetry.Telemetry{
+				Metrics: []*telemetry.Metrics{{
+					Overrides: []*telemetry.MetricsOverrides{
+						{
+							TagOverrides: map[string]*telemetry.MetricsOverrides_TagOverride{
+								"my-tag": {
+									Operation: telemetry.MetricsOverrides_TagOverride_UPSERT,
+									Value:     "some-cel-expression",
+								},
+							},
+						},
+					},
+				}},
+			},
+			"", "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warn, err := ValidateTelemetry(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
 		})
 	}
 }

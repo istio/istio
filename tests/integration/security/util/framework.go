@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -285,23 +286,49 @@ func CheckExistence(ctx framework.TestContext, instances ...echo.Instances) {
 	}
 }
 
-func WaitForConfig(ctx framework.TestContext, configs string, namespace namespace.Instance) {
-	errG := multierror.Group{}
-	for _, c := range ctx.Clusters().Primaries() {
-		c := c
-		errG.Go(func() error {
-			ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
-			if err := ik.WaitForConfigs(namespace.Name(), configs); err != nil {
-				// Get proxy status for additional debugging
-				s, _, _ := ik.Invoke([]string{"ps"})
-				ctx.Logf("proxy status: %v", s)
-				return err
-			}
-			return nil
-		})
+func WaitForConfig(ctx framework.TestContext, namespace namespace.Instance, configs ...string) {
+	for _, config := range configs {
+		errG := multierror.Group{}
+		for _, c := range ctx.Clusters().Primaries() {
+			c := c
+			errG.Go(func() error {
+				ik := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: c})
+				if err := ik.WaitForConfigs(namespace.Name(), config); err != nil {
+					// Get proxy status for additional debugging
+					s, _, _ := ik.Invoke([]string{"ps"})
+					ctx.Logf("proxy status: %v", s)
+					return err
+				}
+				return nil
+			})
+		}
+		if err := errG.Wait(); err != nil {
+			ctx.Logf("errors occurred waiting for config: %v", err)
+		}
+		// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
 	}
-	if err := errG.Wait(); err != nil {
-		ctx.Logf("errors occurred waiting for config: %v", err)
-	}
-	// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
+}
+
+// SourceFilter returns workload pod A with sidecar injected and VM
+func SourceFilter(t framework.TestContext, apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
+	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
+		inst := apps.A.Match(echo.Namespace(ns))
+		if !skipVM {
+			inst = append(inst, apps.VM.Match(echo.Namespace(ns))...)
+		}
+		return inst
+	}}
+	return rt
+}
+
+// DestFilter returns workload pod B with sidecar injected and VM
+func DestFilter(t framework.TestContext, apps *EchoDeployments, ns string, skipVM bool) []echotest.Filter {
+	rt := []echotest.Filter{func(instances echo.Instances) echo.Instances {
+		inst := apps.B.Match(echo.Namespace(ns))
+		if !skipVM {
+			inst = append(inst, apps.VM.Match(echo.Namespace(ns))...)
+		}
+		return inst
+	}}
+	return rt
 }

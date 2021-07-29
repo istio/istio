@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -47,12 +48,12 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 }
 
 // MakeService creates a memory service
-func MakeService(hostname host.Name, address string, serviceAccounts []string, clusterID string) *model.Service {
+func MakeService(hostname host.Name, address string, serviceAccounts []string, clusterID cluster.ID) *model.Service {
 	return &model.Service{
 		CreationTime:    time.Now(),
 		Hostname:        hostname,
 		Address:         address,
-		ClusterVIPs:     map[string]string{clusterID: address},
+		ClusterVIPs:     map[cluster.ID]string{clusterID: address},
 		ServiceAccounts: serviceAccounts,
 		Ports: []*model.Port{
 			{
@@ -243,9 +244,9 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
+func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	// TODO use logic from kube controller if needed
-	return map[string][]*model.Gateway{}
+	return []*model.NetworkGateway{}
 }
 
 type Controller struct{}

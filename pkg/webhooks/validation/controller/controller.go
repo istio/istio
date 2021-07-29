@@ -18,8 +18,6 @@ package controller
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"reflect"
@@ -46,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/webhooks/util"
 	"istio.io/pkg/log"
 )
 
@@ -70,7 +69,7 @@ type Options struct {
 func (o Options) Validate() error {
 	var errs *multierror.Error
 	if o.WatchedNamespace == "" || !labels.IsDNS1123Label(o.WatchedNamespace) {
-		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", o.WatchedNamespace)) // nolint: lll
+		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", o.WatchedNamespace))
 	}
 	if o.ServiceName == "" || !labels.IsDNS1123Label(o.ServiceName) {
 		errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", o.ServiceName))
@@ -81,7 +80,7 @@ func (o Options) Validate() error {
 	return errs.ErrorOrNil()
 }
 
-// String produces a stringified version of the arguments for debugging.
+// String produces a string field version of the arguments for debugging.
 func (o Options) String() string {
 	buf := &bytes.Buffer{}
 	_, _ = fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
@@ -115,7 +114,6 @@ func NewValidatingWebhookController(client kube.Client,
 type eventType string
 
 const (
-	quitEvent   eventType = "quitEvent"
 	retryEvent  eventType = "retryEvent"
 	updateEvent eventType = "updateEvent"
 )
@@ -243,19 +241,13 @@ func newController(
 
 func (c *Controller) Run(stop <-chan struct{}) {
 	defer c.queue.ShutDown()
-	c.client.RunAndWait(stop)
 	go c.webhookInformer.Run(stop)
 	if !cache.WaitForCacheSync(stop, c.webhookInformer.HasSynced) {
 		return
 	}
 	go c.startCaBundleWatcher(stop)
 	go c.runWorker()
-
 	<-stop
-	c.queue.Add(&reconcileRequest{
-		event:       quitEvent,
-		description: "quitting validation controller",
-	})
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and patches the webhooks.
@@ -294,26 +286,18 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		return true
 	}
 
-	// return false when leader lost in case go routine leak.
-	if req.event == quitEvent {
-		c.queue.Forget(req)
-		return false
-	}
-
 	if retry, err := c.reconcileRequest(req); retry || err != nil {
-		if retry {
-			c.queue.AddRateLimited(&reconcileRequest{
-				event:       retryEvent,
-				description: "retry reconcile request",
-			})
-			return true
-		}
-		c.queue.AddRateLimited(obj)
+		c.queue.AddRateLimited(retryRequest)
 		utilruntime.HandleError(err)
 	} else {
 		c.queue.Forget(obj)
 	}
 	return true
+}
+
+var retryRequest = &reconcileRequest{
+	event:       retryEvent,
+	description: "retry reconcile request",
 }
 
 // reconcile the desired state with the kube-apiserver.
@@ -322,28 +306,31 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
 	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
 	// If the webhook is later added a new reconciliation request will trigger it to update
-	_, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
-	if err != nil && kubeErrors.IsNotFound(err) {
-		scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
-		return false, nil
+	configuration, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), c.webhookName, metav1.GetOptions{})
+	if err != nil {
+		if kubeErrors.IsNotFound(err) {
+			scope.Infof("Skip patching webhook, webhook %q not found", c.webhookName)
+			return false, nil
+		}
+		return false, err
 	}
 
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
+	caBundle, err := util.LoadCABundle(c.o.CABundleWatcher)
+	if err != nil {
+		scope.Errorf("Failed to load CA bundle: %v", err)
+		reportValidationConfigLoadError(err.(*util.ConfigError).Reason())
+		// no point in retrying unless cert file changes.
+		return false, nil
+	}
 	failurePolicy := kubeApiAdmission.Ignore
 	ready := c.readyForFailClose()
 	if ready {
 		failurePolicy = kubeApiAdmission.Fail
 	}
-	caBundle, err := c.loadCABundle()
-	if err != nil {
-		scope.Errorf("Failed to load CA bundle: %v", err)
-		reportValidationConfigLoadError(err.(*configError).Reason())
-		// no point in retrying unless cert file changes.
-		return !ready, nil
-	}
-	return !ready, c.updateValidatingWebhookConfiguration(c.webhookName, caBundle, failurePolicy)
+	return !ready, c.updateValidatingWebhookConfiguration(configuration, caBundle, failurePolicy)
 }
 
 func (c *Controller) readyForFailClose() bool {
@@ -400,22 +387,9 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
-func (c *Controller) updateValidatingWebhookConfiguration(webhookName string, caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
-	current, err := c.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), webhookName, metav1.GetOptions{})
-	if err != nil {
-		if kubeErrors.IsNotFound(err) {
-			scope.Warn(err.Error())
-			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
-			return nil
-		}
-
-		scope.Warnf("Failed to get validatingwebhookconfiguration %q: %v",
-			webhookName, err)
-		reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
-	}
-
-	updated := current.DeepCopyObject().(*kubeApiAdmission.ValidatingWebhookConfiguration)
-
+func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmission.ValidatingWebhookConfiguration,
+	caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
+	updated := current.DeepCopy()
 	for i := range updated.Webhooks {
 		updated.Webhooks[i].ClientConfig.CABundle = caBundle
 		updated.Webhooks[i].FailurePolicy = &failurePolicy
@@ -426,45 +400,30 @@ func (c *Controller) updateValidatingWebhookConfiguration(webhookName string, ca
 			ValidatingWebhookConfigurations().Update(context.TODO(), updated, metav1.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",
-				webhookName, failurePolicy, updated.ResourceVersion, err)
+				updated.Name, failurePolicy, updated.ResourceVersion, err)
 			reportValidationConfigUpdateError(kubeErrors.ReasonForError(err))
 			return err
 		}
 
 		scope.Infof("Successfully updated validatingwebhookconfiguration %v (failurePolicy=%v,resourceVersion=%v)",
-			webhookName, failurePolicy, latest.ResourceVersion)
+			updated.Name, failurePolicy, latest.ResourceVersion)
 		reportValidationConfigUpdate()
 		return nil
 	}
 
 	scope.Infof("validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v) is up-to-date. No change required.",
-		webhookName, failurePolicy, current.ResourceVersion)
+		current.Name, failurePolicy, current.ResourceVersion)
 
 	return nil
 }
 
 func (o *Options) validatingWebhookName() string {
-	name := "istiod"
+	name := "istio-validator"
 	if o.Revision != "default" {
 		name = fmt.Sprintf("%s-%s", name, o.Revision)
 	}
-	if o.WatchedNamespace != "istio-system" {
-		name = fmt.Sprintf("%s-%s", name, o.WatchedNamespace)
-	}
+	name = fmt.Sprintf("%s-%s", name, o.WatchedNamespace)
 	return name
-}
-
-type configError struct {
-	err    error
-	reason string
-}
-
-func (e configError) Error() string {
-	return e.err.Error()
-}
-
-func (e configError) Reason() string {
-	return e.reason
 }
 
 var (
@@ -484,27 +443,4 @@ func init() {
 		kubeApiAdmission.SchemeGroupVersion,
 		runtime.InternalGroupVersioner,
 	)
-}
-
-func (c *Controller) loadCABundle() ([]byte, error) {
-	caBundle := c.o.CABundleWatcher.GetCABundle()
-	if err := verifyCABundle(caBundle); err != nil {
-		return nil, &configError{err, "could not verify caBundle"}
-	}
-
-	return caBundle, nil
-}
-
-func verifyCABundle(caBundle []byte) error {
-	block, _ := pem.Decode(caBundle)
-	if block == nil {
-		return errors.New("could not decode pem")
-	}
-	if block.Type != "CERTIFICATE" {
-		return fmt.Errorf("cert contains wrong pem type: %q", block.Type)
-	}
-	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
-		return fmt.Errorf("cert contains invalid x509 certificate: %v", err)
-	}
-	return nil
 }

@@ -170,7 +170,7 @@ func TestEds(t *testing.T) {
 			t.Error("No clusters in ADS response")
 		}
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
-		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0644)
+		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
 	})
 }
 
@@ -817,7 +817,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 	// be detected
 	// This is not using adsc, which consumes the events automatically.
 	ads := s.ConnectADS()
-	ads.Request(nil)
+	ads.Request(t, nil)
 
 	n := nclients
 	wg.Add(n)

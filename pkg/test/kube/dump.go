@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -124,7 +125,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 			findDumps := fmt.Sprintf("find %s -name core.*", coredumpDir)
 			stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, findDumps)
 			if err != nil {
-				scopes.Framework.Warnf("Unable to get core dumps for pod: %s/%s", pod.Namespace, pod.Name)
+				scopes.Framework.Warnf("Unable to get core dumps for pod: %s/%s: %v", pod.Namespace, pod.Name, err)
 				continue
 			}
 			for _, cd := range strings.Split(stdout, "\n") {
@@ -133,7 +134,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 				}
 				stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat "+cd)
 				if err != nil {
-					scopes.Framework.Warnf("Unable to get core dumps %v for pod: %s/%s", cd, pod.Namespace, pod.Name)
+					scopes.Framework.Warnf("Unable to get core dumps %v for pod: %s/%s: %v", cd, pod.Namespace, pod.Name, err)
 					continue
 				}
 				fname := podOutputPath(workDir, c, pod, filepath.Base(cd))
@@ -213,13 +214,13 @@ func containerRestarts(pod corev1.Pod, container string) int {
 	return 0
 }
 
-func containerCrashed(pod corev1.Pod, container string) bool {
+func containerCrashed(pod corev1.Pod, container string) (bool, *corev1.ContainerStateTerminated) {
 	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.Name == container {
-			return cs.State.Terminated != nil
+		if cs.Name == container && cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
+			return true, cs.State.Terminated
 		}
 	}
-	return false
+	return false, nil
 }
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
@@ -243,10 +244,14 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 			// Get previous container logs, if applicable
 			if restarts := containerRestarts(pod, container.Name); restarts > 0 {
-				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
-				// a log which will get highlighted in the test logs
-				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-				scopes.Framework.Errorf("FAIL: pod %v/%v container %v restarted %d times", pod.Name, pod.Namespace, container.Name, restarts)
+				// only care about istio components restart
+				if container.Name == "istio-proxy" || container.Name == "discovery" || container.Name == "istio-init" ||
+					container.Name == "istio-validation" || strings.HasPrefix(pod.Name, "istio-cni-node") {
+					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
+					// a log which will get highlighted in the test logs
+					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
+					scopes.Framework.Errorf("FAIL: pod %v/%v container %v restarted %d times", pod.Name, pod.Namespace, container.Name, restarts)
+				}
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
 					scopes.Framework.Warnf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
@@ -258,8 +263,8 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 				}
 			}
 
-			if containerCrashed(pod, container.Name) {
-				scopes.Framework.Errorf("FAIL: pod %v/%v crashed with status: terminated", pod.Name, container.Name)
+			if crashed, terminateState := containerCrashed(pod, container.Name); crashed {
+				scopes.Framework.Errorf("FAIL: pod %v/%v crashed with status: %+v", pod.Name, container.Name, terminateState)
 			}
 
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
@@ -293,31 +298,58 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 // or all pods in the namespace if none are provided.
 func DumpPodProxies(_ resource.Context, c cluster.Cluster, workDir, namespace string, pods ...corev1.Pod) {
 	pods = podsOrFetch(c, pods, namespace)
-
-	dumpProxyCommand(c, pods, workDir, "proxy-config.json", "pilot-agent request GET config_dump?include_eds=true")
-	dumpProxyCommand(c, pods, workDir, "proxy-clusters.txt", "pilot-agent request GET clusters")
+	for _, pod := range pods {
+		if !hasEnvoy(pod) {
+			continue
+		}
+		dumpProxyCommand(c, pod, workDir, "proxy-config.json", "pilot-agent request GET config_dump?include_eds=true")
+		dumpProxyCommand(c, pod, workDir, "proxy-clusters.txt", "pilot-agent request GET clusters")
+	}
 }
 
-func dumpProxyCommand(c cluster.Cluster, pods []corev1.Pod, workDir, filename, command string) {
-	for _, pod := range pods {
-		isVM := checkIfVM(pod)
-		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
-		for _, container := range containers {
-			if container.Name != "istio-proxy" && !isVM {
-				// if we don't have istio-proxy container, and we're not running as a VM, agent isn't running
-				continue
-			}
+func dumpProxyCommand(c cluster.Cluster, pod corev1.Pod, workDir, filename, command string) {
+	isVM := checkIfVM(pod)
+	containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
+	for _, container := range containers {
+		if container.Name != "istio-proxy" && !isVM {
+			// if we don't have istio-proxy container, and we're not running as a VM, agent isn't running
+			continue
+		}
 
-			if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
-				fname := podOutputPath(workDir, c, pod, filename)
-				if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
-					scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
-				}
-			} else {
-				scopes.Framework.Errorf("Unable to get execute command %q on pod: %s/%s for: %v", command, pod.Namespace, pod.Name, err)
+		if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
+			fname := podOutputPath(workDir, c, pod, filename)
+			if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
+				scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
 			}
+		} else {
+			scopes.Framework.Errorf("Unable to get execute command %q on pod: %s/%s for: %v", command, pod.Namespace, pod.Name, err)
 		}
 	}
+}
+
+func hasEnvoy(pod corev1.Pod) bool {
+	if checkIfVM(pod) {
+		// assume VMs run Envoy
+		return true
+	}
+	f := false
+	for _, c := range pod.Spec.Containers {
+		if c.Name == "istio-proxy" {
+			f = true
+			break
+		}
+	}
+	if !f {
+		// no proxy container
+		return false
+	}
+	for k, v := range pod.ObjectMeta.Annotations {
+		if k == inject.TemplatesAnnotation && strings.HasPrefix(v, "grpc-") {
+			// proxy container may run only agent for proxyless gRPC
+			return false
+		}
+	}
+	return true
 }
 
 func checkIfVM(pod corev1.Pod) bool {
@@ -336,8 +368,8 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 		return
 	}
 	args := []string{"x", "internal-debug", "--all", endpoint}
-	if ctx.Settings().Revision != "" {
-		args = append(args, "--revision", ctx.Settings().Revision)
+	if ctx.Settings().Revisions.Default() != "" {
+		args = append(args, "--revision", ctx.Settings().Revisions.Default())
 	}
 	scopes.Framework.Debugf("dump %v: %v", endpoint, args)
 	stdout, _, err := ik.Invoke(args)
@@ -360,5 +392,7 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 }
 
 func DumpNdsz(_ resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
-	dumpProxyCommand(c, pods, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 GET /debug/ndsz")
+	for _, pod := range pods {
+		dumpProxyCommand(c, pod, workDir, "ndsz.json", "pilot-agent request --debug-port 15020 GET /debug/ndsz")
+	}
 }

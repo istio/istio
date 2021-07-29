@@ -62,11 +62,11 @@ func TestStrictMTLS(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			peerTemplate := tmpl.EvaluateOrFail(t, PeerAuthenticationConfig, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), peerTemplate)
-			util.WaitForConfig(t, peerTemplate, apps.Namespace)
+			util.WaitForConfig(t, apps.Namespace, peerTemplate)
 
 			drTemplate := tmpl.EvaluateOrFail(t, DestinationRuleConfigIstioMutual, map[string]string{"AppNamespace": apps.Namespace.Name()})
 			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), drTemplate)
-			util.WaitForConfig(t, drTemplate, apps.Namespace)
+			util.WaitForConfig(t, apps.Namespace, drTemplate)
 
 			response := apps.Client.CallOrFail(t, echo.CallOptions{
 				Target:   apps.Server,

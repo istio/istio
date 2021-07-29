@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 21517
+releaseNotes:
+  - |
+    **Added** `istioctl proxy-config bootstrap` now has a short output option (`-o short`) that shows an Istio and Envoy version summary.

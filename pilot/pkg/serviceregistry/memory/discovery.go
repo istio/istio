@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -37,7 +37,7 @@ type ServiceController struct {
 var _ model.Controller = &ServiceController{}
 
 // Memory does not support workload handlers; everything is done in terms of instances
-func (c *ServiceController) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {}
+func (c *ServiceController) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
 
 // AppendServiceHandler appends a service handler to the controller
 func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) {
@@ -55,7 +55,7 @@ func (c *ServiceController) HasSynced() bool { return true }
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
 	services        map[host.Name]*model.Service
-	networkGateways map[string][]*model.Gateway
+	networkGateways []*model.NetworkGateway
 	// EndpointShards table. Key is the fqdn of the service, ':', port
 	instancesByPortNum  map[string][]*model.ServiceInstance
 	instancesByPortName map[string][]*model.ServiceInstance
@@ -96,7 +96,6 @@ func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]*labels.Instance{},
-		networkGateways:     map[string][]*model.Gateway{},
 	}
 }
 
@@ -123,7 +122,7 @@ func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 // AddService adds an in-memory service.
 func (sd *ServiceDiscovery) AddService(name host.Name, svc *model.Service) {
 	sd.mutex.Lock()
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Mock)
+	svc.Attributes.ServiceRegistry = provider.Mock
 	sd.services[name] = svc
 	sd.mutex.Unlock()
 	// TODO: notify listeners
@@ -314,7 +313,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Co
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if svc.Hostname == "world.default.svc.cluster.local" {
@@ -326,10 +325,10 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 	return make([]string, 0)
 }
 
-func (sd *ServiceDiscovery) SetGatewaysForNetwork(nw string, gws ...*model.Gateway) {
-	sd.networkGateways[nw] = gws
+func (sd *ServiceDiscovery) AddGateways(gws ...*model.NetworkGateway) {
+	sd.networkGateways = append(sd.networkGateways, gws...)
 }
 
-func (sd *ServiceDiscovery) NetworkGateways() map[string][]*model.Gateway {
+func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	return sd.networkGateways
 }

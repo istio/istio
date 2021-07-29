@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package model
 
 import (
@@ -79,9 +80,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		if cp.Patch == nil {
 			// Should be caught by validation, but sometimes its disabled and we don't want to crash
 			// as a result.
-			if log.DebugEnabled() {
-				log.Debugf("envoyfilter %v/%v discarded due to missing patch", local.Namespace, local.Name)
-			}
+			log.Debugf("envoyfilter %v/%v discarded due to missing patch", local.Namespace, local.Name)
 			continue
 		}
 		cpw := &EnvoyFilterConfigPatchWrapper{

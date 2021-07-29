@@ -85,7 +85,7 @@ rpm/fpm:
 
 # Centos 7 compatible RPM
 rpm-7/fpm:
-	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar.rpm
+	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
 	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \

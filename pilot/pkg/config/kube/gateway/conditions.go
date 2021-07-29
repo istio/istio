@@ -16,31 +16,22 @@ package gateway
 
 import (
 	"sort"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 )
 
-func createGatewayReference(gw string) k8s.RouteStatusGatewayReference {
-	ref := k8s.RouteStatusGatewayReference{}
-	if gw == constants.IstioMeshGateway {
-		ref.Name = experimentalMeshGatewayName
-		// TODO this is not namespaced but a namespace is required
-		ref.Namespace = "default"
-	} else {
-		s := strings.Split(gw, "/")
-		ref.Name = s[1] // TODO name here is the internal name, need to use the external name
-		ref.Namespace = s[0]
+func createGatewayReference(gw gatewayReference) k8s.RouteStatusGatewayReference {
+	return k8s.RouteStatusGatewayReference{
+		Name:      gw.Name,
+		Namespace: gw.Namespace,
 	}
-	return ref
 }
 
-func createRouteStatus(gateways []string, obj config.Config, current []k8s.RouteGatewayStatus, routeErr *ConfigError) []k8s.RouteGatewayStatus {
+func createRouteStatus(gateways []gatewayReference, obj config.Config, current []k8s.RouteGatewayStatus, routeErr *ConfigError) []k8s.RouteGatewayStatus {
 	setGateways := map[k8s.RouteStatusGatewayReference]struct{}{}
 	for _, gw := range gateways {
 		setGateways[createGatewayReference(gw)] = struct{}{}
@@ -48,19 +39,19 @@ func createRouteStatus(gateways []string, obj config.Config, current []k8s.Route
 	gws := make([]k8s.RouteGatewayStatus, 0, len(gateways))
 	// Fill in all of the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
-	// removing gateway references when they are removed), without mangling other controller's status.
+	// removing gateway references when they are removed), without mangling other Controller's status.
 	for _, r := range current {
 		if r.GatewayRef.Controller == nil {
-			// Controller not set. This may be our own resource due to using old CRDs that prune the controller field,
-			// or it could be some other controller not handling the spec well
+			// Controller not set. This may be our own resource due to using old CRDs that prune the Controller field,
+			// or it could be some other Controller not handling the spec well
 			_, f := setGateways[r.GatewayRef]
 			if !f {
-				// We are not going to set this gateway ref, so we should keep it, it may be owned by some other controller
-				// If this was our resource, but the old CRDs that did not have controller field are present, this will leak; there
+				// We are not going to set this gateway ref, so we should keep it, it may be owned by some other Controller
+				// If this was our resource, but the old CRDs that did not have Controller field are present, this will leak; there
 				// isn't much we can do here, users should update their CRDs.
 				gws = append(gws, r)
 			}
-			// Otherwise we are going to overwrite it with our own status later in the code. This could technically overwrite another controller,
+			// Otherwise we are going to overwrite it with our own status later in the code. This could technically overwrite another Controller,
 			// but there isn't much we can do here. If we appended a status, we would end up infinitely writing our own
 			// status
 		} else if *r.GatewayRef.Controller != ControllerName {
@@ -187,7 +178,7 @@ func reportGatewayCondition(obj config.Config, conditions map[string]*condition)
 func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
-		if index >= len(gs.Listeners) {
+		for index >= len(gs.Listeners) {
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
 		}
 		cond := gs.Listeners[index].Conditions

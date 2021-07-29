@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -32,6 +34,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/prometheus/pkg/textparse"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -82,14 +85,28 @@ func TestNewServer(t *testing.T) {
 		// map key is not well formed.
 		{
 			probe: `{"abc": {"path": "/app-foo/health"}}`,
-			err:   "invalid key",
+			err:   "invalid path",
 		},
 		// invalid probe type
 		{
-			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "8888"}}}`,
+			probe: `{"/app-health/hello-world/readyz": {"exec": {"command": [ "true" ]}}}`,
 			err:   "invalid prober type",
 		},
-		// Port is not Int typed.
+		// tcp probes are valid as well
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}}}`,
+		},
+		// probes must be tcp or http, not both
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": 8888}, "httpGet": {"path": "/", "port": 7777}}}`,
+			err:   "must be either httpGet or tcpSocket",
+		},
+		// Port is not Int typed (tcpSocket).
+		{
+			probe: `{"/app-health/hello-world/readyz": {"tcpSocket": {"port": "tcp"}}}`,
+			err:   "must be int type",
+		},
+		// Port is not Int typed (httpGet).
 		{
 			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": "container-port-dontknow"}}}`,
 			err:   "must be int type",
@@ -312,6 +329,119 @@ my_metric{app="bar"} 0
 	}
 }
 
+func TestStatsContentType(t *testing.T) {
+	appOpenMetrics := `# TYPE jvm info
+# HELP jvm VM version info
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9"} 1.0
+# TYPE jmx_config_reload_success counter
+# HELP jmx_config_reload_success Number of times configuration have successfully been reloaded.
+jmx_config_reload_success_total 0.0
+jmx_config_reload_success_created 1.623984612719E9
+# EOF
+`
+	appText004 := `# HELP jvm_info VM version info
+# TYPE jvm_info gauge
+jvm_info{runtime="OpenJDK Runtime Environment",vendor="AdoptOpenJDK",version="16.0.1+9",} 1.0
+# HELP jmx_config_reload_failure_created Number of times configuration have failed to be reloaded.
+# TYPE jmx_config_reload_failure_created gauge
+jmx_config_reload_failure_created 1.624025983489E9
+`
+	envoy := `# TYPE my_metric counter
+my_metric{} 0
+
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`
+	cases := []struct {
+		name             string
+		acceptHeader     string
+		expectParseError bool
+	}{
+		{
+			name:         "openmetrics accept header",
+			acceptHeader: `application/openmetrics-text; version=0.0.1,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`,
+		},
+		{
+			name:         "plaintext accept header",
+			acceptHeader: string(expfmt.FmtText),
+		},
+		{
+			name:         "empty accept header",
+			acceptHeader: "",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			envoy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(envoy)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer envoy.Close()
+			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+				var negotiatedMetrics string
+				if format == expfmt.FmtOpenMetrics {
+					negotiatedMetrics = appOpenMetrics
+					w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
+				} else {
+					negotiatedMetrics = appText004
+					w.Header().Set("Content-Type", string(expfmt.FmtText))
+				}
+				if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
+					t.Fatalf("write failed: %v", err)
+				}
+			}))
+			defer app.Close()
+			envoyPort, err := strconv.Atoi(strings.Split(envoy.URL, ":")[2])
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := &Server{
+				prometheus: &PrometheusScrapeConfiguration{
+					Port: strings.Split(app.URL, ":")[2],
+				},
+				envoyStatsPort: envoyPort,
+			}
+			req := &http.Request{}
+			req.Header = make(http.Header)
+			req.Header.Add("Accept", tt.acceptHeader)
+			server.handleStats(rec, req)
+			if rec.Code != 200 {
+				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+
+			var format expfmt.Format
+			mediaType, _, err := mime.ParseMediaType(rec.Header().Get("Content-Type"))
+			if err == nil && mediaType == "application/openmetrics-text" {
+				format = expfmt.FmtOpenMetrics
+			} else {
+				format = expfmt.FmtText
+			}
+
+			if format == expfmt.FmtOpenMetrics {
+				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
+				for {
+					_, err := omParser.Next()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						t.Fatalf("failed to parse openmetrics: %v", err)
+					}
+				}
+			} else {
+				textParser := expfmt.TextParser{}
+				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+				if err != nil {
+					t.Fatalf("failed to parse text metrics: %v", err)
+				}
+			}
+		})
+	}
+}
+
 func TestStatsError(t *testing.T) {
 	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -366,7 +496,7 @@ func TestAppProbe(t *testing.T) {
 	go http.Serve(listener, &handler{})
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
-	simpleConfig := KubeAppProbers{
+	simpleHTTPConfig := KubeAppProbers{
 		"/app-health/hello-world/readyz": &Prober{
 			HTTPGet: &apimirror.HTTPGetAction{
 				Path: "/hello/sunnyvale",
@@ -379,28 +509,54 @@ func TestAppProbe(t *testing.T) {
 			},
 		},
 	}
+	simpleTCPConfig := KubeAppProbers{
+		"/app-health/hello-world/readyz": &Prober{
+			TCPSocket: &apimirror.TCPSocketAction{
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
+		"/app-health/hello-world/livez": &Prober{
+			TCPSocket: &apimirror.TCPSocketAction{
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
+	}
 
 	testCases := []struct {
+		name       string
 		probePath  string
 		config     KubeAppProbers
+		podIP      string
+		ipv6       bool
 		statusCode int
 	}{
 		{
+			name:       "http-bad-path",
 			probePath:  "bad-path-should-be-404",
-			config:     simpleConfig,
+			config:     simpleHTTPConfig,
 			statusCode: http.StatusNotFound,
 		},
 		{
+			name:       "http-readyz",
 			probePath:  "app-health/hello-world/readyz",
-			config:     simpleConfig,
+			config:     simpleHTTPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "http-livez",
 			probePath:  "app-health/hello-world/livez",
-			config:     simpleConfig,
+			config:     simpleHTTPConfig,
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "http-livez-localhost",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleHTTPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "localhost",
+		},
+		{
+			name:      "http-readyz-header",
 			probePath: "app-health/header/readyz",
 			config: KubeAppProbers{
 				"/app-health/header/readyz": &Prober{
@@ -417,6 +573,7 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:      "http-readyz-path",
 			probePath: "app-health/hello-world/readyz",
 			config: KubeAppProbers{
 				"/app-health/hello-world/readyz": &Prober{
@@ -429,6 +586,7 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:      "http-livez-path",
 			probePath: "app-health/hello-world/livez",
 			config: KubeAppProbers{
 				"/app-health/hello-world/livez": &Prober{
@@ -440,9 +598,51 @@ func TestAppProbe(t *testing.T) {
 			},
 			statusCode: http.StatusOK,
 		},
+		{
+			name:       "tcp-readyz",
+			probePath:  "app-health/hello-world/readyz",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "tcp-livez",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "tcp-livez-ipv4",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "127.0.0.1",
+		},
+		{
+			name:       "tcp-livez-ipv6",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "::1",
+			ipv6:       true,
+		},
+		{
+			name:       "tcp-livez-wrapped-ipv6",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "[::1]",
+			ipv6:       true,
+		},
+		{
+			name:       "tcp-livez-localhost",
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleTCPConfig,
+			statusCode: http.StatusOK,
+			podIP:      "localhost",
+		},
 	}
 	for _, tc := range testCases {
-		t.Run(tc.probePath, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			appProber, err := json.Marshal(tc.config)
 			if err != nil {
 				t.Fatalf("invalid app probers")
@@ -450,6 +650,8 @@ func TestAppProbe(t *testing.T) {
 			config := Options{
 				StatusPort:     0,
 				KubeAppProbers: string(appProber),
+				PodIP:          tc.podIP,
+				IPv6:           tc.ipv6,
 			}
 			// Starts the pilot agent status server.
 			server, err := NewServer(config)
@@ -459,6 +661,10 @@ func TestAppProbe(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			go server.Run(ctx)
+
+			if tc.ipv6 {
+				server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
+			}
 
 			var statusPort uint16
 			for statusPort == 0 {

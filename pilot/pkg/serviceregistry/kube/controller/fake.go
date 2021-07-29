@@ -22,6 +22,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 )
@@ -51,7 +52,7 @@ func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
 	}
 }
 
-func (fx *FakeXdsUpdater) ProxyUpdate(_, _ string) {
+func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, _ string) {
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "proxy"}:
 	default:
@@ -86,7 +87,13 @@ func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, hostname, _ string, entry []*model.IstioEndpoint) {
+	if len(entry) > 0 {
+		select {
+		case fx.Events <- FakeXdsEvent{Type: "eds cache", ID: hostname, Endpoints: entry}:
+		default:
+		}
+	}
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.
@@ -132,11 +139,12 @@ type FakeControllerOptions struct {
 	MeshWatcher               mesh.Watcher
 	ServiceHandler            func(service *model.Service, event model.Event)
 	Mode                      EndpointMode
-	ClusterID                 string
+	ClusterID                 cluster.ID
 	WatchedNamespaces         string
 	DomainSuffix              string
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
+	EnableMCSServiceDiscovery bool
 
 	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
 	SkipCacheSyncWait bool
@@ -174,12 +182,16 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		ClusterID:                 opts.ClusterID,
 		SyncInterval:              time.Microsecond,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
+		EnableMCSServiceDiscovery: opts.EnableMCSServiceDiscovery,
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {
 		c.AppendServiceHandler(opts.ServiceHandler)
 	}
 	c.stop = opts.Stop
+	if c.stop == nil {
+		c.stop = make(chan struct{})
+	}
 	// Run in initiation to prevent calling each test
 	// TODO: fix it, so we can remove `stop` channel
 	go c.Run(c.stop)

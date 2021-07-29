@@ -23,7 +23,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -142,7 +142,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		svcs := push.Services(proxy)
 		for _, s := range svcs {
 			// Ignore services that are result of conversion from ServiceEntry.
-			if s.Attributes.ServiceRegistry == serviceregistry.External {
+			if s.Attributes.ServiceRegistry == provider.External {
 				continue
 			}
 			c := serviceentry.ServiceToServiceEntry(s)
@@ -168,6 +168,12 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	}
 
 	return resp, model.DefaultXdsLogDetails, nil
+}
+
+func (g *APIGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := g.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
 }
 
 // Convert from model.Config, which has no associated proto, to MCP Resource proto.

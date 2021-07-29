@@ -23,7 +23,7 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -426,7 +426,7 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		Resolution:      resolution,
 		ServiceAccounts: serviceAccounts,
 		Attributes: model.ServiceAttributes{
-			ServiceRegistry: serviceregistry.External,
+			ServiceRegistry: provider.External,
 			Name:            string(hostname),
 			Namespace:       configNamespace,
 		},

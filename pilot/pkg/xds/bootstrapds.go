@@ -22,9 +22,13 @@ import (
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/bootstrap"
 )
 
@@ -36,8 +40,8 @@ type BootstrapGenerator struct {
 var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
-func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, _ *model.WatchedResource,
-	_ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ConvertXDSNodeToNode(proxy.XdsNode)
 
@@ -54,9 +58,36 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, _ *model.PushContext, 
 	if err = jsonpb.Unmarshal(io.Reader(&buf), bs); err != nil {
 		log.Warnf("failed to unmarshal bootstrap from JSON %q: %v", buf.String(), err)
 	}
+	bs = e.applyPatches(bs, proxy, push)
 	return model.Resources{
 		&discovery.Resource{
 			Resource: util.MessageToAny(bs),
 		},
 	}, model.DefaultXdsLogDetails, nil
+}
+
+func (e *BootstrapGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := e.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
+}
+
+func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *model.Proxy, push *model.PushContext) *bootstrapv3.Bootstrap {
+	patches := push.EnvoyFilters(proxy)
+	if patches == nil {
+		return bs
+	}
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
+		envoyfilter.IncrementEnvoyFilterErrorMetric(envoyfilter.Bootstrap)
+		log.Errorf("bootstrap patch caused panic, so the patches did not take effect")
+	})
+	for _, patch := range patches.Patches[networking.EnvoyFilter_BOOTSTRAP] {
+		if patch.Operation == networking.EnvoyFilter_Patch_MERGE {
+			proto.Merge(bs, patch.Value)
+			envoyfilter.IncrementEnvoyFilterMetric(patch.Key(), envoyfilter.Bootstrap, true)
+		} else {
+			envoyfilter.IncrementEnvoyFilterErrorMetric(envoyfilter.Bootstrap)
+		}
+	}
+	return bs
 }

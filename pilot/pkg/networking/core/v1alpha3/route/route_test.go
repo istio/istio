@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -46,7 +47,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		"*.example.org": {
 			Hostname:    "*.example.org",
 			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[string]string),
+			ClusterVIPs: make(map[cluster.ID]string),
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -645,7 +646,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				Spec: networkingDestinationRule,
 			},
 		})
-		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostWrapper(node, push, serviceRegistry, []config.Config{}, 8080)
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
 	})
 	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
@@ -664,7 +665,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		})
 
-		vhosts := route.BuildSidecarVirtualHostsFromConfigAndRegistry(node, push, serviceRegistry, []config.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostWrapper(node, push, serviceRegistry, []config.Config{}, 8080)
 
 		hashPolicy := &envoyroute.RouteAction_HashPolicy{
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{

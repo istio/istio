@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/security/pkg/monitoring"
 	"istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
-	"istio.io/istio/tests/util/leak"
 )
 
 func TestGetFederatedToken(t *testing.T) {
@@ -85,8 +84,4 @@ func TestGetFederatedToken(t *testing.T) {
 			return nil
 		}, retry.Timeout(time.Second*5))
 	})
-}
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
 }

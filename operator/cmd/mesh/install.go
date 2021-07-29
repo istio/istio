@@ -111,6 +111,9 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 
   # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
   istioctl install --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
+
+  # For setting boolean-string option, it should be enclosed quotes and escaped with a backslash (\).
+  istioctl install --set meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT=\"false\"
 `,
 		Args: cobra.ExactArgs(0),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -134,24 +137,24 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	var opts clioptions.ControlPlaneOptions
 	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(iArgs.kubeConfigPath, iArgs.context), opts.Revision)
 	if err != nil {
-		return err
+		return fmt.Errorf("create Kubernetes client: %v", err)
 	}
 	restConfig, clientset, client, err := K8sConfig(iArgs.kubeConfigPath, iArgs.context)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch Kubernetes config file: %v", err)
 	}
 	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
-		return err
+		return fmt.Errorf("check minimum supported Kubernetes version: %v", err)
 	}
 	tag, err := GetTagVersion(operatorVer.OperatorVersionString)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch Istio version: %v", err)
 	}
 	setFlags := applyFlagAliases(iArgs.set, iArgs.manifestsPath, iArgs.revision)
 
 	_, iop, err := manifest.GenerateConfig(iArgs.inFilenames, setFlags, iArgs.force, restConfig, l)
 	if err != nil {
-		return err
+		return fmt.Errorf("generate config: %v", err)
 	}
 
 	profile, ns, enabledComponents, err := getProfileNSAndEnabledComponents(iop)
@@ -293,10 +296,10 @@ func DetectIstioVersionDiff(cmd *cobra.Command, tag string, ns string, kubeClien
 		if icpTag != "" && tag != icpTag && revision != "" {
 			if icpTag < tag {
 				cmd.Printf("%s Istio is being upgraded from %s -> %s.\n"+
-					"%s Before upgrading, you may wish to use 'istioctl analyze' to check for"+
+					"%s Before upgrading, you may wish to use 'istioctl analyze' to check for "+
 					"IST0002 and IST0135 deprecation warnings.\n", warnMarker, icpTag, tag, warnMarker)
 			} else {
-				cmd.Printf("%s Istio is being downgraded from %s -> %s.", warnMarker, icpTag, tag)
+				cmd.Printf("%s Istio is being downgraded from %s -> %s.\n", warnMarker, icpTag, tag)
 			}
 		}
 	}

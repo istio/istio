@@ -253,6 +253,13 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "traffic-annotations.yaml",
+			want: "traffic-annotations.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"] = "/etc/identity/client/keys/client-key.pem"
+			},
+		},
+		{
 			in:   "proxy-override.yaml",
 			want: "proxy-override.yaml.injected",
 		},
@@ -272,6 +279,20 @@ func TestInjection(t *testing.T) {
 			in:         "custom-template.yaml",
 			want:       "custom-template.yaml.injected",
 			inFilePath: "custom-template.iop.yaml",
+		},
+		{
+			in:   "tcp-probes.yaml",
+			want: "tcp-probes.yaml.injected",
+		},
+		{
+			in:   "tcp-probes.yaml",
+			want: "tcp-probes-disabled.yaml.injected",
+			setup: func() {
+				features.RewriteTCPProbes = false
+			},
+			teardown: func() {
+				features.RewriteTCPProbes = true
+			},
 		},
 	}
 	// Keep track of tests we add options above

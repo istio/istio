@@ -1,13 +1,4 @@
 ---
-# Source: istio-operator/templates/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-operator
-  labels:
-    istio-operator-managed: Reconcile
-    istio-injection: disabled
----
 # Source: istio-operator/templates/service_account.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -181,7 +172,7 @@ spec:
       serviceAccountName: istio-operator
       containers:
         - name: istio-operator
-          image: gcr.io/istio-testing/operator:1.11-dev
+          image: gcr.io/istio-testing/operator:1.12-dev
           command:
           - operator
           - server

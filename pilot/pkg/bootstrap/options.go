@@ -102,7 +102,7 @@ type InjectionOptions struct {
 	InjectionDirectory string
 }
 
-// Optional TLS parameters for Istiod server.
+// TLSOptions is optional TLS parameters for Istiod server.
 type TLSOptions struct {
 	CaCertFile      string
 	CertFile        string

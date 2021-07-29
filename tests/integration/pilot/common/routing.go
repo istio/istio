@@ -25,8 +25,10 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -94,6 +97,12 @@ spec:
     tls:
       mode: SIMPLE
       credentialName: {{.Credential}}
+{{- if .Ciphers }}
+      cipherSuites:
+{{- range $cipher := .Ciphers }}
+      - "{{$cipher}}"
+{{- end }}
+{{- end }}
 {{- end }}
     hosts:
     - "{{.GatewayHost}}"
@@ -457,6 +466,34 @@ spec:
 			},
 			workloadAgnostic: true,
 		},
+		// Retry conditions have been added to just validate that config is correct.
+		// Retries are not specifically tested.
+		TrafficTestCase{
+			name: "retry conditions",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ .dstSvc }}
+  http:
+  - route:
+    - destination:
+        host: {{ .dstSvc }}
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
+      retryRemoteLocalities: true`,
+			opts: echo.CallOptions{
+				PortName:  "http",
+				Count:     1,
+				Validator: echo.ExpectOK(),
+			},
+			workloadAgnostic: true,
+		},
 	)
 
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
@@ -485,8 +522,8 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
 			toN:           len(split),
-			sourceFilters: []echotest.Filter{noHeadless, noNaked, noProxyless},
-			targetFilters: []echotest.Filter{noHeadless, noExternal, noProxyless},
+			sourceFilters: []echotest.Filter{noHeadless, noNaked},
+			targetFilters: []echotest.Filter{noHeadless, noExternal},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
@@ -545,6 +582,12 @@ spec:
 						}
 						return nil
 					}))
+			},
+			setupOpts: func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions) {
+				// TODO force this globally in echotest?
+				if src, ok := src.(echo.Instance); ok && src.Config().IsProxylessGRPC() {
+					opts.PortName = "grpc"
+				}
 			},
 			opts: echo.CallOptions{
 				PortName: "http",
@@ -645,6 +688,30 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 					echo.ExpectKey("Proto", "HTTP/1.1"),
 				),
 			},
+		},
+	)
+	return cases
+}
+
+// destinationRuleCases contains tests some specific DestinationRule tests.
+func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
+	var cases []TrafficTestCase
+	client := apps.PodA
+	destination := apps.PodC[0]
+	cases = append(cases,
+		// Validates the config is generated correctly when only idletimeout is specified in DR.
+		TrafficTestCase{
+			name:   "only idletimeout specified in DR",
+			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
+			call:   client[0].CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Target:    destination,
+				PortName:  "http",
+				Count:     1,
+				HTTP2:     true,
+				Validator: echo.ExpectOK(),
+			},
+			minIstioVersion: "1.10.0",
 		},
 	)
 	return cases
@@ -755,7 +822,7 @@ spec:
 }
 
 func gatewayCases() []TrafficTestCase {
-	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances) map[string]interface{} {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]interface{} {
 		host, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			host, portN, cred = dest.Config().FQDN(), 443, "cred"
@@ -770,6 +837,7 @@ func gatewayCases() []TrafficTestCase {
 			"VirtualServiceHost": dest.Config().FQDN(),
 			"Port":               dest.Config().PortByName("http").ServicePort,
 			"Credential":         cred,
+			"Ciphers":            ciphers,
 		}
 	}
 
@@ -910,6 +978,25 @@ spec:
 				}
 			},
 		},
+		{
+			name: "cipher suite",
+			config: gatewayTmpl + httpVirtualServiceTmpl +
+				ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
+			templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
+				// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
+				// and control plane should filter our invalid one.
+				return templateParams(protocol.HTTPS, src, dests, append(security.ValidCipherSuites.SortedList(), "fake"))
+			},
+			setupOpts: fqdnHostHeader,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+			},
+			viaIngress:       true,
+			workloadAgnostic: true,
+		},
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
@@ -923,7 +1010,7 @@ spec:
 				name:   string(proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
-					return templateParams(proto, src, dests)
+					return templateParams(proto, src, dests, nil)
 				},
 				setupOpts: fqdnHostHeader,
 				opts: echo.CallOptions{
@@ -939,7 +1026,7 @@ spec:
 				name:   fmt.Sprintf("%s scheme match", proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
-					params := templateParams(proto, src, dests)
+					params := templateParams(proto, src, dests, nil)
 					params["MatchScheme"] = strings.ToLower(string(proto))
 					return params
 				},
@@ -970,7 +1057,7 @@ spec:
 	return cases
 }
 
-func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
+func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 
 	destinationSets := []echo.Instances{
@@ -987,12 +1074,12 @@ func XFFGatewayCase(apps *EchoDeployments) []TrafficTestCase {
 			name:   d[0].Config().Service,
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
 			skip:   false,
-			call:   apps.Ingress.CallWithRetryOrFail,
+			call:   apps.Naked[0].CallWithRetryOrFail,
 			opts: echo.CallOptions{
-				Count: 1,
-				Port: &echo.Port{
-					Protocol: protocol.HTTP,
-				},
+				Count:   1,
+				Port:    &echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Address: gateway,
 				Headers: map[string][]string{
 					"X-Forwarded-For": {"56.5.6.7, 72.9.5.6, 98.1.2.3"},
 					"Host":            {fqdn},
@@ -1160,6 +1247,124 @@ spec:
 	return cases
 }
 
+// consistentHashCases tests destination rule's consistent hashing mechanism
+func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	for _, c := range apps.PodA {
+		c := c
+
+		// First setup a service selecting a few services. This is needed to ensure we can load balance across many pods.
+		svcName := "consistent-hash"
+		if nw := c.Config().Cluster.NetworkName(); nw != "" {
+			svcName += "-" + nw
+		}
+		svc := tmpl.MustEvaluate(`apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Service}}
+spec:
+  ports:
+  - name: http
+    port: {{.Port}}
+    targetPort: {{.TargetPort}}
+  selector:
+    test.istio.io/class: standard
+    {{- if .Network }}
+    topology.istio.io/network: {{.Network}}
+	{{- end }}
+`, map[string]interface{}{
+			"Service":    svcName,
+			"Network":    c.Config().Cluster.NetworkName(),
+			"Port":       FindPortByName("http").ServicePort,
+			"TargetPort": FindPortByName("http").InstancePort,
+		})
+
+		destRule := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        {{. | indent 8}}
+`, svcName, svcName)
+		// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
+		// and could be broken by having only 1 pod so its good to have this check in place
+		cases = append(cases, TrafficTestCase{
+			name:   "no consistent",
+			config: svc,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				Count:   10,
+				Address: svcName,
+				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ValidatorFunc(func(responses echoclient.ParsedResponses, rerr error) error {
+						err := ConsistentHostValidator.Validate(responses, rerr)
+						if err == nil {
+							return fmt.Errorf("expected inconsistent hash, but it was consistent")
+						}
+						return nil
+					}),
+				),
+			},
+		})
+		headers := http.Header{}
+		headers.Add("x-some-header", "baz")
+		callOpts := echo.CallOptions{
+			Count:   10,
+			Address: svcName,
+			Path:    "/?some-query-param=bar",
+			Headers: headers,
+			Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
+			Validator: echo.And(
+				echo.ExpectOK(),
+				ConsistentHostValidator,
+			),
+		}
+		// Setup tests for various forms of the API
+		// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
+		// But its pretty hard to test that, so for now just ensure we hit the same one.
+		cases = append(cases, TrafficTestCase{
+			name:   "source ip",
+			config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+			call:   c.CallWithRetryOrFail,
+			opts:   callOpts,
+		}, TrafficTestCase{
+			name:   "query param",
+			config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
+			call:   c.CallWithRetryOrFail,
+			opts:   callOpts,
+		}, TrafficTestCase{
+			name:   "http header",
+			config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
+			call:   c.CallWithRetryOrFail,
+			opts:   callOpts,
+		})
+	}
+
+	return cases
+}
+
+var ConsistentHostValidator echo.Validator = echo.ValidatorFunc(func(responses echoclient.ParsedResponses, _ error) error {
+	hostnames := make([]string, len(responses))
+	_ = responses.Check(func(i int, response *echoclient.ParsedResponse) error {
+		hostnames[i] = response.Hostname
+		return nil
+	})
+	scopes.Framework.Infof("requests landed on hostnames: %v", hostnames)
+	unique := sets.NewSet(hostnames...).SortedList()
+	if len(unique) != 1 {
+		return fmt.Errorf("excepted only one destination, got: %v", unique)
+	}
+	return nil
+})
+
 func flatten(clients ...[]echo.Instance) []echo.Instance {
 	instances := []echo.Instance{}
 	for _, c := range clients {
@@ -1266,8 +1471,9 @@ func protocolSniffingCases() []TrafficTestCase {
 				Timeout:  time.Second * 5,
 			},
 			validate: func(src echo.Caller, dst echo.Instances) echo.Validator {
-				if call.scheme == scheme.TCP {
+				if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 					// no host header for TCP
+					// TODO understand why proxyless adds the port to :authority md
 					return echo.ExpectOK()
 				}
 				return echo.And(
@@ -1295,11 +1501,12 @@ func protocolSniffingCases() []TrafficTestCase {
 func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	ipCases := []struct {
-		name           string
-		endpoint       string
-		disableSidecar bool
-		port           string
-		code           int
+		name            string
+		endpoint        string
+		disableSidecar  bool
+		port            string
+		code            int
+		minIstioVersion string
 	}{
 		// instance IP bind
 		{
@@ -1333,6 +1540,8 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			disableSidecar: true,
 			port:           "http-localhost",
 			code:           503,
+			// when testing with pre-1.10 versions this request succeeds
+			minIstioVersion: "1.10.0",
 		},
 		{
 			name:     "localhost IP with wildcard sidecar",
@@ -1351,6 +1560,8 @@ func instanceIPTests(apps *EchoDeployments) []TrafficTestCase {
 			endpoint: "",
 			port:     "http-localhost",
 			code:     503,
+			// when testing with pre-1.10 versions this request succeeds
+			minIstioVersion: "1.10.0",
 		},
 
 		// Wildcard bind
@@ -1418,6 +1629,7 @@ spec:
 						Timeout:   time.Second * 5,
 						Validator: echo.ExpectCode(fmt.Sprint(ipCase.code)),
 					},
+					minIstioVersion: ipCase.minIstioVersion,
 				})
 		}
 	}
@@ -1737,6 +1949,23 @@ spec:
     connectionPool:
       http:
         useClientProtocol: true
+---
+`, name, app)
+}
+
+func idletimeoutDestinationRule(name, app string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      http:
+        idleTimeout: 100s
 ---
 `, name, app)
 }

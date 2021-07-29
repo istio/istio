@@ -32,17 +32,17 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-var vwcName = "istiod"
-
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			// clear the updated fields and verify istiod updates them
-
-			if t.Settings().Revision != "" {
-				vwcName = fmt.Sprintf("%s-%s", vwcName, t.Settings().Revision)
+			vwcName := "istio-validator"
+			if t.Settings().Revisions.Default() != "" {
+				vwcName = fmt.Sprintf("%s-%s", vwcName, t.Settings().Revisions.Default())
 			}
+			vwcName += "-istio-system"
+
+			// clear the updated fields and verify istiod updates them
 			cluster := t.Clusters().Default()
 			retry.UntilSuccessOrFail(t, func() error {
 				got, err := getValidatingWebhookConfiguration(cluster, vwcName)
@@ -60,7 +60,7 @@ func TestWebhook(t *testing.T) {
 
 				if _, err := cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(),
 					updated, kubeApiMeta.UpdateOptions{}); err != nil {
-					return fmt.Errorf("could not update validating webhook config: %s", updated.Name)
+					return fmt.Errorf("could not update validating webhook config %q: %v", updated.Name, err)
 				}
 				return nil
 			})
@@ -77,8 +77,8 @@ func TestWebhook(t *testing.T) {
 			})
 
 			revision := "default"
-			if t.Settings().Revision != "" {
-				revision = t.Settings().Revision
+			if t.Settings().Revisions.Default() != "" {
+				revision = t.Settings().Revisions.Default()
 			}
 			verifyRejectsInvalidConfig(t, revision, true)
 			verifyRejectsInvalidConfig(t, "", true)
@@ -89,7 +89,7 @@ func getValidatingWebhookConfiguration(client kubernetes.Interface, name string)
 	whc, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
 		name, kubeApiMeta.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("could not get validating webhook config: %s", name)
+		return nil, fmt.Errorf("could not get validating webhook config %q: %v", name, err)
 	}
 	return whc, nil
 }

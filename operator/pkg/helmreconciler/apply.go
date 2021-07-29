@@ -173,7 +173,10 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 	objectKey := client.ObjectKeyFromObject(obj)
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 
-	scope.Debugf("Processing object:\n%s\n\n", util.ToYAML(obj))
+	if scope.DebugEnabled() {
+		scope.Debugf("Processing object:\n%s\n\n", util.ToYAML(obj))
+	}
+
 	if h.opts.DryRun {
 		scope.Infof("Not applying object %s because of dry run.", objectStr)
 		return nil

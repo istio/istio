@@ -99,7 +99,7 @@ kind: StatefulSet
 kind: Deployment
 {{- end }}
 metadata:
-{{- if $.IsMultiVersion }}
+{{- if $.Compatibility }}
   name: {{ $.Service }}-{{ $subset.Version }}-{{ $revision }}
 {{- else }}
   name: {{ $.Service }}-{{ $subset.Version }}
@@ -121,7 +121,8 @@ spec:
       labels:
         app: {{ $.Service }}
         version: {{ $subset.Version }}
-{{- if $.IsMultiVersion }}
+        test.istio.io/class: {{ $.Class }}
+{{- if $.Compatibility }}
         istio.io/rev: {{ $revision }}
 {{- end }}
 {{- if ne $.Locality "" }}
@@ -153,7 +154,7 @@ spec:
 {{- end }}
 {{- if $.IncludeExtAuthz }}
       - name: ext-authz
-        image: docker.io/istio/ext-authz:0.6
+        image: gcr.io/istio-testing/ext-authz:0.7
         imagePullPolicy: {{ $.PullPolicy }}
         ports:
         - containerPort: 8000
@@ -218,7 +219,7 @@ spec:
 {{- end }}
         ports:
 {{- range $i, $p := $.ContainerPorts }}
-        - containerPort: {{ $p.Port }} 
+        - containerPort: {{ $p.Port }}
 {{- if eq .Port 3333 }}
           name: tcp-health-port
 {{- end }}
@@ -228,10 +229,23 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+{{- if $.ProxylessGRPC }}
+        - name: EXPOSE_GRPC_ADMIN
+          value: "true"
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "99"
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: info
+{{- end }}
         readinessProbe:
+{{- if $.ReadinessTCPPort }}
+          tcpSocket:
+            port: {{ $.ReadinessTCPPort }}
+{{- else }}
           httpGet:
             path: /
             port: 8080
+{{- end }}
           initialDelaySeconds: 1
           periodSeconds: 2
           failureThreshold: 10
@@ -361,7 +375,7 @@ spec:
           sudo sh -c 'echo OUTPUT_CERTS=/var/run/secrets/istio >> /var/lib/istio/envoy/cluster.env'
 
           # TODO: run with systemctl?
-          export ISTIO_AGENT_FLAGS="--concurrency 2"
+          export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel warning,misc:error,rbac:debug,jwt:debug"
           sudo -E /usr/local/bin/istio-start.sh&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
@@ -484,7 +498,7 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 		}
 	}
 
-	deploymentYAML, err := GenerateDeployment(cfg, nil, ctx.Settings().Revisions)
+	deploymentYAML, err := GenerateDeployment(cfg, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating echo deployment YAML for %s/%s: %v",
 			cfg.Namespace.Name(),
@@ -581,8 +595,8 @@ spec:
 `, name, podIP, sa, network, service, version)
 }
 
-func GenerateDeployment(cfg echo.Config, settings *image.Settings, versions resource.RevVerMap) (string, error) {
-	params, err := templateParams(cfg, settings, versions)
+func GenerateDeployment(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (string, error) {
+	params, err := templateParams(cfg, imgSettings, settings)
 	if err != nil {
 		return "", err
 	}
@@ -596,7 +610,7 @@ func GenerateDeployment(cfg echo.Config, settings *image.Settings, versions reso
 }
 
 func GenerateService(cfg echo.Config) (string, error) {
-	params, err := templateParams(cfg, nil, resource.RevVerMap{})
+	params, err := templateParams(cfg, nil, nil)
 	if err != nil {
 		return "", err
 	}
@@ -614,10 +628,17 @@ var VMImages = map[echo.VMDistro]string{
 	echo.Centos8:      "app_sidecar_centos_8",
 }
 
-func templateParams(cfg echo.Config, settings *image.Settings, revisions resource.RevVerMap) (map[string]interface{}, error) {
+func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *resource.Settings) (map[string]interface{}, error) {
 	if settings == nil {
 		var err error
-		settings, err = image.SettingsFromCommandLine()
+		settings, err = resource.SettingsFromCommandLine("template")
+		if err != nil {
+			return nil, err
+		}
+	}
+	if imgSettings == nil {
+		var err error
+		imgSettings, err = image.SettingsFromCommandLine()
 		if err != nil {
 			return nil, err
 		}
@@ -633,18 +654,19 @@ func templateParams(cfg echo.Config, settings *image.Settings, revisions resourc
 	if cfg.Namespace != nil {
 		namespace = cfg.Namespace.Name()
 	}
-	imagePullSecret, err := settings.ImagePullSecretName()
+	imagePullSecret, err := imgSettings.ImagePullSecretName()
 	if err != nil {
 		return nil, err
 	}
 	params := map[string]interface{}{
-		"Hub":                settings.Hub,
-		"Tag":                strings.TrimSuffix(settings.Tag, "-distroless"),
-		"PullPolicy":         settings.PullPolicy,
+		"Hub":                imgSettings.Hub,
+		"Tag":                strings.TrimSuffix(imgSettings.Tag, "-distroless"),
+		"PullPolicy":         imgSettings.PullPolicy,
 		"Service":            cfg.Service,
 		"Version":            cfg.Version,
 		"Headless":           cfg.Headless,
 		"StatefulSet":        cfg.StatefulSet,
+		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
 		"Locality":           cfg.Locality,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"Ports":              cfg.Ports,
@@ -656,13 +678,15 @@ func templateParams(cfg echo.Config, settings *image.Settings, revisions resourc
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
+		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
 		"StartupProbe":    supportStartupProbe,
 		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"Revisions":       revisions.TemplateMap(),
-		"IsMultiVersion":  revisions.IsMultiVersion(),
+		"Revisions":       settings.Revisions.TemplateMap(),
+		"Compatibility":   settings.Compatibility,
+		"Class":           getConfigClass(cfg),
 	}
 	return params, nil
 }
@@ -699,6 +723,7 @@ spec:
   metadata:
     labels:
       app: {{.name}}
+      test.istio.io/class: {{ .class }}
   template:
     serviceAccount: {{.serviceaccount}}
     network: "{{.network}}"
@@ -716,6 +741,7 @@ spec:
 		"namespace":      cfg.Namespace.Name(),
 		"serviceaccount": serviceAccount(cfg),
 		"network":        cfg.Cluster.NetworkName(),
+		"class":          getConfigClass(cfg),
 	})
 
 	// Push the WorkloadGroup for auto-registration
@@ -831,6 +857,25 @@ spec:
 	}
 
 	return nil
+}
+
+func getConfigClass(cfg echo.Config) string {
+	if cfg.IsProxylessGRPC() {
+		return "proxyless"
+	} else if cfg.IsVM() {
+		return "vm"
+	} else if cfg.IsTProxy() {
+		return "tproxy"
+	} else if cfg.IsNaked() {
+		return "naked"
+	} else if cfg.IsExternal() {
+		return "external"
+	} else if cfg.IsStatefulSet() {
+		return "statefulset"
+	} else if cfg.IsHeadless() {
+		return "headless"
+	}
+	return "standard"
 }
 
 func patchProxyConfigFile(file string, overrides string) error {

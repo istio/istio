@@ -253,11 +253,12 @@ func portForwardPilot(kubeConfig, pilotURL string) (*os.Process, string, error) 
 	// Make sure istio-pilot is reachable.
 	reachable := false
 	url := fmt.Sprintf("localhost:%d", localPort)
-	for i := 0; i < 10 && !reachable; i++ {
+	for i := 0; i < 10; i++ {
 		conn, err := net.Dial("tcp", url)
 		if err == nil {
 			_ = conn.Close()
 			reachable = true
+			break
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -310,7 +311,7 @@ func main() {
 	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
-	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0644); err != nil {
+	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0o644); err != nil {
 		log.Errorf("Cannot write output to file %q", *outputFile)
 	}
 }

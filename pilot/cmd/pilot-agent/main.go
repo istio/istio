@@ -80,7 +80,7 @@ var (
 
 	proxyCmd = &cobra.Command{
 		Use:   "proxy",
-		Short: "Envoy proxy agent",
+		Short: "XDS proxy agent",
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			// Allow unknown flags for backward-compatibility.
 			UnknownFlags: true,
@@ -300,6 +300,7 @@ func initProxy(args []string) (*model.Proxy, error) {
 // Use env variables - from injection, k8s and local namespace config map.
 // No CLI parameters.
 func main() {
+	log.EnableKlogWithCobra()
 	if err := rootCmd.Execute(); err != nil {
 		log.Error(err)
 		os.Exit(-1)

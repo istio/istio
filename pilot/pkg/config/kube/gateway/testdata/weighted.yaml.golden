@@ -11,13 +11,13 @@ spec:
   - hosts:
     - '*.domain.example'
     port:
-      name: http-80-gateway-gateway-istio-system
+      name: 0-gateway-gateway-istio-system
       number: 80
       protocol: HTTP
   - hosts:
     - '*'
     port:
-      name: tcp-34000-gateway-gateway-istio-system
+      name: 1-gateway-gateway-istio-system
       number: 34000
       protocol: TCP
 ---
@@ -59,7 +59,7 @@ spec:
   http:
   - match:
     - uri:
-        prefix: /get
+        regex: /get((\/).*)?
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -73,7 +73,7 @@ spec:
       weight: 60
   - match:
     - uri:
-        prefix: /weighted-100
+        regex: /weighted-100((\/).*)?
     route:
     - destination:
         host: foo-svc.default.svc.domain.suffix

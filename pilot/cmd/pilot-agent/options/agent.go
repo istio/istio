@@ -43,12 +43,15 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		EnvoyStatusPort:          envoyStatusPortEnv,
 		EnvoyPrometheusPort:      envoyPrometheusPortEnv,
 		Platform:                 platform.Discover(),
+		GRPCBootstrapPath:        grpcBootstrapEnv,
+		DisableEnvoy:             disableEnvoyEnv,
 	}
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {
 		o.ProxyXDSViaAgent = true
 		o.ProxyXDSDebugViaAgent = proxyXDSDebugViaAgent
 		o.DNSCapture = DNSCaptureByAgent.Get()
+		o.DNSAddr = DNSCaptureAddr.Get()
 		o.ProxyNamespace = PodNamespaceVar.Get()
 		o.ProxyDomain = proxy.DNSDomain
 	}

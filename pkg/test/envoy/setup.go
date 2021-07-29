@@ -212,7 +212,7 @@ func (s *TestSetup) WaitForStatsUpdateAndGetStats(waitDuration int) (string, err
 	if err != nil {
 		return "", fmt.Errorf("sending stats request returns an error: %v", err)
 	}
-	if code != 200 {
+	if code != http.StatusOK {
 		return "", fmt.Errorf("sending stats request returns unexpected status code: %d", code)
 	}
 	return respBody, nil
@@ -230,7 +230,7 @@ func (s *TestSetup) GetStatsMap() (map[string]uint64, error) {
 		code, statsJSON, errGet = env.HTTPGet(statsURL)
 		if errGet != nil {
 			log.Printf("sending stats request returns an error: %v", errGet)
-		} else if code != 200 {
+		} else if code != http.StatusOK {
 			log.Printf("sending stats request returns unexpected status code: %d", code)
 		} else {
 			return s.unmarshalStats(statsJSON), nil

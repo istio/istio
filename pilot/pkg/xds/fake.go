@@ -42,6 +42,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -54,7 +55,7 @@ import (
 
 type FakeOptions struct {
 	// If provided, a service registry with the name of each map key will be created with the given objects.
-	KubernetesObjectsByCluster map[string][]runtime.Object
+	KubernetesObjectsByCluster map[cluster.ID][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
 	KubernetesObjects []runtime.Object
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes")
@@ -73,19 +74,30 @@ type FakeOptions struct {
 
 	// Callback to modify the server before it is started
 	DiscoveryServerModifier func(s *DiscoveryServer)
+	// Callback to modify the kube client before it is started
+	KubeClientModifier func(c kubelib.Client)
+
+	// ListenerBuilder, if specified, allows making the server use the given
+	// listener instead of a buffered conn.
+	ListenerBuilder func() (net.Listener, error)
 
 	// Time to debounce
 	// By default, set to 0s to speed up tests
 	DebounceTime time.Duration
+
+	// EnableFakeXDSUpdater will use a XDSUpdater that can be used to watch events
+	EnableFakeXDSUpdater bool
 }
 
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
 	t            test.Failer
 	Discovery    *DiscoveryServer
-	Listener     *bufconn.Listener
+	Listener     net.Listener
+	BufListener  *bufconn.Listener
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
+	XdsUpdater   model.XDSUpdater
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -103,6 +115,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz},
 		"pilot-123", "istio-system")
+	s.InitGenerators(&model.Environment{PushContext: model.NewPushContext()}, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -133,14 +146,25 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			})
 		})
 	}
-	for cluster, objs := range k8sObjects {
+	var xdsUpdater model.XDSUpdater = s
+	if opts.EnableFakeXDSUpdater {
+		evChan := make(chan FakeXdsEvent, 1000)
+		xdsUpdater = &FakeXdsUpdater{
+			Events:   evChan,
+			Delegate: s,
+		}
+	}
+	for k8sCluster, objs := range k8sObjects {
 		client := kubelib.NewFakeClient(objs...)
+		if opts.KubeClientModifier != nil {
+			opts.KubeClientModifier(client)
+		}
 		k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
 			ServiceHandler:  serviceHandler,
 			Client:          client,
-			ClusterID:       cluster,
+			ClusterID:       k8sCluster,
 			DomainSuffix:    "cluster.local",
-			XDSUpdater:      s,
+			XDSUpdater:      xdsUpdater,
 			NetworksWatcher: opts.NetworksWatcher,
 			Mode:            opts.KubernetesEndpointMode,
 			// we wait for the aggregate to sync
@@ -148,7 +172,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Stop:              stop,
 		})
 		// start default client informers after creating ingress/secret controllers
-		if defaultKubeClient == nil || cluster == "Kubernetes" {
+		if defaultKubeClient == nil || k8sCluster == "Kubernetes" {
 			defaultKubeClient = client
 			defaultKubeController = k8s
 		} else {
@@ -158,7 +182,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "", stop)
-	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
+	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache)
 	defaultKubeClient.RunAndWait(stop)
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
@@ -231,9 +255,18 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.DiscoveryServerModifier(s)
 	}
 
-	// Start in memory gRPC listener
-	buffer := 1024 * 1024
-	listener := bufconn.Listen(buffer)
+	var listener net.Listener
+	if opts.ListenerBuilder != nil {
+		var err error
+		if listener, err = opts.ListenerBuilder(); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		// Start in memory gRPC listener
+		buffer := 1024 * 1024
+		listener = bufconn.Listen(buffer)
+	}
+
 	grpcServer := grpc.NewServer()
 	s.Register(grpcServer)
 	go func() {
@@ -243,6 +276,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}()
 	t.Cleanup(func() {
 		grpcServer.Stop()
+		_ = listener.Close()
 	})
 	// Start the discovery server
 	s.Start(stop)
@@ -268,13 +302,16 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Mark ourselves ready
 	s.CachesSynced()
 
+	bufListener, _ := listener.(*bufconn.Listener)
 	fake := &FakeDiscoveryServer{
 		t:             t,
 		Discovery:     s,
 		Listener:      listener,
+		BufListener:   bufListener,
 		ConfigGenTest: cg,
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
+		XdsUpdater:    xdsUpdater,
 	}
 
 	return fake
@@ -293,7 +330,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.Listener.Dial()
+		return f.BufListener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -304,7 +341,7 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 // ConnectDeltaADS starts a Delta ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.Listener.Dial()
+		return f.BufListener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -338,7 +375,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		InitialDiscoveryRequests: initialWatch,
 		GrpcOpts: []grpc.DialOption{
 			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return f.Listener.Dial()
+				return f.BufListener.Dial()
 			}),
 			grpc.WithInsecure(),
 		},
@@ -370,8 +407,8 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 	return loadAssignments
 }
 
-func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.Object {
-	objects := map[string][]runtime.Object{}
+func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runtime.Object {
+	objects := map[cluster.ID][]runtime.Object{}
 
 	if len(opts.KubernetesObjects) > 0 {
 		objects["Kuberentes"] = append(objects["Kuberenetes"], opts.KubernetesObjects...)
@@ -391,13 +428,88 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[string][]runtime.
 		}
 	}
 
-	for cluster, clusterObjs := range opts.KubernetesObjectsByCluster {
-		objects[cluster] = append(objects[cluster], clusterObjs...)
+	for k8sCluster, clusterObjs := range opts.KubernetesObjectsByCluster {
+		objects[k8sCluster] = append(objects[k8sCluster], clusterObjs...)
 	}
 
 	if len(objects) == 0 {
-		return map[string][]runtime.Object{"Kubernetes": {}}
+		return map[cluster.ID][]runtime.Object{"Kubernetes": {}}
 	}
 
 	return objects
+}
+
+type FakeXdsEvent struct {
+	Kind      string
+	Host      string
+	Namespace string
+	Endpoints int
+	PushReq   *model.PushRequest
+}
+
+type FakeXdsUpdater struct {
+	// Events tracks notifications received by the updater
+	Events   chan FakeXdsEvent
+	Delegate model.XDSUpdater
+}
+
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
+func (fx *FakeXdsUpdater) EDSUpdate(s, hostname string, namespace string, entry []*model.IstioEndpoint) {
+	fx.Events <- FakeXdsEvent{Kind: "eds", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
+	if fx.Delegate != nil {
+		fx.Delegate.EDSUpdate(s, hostname, namespace, entry)
+	}
+}
+
+func (fx *FakeXdsUpdater) EDSCacheUpdate(s, hostname string, namespace string, entry []*model.IstioEndpoint) {
+	fx.Events <- FakeXdsEvent{Kind: "edscache", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
+	if fx.Delegate != nil {
+		fx.Delegate.EDSCacheUpdate(s, hostname, namespace, entry)
+	}
+}
+
+func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
+	fx.Events <- FakeXdsEvent{Kind: "xds", PushReq: req}
+	if fx.Delegate != nil {
+		fx.Delegate.ConfigUpdate(req)
+	}
+}
+
+func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
+	if fx.Delegate != nil {
+		fx.Delegate.ProxyUpdate(c, p)
+	}
+}
+
+func (fx *FakeXdsUpdater) SvcUpdate(s, hostname string, namespace string, e model.Event) {
+	fx.Events <- FakeXdsEvent{Kind: "svcupdate", Host: hostname, Namespace: namespace}
+	if fx.Delegate != nil {
+		fx.Delegate.SvcUpdate(s, hostname, namespace, e)
+	}
+}
+
+func (fx *FakeXdsUpdater) WaitOrFail(t test.Failer, types ...string) *FakeXdsEvent {
+	t.Helper()
+	got := fx.Wait(types...)
+	if got == nil {
+		t.Fatal("missing event")
+	}
+	return got
+}
+
+func (fx *FakeXdsUpdater) Wait(types ...string) *FakeXdsEvent {
+	for {
+		select {
+		case e := <-fx.Events:
+			for _, et := range types {
+				if e.Kind == et {
+					return &e
+				}
+			}
+			continue
+		case <-time.After(1 * time.Second):
+			return nil
+		}
+	}
 }

@@ -27,22 +27,20 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/tests/util/leak"
 )
 
 func TestSyncz(t *testing.T) {
-	leak.Check(t)
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS()
 
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.EndpointType,
 			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
 		})
-		ads.RequestResponseAck(&discovery.DiscoveryRequest{
+		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.RouteType,
 			ResourceNames: []string{"80", "8080"},
 		})
@@ -54,13 +52,13 @@ func TestSyncz(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS()
 
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.EndpointType,
 			ResourceNames: []string{"outbound|9080||app2.default.svc.cluster.local"},
 		})
-		ads.RequestResponseNack(&discovery.DiscoveryRequest{
+		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{
 			TypeUrl:       v3.RouteType,
 			ResourceNames: []string{"80", "8080"},
 		})
@@ -133,7 +131,6 @@ func verifySyncStatus(t *testing.T, s *xds.DiscoveryServer, nodeID string, wantS
 }
 
 func TestConfigDump(t *testing.T) {
-	leak.Check(t)
 	tests := []struct {
 		name     string
 		wantCode int
@@ -159,9 +156,9 @@ func TestConfigDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 			ads := s.ConnectADS()
-			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
-			ads.RequestResponseAck(&discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
-			ads.RequestResponseAck(&discovery.DiscoveryRequest{
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
+			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 				TypeUrl:       v3.RouteType,
 				ResourceNames: []string{"80", "8080"},
 			})
@@ -204,7 +201,6 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 }
 
 func TestDebugHandlers(t *testing.T) {
-	leak.Check(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	req, err := http.NewRequest("GET", "/debug", nil)
 	if err != nil {

@@ -50,6 +50,7 @@ type istioComponentSetSpec struct {
 	Base            *baseComponentSpec `json:"base" patchStrategy:"merge"`
 	Pilot           *componentSpec     `json:"pilot" patchStrategy:"merge"`
 	Cni             *componentSpec     `json:"cni" patchStrategy:"merge"`
+	IstiodRemote    *componentSpec     `json:"istiodRemote" patchStrategy:"merge"`
 	IngressGateways []*gatewaySpec     `json:"ingressGateways" patchStrategy:"merge" patchMergeKey:"name"`
 	EgressGateways  []*gatewaySpec     `json:"egressGateways" patchStrategy:"merge" patchMergeKey:"name"`
 }
@@ -146,6 +147,26 @@ type meshConfig struct {
 	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
 	ThriftConfig                   *meshConfigThriftConfig                                   `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
+	DefaultProviders               *meshConfigDefaultProviders                               `json:"defaultProviders" patchStrategy:"merge"`
+	ExtensionProviders             []*meshConfigExtensionProvider                            `json:"extensionProviders" patchStrategy:"merge" patchMergeKey:"name"`
+}
+
+type (
+	meshConfigDefaultProviders struct {
+		AccessLogging []struct{} `json:"accessLogging"`
+		Tracing       []struct{} `json:"tracing"`
+		Metrics       []struct{} `json:"metrics"`
+	}
+	meshConfigExtensionProvider struct {
+		Name     string                              `json:"string"`
+		Provider meshConfigExtensionProviderInstance `json:"provider"`
+	}
+)
+
+type meshConfigExtensionProviderInstance struct {
+	Prometheus         struct{} `json:"prometheus"`
+	EnvoyFileAccessLog struct{} `json:"envoyFileAccessLog"`
+	Stackdriver        struct{} `json:"stackdriver"`
 }
 
 type meshConfigThriftConfig struct {

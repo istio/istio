@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -115,7 +117,7 @@ type SidecarScope struct {
 	RootNamespace string
 }
 
-// Implement json.Marshaller
+// MarshalJSON implements json.Marshaller
 func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
 	return json.MarshalIndent(map[string]interface{}{
@@ -205,7 +207,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		// "domain squatting" on the hostname before a Kubernetes Service is created.
 		// This relies on the assumption that
 		if existing, f := out.servicesByHostname[s.Hostname]; f &&
-			!(existing.Attributes.ServiceRegistry != "Kubernetes" && s.Attributes.ServiceRegistry == "Kubernetes") {
+			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
 			continue
 		}
 		out.servicesByHostname[s.Hostname] = s
@@ -472,6 +474,13 @@ func (sc *SidecarScope) Services() []*Service {
 	return sc.services
 }
 
+func (sc *SidecarScope) Service(serviceHostname host.Name) *Service {
+	if sc == nil {
+		return nil
+	}
+	return sc.servicesByHostname[serviceHostname]
+}
+
 // DestinationRule returns the destination rule applicable for a given hostname
 // used by CDS code
 func (sc *SidecarScope) DestinationRule(hostname host.Name) *config.Config {
@@ -585,9 +594,29 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 // sidecarScope object. Selection is based on labels at the moment.
 func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
+
+	vsset := sets.NewSet()
+	addVirtualService := func(vs config.Config, hosts host.Names) {
+		vsname := vs.Name
+		rule := vs.Spec.(*networking.VirtualService)
+		for _, ih := range hosts {
+			// Check if the hostnames match per usual hostname matching rules
+			if vsset.Contains(vsname) {
+				break
+			}
+			for _, h := range rule.Hosts {
+				// VirtualServices can have many hosts, so we need to avoid appending
+				// duplicated virtualservices to slice importedVirtualServices
+				if ih.Matches(host.Name(h)) {
+					importedVirtualServices = append(importedVirtualServices, vs)
+					vsset.Insert(vsname)
+					break
+				}
+			}
+		}
+	}
 	for _, c := range virtualServices {
 		configNamespace := c.Namespace
-		rule := c.Spec.(*networking.VirtualService)
 
 		// Selection algorithm:
 		// virtualservices have a list of hosts in the API spec
@@ -600,46 +629,12 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				hostFound := false
-				for _, h := range rule.Hosts {
-					// TODO: This is a bug. VirtualServices can have many hosts
-					// while the user might be importing only a single host
-					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						hostFound = true
-						break
-					}
-				}
-
-				if hostFound {
-					break
-				}
-			}
+			addVirtualService(c, importedHosts)
 		}
 
 		// Check if there is an import of form */host or */*
 		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				hostFound := false
-				for _, h := range rule.Hosts {
-					// TODO: This is a bug. VirtualServices can have many hosts
-					// while the user might be importing only a single host
-					// We need to generate a new VirtualService with just the matched host
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						hostFound = true
-						break
-					}
-				}
-
-				if hostFound {
-					break
-				}
-			}
+			addVirtualService(c, importedHosts)
 		}
 	}
 
@@ -659,10 +654,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 			if svc := matchingService(importedHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
-		}
-
-		// Check if there is an import of form */host or */*
-		if wnsFound {
+		} else if wnsFound { // Check if there is an import of form */host or */*
 			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
@@ -695,7 +687,7 @@ func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgre
 	matchPort := needsPortMatch(ilw)
 	for _, importedHost := range importedHosts {
 		// Check if the hostnames match per usual hostname matching rules
-		if importedHost.Matches(service.Hostname) {
+		if service.Hostname.SubsetOf(importedHost) {
 			if matchPort {
 				return serviceMatchingListenerPort(service, ilw)
 			}

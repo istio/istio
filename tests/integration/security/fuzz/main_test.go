@@ -16,7 +16,6 @@
 package fuzz
 
 import (
-	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -24,9 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var (
-	ist istio.Instance
-)
+var ist istio.Instance
 
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).Setup(istio.Setup(&ist, setupConfig)).Run()
@@ -37,10 +34,10 @@ func setupConfig(ctx resource.Context, cfg *istio.Config) {
 		return
 	}
 
-	cfg.ControlPlaneValues = fmt.Sprintf(`
+	cfg.ControlPlaneValues = `
 meshConfig:
   accessLogFile: /dev/stdout
   pathNormalization:
-    normalization: DECODE_AND_MERGE_SLASHES 
-`)
+    normalization: DECODE_AND_MERGE_SLASHES
+`
 }

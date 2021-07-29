@@ -24,7 +24,6 @@ import (
 	"github.com/google/uuid"
 
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/util/leak"
 )
 
 var (
@@ -292,7 +291,7 @@ func TestTokenRotationJob(t *testing.T) {
 			ms.setToken(tc.jwt)
 
 			// Verify that rotation job is kicked multiple times.
-			retryTimeout := time.Duration(2+tc.expectedCall) * rotationInterval
+			retryTimeout := time.Duration(5+tc.expectedCall) * rotationInterval
 			retry.UntilSuccessOrFail(t, func() error {
 				callNumber := ms.NumGetTokenCall()
 				if callNumber < tc.expectedCall {
@@ -305,8 +304,4 @@ func TestTokenRotationJob(t *testing.T) {
 			p.Stop()
 		})
 	}
-}
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
 }

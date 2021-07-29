@@ -22,13 +22,14 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -208,7 +209,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 			Ports:        ports,
 			Resolution:   resolution,
 			Attributes: model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.External),
+				ServiceRegistry: provider.External,
 				Name:            ha.host,
 				Namespace:       namespace,
 				Labels:          labels,
@@ -250,7 +251,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 			Address:         addr,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
-			Network:         endpoint.Network,
+			Network:         network.ID(endpoint.Network),
 			Locality: model.Locality{
 				Label: endpoint.Locality,
 			},
@@ -391,7 +392,7 @@ func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadIn
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			// Not setting ports here as its done by k8s controller
-			Network: we.Network,
+			Network: network.ID(we.Network),
 			Locality: model.Locality{
 				Label: we.Locality,
 			},

@@ -117,7 +117,7 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 			}
 		}
 	}
-	return &kubeNamespace{prefix: nsConfig.Prefix, name: nsConfig.Prefix}, nil
+	return &kubeNamespace{prefix: nsConfig.Prefix, name: nsConfig.Prefix, ctx: ctx}, nil
 }
 
 // setNamespaceLabel labels a namespace with the given key, value pair
@@ -193,9 +193,9 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 	l := make(map[string]string)
 	l["istio-testing"] = "istio-test"
 	if cfg.Inject {
-		// do not add namespace labels when dealing with multiple revisions since
+		// do not add namespace labels when running compatibility tests since
 		// this disables the necessary object selectors
-		if !ctx.Settings().Revisions.IsMultiVersion() {
+		if !ctx.Settings().Compatibility {
 			if cfg.Revision != "" {
 				l[label.IoIstioRev.Name] = cfg.Revision
 			} else {
@@ -203,9 +203,9 @@ func createNamespaceLabels(ctx resource.Context, cfg *Config) map[string]string 
 			}
 		}
 	} else {
-		// for multiversion environments, disable the entire namespace explicitly
-		// so that object selectors are ignored
-		if ctx.Settings().Revisions.IsMultiVersion() {
+		// if we're running compatibility tests, disable injection in the namespace
+		// explicitly so that object selectors are ignored
+		if ctx.Settings().Compatibility {
 			l["istio-injection"] = "disabled"
 		}
 	}

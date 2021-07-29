@@ -147,7 +147,6 @@ const (
 )
 
 // UnmarshalConfig unmarshals the provided YAML configuration, while normalizing the resulting configuration
-// nolint: staticcheck
 func UnmarshalConfig(yml []byte) (Config, error) {
 	var injectConfig Config
 	if err := yaml.Unmarshal(yml, &injectConfig); err != nil {
@@ -465,10 +464,10 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 
 	// default case when injected pod has explicit status
 	var iStatus SidecarInjectionStatus
-	if err := json.Unmarshal(statusBytes, &iStatus); err == nil {
-		return &iStatus
+	if err := json.Unmarshal(statusBytes, &iStatus); err != nil {
+		return nil
 	}
-	return nil
+	return &iStatus
 }
 
 func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarTemplateData) (bytes.Buffer, error) {
@@ -669,7 +668,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig strin
 		return nil, err
 	}
 	if patchBytes == nil {
-		if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
+		if !injectRequired(IgnoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, pod.ObjectMeta) {
 			warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
 			return out, nil
 		}
@@ -731,6 +730,7 @@ type SidecarInjectionStatus struct {
 	Containers       []string `json:"containers"`
 	Volumes          []string `json:"volumes"`
 	ImagePullSecrets []string `json:"imagePullSecrets"`
+	Revision         string   `json:"revision"`
 }
 
 func potentialPodName(metadata metav1.ObjectMeta) string {

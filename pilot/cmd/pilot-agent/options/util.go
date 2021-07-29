@@ -18,7 +18,7 @@ import (
 	"net"
 )
 
-// IsIPv6Proxy check the addresses slice and returns true for a valid IPv6 address
+// IsIPv6Proxy check the addresses slice and returns true for all addresses are valid IPv6 address
 // for all other cases it returns false
 func IsIPv6Proxy(ipAddrs []string) bool {
 	for i := 0; i < len(ipAddrs); i++ {

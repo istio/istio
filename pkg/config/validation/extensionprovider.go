@@ -167,6 +167,18 @@ func validateExtensionProviderTracingSkyWalking(config *meshconfig.MeshConfig_Ex
 	return
 }
 
+func validateExtensionProviderMetricsPrometheus(prometheus *meshconfig.MeshConfig_ExtensionProvider_PrometheusMetricsProvider) error {
+	return nil
+}
+
+func validateExtensionProviderStackdriver(stackdriver *meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider) error {
+	return nil
+}
+
+func validateExtensionProviderEnvoyFileAccessLog(log *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider) error {
+	return nil
+}
+
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 	definedProviders := map[string]struct{}{}
 	for _, c := range config.ExtensionProviders {
@@ -196,8 +208,14 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingOpenCensusAgent(provider.Opencensus))
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingSkyWalking(provider.Skywalking))
+		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderMetricsPrometheus(provider.Prometheus))
+		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderStackdriver(provider.Stackdriver))
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
+			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyFileAccessLog(provider.EnvoyFileAccessLog))
 		default:
-			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v", provider))
+			currentErrs = appendErrors(currentErrs, fmt.Errorf("unsupported provider: %v of type %T", provider, provider))
 		}
 		currentErrs = multierror.Prefix(currentErrs, fmt.Sprintf("invalid extension provider %s:", c.Name))
 		errs = appendErrors(errs, currentErrs)

@@ -655,7 +655,7 @@ func ReadPodAnnotations(path string) (map[string]string, error) {
 	return ParseDownwardAPI(string(b))
 }
 
-// Fields are stored as format `%s=%q`, we will parse this back to a map
+// ParseDownwardAPI parses fields which are stored as format `%s=%q` back to a map
 func ParseDownwardAPI(i string) (map[string]string, error) {
 	res := map[string]string{}
 	for _, line := range strings.Split(i, "\n") {

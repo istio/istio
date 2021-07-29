@@ -104,7 +104,17 @@ func retrieveListenerType(l *listener.Listener) string {
 }
 
 func retrieveListenerAddress(l *listener.Listener) string {
-	return l.Address.GetSocketAddress().Address
+	sockAddr := l.Address.GetSocketAddress()
+	if sockAddr != nil {
+		return sockAddr.Address
+	}
+
+	pipe := l.Address.GetPipe()
+	if pipe != nil {
+		return pipe.Path
+	}
+
+	return ""
 }
 
 func retrieveListenerPort(l *listener.Listener) uint32 {
@@ -348,7 +358,7 @@ func describeMatch(match *route.RouteMatch) string {
 		conds = append(conds, match.GetPath())
 	}
 	if match.GetSafeRegex() != nil {
-		conds = append(conds, fmt.Sprintf("regex %s", match.GetSafeRegex().String()))
+		conds = append(conds, fmt.Sprintf("regex %s", match.GetSafeRegex().Regex))
 	}
 	// Ignore headers
 	return strings.Join(conds, " ")

@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -33,8 +34,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/security"
 )
 
@@ -90,9 +93,6 @@ type DiscoveryServer struct {
 	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
 
 	concurrentPushLimit chan struct{}
-	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
-	// shards.
-	mutex sync.RWMutex
 
 	// InboundUpdates describes the number of configuration updates the discovery server has received
 	InboundUpdates *atomic.Int64
@@ -103,13 +103,17 @@ type DiscoveryServer struct {
 	// the push context, which means that the next push to a proxy will receive this configuration.
 	CommittedUpdates *atomic.Int64
 
+	// mutex used for protecting shards.
+	mutex sync.RWMutex
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
 	EndpointShardsByService map[string]map[string]*EndpointShards
 
+	// pushChannel is the buffer used for debouncing.
+	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
 
-	// mutex used for config update scheduling (former cache update mutex)
+	// mutex used for protecting Environment.PushContext
 	updateMutex sync.RWMutex
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
@@ -143,6 +147,9 @@ type DiscoveryServer struct {
 
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *model.JwksResolver
+
+	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
+	ListRemoteClusters func() []cluster.DebugInfo
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -189,8 +196,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 	}
 
 	out.initJwksResolver()
-
-	out.initGenerators(env, systemNameSpace)
 
 	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
@@ -264,7 +269,7 @@ func (s *DiscoveryServer) getNonK8sRegistries() []serviceregistry.Instance {
 	}
 
 	for _, registry := range registries {
-		if registry.Provider() != serviceregistry.Kubernetes && registry.Provider() != serviceregistry.External {
+		if registry.Provider() != provider.Kubernetes && registry.Provider() != provider.External {
 			nonK8sRegistries = append(nonK8sRegistries, registry)
 		}
 	}
@@ -295,11 +300,23 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 	}
 }
 
+// dropCacheForRequest clears the cache in response to a push request
+func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
+	// If we don't know what updated, cannot safely cache. Clear the whole cache
+	if len(req.ConfigsUpdated) == 0 {
+		s.Cache.ClearAll()
+	} else {
+		// Otherwise, just clear the updated configs
+		s.Cache.Clear(req.ConfigsUpdated)
+	}
+}
+
 // Push is called to push changes on config updates using ADS. This is set in DiscoveryService.Push,
 // to avoid direct dependencies.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
+		s.dropCacheForRequest(req)
 		s.AdsPushAll(versionInfo(), req)
 		return
 	}
@@ -317,9 +334,9 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if err != nil {
 		return
 	}
-
 	initContextTime := time.Since(t0)
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
+	pushContextInitTime.Record(initContextTime.Seconds())
 
 	versionMutex.Lock()
 	version = versionLocal
@@ -391,10 +408,15 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
 			if req != nil {
 				pushCounter++
-				log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
-					pushCounter, debouncedEvents,
-					quietTime, eventDelay, req.Full)
-
+				if req.ConfigsUpdated == nil {
+					log.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents,
+						quietTime, eventDelay, req.Full)
+				} else {
+					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
+						pushCounter, debouncedEvents, configsUpdated(req),
+						quietTime, eventDelay, req.Full)
+				}
 				free = false
 				go push(req, debouncedEvents)
 				req = nil
@@ -437,6 +459,19 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 			return
 		}
 	}
+}
+
+func configsUpdated(req *model.PushRequest) string {
+	configs := ""
+	for key := range req.ConfigsUpdated {
+		configs += key.String()
+		break
+	}
+	if len(req.ConfigsUpdated) > 1 {
+		more := fmt.Sprintf(" and %d more configs", len(req.ConfigsUpdated)-1)
+		configs += more
+	}
+	return configs
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
@@ -507,6 +542,8 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 
 	s.updateMutex.Lock()
 	s.Env.PushContext = push
+	// Ensure we drop the cache in the lock to avoid races, where we drop the cache, fill it back up, then update push context
+	s.dropCacheForRequest(req)
 	s.updateMutex.Unlock()
 
 	return push, nil
@@ -516,8 +553,8 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
 }
 
-// initGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) initGenerators(env *model.Environment, systemNameSpace string) {
+// InitGenerators initializes generators to be used by XdsServer.
+func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}

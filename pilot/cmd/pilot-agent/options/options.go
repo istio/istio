@@ -85,6 +85,10 @@ var (
 	DNSCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
+	// DNSCaptureAddr is the address to listen.
+	DNSCaptureAddr = env.RegisterStringVar("DNS_PROXY_ADDR", "localhost:15053",
+		"Custom address for the DNS proxy. If it ends with :53 and running as root allows running without iptable DNS capture")
+
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.RegisterBoolVar("PROXY_CONFIG_XDS_AGENT", false,
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()
@@ -97,4 +101,15 @@ var (
 		"Envoy health status port value").Get()
 	envoyPrometheusPortEnv = env.RegisterIntVar("ENVOY_PROMETHEUS_PORT", 15090,
 		"Envoy prometheus redirection port value").Get()
+
+	// Defined by https://github.com/grpc/proposal/blob/c5722a35e71f83f07535c6c7c890cf0c58ec90c0/A27-xds-global-load-balancing.md#xdsclient-and-bootstrap-file
+	grpcBootstrapEnv = env.RegisterStringVar("GRPC_XDS_BOOTSTRAP", "",
+		"Path where gRPC expects to read a bootstrap file. Agent will generate one if set.").Get()
+
+	disableEnvoyEnv = env.RegisterBoolVar("DISABLE_ENVOY", false,
+		"Disables all Envoy agent features.").Get()
+
+	// certSigner is cert signer for workload cert
+	certSigner = env.RegisterStringVar("ISTIO_META_CERT_SIGNER", "",
+		"The cert signer info for workload cert")
 )

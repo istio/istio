@@ -74,6 +74,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 		for name := range model.ConfigsOfKind(req.ConfigsUpdated, gvk.Secret) {
 			if names.Contains(name.Name) {
 				found = true
+				break
 			}
 		}
 		return found
@@ -173,6 +174,12 @@ func (s *sdsservice) Generate(_ *model.Proxy, _ *model.PushContext, w *model.Wat
 	}
 	resp, err := s.generate(names)
 	return resp, pushLog(names), err
+}
+
+func (s *sdsservice) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := s.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
 }
 
 // register adds the SDS handle to the grpc server

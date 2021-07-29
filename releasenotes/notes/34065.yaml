@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 34065
+releaseNotes:
+  - |
+    **Added** validator for empty regex match.

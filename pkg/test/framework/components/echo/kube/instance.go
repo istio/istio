@@ -24,6 +24,7 @@ import (
 	kubeCore "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	appEcho "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -206,8 +207,8 @@ func (c *instance) Restart() error {
 
 // aggregateResponses forwards an echo request from all workloads belonging to this echo instance and aggregates the results.
 func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOptions ...retry.Option) (appEcho.ParsedResponses, error) {
-	// TODO put this somewhere else, or require users explicitly set the protocol
-	if c.Config().IsProxylessGRPC() && opts.Scheme == scheme.GRPC {
+	// TODO put this somewhere else, or require users explicitly set the protocol - quite hacky
+	if c.Config().IsProxylessGRPC() && (opts.Scheme == scheme.GRPC || opts.PortName == "grpc" || opts.Port != nil && opts.Port.Protocol == protocol.GRPC) {
 		// for gRPC calls, use XDS resolver
 		opts.Scheme = scheme.XDS
 	}
@@ -219,7 +220,10 @@ func (c *instance) aggregateResponses(opts echo.CallOptions, retry bool, retryOp
 	}
 	aggErr := istiomultierror.New()
 	for _, w := range workloads {
-		out, err := common.ForwardEcho(c.cfg.Service, w.(*workload).Client, &opts, retry, retryOptions...)
+		clusterName := w.(*workload).cluster.Name()
+		serviceName := fmt.Sprintf("%s (cluster=%s)", c.cfg.Service, clusterName)
+
+		out, err := common.ForwardEcho(serviceName, w.(*workload).Client, &opts, retry, retryOptions...)
 		if err != nil {
 			aggErr = multierror.Append(aggErr, err)
 			continue

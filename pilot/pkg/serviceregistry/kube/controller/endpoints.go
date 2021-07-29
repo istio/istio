@@ -18,6 +18,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -63,7 +64,7 @@ func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *mod
 func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
-	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
+	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.opts.DomainSuffix)
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
@@ -71,6 +72,8 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	if svc != nil {
 		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)
+
+		discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
 
 		for _, ss := range endpoints.Subsets {
 			for _, port := range ss.Ports {
@@ -82,7 +85,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 				// consider multiple IP scenarios
 				for _, ip := range proxy.IPAddresses {
 					if hasProxyIP(ss.Addresses, ip) || hasProxyIP(ss.NotReadyAddresses, ip) {
-						istioEndpoint := builder.buildIstioEndpoint(ip, port.Port, svcPort.Name)
+						istioEndpoint := builder.buildIstioEndpoint(ip, port.Port, svcPort.Name, discoverabilityPolicy)
 						out = append(out, &model.ServiceInstance{
 							Endpoint:    istioEndpoint,
 							ServicePort: svcPort,
@@ -91,8 +94,8 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 					}
 
 					if hasProxyIP(ss.NotReadyAddresses, ip) {
-						if c.metrics != nil {
-							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+						if c.opts.Metrics != nil {
+							c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 						}
 					}
 				}
@@ -113,6 +116,8 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 		return nil
 	}
 
+	discoverabilityPolicy := c.discoverabilityPolicyForService(namespacedNameForService(svc))
+
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
@@ -123,12 +128,13 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			// TODO(@hzxuzhonghu): handle pod occurs later than endpoint
-			pod := c.getPod(ea.IP, &ep.ObjectMeta, ea.TargetRef)
+			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
+			if pod == nil && expectedPod {
+				continue
+			}
 			if pod != nil {
 				podLabels = pod.Labels
 			}
-
 			// check that one of the input labels is a subset of the labels
 			if !labelsList.HasSubsetOf(podLabels) {
 				continue
@@ -140,7 +146,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 			for _, port := range ss.Ports {
 				if port.Name == "" || // 'name optional if single port is defined'
 					svcPort.Name == port.Name {
-					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name)
+					istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, svcPort.Name, discoverabilityPolicy)
 					out = append(out, &model.ServiceInstance{
 						Endpoint:    istioEndpoint,
 						ServicePort: svcPort,
@@ -176,7 +182,7 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, ep)
 }
 
-func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) []*model.IstioEndpoint {
 	ep := endpoint.(*v1.Endpoints)
 	key := kube.KeyFunc(ep.Name, ep.Namespace)
 	for _, ss := range ep.Subsets {
@@ -184,11 +190,18 @@ func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
 			e.c.pods.endpointDeleted(key, ea.IP)
 		}
 	}
+	return nil
 }
 
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
 	endpoints := make([]*model.IstioEndpoint, 0)
 	ep := endpoint.(*v1.Endpoints)
+
+	discoverabilityPolicy := e.c.discoverabilityPolicyForService(types.NamespacedName{
+		Namespace: ep.Namespace,
+		Name:      ep.Name,
+	})
+
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
@@ -199,7 +212,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 
 			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range ss.Ports {
-				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
+				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name, discoverabilityPolicy)
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
@@ -219,7 +232,7 @@ func (e *endpointsController) buildIstioEndpointsWithService(name, namespace str
 
 func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {
 	endpoint := ep.(*v1.Endpoints)
-	return kube.ServiceHostname(endpoint.Name, endpoint.Namespace, e.c.domainSuffix), endpoint.Name, endpoint.Namespace
+	return kube.ServiceHostname(endpoint.Name, endpoint.Namespace, e.c.opts.DomainSuffix), endpoint.Name, endpoint.Namespace
 }
 
 // endpointsEqual returns true if the two endpoints are the same in aspects Pilot cares about

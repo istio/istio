@@ -214,6 +214,7 @@ func (e *Env) WaitForStsFlowReady(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		resp, err := hTTPClient.Do(req)
 		if err == nil {
+			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK && resp.Header.Get("Content-Type") == "application/json" {
 				t.Logf("%s all servers in the STS flow are up and ready", time.Now().String())
 				return

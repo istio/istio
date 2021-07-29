@@ -81,8 +81,8 @@ type controller struct {
 	domainSuffix string
 
 	queue                  queue.Instance
-	virtualServiceHandlers []func(config.Config, config.Config, model.Event)
-	gatewayHandlers        []func(config.Config, config.Config, model.Event)
+	virtualServiceHandlers []model.EventHandler
+	gatewayHandlers        []model.EventHandler
 
 	ingressInformer cache.SharedInformer
 	serviceInformer cache.SharedInformer
@@ -275,7 +275,7 @@ func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) erro
 	return nil
 }
 
-func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(config.Config, config.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
 	switch kind {
 	case gvk.VirtualService:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
@@ -323,7 +323,7 @@ func sortIngressByCreationTime(configs []interface{}) []*ingress.Ingress {
 	for _, i := range configs {
 		ingr = append(ingr, i.(*ingress.Ingress))
 	}
-	sort.SliceStable(ingr, func(i, j int) bool {
+	sort.Slice(ingr, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.

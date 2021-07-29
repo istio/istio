@@ -25,12 +25,7 @@ import (
 	"time"
 
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/tests/util/leak"
 )
-
-func TestMain(m *testing.M) {
-	leak.CheckMain(m)
-}
 
 func TestHttpProber(t *testing.T) {
 	tests := []struct {

@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/pkg/collateral"
@@ -120,9 +120,9 @@ func addFlags(c *cobra.Command) {
 
 	// Process commandline args.
 	c.PersistentFlags().StringSliceVar(&serverArgs.RegistryOptions.Registries, "registries",
-		[]string{string(serviceregistry.Kubernetes)},
+		[]string{string(provider.Kubernetes)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s})",
-			serviceregistry.Kubernetes, serviceregistry.Mock))
+			provider.Kubernetes, provider.Mock))
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.ClusterRegistriesNamespace, "clusterRegistriesNamespace",
 		serverArgs.RegistryOptions.ClusterRegistriesNamespace, "Namespace for ConfigMap which stores clusters configs")
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeConfig, "kubeconfig", "",
@@ -145,7 +145,7 @@ func addFlags(c *cobra.Command) {
 		"Controller resync interval")
 	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.DomainSuffix, "domain", constants.DefaultKubernetesDomain,
 		"DNS domain suffix")
-	c.PersistentFlags().StringVar(&serverArgs.RegistryOptions.KubeOptions.ClusterID, "clusterID", features.ClusterName,
+	c.PersistentFlags().StringVar((*string)(&serverArgs.RegistryOptions.KubeOptions.ClusterID), "clusterID", features.ClusterName,
 		"The ID of the cluster that this Istiod instance resides")
 
 	// using address, so it can be configured as localhost:.. (possibly UDS in future)

@@ -181,7 +181,7 @@ func (cr *storeCache) HasSynced() bool {
 	return true
 }
 
-func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
+func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
 	for _, cache := range cr.caches {
 		if _, exists := cache.Schemas().FindByGroupVersionKind(kind); exists {
 			cache.RegisterEventHandler(kind, handler)

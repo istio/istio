@@ -16,15 +16,12 @@ FROM ${BASE_DISTRIBUTION}
 
 LABEL description="Istio CNI plugin installer."
 
-COPY istio-cni /opt/cni/bin/
-COPY istio-iptables /opt/cni/bin/
-COPY install-cni /usr/local/bin/
-
-# Copy over the Repair binary
-COPY istio-cni-repair /opt/local/bin/
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/istio-cni /opt/cni/bin/istio-cni
+COPY ${TARGETARCH:-amd64}/install-cni /usr/local/bin/install-cni
 
 # Copy over the Taint binary
-COPY istio-cni-taint /opt/local/bin/
+COPY ${TARGETARCH:-amd64}/istio-cni-taint /opt/local/bin/istio-cni-taint
 
 ENV PATH=$PATH:/opt/cni/bin
 WORKDIR /opt/cni/bin

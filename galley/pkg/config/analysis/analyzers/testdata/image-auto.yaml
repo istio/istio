@@ -1,0 +1,86 @@
+# Injected namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: injected
+  labels:
+    istio-injection: enabled
+---
+# Non-injected namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: non-injected
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: istio-sidecar-injector
+webhooks:
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: fake
+        namespace: istio-system
+    name: namespace.sidecar-injector.istio.io
+    namespaceSelector:
+      matchLabels:
+        istio-injection: enabled
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: fake
+        namespace: istio-system
+    name: object.sidecar-injector.istio.io
+    objectSelector:
+      matchLabels:
+        sidecar.istio.io/inject: "true"
+---
+# Should produce error!
+apiVersion: v1
+kind: Pod
+metadata:
+  name: injected-pod
+  namespace: default
+spec:
+  containers:
+    - image: auto
+      name: istio-proxy
+---
+# Not injected, should produce error!
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: non-injected-gateway-deployment
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+      labels:
+        istio: ingressgateway
+        istio.io/rev: non-existent-rev
+    spec:
+      containers:
+        - name: istio-proxy
+          image: auto
+---
+# No image auto, should not produce error!
+apiVersion: v1
+kind: Pod
+metadata:
+  name: istiod-canary-1234567890-12345
+  namespace: istio-system
+  labels:
+    app: istiod
+    istio: pilot
+    sidecar.istio.io/inject: "true"
+spec:
+  containers:
+    - image: ubuntu
+      name: ubuntu

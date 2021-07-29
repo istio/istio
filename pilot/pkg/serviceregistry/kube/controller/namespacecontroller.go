@@ -25,16 +25,17 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/security/pkg/k8s"
 )
 
 const (
-	// Every NamespaceResyncPeriod, namespaceUpdated() will be invoked
+	// NamespaceResyncPeriod : every NamespaceResyncPeriod, namespaceUpdated() will be invoked
 	// for every namespace. This value must be configured so Citadel
 	// can update its CA certificate in a ConfigMap in every namespace.
 	NamespaceResyncPeriod = time.Second * 60
-	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
+	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
 
@@ -71,6 +72,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 			cm, err := convertToConfigMap(obj)
 			if err != nil {
 				log.Errorf("failed to convert to configmap: %v", err)
+				return
 			}
 			// This is a change to a configmap we don't watch, ignore it
 			if cm.Name != CACertNamespaceConfigMap {
@@ -84,6 +86,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 			cm, err := convertToConfigMap(obj)
 			if err != nil {
 				log.Errorf("failed to convert to configmap: %v", err)
+				return
 			}
 			// This is a change to a configmap we don't watch, ignore it
 			if cm.Name != CACertNamespaceConfigMap {
@@ -144,6 +147,13 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 // On namespace change, update the config map.
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) error {
+	// skip special kubernetes system namespaces
+	for _, namespace := range inject.IgnoredNamespaces {
+		if ns.Name == namespace {
+			return nil
+		}
+	}
+
 	if ns.Status.Phase != v1.NamespaceTerminating {
 		return nc.insertDataForNamespace(ns.Name)
 	}

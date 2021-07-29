@@ -80,7 +80,7 @@ var (
 		"PILOT_DEBOUNCE_AFTER",
 		100*time.Millisecond,
 		"The delay added to config/registry events for debouncing. This will delay the push by "+
-			"at least this internal. If no change is detected within this period, the push will happen, "+
+			"at least this interval. If no change is detected within this period, the push will happen, "+
 			" otherwise we'll keep delaying until things settle, up to a max of PILOT_DEBOUNCE_MAX.",
 	).Get()
 
@@ -124,6 +124,13 @@ var (
 		"EnableRedisFilter enables injection of `envoy.filters.network.redis_proxy` in the filter chain.",
 	).Get()
 
+	// EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.
+	EnableMongoFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_MONGO_FILTER",
+		true,
+		"EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.",
+	).Get()
+
 	// UseRemoteAddress sets useRemoteAddress to true for side car outbound listeners so that it picks up the localhost
 	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
 	UseRemoteAddress = env.RegisterBoolVar(
@@ -138,6 +145,11 @@ var (
 		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
+
+	EnableAutomTLSCheckPolicies = env.RegisterBoolVar(
+		"ENABLE_AUTO_MTLS_CHECK_POLICIES", true,
+		"Enable the auto mTLS EDS output to consult the PeerAuthentication Policy, only set the {tlsMode: istio} "+
+			" when server side policy enables mTLS PERMISSIVE or STRICT.").Get()
 
 	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
@@ -215,11 +227,22 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
-	EnableMCSServiceExport = env.RegisterBoolVar(
-		"PILOT_ENABLE_MCS_SERVICEEXPORT",
+	EnableMCSAutoExport = env.RegisterBoolVar(
+		"ENABLE_MCS_AUTOEXPORT",
 		false,
-		"If enabled, Pilot will generate MCS ServiceExport objects for every non cluster-local service in the cluster",
+		"If enabled, istiod will automatically generate MCS ServiceExport objects for each "+
+			"service in each cluster. Services defined to be cluster-local in MeshConfig are excluded.",
 	).Get()
+
+	EnableMCSServiceDiscovery = env.RegisterBoolVar("ENABLE_MCS_SERVICE_DISCOVERY", false,
+		"If enabled, istiod will enable Kubernetes MCS service discovery mode. In this mode, service endpoints "+
+			"in a cluster will only discoverable within the same cluster unless explicitly exported "+
+			"(via the ServiceExport CR).").Get()
+
+	EnableMCSHost = env.RegisterBoolVar("ENABLE_MCS_HOST", false,
+		"If enabled, istiod will provide an alias <svc>.<namespace>.svc.clusterset.local for "+
+			"each Kubernetes service. Clients must, however, be able to successfully lookup these DNS hosts. "+
+			"That means that either Istio DNS interception must be enabled or an MCS controller must be used.").Get()
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
@@ -232,6 +255,12 @@ var (
 		"PILOT_ENABLE_STATUS",
 		false,
 		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
+	).Get()
+
+	StatusUpdateInterval = env.RegisterDurationVar(
+		"PILOT_STATUS_UPDATE_INTERVAL",
+		500*time.Millisecond,
+		"Interval to update the XDS distribution status.",
 	).Get()
 
 	StatusQPS = env.RegisterFloatVar(
@@ -275,6 +304,9 @@ var (
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
 
+	EnableGatewayAPIStatus = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API_STATUS", true,
+		"If this is set to true, gateway-api resources will have status written to them").Get()
+
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
 		true,
@@ -315,6 +347,9 @@ var (
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.").Get()
 
+	ValidationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", "istio-istio-system",
+		"Name of the validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.").Get()
+
 	SpiffeBundleEndpoints = env.RegisterStringVar("SPIFFE_BUNDLE_ENDPOINTS", "",
 		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
 			"bundle endpoint and uses it to verify client certifiates from that trust domain. The endpoint must be "+
@@ -327,10 +362,15 @@ var (
 	EnableXDSCaching = env.RegisterBoolVar("PILOT_ENABLE_XDS_CACHE", true,
 		"If true, Pilot will cache XDS responses.").Get()
 
+	// EnableCDSCaching determines if CDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
+	// so that in case there are issues with the CDS cache we can just disable the CDS cache.
+	EnableCDSCaching = env.RegisterBoolVar("PILOT_ENABLE_CDS_CACHE", false,
+		"If true, Pilot will cache CDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
+
 	EnableXDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
 
-	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
+	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 60000,
 		"The maximum number of cache entries for the XDS cache.").Get()
 
 	// EnableLegacyFSGroupInjection has first-party-jwt as allowed because we only
@@ -431,7 +471,7 @@ var (
 
 	DeltaXds = env.RegisterBoolVar("ISTIO_DELTA_XDS", false,
 		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request").Get()
+			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
 
 	EnableLegacyAutoPassthrough = env.RegisterBoolVar(
 		"PILOT_ENABLE_LEGACY_AUTO_PASSTHROUGH",
@@ -470,6 +510,20 @@ var (
 	// New behavior (true): we create listener 0.0.0.0_8080 and route http.8080. This has no conflicts; routes are 1:1 with listener.
 	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
 		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
+
+	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
+
+	AutoReloadPluginCerts = env.RegisterBoolVar(
+		"AUTO_RELOAD_PLUGIN_CERTS",
+		false,
+		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
+			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
+
+	RewriteTCPProbes = env.RegisterBoolVar(
+		"REWRITE_TCP_PROBES",
+		true,
+		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

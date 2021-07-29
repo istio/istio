@@ -385,7 +385,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		FilterChains:     filterChains,
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
-	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, ipTablesListener)
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
 	return lb
 }
@@ -409,7 +409,7 @@ func (lb *ListenerBuilder) buildVirtualInboundListener(configgen *ConfigGenerato
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     filterChains,
 	}
-	accessLogBuilder.setListenerAccessLog(lb.push.Mesh, lb.virtualInboundListener)
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, lb.virtualInboundListener)
 	lb.aggregateVirtualInboundListener(passthroughInspector)
 
 	return lb
@@ -420,7 +420,7 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 		return nil
 	}
 	tempArray := []*listener.Listener{l}
-	tempArray = envoyfilter.ApplyListenerPatches(ctx, lb.node, lb.push, lb.envoyFilterWrapper, tempArray, true)
+	tempArray = envoyfilter.ApplyListenerPatches(ctx, lb.envoyFilterWrapper, tempArray, true)
 	// temp array will either be empty [if virtual listener was removed] or will have a modified listener
 	if len(tempArray) == 0 {
 		return nil
@@ -435,17 +435,15 @@ func (lb *ListenerBuilder) patchListeners() {
 	}
 
 	if lb.node.Type == model.Router {
-		lb.gatewayListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, lb.node, lb.push, lb.envoyFilterWrapper,
+		lb.gatewayListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, lb.envoyFilterWrapper,
 			lb.gatewayListeners, false)
 		return
 	}
 
 	lb.virtualOutboundListener = lb.patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
-	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node,
-		lb.push, lb.envoyFilterWrapper, lb.inboundListeners, false)
-	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.node,
-		lb.push, lb.envoyFilterWrapper, lb.outboundListeners, false)
+	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.envoyFilterWrapper, lb.inboundListeners, false)
+	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.envoyFilterWrapper, lb.outboundListeners, false)
 }
 
 func (lb *ListenerBuilder) getListeners() []*listener.Listener {

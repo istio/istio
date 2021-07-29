@@ -20,7 +20,7 @@ type Set map[string]struct{}
 
 // NewSet creates a Set from a list of values.
 func NewSet(items ...string) Set {
-	ss := Set{}
+	ss := make(Set, len(items))
 	ss.Insert(items...)
 	return ss
 }
@@ -73,6 +73,21 @@ func (s Set) Difference(s2 Set) Set {
 	return result
 }
 
+// Intersection returns a set of objects that are common between s and s2
+// For example:
+// s = {a1, a2, a3}
+// s2 = {a1, a2, a4, a5}
+// s.Intersection(s2) = {a1, a2}
+func (s Set) Intersection(s2 Set) Set {
+	result := NewSet()
+	for key := range s {
+		if _, exist := s2[key]; exist {
+			result.Insert(key)
+		}
+	}
+	return result
+}
+
 // SupersetOf returns true if s contains all elements of s2
 // For example:
 // s = {a1, a2, a3}
@@ -118,4 +133,9 @@ func (s Set) Equals(other Set) bool {
 	}
 
 	return true
+}
+
+// Empty returns whether the set is the empty set.
+func (s Set) Empty() bool {
+	return len(s) == 0
 }

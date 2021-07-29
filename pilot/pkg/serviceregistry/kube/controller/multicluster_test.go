@@ -24,16 +24,17 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
-	pkgtest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
-	testSecretName      = "testSecretName"
 	testSecretNameSpace = "istio-system"
 	DomainSuffix        = "fake_domain"
 	ResyncPeriod        = 1 * time.Second
@@ -41,11 +42,11 @@ const (
 
 var mockserviceController = aggregate.NewController(aggregate.Options{})
 
-func createMultiClusterSecret(k8s kube.Client) error {
+func createMultiClusterSecret(k8s kube.Client, sname, cname string) error {
 	data := map[string][]byte{}
 	secret := v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      testSecretName,
+			Name:      sname,
 			Namespace: testSecretNameSpace,
 			Labels: map[string]string{
 				secretcontroller.MultiClusterSecretLabel: "true",
@@ -54,27 +55,27 @@ func createMultiClusterSecret(k8s kube.Client) error {
 		Data: map[string][]byte{},
 	}
 
-	data["testRemoteCluster"] = []byte("Test")
+	data[cname] = []byte("Test")
 	secret.Data = data
 	_, err := k8s.CoreV1().Secrets(testSecretNameSpace).Create(context.TODO(), &secret, metav1.CreateOptions{})
 	return err
 }
 
-func deleteMultiClusterSecret(k8s kube.Client) error {
+func deleteMultiClusterSecret(k8s kube.Client, sname string) error {
 	var immediate int64
 
 	return k8s.CoreV1().Secrets(testSecretNameSpace).Delete(
 		context.TODO(),
-		testSecretName, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+		sname, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
 	t.Helper()
-	pkgtest.NewEventualOpts(10*time.Millisecond, 5*time.Second).Eventually(t, timeoutName, func() bool {
+	retry.UntilOrFail(t, func() bool {
 		m.m.Lock()
 		defer m.m.Unlock()
 		return len(m.remoteKubeControllers) == expectedControllerCount
-	})
+	}, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
 func Test_KubeSecretController(t *testing.T) {
@@ -107,7 +108,7 @@ func Test_KubeSecretController(t *testing.T) {
 
 	// Create the multicluster secret. Sleep to allow created remote
 	// controller to start and callback add function to be called.
-	err := createMultiClusterSecret(clientset)
+	err := createMultiClusterSecret(clientset, "test-secret-1", "test-remote-cluster-1")
 	if err != nil {
 		t.Fatalf("Unexpected error on secret create: %v", err)
 	}
@@ -116,7 +117,83 @@ func Test_KubeSecretController(t *testing.T) {
 	verifyControllers(t, mc, 1, "create remote controller")
 
 	// Delete the mulicluster secret.
-	err = deleteMultiClusterSecret(clientset)
+	err = deleteMultiClusterSecret(clientset, "test-secret-1")
+	if err != nil {
+		t.Fatalf("Unexpected error on secret delete: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been removed.
+	verifyControllers(t, mc, 0, "delete remote controller")
+}
+
+func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
+	externalIstiod := features.ExternalIstiod
+	webhookName := features.InjectionWebhookConfigName
+	features.ExternalIstiod = true
+	features.InjectionWebhookConfigName = ""
+	defer func() {
+		features.ExternalIstiod = externalIstiod
+		features.InjectionWebhookConfigName = webhookName
+	}()
+	clientset := kube.NewFakeClient()
+	secretcontroller.BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
+	stop := make(chan struct{})
+	t.Cleanup(func() {
+		close(stop)
+	})
+	s := server.New()
+	certWatcher := keycertbundle.NewWatcher()
+	mc := NewMulticluster(
+		"pilot-abc-123",
+		clientset,
+		testSecretNameSpace,
+		Options{
+			DomainSuffix: DomainSuffix,
+			ResyncPeriod: ResyncPeriod,
+			SyncInterval: time.Microsecond,
+			MeshWatcher:  mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		}, mockserviceController, nil, certWatcher, "default", nil, nil, s)
+	mc.InitSecretController(stop)
+	cache.WaitForCacheSync(stop, mc.HasSynced)
+	clientset.RunAndWait(stop)
+	_ = s.Start(stop)
+	go func() {
+		_ = mc.Run(stop)
+	}()
+
+	// Create the multicluster secret. Sleep to allow created remote
+	// controller to start and callback add function to be called.
+	err := createMultiClusterSecret(clientset, "test-secret-1", "test-remote-cluster-1")
+	if err != nil {
+		t.Fatalf("Unexpected error on secret create: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been added.
+	verifyControllers(t, mc, 1, "create remote controller")
+
+	// Create second multicluster secret. Sleep to allow created remote
+	// controller to start and callback add function to be called.
+	err = createMultiClusterSecret(clientset, "test-secret-2", "test-remote-cluster-2")
+	if err != nil {
+		t.Fatalf("Unexpected error on secret create: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been added.
+	verifyControllers(t, mc, 2, "create remote controller")
+
+	// Delete the first mulicluster secret.
+	err = deleteMultiClusterSecret(clientset, "test-secret-1")
+	if err != nil {
+		t.Fatalf("Unexpected error on secret delete: %v", err)
+	}
+
+	// Test - Verify that the remote controller has been removed.
+	verifyControllers(t, mc, 1, "delete remote controller")
+
+	// Delete the second mulicluster secret.
+	err = deleteMultiClusterSecret(clientset, "test-secret-2")
 	if err != nil {
 		t.Fatalf("Unexpected error on secret delete: %v", err)
 	}

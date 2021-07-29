@@ -17,6 +17,7 @@ package echo
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/copystructure"
@@ -99,6 +100,9 @@ type Config struct {
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration
+
+	// ReadinessTCPPort if set, use this port for the TCP readiness probe (instead of using a HTTP probe).
+	ReadinessTCPPort string
 
 	// Subsets contains the list of Subsets config belonging to this echo
 	// service instance.
@@ -189,7 +193,7 @@ func (c Config) IsNaked() bool {
 
 func (c Config) IsProxylessGRPC() bool {
 	// TODO make these check if any subset has a matching annotation
-	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && c.Subsets[0].Annotations.Get(SidecarInjectTemplates) == "grpc"
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.HasPrefix(c.Subsets[0].Annotations.Get(SidecarInjectTemplates), "grpc-")
 }
 
 func (c Config) IsTProxy() bool {

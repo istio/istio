@@ -43,10 +43,16 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
 )
+
+type mutableListenerOpts struct {
+	mutable *MutableListener
+	opts    *buildListenerOpts
+}
 
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
 	if builder.node.MergedGateway == nil {
@@ -59,9 +65,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
 	errs := istiomultierror.New()
-	listeners := make([]*listener.Listener, 0)
+	// Mutable objects keyed by listener name so that we can build listeners at the end.
+	mutableopts := make(map[string]mutableListenerOpts)
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
-	for port, ms := range mergedGateway.MergedServers {
+	for _, port := range mergedGateway.ServerPorts {
+		ms := mergedGateway.MergedServers[port]
 		servers := ms.Servers
 		var si *model.ServiceInstance
 
@@ -114,7 +122,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
-		opts := buildListenerOpts{
+		opts := &buildListenerOpts{
 			push:       builder.push,
 			proxy:      builder.node,
 			bind:       bind,
@@ -122,56 +130,61 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			bindToPort: true,
 			class:      ListenerClassGateway,
 		}
-
 		p := protocol.Parse(port.Protocol)
-		filterChains := make([]istionetworking.FilterChain, 0)
+		lname := opts.bind + "_" + strconv.Itoa(opts.port.Port)
+		newFilterChains := make([]istionetworking.FilterChain, 0)
 		if p.IsHTTP() {
 			// We have a list of HTTP servers on this port. Build a single listener for the server port.
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
 			port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
 			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, ms.RouteName, proxyConfig)}
-			filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
+			newFilterChains = append(newFilterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
 			// build listener with tcp proxy, with or without TLS context, for TCP servers
 			//   or TLS servers using simple/mutual/passthrough TLS
 			//   or HTTPS servers using passthrough TLS
 			// This process typically yields multiple filter chain matches (with SNI) [if TLS is used]
-			filterChainOpts := make([]*filterChainOpts, 0)
+			newFilterChainOpts := make([]*filterChainOpts, 0)
 
 			for _, server := range servers {
 				if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
 					routeName := mergedGateway.TLSServerInfo[server].RouteName
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
+					newFilterChainOpts = append(newFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 						routeName, proxyConfig))
-					filterChains = append(filterChains, istionetworking.FilterChain{
+					newFilterChains = append(newFilterChains, istionetworking.FilterChain{
 						ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
 						IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
 					})
 				} else {
-					// passthrough or tcp, yields multiple filter chains
+					// This is the case of TCP or PASSTHROUGH.
 					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
 						server, mergedGateway.GatewayNameForServer[server])
-					filterChainOpts = append(filterChainOpts, tcpChainOpts...)
+					newFilterChainOpts = append(newFilterChainOpts, tcpChainOpts...)
 					for i := 0; i < len(tcpChainOpts); i++ {
-						filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolTCP})
+						newFilterChains = append(newFilterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolTCP})
 					}
 				}
 			}
-			opts.filterChainOpts = filterChainOpts
+			opts.filterChainOpts = newFilterChainOpts
 		}
 
-		l := buildListener(opts, core.TrafficDirection_OUTBOUND)
-
-		mutable := &MutableListener{
-			MutableObjects: istionetworking.MutableObjects{
-				Listener: l,
-				// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
-				// this is for.
-				FilterChains: filterChains,
-			},
+		var mutable *MutableListener
+		if mopts, exists := mutableopts[lname]; !exists {
+			mutable = &MutableListener{
+				MutableObjects: istionetworking.MutableObjects{
+					// Note: buildListener creates filter chains but does not populate the filters in the chain; that's what
+					// this is for.
+					FilterChains: newFilterChains,
+				},
+			}
+			mutableopts[lname] = mutableListenerOpts{mutable: mutable, opts: opts}
+		} else {
+			mopts.opts.filterChainOpts = append(mopts.opts.filterChainOpts, opts.filterChainOpts...)
+			mopts.mutable.MutableObjects.FilterChains = append(mopts.mutable.MutableObjects.FilterChains, newFilterChains...)
+			mutable = mopts.mutable
 		}
 
 		pluginParams := &plugin.InputParams{
@@ -184,18 +197,21 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
 			}
 		}
-
+	}
+	listeners := make([]*listener.Listener, 0)
+	for _, ml := range mutableopts {
+		ml.mutable.Listener = buildListener(*ml.opts, core.TrafficDirection_OUTBOUND)
 		// Filters are serialized one time into an opaque struct once we have the complete list.
-		if err := mutable.build(opts); err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", mutable.Listener.Name, err.Error()))
+		if err := ml.mutable.build(*ml.opts); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", ml.mutable.Listener.Name, err.Error()))
 			continue
 		}
 
 		if log.DebugEnabled() {
 			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%v",
-				len(mutable.Listener.FilterChains), mutable.Listener)
+				len(ml.mutable.Listener.FilterChains), ml.mutable.Listener)
 		}
-		listeners = append(listeners, mutable.Listener)
+		listeners = append(listeners, ml.mutable.Listener)
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err := errs.ErrorOrNil()
@@ -204,7 +220,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		log.Info(err.Error())
 	}
 
-	if len(listeners) == 0 {
+	if len(mutableopts) == 0 {
 		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
 		return builder
 	}
@@ -622,7 +638,7 @@ func buildGatewayListenerTLSContext(
 		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
-			CipherSuites:              server.Tls.CipherSuites,
+			CipherSuites:              filteredCipherSuites(server),
 		}
 	}
 
@@ -843,9 +859,9 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			})
 
 			destRule := push.DestinationRule(proxy, service)
-			destinationRule := castDestinationRuleOrDefault(destRule)
+			destinationRule := CastDestinationRule(destRule)
 			// Do the same, but for each subset
-			for _, subset := range destinationRule.Subsets {
+			for _, subset := range destinationRule.GetSubsets() {
 				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 				subsetStatPrefix := subsetClusterName
 				// If stat name is configured, build the stat prefix from configured pattern.
@@ -962,4 +978,18 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 		domains = append(domains, hostname+":*")
 	}
 	return domains
+}
+
+// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
+func filteredCipherSuites(server *networking.Server) []string {
+	suites := server.Tls.CipherSuites
+	ret := make([]string, 0, len(suites))
+	for _, s := range suites {
+		if security.IsValidCipherSuite(s) {
+			ret = append(ret, s)
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
+		}
+	}
+	return ret
 }
