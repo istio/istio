@@ -17,9 +17,9 @@ package endpoint
 import (
 	"bytes"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"os"
+	"strconv"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/pkg/log"
@@ -28,7 +28,7 @@ import (
 var epLog = log.RegisterScope("endpoint", "echo serverside", 0)
 
 func listenOnAddress(ip string, port int) (net.Listener, int, error) {
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", ip, port))
+	ln, err := net.Listen("tcp", net.JoinHostPort(ip, strconv.Itoa(port)))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -38,7 +38,7 @@ func listenOnAddress(ip string, port int) (net.Listener, int, error) {
 }
 
 func listenOnAddressTLS(ip string, port int, cfg *tls.Config) (net.Listener, int, error) {
-	ln, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", ip, port), cfg)
+	ln, err := tls.Listen("tcp", net.JoinHostPort(ip, strconv.Itoa(port)), cfg)
 	if err != nil {
 		return nil, 0, err
 	}
