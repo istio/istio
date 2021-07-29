@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+- |
+  **Added** a new option, `values.proxy.global.tracing=none`, to completely disable tracing.
