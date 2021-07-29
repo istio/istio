@@ -60,7 +60,7 @@ spec:
   http:
   - match:
     - uri:
-        regex: /
+        prefix: /
     route:
     - destination:
         host: httpbin-second.default.svc.domain.suffix
