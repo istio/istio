@@ -16,7 +16,11 @@ package grpcgen_test
 
 import (
 	"context"
-	"os"
+	"encoding/json"
+	"fmt"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/test/env"
+	"path"
 	"testing"
 	"time"
 
@@ -27,7 +31,7 @@ import (
 	"google.golang.org/grpc/serviceconfig"
 
 	//  To install the xds resolvers and balancers.
-	grpcxds "google.golang.org/grpc/xds"
+	grpcxdsresolver "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -44,12 +48,35 @@ var (
 	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
 )
 
+func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
+	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
+		Node: &model.Node{
+			ID: nodeID,
+			RawMetadata: map[string]interface{}{
+				"NAMESPACE":  namespace,
+				"GENERATOR":  "grpc",
+				"CLUSTER_ID": "Kubernetes",
+			},
+		},
+		DiscoveryAddress: grpcXdsAddr,
+		CertDir:          path.Join(env.IstioSrc, "tests/testdata/certs/default"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed generating bootstrap: %v", err)
+	}
+	bootstrapBytes, err := json.Marshal(bootstrap)
+	if err != nil {
+		return nil, fmt.Errorf("failed marshalling bootstrap: %v", err)
+	}
+	return bootstrapBytes, nil
+}
+
 func resolverForTest(t test.Failer) resolver.Builder {
-	bootstrap, err := os.ReadFile("testdata/xds_bootstrap.json")
+	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo.default~cluster.local", "default")
 	if err != nil {
 		t.Fatal(err)
 	}
-	xdsresolver, err := grpcxds.NewXDSResolverWithConfigForTesting(bootstrap)
+	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(bootstrap)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,7 +19,10 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 	"runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -70,31 +73,63 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		// TODO always skip if this breaks anywhere else
 		t.Skip("cannot use 127.0.0.x on OSX")
 	}
+
 	cgt := &configGenTest{T: t}
+	wg := sync.WaitGroup{}
 	for i, s := range servers {
+		if s.namespace == "" {
+			s.namespace = "default"
+		}
 		// TODO this breaks without extra ifonfig aliases on OSX, and probably elsewhere
 		host := fmt.Sprintf("127.0.0.%d", i+1)
+		nodeID := fmt.Sprintf("sidecar~%s~echo-%s.%s~cluster.local", host, s.version, s.namespace)
+		bootstrapBytes, err := bootstrapForTest(nodeID, s.namespace)
+
 		ep, err := endpoint.New(endpoint.Config{
-			IsServerReady: func() bool { return true },
-			Port:          &common.Port{Name: "grpc", Port: grpcEchoPort, Protocol: protocol.GRPC},
-			ListenerIP:    host,
-			Version:       s.version,
+			Port: &common.Port{
+				Name:             "grpc",
+				Port:             grpcEchoPort,
+				Protocol:         protocol.GRPC,
+				XDSServer:        true,
+				XDSTestBootstrap: bootstrapBytes,
+			},
+			ListenerIP: host,
+			Version:    s.version,
 		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := ep.Start(func() {}); err != nil {
+		wg.Add(1)
+		if err := ep.Start(func() {
+			wg.Done()
+		}); err != nil {
 			t.Fatal(err)
 		}
 		cgt.endpoints = append(cgt.endpoints, ep)
 		discoveryOpts.Configs = append(discoveryOpts.Configs, makeWE(s, host, grpcEchoPort))
 	}
-
 	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
 		return net.Listen("tcp", grpcXdsAddr)
 	}
 	cgt.ds = xds.NewFakeDiscoveryServer(t, discoveryOpts)
+	if err := waitTimeout(&wg, 1*time.Minute); err != nil {
+		t.Fatalf("failed waiting for servers to ready: %v", err)
+	}
 	return cgt
+}
+
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) error {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("timed out after %v", timeout)
+	}
 }
 
 func makeWE(s echoCfg, host string, port int) config.Config {
@@ -201,6 +236,64 @@ spec:
 		}
 		if err := expectAlmost(distribution["v2"], 80); err != nil {
 			return err
+		}
+		return nil
+	}, retry.Timeout(5*time.Second), retry.Delay(0))
+}
+
+func TestGrpcMtls(t *testing.T) {
+	if !strings.EqualFold(os.Getenv("GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"), "true") {
+		t.Skip("Must set GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT outside the test")
+	}
+	tt := newConfigGenTest(t, xds.FakeOptions{
+		KubernetesObjectString: `
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: echo-app
+  name: echo-app
+  namespace: default
+spec:
+  clusterIP: 1.2.3.4
+  selector:
+    app: echo
+  ports:
+  - name: grpc
+    targetPort: grpc
+    port: 7070
+`,
+		ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: echo-dr
+  namespace: default
+spec:
+  host: echo-app.default.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: default
+spec:
+  mtls:
+    mode: STRICT
+`,
+	}, echoCfg{version: "v1"})
+
+	retry.UntilSuccessOrFail(tt.T, func() error {
+		cw := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
+		for i := 0; i < 10; i++ {
+			res, err := cw.Echo(context.Background(), &proto.EchoRequest{Message: "needle"})
+			fmt.Println(res)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}, retry.Timeout(5*time.Second), retry.Delay(0))

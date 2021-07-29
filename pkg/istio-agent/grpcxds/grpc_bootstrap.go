@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	ServerListenerNamePrefix = "inbound_"
+	ServerListenerNamePrefix = "lds/inbound|"
 	// ServerListenerNameTemplate for the name of the Listener resource to subscribe to for a gRPC
 	// server. If the token `%s` is present in the string, all instances of the
 	// token will be replaced with the server's listening "IP:port" (e.g.,

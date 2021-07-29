@@ -15,9 +15,6 @@
 package grpcgen
 
 import (
-	"github.com/golang/protobuf/ptypes/wrappers"
-	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
-	"istio.io/istio/pilot/pkg/security/authn"
 	"net"
 	"strconv"
 	"strings"
@@ -27,9 +24,12 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
+	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
@@ -39,16 +39,20 @@ import (
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
 // specific services.
 func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
-	resp := model.Resources{}
 	filter := newListenerNameFilter(names)
 
-	buildOutboundListeners(resp, node, filter)
-	buildInboundListeners(resp, node, push, filter.inboundNames())
+	resp := make(model.Resources, 0, len(filter))
+	resp = append(resp, buildOutboundListeners(node, filter)...)
+	resp = append(resp, buildInboundListeners(node, push, filter.inboundNames())...)
 
 	return resp
 }
 
-func buildInboundListeners(resp model.Resources, node *model.Proxy, push *model.PushContext, names []string) {
+func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
+	if len(names) == 0 {
+		return nil
+	}
+	var out model.Resources
 	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, labels.Collection{node.Metadata.Labels})
 	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
 	for _, si := range node.ServiceInstances {
@@ -88,11 +92,12 @@ func buildInboundListeners(resp model.Resources, node *model.Proxy, push *model.
 			ListenerFilters: nil,
 			UseOriginalDst:  nil,
 		}
-		resp = append(resp, &discovery.Resource{
+		out = append(out, &discovery.Resource{
 			Name:     ll.Name,
 			Resource: util.MessageToAny(ll),
 		})
 	}
+	return out
 }
 
 func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
@@ -124,7 +129,7 @@ func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.Ser
 		out = append(out, buildFilterChain("plaintext", nil))
 	case model.MTLSStrict:
 		out = append(out, buildFilterChain("mtls", tlsContext))
-	// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
+		// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
 	}
 
 	return out
@@ -152,7 +157,8 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 	return out
 }
 
-func buildOutboundListeners(resp model.Resources, node *model.Proxy, filter listenerNameFilter) {
+func buildOutboundListeners(node *model.Proxy, filter listenerNameFilter) model.Resources {
+	out := make(model.Resources, 0, len(filter))
 	for _, el := range node.SidecarScope.EgressListeners {
 		for _, sv := range el.Services() {
 			sHost := string(sv.Hostname)
@@ -194,13 +200,14 @@ func buildOutboundListeners(resp model.Resources, node *model.Proxy, filter list
 					},
 				}
 
-				resp = append(resp, &discovery.Resource{
+				out = append(out, &discovery.Resource{
 					Name:     ll.Name,
 					Resource: util.MessageToAny(ll),
 				})
 			}
 		}
 	}
+	return out
 }
 
 // map[host] -> map[port] -> exists
@@ -245,6 +252,10 @@ func (f listenerNameFilter) inboundNames() []string {
 func newListenerNameFilter(names []string) listenerNameFilter {
 	filter := make(listenerNameFilter, len(names))
 	for _, name := range names {
+		if strings.HasPrefix(name, grpcxds.ServerListenerNamePrefix) {
+			filter[name] = map[string]struct{}{}
+			continue
+		}
 		if host, port, err := net.SplitHostPort(name); err == nil {
 			var first bool
 			portMap, ok := filter[host]
