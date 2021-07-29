@@ -228,13 +228,8 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			}
 		}
 	}
-	// This is hack to keep consistent with previous behavior.
-	if listenerPort == 80 {
-		virtualServices = egressListener.VirtualServices()
-	} else {
-		// only select virtualServices that matches a service.
-		virtualServices = egressListener.VirtualServicesForRDS(servicesByName)
-	}
+
+	virtualServices = egressListener.VirtualServices()
 
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push, servicesByName, virtualServices, listenerPort)

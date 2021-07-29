@@ -335,67 +335,12 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		for _, delegate := range delegates {
 			out.AddConfigDependencies(delegate)
 		}
-
-		matchPort := needsPortMatch(listener)
-		// Infer more possible destinations from virtual services
-		// Services chosen here will not override services explicitly requested in listener.services.
-		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
-		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
-			v := vs.Spec.(*networking.VirtualService)
 			out.AddConfigDependencies(ConfigKey{
 				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
 			})
-
-			for _, h := range virtualServiceDestinationHosts(v) {
-				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
-					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					var vss *Service
-					if matchPort {
-						vss = serviceMatchingListenerPort(s, listener)
-					} else {
-						vss = s
-					}
-					if vss != nil {
-						addService(vss)
-					}
-				} else {
-
-					// We couldn't find the hostname in our config namespace
-					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
-					// TODO: could we choose services more intelligently based on their ports?
-					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
-					if len(byNamespace) == 0 {
-						// This hostname isn't found anywhere
-						log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
-						continue
-					}
-
-					ns := make([]string, 0, len(byNamespace))
-					for k := range byNamespace {
-						if ps.IsServiceVisible(byNamespace[k], configNamespace) {
-							ns = append(ns, k)
-						}
-					}
-					if len(ns) > 0 {
-						sort.Strings(ns)
-						// Pick first namespace alphabetically
-						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-						var vss *Service
-						if matchPort {
-							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
-						} else {
-							vss = byNamespace[ns[0]]
-						}
-						if vss != nil {
-							addService(vss)
-						}
-					}
-				}
-			}
 		}
 	}
 
@@ -456,8 +401,87 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
-	out.virtualServices = out.selectVirtualServices(vses, out.listenerHosts)
 	out.services = out.selectServices(ps.Services(&dummyNode), configNamespace, out.listenerHosts)
+	out.virtualServices = out.selectVirtualServices(vses, out.listenerHosts)
+	matchPort := needsPortMatch(out)
+
+	// Infer more possible destinations from virtual services
+	// Services chosen here will not override services explicitly requested in listener.services.
+	// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
+	// want in the hosts field, and the potentially random choice below won't matter
+	for _, vs := range out.virtualServices {
+		v, _ := vs.Spec.(*networking.VirtualService)
+		for _, h := range virtualServiceDestinationHosts(v) {
+			// Default to this hostname in our config namespace
+			if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
+				// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+				var vss *Service
+				if matchPort {
+					vss = serviceMatchingListenerPort(s, out)
+				} else {
+					vss = s
+				}
+				if vss != nil {
+					out.services = append(out.services, vss)
+				}
+			} else {
+
+				// We couldn't find the hostname in our config namespace
+				// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
+				// TODO: could we choose services more intelligently based on their ports?
+				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
+				if len(byNamespace) == 0 {
+					// This hostname isn't found anywhere
+					log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
+					continue
+				}
+
+				ns := make([]string, 0, len(byNamespace))
+				for k := range byNamespace {
+					if ps.IsServiceVisible(byNamespace[k], configNamespace) {
+						ns = append(ns, k)
+					}
+				}
+				if len(ns) > 0 {
+					sort.Strings(ns)
+					// Pick first namespace alphabetically
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+					var vss *Service
+					if matchPort {
+						vss = serviceMatchingListenerPort(byNamespace[ns[0]], out)
+					} else {
+						vss = byNamespace[ns[0]]
+					}
+					if vss != nil {
+						out.services = append(out.services, vss)
+					}
+				}
+			}
+		}
+	}
+
+	// Now select the virtual services by matching given services' host names.
+	servicesByName := make(map[host.Name]*Service)
+	var listenerPort int
+	if out.IstioListener.Port != nil {
+		listenerPort = int(out.IstioListener.Port.Number)
+	}
+	if out.IstioListener.Port != nil && protocol.Parse(out.IstioListener.Port.Protocol) == protocol.HTTP_PROXY {
+		listenerPort = 0
+	}
+	for _, svc := range out.services {
+		if listenerPort == 0 {
+			// Take all ports when listen port is 0 (http_proxy or uds)
+			// Expect virtualServices to resolve to right port
+			servicesByName[svc.Hostname] = svc
+		} else if _, exists := svc.Ports.GetByPort(listenerPort); exists {
+			servicesByName[svc.Hostname] = svc
+		}
+	}
+	// This is hack to keep consistent with previous behavior.
+	if out.IstioListener.Port != nil && out.IstioListener.Port.Number != 80 {
+		out.virtualServices = filterVirtualServices(out.virtualServices, servicesByName)
+	}
 	return out
 }
 
@@ -537,12 +561,6 @@ func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 // egress listener
 func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
 	return ilw.virtualServices
-}
-
-// VirtualServicesForRDS returns the list of virtual services imported by this
-// egress listener used for computing routes
-func (ilw *IstioEgressListenerWrapper) VirtualServicesForRDS(servicesByName map[host.Name]*Service) []config.Config {
-	return ilw.filterVirtualServices(ilw.virtualServices, servicesByName)
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
@@ -632,12 +650,11 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 			addVirtualService(c, importedHosts)
 		}
 	}
-
 	return importedVirtualServices
 }
 
 // filterVirtualServices selects the virtual services by matching given services' host names.
-func (ilw *IstioEgressListenerWrapper) filterVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*Service) []config.Config {
+func filterVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*Service) []config.Config {
 	out := make([]config.Config, 0)
 	for _, c := range virtualServices {
 		rule := c.Spec.(*networking.VirtualService)

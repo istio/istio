@@ -2021,8 +2021,7 @@ func TestFilterVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec6,
 	}
-	ilw := &IstioEgressListenerWrapper{}
-	configs := ilw.filterVirtualServices(
+	configs := filterVirtualServices(
 		[]config.Config{virtualService1, virtualService2, virtualService3, virtualService4, virtualService5, virtualService6},
 		servicesByName)
 	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name}
