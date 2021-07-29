@@ -331,18 +331,18 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 	}
 
 	getPublicKey := func() (b []byte, e error) {
-		resp, err := client.Get(uri)
 		defer func() {
 			if e != nil {
 				networkFetchFailCounter.Increment()
-				return
+			} else {
+				networkFetchSuccessCounter.Increment()
 			}
-			networkFetchSuccessCounter.Increment()
-			_ = resp.Body.Close()
 		}()
+		resp, err := client.Get(uri)
 		if err != nil {
 			return nil, err
 		}
+		defer resp.Body.Close()
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
