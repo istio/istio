@@ -1864,7 +1864,7 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
 	}
 
-	hostsByNamespace := make(map[string][]host.Name, 0)
+	hostsByNamespace := make(map[string][]host.Name)
 	for _, svc := range services {
 		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 	}
