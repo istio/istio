@@ -40,7 +40,7 @@ import (
 )
 
 func TestNewServerCertInit(t *testing.T) {
-	configDir, err := os.MkDirTemp("", "test_istiod_config")
+	configDir, err := os.MkdirTemp("", "test_istiod_config")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestNewServerCertInit(t *testing.T) {
 		_ = os.RemoveAll(configDir)
 	}()
 
-	certsDir, err := os.MkDirTemp("", "test_istiod_certs")
+	certsDir, err := os.MkdirTemp("", "test_istiod_certs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestNewServerCertInit(t *testing.T) {
 }
 
 func TestReloadIstiodCert(t *testing.T) {
-	dir, err := os.MkDirTemp("", "istiod_certs")
+	dir, err := os.MkdirTemp("", "istiod_certs")
 	stop := make(chan struct{})
 	s := &Server{
 		fileWatcher:             filewatcher.NewWatcher(),
@@ -291,7 +291,7 @@ func TestNewServer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := os.MkDirTemp("", "TestNewServer")
+			configDir, err := os.MkdirTemp("", "TestNewServer")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -383,7 +383,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := os.MkDirTemp("", "TestIstiodCipherSuites")
+			configDir, err := os.MkdirTemp("", "TestIstiodCipherSuites")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -487,7 +487,7 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := os.MkDirTemp("", "TestNewServer")
+			configDir, err := os.MkdirTemp("", "TestNewServer")
 			if err != nil {
 				t.Fatal(err)
 			}

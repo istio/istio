@@ -780,7 +780,7 @@ spec:
 
 	var subsetDir string
 	for _, subset := range cfg.Subsets {
-		subsetDir, err = os.MkDirTemp(dir, subset.Version+"-")
+		subsetDir, err = os.MkdirTemp(dir, subset.Version+"-")
 		if err != nil {
 			return err
 		}

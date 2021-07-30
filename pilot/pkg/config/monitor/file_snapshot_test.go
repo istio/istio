@@ -133,7 +133,7 @@ type testState struct {
 func (ts *testState) testSetup(t *testing.T) {
 	var err error
 
-	ts.rootPath, err = os.MkDirTemp("", "config-root")
+	ts.rootPath, err = os.MkdirTemp("", "config-root")
 	if err != nil {
 		t.Fatal(err)
 	}

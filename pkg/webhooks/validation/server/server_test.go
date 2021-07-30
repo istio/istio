@@ -53,7 +53,7 @@ func TestArgs_String(t *testing.T) {
 
 func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	t.Helper()
-	dir, err := os.MkDirTemp("", "galley_validation_webhook")
+	dir, err := os.MkdirTemp("", "galley_validation_webhook")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
 	}

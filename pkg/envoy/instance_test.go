@@ -483,7 +483,7 @@ func absPath(path string) string {
 
 func newTempDir(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkDirTemp("", t.Name())
+	dir, err := os.MkdirTemp("", t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}

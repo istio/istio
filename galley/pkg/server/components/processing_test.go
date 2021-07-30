@@ -44,7 +44,7 @@ loop:
 
 		e := fmt.Errorf("err%d", i)
 
-		tmpDir, err := os.MkDirTemp(os.TempDir(), t.Name())
+		tmpDir, err := os.MkdirTemp(os.TempDir(), t.Name())
 		g.Expect(err).To(BeNil())
 
 		meshCfgDir := path.Join(tmpDir, "meshcfg")

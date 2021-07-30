@@ -34,7 +34,7 @@ const namespace = "istio-system"
 func TestRemoteCerts(t *testing.T) {
 	g := NewWithT(t)
 
-	dir, err := os.MkDirTemp("", t.Name())
+	dir, err := os.MkdirTemp("", t.Name())
 	defer removeSilent(dir)
 	g.Expect(err).Should(BeNil())
 

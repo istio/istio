@@ -99,7 +99,7 @@ func TestBuildClientConfig(t *testing.T) {
 }
 
 func generateKubeConfig(cluster1Host string, cluster2Host string) (string, error) {
-	tempDir, err := os.MkDirTemp("/tmp/", ".kube")
+	tempDir, err := os.MkdirTemp("/tmp/", ".kube")
 	if err != nil {
 		return "", err
 	}

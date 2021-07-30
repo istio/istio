@@ -376,7 +376,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {
 	g := NewWithT(t)
 
-	p, err := os.MkDirTemp(os.TempDir(), t.Name())
+	p, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	file := path.Join(p, "meshconfig.yaml")
 

@@ -59,7 +59,7 @@ var (
 
 	// Snapshot charts are in testdata/manifest-generate/data-snapshot
 	snapshotCharts = func() chartSourceType {
-		d, err := os.MkDirTemp("", "data-snapshot-*")
+		d, err := os.MkdirTemp("", "data-snapshot-*")
 		if err != nil {
 			panic(fmt.Errorf("failed to make temp dir: %v", err))
 		}
@@ -474,7 +474,7 @@ func TestBogusControlPlaneSec(t *testing.T) {
 }
 
 func TestInstallPackagePath(t *testing.T) {
-	serverDir, err := os.MkDirTemp(os.TempDir(), "istio-test-server-*")
+	serverDir, err := os.MkdirTemp(os.TempDir(), "istio-test-server-*")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -446,7 +446,7 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) 
 }
 
 func createTempDirOrFail(t *testing.T, prefix string) string {
-	dir, err := os.MkDirTemp("", prefix)
+	dir, err := os.MkdirTemp("", prefix)
 	if err != nil {
 		t.Fatal(err)
 	}

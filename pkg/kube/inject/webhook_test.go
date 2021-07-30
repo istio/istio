@@ -794,7 +794,7 @@ func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 
 func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	t.Helper()
-	dir, err := os.MkDirTemp("", "webhook_test")
+	dir, err := os.MkdirTemp("", "webhook_test")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
 	}

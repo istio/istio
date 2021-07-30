@@ -99,7 +99,7 @@ func TestWatcherFromFile(t *testing.T) {
 	default:
 	}
 
-	tmpDir, err := os.MkDirTemp(os.TempDir(), t.Name())
+	tmpDir, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 
 	key := []byte("key")

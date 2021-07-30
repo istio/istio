@@ -48,7 +48,7 @@ func TestFetch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmp, err := os.MkDirTemp("", InstallationDirectory)
+			tmp, err := os.MkdirTemp("", InstallationDirectory)
 			if err != nil {
 				t.Fatal(err)
 			}
