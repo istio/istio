@@ -394,8 +394,7 @@ func (r *JwksResolver) refresher() {
 				r.refreshInterval = r.refreshDefaultInterval
 			}
 			lastHasError = currentHasError
-			r.refreshTicker.Stop()
-			r.refreshTicker = time.NewTicker(r.refreshInterval)
+			r.refreshTicker.Reset(r.refreshInterval)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return
