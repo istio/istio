@@ -181,47 +181,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	return out
 }
 
-// TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
-// selectVirtualServices selects the virtual services by matching given services' host names.
-func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
-	out := make([]config.Config, 0)
-	for _, c := range virtualServices {
-		rule := c.Spec.(*networking.VirtualService)
-		var match bool
-
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// if any host in the list matches one service hostname, select the virtual service
-		// and break out of the loop.
-		for _, h := range rule.Hosts {
-			// TODO: This is a bug. VirtualServices can have many hosts
-			// while the user might be importing only a single host
-			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(h)] != nil {
-				match = true
-				break
-			}
-
-			for svcHost := range servicesByName {
-				if host.Name(h).Matches(svcHost) {
-					match = true
-					break
-				}
-			}
-
-			if match {
-				break
-			}
-		}
-
-		if match {
-			out = append(out, c)
-		}
-	}
-
-	return out
-}
-
 func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
 	var virtualServices []config.Config
@@ -279,6 +238,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		// only select virtualServices that matches a service
 		virtualServices = model.SelectVirtualServices(virtualServices, hostnamesByNamespace)
 	}
+
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push, servicesByName, virtualServices, listenerPort)
 	vHostPortMap := make(map[int][]*route.VirtualHost)

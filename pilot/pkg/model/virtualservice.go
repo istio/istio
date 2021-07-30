@@ -56,15 +56,10 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 	}
 	for _, c := range virtualServices {
 		configNamespace := c.Namespace
-
 		// Selection algorithm:
 		// virtualservices have a list of hosts in the API spec
-		// Sidecars have a list of hosts in the api spec (namespace/host format)
-		// if any host in the virtualService.hosts matches the sidecar's egress'
-		// entry <virtualServiceNamespace>/virtualServiceHost, select the virtual service
+		// if any host in the list matches one service hostname, select the virtual service
 		// and break out of the loop.
-		// OR if any host in the virtualService.hosts matches the sidecar's egress'
-		// entry */virtualServiceHost, select the virtual service and break out of the loop.
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {

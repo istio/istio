@@ -164,7 +164,6 @@ func buildSidecarVirtualHostsForVirtualService(
 	}
 
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
-
 	// Now group these services by port so that we can infer the destination.port if the user
 	// doesn't specify any port for a multiport service. We need to know the destination port in
 	// order to build the cluster name (outbound|<port>|<subset>|<serviceFQDN>)
