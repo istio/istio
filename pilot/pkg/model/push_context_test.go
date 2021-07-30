@@ -1189,6 +1189,9 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
+	appHost := "foo.app.org"
+	wildcardHost1 := "*.org"
+	wildcardHost2 := "*.app.org"
 	destinationRuleNamespace1 := config.Config{
 		Meta: config.Meta{
 			Name:      "rule1",
@@ -1278,70 +1281,124 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
+	destinationRuleRootNamespaceLocalWithWildcardHost1 := config.Config{
+		Meta: config.Meta{
+			Name:      "rule2",
+			Namespace: "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     wildcardHost1,
+			ExportTo: []string{"."},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset11",
+				},
+				{
+					Name: "subset12",
+				},
+			},
+		},
+	}
+	destinationRuleRootNamespaceLocalWithWildcardHost2 := config.Config{
+		Meta: config.Meta{
+			Name:      "rule3",
+			Namespace: "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     wildcardHost2,
+			ExportTo: []string{"."},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset13",
+				},
+				{
+					Name: "subset14",
+				},
+			},
+		},
+	}
 	ps.SetDestinationRules([]config.Config{
 		destinationRuleNamespace1, destinationRuleNamespace2,
 		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal,
+		destinationRuleRootNamespaceLocalWithWildcardHost1, destinationRuleRootNamespaceLocalWithWildcardHost2,
 	})
 	cases := []struct {
 		proxyNs     string
 		serviceNs   string
+		host        string
 		wantSubsets []string
 	}{
 		{
 			proxyNs:     "test1",
 			serviceNs:   "test1",
+			host:        testhost,
 			wantSubsets: []string{"subset1", "subset2"},
 		},
 		{
 			proxyNs:     "test1",
 			serviceNs:   "test2",
+			host:        testhost,
 			wantSubsets: []string{"subset1", "subset2"},
 		},
 		{
 			proxyNs:     "test2",
 			serviceNs:   "test1",
+			host:        testhost,
 			wantSubsets: []string{"subset3", "subset4"},
 		},
 		{
 			proxyNs:     "test3",
 			serviceNs:   "test1",
+			host:        testhost,
 			wantSubsets: []string{"subset5", "subset6"},
 		},
 		{
 			proxyNs:     "ns1",
 			serviceNs:   "test1",
+			host:        testhost,
 			wantSubsets: []string{"subset1", "subset2"},
 		},
 		{
 			proxyNs:     "ns1",
 			serviceNs:   "random",
+			host:        testhost,
 			wantSubsets: []string{"subset7", "subset8"},
 		},
 		{
 			proxyNs:     "random",
 			serviceNs:   "random",
+			host:        testhost,
 			wantSubsets: []string{"subset7", "subset8"},
 		},
 		{
 			proxyNs:     "test3",
 			serviceNs:   "random",
+			host:        testhost,
 			wantSubsets: []string{"subset5", "subset6"},
 		},
 		{
 			proxyNs:     "istio-system",
 			serviceNs:   "random",
+			host:        testhost,
 			wantSubsets: []string{"subset9", "subset10"},
 		},
 		{
 			proxyNs:     "istio-system",
 			serviceNs:   "istio-system",
+			host:        testhost,
 			wantSubsets: []string{"subset9", "subset10"},
+		},
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "istio-system",
+			host:        appHost,
+			wantSubsets: []string{"subset13", "subset14"},
 		},
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
 			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
-				&Service{Hostname: host.Name(testhost), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
+				&Service{Hostname: host.Name(tt.host), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
 			if destRuleConfig == nil {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
