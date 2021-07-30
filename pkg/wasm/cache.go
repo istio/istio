@@ -101,10 +101,6 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration) *L
 
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration) (string, error) {
-	u, err := url.Parse(downloadURL)
-	if err != nil {
-		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
-	}
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
@@ -114,6 +110,11 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	// First check if the cache entry is already downloaded.
 	if modulePath := c.getEntry(key); modulePath != "" {
 		return modulePath, nil
+	}
+
+	u, err := url.Parse(downloadURL)
+	if err != nil {
+		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
 	}
 
 	// If not, fetch images

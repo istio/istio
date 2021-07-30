@@ -147,7 +147,7 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                 "fetch oci",
 			initialCachedModules: map[cacheKey]cacheEntry{},
-			fetchURL:             fmt.Sprintf("oci://%s/test/valid/docker", ou.Host),
+			fetchURL:             fmt.Sprintf("oci://%s/test/valid/docker:v0.1.0", ou.Host),
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			requestTimeout:       time.Second * 10,
@@ -232,7 +232,7 @@ func TestWasmCache(t *testing.T) {
 
 func setupOCIRegistry(t *testing.T, host string) (wantCheckSum [32]byte) {
 	// Push *compat* variant docker image (others are well tested in imagefetcher's test and the behavior is consistent).
-	ref := fmt.Sprintf("%s/test/valid/docker", host)
+	ref := fmt.Sprintf("%s/test/valid/docker:v0.1.0", host)
 	binary := "this is wasm plugin"
 
 	// Create docker layer.
