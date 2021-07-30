@@ -16,7 +16,11 @@
 package pilot
 
 import (
+	"archive/tar"
+	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
