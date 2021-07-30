@@ -412,7 +412,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
-		buildHTTPService("service-A", visibility.Public, "", "default", 7777),
+		buildHTTPService("service-A.default.svc.cluster.local", visibility.Public, "", "default", 7777),
 	}
 
 	sidecarConfig := &config.Config{
@@ -714,7 +714,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	virtualServiceSpec7 := &networking.VirtualService{
-		Hosts:    []string{"service-A", "service-A.v2", "service-A.v3"},
+		Hosts:    []string{"service-A.default.svc.cluster.local", "service-A.v2", "service-A.v3"},
 		Gateways: []string{"mesh"},
 		Http: []*networking.HTTPRoute{
 			{
@@ -1197,8 +1197,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test.com:8080": {
 					"test.com:8080": true, "8.8.8.8:8080": true,
 				},
-				"service-A:7777": {
-					"service-A:7777": true,
+				"service-A.default.svc.cluster.local:7777": {
+					"service-A.default.svc.cluster.local:7777": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1215,9 +1215,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"allow_any": {
 					"*": true,
 				},
-				"service-A:7777": {
-					"service-A":      true,
-					"service-A:7777": true,
+				"service-A.default.svc.cluster.local:7777": {
+					"service-A.default.svc.cluster.local":      true,
+					"service-A.default.svc.cluster.local:7777": true,
 				},
 				"service-A.v2:7777": {
 					"service-A.v2":      true,
@@ -1233,10 +1233,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 
-	for i, c := range cases {
-		if i != len(cases)-1 {
-			continue
-		}
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
 				c.routeName, c.expectedHosts, c.expectedRoutes, c.registryOnly)
@@ -1464,8 +1461,6 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 	numberOfRoutes := 0
 	for _, vhost := range routeCfg.VirtualHosts {
-
-		fmt.Printf("vhost name %s doamin %v, routes %v \n", vhost.Name, vhost.Domains, vhost.Routes)
 		numberOfRoutes += len(vhost.Routes)
 		if _, found := expectedHosts[vhost.Name]; !found {
 			t.Fatalf("unexpected vhost block %s for route %s",
