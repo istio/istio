@@ -104,6 +104,23 @@ func TestNameTable(t *testing.T) {
 		},
 	}
 
+	headlessServiceForServiceEntry := &model.Service{
+		Hostname:    host.Name("foo.bar.com"),
+		Address:     constants.UnspecifiedIP,
+		ClusterVIPs: make(map[cluster.ID]string),
+		Ports: model.PortList{&model.Port{
+			Name:     "tcp-port",
+			Port:     9000,
+			Protocol: protocol.TCP,
+		}},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "foo.bar.com",
+			Namespace:       "testns",
+			ServiceRegistry: provider.External,
+		},
+	}
+
 	wildcardService := &model.Service{
 		Hostname:    host.Name("*.testns.svc.cluster.local"),
 		Address:     "172.10.10.10",
@@ -168,6 +185,17 @@ func TestNameTable(t *testing.T) {
 
 	cpush := model.NewPushContext()
 	wpush.AddPublicServices([]*model.Service{cidrService})
+
+	sepush := model.NewPushContext()
+	sepush.AddPublicServices([]*model.Service{headlessServiceForServiceEntry})
+	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+		makeServiceInstances(pod1, headlessServiceForServiceEntry, "", ""))
+	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+		makeServiceInstances(pod2, headlessServiceForServiceEntry, "", ""))
+	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+		makeServiceInstances(pod3, headlessServiceForServiceEntry, "", ""))
+	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+		makeServiceInstances(pod4, headlessServiceForServiceEntry, "", ""))
 
 	cases := []struct {
 		name                       string
@@ -388,6 +416,45 @@ func TestNameTable(t *testing.T) {
 						Shortname: "headless-svc",
 						Namespace: "testns",
 						AltHosts:  []string{"headless-svc.testns.svc.clusterset.local"},
+					},
+				},
+			},
+		},
+		{
+			name:  "service entry with resolution = NONE",
+			proxy: proxy,
+			push:  sepush,
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					"foo.bar.com": {
+						Ips:      []string{"1.2.3.4", "9.6.7.8", "19.6.7.8", "9.16.7.8"},
+						Registry: "External",
+					},
+				},
+			},
+		},
+		{
+			name:  "service entry with resolution = NONE with network isolation",
+			proxy: nw1proxy,
+			push:  sepush,
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					"foo.bar.com": {
+						Ips:      []string{"1.2.3.4", "19.6.7.8", "9.16.7.8"},
+						Registry: "External",
+					},
+				},
+			},
+		},
+		{
+			name:  "multi cluster service entry with resolution = NONE",
+			proxy: cl1proxy,
+			push:  sepush,
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					"foo.bar.com": {
+						Ips:      []string{"1.2.3.4", "19.6.7.8", "9.16.7.8"},
+						Registry: "External",
 					},
 				},
 			},
