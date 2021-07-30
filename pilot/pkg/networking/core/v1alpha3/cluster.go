@@ -16,10 +16,14 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/pkg/log"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
+
+	"istio.io/pkg/log"
+
+	"istio.io/pkg/log"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -42,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 // defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
@@ -173,8 +178,23 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 				// hostName can be a wildcard, and can match to multiple services
 				dr := cfg.Spec.(*networking.DestinationRule)
 				matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host))
-				//service := push.ServiceForHostname(proxy, host.Name(dr.Host))
+				// service := push.ServiceForHostname(proxy, host.Name(dr.Host))
 				services = append(services, matchedSvcs...)
+				// check for removed subsets
+				prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(key.Name)
+				if prevCfg == nil {
+					break
+				}
+				prevDr := prevCfg.Spec.(*networking.DestinationRule)
+				// detecting added/updated subsets works, we just need to track deletions
+				if !reflect.DeepEqual(prevDr.GetSubsets(), dr.GetSubsets()) {
+					// subsets changed, did something delete?
+					deletedSubsetNames := getDeletedSubsets(prevDr.GetSubsets(), dr.GetSubsets())
+					if len(deletedSubsetNames) > 0 {
+						removedSubsets := getRemovedSubsetClusterNames(watched.ResourceNames, deletedSubsetNames, dr.Host)
+						removedClusterNames = append(removedClusterNames, removedSubsets...)
+					}
+				}
 			}
 		}
 	}
@@ -248,6 +268,32 @@ func getRemovedClusterNames(resNames []string, target string) []string {
 		}
 	}
 	return clusterNames
+}
+
+func getRemovedSubsetClusterNames(resNames []string, subsets []string, target string) []string {
+	removedSubsets := make([]string, 0)
+	for _, n := range resNames {
+		_, sub, svcHost, _ := model.ParseSubsetKey(n)
+		if host.Name(target).Matches(svcHost) && contains(subsets, sub) {
+			removedSubsets = append(removedSubsets, n)
+		}
+	}
+	return removedSubsets
+}
+
+func getDeletedSubsets(orig []*networking.Subset, new []*networking.Subset) []string {
+	subsetNames := make([]string, 0)
+	// deleted if exists in orig but not in new
+	ne := make(map[string]struct{})
+	for _, v := range new {
+		ne[v.Name] = struct{}{}
+	}
+	for _, v := range orig {
+		if _, found := ne[v.Name]; !found {
+			subsetNames = append(subsetNames, v.Name)
+		}
+	}
+	return subsetNames
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {

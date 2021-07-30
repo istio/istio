@@ -16,6 +16,7 @@ package xds
 
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
