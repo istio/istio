@@ -16,22 +16,20 @@
 package pilot
 
 import (
-	"archive/tar"
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -156,7 +154,8 @@ func testAllEchoCalls(t framework.TestContext, echoInstances []echo.Instance) {
 // installRevisionOrFail takes an Istio version and installs a revisioned control plane running that version
 // provided istio version must be present in tests/integration/pilot/testdata/upgrade for the installation to succeed
 func installRevisionOrFail(t framework.TestContext, version string, configs map[string]string) {
-	config, err := ReadInstallFile(fmt.Sprintf("%s-install.yaml", version))
+	config, err := file.ReadTarFile(filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/upgrade",
+		fmt.Sprintf("%s-install.yaml.tar", version)))
 	if err != nil {
 		t.Fatalf("could not read installation config: %v", err)
 	}
