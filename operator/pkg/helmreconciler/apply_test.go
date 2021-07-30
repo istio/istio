@@ -16,7 +16,7 @@ package helmreconciler
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -121,7 +121,7 @@ func convertApplyToMergePatch(patch client.Patch, opts ...client.PatchOption) (c
 }
 
 func loadData(t *testing.T, file string) *object.K8sObject {
-	contents, err := ioutil.ReadFile(file)
+	contents, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}

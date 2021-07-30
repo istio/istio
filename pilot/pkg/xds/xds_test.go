@@ -15,7 +15,7 @@
 package xds
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"testing"
 
@@ -393,7 +393,7 @@ func assertListEqual(t test.Failer, a, b []string) {
 }
 
 func mustReadFile(t *testing.T, f string) string {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, f))
+	b, err := os.ReadFile(path.Join(env.IstioSrc, f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}

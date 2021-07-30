@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -168,7 +168,7 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 
 // ReadInstallFile reads a tar compress installation file from the embedded
 func ReadInstallFile(f string) (string, error) {
-	b, err := ioutil.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
+	b, err := os.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +184,7 @@ func ReadInstallFile(f string) (string, error) {
 		if hdr.Name != f {
 			continue
 		}
-		contents, err := ioutil.ReadAll(tr)
+		contents, err := io.ReadAll(tr)
 		if err != nil {
 			return "", err
 		}

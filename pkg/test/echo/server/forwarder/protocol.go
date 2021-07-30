@@ -23,9 +23,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -85,12 +85,12 @@ func newProtocol(cfg Config) (protocol, error) {
 
 	var getClientCertificate func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	if cfg.Request.KeyFile != "" && cfg.Request.CertFile != "" {
-		certData, err := ioutil.ReadFile(cfg.Request.CertFile)
+		certData, err := os.ReadFile(cfg.Request.CertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate: %v", err)
 		}
 		cfg.Request.Cert = string(certData)
-		keyData, err := ioutil.ReadFile(cfg.Request.KeyFile)
+		keyData, err := os.ReadFile(cfg.Request.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate key: %v", err)
 		}
@@ -135,7 +135,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		ServerName:           cfg.Request.ServerName,
 	}
 	if cfg.Request.CaCertFile != "" {
-		certData, err := ioutil.ReadFile(cfg.Request.CaCertFile)
+		certData, err := os.ReadFile(cfg.Request.CaCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate: %v", err)
 		}

@@ -26,7 +26,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 )
@@ -68,21 +68,21 @@ func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, ro
 // verification.
 func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) (
 	*KeyCertBundle, error) {
-	certBytes, err := ioutil.ReadFile(certFile)
+	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return nil, err
 	}
-	privKeyBytes, err := ioutil.ReadFile(privKeyFile)
+	privKeyBytes, err := os.ReadFile(privKeyFile)
 	if err != nil {
 		return nil, err
 	}
 	certChainBytes := []byte{}
 	if len(certChainFile) != 0 {
-		if certChainBytes, err = ioutil.ReadFile(certChainFile); err != nil {
+		if certChainBytes, err = os.ReadFile(certChainFile); err != nil {
 			return nil, err
 		}
 	}
-	rootCertBytes, err := ioutil.ReadFile(rootCertFile)
+	rootCertBytes, err := os.ReadFile(rootCertFile)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, root
 
 // NewKeyCertBundleWithRootCertFromFile returns a new KeyCertBundle with the root cert without verification.
 func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundle, error) {
-	rootCertBytes, err := ioutil.ReadFile(rootCertFile)
+	rootCertBytes, err := os.ReadFile(rootCertFile)
 	if err != nil {
 		return nil, err
 	}
@@ -206,21 +206,21 @@ func (b *KeyCertBundle) CertOptions() (*CertOptions, error) {
 
 // UpdateVerifiedKeyCertBundleFromFile Verifies and updates KeyCertBundle with new certs
 func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, rootCertFile string) error {
-	certBytes, err := ioutil.ReadFile(certFile)
+	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
 		return err
 	}
-	privKeyBytes, err := ioutil.ReadFile(privKeyFile)
+	privKeyBytes, err := os.ReadFile(privKeyFile)
 	if err != nil {
 		return err
 	}
 	certChainBytes := []byte{}
 	if len(certChainFile) != 0 {
-		if certChainBytes, err = ioutil.ReadFile(certChainFile); err != nil {
+		if certChainBytes, err = os.ReadFile(certChainFile); err != nil {
 			return err
 		}
 	}
-	rootCertBytes, err := ioutil.ReadFile(rootCertFile)
+	rootCertBytes, err := os.ReadFile(rootCertFile)
 	if err != nil {
 		return err
 	}

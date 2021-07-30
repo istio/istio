@@ -16,7 +16,6 @@ package components
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -45,7 +44,7 @@ loop:
 
 		e := fmt.Errorf("err%d", i)
 
-		tmpDir, err := ioutil.TempDir(os.TempDir(), t.Name())
+		tmpDir, err := os.MkDirTemp(os.TempDir(), t.Name())
 		g.Expect(err).To(BeNil())
 
 		meshCfgDir := path.Join(tmpDir, "meshcfg")

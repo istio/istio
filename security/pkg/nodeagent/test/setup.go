@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -75,7 +74,7 @@ func (e *Env) TearDown() {
 }
 
 func getDataFromFile(filePath string, t *testing.T) []byte {
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("failed to read %q", filePath)
 	}

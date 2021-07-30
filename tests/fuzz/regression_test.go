@@ -16,7 +16,6 @@ package fuzz
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -43,7 +42,7 @@ var brokenCases = map[string]string{
 
 func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	dir := filepath.Join("testdata", name)
-	cases, err := ioutil.ReadDir(dir)
+	cases, err := os.ReadDir(dir)
 	if err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
@@ -72,7 +71,7 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 	}
 	for _, c := range cases {
 		t.Run(c.Name(), func(t *testing.T) {
-			by, err := ioutil.ReadFile(filepath.Join(dir, c.Name()))
+			by, err := os.ReadFile(filepath.Join(dir, c.Name()))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,7 +92,7 @@ func walkMatch(root string, pattern *regexp.Regexp) ([]string, error) {
 		if info.IsDir() {
 			return nil
 		}
-		bytes, err := ioutil.ReadFile(path)
+		bytes, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}

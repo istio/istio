@@ -16,7 +16,6 @@ package file
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -25,9 +24,9 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-// AsBytes is a simple wrapper around ioutil.ReadFile provided for completeness.
+// AsBytes is a simple wrapper around os.ReadFile provided for completeness.
 func AsBytes(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
+	return os.ReadFile(filename)
 }
 
 // AsBytesOrFail calls AsBytes and fails the test if any errors occurred.
@@ -40,7 +39,7 @@ func AsBytesOrFail(t test.Failer, filename string) []byte {
 	return content
 }
 
-// AsString is a convenience wrapper around ioutil.ReadFile that converts the content to a string.
+// AsString is a convenience wrapper around os.ReadFile that converts the content to a string.
 func AsString(filename string) (string, error) {
 	bytes, err := AsBytes(filename)
 	if err != nil {

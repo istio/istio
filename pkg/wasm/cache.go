@@ -17,7 +17,6 @@ package wasm
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -165,7 +164,7 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	}
 
 	// Materialize the Wasm module into a local file. Use checksum as name of the module.
-	if err := ioutil.WriteFile(f, wasmModule, 0o644); err != nil {
+	if err := os.WriteFile(f, wasmModule, 0o644); err != nil {
 		return err
 	}
 

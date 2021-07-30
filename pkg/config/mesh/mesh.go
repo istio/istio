@@ -16,8 +16,8 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -281,7 +281,7 @@ func ParseMeshNetworks(yaml string) (*meshconfig.MeshNetworks, error) {
 
 // ReadMeshNetworks gets mesh networks configuration from a config file
 func ReadMeshNetworks(filename string) (*meshconfig.MeshNetworks, error) {
-	yaml, err := ioutil.ReadFile(filename)
+	yaml, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, multierror.Prefix(err, "cannot read networks config file")
 	}
@@ -290,7 +290,7 @@ func ReadMeshNetworks(filename string) (*meshconfig.MeshNetworks, error) {
 
 // ReadMeshConfig gets mesh configuration from a config file
 func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
-	yaml, err := ioutil.ReadFile(filename)
+	yaml, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, multierror.Prefix(err, "cannot read mesh config file")
 	}
@@ -299,7 +299,7 @@ func ReadMeshConfig(filename string) (*meshconfig.MeshConfig, error) {
 
 // ReadMeshConfigData gets mesh configuration yaml from a config file
 func ReadMeshConfigData(filename string) (string, error) {
-	yaml, err := ioutil.ReadFile(filename)
+	yaml, err := os.ReadFile(filename)
 	if err != nil {
 		return "", multierror.Prefix(err, "cannot read mesh config file")
 	}

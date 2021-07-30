@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -759,7 +758,7 @@ spec:
 		}
 	}
 
-	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0o600); err != nil {
+	if err := os.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0o600); err != nil {
 		return err
 	}
 
@@ -775,7 +774,7 @@ spec:
 
 	var subsetDir string
 	for _, subset := range cfg.Subsets {
-		subsetDir, err = ioutil.TempDir(dir, subset.Version+"-")
+		subsetDir, err = os.MkDirTemp(dir, subset.Version+"-")
 		if err != nil {
 			return err
 		}
@@ -819,7 +818,7 @@ spec:
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
 		for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
-			cmData[file], err = ioutil.ReadFile(path.Join(subsetDir, file))
+			cmData[file], err = os.ReadFile(path.Join(subsetDir, file))
 			if err != nil {
 				return err
 			}
@@ -833,7 +832,7 @@ spec:
 	}
 
 	// push the generated token as a Secret (only need one, they should be identical)
-	token, err := ioutil.ReadFile(path.Join(subsetDir, "istio-token"))
+	token, err := os.ReadFile(path.Join(subsetDir, "istio-token"))
 	if err != nil {
 		return err
 	}
@@ -892,11 +891,11 @@ func patchProxyConfigFile(file string, overrides string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file, []byte(outYAML), 0o744)
+	return os.WriteFile(file, []byte(outYAML), 0o744)
 }
 
 func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
-	baseYAML, err := ioutil.ReadFile(file)
+	baseYAML, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

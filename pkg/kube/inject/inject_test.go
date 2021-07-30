@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -305,7 +304,7 @@ func TestInjection(t *testing.T) {
 			alreadyTested.Insert(t.in + ".injected")
 		}
 	}
-	files, err := ioutil.ReadDir("testdata/inject")
+	files, err := os.ReadDir("testdata/inject")
 	if err != nil {
 		t.Fatal(err)
 	}

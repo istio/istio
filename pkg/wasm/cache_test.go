@@ -17,9 +17,9 @@ package wasm
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -139,7 +139,7 @@ func TestWasmCache(t *testing.T) {
 			cache.mux.Lock()
 			for k, m := range c.initialCachedModules {
 				filePath := filepath.Join(tmpDir, m.modulePath)
-				err := ioutil.WriteFile(filePath, []byte("data/\n"), 0o644)
+				err := os.WriteFile(filePath, []byte("data/\n"), 0o644)
 				if err != nil {
 					t.Fatalf("failed to write initial wasm module file %v", err)
 				}
@@ -152,7 +152,7 @@ func TestWasmCache(t *testing.T) {
 				moduleDeleted := false
 				for start := time.Now(); time.Since(start) < c.checkPurgeTimeout; {
 					// Check existence of module files. files should be deleted before timing out.
-					if files, err := ioutil.ReadDir(tmpDir); err == nil && len(files) == 0 {
+					if files, err := os.ReadDir(tmpDir); err == nil && len(files) == 0 {
 						moduleDeleted = true
 						break
 					}

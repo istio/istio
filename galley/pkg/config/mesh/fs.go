@@ -15,7 +15,7 @@
 package mesh
 
 import (
-	"io/ioutil"
+	"os"
 	"sync"
 
 	"github.com/ghodss/yaml"
@@ -115,7 +115,7 @@ func (c *FsSource) Dispatch(h event.Handler) {
 }
 
 func (c *FsSource) reload() {
-	by, err := ioutil.ReadFile(c.path)
+	by, err := os.ReadFile(c.path)
 	if err != nil {
 		scope.Processing.Errorf("Error loading mesh config (path: %s): %v", c.path, err)
 		return

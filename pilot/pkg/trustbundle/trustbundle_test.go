@@ -17,9 +17,9 @@ package trustbundle
 import (
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path"
 	"sort"
 	"testing"
@@ -31,7 +31,7 @@ import (
 )
 
 func readCertFromFile(filename string) string {
-	csrBytes, err := ioutil.ReadFile(filename)
+	csrBytes, err := os.ReadFile(filename)
 	if err != nil {
 		return ""
 	}

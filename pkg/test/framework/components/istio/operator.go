@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -243,7 +242,7 @@ func (i *operatorComponent) dumpGeneratedManifests() {
 			return
 		}
 		for i, manifest := range manifests {
-			err := ioutil.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0o644)
+			err := os.WriteFile(path.Join(clusterDir, "manifest-"+strconv.Itoa(i)+".yaml"), []byte(manifest), 0o644)
 			if err != nil {
 				scopes.Framework.Errorf("Failed writing manifest %d/%d in %s: %v", i, len(manifests)-1, clusterName, err)
 			}
@@ -487,7 +486,7 @@ kind: IstioOperator
 spec:
 %s`, Indent(out, "  "))
 
-	if err := ioutil.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
+	if err := os.WriteFile(iopFile, []byte(out), os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to write iop: %v", err)
 	}
 

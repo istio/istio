@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -45,7 +44,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	}
 	var fileMeshContents string
 	if fileExists(meshConfigFile) {
-		contents, err := ioutil.ReadFile(meshConfigFile)
+		contents, err := os.ReadFile(meshConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
 		}

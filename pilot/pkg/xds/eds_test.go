@@ -17,10 +17,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -170,7 +171,7 @@ func TestEds(t *testing.T) {
 			t.Error("No clusters in ADS response")
 		}
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
-		_ = ioutil.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
+		_ = os.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
 	})
 }
 
@@ -267,7 +268,7 @@ func mustReadFile(t *testing.T, fpaths ...string) string {
 		if !strings.HasPrefix(fpath, ".") {
 			fpath = filepath.Join(env.IstioSrc, fpath)
 		}
-		bytes, err := ioutil.ReadFile(fpath)
+		bytes, err := os.ReadFile(fpath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -283,12 +284,12 @@ func mustReadfolder(t *testing.T, folder string) string {
 	if !strings.HasPrefix(fpathRoot, ".") {
 		fpathRoot = filepath.Join(env.IstioSrc, folder)
 	}
-	f, err := ioutil.ReadDir(fpathRoot)
+	f, err := os.ReadDir(fpathRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, fpath := range f {
-		bytes, err := ioutil.ReadFile(filepath.Join(fpathRoot, fpath.Name()))
+		bytes, err := os.ReadFile(filepath.Join(fpathRoot, fpath.Name()))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1106,7 +1107,7 @@ func testEdsz(t *testing.T, s *xds.FakeDiscoveryServer, proxyID string) {
 	debug := http.HandlerFunc(s.Discovery.Edsz)
 	debug.ServeHTTP(rr, req)
 
-	data, err := ioutil.ReadAll(rr.Body)
+	data, err := io.ReadAll(rr.Body)
 	if err != nil {
 		t.Fatalf("Failed to read /edsz")
 	}
