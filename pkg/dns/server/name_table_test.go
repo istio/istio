@@ -433,6 +433,32 @@ func TestNameTable(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:  "service entry with resolution = NONE with network isolation",
+			proxy: nw1proxy,
+			push:  sepush,
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					"foo.bar.com": {
+						Ips:      []string{"1.2.3.4", "19.6.7.8", "9.16.7.8"},
+						Registry: "External",
+					},
+				},
+			},
+		},
+		{
+			name:  "multi cluster service entry with resolution = NONE",
+			proxy: cl1proxy,
+			push:  sepush,
+			expectedNameTable: &dnsProto.NameTable{
+				Table: map[string]*dnsProto.NameTable_NameInfo{
+					"foo.bar.com": {
+						Ips:      []string{"1.2.3.4", "19.6.7.8", "9.16.7.8"},
+						Registry: "External",
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
