@@ -228,7 +228,7 @@ spec:
 }
 
 func TestGrpcMtls(t *testing.T) {
-	// TODO os.Setenv somewhere else or find another way to override ClientSideSecuritySupport
+	// TODO this is eagerly resolved in gRPC making it difficult to force with os.Setenv
 	if !strings.EqualFold(os.Getenv("GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"), "true") {
 		t.Skip("Must set GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT outside the test")
 	}

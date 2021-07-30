@@ -17,8 +17,12 @@ package endpoint
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"google.golang.org/grpc/credentials/insecure"
 	xdscreds "google.golang.org/grpc/credentials/xds"
+	"io/ioutil"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"net"
 	"os"
 	"strconv"
@@ -138,18 +142,19 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 	defer onReady()
 
 	err := retry.UntilSuccess(func() error {
-		url := "grpc://" + listener.Addr().String()
-		if s.Port.XDSServer {
-			// TODO figure out a way to get the service info OR try passing certs from bootstrap to ForwardEchoRequest
-			hackedHostnameAndPort := "echo-app.default.svc.cluster.local:7070"
-			url = "xds:///" + hackedHostnameAndPort
+		cert, key, ca, err := s.certsFromBootstrapForReady()
+		if err != nil {
+			return err
 		}
 		f, err := forwarder.New(forwarder.Config{
 			XDSTestBootstrap: s.Port.XDSTestBootstrap,
 			Request: &proto.ForwardEchoRequest{
-				Url:           url,
+				Url:           "grpc://" + listener.Addr().String(),
 				Message:       "hello",
 				TimeoutMicros: common.DurationToMicros(readyInterval),
+				CertFile:      cert,
+				KeyFile:       key,
+				CaCertFile:    ca,
 			},
 		})
 		defer func() {
@@ -167,6 +172,37 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 	} else {
 		epLog.Infof("ready for GRPC endpoint %s", listener.Addr().String())
 	}
+}
+
+// TODO (hack) we have to send certs OR use xds:///fqdn. We don't know our own fqdn, and even if we did
+// we could send traffic to another instance. Instead we look into gRPC internals to authenticate with ourself.
+func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca string, err error) {
+	if !s.Port.XDSServer {
+		return
+	}
+
+	var bootstrapData []byte
+	if data := s.Port.XDSTestBootstrap; len(data) > 0 {
+		bootstrapData = data
+	} else if path := os.Getenv("GRPC_XDS_BOOTSTRAP"); len(path) > 0 {
+		bootstrapData, err = ioutil.ReadFile(path)
+	} else if data := os.Getenv("GRPC_XDS_BOOTSTRAP_CONFIG"); len(data) > 0 {
+		bootstrapData = []byte(data)
+	}
+	var bootstrap grpcxds.Bootstrap
+	if uerr := json.Unmarshal(bootstrapData, &bootstrap); uerr != nil {
+		err = uerr
+		return
+	}
+	certs := bootstrap.FileWatcherProvider()
+	if certs == nil {
+		err = fmt.Errorf("no certs found in bootstrap")
+		return
+	}
+	cert = certs.CertificateFile
+	key = certs.PrivateKeyFile
+	ca = certs.CACertificateFile
+	return
 }
 
 func (s *grpcInstance) Close() error {
