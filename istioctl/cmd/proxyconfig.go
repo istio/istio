@@ -959,7 +959,7 @@ func rootCACompareConfigCmd() *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) <= 2) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("see the usage above, rootca-comp requires 2 pods as arguments")
+				return fmt.Errorf("rootca-comp requires 2 pods as an argument")
 			}
 			return nil
 		},
@@ -984,7 +984,7 @@ func rootCACompareConfigCmd() *cobra.Command {
 				}
 			} else {
 				c.Println(c.UsageString())
-				return fmt.Errorf("please see the usage above and make sure that there are 2 pods for the comparison")
+				return fmt.Errorf("rootca-comp requires 2 pods as an argument")
 			}
 
 			rootCA1, err1 := configWriter1.PrintPodRootCAFromDynamicSecretDump()
