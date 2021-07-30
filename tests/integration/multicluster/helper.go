@@ -78,7 +78,7 @@ func SetupApps(appCtx *AppContext) resource.SetupFn {
 			return fmt.Errorf("namespaces not initialized; run Setup first")
 		}
 
-		clusters := ctx.Clusters().DataPlane()
+		clusters := ctx.Clusters()
 
 		// set up echos
 		// Running multiple instances in each cluster teases out cases where proxies inconsistently

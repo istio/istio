@@ -153,8 +153,12 @@ func (s *suiteContext) Environment() resource.Environment {
 	return s.environment
 }
 
-func (s *suiteContext) Clusters() cluster.Clusters {
-	return s.Environment().Clusters()
+func (c *suiteContext) Clusters() cluster.Clusters {
+	return c.AllClusters().MeshClusters()
+}
+
+func (c *suiteContext) AllClusters() cluster.Clusters {
+	return c.Environment().Clusters()
 }
 
 // Settings returns the current runtime.Settings.

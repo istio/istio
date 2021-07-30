@@ -33,7 +33,7 @@ func ReachabilityTest(t *testing.T, apps AppContext, features ...features.Featur
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {
-					clusters := ctx.Clusters().DataPlane()
+					clusters := ctx.Clusters()
 					for _, src := range apps.UniqueEchos {
 						for _, dstCluster := range clusters {
 							src := src

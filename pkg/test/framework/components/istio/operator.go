@@ -337,7 +337,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// Install control plane clusters (can be external or primary).
 	errG := multierror.Group{}
-	for _, c := range ctx.Clusters().Kube().Primaries() {
+	for _, c := range ctx.AllClusters().Kube().Primaries() {
 		c := c
 		errG.Go(func() error {
 			return installControlPlaneCluster(i, cfg, c, istioctlConfigFiles.iopFile, istioctlConfigFiles.operatorSpec)
@@ -397,7 +397,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if env.IsMultinetwork() {
 		// enable cross network traffic
-		for _, c := range ctx.Clusters().Kube().DataPlane() {
+		for _, c := range ctx.Clusters().Kube() {
 			if err := i.exposeUserServices(c); err != nil {
 				return nil, err
 			}
@@ -727,7 +727,7 @@ func waitForIstioReady(ctx resource.Context, c cluster.Cluster, cfg Config) erro
 func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, cfg Config) error {
 	// Configure direct access for each control plane to each APIServer. This allows each control plane to
 	// automatically discover endpoints in remote clusters.
-	for _, c := range ctx.Clusters().Kube().DataPlane() {
+	for _, c := range ctx.Clusters().Kube() {
 		if err := i.configureDirectAPIServiceAccessForCluster(ctx, cfg, c); err != nil {
 			return err
 		}
