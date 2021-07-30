@@ -102,7 +102,7 @@ func (c Clusters) Remotes(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
-// DataPlane returns the subset that are not external control plane clusters.
+// MeshClusters returns the subset that are not external control plane clusters.
 func (c Clusters) MeshClusters(excluded ...Cluster) Clusters {
 	return c.filterClusters(func(cc Cluster) bool {
 		return !cc.IsExternalControlPlane()
