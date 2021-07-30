@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"text/template"
 	"time"
@@ -29,7 +30,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes/any"
-	"k8s.io/client-go/kubernetes/fake"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -110,6 +109,16 @@ var testCases = []ConfigInput{
 		ProxyType: model.Router,
 	},
 }
+
+var sidecarTestCases = func() (res []ConfigInput) {
+	for _, c := range testCases {
+		if c.ProxyType == model.Router {
+			continue
+		}
+		res = append(res, c)
+	}
+	return res
+}()
 
 func configureBenchmark(t test.Failer) {
 	for _, s := range istiolog.Scopes() {
@@ -185,100 +194,48 @@ func TestValidateTelemetry(t *testing.T) {
 }
 
 func BenchmarkClusterGeneration(b *testing.B) {
-	configureBenchmark(b)
-	for _, tt := range testCases {
-		b.Run(tt.Name, func(b *testing.B) {
-			s, proxy := setupAndInitializeTest(b, tt)
-			b.ResetTimer()
-			var c model.Resources
-			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, &model.PushRequest{Full: true, Push: s.PushContext()})
-				if len(c) == 0 {
-					b.Fatal("Got no clusters!")
-				}
-			}
-			logDebug(b, c)
-		})
-	}
+	runBenchmark(b, v3.ClusterType, testCases)
+}
+
+func TestClusterGeneration(t *testing.T) {
+	testBenchmark(t, v3.ClusterType, testCases)
 }
 
 func BenchmarkListenerGeneration(b *testing.B) {
-	configureBenchmark(b)
-	for _, tt := range testCases {
-		b.Run(tt.Name, func(b *testing.B) {
-			s, proxy := setupAndInitializeTest(b, tt)
-			b.ResetTimer()
-			var c model.Resources
-			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
-				if len(c) == 0 {
-					b.Fatal("Got no listeners!")
-				}
-			}
-			logDebug(b, c)
-		})
-	}
+	runBenchmark(b, v3.ListenerType, testCases)
+}
+
+func TestListenerGeneration(t *testing.T) {
+	testBenchmark(t, v3.ListenerType, testCases)
 }
 
 func BenchmarkNameTableGeneration(b *testing.B) {
-	configureBenchmark(b)
-	for _, tt := range testCases {
-		b.Run(tt.Name, func(b *testing.B) {
-			s, proxy := setupAndInitializeTest(b, tt)
-			b.ResetTimer()
-			var c model.Resources
-			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
-				if len(c) == 0 && tt.ProxyType != model.Router {
-					b.Fatal("Got no name tables!")
-				}
-			}
-			logDebug(b, c)
-		})
-	}
+	runBenchmark(b, v3.NameTableType, sidecarTestCases)
+}
+
+func TestNameTableGeneration(t *testing.T) {
+	testBenchmark(t, v3.NameTableType, sidecarTestCases)
+}
+
+var secretCases = []ConfigInput{
+	{
+		Name:      "secrets",
+		Services:  10,
+		ProxyType: model.Router,
+	},
+	{
+		Name:      "secrets",
+		Services:  1000,
+		ProxyType: model.Router,
+	},
+}
+
+func TestSecretGeneration(t *testing.T) {
+	testBenchmark(t, v3.SecretType, secretCases)
 }
 
 func BenchmarkSecretGeneration(b *testing.B) {
-	configureBenchmark(b)
-	cases := []ConfigInput{
-		{
-			Name:     "secrets",
-			Services: 10,
-		},
-		{
-			Name:     "secrets",
-			Services: 1000,
-		},
-	}
-	for _, tt := range cases {
-		b.Run(fmt.Sprintf("%s-%d", tt.Name, tt.Services), func(b *testing.B) {
-			tmpl := template.Must(template.New("").Funcs(sprig.TxtFuncMap()).ParseFiles(path.Join("testdata", "benchmarks", tt.Name+".yaml")))
-			var buf bytes.Buffer
-			if err := tmpl.ExecuteTemplate(&buf, tt.Name+".yaml", tt); err != nil {
-				b.Fatalf("failed to execute template: %v", err)
-			}
-			s := NewFakeDiscoveryServer(b, FakeOptions{
-				KubernetesObjectString: buf.String(),
-			})
-			kubesecrets.DisableAuthorizationForTest(s.KubeClient().Kube().(*fake.Clientset))
-			watchedResources := []string{}
-			for i := 0; i < tt.Services; i++ {
-				watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://istio-system/sds-credential-%d", i))
-			}
-			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system", VerifiedIdentity: &spiffe.Identity{}})
-			gen := s.Discovery.Generators[v3.SecretType]
-			res := &model.WatchedResource{ResourceNames: watchedResources}
-			b.ResetTimer()
-			var c model.Resources
-			for n := 0; n < b.N; n++ {
-				c, _, _ = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
-				if len(c) == 0 {
-					b.Fatal("Got no secrets!")
-				}
-			}
-			logDebug(b, c)
-		})
-	}
+	runBenchmark(b, v3.SecretType, secretCases)
 }
 
 func createGateways(n int) map[string]*meshconfig.Network {
@@ -342,6 +299,56 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 	}
 }
 
+func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
+	configureBenchmark(b)
+	for _, tt := range testCases {
+		b.Run(tt.Name, func(b *testing.B) {
+			s, proxy := setupAndInitializeTest(b, tt)
+			var wr *model.WatchedResource
+			switch tpe {
+			case v3.SecretType:
+				watchedResources := []string{}
+				for i := 0; i < tt.Services; i++ {
+					watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://default/sds-credential-%d", i))
+				}
+				wr = &model.WatchedResource{ResourceNames: watchedResources}
+			}
+			b.ResetTimer()
+			var c model.Resources
+			for n := 0; n < b.N; n++ {
+				c, _, _ = s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+				if len(c) == 0 {
+					b.Fatalf("Got no %v's!", tpe)
+				}
+			}
+			logDebug(b, c)
+		})
+	}
+}
+
+func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
+	for _, tt := range testCases {
+		t.Run(tt.Name, func(t *testing.T) {
+			// No need for large test here
+			tt.Services = 1
+			s, proxy := setupAndInitializeTest(t, tt)
+			var wr *model.WatchedResource
+			switch tpe {
+			case v3.SecretType:
+				watchedResources := []string{}
+				for i := 0; i < tt.Services; i++ {
+					watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://default/sds-credential-%d", i))
+				}
+				wr = &model.WatchedResource{ResourceNames: watchedResources}
+			}
+			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+			if len(c) == 0 {
+				t.Fatalf("Got no %v's!", tpe)
+			}
+		})
+	}
+}
+
 // Setup test builds a mock test environment. Note: push context is not initialized, to be able to benchmark separately
 // most should just call setupAndInitializeTest
 func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
@@ -361,27 +368,33 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			},
 			IstioVersion: "1.12.0",
 		},
-		ConfigNamespace: "default",
+		ConfigNamespace:  "default",
+		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
 	}
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 
-	configs := getConfigsWithCache(t, config)
+	configs, k8sConfig := getConfigsWithCache(t, config)
 	s := NewFakeDiscoveryServer(t, FakeOptions{
-		Configs: configs,
+		Configs:                configs,
+		KubernetesObjectString: k8sConfig,
 		// Allow debounce to avoid overwhelming with writes
-		DebounceTime: time.Millisecond * 10,
+		DebounceTime:               time.Millisecond * 10,
+		DisableSecretAuthorization: true,
 	})
 
 	return s, proxy
 }
 
-var configCache = map[ConfigInput][]config.Config{}
+var (
+	configCache    = map[ConfigInput][]config.Config{}
+	k8sConfigCache = map[ConfigInput]string{}
+)
 
-func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
+func getConfigsWithCache(t testing.TB, input ConfigInput) ([]config.Config, string) {
 	// Config setup is slow for large tests. Cache this and return from Cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
-		return cached
+		return cached, k8sConfigCache[input]
 	}
 	configName := input.ConfigName
 	if configName == "" {
@@ -407,7 +420,8 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
 	if err != nil {
 		t.Fatalf("failed to read config: %v", err)
 	}
-	if len(badKinds) != 0 {
+	scrt, count := parseSecrets(inputYAML)
+	if len(badKinds) != count {
 		t.Fatalf("Got unknown resources: %v", badKinds)
 	}
 	// setup default namespace if not defined
@@ -418,7 +432,20 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
 		configs[i] = c
 	}
 	configCache[input] = configs
-	return configs
+	k8sConfigCache[input] = scrt
+	return configs, scrt
+}
+
+func parseSecrets(inputs string) (string, int) {
+	matches := 0
+	sb := strings.Builder{}
+	for _, text := range strings.Split(inputs, "\n---") {
+		if strings.Contains(text, "kind: Secret") {
+			sb.WriteString(text + "\n---\n")
+			matches++
+		}
+	}
+	return sb.String(), matches
 }
 
 func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
