@@ -1447,7 +1447,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					}
 				}
 				if !found {
-					t.Errorf("UnExpected service %v in SidecarScope", s1)
+					t.Errorf("UnExpected service %v in SidecarScope", s1.Hostname)
 				}
 			}
 			// TODO destination rule

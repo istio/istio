@@ -252,11 +252,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	servicesByName := make(map[host.Name]*model.Service)
+	hostnamesByNamespace := make(map[string][]host.Name, 0)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
 			servicesByName[svc.Hostname] = svc
+			hostnamesByNamespace[svc.Attributes.Namespace] = append(hostnamesByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			servicesByName[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
@@ -268,13 +270,14 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
 				},
 			}
+			hostnamesByNamespace[svc.Attributes.Namespace] = append(hostnamesByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		}
 	}
 
 	// This is hack to keep consistent with previous behavior.
 	if listenerPort != 80 {
 		// only select virtualServices that matches a service
-		virtualServices = selectVirtualServices(virtualServices, servicesByName)
+		virtualServices = model.SelectVirtualServices(virtualServices, hostnamesByNamespace)
 	}
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push, servicesByName, virtualServices, listenerPort)
