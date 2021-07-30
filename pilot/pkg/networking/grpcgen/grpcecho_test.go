@@ -20,14 +20,12 @@ import (
 	"math"
 	"net"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
-
 	//  To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 
@@ -69,10 +67,10 @@ type configGenTest struct {
 //      ports:
 //        grpc: {generated portnum}
 func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
-	if runtime.GOOS == "darwin" {
-		// TODO always skip if this breaks anywhere else
-		t.Skip("cannot use 127.0.0.x on OSX")
-	}
+	//if runtime.GOOS == "darwin" {
+	//	// TODO always skip if this breaks anywhere else
+	//	t.Skip("cannot use 127.0.0.x on OSX")
+	//}
 
 	cgt := &configGenTest{T: t}
 	wg := sync.WaitGroup{}
@@ -115,24 +113,9 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		return net.Listen("tcp", grpcXdsAddr)
 	}
 	cgt.ds = xds.NewFakeDiscoveryServer(t, discoveryOpts)
-	if err := waitTimeout(&wg, 1*time.Minute); err != nil {
-		t.Fatalf("failed waiting for servers to ready: %v", err)
-	}
+	// we know onReady will get called because there are internal timeouts for this
+	wg.Wait()
 	return cgt
-}
-
-func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) error {
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
-		wg.Wait()
-	}()
-	select {
-	case <-c:
-		return nil
-	case <-time.After(timeout):
-		return fmt.Errorf("timed out after %v", timeout)
-	}
 }
 
 func makeWE(s echoCfg, host string, port int) config.Config {
@@ -245,6 +228,7 @@ spec:
 }
 
 func TestGrpcMtls(t *testing.T) {
+	// TODO os.Setenv somewhere else or find another way to override ClientSideSecuritySupport
 	if !strings.EqualFold(os.Getenv("GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"), "true") {
 		t.Skip("Must set GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT outside the test")
 	}

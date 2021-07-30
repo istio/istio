@@ -60,7 +60,7 @@ type Port struct {
 
 	// XDSServer, for gRPC servers, will use the xds.NewGRPCServer constructor to rely on XDS configuration.
 	// If this flag is set but the environment variable feature gates aren't, we should fail due to gRPC internals.
-	XDSServer        bool
+	XDSServer bool
 
 	// XDSTestBootstrap allows settinga per-endpoint bootstrap without using the GRPC_XDS_BOOTSTRAP env var
 	XDSTestBootstrap []byte

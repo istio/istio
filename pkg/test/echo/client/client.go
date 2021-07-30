@@ -19,7 +19,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"google.golang.org/grpc/credentials/insecure"
+	xdscreds "google.golang.org/grpc/credentials/xds"
 	"io"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -44,9 +47,7 @@ func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	dialOptions := []grpc.DialOption{grpc.WithBlock()}
-	if tlsSettings == nil {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
-	} else {
+	if tlsSettings != nil {
 		cert, err := tls.X509KeyPair([]byte(tlsSettings.ClientCert), []byte(tlsSettings.Key))
 		if err != nil {
 			return nil, err
@@ -69,6 +70,14 @@ func New(address string, tlsSettings *common.TLSSettings, extraDialOpts ...grpc.
 			}
 		}
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cfg))
+	} else if strings.HasPrefix(address, "xds:///") {
+		creds, err := xdscreds.NewClientCredentials(xdscreds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
+		if err != nil {
+			return nil, err
+		}
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(creds))
+	} else {
+		dialOptions = append(dialOptions, grpc.WithInsecure())
 	}
 	dialOptions = append(dialOptions, extraDialOpts...)
 	conn, err := grpc.DialContext(ctx, address, dialOptions...)

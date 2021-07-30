@@ -138,13 +138,16 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 	defer onReady()
 
 	err := retry.UntilSuccess(func() error {
-		scheme := "grpc://"
+		url := "grpc://" + listener.Addr().String()
 		if s.Port.XDSServer {
-			scheme = "xds:///"
+			// TODO figure out a way to get the service info OR try passing certs from bootstrap to ForwardEchoRequest
+			hackedHostnameAndPort := "echo-app.default.svc.cluster.local:7070"
+			url = "xds:///" + hackedHostnameAndPort
 		}
 		f, err := forwarder.New(forwarder.Config{
+			XDSTestBootstrap: s.Port.XDSTestBootstrap,
 			Request: &proto.ForwardEchoRequest{
-				Url:           scheme + listener.Addr().String(),
+				Url:           url,
 				Message:       "hello",
 				TimeoutMicros: common.DurationToMicros(readyInterval),
 			},
