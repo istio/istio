@@ -201,6 +201,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	services = egressListener.Services()
 	// To maintain correctness, we should only use the virtualservices for
 	// this listener and not all virtual services accessible to this proxy.
+	virtualServices = egressListener.VirtualServices()
 
 	// When generating RDS for ports created via the SidecarScope, we treat ports as HTTP proxy style ports
 	// if ports protocol is HTTP_PROXY.

@@ -412,7 +412,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
-		buildHTTPService("service-A", visibility.Public, "", "default", 7777),
+		buildHTTPService("service-A.default.svc.cluster.local", visibility.Public, "", "default", 7777),
 	}
 
 	sidecarConfig := &config.Config{
@@ -714,7 +714,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	virtualServiceSpec7 := &networking.VirtualService{
-		Hosts:    []string{"service-A", "service-A.v2", "service-A.v3"},
+		Hosts:    []string{"service-A.default.svc.cluster.local", "service-A.v2", "service-A.v3"},
 		Gateways: []string{"mesh"},
 		Http: []*networking.HTTPRoute{
 			{
@@ -801,6 +801,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs-1",
+			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec7,
 	}
@@ -1196,8 +1197,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test.com:8080": {
 					"test.com:8080": true, "8.8.8.8:8080": true,
 				},
-				"service-A:7777": {
-					"service-A:7777": true,
+				"service-A.default.svc.cluster.local:7777": {
+					"service-A.default.svc.cluster.local:7777": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1214,9 +1215,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"allow_any": {
 					"*": true,
 				},
-				"service-A:7777": {
-					"service-A":      true,
-					"service-A:7777": true,
+				"service-A.default.svc.cluster.local:7777": {
+					"service-A.default.svc.cluster.local":      true,
+					"service-A.default.svc.cluster.local:7777": true,
 				},
 				"service-A.v2:7777": {
 					"service-A.v2":      true,

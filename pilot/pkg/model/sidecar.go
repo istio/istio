@@ -464,6 +464,9 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 }
 
 func (sc *SidecarScope) Services() []*Service {
+	if sc == nil {
+		return nil
+	}
 	return sc.services
 }
 
