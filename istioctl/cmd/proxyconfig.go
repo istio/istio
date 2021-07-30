@@ -951,9 +951,9 @@ func rootCACompareConfigCmd() *cobra.Command {
 
 	rootCACompareConfigCmd := &cobra.Command{
 		Use:   "rootca-comp [pod/]<name-1>[.<namespace-1>] [pod/]<name-2>[.<namespace-2>]",
-		Short: "Compare ROOTCA values for given 2 pods",
-		Long:  `Compare ROOTCA values for given 2 pods to check the connectivity availability between them.`,
-		Example: `  # Compare ROOTCA values for given 2 pods to check the connectivity availability between them.
+		Short: "Compare ROOTCA values for the two given pods",
+		Long:  `Compare ROOTCA values for given 2 pods to check the connectivity between them.`,
+		Example: `  # Compare ROOTCA values for given 2 pods to check the connectivity between them.
   istioctl proxy-config rootca-comp <pod-name-1[.namespace]> <pod-name-2[.namespace]>`,
 		Aliases: []string{"rootca-comp", "rc"},
 		Args: func(cmd *cobra.Command, args []string) error {
