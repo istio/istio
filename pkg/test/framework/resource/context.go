@@ -60,8 +60,11 @@ type Context interface {
 	// The Environment in which the tests run
 	Environment() Environment
 
-	// Clusters in this Environment. There will always be at least one.
+	// Mesh clusters in this Environment. There will always be at least one.
 	Clusters() cluster.Clusters
+
+	// All clusters in this Environment, including external control planes.
+	AllClusters() cluster.Clusters
 
 	// Settings returns common settings
 	Settings() *Settings
