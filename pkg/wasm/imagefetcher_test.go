@@ -63,7 +63,7 @@ func TestImageFetcherOption_useDefaultKeyChain(t *testing.T) {
 
 func TestImageFetcher_Fetch(t *testing.T) {
 	// Fetcher with anonymous auth.
-	fetcher := ImageFetcher{fetchOpt: remote.WithAuth(authn.Anonymous)}
+	fetcher := ImageFetcher{fetchOpts: []remote.Option{remote.WithAuth(authn.Anonymous)}}
 
 	// Set up a fake registry.
 	s := httptest.NewServer(registry.New())

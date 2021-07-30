@@ -17,6 +17,7 @@ package wasm
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 
@@ -43,21 +44,21 @@ func (o *ImageFetcherOption) useDefaultKeyChain() bool {
 }
 
 type ImageFetcher struct {
-	fetchOpt remote.Option
+	fetchOpts []remote.Option
 }
 
-func NewImageFetcher(opt ImageFetcherOption) *ImageFetcher {
-	var fetchOpt remote.Option
+func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher {
+	fetchOpts := make([]remote.Option, 0, 2)
 	// TODO(mathetake): have "Anonymous" option?
 	if opt.useDefaultKeyChain() {
 		// Note that default key chain reads the docker config from DOCKER_CONFIG
 		// so must set the envvar when reaching this branch is expected.
-		fetchOpt = remote.WithAuthFromKeychain(authn.DefaultKeychain)
+		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	} else {
-		fetchOpt = remote.WithAuth(&authn.Basic{Username: opt.Username})
+		fetchOpts = append(fetchOpts, remote.WithAuth(&authn.Basic{Username: opt.Username}))
 	}
 	return &ImageFetcher{
-		fetchOpt: fetchOpt,
+		fetchOpts: append(fetchOpts, remote.WithContext(ctx)),
 	}
 }
 
@@ -68,7 +69,7 @@ func (o *ImageFetcher) Fetch(url string) ([]byte, error) {
 		return nil, fmt.Errorf("could not parse url in image reference: %v", err)
 	}
 
-	img, err := remote.Image(ref, o.fetchOpt)
+	img, err := remote.Image(ref, o.fetchOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch image: %v", err)
 	}

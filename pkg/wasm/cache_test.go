@@ -20,20 +20,37 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/registry"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
 func TestWasmCache(t *testing.T) {
+	// Setup http server.
 	var tsNumRequest int
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tsNumRequest++
 		fmt.Fprintln(w, "data"+r.URL.Path)
 	}))
 	defer ts.Close()
-	dataCheckSum := sha256.Sum256([]byte("data/\n"))
+	httpDataCheckSum := sha256.Sum256([]byte("data/\n"))
+
+	// Set up a fake registry for OCI images.
+	tos := httptest.NewServer(registry.New())
+	defer tos.Close()
+	ou, err := url.Parse(tos.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ociDataCheckSum := setupOCIRegistry(t, ou.Host)
 
 	cases := []struct {
 		name                 string
@@ -43,6 +60,7 @@ func TestWasmCache(t *testing.T) {
 		wasmModuleExpiry     time.Duration
 		checkPurgeTimeout    time.Duration
 		checksum             [32]byte
+		requestTimeout       time.Duration
 		wantFileName         string
 		wantErrorMsgPrefix   string
 		wantServerReqNum     int
@@ -53,8 +71,8 @@ func TestWasmCache(t *testing.T) {
 			fetchURL:             ts.URL,
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
-			checksum:             dataCheckSum,
-			wantFileName:         fmt.Sprintf("%x.wasm", dataCheckSum),
+			checksum:             httpDataCheckSum,
+			wantFileName:         fmt.Sprintf("%x.wasm", httpDataCheckSum),
 			wantServerReqNum:     1,
 		},
 		{
@@ -72,12 +90,12 @@ func TestWasmCache(t *testing.T) {
 		{
 			name:                 "invalid scheme",
 			initialCachedModules: map[cacheKey]cacheEntry{},
-			fetchURL:             "oci://abc",
+			fetchURL:             "foo://abc",
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
-			checksum:             dataCheckSum,
-			wantFileName:         fmt.Sprintf("%x.wasm", dataCheckSum),
-			wantErrorMsgPrefix:   "unsupported Wasm module downloading URL scheme: oci",
+			checksum:             httpDataCheckSum,
+			wantFileName:         fmt.Sprintf("%x.wasm", httpDataCheckSum),
+			wantErrorMsgPrefix:   "unsupported Wasm module downloading URL scheme: foo",
 			wantServerReqNum:     0,
 		},
 		{
@@ -90,14 +108,13 @@ func TestWasmCache(t *testing.T) {
 			wantServerReqNum:     0,
 		},
 		{
-
 			name:                 "wrong checksum",
 			initialCachedModules: map[cacheKey]cacheEntry{},
 			fetchURL:             ts.URL,
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			checksum:             sha256.Sum256([]byte("wrongchecksum\n")),
-			wantErrorMsgPrefix:   fmt.Sprintf("module downloaded from %v has checksum %x, which does not match", ts.URL, dataCheckSum),
+			wantErrorMsgPrefix:   fmt.Sprintf("module downloaded from %v has checksum %x, which does not match", ts.URL, httpDataCheckSum),
 			wantServerReqNum:     1,
 		},
 		{
@@ -105,27 +122,57 @@ func TestWasmCache(t *testing.T) {
 			// Test that downloading still proceeds and error returns.
 			name: "different url same checksum",
 			initialCachedModules: map[cacheKey]cacheEntry{
-				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", dataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", dataCheckSum)},
+				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", httpDataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", httpDataCheckSum)},
 			},
 			fetchURL:           ts.URL + "/different-url",
 			purgeInterval:      DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:   DefaultWasmModuleExpiry,
-			checksum:           dataCheckSum,
+			checksum:           httpDataCheckSum,
 			wantErrorMsgPrefix: fmt.Sprintf("module downloaded from %v/different-url has checksum", ts.URL),
 			wantServerReqNum:   1,
 		},
 		{
 			name: "purge on expiry",
 			initialCachedModules: map[cacheKey]cacheEntry{
-				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", dataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", dataCheckSum)},
+				{downloadURL: ts.URL, checksum: fmt.Sprintf("%x", httpDataCheckSum)}: {modulePath: fmt.Sprintf("%x.wasm", httpDataCheckSum)},
 			},
 			fetchURL:          ts.URL,
 			purgeInterval:     1 * time.Millisecond,
 			wasmModuleExpiry:  1 * time.Millisecond,
 			checkPurgeTimeout: 5 * time.Second,
-			checksum:          dataCheckSum,
-			wantFileName:      fmt.Sprintf("%x.wasm", dataCheckSum),
+			checksum:          httpDataCheckSum,
+			wantFileName:      fmt.Sprintf("%x.wasm", httpDataCheckSum),
 			wantServerReqNum:  1,
+		},
+		{
+			name:                 "fetch oci",
+			initialCachedModules: map[cacheKey]cacheEntry{},
+			fetchURL:             fmt.Sprintf("oci://%s/test/valid/docker", ou.Host),
+			purgeInterval:        DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry:     DefaultWasmModuleExpiry,
+			requestTimeout:       time.Second * 10,
+			checksum:             ociDataCheckSum,
+			wantFileName:         fmt.Sprintf("%x.wasm", ociDataCheckSum),
+		},
+		{
+			name:                 "fetch oci timed out",
+			initialCachedModules: map[cacheKey]cacheEntry{},
+			fetchURL:             fmt.Sprintf("oci://%s/test/invalid", ou.Host),
+			purgeInterval:        DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry:     DefaultWasmModuleExpiry,
+			requestTimeout:       0, // Cause timeout immediately.
+			wantErrorMsgPrefix:   fmt.Sprintf("could not fetch Wasm OCI image: could not fetch image: Get \"https://%s/v2/\"", ou.Host),
+		},
+		{
+			name:                 "fetch invalid oci",
+			initialCachedModules: map[cacheKey]cacheEntry{},
+			fetchURL:             fmt.Sprintf("oci://%s/test/invalid", ou.Host),
+			purgeInterval:        DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry:     DefaultWasmModuleExpiry,
+			requestTimeout:       time.Second * 10,
+			wantErrorMsgPrefix: `could not fetch Wasm OCI image: the given image is in invalid format as an OCI image: 2 errors occurred:
+	* could not parse as compat variant: invalid media type application/vnd.oci.image.layer.v1.tar (expect application/vnd.oci.image.layer.v1.tar+gzip)
+	* could not parse as oci variant: number of layers must be 2 but got 1`,
 		},
 	}
 
@@ -162,7 +209,7 @@ func TestWasmCache(t *testing.T) {
 				}
 			}
 
-			gotFilePath, gotErr := cache.Get(c.fetchURL, fmt.Sprintf("%x", c.checksum), 0)
+			gotFilePath, gotErr := cache.Get(c.fetchURL, fmt.Sprintf("%x", c.checksum), c.requestTimeout)
 			wantFilePath := filepath.Join(tmpDir, c.wantFileName)
 			if c.wantErrorMsgPrefix != "" {
 				if gotErr == nil {
@@ -181,6 +228,64 @@ func TestWasmCache(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setupOCIRegistry(t *testing.T, host string) (wantCheckSum [32]byte) {
+	// Push *compat* variant docker image (others are well tested in imagefetcher's test and the behavior is consistent).
+	ref := fmt.Sprintf("%s/test/valid/docker", host)
+	binary := "this is wasm plugin"
+
+	// Create docker layer.
+	l, err := newMockLayer(types.DockerLayer,
+		map[string][]byte{"plugin.wasm": []byte(binary)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := mutate.Append(empty.Image, mutate.Addendum{Layer: l})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set manifest type.
+	manifest, err := img.Manifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.MediaType = types.DockerManifestSchema2
+
+	// Push image to the registry.
+	err = crane.Push(img, ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Calculate sum
+	wantCheckSum = sha256.Sum256([]byte(binary))
+
+	// Finally push the invalid image.
+	ref = fmt.Sprintf("%s/test/invalid", host)
+	l, err = newMockLayer(types.OCIUncompressedLayer, map[string][]byte{"not-wasm.txt": []byte("a")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err = mutate.Append(empty.Image, mutate.Addendum{Layer: l})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set manifest type so it will pass the docker parsing branch.
+	manifest, err = img.Manifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.MediaType = "no-docker"
+
+	// Push image to the registry.
+	err = crane.Push(img, ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return
 }
 
 func TestWasmCacheMissChecksum(t *testing.T) {
