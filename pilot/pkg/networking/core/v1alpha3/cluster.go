@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/pkg/log"
 	"math"
 	"strconv"
 	"strings"
@@ -165,13 +166,15 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 					break
 				}
 				dr := prevCfg.Spec.(*networking.DestinationRule)
-				removedClusterNames = append(removedClusterNames, getRemovedClusterName(watched.ResourceNames, dr.Host))
+				removedClusterNames = append(removedClusterNames, getRemovedClusterNames(watched.ResourceNames, dr.Host)...)
 			} else {
 				// destination exists, was updated
 				// generate cluster based on service associated with destinationrule
+				// hostName can be a wildcard, and can match to multiple services
 				dr := cfg.Spec.(*networking.DestinationRule)
-				service := push.ServiceForHostname(proxy, host.Name(dr.Host))
-				services = append(services, service)
+				matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host))
+				//service := push.ServiceForHostname(proxy, host.Name(dr.Host))
+				services = append(services, matchedSvcs...)
 			}
 		}
 	}
@@ -222,14 +225,29 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 }
 
 // getRemovedClusterName finds the name of the removed cluster given a hostname and list of cluster names.
+// todo check for wildcard for destinationrule -- probably will need a diff function
+// 	dr host can be wildcard, so check resNames
 func getRemovedClusterName(resNames []string, target string) string {
 	for _, n := range resNames {
-		_, _, svcHost, _ := model.ParseSubsetKey(n)
+		_, sub, svcHost, _ := model.ParseSubsetKey(n)
+		log.Infof("adiprerepa: subset %v", sub)
 		if svcHost == host.Name(target) {
 			return n
 		}
 	}
 	return ""
+}
+
+// for wildcard hosts
+func getRemovedClusterNames(resNames []string, target string) []string {
+	clusterNames := make([]string, 0)
+	for _, n := range resNames {
+		_, _, svcHost, _ := model.ParseSubsetKey(n)
+		if host.Name(target).Matches(svcHost) {
+			clusterNames = append(clusterNames, n)
+		}
+	}
+	return clusterNames
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
