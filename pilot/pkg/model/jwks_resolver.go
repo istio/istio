@@ -188,12 +188,16 @@ func newJwksResolverWithCABundlePaths(
 		caCertsFound = false
 		log.Errorf("Failed to fetch Cert from SystemCertPool: %v", err)
 	}
-	for _, pemFile := range caBundlePaths {
-		caCert, err := ioutil.ReadFile(pemFile)
-		if err == nil {
-			caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
+
+	if caCertPool != nil {
+		for _, pemFile := range caBundlePaths {
+			caCert, err := ioutil.ReadFile(pemFile)
+			if err == nil {
+				caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
+			}
 		}
 	}
+
 	if caCertsFound {
 		ret.secureHTTPClient = &http.Client{
 			Timeout: jwksHTTPTimeOutInSec * time.Second,
@@ -327,18 +331,18 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 	}
 
 	getPublicKey := func() (b []byte, e error) {
-		resp, err := client.Get(uri)
 		defer func() {
 			if e != nil {
 				networkFetchFailCounter.Increment()
-				return
+			} else {
+				networkFetchSuccessCounter.Increment()
 			}
-			networkFetchSuccessCounter.Increment()
-			_ = resp.Body.Close()
 		}()
+		resp, err := client.Get(uri)
 		if err != nil {
 			return nil, err
 		}
+		defer resp.Body.Close()
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -390,8 +394,7 @@ func (r *JwksResolver) refresher() {
 				r.refreshInterval = r.refreshDefaultInterval
 			}
 			lastHasError = currentHasError
-			r.refreshTicker.Stop()
-			r.refreshTicker = time.NewTicker(r.refreshInterval)
+			r.refreshTicker.Reset(r.refreshInterval)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return

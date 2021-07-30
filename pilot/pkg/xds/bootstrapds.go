@@ -40,8 +40,8 @@ type BootstrapGenerator struct {
 var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
-func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, _ *model.WatchedResource,
-	_ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ConvertXDSNodeToNode(proxy.XdsNode)
 
@@ -64,6 +64,12 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 			Resource: util.MessageToAny(bs),
 		},
 	}, model.DefaultXdsLogDetails, nil
+}
+
+func (e *BootstrapGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := e.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
 }
 
 func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *model.Proxy, push *model.PushContext) *bootstrapv3.Bootstrap {

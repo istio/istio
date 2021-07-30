@@ -170,6 +170,12 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	return resp, model.DefaultXdsLogDetails, nil
 }
 
+func (g *APIGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := g.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
+}
+
 // Convert from model.Config, which has no associated proto, to MCP Resource proto.
 // TODO: define a proto matching Config - to avoid useless superficial conversions.
 func configToResource(c *config.Config) (*mcp.Resource, error) {

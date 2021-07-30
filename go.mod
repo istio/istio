@@ -41,6 +41,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.6
+	github.com/google/go-containerregistry v0.5.1
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
@@ -92,16 +93,15 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.6.1
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	istio.io/api v0.0.0-20210723234849-325052a3e043
-	istio.io/client-go v0.0.0-20210723235801-9b31377cdd6b
+	istio.io/api v0.0.0-20210727210557-5e10e5cff1d0
+	istio.io/client-go v0.0.0-20210727211007-5da9418ceb63
 	istio.io/gogo-genproto v0.0.0-20210713185313-36d0f033bd9f
-	istio.io/pkg v0.0.0-20210716112334-7ebec3684725
+	istio.io/pkg v0.0.0-20210727235547-51f1dec323c0
 	k8s.io/api v0.21.2
 	k8s.io/apiextensions-apiserver v0.21.2
 	k8s.io/apimachinery v0.21.2
 	k8s.io/cli-runtime v0.21.2
 	k8s.io/client-go v0.21.2
-	k8s.io/klog/v2 v2.8.0
 	k8s.io/kube-openapi v0.0.0-20210527164424-3c818078ee3d
 	k8s.io/kubectl v0.21.2
 	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b

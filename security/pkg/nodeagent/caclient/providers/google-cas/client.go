@@ -65,6 +65,9 @@ func (r *GoogleCASClient) createCertReq(name string, csrPEM []byte, lifetime tim
 			Lifetime: durationpb.New(lifetime),
 			CertificateConfig: &privatecapb.Certificate_Config{
 				Config: &privatecapb.CertificateConfig{
+					SubjectConfig: &privatecapb.CertificateConfig_SubjectConfig{
+						Subject: &privatecapb.Subject{},
+					},
 					X509Config: &privatecapb.X509Parameters{
 						KeyUsage: &privatecapb.KeyUsage{
 							BaseKeyUsage: &privatecapb.KeyUsage_KeyUsageOptions{

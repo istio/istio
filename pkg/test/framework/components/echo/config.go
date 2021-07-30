@@ -101,6 +101,9 @@ type Config struct {
 	// become ready.
 	ReadinessTimeout time.Duration
 
+	// ReadinessTCPPort if set, use this port for the TCP readiness probe (instead of using a HTTP probe).
+	ReadinessTCPPort string
+
 	// Subsets contains the list of Subsets config belonging to this echo
 	// service instance.
 	Subsets []SubsetConfig

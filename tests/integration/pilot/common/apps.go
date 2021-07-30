@@ -18,6 +18,9 @@ package common
 import (
 	"strconv"
 	"strings"
+	"sync"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -327,4 +330,29 @@ spec:
 
 func (d EchoDeployments) IsMulticluster() bool {
 	return d.All.Clusters().IsMulticluster()
+}
+
+// Restart restarts all echo deployments.
+func (d EchoDeployments) Restart() error {
+	wg := sync.WaitGroup{}
+	aggregateErrMux := &sync.Mutex{}
+	var aggregateErr error
+	for _, app := range d.All {
+		app := app
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			if err := app.Restart(); err != nil {
+				aggregateErrMux.Lock()
+				aggregateErr = multierror.Append(aggregateErr, err)
+				aggregateErrMux.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if aggregateErr != nil {
+		return aggregateErr
+	}
+	return nil
 }

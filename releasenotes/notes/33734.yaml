@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+
+area: traffic-management
+issue: []
+
+releaseNotes:
+- |
+  '**Improved** TCP probes now working as expected: When using TCP probes with older versions of istio the check was always successful, even if the application didn't open the port.'
+
+upgradeNotes:
+  - title: TCP probes now working as expected
+    content: |
+        When using TCP probes with older versions of istio the check was always successful, even if the application didn't open the port.
+        This may cause problems when upgrading: If you had a missconfiguration in a TCP probe (e.g wrong port) you maybe haven't noticed.
+        After the upgrade a missconfigured TCP probe will fail and therefore might cause downtimes.
+
+docs:
+- '[details] https://istio.io/latest/docs/ops/configuration/mesh/app-health-check/' # Not yet updated

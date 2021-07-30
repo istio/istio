@@ -31,7 +31,7 @@ type filteredSharedIndexInformer struct {
 	filteredIndexer *filteredIndexer
 }
 
-// wrap a SharedIndexInformer's handlers and indexer with a filter predicate,
+// NewFilteredSharedIndexInformer wraps a SharedIndexInformer's handlers and indexer with a filter predicate,
 // which scopes the processed objects to only those that satisfy the predicate
 func NewFilteredSharedIndexInformer(
 	filterFunc func(obj interface{}) bool,
@@ -44,7 +44,7 @@ func NewFilteredSharedIndexInformer(
 	}
 }
 
-// filter incoming objects before forwarding to event handler
+// AddEventHandler filters incoming objects before forwarding to event handler
 func (w *filteredSharedIndexInformer) AddEventHandler(handler cache.ResourceEventHandler) {
 	w.SharedIndexInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {

@@ -308,7 +308,6 @@ func (c *Controller) hasSynced() bool {
 func (c *Controller) HasSynced() bool {
 	synced := c.hasSynced()
 	if synced {
-		log.Info("all remote clusters have been synced")
 		return true
 	}
 	if c.remoteSyncTimeout.Load() {

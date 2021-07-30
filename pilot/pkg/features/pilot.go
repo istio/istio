@@ -195,7 +195,7 @@ var (
 		"PILOT_JWT_ENABLE_REMOTE_JWKS",
 		false,
 		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
-			"and configures Remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
+			"and configures remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
 	).Get()
 
 	EnableEDSForHeadless = env.RegisterBoolVar(
@@ -364,7 +364,7 @@ var (
 
 	// EnableCDSCaching determines if CDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
 	// so that in case there are issues with the CDS cache we can just disable the CDS cache.
-	EnableCDSCaching = env.RegisterBoolVar("PILOT_ENABLE_CDS_CACHE", true,
+	EnableCDSCaching = env.RegisterBoolVar("PILOT_ENABLE_CDS_CACHE", false,
 		"If true, Pilot will cache CDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
 
 	EnableXDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
@@ -518,6 +518,12 @@ var (
 		false,
 		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
+
+	RewriteTCPProbes = env.RegisterBoolVar(
+		"REWRITE_TCP_PROBES",
+		true,
+		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

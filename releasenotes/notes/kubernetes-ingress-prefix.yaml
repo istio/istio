@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** a bug in Kubernetes Ingress causing paths with prefixes of the form `/foo` to
+    match the route `/foo/` but not the route `/foo`.
