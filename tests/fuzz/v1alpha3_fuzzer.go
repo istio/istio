@@ -16,6 +16,7 @@
 package fuzz
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -55,15 +56,38 @@ func (n NopTester) Cleanup(f func()) {}
 
 var _ test.Failer = NopTester{}
 
+func ValidateTestOptions(to v1alpha3.TestOptions) error {
+	for _, plugin := range to.Plugins {
+		if plugin == nil {
+			return errors.New("a Plugin was nil")
+		}
+	}
+	for _, csc := range to.ConfigStoreCaches {
+		if csc == nil {
+			return errors.New("a ConfigStoreCache was nil")
+		}
+	}
+	for _, sr := range to.ServiceRegistries {
+		if sr == nil {
+			return errors.New("a ServiceRegistry was nil")
+		}
+	}
+	return nil
+}
+
 func FuzzValidateClusters(data []byte) int {
 	proxy := model.Proxy{}
 	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(&proxy)
+	to := v1alpha3.TestOptions{}
+	err := f.GenerateStruct(&to)
 	if err != nil {
 		return 0
 	}
-	to := v1alpha3.TestOptions{}
-	err = f.GenerateStruct(&to)
+	err = ValidateTestOptions(to)
+	if err != nil {
+		return 0
+	}
+	err = f.GenerateStruct(&proxy)
 	if err != nil {
 		return 0
 	}
