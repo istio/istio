@@ -174,7 +174,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 25`
+        weight: 15`
 	validVirtualService1 = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -208,22 +208,6 @@ spec:
     - destination:
         host: c
         subset: v1`
-	invalidVirtualService = `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: invalid-virtual-service
-spec:
-  http:
-    - route:
-      - destination:
-          host: c
-          subset: v1
-        weight: 75
-      - destination:
-          host: c
-          subset: v2
-        weight: 15`
 	invalidVirtualServiceV1Beta1 = `
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
@@ -360,11 +344,6 @@ func TestValidateResource(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:  "invalid pilot configuration",
-			in:    invalidVirtualService,
-			valid: false,
-		},
-		{
 			name:  "invalid pilot configuration v1beta1",
 			in:    invalidVirtualServiceV1Beta1,
 			valid: false,
@@ -483,14 +462,10 @@ func createTestFile(t *testing.T, data string) (string, io.Closer) {
 
 func TestValidateCommand(t *testing.T) {
 	valid := buildMultiDocYAML([]string{validVirtualService, validVirtualService1})
-	invalid := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1})
-	warnings := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1, warnDestinationRule})
+	warnings := buildMultiDocYAML([]string{validVirtualService1, warnDestinationRule})
 
 	validFilename, closeValidFile := createTestFile(t, valid)
 	defer closeValidFile.Close()
-
-	invalidFilename, closeInvalidFile := createTestFile(t, invalid)
-	defer closeInvalidFile.Close()
 
 	warningFilename, closeWarningFile := createTestFile(t, warnings)
 	defer closeWarningFile.Close()
@@ -557,11 +532,6 @@ func TestValidateCommand(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:      "invalid resources from file",
-			args:      []string{"--filename", invalidFilename},
-			wantError: true,
-		},
-		{
 			name:      "invalid filename",
 			args:      []string{"--filename", "INVALID_FILE_NAME"},
 			wantError: true,
@@ -604,11 +574,8 @@ $`),
 			name: "warning",
 			args: []string{"--filename", warningFilename},
 			expectedRegexp: regexp.MustCompile(`(?m)".*" has warnings: 
-	\* DestinationRule//reviews-cb-policy: outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead
-
-Error: 1 error occurred:
-	\* VirtualService//invalid-virtual-service: total destination weight 90 != 100`),
-			wantError: true,
+	\* DestinationRule//reviews-cb-policy: outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead`),
+			wantError: false,
 		},
 	}
 	istioNamespace := "istio-system"

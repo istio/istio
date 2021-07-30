@@ -428,19 +428,11 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		// TODO: eliminate this logic and use the total_weight option in envoy route
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+		var totalWeight int32
 		for _, dst := range in.Route {
 			weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
-			if dst.Weight == 0 {
-				// Ignore 0 weighted clusters if there are other clusters in the route.
-				// But if this is the only cluster in the route, then add it as a cluster with weight 100
-				if len(in.Route) == 1 {
-					weight.Value = uint32(100)
-				} else {
-					continue
-				}
-			}
+			totalWeight += dst.Weight
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
@@ -477,7 +469,8 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		} else {
 			action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 				WeightedClusters: &route.WeightedCluster{
-					Clusters: weighted,
+					Clusters:    weighted,
+					TotalWeight: &wrappers.UInt32Value{Value: uint32(totalWeight)},
 				},
 			}
 		}
