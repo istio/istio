@@ -45,7 +45,7 @@ func TestWasmCache(t *testing.T) {
 	httpDataSha := sha256.Sum256([]byte("data/\n"))
 	httpDataCheckSum := hex.EncodeToString(httpDataSha[:])
 
-	//	Set up a fake registry for OCI images.
+	// Set up a fake registry for OCI images.
 	tos := httptest.NewServer(registry.New())
 	defer tos.Close()
 	ou, err := url.Parse(tos.URL)
@@ -54,7 +54,7 @@ func TestWasmCache(t *testing.T) {
 	}
 	wantOCIDockerBinaryChecksum, dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
 
-	//	Calculate cachehit sum.
+	// Calculate cachehit sum.
 	cacheHitSha := sha256.Sum256([]byte("cachehit\n"))
 	cacheHitSum := hex.EncodeToString(cacheHitSha[:])
 
