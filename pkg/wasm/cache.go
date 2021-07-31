@@ -17,6 +17,7 @@ package wasm
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -112,13 +113,16 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		return modulePath, nil
 	}
 
+	// If not, fetch images.
 	u, err := url.Parse(downloadURL)
 	if err != nil {
 		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
 	}
 
-	// If not, fetch images
+	// Byte array of Wasm binary.
 	var b []byte
+	// Hex-Encoded sha256 checksum of binary.
+	var dChecksum string
 	switch u.Scheme {
 	case "http", "https":
 		// Download the Wasm module with http fetcher.
@@ -127,24 +131,27 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", err
 		}
+
+		// Get sha256 checksum and check if it is the same as provided one.
+		sha := sha256.Sum256(b)
+		dChecksum = hex.EncodeToString(sha[:])
+		if checksum != "" && dChecksum != checksum {
+			wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
+			return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, checksum)
+		}
 	case "oci":
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
 		fetcher := NewImageFetcher(ctx, ImageFetcherOption{})
-		b, err = fetcher.Fetch(u.Host + u.Path)
+		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
 			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
+		sha := sha256.Sum256(b)
+		dChecksum = hex.EncodeToString(sha[:])
 	default:
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
-	}
-
-	// Get sha256 checksum and check if it is the same as provided one.
-	dChecksum := fmt.Sprintf("%x", sha256.Sum256(b))
-	if checksum != "" && dChecksum != checksum {
-		wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
-		return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, checksum)
 	}
 
 	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()

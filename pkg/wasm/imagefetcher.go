@@ -63,15 +63,22 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 }
 
 // Fetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
-func (o *ImageFetcher) Fetch(url string) ([]byte, error) {
+func (o *ImageFetcher) Fetch(url, expManifestDigest string) ([]byte, error) {
 	ref, err := name.ParseReference(url)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse url in image reference: %v", err)
 	}
 
+	// Fetch image.
 	img, err := remote.Image(ref, o.fetchOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch image: %v", err)
+	}
+
+	// Check Manifest's digest if expManifestDigest is not empty.
+	d, _ := img.Digest()
+	if expManifestDigest != "" && d.Hex != expManifestDigest {
+		return nil, fmt.Errorf("fetched image's digest (%s) does not match the expected one (%s)", d.Hex, expManifestDigest)
 	}
 
 	manifest, err := img.Manifest()
