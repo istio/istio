@@ -9,6 +9,7 @@ Restart=always
 StartLimitInterval=0
 RestartSec=10
 KillMode=mixed
+TimeoutStopSec=30s
 
 [Install]
 WantedBy=multi-user.target
