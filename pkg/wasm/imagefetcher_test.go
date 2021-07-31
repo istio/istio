@@ -128,7 +128,6 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err == nil {
 			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
-		t.Log(err)
 	})
 
 	t.Run("OCI standard", func(t *testing.T) {
@@ -190,7 +189,6 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err == nil {
 			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
-		t.Log(err)
 	})
 
 	t.Run("OCI artifact", func(t *testing.T) {
@@ -267,7 +265,6 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		if err == nil {
 			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
-		t.Log(err)
 	})
 
 	t.Run("invalid image", func(t *testing.T) {
