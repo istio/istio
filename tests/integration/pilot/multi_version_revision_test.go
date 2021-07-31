@@ -16,11 +16,7 @@
 package pilot
 
 import (
-	"archive/tar"
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -167,33 +163,6 @@ func installRevisionOrFail(t framework.TestContext, version string, configs map[
 	if err := t.Config().ApplyYAMLNoCleanup(i.Settings().SystemNamespace, config); err != nil {
 		t.Fatal(err)
 	}
-}
-
-// ReadInstallFile reads a tar compress installation file from the embedded
-func ReadInstallFile(f string) (string, error) {
-	b, err := os.ReadFile(filepath.Join("testdata/upgrade", f+".tar"))
-	if err != nil {
-		return "", err
-	}
-	tr := tar.NewReader(bytes.NewBuffer(b))
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			break // End of archive
-		}
-		if err != nil {
-			return "", err
-		}
-		if hdr.Name != f {
-			continue
-		}
-		contents, err := io.ReadAll(tr)
-		if err != nil {
-			return "", err
-		}
-		return string(contents), nil
-	}
-	return "", fmt.Errorf("file not found")
 }
 
 // skipIfK8sVersionUnsupported skips the test if we're running on a k8s version that is not expected to work
