@@ -123,7 +123,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
-func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest, services []*model.Service) ([]*discovery.Resource, model.XdsLogDetails) {
+func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest,
+	services []*model.Service) ([]*discovery.Resource, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
