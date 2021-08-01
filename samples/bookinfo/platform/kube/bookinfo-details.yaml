@@ -22,10 +22,11 @@ metadata:
   labels:
     app: details
     service: details
+    foo: bar
 spec:
   ports:
-  - port: 9080
-    name: http
+    - port: 9080
+      name: http
   selector:
     app: details
 ---
@@ -49,11 +50,67 @@ spec:
         version: v1
     spec:
       containers:
-      - name: details
-        image: docker.io/istio/examples-bookinfo-details-v1:1.16.2
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9080
-        securityContext:
-          runAsUser: 1000
+        - name: details
+          image: docker.io/istio/examples-bookinfo-details-v1:1.16.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9080
+          securityContext:
+            runAsUser: 1000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: details-v2
+  labels:
+    app: details
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: details
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: details
+        version: v2
+    spec:
+      containers:
+        - name: details
+          image: docker.io/istio/examples-bookinfo-details-v2:1.16.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9080
+          env:
+            - name: DO_NOT_ENCRYPT
+              value: "true"
+          securityContext:
+            runAsUser: 1000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: bookinfo-details
+#  labels:
+#    foo: bar
+spec:
+  host: details.default.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_CONN
+#  subsets:
+#    - name: foo
+#      labels:
+#        version: v1
+#      trafficPolicy:
+#        loadBalancer:
+#          simple: RANDOM
+#    - name: bar
+#      labels:
+#        version: v2
+#      trafficPolicy:
+#        loadBalancer:
+#          simple: ROUND_ROBIN
 ---

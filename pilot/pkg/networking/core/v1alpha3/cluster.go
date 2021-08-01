@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/pkg/log"
 	"math"
 	"reflect"
 	"strconv"
@@ -173,15 +175,16 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 				// hostName can be a wildcard, and can match to multiple services
 				dr := cfg.Spec.(*networking.DestinationRule)
 				matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host))
-				// service := push.ServiceForHostname(proxy, host.Name(dr.Host))
 				services = append(services, matchedSvcs...)
 				// check for removed subsets
 				prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(key.Name)
 				if prevCfg == nil {
+					log.Infof("Prev DestinationRule form PrevSidecarScope is nil for %v", key.String())
 					break
 				}
 				prevDr := prevCfg.Spec.(*networking.DestinationRule)
 				// detecting added/updated subsets works, we just need to track deletions
+				log.Infof("Prev DR Subsets: %v\nNew DR subsets: %v", getSubsetNames(prevDr.GetSubsets()), getSubsetNames(dr.GetSubsets()))
 				if !reflect.DeepEqual(prevDr.GetSubsets(), dr.GetSubsets()) {
 					// subsets changed, did something delete?
 					deletedSubsetNames := getDeletedSubsets(prevDr.GetSubsets(), dr.GetSubsets())
@@ -199,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		ob, cs := configgen.buildOutboundClustersWithServices(cb, outboundPatcher, services)
-		resources = append(resources, ob...)
+		resources = append(resources, ob...)	
 		clusterCacheStats = clusterCacheStats.merge(cs)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
@@ -254,18 +257,17 @@ func getRemovedClusterNames(resNames []string, subsets []string, target string) 
 
 // getDeletedSubsets detects deleted subsets and returns those names
 func getDeletedSubsets(orig []*networking.Subset, new []*networking.Subset) []string {
-	subsetNames := make([]string, 0)
-	// deleted if exists in orig but not in new
-	ne := make(map[string]struct{})
-	for _, v := range new {
-		ne[v.Name] = struct{}{}
+	origSub := sets.NewSet(getSubsetNames(orig)...)
+	newSub := sets.NewSet(getSubsetNames(new)...)
+	return origSub.Difference(newSub).UnsortedList()
+}
+
+func getSubsetNames(subsets []*networking.Subset) []string {
+	names := make([]string, 0)
+	for _, v := range subsets {
+		names = append(names, v.GetName())
 	}
-	for _, v := range orig {
-		if _, found := ne[v.Name]; !found {
-			subsetNames = append(subsetNames, v.Name)
-		}
-	}
-	return subsetNames
+	return names
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
@@ -286,15 +288,6 @@ func AllConfigKeysAreOfTypes(cfgs map[model.ConfigKey]struct{}, target []config.
 		delete(deduped, t)
 	}
 	return len(deduped) == 0
-}
-
-func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}, cfg config.GroupVersionKind) bool {
-	for k := range cfgs {
-		if k.Kind != cfg {
-			return false
-		}
-	}
-	return true
 }
 
 type cacheStats struct {
