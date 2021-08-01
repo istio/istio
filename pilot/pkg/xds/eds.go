@@ -374,9 +374,9 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	req *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, model.DefaultXdsLogDetails, nil
 	}
 	var edsUpdatedServices map[string]struct{}
 	if !req.Full {
@@ -419,16 +419,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			eds.Server.Cache.Add(builder, req, resource)
 		}
 	}
-	return resources, model.XdsLogDetails{
+	return resources, nil, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}, nil
-}
-
-func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	res, logs, err := eds.Generate(proxy, push, w, updates)
-	return res, nil, logs, false, err
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

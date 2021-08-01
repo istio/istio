@@ -408,13 +408,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if w == nil {
 		return nil
 	}
-	gen := s.findGenerator(w.TypeUrl, con)
+	gen := s.findGenerator("delta/"+w.TypeUrl, con)
 	if gen == nil {
 		return nil
 	}
 	t0 := time.Now()
 
-	res, deletedRes, logdata, usedDelta, err := gen.GenerateDeltas(con.proxy, push, req, w)
+	res, deletedRes, logdata, err := gen.Generate(con.proxy, push, w, req)
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -446,7 +446,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
-	if usedDelta {
+	if len(deletedRes) > 0 {
 		resp.RemovedResources = deletedRes
 	} else {
 		// similar to sotw

@@ -22,6 +22,7 @@ import (
 
 type CdsGenerator struct {
 	Server *DiscoveryServer
+	delta  bool
 }
 
 var _ model.XdsResourceGenerator = &CdsGenerator{}
@@ -69,20 +70,14 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	updates *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
 	if !cdsNeedsPush(updates, proxy) {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, model.DefaultXdsLogDetails, nil
+	}
+	if c.delta {
+		updatedClusters, removedClusters, logs := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, updates, w)
+		return updatedClusters, removedClusters, logs, nil
 	}
 	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, updates)
-	return clusters, logs, nil
-}
-
-// GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
-func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	if !cdsNeedsPush(updates, proxy) {
-		return nil, nil, model.DefaultXdsLogDetails, false, nil
-	}
-	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, push, updates, w)
-	return updatedClusters, removedClusters, logs, usedDelta, nil
+	return clusters, nil, logs, nil
 }

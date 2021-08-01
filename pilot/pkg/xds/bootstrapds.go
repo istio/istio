@@ -41,7 +41,7 @@ var _ model.XdsResourceGenerator = &BootstrapGenerator{}
 
 // Generate returns a bootstrap discovery response.
 func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	updates *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
 	// The model.Proxy information is incomplete, re-parse the discovery request.
 	node := bootstrap.ConvertXDSNodeToNode(proxy.XdsNode)
 
@@ -51,7 +51,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 		Node: node,
 	}).WriteTo(templateFile, io.Writer(&buf))
 	if err != nil {
-		return nil, model.DefaultXdsLogDetails, fmt.Errorf("failed to generate bootstrap config: %v", err)
+		return nil, nil, model.DefaultXdsLogDetails, fmt.Errorf("failed to generate bootstrap config: %v", err)
 	}
 
 	bs := &bootstrapv3.Bootstrap{}
@@ -63,13 +63,7 @@ func (e *BootstrapGenerator) Generate(proxy *model.Proxy, push *model.PushContex
 		&discovery.Resource{
 			Resource: util.MessageToAny(bs),
 		},
-	}, model.DefaultXdsLogDetails, nil
-}
-
-func (e *BootstrapGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	res, logs, err := e.Generate(proxy, push, w, updates)
-	return res, nil, logs, false, err
+	}, nil, model.DefaultXdsLogDetails, nil
 }
 
 func (e *BootstrapGenerator) applyPatches(bs *bootstrapv3.Bootstrap, proxy *model.Proxy, push *model.PushContext) *bootstrapv3.Bootstrap {

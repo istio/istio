@@ -50,21 +50,15 @@ func subsetClusterKey(subset, hostname string, port int) string {
 }
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext,
-	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	w *model.WatchedResource, updates *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
 	switch w.TypeUrl {
 	case v3.ListenerType:
-		return g.BuildListeners(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildListeners(proxy, push, w.ResourceNames), nil, model.DefaultXdsLogDetails, nil
 	case v3.ClusterType:
-		return g.BuildClusters(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildClusters(proxy, push, w.ResourceNames), nil, model.DefaultXdsLogDetails, nil
 	case v3.RouteType:
-		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), model.DefaultXdsLogDetails, nil
+		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames), nil, model.DefaultXdsLogDetails, nil
 	}
 
-	return nil, model.DefaultXdsLogDetails, nil
-}
-
-func (g *GrpcConfigGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	res, logs, err := g.Generate(proxy, push, w, updates)
-	return res, nil, logs, false, err
+	return nil, nil, model.DefaultXdsLogDetails, nil
 }
