@@ -45,7 +45,7 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 	}
 
 	resp := make(model.Resources, 0, len(clusters))
- 	for _, c := range clusters {
+	for _, c := range clusters {
 		resp = append(resp, &discovery.Resource{
 			Name:     c.Name,
 			Resource: util.MessageToAny(c),

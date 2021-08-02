@@ -35,9 +35,9 @@ const maxConcurrency = 20
 
 // Config for a forwarder Instance.
 type Config struct {
-	Request          *proto.ForwardEchoRequest
-	UDS              string
-	Dialer           common.Dialer
+	Request *proto.ForwardEchoRequest
+	UDS     string
+	Dialer  common.Dialer
 
 	// XDSTestBootstrap, for gRPC forwarders, is used to set the bootstrap without using a global one defined in the env
 	XDSTestBootstrap []byte
