@@ -172,6 +172,9 @@ spec:
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
           - --grpc
+{{- if $.ProxylessGRPC }}
+          - --xds-grpc-server={{ $p.Port }}
+{{- end }}
 {{- else if eq .Protocol "TCP" }}
           - --tcp
 {{- else }}
@@ -231,10 +234,6 @@ spec:
 {{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
-        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
-          value: "99"
-        - name: GRPC_GO_LOG_SEVERITY_LEVEL
-          value: info
 {{- end }}
         readinessProbe:
 {{- if $.ReadinessTCPPort }}
