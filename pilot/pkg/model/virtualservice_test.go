@@ -18,16 +18,23 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	fuzz "github.com/google/gofuzz"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/visibility"
 )
+
+const wildcardIP = "0.0.0.0"
 
 func TestMergeVirtualServices(t *testing.T) {
 	independentVs := config.Config{
@@ -1843,4 +1850,221 @@ func BenchmarkResolveGatewayName(b *testing.B) {
 			_ = resolveGatewayName(tt.gateway, config.Meta{Namespace: tt.namespace})
 		}
 	}
+}
+
+func TestSelectVirtualService(t *testing.T) {
+	services := []*Service{
+		buildHTTPService("bookinfo.com", visibility.Public, wildcardIP, "default", 9999, 70),
+		buildHTTPService("private.com", visibility.Private, wildcardIP, "default", 9999, 80),
+		buildHTTPService("test.com", visibility.Public, "8.8.8.8", "not-default", 8080),
+		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
+		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
+		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
+	}
+
+	hostsByNamespace := make(map[string][]host.Name)
+	for _, svc := range services {
+		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
+	}
+
+	virtualServiceSpec1 := &networking.VirtualService{
+		Hosts:    []string{"test-private-2.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							// Subset: "some-subset",
+							Host: "example.org",
+							Port: &networking.PortSelector{
+								Number: 61,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec2 := &networking.VirtualService{
+		Hosts:    []string{"test-private-2.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 62,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec3 := &networking.VirtualService{
+		Hosts:    []string{"test-private-3.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 63,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec4 := &networking.VirtualService{
+		Hosts:    []string{"test-headless.com", "example.com"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec5 := &networking.VirtualService{
+		Hosts:    []string{"test-svc.testns.svc.cluster.local"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-svc.testn.svc.cluster.local",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec6 := &networking.VirtualService{
+		Hosts:    []string{"match-no-service"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "non-exist-service",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualService1 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme2-v1",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec1,
+	}
+	virtualService2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v2",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec2,
+	}
+	virtualService3 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec3,
+	}
+	virtualService4 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v4",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec4,
+	}
+	virtualService5 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec5,
+	}
+	virtualService6 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec6,
+	}
+	configs := SelectVirtualServices(
+		[]config.Config{virtualService1, virtualService2, virtualService3, virtualService4, virtualService5, virtualService6},
+		hostsByNamespace)
+	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name}
+	if len(expectedVS) != len(configs) {
+		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
+	}
+	for i, config := range configs {
+		if config.Name != expectedVS[i] {
+			t.Fatalf("Unexpected virtualService, got %s, epxected %s", config.Name, expectedVS[i])
+		}
+	}
+}
+
+func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *Service {
+	service := &Service{
+		CreationTime: time.Now(),
+		Hostname:     host.Name(hostname),
+		Address:      ip,
+		ClusterVIPs:  make(map[cluster.ID]string),
+		Resolution:   DNSLB,
+		Attributes: ServiceAttributes{
+			ServiceRegistry: provider.Kubernetes,
+			Namespace:       namespace,
+			ExportTo:        map[visibility.Instance]bool{v: true},
+		},
+	}
+	if service.Address == wildcardIP {
+		service.Resolution = Passthrough
+	}
+
+	Ports := make([]*Port, 0)
+
+	for _, p := range ports {
+		Ports = append(Ports, &Port{
+			Name:     fmt.Sprintf("http-%d", p),
+			Port:     p,
+			Protocol: protocol.HTTP,
+		})
+	}
+
+	service.Ports = Ports
+	return service
 }

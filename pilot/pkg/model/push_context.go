@@ -658,7 +658,7 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
 	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
-		return proxy.SidecarScope.Services()
+		return proxy.SidecarScope.services
 	}
 
 	out := make([]*Service, 0)
@@ -791,7 +791,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
-		return proxy.SidecarScope.DestinationRule(service.Hostname)
+		return proxy.SidecarScope.destinationRules[service.Hostname]
 	}
 
 	// If the proxy config namespace is same as the root config namespace

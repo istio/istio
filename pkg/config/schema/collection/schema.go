@@ -44,7 +44,7 @@ type Schema interface {
 	Equal(other Schema) bool
 }
 
-// Config for the creation of a Schema
+// Builder is config for the creation of a Schema
 type Builder struct {
 	Name         string
 	VariableName string
