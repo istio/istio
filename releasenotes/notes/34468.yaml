@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 34466
+releaseNotes:
+  - |
+    **Fixed** `meshConfig.accessLogFormat` field doesn't work.
