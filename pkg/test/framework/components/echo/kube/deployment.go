@@ -51,6 +51,9 @@ import (
 )
 
 const (
+	// for proxyless we add a special gRPC server that doesn't get configured with xDS for test-runner use
+	grpcMagicPort = 117171
+
 	serviceYAML = `
 {{- if .ServiceAccount }}
 apiVersion: v1
@@ -171,7 +174,7 @@ spec:
           - "{{ $cluster }}"
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
-{{- if $.ProxylessGRPC }}
+{{- if and $.ProxylessGRPC (ne $p.Port $.GRPCMagicPort) }}
           - --xds-grpc-server={{ $p.Port }}
 {{- end }}
           - --grpc
@@ -671,11 +674,12 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Headless":           cfg.Headless,
 		"StatefulSet":        cfg.StatefulSet,
 		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":      grpcMagicPort,
 		"Locality":           cfg.Locality,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"Ports":              cfg.Ports,
 		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
-		"ContainerPorts":     getContainerPorts(cfg.Ports),
+		"ContainerPorts":     getContainerPorts(cfg),
 		"ServiceAnnotations": cfg.ServiceAnnotations,
 		"Subsets":            cfg.Subsets,
 		"TLSSettings":        cfg.TLSSettings,
@@ -921,7 +925,8 @@ func createServiceAccount(client kubernetes.Interface, ns string, serviceAccount
 
 // getContainerPorts converts the ports to a port list of container ports.
 // Adds ports for health/readiness if necessary.
-func getContainerPorts(ports []echo.Port) echoCommon.PortList {
+func getContainerPorts(cfg echo.Config) echoCommon.PortList {
+	ports := cfg.Ports
 	containerPorts := make(echoCommon.PortList, 0, len(ports))
 	var healthPort *echoCommon.Port
 	var readyPort *echoCommon.Port
@@ -965,6 +970,13 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 			Name:     "tcp-health-port",
 			Protocol: protocol.HTTP,
 			Port:     tcpHealthPort,
+		})
+	}
+	if cfg.IsProxylessGRPC() {
+		containerPorts = append(containerPorts, &echoCommon.Port{
+			Name:     "grpc-magic-port",
+			Protocol: protocol.GRPC,
+			Port:     grpcMagicPort,
 		})
 	}
 	return containerPorts
