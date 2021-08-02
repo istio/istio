@@ -30,7 +30,7 @@ issue: []
 # release notes.
 releaseNotes:
 - |
-  **Fixed** that many panels in the Grafana dashboards showed **No data** if Prometheus had a scrape
+  **Fixed** an issue where many panels in the Grafana dashboards showed **No data** if Prometheus had a scrape
   interval configured to be larger than `15s`.
 
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
