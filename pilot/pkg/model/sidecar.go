@@ -463,32 +463,6 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	return out
 }
 
-// Services returns the list of services imported across all egress listeners by this
-// Sidecar config
-func (sc *SidecarScope) Services() []*Service {
-	if sc == nil {
-		return nil
-	}
-	return sc.services
-}
-
-func (sc *SidecarScope) Service(serviceHostname host.Name) *Service {
-	if sc == nil {
-		return nil
-	}
-	return sc.servicesByHostname[serviceHostname]
-}
-
-// DestinationRule returns the destination rule applicable for a given hostname
-// used by CDS code
-func (sc *SidecarScope) DestinationRule(hostname host.Name) *config.Config {
-	if sc == nil {
-		return nil
-	}
-
-	return sc.destinationRules[hostname]
-}
-
 // GetEgressListenerForRDS returns the egress listener corresponding to
 // the listener port or the bind address or the catch all listener
 func (sc *SidecarScope) GetEgressListenerForRDS(port int, bind string) *IstioEgressListenerWrapper {
