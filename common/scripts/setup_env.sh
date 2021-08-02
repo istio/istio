@@ -32,12 +32,14 @@ elif [[ ${LOCAL_ARCH} == x86_64 ]]; then
     export TARGET_ARCH=amd64
 elif [[ ${LOCAL_ARCH} == armv8* ]]; then
     export TARGET_ARCH=arm64
+elif [[ ${LOCAL_ARCH} == arm64* ]]; then
+    export TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == aarch64* ]]; then
     export TARGET_ARCH=arm64
 elif [[ ${LOCAL_ARCH} == armv* ]]; then
     export TARGET_ARCH=arm
 elif [[ ${LOCAL_ARCH} == s390x ]]; then
-￼    export TARGET_ARCH=s390x
+    export TARGET_ARCH=s390x
 elif [[ ${LOCAL_ARCH} == ppc64le ]]; then
     export TARGET_ARCH=ppc64le
 else
