@@ -894,10 +894,14 @@ func configureRemoteClusterDiscovery(i *operatorComponent, cfg Config, c cluster
 			},
 		},
 	}
-	_, err = c.CoreV1().Services(cfg.SystemNamespace).Create(context.TODO(), svc, kubeApiMeta.CreateOptions{})
-	if err != nil {
-		return err
+	if _, err = c.CoreV1().Services(cfg.SystemNamespace).Create(context.TODO(), svc, kubeApiMeta.CreateOptions{}); err != nil {
+		// Ignore if service already exists. An update requires additional metadata.
+		if !errors.IsAlreadyExists(err) {
+			scopes.Framework.Errorf("failed to create services: %v", err)
+			return err
+		}
 	}
+
 	eps := &kubeApiCore.Endpoints{
 		ObjectMeta: kubeApiMeta.ObjectMeta{
 			Name:      istiodSvcName,
@@ -926,10 +930,18 @@ func configureRemoteClusterDiscovery(i *operatorComponent, cfg Config, c cluster
 		},
 	}
 
-	_, err = c.CoreV1().Endpoints(cfg.SystemNamespace).Create(context.TODO(), eps, kubeApiMeta.CreateOptions{})
-	if err != nil {
-		return err
+	if _, err = c.CoreV1().Endpoints(cfg.SystemNamespace).Create(context.TODO(), eps, kubeApiMeta.CreateOptions{}); err != nil {
+		if errors.IsAlreadyExists(err) {
+			if _, err = c.CoreV1().Endpoints(cfg.SystemNamespace).Update(context.TODO(), eps, kubeApiMeta.UpdateOptions{}); err != nil {
+				scopes.Framework.Errorf("failed to update endpoints: %v", err)
+				return err
+			}
+		} else {
+			scopes.Framework.Errorf("failed to create endpoints: %v", err)
+			return err
+		}
 	}
+
 	err = retry.UntilSuccess(func() error {
 		_, err := c.CoreV1().Services(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
 		if err != nil {
@@ -968,7 +980,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 		return err
 	}
 	// create kubeconfig secret
-	_, err = c.CoreV1().Secrets(cfg.SystemNamespace).
+	if _, err = c.CoreV1().Secrets(cfg.SystemNamespace).
 		Create(context.TODO(), &kubeApiCore.Secret{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:      "istio-kubeconfig",
@@ -977,10 +989,26 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 			Data: map[string][]byte{
 				"config": []byte(istioKubeConfig),
 			},
-		}, kubeApiMeta.CreateOptions{})
-	if err != nil {
-		scopes.Framework.Infof("has error in creating istio-kubeconfig secrets %v", err)
-		return err
+		}, kubeApiMeta.CreateOptions{}); err != nil {
+		// Allow easier running locally when we run multiple tests in a row
+		if errors.IsAlreadyExists(err) {
+			if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), &kubeApiCore.Secret{
+				ObjectMeta: kubeApiMeta.ObjectMeta{
+					Name:      "istio-kubeconfig",
+					Namespace: cfg.SystemNamespace,
+				},
+				Data: map[string][]byte{
+					"config": []byte(istioKubeConfig),
+				},
+			}, kubeApiMeta.UpdateOptions{}); err != nil {
+				scopes.Framework.Errorf("has error in updating istio-kubeconfig secrets: %v", err)
+				return err
+			}
+		} else {
+			scopes.Framework.Infof("has error in creating istio-kubeconfig secrets %v", err)
+			return err
+		}
+		return nil
 	}
 	// create service account for reading the secrets
 	_, err = c.CoreV1().ServiceAccounts(cfg.SystemNamespace).
