@@ -212,7 +212,8 @@ var DefaultXdsLogDetails = XdsLogDetails{}
 type XdsResourceGenerator interface {
 	// Generate builds the xds resources for given proxy. Resources contain the newly added/updated resources.
 	// DeletedResources typically used in incremental Xds protocols contain the resources that have been deleted.
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, DeletedResources, XdsLogDetails, error)
+	// It also indicates whether the response is delta or SoTW.
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, DeletedResources, bool, XdsLogDetails, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,

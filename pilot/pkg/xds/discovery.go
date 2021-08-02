@@ -566,9 +566,6 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.ExtensionConfigurationType] = &EcdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
 
-	// Delta Xds Generators.
-	s.Generators["delta/"+v3.ClusterType] = &CdsGenerator{Server: s, delta: true}
-
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
 	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]

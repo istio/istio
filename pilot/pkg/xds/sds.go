@@ -148,13 +148,13 @@ func getAuthorizationMode(resources []SecretResource, proxy *model.Proxy) Author
 }
 
 func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
+	req *model.PushRequest) (model.Resources, model.DeletedResources, bool, model.XdsLogDetails, error) {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil, nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, false, model.DefaultXdsLogDetails, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
-		return nil, nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, false, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
 	if !req.Full {
@@ -166,7 +166,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	if err != nil {
 		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		pilotSDSCertificateErrors.Increment()
-		return nil, nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, false, model.DefaultXdsLogDetails, nil
 	}
 
 	resources := parseResources(w.ResourceNames, proxy)
@@ -175,7 +175,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 		if err := secrets.Authorize(proxy.VerifiedIdentity.ServiceAccount, proxy.VerifiedIdentity.Namespace); err != nil {
 			log.Warnf("proxy %v is not authorized to receive secrets: %v", proxy.ID, err)
 			pilotSDSCertificateErrors.Increment()
-			return nil, nil, model.DefaultXdsLogDetails, nil
+			return nil, nil, false, model.DefaultXdsLogDetails, nil
 		}
 	}
 
@@ -223,7 +223,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 			}
 		}
 	}
-	return results, nil, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+	return results, nil, false, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
 }
 
 func toEnvoyCaSecret(name string, cert []byte) *discovery.Resource {

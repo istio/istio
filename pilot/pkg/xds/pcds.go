@@ -55,16 +55,16 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 
 // Generate returns ProxyConfig protobuf containing TrustBundle for given proxy
 func (e *PcdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
+	req *model.PushRequest) (model.Resources, model.DeletedResources, bool, model.XdsLogDetails, error) {
 	if !pcdsNeedsPush(req) {
-		return nil, nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, false, model.DefaultXdsLogDetails, nil
 	}
 	if e.TrustBundle == nil {
-		return nil, nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, false, model.DefaultXdsLogDetails, nil
 	}
 	// TODO: For now, only TrustBundle updates are pushed. Eventually, this should push entire Proxy Configuration
 	pc := &mesh.ProxyConfig{
 		CaCertificatesPem: e.TrustBundle.GetTrustBundle(),
 	}
-	return model.Resources{&discovery.Resource{Resource: gogo.MessageToAny(pc)}}, nil, model.DefaultXdsLogDetails, nil
+	return model.Resources{&discovery.Resource{Resource: gogo.MessageToAny(pc)}}, nil, false, model.DefaultXdsLogDetails, nil
 }

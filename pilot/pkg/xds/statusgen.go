@@ -68,7 +68,7 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 // - NACKs
 // We can also expose ACKS.
 func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
+	updates *model.PushRequest) (model.Resources, model.DeletedResources, bool, model.XdsLogDetails, error) {
 	res := model.Resources{}
 
 	switch w.TypeUrl {
@@ -94,7 +94,7 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mo
 			break
 		}
 	}
-	return res, nil, model.DefaultXdsLogDetails, nil
+	return res, nil, false, model.DefaultXdsLogDetails, nil
 }
 
 // isSidecar ad-hoc method to see if connection represents a sidecar

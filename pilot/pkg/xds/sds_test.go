@@ -322,7 +322,7 @@ func TestGenerate(t *testing.T) {
 
 			gen := s.Discovery.Generators[v3.SecretType]
 			tt.request.Start = time.Now()
-			secrets, _, _, _ := gen.Generate(s.SetupProxy(tt.proxy), s.PushContext(),
+			secrets, _, _, _, _ := gen.Generate(s.SetupProxy(tt.proxy), s.PushContext(),
 				&model.WatchedResource{ResourceNames: tt.resources}, tt.request)
 			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 
@@ -358,7 +358,7 @@ func TestCaching(t *testing.T) {
 	istiosystem := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"}
 	otherNamespace := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"}, Type: model.Router, ConfigNamespace: "other-namespace"}
 
-	secrets, _, _, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
+	secrets, _, _, _, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
 		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
 	raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	if len(raw) != 1 {
@@ -366,7 +366,7 @@ func TestCaching(t *testing.T) {
 	}
 
 	// We should not get secret returned, even though we are asking for the same one
-	secrets, _, _, _ = gen.Generate(s.SetupProxy(otherNamespace), s.PushContext(),
+	secrets, _, _, _, _ = gen.Generate(s.SetupProxy(otherNamespace), s.PushContext(),
 		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	if len(raw) != 0 {

@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -22,7 +23,6 @@ import (
 
 type CdsGenerator struct {
 	Server *DiscoveryServer
-	delta  bool
 }
 
 var _ model.XdsResourceGenerator = &CdsGenerator{}
@@ -70,14 +70,14 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	updates *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
+	updates *model.PushRequest) (model.Resources, model.DeletedResources, bool, model.XdsLogDetails, error) {
 	if !cdsNeedsPush(updates, proxy) {
-		return nil, nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, false, model.DefaultXdsLogDetails, nil
 	}
-	if c.delta {
+	if features.DeltaXds {
 		updatedClusters, removedClusters, logs := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, updates, w)
-		return updatedClusters, removedClusters, logs, nil
+		return updatedClusters, removedClusters, true, logs, nil
 	}
 	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, updates)
-	return clusters, nil, logs, nil
+	return clusters, nil, false, logs, nil
 }

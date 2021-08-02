@@ -60,9 +60,9 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.DeletedResources, model.XdsLogDetails, error) {
+	req *model.PushRequest) (model.Resources, model.DeletedResources, bool, model.XdsLogDetails, error) {
 	if !rdsNeedsPush(req) {
-		return nil, nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, false, model.DefaultXdsLogDetails, nil
 	}
 	rawRoutes := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, push, w.ResourceNames)
 	resources := model.Resources{}
@@ -72,5 +72,5 @@ func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 			Resource: util.MessageToAny(c),
 		})
 	}
-	return resources, nil, model.DefaultXdsLogDetails, nil
+	return resources, nil, false, model.DefaultXdsLogDetails, nil
 }
