@@ -36,8 +36,6 @@ import (
 
 const wildcardIP = "0.0.0.0"
 
-var tnow = time.Now()
-
 func TestMergeVirtualServices(t *testing.T) {
 	independentVs := config.Config{
 		Meta: config.Meta{
@@ -2042,7 +2040,7 @@ func TestSelectVirtualService(t *testing.T) {
 
 func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *Service {
 	service := &Service{
-		CreationTime: tnow,
+		CreationTime: time.Now(),
 		Hostname:     host.Name(hostname),
 		Address:      ip,
 		ClusterVIPs:  make(map[cluster.ID]string),
