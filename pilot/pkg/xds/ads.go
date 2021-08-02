@@ -585,7 +585,6 @@ func (s *DiscoveryServer) initProxyState(node *core.Node, con *Connection) error
 		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
 	}
 
-	recordXDSClients(proxy.Metadata.IstioVersion, 1)
 	return nil
 }
 
@@ -846,6 +845,7 @@ func (s *DiscoveryServer) addCon(conID string, con *Connection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
+	recordXDSClients(con.proxy.Metadata.IstioVersion, 1)
 }
 
 func (s *DiscoveryServer) removeCon(conID string) {
