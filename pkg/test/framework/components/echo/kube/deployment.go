@@ -171,10 +171,10 @@ spec:
           - "{{ $cluster }}"
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
-          - --grpc
 {{- if $.ProxylessGRPC }}
           - --xds-grpc-server={{ $p.Port }}
 {{- end }}
+          - --grpc
 {{- else if eq .Protocol "TCP" }}
           - --tcp
 {{- else }}
