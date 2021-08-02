@@ -15,7 +15,10 @@
 package wasm
 
 import (
+	"context"
 	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -100,52 +103,74 @@ func NewLocalFileCache(dir string, purgeInterval, moduleExpiry time.Duration) *L
 
 // Get returns path the local Wasm module file.
 func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration) (string, error) {
-	url, err := url.Parse(downloadURL)
-	if err != nil {
-		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
-	}
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
 		checksum:    checksum,
 	}
 
-	switch url.Scheme {
-	case "http", "https":
-		// First check if the cache entry is already downloaded.
-		if modulePath := c.getEntry(key); modulePath != "" {
-			return modulePath, nil
-		}
+	// First check if the cache entry is already downloaded.
+	if modulePath := c.getEntry(key); modulePath != "" {
+		return modulePath, nil
+	}
 
-		// If the module is not available locally, download the Wasm module with http fetcher.
-		b, err := c.httpFetcher.Fetch(downloadURL, timeout)
+	// If not, fetch images.
+	u, err := url.Parse(downloadURL)
+	if err != nil {
+		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s", downloadURL)
+	}
+
+	// Byte array of Wasm binary.
+	var b []byte
+	// Hex-Encoded sha256 checksum of binary.
+	var dChecksum string
+	switch u.Scheme {
+	case "http", "https":
+		// Download the Wasm module with http fetcher.
+		b, err = c.httpFetcher.Fetch(downloadURL, timeout)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
 			return "", err
 		}
 
 		// Get sha256 checksum and check if it is the same as provided one.
-		dChecksum := fmt.Sprintf("%x", sha256.Sum256(b))
+		sha := sha256.Sum256(b)
+		dChecksum = hex.EncodeToString(sha[:])
 		if checksum != "" && dChecksum != checksum {
 			wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
 			return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, checksum)
 		}
-
-		wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
-
-		// TODO(bianpengyuan): Add sanity check on downloaded file to make sure it is a valid Wasm module.
-
-		key.checksum = dChecksum
-		f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
-
-		if err := c.addEntry(key, b, f); err != nil {
-			return "", err
+	case "oci":
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		// TODO: support imagePullSecret and pass it to ImageFetcherOption.
+		fetcher := NewImageFetcher(ctx, ImageFetcherOption{})
+		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
+		if err != nil {
+			if errors.Is(err, errWasmOCIImageDigestMismatch) {
+				wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
+			} else {
+				wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
+			}
+			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
-
-		return f, nil
+		sha := sha256.Sum256(b)
+		dChecksum = hex.EncodeToString(sha[:])
 	default:
-		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", url.Scheme)
+		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
 	}
+
+	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
+
+	// TODO(bianpengyuan): Add sanity check on downloaded file to make sure it is a valid Wasm module.
+
+	key.checksum = dChecksum
+	f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
+
+	if err := c.addEntry(key, b, f); err != nil {
+		return "", err
+	}
+	return f, nil
 }
 
 // Cleanup closes background Wasm module purge routine.

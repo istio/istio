@@ -17,6 +17,8 @@ package wasm
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -32,6 +34,8 @@ import (
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
 
+var errWasmOCIImageDigestMismatch = errors.New("fetched image's digest does not match the expected one")
+
 type ImageFetcherOption struct {
 	Username string
 	Password string
@@ -43,34 +47,41 @@ func (o *ImageFetcherOption) useDefaultKeyChain() bool {
 }
 
 type ImageFetcher struct {
-	fetchOpt remote.Option
+	fetchOpts []remote.Option
 }
 
-func NewImageFetcher(opt ImageFetcherOption) *ImageFetcher {
-	var fetchOpt remote.Option
+func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher {
+	fetchOpts := make([]remote.Option, 0, 2)
 	// TODO(mathetake): have "Anonymous" option?
 	if opt.useDefaultKeyChain() {
 		// Note that default key chain reads the docker config from DOCKER_CONFIG
 		// so must set the envvar when reaching this branch is expected.
-		fetchOpt = remote.WithAuthFromKeychain(authn.DefaultKeychain)
+		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	} else {
-		fetchOpt = remote.WithAuth(&authn.Basic{Username: opt.Username})
+		fetchOpts = append(fetchOpts, remote.WithAuth(&authn.Basic{Username: opt.Username}))
 	}
 	return &ImageFetcher{
-		fetchOpt: fetchOpt,
+		fetchOpts: append(fetchOpts, remote.WithContext(ctx)),
 	}
 }
 
 // Fetch is the entrypoint for fetching Wasm binary from Wasm Image Specification compatible images.
-func (o *ImageFetcher) Fetch(url string) ([]byte, error) {
+func (o *ImageFetcher) Fetch(url, expManifestDigest string) ([]byte, error) {
 	ref, err := name.ParseReference(url)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse url in image reference: %v", err)
 	}
 
-	img, err := remote.Image(ref, o.fetchOpt)
+	// Fetch image.
+	img, err := remote.Image(ref, o.fetchOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch image: %v", err)
+	}
+
+	// Check Manifest's digest if expManifestDigest is not empty.
+	d, _ := img.Digest()
+	if expManifestDigest != "" && d.Hex != expManifestDigest {
+		return nil, fmt.Errorf("%w: got %s, but want %s", errWasmOCIImageDigestMismatch, d.Hex, expManifestDigest)
 	}
 
 	manifest, err := img.Manifest()

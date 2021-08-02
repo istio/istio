@@ -63,7 +63,7 @@ func TestImageFetcherOption_useDefaultKeyChain(t *testing.T) {
 
 func TestImageFetcher_Fetch(t *testing.T) {
 	// Fetcher with anonymous auth.
-	fetcher := ImageFetcher{fetchOpt: remote.WithAuth(authn.Anonymous)}
+	fetcher := ImageFetcher{fetchOpts: []remote.Option{remote.WithAuth(authn.Anonymous)}}
 
 	// Set up a fake registry.
 	s := httptest.NewServer(registry.New())
@@ -101,13 +101,32 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch docker image.
-		actual, err := fetcher.Fetch(ref)
+		// Fetch docker image without digest
+		actual, err := fetcher.Fetch(ref, "")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+		}
+
+		// Fetch docker image with digest
+		d, err := img.Digest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err = fetcher.Fetch(ref, d.Hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(actual) != exp {
+			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+		}
+
+		// Giving wrong digest should be error
+		_, err = fetcher.Fetch(ref, "foobar")
+		if err == nil {
+			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
 	})
 
@@ -144,12 +163,31 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Fetch OCI image.
-		actual, err := fetcher.Fetch(ref)
+		actual, err := fetcher.Fetch(ref, "")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if string(actual) != exp {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+		}
+
+		// Fetch OCI image with digest
+		d, err := img.Digest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err = fetcher.Fetch(ref, d.Hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(actual) != exp {
+			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), exp)
+		}
+
+		// Giving wrong digest should be error
+		_, err = fetcher.Fetch(ref, "foobar")
+		if err == nil {
+			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
 	})
 
@@ -199,14 +237,33 @@ func TestImageFetcher_Fetch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		// Fetch docker image.
-		actual, err := fetcher.Fetch(ref)
+		// Fetch OCI image.
+		actual, err := fetcher.Fetch(ref, "")
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		if string(actual) != string(want) {
 			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), string(want))
+		}
+
+		// Fetch OCI image with digest
+		d, err := img.Digest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		actual, err = fetcher.Fetch(ref, d.Hex)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(actual) != string(want) {
+			t.Errorf("ImageFetcher.Fetch got %s, but want '%s'", string(actual), want)
+		}
+
+		// Giving wrong digest should be error
+		_, err = fetcher.Fetch(ref, "foobar")
+		if err == nil {
+			t.Error("fetcher.Fetch should raise error for wrong digest")
 		}
 	})
 
@@ -236,7 +293,7 @@ func TestImageFetcher_Fetch(t *testing.T) {
 		}
 
 		// Try to fetch.
-		actual, err := fetcher.Fetch(ref)
+		actual, err := fetcher.Fetch(ref, "")
 		if actual != nil {
 			t.Errorf("ImageFetcher.Fetch got %s, but want nil", string(actual))
 		}
