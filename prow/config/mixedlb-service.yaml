@@ -1,0 +1,25 @@
+# This configs KinD to spin up a k8s cluster with mixed protocol LB support
+# This should be used to create K8s clusters with versions >= 1.20
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  MixedProtocolLBService: true
+  EndpointSlice: true
+kubeadmConfigPatches:
+  - |
+    apiVersion: kubeadm.k8s.io/v1beta2
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    etcd:
+      local:
+        # Run etcd in a tmpfs (in RAM) for performance improvements
+        dataDir: /tmp/kind-cluster-etcd
+    apiServer:
+      extraArgs:
+        "service-account-issuer": "kubernetes.default.svc"
+        "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
+      endpoint = ["http://kind-registry:5000"]
