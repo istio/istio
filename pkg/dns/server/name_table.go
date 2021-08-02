@@ -65,15 +65,12 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 		} else {
 			// The IP will be unspecified here if its headless service or if the auto
 			// IP allocation logic for service entry was unable to allocate an IP.
-
-			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
-			// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
-			if svc.Attributes.ServiceRegistry == provider.Kubernetes &&
-				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
+			if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range cfg.Push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
 					sameNetwork := cfg.Node.InNetwork(instance.Endpoint.Network)
 					sameCluster := cfg.Node.InCluster(instance.Endpoint.Locality.ClusterID)
-					// Add individual addresses even for cross cluster.
+					// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
+					// And for each individual pod, populate the dns table with the endpoint IP with a manufactured host name.
 					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
@@ -98,7 +95,6 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 							out.Table[host] = nameInfo
 						}
 					}
-
 					skipForMulticluster := !cfg.MulticlusterHeadlessEnabled && !sameCluster
 					if skipForMulticluster || !sameNetwork {
 						// We take only cluster-local endpoints. While this seems contradictory to
@@ -113,17 +109,6 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					}
 					// TODO: should we skip the node's own IP like we do in listener?
 					addressList = append(addressList, instance.Endpoint.Address)
-				}
-			} else if svc.Attributes.ServiceRegistry == provider.External &&
-				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
-				for _, instance := range cfg.Push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
-					sameNetwork := cfg.Node.InNetwork(instance.Endpoint.Network)
-					sameCluster := cfg.Node.InCluster(instance.Endpoint.Locality.ClusterID)
-					if sameNetwork {
-						if sameCluster || cfg.MulticlusterHeadlessEnabled {
-							addressList = append(addressList, instance.Endpoint.Address)
-						}
-					}
 				}
 			}
 			if len(addressList) == 0 {
