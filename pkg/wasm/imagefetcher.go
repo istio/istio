@@ -18,6 +18,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -32,6 +33,8 @@ import (
 // This file implements the fetcher of "Wasm Image Specificiation" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
+
+var errWasmOCIImageDigestMismatch = errors.New("fetched image's digest does not match the expected one")
 
 type ImageFetcherOption struct {
 	Username string
@@ -78,7 +81,7 @@ func (o *ImageFetcher) Fetch(url, expManifestDigest string) ([]byte, error) {
 	// Check Manifest's digest if expManifestDigest is not empty.
 	d, _ := img.Digest()
 	if expManifestDigest != "" && d.Hex != expManifestDigest {
-		return nil, fmt.Errorf("fetched image's digest (%s) does not match the expected one (%s)", d.Hex, expManifestDigest)
+		return nil, fmt.Errorf("%w: got %s, but want %s", errWasmOCIImageDigestMismatch, d.Hex, expManifestDigest)
 	}
 
 	manifest, err := img.Manifest()

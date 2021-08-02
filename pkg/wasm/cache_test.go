@@ -185,8 +185,10 @@ func TestWasmCache(t *testing.T) {
 			purgeInterval:        DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:     DefaultWasmModuleExpiry,
 			requestTimeout:       time.Second * 10,
-			checksum:             "this is wrong.",
-			wantErrorMsgPrefix:   fmt.Sprintf("could not fetch Wasm OCI image: fetched image's digest (%s) does not match the expected one", dockerImageDigest),
+			checksum:             "wrongdigest",
+			wantErrorMsgPrefix: fmt.Sprintf(
+				"could not fetch Wasm OCI image: fetched image's digest does not match the expected one: got %s, but want wrongdigest", dockerImageDigest,
+			),
 		},
 		{
 			name:                 "fetch invalid oci",

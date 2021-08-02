@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -146,6 +147,11 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		fetcher := NewImageFetcher(ctx, ImageFetcherOption{})
 		b, err = fetcher.Fetch(u.Host+u.Path, checksum)
 		if err != nil {
+			if errors.Is(err, errWasmOCIImageDigestMismatch) {
+				wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
+			} else {
+				wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
+			}
 			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
 		sha := sha256.Sum256(b)
