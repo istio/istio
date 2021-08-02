@@ -193,17 +193,19 @@ func NewServer(config Options) (*Server, error) {
 			return nil, fmt.Errorf("failed to unmarshal %s: %v", PrometheusScrapingConfig.Name, err)
 		}
 		log.Infof("Prometheus scraping configuration: %v", prom)
-		s.prometheus = &prom
-		if s.prometheus.Path == "" {
-			s.prometheus.Path = "/metrics"
-		}
-		if s.prometheus.Port == "" {
-			s.prometheus.Port = "80"
-		}
-		if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
-			return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
-				"application port is the same as agent port, which may lead to a recursive loop. "+
-				"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+		if prom.Scrape != "false" {
+			s.prometheus = &prom
+			if s.prometheus.Path == "" {
+				s.prometheus.Path = "/metrics"
+			}
+			if s.prometheus.Port == "" {
+				s.prometheus.Port = "80"
+			}
+			if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
+				return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+					"application port is the same as agent port, which may lead to a recursive loop. "+
+					"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+			}
 		}
 	}
 
