@@ -365,13 +365,12 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // Workload-level configs should not be in root namespace (this should be guaranteed by the caller,
 // though they will be safely ignored in this function). If the input config list is empty, returns
 // a default policy set to a PERMISSIVE.
-// If there is at least one applicable config, returns should be not nil, and is a combined policy
+// If there is at least one applicable config, returns should not be nil, and is a combined policy
 // based on following rules:
-// - It should have the setting from the most narrow scope (i.e workload-level is  preferred over
+// - It should have the setting from the most narrow scope (i.e workload-level is preferred over
 // namespace-level, which is preferred over mesh-level).
-// - When there are more than one policy in the same scope (i.e workload-level), the oldest one
-// win.
-// - UNSET will be replaced with the setting from the parrent. I.e UNSET port-level config will be
+// - When there are more than one policy in the same scope (i.e workload-level), the oldest one win.
+// - UNSET will be replaced with the setting from the parent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
 func composePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
@@ -400,7 +399,7 @@ func composePeerAuthentication(rootNamespace string, configs []*config.Config) *
 				}
 			}
 		} else if cfg.Namespace != rootNamespace {
-			// Workload level policy, aka the one with selector and not in root namespace.
+			// Workload-level policy, aka the one with selector and not in root namespace.
 			if workloadCfg == nil || cfg.CreationTimestamp.Before(workloadCfg.CreationTimestamp) {
 				authnLog.Debugf("Switch selected workload policy to %s.%s (%v)", cfg.Name, cfg.Namespace, cfg.CreationTimestamp)
 				workloadCfg = cfg
@@ -411,7 +410,7 @@ func composePeerAuthentication(rootNamespace string, configs []*config.Config) *
 	// Process in mesh, namespace, workload order to resolve inheritance (UNSET)
 
 	if meshCfg != nil && !isMtlsModeUnset(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
-		// If mesh policy is defined, update parentPolicy to mesh policy.
+		// If mesh policy is defined, update parent policy to mesh policy.
 		outputPolicy.Mtls = meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
 	}
 
