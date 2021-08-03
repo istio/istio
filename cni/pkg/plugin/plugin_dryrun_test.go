@@ -16,7 +16,6 @@ package plugin
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -133,7 +132,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 				t.Fatalf("CNI cmdAdd failed with error: %v", err)
 			}
 
-			generated, err := ioutil.ReadFile(outputFilePath)
+			generated, err := os.ReadFile(outputFilePath)
 			if err != nil {
 				log.Fatalf("Cannot read generated IPTables rule file: %v", err)
 			}
@@ -142,7 +141,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			refreshGoldens(t, tt.golden, generatedRules)
 
 			// Compare generated iptables rule with golden files.
-			golden, err := ioutil.ReadFile(tt.golden)
+			golden, err := os.ReadFile(tt.golden)
 			if err != nil {
 				log.Fatalf("Cannot read golden rule file: %v", err)
 			}

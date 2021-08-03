@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -386,7 +385,7 @@ func TestAgent(t *testing.T) {
 			a.envoyEnable = false
 			return a
 		})
-		got, err := ioutil.ReadFile(bootstrapPath)
+		got, err := os.ReadFile(bootstrapPath)
 		if err != nil {
 			t.Fatalf("could not read bootstrap config: %v", err)
 		}
@@ -534,7 +533,7 @@ func expectFileChanged(t *testing.T, files ...string) {
 	}
 	retry.UntilSuccessOrFail(t, func() error {
 		for i, f := range files {
-			now, err := ioutil.ReadFile(f)
+			now, err := os.ReadFile(f)
 			if err != nil {
 				return err
 			}
@@ -566,7 +565,7 @@ func expectFileUnchanged(t *testing.T, files ...string) {
 func filenames(t *testing.T, dir string) []string {
 	t.Helper()
 	res := []string{}
-	contents, err := ioutil.ReadDir(dir)
+	contents, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}

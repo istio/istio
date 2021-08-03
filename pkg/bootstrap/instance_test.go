@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -298,7 +297,7 @@ func TestGolden(t *testing.T) {
 				meta: c.platformMeta,
 			}
 
-			annoFile, err := ioutil.TempFile("", "annotations")
+			annoFile, err := os.CreateTemp("", "annotations")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -333,7 +332,7 @@ func TestGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			read, err := ioutil.ReadFile(fn)
+			read, err := os.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -341,14 +340,14 @@ func TestGolden(t *testing.T) {
 
 			// apply minor modifications for the generated file so that tests are consistent
 			// across different env setups
-			err = ioutil.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality), 0o700)
+			err = os.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality), 0o700)
 			if err != nil {
 				t.Error("Error modifying generated file ", err)
 				return
 			}
 
 			// re-read generated file with the changes having been made
-			read, err = ioutil.ReadFile(fn)
+			read, err = os.ReadFile(fn)
 			if err != nil {
 				t.Error("Error reading generated file ", err)
 				return
@@ -357,7 +356,7 @@ func TestGolden(t *testing.T) {
 			goldenFile := "testdata/" + c.base + "_golden.json"
 			util.RefreshGoldenFile(read, goldenFile, t)
 
-			golden, err := ioutil.ReadFile(goldenFile)
+			golden, err := os.ReadFile(goldenFile)
 			if err != nil {
 				golden = []byte{}
 			}
@@ -542,7 +541,7 @@ func correctForEnvDifference(in []byte, excludeLocality bool) []byte {
 }
 
 func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, error) {
-	content, err := ioutil.ReadFile("testdata/" + base + ".proxycfg")
+	content, err := os.ReadFile("testdata/" + base + ".proxycfg")
 	if err != nil {
 		return nil, err
 	}

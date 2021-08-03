@@ -17,7 +17,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -213,7 +213,7 @@ func (s *extAuthzServerV3) Check(ctx context.Context, request *authv3.CheckReque
 
 // ServeHTTP implements the HTTP check request.
 func (s *ExtAuthzServer) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	body, err := ioutil.ReadAll(request.Body)
+	body, err := io.ReadAll(request.Body)
 	if err != nil {
 		log.Printf("[HTTP] read body failed: %v", err)
 	}

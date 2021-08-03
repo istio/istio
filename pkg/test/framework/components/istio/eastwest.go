@@ -17,7 +17,6 @@ package istio
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -64,7 +63,7 @@ func (i *operatorComponent) deployEastWestGateway(cluster cluster.Cluster, revis
 		return fmt.Errorf("failed generating eastwestgateway operator yaml: %v: %v", err, string(gwIOP))
 	}
 	iopFile := path.Join(i.workDir, fmt.Sprintf("eastwest-%s.yaml", cluster.Name()))
-	if err := ioutil.WriteFile(iopFile, gwIOP, os.ModePerm); err != nil {
+	if err := os.WriteFile(iopFile, gwIOP, os.ModePerm); err != nil {
 		return err
 	}
 

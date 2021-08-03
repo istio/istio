@@ -17,7 +17,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -150,7 +149,7 @@ func readServiceAccountToken() (string, error) {
 		return "", fmt.Errorf("service account token file %s does not exist. Is this not running within a pod?", saToken)
 	}
 
-	token, err := ioutil.ReadFile(saToken)
+	token, err := os.ReadFile(saToken)
 	if err != nil {
 		return "", err
 	}

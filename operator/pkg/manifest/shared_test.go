@@ -17,7 +17,7 @@ package manifest
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -59,10 +59,10 @@ func TestReadLayeredYAMLs(t *testing.T) {
 		t.Run(fmt.Sprintf("%s stdin=%v", tt.name, tt.stdin), func(t *testing.T) {
 			inDir := filepath.Join(testDataDir, "input")
 			outPath := filepath.Join(testDataDir, "output", tt.name+".yaml")
-			wantBytes, err := ioutil.ReadFile(outPath)
+			wantBytes, err := os.ReadFile(outPath)
 			want := string(wantBytes)
 			if err != nil {
-				t.Errorf("ioutil.ReadFile() error = %v, filename: %v", err, outPath)
+				t.Errorf("os.ReadFile() error = %v, filename: %v", err, outPath)
 			}
 
 			stdinReader := &bytes.Buffer{}
@@ -71,9 +71,9 @@ func TestReadLayeredYAMLs(t *testing.T) {
 			for _, ol := range tt.overlays {
 				filename := filepath.Join(inDir, ol+".yaml")
 				if tt.stdin {
-					b, err := ioutil.ReadFile(filename)
+					b, err := os.ReadFile(filename)
 					if err != nil {
-						t.Fatalf("ioutil.ReadFile() error = %v, filenaem: %v", err, filename)
+						t.Fatalf("os.ReadFile() error = %v, filenaem: %v", err, filename)
 					}
 					if _, err := stdinReader.Write(b); err != nil {
 						t.Fatalf("failed to populate fake sdtin")

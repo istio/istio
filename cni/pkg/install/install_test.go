@@ -17,7 +17,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -96,7 +95,7 @@ func TestCheckInstall(t *testing.T) {
 	for i, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))
+			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -151,7 +150,7 @@ func TestSleepCheckInstall(t *testing.T) {
 	for i, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))
+			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -285,11 +284,11 @@ func TestCleanup(t *testing.T) {
 	for i, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			cniNetDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-cni-net", i))
+			cniNetDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-cni-net", i))
 			if err != nil {
 				t.Fatal(err)
 			}
-			cniBinDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-cni-bin", i))
+			cniBinDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-cni-bin", i))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -310,13 +309,13 @@ func TestCleanup(t *testing.T) {
 			}
 
 			// Create existing binary files
-			if err := ioutil.WriteFile(filepath.Join(cniBinDir, "istio-cni"), []byte{1, 2, 3}, 0o755); err != nil {
+			if err := os.WriteFile(filepath.Join(cniBinDir, "istio-cni"), []byte{1, 2, 3}, 0o755); err != nil {
 				t.Fatal(err)
 			}
 
 			// Create kubeconfig
 			kubeConfigFilePath := filepath.Join(cniNetDir, "kubeconfig")
-			if err := ioutil.WriteFile(kubeConfigFilePath, []byte{1, 2, 3}, 0o755); err != nil {
+			if err := os.WriteFile(kubeConfigFilePath, []byte{1, 2, 3}, 0o755); err != nil {
 				t.Fatal(err)
 			}
 

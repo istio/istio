@@ -16,7 +16,7 @@ package request
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -44,7 +44,7 @@ func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == p.States[0].wantMethod {
 		if r.URL.Path == p.States[0].wantPath {
 			defer r.Body.Close()
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			if err := util.Compare(body, p.States[0].wantBody); err == nil {
 				w.WriteHeader(p.States[0].StatusCode)
 				w.Write([]byte(p.States[0].Response))

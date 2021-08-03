@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -100,7 +99,7 @@ func TestBuildClientConfig(t *testing.T) {
 }
 
 func generateKubeConfig(cluster1Host string, cluster2Host string) (string, error) {
-	tempDir, err := ioutil.TempDir("/tmp/", ".kube")
+	tempDir, err := os.MkdirTemp("/tmp/", ".kube")
 	if err != nil {
 		return "", err
 	}
@@ -136,7 +135,7 @@ users:
     token: sdsddsd`
 
 	sampleConfig := fmt.Sprintf(template, cluster1Host, cluster2Host)
-	err = ioutil.WriteFile(filePath, []byte(sampleConfig), 0o644)
+	err = os.WriteFile(filePath, []byte(sampleConfig), 0o644)
 	if err != nil {
 		return "", err
 	}

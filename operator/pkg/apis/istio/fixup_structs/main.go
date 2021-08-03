@@ -17,7 +17,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"unicode"
@@ -162,7 +161,7 @@ func main() {
 	}
 
 	fmt.Printf("Writing to output file %s\n", filePath)
-	if err := ioutil.WriteFile(filePath, []byte(strings.Join(out, "\n")), 0o644); err != nil {
+	if err := os.WriteFile(filePath, []byte(strings.Join(out, "\n")), 0o644); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -214,7 +213,7 @@ func patchValues(lines []string) (output []string) {
 
 // getFileLines reads the text file at filePath and returns it as a slice of strings.
 func getFileLines(filePath string) ([]string, error) {
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}

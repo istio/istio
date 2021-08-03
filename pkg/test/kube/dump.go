@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -69,7 +68,7 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 				if err != nil {
 					return err
 				}
-				return ioutil.WriteFile(outputPath(workDir, cluster, deployment.Name, "deployment.yaml"), out, os.ModePerm)
+				return os.WriteFile(outputPath(workDir, cluster, deployment.Name, "deployment.yaml"), out, os.ModePerm)
 			})
 		}
 	}
@@ -138,7 +137,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 					continue
 				}
 				fname := podOutputPath(workDir, c, pod, filepath.Base(cd))
-				if err = ioutil.WriteFile(fname, []byte(stdout), os.ModePerm); err != nil {
+				if err = os.WriteFile(fname, []byte(stdout), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write envoy core dump log for pod: %s/%s: %v", pod.Namespace, pod.Name, err)
 				}
 			}
@@ -170,7 +169,7 @@ func DumpPodState(_ resource.Context, c cluster.Cluster, workDir string, namespa
 		}
 
 		outPath := podOutputPath(workDir, c, pod, "pod-state.yaml")
-		if err := ioutil.WriteFile(outPath, out, os.ModePerm); err != nil {
+		if err := os.WriteFile(outPath, out, os.ModePerm); err != nil {
 			scopes.Framework.Infof("Error writing out pod state to file: %v", err)
 		}
 	}
@@ -197,7 +196,7 @@ func DumpPodEvents(_ resource.Context, c cluster.Cluster, workDir, namespace str
 		}
 
 		outPath := podOutputPath(workDir, c, pod, "pod-events.yaml")
-		if err := ioutil.WriteFile(outPath, out, os.ModePerm); err != nil {
+		if err := os.WriteFile(outPath, out, os.ModePerm); err != nil {
 			scopes.Framework.Infof("Error writing out pod events to file: %v", err)
 		}
 	}
@@ -238,7 +237,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 			}
 
 			fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.log", container.Name))
-			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+			if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 				scopes.Framework.Warnf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 			}
 
@@ -258,7 +257,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 				}
 
 				fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
-				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+				if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				}
 			}
@@ -271,7 +270,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 			if isVM && container.Name == "istio-proxy" {
 				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
 					fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.err.log", container.Name))
-					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
+					if err = os.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Warnf("Unable to write envoy err log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
 					if strings.Contains(stdout, "envoy backtrace") {
@@ -283,7 +282,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.log"); err == nil {
 					fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.log", container.Name))
-					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
+					if err = os.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Warnf("Unable to write envoy log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
 				} else {
@@ -318,7 +317,7 @@ func dumpProxyCommand(c cluster.Cluster, pod corev1.Pod, workDir, filename, comm
 
 		if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
 			fname := podOutputPath(workDir, c, pod, filename)
-			if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
+			if err = os.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
 				scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
 			}
 		} else {
@@ -384,7 +383,7 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 	}
 	for istiod, out := range outputs {
 		outPath := outputPath(workDir, c, istiod, endpoint)
-		if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
+		if err := os.WriteFile(outPath, []byte(out), 0o644); err != nil {
 			scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 			return
 		}

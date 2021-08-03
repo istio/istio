@@ -22,8 +22,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"time"
 
@@ -85,12 +85,12 @@ func checkCmdLine() {
 }
 
 func saveCreds(certPem []byte, privPem []byte) {
-	err := ioutil.WriteFile(*outCert, certPem, 0o644)
+	err := os.WriteFile(*outCert, certPem, 0o644)
 	if err != nil {
 		log.Fatalf("Could not write output certificate: %s.", err)
 	}
 
-	err = ioutil.WriteFile(*outPriv, privPem, 0o600)
+	err = os.WriteFile(*outPriv, privPem, 0o600)
 	if err != nil {
 		log.Fatalf("Could not write output private key: %s.", err)
 	}

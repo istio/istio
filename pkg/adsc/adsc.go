@@ -20,8 +20,8 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -353,7 +353,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	if a.cfg.RootCert != nil {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
-		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
+		serverCABytes, err = os.ReadFile(a.cfg.XDSRootCAFile)
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
@@ -363,7 +363,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 
 		serverCABytes = rootCA.RootCert
 	} else if a.cfg.CertDir != "" {
-		serverCABytes, err = ioutil.ReadFile(a.cfg.CertDir + "/root-cert.pem")
+		serverCABytes, err = os.ReadFile(a.cfg.CertDir + "/root-cert.pem")
 		if err != nil {
 			return nil, err
 		}
@@ -499,7 +499,7 @@ func (a *ADSC) handleRecv() {
 				if err != nil {
 					continue
 				}
-				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", []byte(strResponse), 0o644)
+				err = os.WriteFile(a.LocalCacheDir+"_mesh.json", []byte(strResponse), 0o644)
 				if err != nil {
 					continue
 				}
@@ -699,7 +699,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		adscLog.Warnf("Error for marshaling TCPListeners: %v", err)
 	}
-	err = ioutil.WriteFile(base+"_lds_tcp.json", byteJSONResponse, 0o644)
+	err = os.WriteFile(base+"_lds_tcp.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -719,7 +719,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_lds_http.json", byteJSONResponse, 0o644)
+	err = os.WriteFile(base+"_lds_http.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -739,7 +739,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_rds.json", byteJSONResponse, 0o644)
+	err = os.WriteFile(base+"_rds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -759,7 +759,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_ecds.json", byteJSONResponse, 0o644)
+	err = os.WriteFile(base+"_ecds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -779,7 +779,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_cds.json", byteJSONResponse, 0o644)
+	err = os.WriteFile(base+"_cds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -799,7 +799,7 @@ func (a *ADSC) Save(base string) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(base+"_eds.json", byteJSONResponse, 0o644)
+	err = os.WriteFile(base+"_eds.json", byteJSONResponse, 0o644)
 	if err != nil {
 		return err
 	}
@@ -1268,7 +1268,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 				adscLog.Warnf("Error marshaling received MCP config %v", err)
 				continue
 			}
-			err = ioutil.WriteFile(a.LocalCacheDir+"_res."+
+			err = os.WriteFile(a.LocalCacheDir+"_res."+
 				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0o644)
 			if err != nil {
 				adscLog.Warnf("Error writing received MCP config to local file %v", err)

@@ -16,7 +16,6 @@ package bootstrap
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -35,7 +34,7 @@ const namespace = "istio-system"
 func TestRemoteCerts(t *testing.T) {
 	g := NewWithT(t)
 
-	dir, err := ioutil.TempDir("", t.Name())
+	dir, err := os.MkdirTemp("", t.Name())
 	defer removeSilent(dir)
 	g.Expect(err).Should(BeNil())
 
@@ -63,7 +62,7 @@ func TestRemoteCerts(t *testing.T) {
 	expectedRoot, err := readSampleCertFromFile("root-cert.pem")
 	g.Expect(err).Should(BeNil())
 
-	g.Expect(ioutil.ReadFile(path.Join(dir, "root-cert.pem"))).Should(Equal(expectedRoot))
+	g.Expect(os.ReadFile(path.Join(dir, "root-cert.pem"))).Should(Equal(expectedRoot))
 
 	// Should fail because certs already exist locally.
 	err = s.loadRemoteCACerts(caOpts, dir)
@@ -110,5 +109,5 @@ func createCASecret(client kube.Client) error {
 }
 
 func readSampleCertFromFile(f string) ([]byte, error) {
-	return ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
+	return os.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
 }

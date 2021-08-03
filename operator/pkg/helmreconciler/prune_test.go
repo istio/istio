@@ -16,7 +16,7 @@ package helmreconciler
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -43,7 +43,7 @@ func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 	t.Run("deleteControlPlaneByManifest", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
 		df := filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml")
-		iopStr, err := ioutil.ReadFile(df)
+		iopStr, err := os.ReadFile(df)
 		if err != nil {
 			t.Fatal(err)
 		}

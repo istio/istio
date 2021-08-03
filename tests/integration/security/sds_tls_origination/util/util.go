@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"os"
 	"path"
 	"time"
 
@@ -63,7 +63,7 @@ type TestCase struct {
 }
 
 func MustReadCert(t test.Failer, f string) string {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}

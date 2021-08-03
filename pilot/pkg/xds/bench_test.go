@@ -17,7 +17,6 @@ package xds
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -408,7 +407,7 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) ([]config.Config, stri
 	extra := path.Join("testdata", "benchmarks", configName+".extra.yaml")
 	inputYAML := buf.String()
 	if _, err := os.Stat(extra); err == nil {
-		bdata, err := ioutil.ReadFile(extra)
+		bdata, err := os.ReadFile(extra)
 		if err != nil {
 			t.Fatal(err)
 		}

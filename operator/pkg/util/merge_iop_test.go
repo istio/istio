@@ -15,7 +15,7 @@
 package util
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -29,7 +29,7 @@ import (
 
 func TestOverlayIOP(t *testing.T) {
 	defaultFilepath := filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml")
-	b, err := ioutil.ReadFile(defaultFilepath)
+	b, err := os.ReadFile(defaultFilepath)
 	if err != nil {
 		t.Fatal(err)
 	}

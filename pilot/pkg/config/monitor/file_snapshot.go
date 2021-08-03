@@ -15,7 +15,6 @@
 package monitor
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -74,7 +73,7 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*config.Config, error) {
 		} else if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
 			return nil
 		}
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			log.Warnf("Failed to read %s: %v", path, err)
 			return err

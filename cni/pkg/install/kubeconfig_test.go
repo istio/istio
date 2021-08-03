@@ -16,7 +16,6 @@ package install
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -81,7 +80,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 	for i, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))
+			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
 			if err != nil {
 				t.Fatal(err)
 			}

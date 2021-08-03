@@ -17,7 +17,7 @@ package log
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -84,7 +84,7 @@ func (l *UDSLogger) handleLog(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer req.Body.Close()
-	data, err := ioutil.ReadAll(req.Body)
+	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		log.Errorf("Failed to read log report from cni plugin: %v", err)
 		return

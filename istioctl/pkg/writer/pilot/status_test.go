@@ -17,7 +17,7 @@ package pilot
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	envoycorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -91,7 +91,7 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, _ := ioutil.ReadFile(tt.want)
+			want, _ := os.ReadFile(tt.want)
 			if err := util.Compare(got.Bytes(), want); err != nil {
 				t.Errorf(err.Error())
 			}
@@ -160,7 +160,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, _ := ioutil.ReadFile(tt.want)
+			want, _ := os.ReadFile(tt.want)
 			if err := util.Compare(got.Bytes(), want); err != nil {
 				t.Errorf(err.Error())
 			}
@@ -311,7 +311,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, _ := ioutil.ReadFile(tt.want)
+			want, _ := os.ReadFile(tt.want)
 			if err := util.Compare(got.Bytes(), want); err != nil {
 				t.Errorf(err.Error())
 			}

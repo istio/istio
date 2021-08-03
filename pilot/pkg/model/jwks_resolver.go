@@ -21,9 +21,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -191,7 +192,7 @@ func newJwksResolverWithCABundlePaths(
 
 	if caCertPool != nil {
 		for _, pemFile := range caBundlePaths {
-			caCert, err := ioutil.ReadFile(pemFile)
+			caCert, err := os.ReadFile(pemFile)
 			if err == nil {
 				caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
 			}
@@ -344,7 +345,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 		}
 		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}

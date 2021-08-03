@@ -15,7 +15,6 @@
 package install
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -61,7 +60,7 @@ func TestCopyBinaries(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			srcDir := t.TempDir()
 			for filename, contents := range c.srcFiles {
-				err := ioutil.WriteFile(filepath.Join(srcDir, filename), []byte(contents), os.ModePerm)
+				err := os.WriteFile(filepath.Join(srcDir, filename), []byte(contents), os.ModePerm)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -69,7 +68,7 @@ func TestCopyBinaries(t *testing.T) {
 
 			targetDir := t.TempDir()
 			for filename, contents := range c.existingFiles {
-				err := ioutil.WriteFile(filepath.Join(targetDir, filename), []byte(contents), os.ModePerm)
+				err := os.WriteFile(filepath.Join(targetDir, filename), []byte(contents), os.ModePerm)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -81,7 +80,7 @@ func TestCopyBinaries(t *testing.T) {
 			}
 
 			for filename, expectedContents := range c.expectedFiles {
-				contents, err := ioutil.ReadFile(filepath.Join(targetDir, filename))
+				contents, err := os.ReadFile(filepath.Join(targetDir, filename))
 				if err != nil {
 					t.Fatal(err)
 				}

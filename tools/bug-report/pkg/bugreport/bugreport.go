@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -432,7 +431,7 @@ func writeFile(path, text string) {
 		return
 	}
 	mkdirOrExit(path)
-	if err := ioutil.WriteFile(path, []byte(text), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		log.Errorf(err.Error())
 	}
 }

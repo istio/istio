@@ -15,7 +15,7 @@
 package v1alpha1_test
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -48,7 +48,7 @@ func TestIstioOperatorSpec_DeepCopy(t *testing.T) {
 }
 
 func loadResource(t *testing.T, filepath string) v1alpha1.IstioOperator {
-	contents, err := ioutil.ReadFile(filepath)
+	contents, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatal(err)
 	}

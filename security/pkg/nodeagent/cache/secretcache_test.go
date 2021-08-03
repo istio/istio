@@ -17,7 +17,6 @@ package cache
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -345,15 +344,15 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		rootResource = sc.existingCertificateFile.GetRootResourceName()
 	}
 
-	certchain, err := ioutil.ReadFile(sc.existingCertificateFile.CertificatePath)
+	certchain, err := os.ReadFile(sc.existingCertificateFile.CertificatePath)
 	if err != nil {
 		t.Fatalf("Error reading the cert chain file: %v", err)
 	}
-	privateKey, err := ioutil.ReadFile(sc.existingCertificateFile.PrivateKeyPath)
+	privateKey, err := os.ReadFile(sc.existingCertificateFile.PrivateKeyPath)
 	if err != nil {
 		t.Fatalf("Error reading the private key file: %v", err)
 	}
-	rootCert, err := ioutil.ReadFile(sc.existingCertificateFile.CaCertificatePath)
+	rootCert, err := os.ReadFile(sc.existingCertificateFile.CaCertificatePath)
 	if err != nil {
 		t.Fatalf("Error reading the root cert file: %v", err)
 	}
@@ -565,7 +564,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 		RootCert:     caClientRootCert,
 	})
 
-	rootCert, err := ioutil.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
+	rootCert, err := os.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
 	if err != nil {
 		t.Fatalf("Error reading the root cert file: %v", err)
 	}
@@ -587,7 +586,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	sc.UpdateConfigTrustBundle(caClientRootCert)
 	setupTestDir(t, sc)
 
-	rootCert, err = ioutil.ReadFile(sc.existingCertificateFile.CaCertificatePath)
+	rootCert, err = os.ReadFile(sc.existingCertificateFile.CaCertificatePath)
 	if err != nil {
 		t.Fatalf("Error reading the root cert file: %v", err)
 	}

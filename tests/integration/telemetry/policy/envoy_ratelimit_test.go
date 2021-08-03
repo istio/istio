@@ -17,7 +17,7 @@ package policy
 
 import (
 	"errors"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -143,7 +143,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	yamlContentCM, err := ioutil.ReadFile("testdata/rate-limit-configmap.yaml")
+	yamlContentCM, err := os.ReadFile("testdata/rate-limit-configmap.yaml")
 	if err != nil {
 		return
 	}
@@ -155,7 +155,7 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	yamlContent, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml"))
+	yamlContent, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/ratelimit/rate-limit-service.yaml"))
 	if err != nil {
 		return
 	}
@@ -181,7 +181,7 @@ func testSetup(ctx resource.Context) (err error) {
 }
 
 func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	if err != nil {
 		ctx.Fatal(err)
 	}

@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"gopkg.in/yaml.v3"
 
@@ -61,7 +61,7 @@ func (c *configs) Set(path string) error {
 	if err != nil {
 		return err
 	}
-	yml, err := ioutil.ReadFile(path)
+	yml, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
