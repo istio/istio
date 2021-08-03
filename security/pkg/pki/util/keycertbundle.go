@@ -91,9 +91,15 @@ func NewVerifiedKeyCertBundleFromFile(certFile, privKeyFile, certChainFile, root
 
 // NewKeyCertBundleWithRootCertFromFile returns a new KeyCertBundle with the root cert without verification.
 func NewKeyCertBundleWithRootCertFromFile(rootCertFile string) (*KeyCertBundle, error) {
-	rootCertBytes, err := os.ReadFile(rootCertFile)
-	if err != nil {
-		return nil, err
+	var rootCertBytes []byte
+	var err error
+	if rootCertFile == "" {
+		rootCertBytes = []byte{}
+	} else {
+		rootCertBytes, err = os.ReadFile(rootCertFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &KeyCertBundle{
 		certBytes:      []byte{},
