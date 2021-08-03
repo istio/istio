@@ -17,6 +17,7 @@ package tag
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	admit_v1 "k8s.io/api/admissionregistration/v1"
@@ -124,8 +125,11 @@ func DeleteDeprecatedValidator(ctx context.Context, client kubernetes.Interface)
 	}
 	var errs *multierror.Error
 	for _, vwh := range vwhs.Items {
-		errs = multierror.Append(errs,
-			client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{}))
+		// hacky but we want to remove the validators that used to be in base, not the per-revision webhooks.
+		if !strings.Contains(vwh.Name, "validator") {
+			errs = multierror.Append(errs,
+				client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{}))
+		}
 	}
 	if kerrors.IsNotFound(err) {
 		return nil
@@ -141,14 +145,14 @@ var neverMatch = &metav1.LabelSelector{
 
 // PreviousInstallExists checks whether there is an existing Istio installation. Should be used in installer when deciding
 // whether to make an installation the default.
-func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) (bool, error) {
+func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) bool {
 	mwhs, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
 		LabelSelector: "app=sidecar-injector",
 	})
 	if err != nil {
-		return false, nil
+		return false
 	}
-	return len(mwhs.Items) > 0, nil
+	return len(mwhs.Items) > 0
 }
 
 // DeactivateIstioInjectionWebhook deactivates the istio-injection webhook from the given MutatingWebhookConfiguration if exists.

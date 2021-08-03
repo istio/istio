@@ -181,16 +181,14 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
+
+	// Detect whether previous installation exists prior to performing the installation.
+	exists := revtag.PreviousInstallExists(context.Background(), kubeClient)
 	iop, err = InstallManifests(iop, iArgs.force, rootArgs.dryRun, restConfig, client, iArgs.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 
-	// Make this revision the  if none exists
-	exists, err := revtag.PreviousInstallExists(context.Background(), kubeClient)
-	if err != nil {
-		return err
-	}
 	rev := iop.Spec.Revision
 	if !exists || rev == "" {
 		cmd.Println("Making this installation the default for injection and validation.")
