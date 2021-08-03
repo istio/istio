@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -197,7 +198,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			cmd := []string{
 				"x", "workload", "entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
-				"--workloadIP", "10.10.10.10",
+				"--internalIP", "10.10.10.10",
 				"-o", testdir,
 			}
 			if _, err := runTestCmd(t, cmd); err != nil {
@@ -251,7 +252,7 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	cmd := []string{
 		"x", "workload", "entry", "configure",
 		"-f", path.Join(testdir, "workloadgroup.yaml"),
-		"--workloadIP", "10.10.10.10",
+		"--internalIP", "10.10.10.10",
 		"-o", testdir,
 	}
 	if output, err := runTestCmd(t, cmd); err != nil {
@@ -304,6 +305,29 @@ func checkOutputFiles(t *testing.T, testdir string, checkFiles map[string]bool) 
 				util.RefreshGoldenFile(contents, goldenFile, t)
 				util.CompareContent(contents, goldenFile, t)
 			})
+		}
+	}
+}
+
+func TestSidecarConfigGeneration(t *testing.T) {
+	tests := []struct {
+		internalIP         string
+		externalIP         string
+		expectedSidecarEnv map[string]string
+	}{
+		{internalIP: "10.10.10.10", externalIP: "/", expectedSidecarEnv: map[string]string{
+			"ISTIO_SVC_IP": "10.10.10.10",
+		}},
+		{internalIP: "", externalIP: "20.20.20.20", expectedSidecarEnv: map[string]string{
+			"ISTIO_SVC_IP": "20.20.20.20",
+			"REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION": "true",
+		}},
+	}
+
+	for _, tt := range tests {
+		gotSidecarEnvMap := generateSidecarEnvAsMap(tt.internalIP, tt.externalIP)
+		if !reflect.DeepEqual(gotSidecarEnvMap, tt.expectedSidecarEnv) {
+			t.Errorf("generateSidecarEnvAsMap() got = %v, want %v", gotSidecarEnvMap, tt.expectedSidecarEnv)
 		}
 	}
 }
