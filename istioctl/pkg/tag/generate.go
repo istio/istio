@@ -111,12 +111,12 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 	}
 
 	if opts.Tag == DefaultRevisionName {
-		// deactivate other istio-injection=enabled injectors if using default revisions.
-		err := DeactivateIstioInjectionWebhook(ctx, client)
-		if err != nil {
-			return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
-		}
 		if !opts.Generate {
+			// deactivate other istio-injection=enabled injectors if using default revisions.
+			err := DeactivateIstioInjectionWebhook(ctx, client)
+			if err != nil {
+				return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
+			}
 			// delete deprecated validating webhook configuration if it exists.
 			err = DeleteDeprecatedValidator(ctx, client)
 			if err != nil {

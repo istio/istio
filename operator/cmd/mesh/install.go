@@ -187,7 +187,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 	}
 
 	// Make this revision the  if none exists
-	exists, err := revtag.DefaultRevisionExists(context.Background(), kubeClient)
+	exists, err := revtag.PreviousInstallExists(context.Background(), kubeClient)
 	if err != nil {
 		return err
 	}

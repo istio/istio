@@ -139,19 +139,16 @@ var neverMatch = &metav1.LabelSelector{
 	},
 }
 
-// DefaultRevisionExists checks whether there is an existing default revision, either implicit by virtue of having a
-// previous non-revisioned installation or an explicit default tag. Should be used in installer when deciding whether
-// to make an installation the default.
-func DefaultRevisionExists(ctx context.Context, client kubernetes.Interface) (bool, error) {
-	tagWhs, err := GetWebhooksWithTag(ctx, client, DefaultRevisionName)
+// PreviousInstallExists checks whether there is an existing Istio installation. Should be used in installer when deciding
+// whether to make an installation the default.
+func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) (bool, error) {
+	mwhs, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: "app=sidecar-injector",
+	})
 	if err != nil {
-		return false, err
+		return false, nil
 	}
-	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
-	if err != nil {
-		return false, err
-	}
-	return len(tagWhs) > 0 || len(whs) > 0, nil
+	return len(mwhs.Items) > 0, nil
 }
 
 // DeactivateIstioInjectionWebhook deactivates the istio-injection webhook from the given MutatingWebhookConfiguration if exists.
@@ -159,7 +156,6 @@ func DefaultRevisionExists(ctx context.Context, client kubernetes.Interface) (bo
 // switch back to it. This is a hack but it is meant to cover a corner case where a user wants to migrate from a non-revisioned
 // old version and then later decides to switch back to the old revision again.
 func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Interface) error {
-	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	whs, err := GetWebhooksWithRevision(ctx, client, DefaultRevisionName)
 	if err != nil {
 		return err
@@ -180,6 +176,7 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 		wh.ObjectSelector = neverMatch
 		webhook.Webhooks[i] = wh
 	}
+	admit := client.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	_, err = admit.Update(ctx, &webhook, metav1.UpdateOptions{})
 	if err != nil {
 		return err
