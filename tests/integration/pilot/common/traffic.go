@@ -140,7 +140,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				t.SkipNow()
 			}
 			if c.minIstioVersion != "" {
-				skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+				skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
 				if skipMV {
 					t.SkipNow()
 				}
@@ -200,7 +200,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 			t.SkipNow()
 		}
 		if c.minIstioVersion != "" {
-			skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+			skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
 			if skipMV {
 				t.SkipNow()
 			}
