@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
@@ -185,7 +184,7 @@ func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca
 	if data := s.Port.XDSTestBootstrap; len(data) > 0 {
 		bootstrapData = data
 	} else if path := os.Getenv("GRPC_XDS_BOOTSTRAP"); len(path) > 0 {
-		bootstrapData, err = ioutil.ReadFile(path)
+		bootstrapData, err = os.ReadFile(path)
 	} else if data := os.Getenv("GRPC_XDS_BOOTSTRAP_CONFIG"); len(data) > 0 {
 		bootstrapData = []byte(data)
 	}
