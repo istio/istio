@@ -17,20 +17,21 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/galley/pkg/config/analysis/local"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	istioV1Aplha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pkg/config/resource"
 	istioConfigSchema "istio.io/istio/pkg/config/schema"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"os"
-	"strings"
-	"sync"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -44,7 +45,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
-	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -60,7 +60,7 @@ type HelmReconciler struct {
 	client     client.Client
 	restConfig *rest.Config
 	clientSet  *kubernetes.Clientset
-	iop        *valuesv1alpha1.IstioOperator
+	iop        *istioV1Alpha1.IstioOperator
 	opts       *Options
 	// copy of the last generated manifests.
 	manifests name.ManifestMap
@@ -96,7 +96,7 @@ var defaultOptions = &Options{
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
-func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *valuesv1alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
+func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
 	if opts == nil {
 		opts = defaultOptions
 	}
@@ -119,7 +119,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
-		iop = &valuesv1alpha1.IstioOperator{}
+		iop = &istioV1Alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
 	var cs *kubernetes.Clientset
@@ -155,7 +155,7 @@ func initDependencies() map[name.ComponentName]chan struct{} {
 
 // Reconcile reconciles the associated resources.
 func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
-	if err := h.createNamespace(valuesv1alpha1.Namespace(h.iop.Spec), h.networkName()); err != nil {
+	if err := h.createNamespace(istioV1Alpha1.Namespace(h.iop.Spec), h.networkName()); err != nil {
 		return nil, err
 	}
 	manifestMap, err := h.RenderCharts()
@@ -313,7 +313,7 @@ func (h *HelmReconciler) DeleteAll() error {
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) SetStatusBegin() error {
-	isop := &valuesv1alpha1.IstioOperator{}
+	isop := &istioV1Alpha1.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      h.iop.Name,
 		Namespace: h.iop.Namespace,
@@ -341,7 +341,7 @@ func (h *HelmReconciler) SetStatusBegin() error {
 
 // SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error {
-	iop := &valuesv1alpha1.IstioOperator{}
+	iop := &istioV1Alpha1.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      h.iop.Name,
 		Namespace: h.iop.Namespace,
@@ -562,8 +562,9 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	}
 
 	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{
-		SkipServiceCheck: true}),
-		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Aplha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
+		SkipServiceCheck: true,
+	}),
+		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
 	for _, wh := range whs {

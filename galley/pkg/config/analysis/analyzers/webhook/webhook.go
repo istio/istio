@@ -37,7 +37,7 @@ var (
 )
 
 type Analyzer struct {
-	 SkipServiceCheck bool
+	SkipServiceCheck bool
 }
 
 var _ analysis.Analyzer = &Analyzer{}

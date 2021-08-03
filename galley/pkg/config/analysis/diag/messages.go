@@ -15,8 +15,9 @@
 package diag
 
 import (
-	"istio.io/istio/operator/pkg/object"
 	"sort"
+
+	"istio.io/istio/operator/pkg/object"
 )
 
 // Messages is a slice of Message items.
@@ -97,4 +98,3 @@ func (ms *Messages) FilterOutBasedOnResources(resources object.K8sObjects) Messa
 	}
 	return outputMessages
 }
-
