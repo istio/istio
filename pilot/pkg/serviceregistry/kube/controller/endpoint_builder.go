@@ -65,10 +65,8 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		}
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
-
-	return &EndpointBuilder{
+	out := &EndpointBuilder{
 		controller:     c,
-		labels:         augmentLabels(podLabels, c.Cluster(), locality),
 		serviceAccount: sa,
 		locality: model.Locality{
 			Label:     locality,
@@ -80,14 +78,16 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		hostname:     hostname,
 		subDomain:    subdomain,
 	}
+	networkID := out.endpointNetwork(pod.Status.PodIP)
+	out.labels = augmentLabels(podLabels, c.Cluster(), locality, networkID)
+	return out
 }
 
 func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *EndpointBuilder {
 	locality := util.LocalityToString(proxy.Locality)
-	return &EndpointBuilder{
+	out := &EndpointBuilder{
 		controller:     c,
 		metaNetwork:    proxy.Metadata.Network,
-		labels:         augmentLabels(proxy.Metadata.Labels, c.Cluster(), locality),
 		serviceAccount: proxy.Metadata.ServiceAccount,
 		locality: model.Locality{
 			Label:     locality,
@@ -95,10 +95,13 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 		},
 		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Metadata.Labels),
 	}
+	networkID := out.endpointNetwork(proxy.IPAddresses[0])
+	out.labels = augmentLabels(proxy.Metadata.Labels, c.Cluster(), locality, networkID)
+	return out
 }
 
 // augmentLabels adds additional labels to the those provided.
-func augmentLabels(in labels.Instance, clusterID cluster.ID, locality string) labels.Instance {
+func augmentLabels(in labels.Instance, clusterID cluster.ID, locality string, networkID network.ID) labels.Instance {
 	// Copy the original labels to a new map.
 	out := make(labels.Instance)
 	for k, v := range in {
@@ -118,6 +121,9 @@ func augmentLabels(in labels.Instance, clusterID cluster.ID, locality string) la
 	}
 	if len(clusterID) > 0 {
 		out[label.TopologyCluster.Name] = clusterID.String()
+	}
+	if len(networkID) > 0 {
+		out[label.TopologyNetwork.Name] = networkID.String()
 	}
 	return out
 }
