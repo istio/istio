@@ -309,6 +309,8 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		}
 	}
 
+	request.Reason = append(request.Reason, model.ProxyRequest)
+	request.Start = time.Now()
 	return s.pushDeltaXds(con, push, versionInfo(), con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)
 }
 

@@ -233,6 +233,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
+	request.Start = time.Now()
 	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
 }
 
