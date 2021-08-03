@@ -792,7 +792,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
 }
 
-// DestinationRule returns a destination rule for a service name in a given domain.
+// DestinationRule retuDestinationRulerns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.Config {
 	if service == nil {
 		return nil
@@ -880,6 +880,20 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	}
 
 	return nil
+}
+
+func (ps *PushContext) DestinationRuleByName(proxy *Proxy, name string) *config.Config {
+	if proxy == nil || proxy.SidecarScope == nil {
+		return nil
+	}
+	return proxy.SidecarScope.destinationRuleByName(name)
+}
+
+func (ps *PushContext) PrevDestinationRuleByName(proxy *Proxy, name string) *config.Config {
+	if proxy == nil || proxy.PrevSidecarScope == nil {
+		return nil
+	}
+	return proxy.PrevSidecarScope.destinationRuleByName(name)
 }
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *config.Config {

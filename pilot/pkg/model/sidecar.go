@@ -474,7 +474,7 @@ func (sc *SidecarScope) Services() []*Service {
 	return sc.services
 }
 
-func (sc *SidecarScope) DestinationRuleByName(name string) *config.Config {
+func (sc *SidecarScope) destinationRuleByName(name string) *config.Config {
 	for _, v := range sc.destinationRules {
 		if v.Name == name {
 			return v

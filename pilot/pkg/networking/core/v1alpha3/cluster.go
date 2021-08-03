@@ -141,6 +141,12 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	cb := NewClusterBuilder(proxy, updates, configgen.Cache)
 	instances := proxy.ServiceInstances
 
+	/*
+	todo aditya:
+	 - move SidecarScope methods to the proxy
+	 -
+	 */
+
 	for key := range updates.ConfigsUpdated {
 		// get service that changed
 		if key.Kind == gvk.ServiceEntry {
@@ -159,10 +165,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 			}
 		} else {
 			// destination rules
-			cfg := proxy.SidecarScope.DestinationRuleByName(key.Name)
+			cfg := push.DestinationRuleByName(proxy, key.Name)
 			if cfg == nil {
 				// a destinationrule was deleted, get the populated destinationRule from PrevSidecarScope
-				prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(key.Name)
+				prevCfg := push.PrevDestinationRuleByName(proxy, key.Name)
 				if prevCfg == nil {
 					// something went wrong, skip -- we shouldn't be nil here
 					break
@@ -177,7 +183,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 				matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host))
 				services = append(services, matchedSvcs...)
 				// check for removed subsets
-				prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(key.Name)
+				prevCfg := push.PrevDestinationRuleByName(proxy,key.Name)
 				if prevCfg == nil {
 					log.Infof("Prev DestinationRule form PrevSidecarScope is nil for %v", key.String())
 					break
