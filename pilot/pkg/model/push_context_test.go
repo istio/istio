@@ -409,11 +409,11 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 	gotns := make([]string, 0)
 	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
-		gotns = append(gotns, filter.Key())
+		gotns = append(gotns, filter.Keys()...)
 	}
 	gotns1 := make([]string, 0)
 	for _, filter := range pc.envoyFiltersByNamespace["testns-1"] {
-		gotns1 = append(gotns1, filter.Key())
+		gotns1 = append(gotns1, filter.Keys()...)
 	}
 	if !reflect.DeepEqual(expectedns, gotns) {
 		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns, gotns)

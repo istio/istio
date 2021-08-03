@@ -15,6 +15,8 @@
 package v1alpha3
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"sort"
@@ -322,6 +324,8 @@ type clusterCache struct {
 
 	// proxy metadata
 	//
+	// proxyVersion is will be matched by envoyfilter patches
+	proxyVersion string
 	// locality identifies the locality the cluster is generated for
 	locality *core.Locality
 	// proxyClusterID identifies the cluster a proxy is in. Note cluster here refers to Kubernetes cluster, not Envoy cluster
@@ -340,6 +344,7 @@ type clusterCache struct {
 	//
 	service         *model.Service
 	destinationRule *config.Config
+	envoyFilterKeys []string
 
 	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
 	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
@@ -350,15 +355,10 @@ type clusterCache struct {
 
 func (t *clusterCache) Key() string {
 	params := []string{
-		t.clusterName, t.pushVersion,
-		strconv.FormatBool(t.proxySidecar), strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
-		util.LocalityToString(t.locality), t.proxyClusterID,
-	}
-	if t.service != nil {
-		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
-	}
-	if t.destinationRule != nil {
-		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
+		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
+		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
+		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
+		t.pushVersion,
 	}
 	if t.networkView != nil {
 		nv := make([]string, 0, len(t.networkView))
@@ -368,7 +368,20 @@ func (t *clusterCache) Key() string {
 		sort.Strings(nv)
 		params = append(params, nv...)
 	}
-	return "cds://" + strings.Join(params, "~")
+	if t.service != nil {
+		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
+	}
+	if t.destinationRule != nil {
+		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
+	}
+	params = append(params, t.envoyFilterKeys...)
+
+	hash := md5.New()
+	for _, param := range params {
+		hash.Write([]byte(param))
+	}
+	sum := hash.Sum(nil)
+	return hex.EncodeToString(sum)
 }
 
 func (t clusterCache) DependentConfigs() []model.ConfigKey {
@@ -378,6 +391,10 @@ func (t clusterCache) DependentConfigs() []model.ConfigKey {
 	}
 	if t.service != nil {
 		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+	}
+	for _, efKey := range t.envoyFilterKeys {
+		items := strings.Split(efKey, "/")
+		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]})
 	}
 	return configs
 }

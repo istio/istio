@@ -232,10 +232,11 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder) *clusterCache {
+func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, efKeys []string) *clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	clusterKey := &clusterCache{
 		clusterName:     clusterName,
+		proxyVersion:    cb.proxy.Metadata.IstioVersion,
 		locality:        cb.proxy.Locality,
 		proxyClusterID:  string(cb.proxy.Metadata.ClusterID),
 		proxySidecar:    cb.proxy.Type == model.SidecarProxy,
@@ -244,6 +245,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		downstreamAuto:  cb.proxy.Type == model.SidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		service:         service,
 		destinationRule: cb.req.Push.DestinationRule(cb.proxy, service),
+		envoyFilterKeys: efKeys,
 		pushVersion:     cb.req.Push.PushVersion,
 	}
 	return clusterKey
@@ -263,13 +265,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 func (configgen *ConfigGeneratorImpl) buildOutboundClustersWithServices(cb *ClusterBuilder, cp clusterPatcher,
 	services []*model.Service) ([]*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
+	efKeys := cp.efw.Keys()
 	hit, miss := 0, 0
 	for _, service := range services {
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			clusterKey := buildClusterKey(service, port, cb)
+			clusterKey := buildClusterKey(service, port, cb, efKeys)
 			cached, allFound := cb.getAllCachedSubsetClusters(*clusterKey)
 			if allFound && !features.EnableUnsafeAssertions {
 				hit += len(cached)
