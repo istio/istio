@@ -17,7 +17,6 @@ package fuzz
 
 import (
 	"bytes"
-	"strings"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
@@ -25,35 +24,12 @@ import (
 	"istio.io/istio/pkg/kube/inject"
 )
 
-var requiredJSONFields = []string{
-	"policy", "defaultTemplates",
-	"aliases", "neverInjectSelector",
-	"alwaysInjectSelector",
-	"injectedAnnotations",
-}
-
 func FuzzIntoResourceFile(data []byte) int {
 	f := fuzz.NewConsumer(data)
-	configData, err := f.GetBytes()
-	if err != nil {
-		return -1
-	}
-	for _, field := range requiredJSONFields {
-		if !strings.Contains(string(configData), field) {
-			return -1
-		}
-	}
-	c, err := inject.UnmarshalConfig(configData)
+	var sidecarTemplate map[string]string
+	err := f.FuzzMap(&sidecarTemplate)
 	if err != nil {
 		return 0
-	}
-	if len(c.Templates) == 0 {
-		var m map[string]string
-		err = f.FuzzMap(&m)
-		if err != nil {
-			return 0
-		}
-		c.Templates = m
 	}
 	valuesConfig, err := f.GetString()
 	if err != nil {
@@ -74,6 +50,10 @@ func FuzzIntoResourceFile(data []byte) int {
 	in := bytes.NewReader(inData)
 	var got bytes.Buffer
 	warn := func(s string) {}
-	_ = inject.IntoResourceFile(nil, c.Templates, valuesConfig, "", mc, in, &got, warn)
+	revision, err := f.GetString()
+	if err != nil {
+		return 0
+	}
+	_ = inject.IntoResourceFile(nil, sidecarTemplate, valuesConfig, revision, mc, in, &got, warn)
 	return 1
 }
