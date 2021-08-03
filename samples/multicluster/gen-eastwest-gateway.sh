@@ -129,11 +129,20 @@ $IOP
 EOF
 )
 
+# Gateway injection template
+IOP=$(cat <<EOF
+$IOP
+  values:
+    gateways:
+      istio-ingressgateway:
+        injectionTemplate: gateway
+EOF
+)
+
 # additional multicluster/multinetwork meta
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
   IOP=$(cat <<EOF
 $IOP
-  values:
     global:
       meshID: ${MESH}
       network: ${NETWORK}
