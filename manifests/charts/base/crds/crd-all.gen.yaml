@@ -5634,8 +5634,8 @@ spec:
       openAPIV3Schema:
         properties:
           spec:
-            description: Telemetry defines how the telemetry is generated for workloads
-              within a mesh.
+            description: 'Telemetry configuration for workloads. See more details
+              at: https://istio.io/docs/reference/config/telemetry/telemetry.html'
             properties:
               accessLogging:
                 description: Optional.
