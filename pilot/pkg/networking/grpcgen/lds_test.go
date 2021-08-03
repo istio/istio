@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	
+
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
 
