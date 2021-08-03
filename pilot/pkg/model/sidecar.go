@@ -463,15 +463,6 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	return out
 }
 
-func (sc *SidecarScope) destinationRuleByName(name string) *config.Config {
-	for _, v := range sc.destinationRules {
-		if v.Name == name {
-			return v
-		}
-	}
-	return nil
-}
-
 // GetEgressListenerForRDS returns the egress listener corresponding to
 // the listener port or the bind address or the catch all listener
 func (sc *SidecarScope) GetEgressListenerForRDS(port int, bind string) *IstioEgressListenerWrapper {

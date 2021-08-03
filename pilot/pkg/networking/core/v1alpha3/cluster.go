@@ -141,12 +141,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 	cb := NewClusterBuilder(proxy, updates, configgen.Cache)
 	instances := proxy.ServiceInstances
 
-	/*
-	todo aditya:
-	 - move SidecarScope methods to the proxy
-	 -
-	 */
-
 	for key := range updates.ConfigsUpdated {
 		// get service that changed
 		if key.Kind == gvk.ServiceEntry {
@@ -208,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		ob, cs := configgen.buildOutboundClustersWithServices(cb, outboundPatcher, services)
-		resources = append(resources, ob...)	
+		resources = append(resources, ob...)
 		clusterCacheStats = clusterCacheStats.merge(cs)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
