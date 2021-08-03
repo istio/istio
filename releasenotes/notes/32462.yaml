@@ -3,9 +3,11 @@ kind: feature
 area: istioctl
 
 issue:
-- https://github.com/istio/istio/issues/32462
+  - https://github.com/istio/istio/issues/34411
 
 releaseNotes:
-- |
-  **Added** `--workloadIP` flag to `istioctl x workload entry configure`, which sets the configuration for the workload IP that the sidecar proxy uses to auto register a workload Entry. 
-  Usually required when the VM workloads aren't in the same network as the primary cluster to which they register. 
+  - |
+    **Added** two mutually-exclusive flags to `istioctl x workload entry configure`
+
+    * `--internal-ip` configures the VM workload with a private IP address used for workload auto registration and health probes.
+    * `--external-ip` configures the VM workload with a public IP address used for workload auto registration. Meanwhile, it configures health probes to be performed through localhost. By setting the environment variable `REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION` to true.
