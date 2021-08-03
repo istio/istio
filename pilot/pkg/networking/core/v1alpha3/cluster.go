@@ -16,8 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/pkg/log"
 	"math"
 	"reflect"
 	"strconv"
@@ -39,11 +37,13 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 // defaultTransportSocketMatch applies to endpoints that have no security.istio.io/tlsMode label
@@ -177,7 +177,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 				matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host))
 				services = append(services, matchedSvcs...)
 				// check for removed subsets
-				prevCfg := push.PrevDestinationRuleByName(proxy,key.Name)
+				prevCfg := push.PrevDestinationRuleByName(proxy, key.Name)
 				if prevCfg == nil {
 					log.Infof("Prev DestinationRule form PrevSidecarScope is nil for %v", key.String())
 					break
