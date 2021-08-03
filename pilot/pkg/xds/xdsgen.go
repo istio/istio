@@ -24,10 +24,16 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/env"
 	istioversion "istio.io/pkg/version"
 )
+
+// deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
+// in this map, then delta calculation is triggered.
+var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
 
 // IstioControlPlaneInstance defines the format Istio uses for when creating Envoy config.core.v3.ControlPlane.identifier
 type IstioControlPlaneInstance struct {
@@ -81,6 +87,19 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 		}
 	}
 	return g
+}
+
+func shouldUseDelta(updates *model.PushRequest) bool {
+	return updates != nil && allConfigKeysOfType(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
+}
+
+func allConfigKeysOfType(cfgs map[model.ConfigKey]struct{}) bool {
+	for k := range cfgs {
+		if !deltaConfigTypes.Contains(k.Kind.Kind) {
+			return false
+		}
+	}
+	return true
 }
 
 // Push an XDS resource for the given connection. Configuration will be generated
