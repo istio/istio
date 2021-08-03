@@ -52,7 +52,7 @@ import (
 
 const (
 	// for proxyless we add a special gRPC server that doesn't get configured with xDS for test-runner use
-	grpcMagicPort = 117171
+	grpcMagicPort = 17171
 
 	serviceYAML = `
 {{- if .ServiceAccount }}
@@ -974,9 +974,10 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	}
 	if cfg.IsProxylessGRPC() {
 		containerPorts = append(containerPorts, &echoCommon.Port{
-			Name:     "grpc-magic-port",
-			Protocol: protocol.GRPC,
-			Port:     grpcMagicPort,
+			Name:       "grpc-magic-port",
+			Protocol:   protocol.GRPC,
+			Port:       grpcMagicPort,
+			InstanceIP: true,
 		})
 	}
 	return containerPorts
