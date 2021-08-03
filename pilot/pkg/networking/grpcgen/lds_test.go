@@ -15,6 +15,8 @@
 package grpcgen
 
 import (
+	"fmt"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -30,7 +32,7 @@ func TestNewListenerNameFilter(t *testing.T) {
 		"simple": {
 			in: []string{"foo.com:80", "foo.com:443", "wildcard.com"},
 			want: listenerNameFilter{
-				"foo.com":      map[string]struct{}{"80": {}, "443": {}},
+				"foo.com":      {"80": {}, "443": {}},
 				"wildcard.com": wildcardMap,
 			},
 		},
@@ -41,6 +43,18 @@ func TestNewListenerNameFilter(t *testing.T) {
 		"port-map stays clear": {
 			in:   []string{"foo.com:80", "foo.com", "foo.com:443"},
 			want: listenerNameFilter{"foo.com": wildcardMap},
+		},
+		"special listeners preserved exactly": {
+			in: []string{
+				"foo.com:80",
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"),
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"),
+			},
+			want: listenerNameFilter{
+				"foo.com": {"80": {}},
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"): wildcardMap,
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"):      wildcardMap,
+			},
 		},
 	}
 	for name, tt := range cases {
