@@ -21,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/xds"
@@ -163,11 +164,18 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 	return true
 }
 
-func (efw *EnvoyFilterWrapper) Key() string {
+// Returns all the wrapped envoyfilters keys in increasing order .
+func (efw *EnvoyFilterWrapper) Keys() []string {
 	if efw == nil {
-		return ""
+		return nil
 	}
-	return efw.Namespace + "/" + efw.Name
+	keys := sets.Set{}
+	for _, patches := range efw.Patches {
+		for _, patch := range patches {
+			keys.Insert(patch.Key())
+		}
+	}
+	return keys.SortedList()
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {
