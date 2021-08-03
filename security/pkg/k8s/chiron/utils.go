@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
@@ -58,7 +59,7 @@ func GenCsrName() string {
 // 2. Call SignCSRK8sCA to finish rest of the flow
 func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 	secretName, secretNamespace, caFilePath string,
-	signerName string, approveCsr bool) ([]byte, []byte, []byte, error) {
+	signerName string, approveCsr bool, requestedLifetime time.Duration) ([]byte, []byte, []byte, error) {
 	// 1. Generate a CSR
 
 	options := util.CertOptions{
@@ -82,7 +83,7 @@ func GenKeyCertK8sCA(client clientset.Interface, dnsName,
 		signerName = "kubernetes.io/legacy-unknown"
 	}
 	certChain, caCert, err := SignCSRK8s(client, csrPEM,
-		signerName, nil, usages, dnsName, caFilePath, approveCsr, true)
+		signerName, nil, usages, dnsName, caFilePath, approveCsr, true, requestedLifetime)
 
 	return certChain, keyPEM, caCert, err
 }
@@ -96,13 +97,13 @@ func SignCSRK8s(client clientset.Interface,
 	csrData []byte, signerName string, requestedDuration *time.Duration,
 	usages []certv1.KeyUsage,
 	dnsName, caFilePath string,
-	approveCsr bool, appendCaCert bool) ([]byte, []byte, error) {
+	approveCsr bool, appendCaCert bool, requestedLifetime time.Duration) ([]byte, []byte, error) {
 	var err error
 	var v1Req bool = false
 
 	// 1. Submit the CSR
 
-	csrName, v1CsrReq, v1Beta1CsrReq, err := submitCSR(client, csrData, signerName, usages, csrRetriesMax)
+	csrName, v1CsrReq, v1Beta1CsrReq, err := submitCSR(client, csrData, signerName, usages, csrRetriesMax, requestedLifetime)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to submit CSR request (%v). Error: %v", csrName, err)
 	}
@@ -189,7 +190,8 @@ func reloadCACert(wc *WebhookController) (bool, error) {
 
 func submitCSR(clientset clientset.Interface,
 	csrData []byte, signerName string,
-	usages []certv1.KeyUsage, numRetries int) (string, *certv1.CertificateSigningRequest, *certv1beta1.CertificateSigningRequest, error) {
+	usages []certv1.KeyUsage, numRetries int, requestedLifetime time.Duration) (string, *certv1.CertificateSigningRequest,
+	*certv1beta1.CertificateSigningRequest, error) {
 	var err error = fmt.Errorf("unable to submit csr")
 	var useV1 bool = true
 	var csrName string = ""
@@ -210,6 +212,9 @@ func submitCSR(clientset clientset.Interface,
 					Usages:     usages,
 					SignerName: signerName,
 				},
+			}
+			if requestedLifetime.String() != "0s" {
+				csr.ObjectMeta.Annotations = map[string]string{constants.RequestLifeTimeAnnotationForCertManager:requestedLifetime.String()}
 			}
 			v1req, err := clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, metav1.CreateOptions{})
 			if err == nil {
@@ -238,6 +243,9 @@ func submitCSR(clientset clientset.Interface,
 		}
 		for _, usage := range usages {
 			v1beta1csr.Spec.Usages = append(v1beta1csr.Spec.Usages, certv1beta1.KeyUsage(usage))
+		}
+		if requestedLifetime.String() != "0s" {
+			v1beta1csr.ObjectMeta.Annotations = map[string]string{constants.RequestLifeTimeAnnotationForCertManager:requestedLifetime.String()}
 		}
 		// create v1beta1 certificate request
 		v1beta1req, err := clientset.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), v1beta1csr, metav1.CreateOptions{})

@@ -16,6 +16,7 @@ package ra
 
 import (
 	"fmt"
+	"time"
 
 	cert "k8s.io/api/certificates/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -47,7 +48,8 @@ func NewKubernetesRA(raOpts *IstioRAOptions) (*KubernetesRA, error) {
 	return istioRA, nil
 }
 
-func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string) ([]byte, error) {
+func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSigner string,
+	requestedLifetime time.Duration) ([]byte, error) {
 	certSignerDomain := r.raOpts.CertSignerDomain
 	if certSignerDomain == "" && certSigner != "" {
 		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
@@ -64,7 +66,7 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 		cert.UsageClientAuth,
 	}
 	certChain, _, err := chiron.SignCSRK8s(r.csrInterface, csrPEM, certSigner,
-		nil, usages, "", caCertFile, true, false)
+		nil, usages, "", caCertFile, true, false, requestedLifetime)
 	if err != nil {
 		return nil, raerror.NewError(raerror.CertGenError, err)
 	}
@@ -78,7 +80,8 @@ func (r *KubernetesRA) Sign(csrPEM []byte, certOpts ca.CertOpts) ([]byte, error)
 		return nil, err
 	}
 	certSigner := certOpts.CertSigner
-	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certSigner)
+
+	return r.kubernetesSign(csrPEM, r.raOpts.CaCertFile, certSigner, certOpts.TTL)
 }
 
 // SignWithCertChain is similar to Sign but returns the leaf cert and the entire cert chain.

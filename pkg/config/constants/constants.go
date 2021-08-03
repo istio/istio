@@ -125,4 +125,6 @@ const (
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
+
+	RequestLifeTimeAnnotationForCertManager = "experimental.cert-manager.io/request-duration"
 )
