@@ -22,21 +22,12 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis"
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
-	"istio.io/istio/galley/pkg/config/analysis/local"
-	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
-	"istio.io/istio/istioctl/pkg/util/formatting"
-	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/config/resource"
-	istioConfigSchema "istio.io/istio/pkg/config/schema"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -44,7 +35,13 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/galley/pkg/config/analysis/local"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
+	"istio.io/istio/istioctl/pkg/util/formatting"
+	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -52,6 +49,8 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/resource"
+	istioConfigSchema "istio.io/istio/pkg/config/schema"
 	"istio.io/pkg/version"
 )
 
@@ -568,16 +567,20 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
 	for _, wh := range whs {
-		whReaderSource := local.ReaderSource{
-			Name:   "",
-			Reader: strings.NewReader(wh),
-		}
-		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
 		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
-		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 		if err != nil {
 			return err
 		}
+		objYaml, err := k8sObjects.YAMLManifest()
+		if err != nil {
+			return err
+		}
+		whReaderSource := local.ReaderSource{
+			Name:   "",
+			Reader: strings.NewReader(objYaml),
+		}
+		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
+		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 	}
 	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
 	if err != nil {
