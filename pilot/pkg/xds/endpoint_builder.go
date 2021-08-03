@@ -292,13 +292,12 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, clusterID := range keys {
+		endpoints := shards.Shards[clusterID]
 		// If the downstream service is configured as cluster-local, only include endpoints that
-		// reside in the same cluster. A clusterID of "" may indicate this is a ServiceEntry registry and should be
-		// included.
-		if clusterID != "" && isClusterLocal && (cluster.ID(clusterID) != b.clusterID) {
+		// reside in the same cluster.
+		if isClusterLocal && (cluster.ID(clusterID) != b.clusterID) {
 			continue
 		}
-		endpoints := shards.Shards[clusterID]
 		for _, ep := range endpoints {
 			// TODO(nmittler): Consider merging discoverability policy with cluster-local
 			if !ep.IsDiscoverableFromProxy(b.proxy) {

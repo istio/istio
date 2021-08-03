@@ -45,7 +45,9 @@ var (
 	grpcXdsAddr = "127.0.0.1:14057"
 
 	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
+	// TODO `notistiod` is a hack to workaround a bug in cluster-local code
+	istiodSvcHost = "notistiod.istiod.istio-system.svc.cluster.local"
+	istiodSvcAddr = "notistiod.istiod.istio-system.svc.cluster.local:14057"
 )
 
 func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
@@ -90,8 +92,8 @@ func TestGRPC(t *testing.T) {
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 
-	sd.AddHTTPService("istiod.istio-system.svc.cluster.local", "10.10.10.2", 14057)
-	sd.SetEndpoints("istiod.istio-system.svc.cluster.local", "", []*model.IstioEndpoint{
+	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", 14057)
+	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
 		{
 			Address:         "127.0.0.1",
 			EndpointPort:    uint32(14057),
@@ -129,14 +131,14 @@ func TestGRPC(t *testing.T) {
 		},
 	})
 
-	store.Create(config.Config{
+	_, _ = store.Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "mtls",
 			Namespace:        "istio-system",
 		},
 		Spec: &networking.DestinationRule{
-			Host: "istiod.istio-system.svc.cluster.local",
+			Host: istiodSvcHost,
 			TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
 				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
 			}},
@@ -184,7 +186,7 @@ func TestGRPC(t *testing.T) {
 	t.Run("gRPC-dial", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		conn, err := grpc.DialContext(ctx, "xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure(), grpc.WithBlock(),
+		conn, err := grpc.DialContext(ctx, "xds:///"+istiodSvcAddr, grpc.WithInsecure(), grpc.WithBlock(),
 			grpc.WithResolvers(xdsresolver))
 		if err != nil {
 			t.Fatal("XDS gRPC", err)
