@@ -116,11 +116,21 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, webhook
 // DeleteDeprecatedValidator deletes the deprecated validating webhook configuration. This is used after a user explicitly
 // sets a new default revision.
 func DeleteDeprecatedValidator(ctx context.Context, client kubernetes.Interface) error {
-	err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, deprecatedValidatingWebhookName, metav1.DeleteOptions{})
+	vwhs, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: "app=istiod",
+	})
+	if err != nil {
+		return err
+	}
+	var errs *multierror.Error
+	for _, vwh := range vwhs.Items {
+		errs = multierror.Append(errs,
+			client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{}))
+	}
 	if kerrors.IsNotFound(err) {
 		return nil
 	}
-	return err
+	return errs.ErrorOrNil()
 }
 
 var neverMatch = &metav1.LabelSelector{

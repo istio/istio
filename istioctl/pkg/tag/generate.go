@@ -39,8 +39,7 @@ const (
 	revisionTagTemplateName = "revision-tags.yaml"
 	vwhTemplateName         = "validatingwebhook.yaml"
 
-	deprecatedValidatingWebhookName = "istiod-istio-system"
-	istioInjectionWebhookSuffix     = "sidecar-injector.istio.io"
+	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -117,10 +116,12 @@ func Generate(ctx context.Context, client kube.ExtendedClient, opts *GenerateOpt
 		if err != nil {
 			return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 		}
-		// delete deprecated validating webhook configuration if it exists.
-		err = DeleteDeprecatedValidator(ctx, client)
-		if err != nil {
-			return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
+		if !opts.Generate {
+			// delete deprecated validating webhook configuration if it exists.
+			err = DeleteDeprecatedValidator(ctx, client)
+			if err != nil {
+				return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
+			}
 		}
 
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
