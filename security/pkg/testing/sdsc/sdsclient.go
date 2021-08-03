@@ -18,7 +18,7 @@ package sdsc
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -52,7 +52,7 @@ type ClientOptions struct {
 // constructSDSRequest returns the context for the outbound request to include necessary
 func constructSDSRequestContext() (context.Context, error) {
 	// Read from the designated location for Kubernetes JWT.
-	content, err := ioutil.ReadFile(authn_model.K8sSATrustworthyJwtFileName)
+	content, err := os.ReadFile(authn_model.K8sSATrustworthyJwtFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the token file %v", err)
 	}

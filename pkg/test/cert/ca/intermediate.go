@@ -15,7 +15,6 @@
 package ca
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -82,7 +81,7 @@ func NewIntermediate(workDir, config string, root Root) (Intermediate, error) {
 	}
 
 	// Write out the CA config file.
-	if err := ioutil.WriteFile(ca.ConfFile, []byte(config), os.ModePerm); err != nil {
+	if err := os.WriteFile(ca.ConfFile, []byte(config), os.ModePerm); err != nil {
 		return Intermediate{}, err
 	}
 

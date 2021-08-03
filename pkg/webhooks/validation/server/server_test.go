@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -53,7 +53,7 @@ func TestArgs_String(t *testing.T) {
 
 func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	t.Helper()
-	dir, err := ioutil.TempDir("", "galley_validation_webhook")
+	dir, err := os.MkdirTemp("", "galley_validation_webhook")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
 	}
@@ -68,12 +68,12 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	)
 
 	// cert
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		cleanup()
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
@@ -337,7 +337,7 @@ func TestServe(t *testing.T) {
 				return
 			}
 
-			gotBody, err := ioutil.ReadAll(res.Body)
+			gotBody, err := io.ReadAll(res.Body)
 			if err != nil {
 				t.Fatalf("%v: could not read body: %v", c.name, err)
 			}

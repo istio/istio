@@ -17,7 +17,7 @@ package bugreport
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -96,7 +96,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 func parseConfig() (*config2.BugReportConfig, error) {
 	fileConfig := &config2.BugReportConfig{}
 	if configFile != "" {
-		b, err := ioutil.ReadFile(configFile)
+		b, err := os.ReadFile(configFile)
 		if err != nil {
 			return nil, err
 		}

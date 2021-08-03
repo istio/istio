@@ -21,8 +21,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"time"
 
 	certv1 "k8s.io/api/certificates/v1"
@@ -139,7 +139,7 @@ func SignCSRK8s(client clientset.Interface,
 
 // Read CA certificate and check whether it is a valid certificate.
 func readCACert(caCertPath string) ([]byte, error) {
-	caCert, err := ioutil.ReadFile(caCertPath)
+	caCert, err := os.ReadFile(caCertPath)
 	if err != nil {
 		log.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
 		return nil, fmt.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)

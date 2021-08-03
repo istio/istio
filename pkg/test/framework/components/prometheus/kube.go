@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -62,7 +62,7 @@ type kubeComponent struct {
 }
 
 func getPrometheusYaml() (string, error) {
-	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/prometheus.yaml"))
+	yamlBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/prometheus.yaml"))
 	if err != nil {
 		return "", err
 	}

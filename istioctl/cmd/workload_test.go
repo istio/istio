@@ -17,7 +17,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"reflect"
 	"strings"
@@ -158,7 +158,7 @@ const goldenSuffix = ".golden"
 // Each subdirectory contains two input files: workloadgroup.yaml and meshconfig.yaml that are used
 // to generate golden outputs from the VM command.
 func TestWorkloadEntryConfigure(t *testing.T) {
-	files, err := ioutil.ReadDir("testdata/vmconfig")
+	files, err := os.ReadDir("testdata/vmconfig")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func runTestCmd(t *testing.T, args []string) (string, error) {
 func checkOutputFiles(t *testing.T, testdir string, checkFiles map[string]bool) {
 	t.Helper()
 
-	outputFiles, err := ioutil.ReadDir(testdir)
+	outputFiles, err := os.ReadDir(testdir)
 	if err != nil {
 		t.Fatal(err)
 	}

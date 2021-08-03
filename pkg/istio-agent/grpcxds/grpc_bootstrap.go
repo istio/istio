@@ -17,7 +17,6 @@ package grpcxds
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -88,7 +87,7 @@ func (b *Bootstrap) FileWatcherProvider() *FileWatcherCertProviderConfig {
 
 // LoadBootstrap loads a Bootstrap from the given file path.
 func LoadBootstrap(file string) (*Bootstrap, error) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

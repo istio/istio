@@ -16,7 +16,7 @@
 package wasm
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -49,7 +49,7 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 			t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 			// Apply bad filter config
-			content, err := ioutil.ReadFile("testdata/bad-filter.yaml")
+			content, err := os.ReadFile("testdata/bad-filter.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}

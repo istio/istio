@@ -16,7 +16,6 @@ package helm
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -111,7 +110,7 @@ func DownloadTo(srcURL, dest string) (string, error) {
 		}
 	}
 
-	if err := ioutil.WriteFile(destFile, data, 0o644); err != nil {
+	if err := os.WriteFile(destFile, data, 0o644); err != nil {
 		return destFile, err
 	}
 

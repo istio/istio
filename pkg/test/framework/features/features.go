@@ -16,7 +16,7 @@ package features
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -37,7 +37,7 @@ type checkerImpl struct {
 }
 
 func BuildChecker(yamlPath string) (Checker, error) {
-	data, err := ioutil.ReadFile(yamlPath)
+	data, err := os.ReadFile(yamlPath)
 	if err != nil {
 		log.Errorf("Error reading feature file: %s", yamlPath)
 		return nil, err
@@ -81,7 +81,7 @@ type Allowlist struct {
 
 func fromFile(path string) *Allowlist {
 	result := &Allowlist{hashset: map[string]bool{}}
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		log.Errorf("Error reading allowlist file: %s", path)
 		return nil

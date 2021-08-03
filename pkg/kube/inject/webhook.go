@@ -19,8 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -84,7 +85,7 @@ type Webhook struct {
 
 // nolint directives: interfacer
 func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
-	data, err := ioutil.ReadFile(injectFile)
+	data, err := os.ReadFile(injectFile)
 	if err != nil {
 		return nil, "", err
 	}
@@ -94,7 +95,7 @@ func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 		return nil, "", err
 	}
 
-	valuesConfig, err := ioutil.ReadFile(valuesFile)
+	valuesConfig, err := os.ReadFile(valuesFile)
 	if err != nil {
 		return nil, "", err
 	}
@@ -775,7 +776,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	totalInjections.Increment()
 	var body []byte
 	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
+		if data, err := io.ReadAll(r.Body); err == nil {
 			body = data
 		}
 	}

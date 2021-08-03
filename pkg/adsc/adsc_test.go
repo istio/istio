@@ -15,7 +15,6 @@
 package adsc
 
 import (
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -323,7 +322,7 @@ func saveTeardown(base string, t *testing.T) {
 }
 
 func readFile(dir string, t *testing.T) string {
-	dat, err := ioutil.ReadFile(dir)
+	dat, err := os.ReadFile(dir)
 	if err != nil {
 		t.Fatalf("file %s issue: %v", dat, err)
 	}

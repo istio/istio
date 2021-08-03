@@ -16,7 +16,7 @@ package validate
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -213,7 +213,7 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 		allFiles = append(allFiles, files...)
 	}
 	for _, f := range allFiles {
-		b, err := ioutil.ReadFile(f)
+		b, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err.Error())
 		}

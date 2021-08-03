@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -186,7 +185,7 @@ func readFile(filename string) ([]byte, error) {
 			log.Errorf("failed to close %s: %s", filename, err)
 		}
 	}()
-	return ioutil.ReadAll(file)
+	return io.ReadAll(file)
 }
 
 func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
@@ -265,7 +264,7 @@ func setupFileClustersWriter(filename string, out io.Writer) (*clusters.ConfigWr
 			log.Errorf("failed to close %s: %s", filename, err)
 		}
 	}()
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}

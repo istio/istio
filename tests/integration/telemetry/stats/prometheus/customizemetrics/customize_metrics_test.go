@@ -18,8 +18,8 @@ package customizemetrics
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"testing"
@@ -199,7 +199,7 @@ func setupEnvoyFilter(ctx resource.Context) error {
 		return nsErr
 	}
 	proxyDepFile := path.Join(env.IstioSrc, "istio.deps")
-	depJSON, err := ioutil.ReadFile(proxyDepFile)
+	depJSON, err := os.ReadFile(proxyDepFile)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func setupEnvoyFilter(ctx resource.Context) error {
 			proxySHA = dm["lastStableSHA"].(string)
 		}
 	}
-	content, err := ioutil.ReadFile("testdata/attributegen_envoy_filter.yaml")
+	content, err := os.ReadFile("testdata/attributegen_envoy_filter.yaml")
 	if err != nil {
 		return err
 	}

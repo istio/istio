@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -471,7 +471,7 @@ func buildMultiDocYAML(docs []string) string {
 
 func createTestFile(t *testing.T, data string) (string, io.Closer) {
 	t.Helper()
-	validFile, err := ioutil.TempFile("", "TestValidateCommand")
+	validFile, err := os.CreateTemp("", "TestValidateCommand")
 	if err != nil {
 		t.Fatal(err)
 	}

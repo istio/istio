@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net"
 	"net/http"
@@ -549,7 +548,7 @@ func (s *Server) scrape(url string, header http.Header) ([]byte, string, error) 
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
-	metrics, err := ioutil.ReadAll(resp.Body)
+	metrics, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, "", fmt.Errorf("error reading %s: %v", url, err)
 	}
@@ -648,7 +647,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 	defer func() {
 		// Drain and close the body to let the Transport reuse the connection
-		_, _ = io.Copy(ioutil.Discard, response.Body)
+		_, _ = io.Copy(io.Discard, response.Body)
 		_ = response.Body.Close()
 	}()
 
