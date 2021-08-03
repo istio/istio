@@ -74,6 +74,7 @@ data:
       "global": {
         "caAddress": "",
         "configCluster": false,
+        "configValidation": true,
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -2944,3 +2945,76 @@ webhooks:
       - "true"
     - key: istio.io/rev
       operator: DoesNotExist
+---
+# Source: istio-discovery/templates/validatingwebhookconfiguration.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istio-validator-istio-system
+  labels:
+    app: istiod
+    release: istio
+    istio: istiod
+    istio.io/rev: default
+webhooks:
+  # Webhook handling per-revision validation. Mostly here so we can determine whether webhooks
+  # are rejecting invalid configs on a per-revision basis.
+  - name: rev.validation.istio.io
+    clientConfig:
+      # Should change from base but cannot for API compat
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+      caBundle: "" # patched at runtime when the webhook is ready.
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: In
+          values:
+          - "default"
+  # Webhook handling default validation
+  - name: validation.istio.io
+    clientConfig:
+      # Should change from base but cannot for API compat
+      service:
+        name: istiod
+        namespace: istio-system
+        path: "/validate"
+      caBundle: ""
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+          - telemetry.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
+    objectSelector:
+      matchExpressions:
+        - key: istio.io/rev
+          operator: DoesNotExist
