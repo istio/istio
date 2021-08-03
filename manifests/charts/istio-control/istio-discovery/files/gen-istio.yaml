@@ -886,6 +886,8 @@ data:
             fsGroup: 1337
           {{- end }}
       grpc-simple: |
+        metadata:
+          sidecar.istio.io/rewriteAppHTTPProbers: "false"
         spec:
           initContainers:
             - name: grpc-bootstrap-init
@@ -953,6 +955,7 @@ data:
             kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
             kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
             {{ end }}
+            sidecar.istio.io/rewriteAppHTTPProbers: "false",
           }
         spec:
           containers:
