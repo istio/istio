@@ -74,10 +74,25 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			},
 		},
 		{
+			name: "network only ",
+			ctl: testController{
+				locality: "myregion",
+				network:  "mynetwork",
+			},
+			podLabels: labels.Instance{
+				"k1": "v1",
+			},
+			expected: labels.Instance{
+				"k1":                       "v1",
+				label.TopologyNetwork.Name: "mynetwork",
+			},
+		},
+		{
 			name: "all values",
 			ctl: testController{
 				locality: "myregion/myzone/mysubzone",
 				cluster:  "mycluster",
+				network:  "mynetwork",
 			},
 			podLabels: labels.Instance{
 				"k1":                       "v1",
@@ -213,6 +228,7 @@ var _ controllerInterface = testController{}
 type testController struct {
 	locality string
 	cluster  cluster2.ID
+	network  network.ID
 }
 
 func (c testController) getPodLocality(*v1.Pod) string {
@@ -224,7 +240,7 @@ func (c testController) cidrRanger() cidranger.Ranger {
 }
 
 func (c testController) defaultNetwork() network.ID {
-	return ""
+	return c.network
 }
 
 func (c testController) Cluster() cluster2.ID {
