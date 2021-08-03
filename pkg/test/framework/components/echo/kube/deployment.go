@@ -974,10 +974,10 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	}
 	if cfg.IsProxylessGRPC() {
 		containerPorts = append(containerPorts, &echoCommon.Port{
-			Name:       "grpc-magic-port",
-			Protocol:   protocol.GRPC,
-			Port:       grpcMagicPort,
-			InstanceIP: true,
+			Name:        "grpc-magic-port",
+			Protocol:    protocol.GRPC,
+			Port:        grpcMagicPort,
+			LocalhostIP: true,
 		})
 	}
 	return containerPorts
