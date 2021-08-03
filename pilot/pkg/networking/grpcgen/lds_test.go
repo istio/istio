@@ -16,10 +16,10 @@ package grpcgen
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
 
 var wildcardMap = map[string]struct{}{}
