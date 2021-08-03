@@ -131,6 +131,11 @@ func (rv *RevVerMap) Maximum() IstioVersion {
 	return rv.Versions().Maximum()
 }
 
+// AtLeast returns true if the minimum Istio version under test is at least the given version.
+func (rv *RevVerMap) AtLeast(v IstioVersion) bool {
+	return rv.Versions().Minimum().Compare(v) >= 0
+}
+
 // IsMultiVersion returns whether the associated IstioVersions have multiple specified versions.
 func (rv *RevVerMap) IsMultiVersion() bool {
 	return rv != nil && len(*rv) > 0
