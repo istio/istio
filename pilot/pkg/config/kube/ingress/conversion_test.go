@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/google/go-cmp/cmp"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,8 +86,8 @@ func TestGoldenConversion(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if string(output) != string(expected) {
-				t.Fatalf("expected %v, got %v", string(expected), string(output))
+			if diff := cmp.Diff(expected, output); diff != "" {
+				t.Fatalf("Diff:\n%s", diff)
 			}
 		})
 	}
