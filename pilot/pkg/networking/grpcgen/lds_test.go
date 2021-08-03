@@ -16,6 +16,7 @@ package grpcgen
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,10 +26,11 @@ import (
 
 var wildcardMap = map[string]struct{}{}
 
-func TestNewListenerNameFilter(t *testing.T) {
+func TestListenerNameFilter(t *testing.T) {
 	cases := map[string]struct {
-		in   []string
-		want listenerNameFilter
+		in          []string
+		want        listenerNameFilter
+		wantInbound []string
 	}{
 		"simple": {
 			in: []string{"foo.com:80", "foo.com:443", "wildcard.com"},
@@ -50,11 +52,18 @@ func TestNewListenerNameFilter(t *testing.T) {
 				"foo.com:80",
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"),
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"),
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"),
 			},
 			want: listenerNameFilter{
 				"foo.com": {"80": {}},
-				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"): wildcardMap,
-				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"):      wildcardMap,
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"):  wildcardMap,
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"):       wildcardMap,
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"): wildcardMap,
+			},
+			wantInbound: []string{
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"),
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"),
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"),
 			},
 		},
 	}
@@ -63,6 +72,12 @@ func TestNewListenerNameFilter(t *testing.T) {
 			got := newListenerNameFilter(tt.in)
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Fatal(diff)
+			}
+			gotInbound := got.inboundNames()
+			sort.Strings(gotInbound)
+			sort.Strings(tt.wantInbound)
+			if diff := cmp.Diff(gotInbound, tt.wantInbound); diff != "" {
+				t.Fatalf(diff)
 			}
 		})
 	}
