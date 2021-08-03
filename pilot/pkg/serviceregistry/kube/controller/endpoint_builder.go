@@ -49,7 +49,7 @@ type EndpointBuilder struct {
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, namespace, hostname, subdomain := "", "", "", "", ""
+	locality, sa, namespace, hostname, subdomain, ip := "", "", "", "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
@@ -63,6 +63,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 				hostname = pod.Name
 			}
 		}
+		ip = pod.Status.PodIP
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
 	out := &EndpointBuilder{
@@ -78,7 +79,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		hostname:     hostname,
 		subDomain:    subdomain,
 	}
-	networkID := out.endpointNetwork(pod.Status.PodIP)
+	networkID := out.endpointNetwork(ip)
 	out.labels = augmentLabels(podLabels, c.Cluster(), locality, networkID)
 	return out
 }
