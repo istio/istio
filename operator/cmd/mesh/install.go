@@ -197,6 +197,10 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			return fmt.Errorf("verification failed with the following error: %v", err)
 		}
 	}
+	if !rootArgs.dryRun {
+		_, _ = fmt.Fprintln(cmd.OutOrStderr(), "\nThank you for installing Istio 1.11.  Please take a few minutes to "+
+			"tell us about your install/upgrade experience!  https://forms.gle/kWULBRjUv7hHci7T6")
+	}
 
 	return nil
 }
