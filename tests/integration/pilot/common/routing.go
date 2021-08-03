@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -1107,6 +1109,125 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 							return ExpectString(strings.TrimSpace(xffIPs[1]), "72.9.5.6", "ip in xff header")
 						})
 					}),
+			},
+		})
+	}
+	return cases
+}
+
+func envoyFilterCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	// Test adding envoyfilter to inbound and outbound route/cluster/listeners
+	cfg := `
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: outbound
+spec:
+  workloadSelector:
+    labels:
+      app: a
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_OUTBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+       name: envoy.lua
+       typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              request_handle:headers():add("x-lua-outbound", "hello world")
+            end
+  - applyTo: VIRTUAL_HOST
+    match:
+      context: SIDECAR_OUTBOUND
+    patch:
+      operation: MERGE
+      value:
+        request_headers_to_add:
+        - header:
+            key: x-vhost-outbound
+            value: "hello world"
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+      cluster: {}
+    patch:
+      operation: MERGE
+      value:
+        http2_protocol_options: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: inbound
+spec:
+  workloadSelector:
+    labels:
+      app: b
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+       name: envoy.lua
+       typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              request_handle:headers():add("x-lua-inbound", "hello world")
+            end
+  - applyTo: VIRTUAL_HOST
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: MERGE
+      value:
+        request_headers_to_add:
+        - header:
+            key: x-vhost-inbound
+            value: "hello world"
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_INBOUND
+      cluster: {}
+    patch:
+      operation: MERGE
+      value:
+        http2_protocol_options: {}
+`
+	for _, c := range apps.PodA {
+		cases = append(cases, TrafficTestCase{
+			config: cfg,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Target:   apps.PodB[0],
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ExpectKey("X-Vhost-Inbound", "hello world"),
+					echo.ExpectKey("X-Vhost-Outbound", "hello world"),
+					echo.ExpectKey("X-Lua-Inbound", "hello world"),
+					echo.ExpectKey("X-Lua-Outbound", "hello world"),
+					echo.ExpectKey("Proto", "HTTP/2.0"),
+				),
 			},
 		})
 	}

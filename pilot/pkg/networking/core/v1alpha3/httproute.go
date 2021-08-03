@@ -181,47 +181,6 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 	return out
 }
 
-// TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
-// selectVirtualServices selects the virtual services by matching given services' host names.
-func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
-	out := make([]config.Config, 0)
-	for _, c := range virtualServices {
-		rule := c.Spec.(*networking.VirtualService)
-		var match bool
-
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// if any host in the list matches one service hostname, select the virtual service
-		// and break out of the loop.
-		for _, h := range rule.Hosts {
-			// TODO: This is a bug. VirtualServices can have many hosts
-			// while the user might be importing only a single host
-			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(h)] != nil {
-				match = true
-				break
-			}
-
-			for svcHost := range servicesByName {
-				if host.Name(h).Matches(svcHost) {
-					match = true
-					break
-				}
-			}
-
-			if match {
-				break
-			}
-		}
-
-		if match {
-			out = append(out, c)
-		}
-	}
-
-	return out
-}
-
 func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string, listenerPort int) []*route.VirtualHost {
 	var virtualServices []config.Config
@@ -252,11 +211,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	servicesByName := make(map[host.Name]*model.Service)
+	hostsByNamespace := make(map[string][]host.Name)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
 			servicesByName[svc.Hostname] = svc
+			hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			servicesByName[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
@@ -268,13 +229,14 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
 				},
 			}
+			hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		}
 	}
 
 	// This is hack to keep consistent with previous behavior.
 	if listenerPort != 80 {
 		// only select virtualServices that matches a service
-		virtualServices = selectVirtualServices(virtualServices, servicesByName)
+		virtualServices = model.SelectVirtualServices(virtualServices, hostsByNamespace)
 	}
 	// Get list of virtual services bound to the mesh gateway
 	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push, servicesByName, virtualServices, listenerPort)
@@ -353,7 +315,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				virtualHosts = append(virtualHosts, vhost)
 			}
 		}
-
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 

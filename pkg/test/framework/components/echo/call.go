@@ -219,3 +219,35 @@ func And(vs ...Validator) Validator {
 
 	return out
 }
+
+// Or returns a validator that passes when any of the supplied validators pass. If no validators
+// are provided, returns the identity validator that just returns the original error.
+func Or(vs ...Validator) Validator {
+	out := make(validators, 0)
+
+	for _, v := range vs {
+		if v != nil {
+			out = append(out, v)
+		}
+	}
+
+	if len(out) == 0 {
+		return identityValidator
+	}
+
+	if len(out) == 1 {
+		return out[0]
+	}
+
+	return ValidatorFunc(func(responses client.ParsedResponses, err error) error {
+		var lasterr error
+		for _, v := range out {
+			if e := v.Validate(responses, err); e != nil {
+				lasterr = err
+				continue
+			}
+			return nil
+		}
+		return fmt.Errorf("no validators succeeded: %v", lasterr)
+	})
+}

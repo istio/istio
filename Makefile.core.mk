@@ -410,7 +410,7 @@ gen-kustomize:
 	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
 	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		> manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
-	helm3 template operator --namespace istio-system manifests/charts/istio-operator \
+	helm3 template operator --namespace istio-operator manifests/charts/istio-operator \
 		--set hub=gcr.io/istio-testing --set tag=${VERSION} > manifests/charts/istio-operator/files/gen-operator.yaml
 
 #-----------------------------------------------------------------------------

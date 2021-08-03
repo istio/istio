@@ -98,6 +98,20 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	if len(certChainBytes) != 0 {
 		respCertChain = append(respCertChain, string(certChainBytes))
 	}
+	if len(rootCertBytes) == 0 {
+		rootCert, err := util.FindRootCertFromCertificateChainBytes(cert)
+		if err != nil {
+			serverCaLog.Errorf("failed to find root cert from signed cert-chain (%v)", err.Error())
+			s.monitoring.GetCertSignError(err.(*caerror.Error).ErrorType()).Increment()
+			return nil, status.Errorf(err.(*caerror.Error).HTTPErrorCode(), "failed to find root cert from signed cert-chain (%v)", err.(*caerror.Error))
+		}
+		if verifyErr := util.VerifyCertificate(nil, cert, rootCert, nil); verifyErr != nil {
+			serverCaLog.Errorf("root cert from signed cert-chain is invalid (%v)", err.Error())
+			s.monitoring.GetCertSignError(err.(*caerror.Error).ErrorType()).Increment()
+			return nil, status.Errorf(err.(*caerror.Error).HTTPErrorCode(), "root cert from signed cert-chain is invalid (%v)", err.(*caerror.Error))
+		}
+		rootCertBytes = rootCert
+	}
 	respCertChain = append(respCertChain, string(rootCertBytes))
 	response := &pb.IstioCertificateResponse{
 		CertChain: respCertChain,

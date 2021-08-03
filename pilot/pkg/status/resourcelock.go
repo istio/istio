@@ -192,7 +192,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 
 			if target == (Resource{}) {
 				// continue or return?
-				// could have been deleted, or could be no items in queueu not currently worked on.  need a way to differentiate.
+				// could have been deleted, or could be no items in queue not currently worked on.  need a way to differentiate.
 				wp.lock.Unlock()
 				continue
 			}

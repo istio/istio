@@ -54,6 +54,7 @@ features:
       servicediscovery:
     cni:
       race-condition-repair:
+      upgrade:
   usability:
     observability:
       describe:

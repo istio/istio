@@ -27,6 +27,7 @@ import (
 
 	certv1 "k8s.io/api/certificates/v1"
 	certv1beta1 "k8s.io/api/certificates/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -192,7 +193,6 @@ func submitCSR(clientset clientset.Interface,
 	var err error = fmt.Errorf("unable to submit csr")
 	var useV1 bool = true
 	var csrName string = ""
-
 	for i := 0; i < numRetries; i++ {
 		if csrName == "" {
 			csrName = GenCsrName()
@@ -271,6 +271,7 @@ func approveCSR(csrName string, csrMsg string, client clientset.Interface,
 			Type:    certv1.CertificateApproved,
 			Reason:  csrMsg,
 			Message: csrMsg,
+			Status:  corev1.ConditionTrue,
 		})
 		_, err = client.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.TODO(), csrName, v1CsrReq, metav1.UpdateOptions{})
 		if err != nil {
@@ -282,7 +283,7 @@ func approveCSR(csrName string, csrMsg string, client clientset.Interface,
 }
 
 // Read the signed certificate
-// verify and append CA certificate to certChain if verify is true
+// verify and append CA certificate to certChain if appendCaCert is true
 func readSignedCertificate(client clientset.Interface, csrName string,
 	watchTimeout, readInterval time.Duration,
 	maxNumRead int, caCertPath string, appendCaCert bool, usev1 bool) ([]byte, []byte, error) {
@@ -292,33 +293,32 @@ func readSignedCertificate(client clientset.Interface, csrName string,
 	if len(certPEM) == 0 {
 		return []byte{}, []byte{}, nil
 	}
-
-	caCert, err := readCACert(caCertPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error when retrieving CA cert: (%v)", err)
-	}
-	// Verify the certificate chain before returning the certificate
-	roots := x509.NewCertPool()
-	if roots == nil {
-		return nil, nil, fmt.Errorf("failed to create cert pool")
-	}
-	if ok := roots.AppendCertsFromPEM(caCert); !ok {
-		return nil, nil, fmt.Errorf("failed to append CA certificate")
-	}
 	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decoding certificate failed")
 	}
-	_, err = certParsed.Verify(x509.VerifyOptions{
-		Roots: roots,
-	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
-	}
+	caCert := []byte{}
 	certChain := []byte{}
 	certChain = append(certChain, certPEM...)
-
-	if appendCaCert {
+	if appendCaCert && caCertPath != "" {
+		caCert, err = readCACert(caCertPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error when retrieving CA cert: (%v)", err)
+		}
+		// Verify the certificate chain before returning the certificate
+		roots := x509.NewCertPool()
+		if roots == nil {
+			return nil, nil, fmt.Errorf("failed to create cert pool")
+		}
+		if ok := roots.AppendCertsFromPEM(caCert); !ok {
+			return nil, nil, fmt.Errorf("failed to append CA certificate")
+		}
+		_, err = certParsed.Verify(x509.VerifyOptions{
+			Roots: roots,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
+		}
 		certChain = append(certChain, caCert...)
 	}
 	return certChain, caCert, nil

@@ -303,7 +303,7 @@ spec:
 			}
 
 			successValidator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(apps.PodB.Clusters()))
-			failureValidator := echo.And(echo.ExpectCode("404"))
+			failureValidator := echo.ExpectCode("404")
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())
@@ -545,7 +545,7 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.ExpectCode("404"),
+						Validator: echo.Or(echo.ExpectError(), echo.ExpectCode("404")),
 					},
 				},
 				{

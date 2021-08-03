@@ -331,18 +331,18 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 	}
 
 	getPublicKey := func() (b []byte, e error) {
-		resp, err := client.Get(uri)
 		defer func() {
 			if e != nil {
 				networkFetchFailCounter.Increment()
-				return
+			} else {
+				networkFetchSuccessCounter.Increment()
 			}
-			networkFetchSuccessCounter.Increment()
-			_ = resp.Body.Close()
 		}()
+		resp, err := client.Get(uri)
 		if err != nil {
 			return nil, err
 		}
+		defer resp.Body.Close()
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -394,8 +394,7 @@ func (r *JwksResolver) refresher() {
 				r.refreshInterval = r.refreshDefaultInterval
 			}
 			lastHasError = currentHasError
-			r.refreshTicker.Stop()
-			r.refreshTicker = time.NewTicker(r.refreshInterval)
+			r.refreshTicker.Reset(r.refreshInterval)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return

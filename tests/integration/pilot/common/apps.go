@@ -18,6 +18,9 @@ package common
 import (
 	"strconv"
 	"strings"
+	"sync"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -221,7 +224,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
 
-	if !t.Settings().SkipDelta {
+	skipDelta := t.Settings().SkipDelta || t.Settings().Revisions.Minimum().Compare("1.10") > 0
+	if skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
 				Service:   DeltaSvc,
@@ -272,7 +276,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	if !t.Settings().SkipVM {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
-	if !t.Settings().SkipDelta {
+	if skipDelta {
 		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 
@@ -327,4 +331,29 @@ spec:
 
 func (d EchoDeployments) IsMulticluster() bool {
 	return d.All.Clusters().IsMulticluster()
+}
+
+// Restart restarts all echo deployments.
+func (d EchoDeployments) Restart() error {
+	wg := sync.WaitGroup{}
+	aggregateErrMux := &sync.Mutex{}
+	var aggregateErr error
+	for _, app := range d.All {
+		app := app
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			if err := app.Restart(); err != nil {
+				aggregateErrMux.Lock()
+				aggregateErr = multierror.Append(aggregateErr, err)
+				aggregateErrMux.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if aggregateErr != nil {
+		return aggregateErr
+	}
+	return nil
 }
