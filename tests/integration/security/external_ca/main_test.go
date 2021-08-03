@@ -18,6 +18,7 @@ package externalca
 import (
 	"testing"
 
+	csrctrl "istio.io/istio/pkg/test/csrctrl/controllers"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -40,8 +41,9 @@ type EchoDeployments struct {
 }
 
 var (
-	inst istio.Instance
-	apps = &EchoDeployments{}
+	inst     istio.Instance
+	apps     = &EchoDeployments{}
+	stopChan = make(chan struct{})
 )
 
 func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
@@ -75,32 +77,52 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireMinVersion(18).
-		// https://github.com/istio/istio/issues/22161. 1.22 drops support for legacy-unknown signer
-		RequireMaxVersion(21).
+		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			return SetupApps(ctx, apps)
 		}).
 		Run()
+	stopChan <- struct{}{}
+	close(stopChan)
 }
 
-func setupConfig(_ resource.Context, cfg *istio.Config) {
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
+	go csrctrl.RunCSRController("clusterissuers.istio.io/signer1", ctx.Clusters()[0].RESTConfig(), stopChan)
 	if cfg == nil {
 		return
 	}
-
-	// TODO: Replace K8s legacy signer by deploying external signer common to all clusters with a known root
 	cfg.ControlPlaneValues = `
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_CERT_SIGNER: signer1
 components:
   pilot:
     k8s:
       env:
+      - name: CERT_SIGNER_DOMAIN
+        value: clusterissuers.istio.io
       - name: EXTERNAL_CA
         value: ISTIOD_RA_KUBERNETES_API
-      - name: K8S_SIGNER
-        value: kubernetes.io/legacy-unknown
+      overlays:
+        # Amend ClusterRole to add permission for istiod to approve certificate signing by custom signer
+        - kind: ClusterRole
+          name: istiod-clusterrole-istio-system
+          patches:
+            - path: rules[-1]
+              value: |
+                apiGroups:
+                - certificates.k8s.io
+                resourceNames:
+                - clusterissuers.istio.io/*
+                resources:
+                - signers
+                verbs:
+                - approve
 values:
   meshConfig:
     trustDomainAliases: [some-other, trust-domain-foo]
 `
+	cfg.DeployEastWestGW = false
 }

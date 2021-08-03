@@ -464,11 +464,20 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 
 // createIstioRA initializes the Istio RA signing functionality.
 // the caOptions defines the external provider
+// ca cert can come from three sources, order matters:
+// 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume
+// 2. Use kubernetes ca cert `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` if signer is
+//    kubernetes built-in `kubernetes.io/legacy-unknown" signer
+// 3. Extract from the cert-chain signed by other CSR signer.
 func (s *Server) createIstioRA(client kubelib.Client,
 	opts *caOptions) (ra.RegistrationAuthority, error) {
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
-	if _, err := os.Stat(caCertFile); err != nil {
+	certSignerDomain := opts.CertSignerDomain
+	_, err := os.Stat(caCertFile)
+	if err != nil && certSignerDomain == "" {
 		caCertFile = defaultCACertPath
+	} else {
+		caCertFile = ""
 	}
 	raOpts := &ra.IstioRAOptions{
 		ExternalCAType:   opts.ExternalCAType,

@@ -15,6 +15,7 @@
 package csrctrl
 
 import (
+	"context"
 	"os"
 	"strings"
 	"time"
@@ -45,7 +46,7 @@ var (
 	_              = corev1.AddToScheme(scheme)
 )
 
-func RunCSRController(signerNames string, config *rest.Config) {
+func RunCSRController(signerNames string, config *rest.Config, c <-chan struct{}) {
 	// Config Istio log
 	if err := log.Configure(loggingOptions); err != nil {
 		log.Infof("Unable to configure Istio log error: %v", err)
@@ -83,9 +84,14 @@ func RunCSRController(signerNames string, config *rest.Config) {
 		log.Infof("Unable to create Controller fro controller CSRSigningReconciler, error: %v", err)
 		os.Exit(-1)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-c
+		cancel()
+	}()
 	// +kubebuilder:scaffold:builder
 	log.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Infof("Problem running manager, error: %v", err)
 		os.Exit(-1)
 	}
