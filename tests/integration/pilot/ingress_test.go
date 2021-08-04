@@ -380,6 +380,22 @@ spec:
 					prefixPath: "/prefix/test",
 				},
 				{
+					// Prefix / should match any path
+					name: "http-root-prefix-should-match-random-path",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/testrandom",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+					},
+					path:       "/test",
+					prefixPath: "/",
+				},
+				{
 					// Basic HTTPS call for foo. CaCert matches the secret
 					name: "https-foo",
 					call: echo.CallOptions{
