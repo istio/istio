@@ -76,8 +76,7 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 		{
 			name: "network only ",
 			ctl: testController{
-				locality: "myregion",
-				network:  "mynetwork",
+				network: "mynetwork",
 			},
 			podLabels: labels.Instance{
 				"k1": "v1",
