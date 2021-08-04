@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/cluster"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
@@ -80,7 +80,7 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		subDomain:    subdomain,
 	}
 	networkID := out.endpointNetwork(ip)
-	out.labels = augmentLabels(podLabels, c.Cluster(), locality, networkID)
+	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, networkID)
 	return out
 }
 
@@ -100,35 +100,7 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 	if len(proxy.IPAddresses) > 0 {
 		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-	out.labels = augmentLabels(proxy.Metadata.Labels, c.Cluster(), locality, networkID)
-	return out
-}
-
-// augmentLabels adds additional labels to the those provided.
-func augmentLabels(in labels.Instance, clusterID cluster.ID, locality string, networkID network.ID) labels.Instance {
-	// Copy the original labels to a new map.
-	out := make(labels.Instance)
-	for k, v := range in {
-		out[k] = v
-	}
-
-	// Don't need to add label.TopologyNetwork.Name, since that's already added by injection.
-	region, zone, subzone := model.SplitLocalityLabel(locality)
-	if len(region) > 0 {
-		out[NodeRegionLabelGA] = region
-	}
-	if len(zone) > 0 {
-		out[NodeZoneLabelGA] = zone
-	}
-	if len(subzone) > 0 {
-		out[label.TopologySubzone.Name] = subzone
-	}
-	if len(clusterID) > 0 {
-		out[label.TopologyCluster.Name] = clusterID.String()
-	}
-	if len(networkID) > 0 {
-		out[label.TopologyNetwork.Name] = networkID.String()
-	}
+	out.labels = labelutil.AugmentLabels(proxy.Metadata.Labels, c.Cluster(), locality, networkID)
 	return out
 }
 
