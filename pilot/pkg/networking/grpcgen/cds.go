@@ -51,6 +51,9 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 			Resource: util.MessageToAny(c),
 		})
 	}
+	if len(resp) == 0 && len(names) == 0 {
+		log.Warnf("did not generate any cds for %s; no names provided", node.ID)
+	}
 	return resp
 }
 
