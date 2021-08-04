@@ -213,7 +213,7 @@ func submitCSR(clientset clientset.Interface,
 					SignerName: signerName,
 				},
 			}
-			if requestedLifetime.String() != "0s" {
+			if requestedLifetime != time.Duration(0) {
 				csr.ObjectMeta.Annotations = map[string]string{constants.RequestLifeTimeAnnotationForCertManager: requestedLifetime.String()}
 			}
 			v1req, err := clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, metav1.CreateOptions{})
@@ -244,7 +244,7 @@ func submitCSR(clientset clientset.Interface,
 		for _, usage := range usages {
 			v1beta1csr.Spec.Usages = append(v1beta1csr.Spec.Usages, certv1beta1.KeyUsage(usage))
 		}
-		if requestedLifetime.String() != "0s" {
+		if requestedLifetime != time.Duration(0) {
 			v1beta1csr.ObjectMeta.Annotations = map[string]string{constants.RequestLifeTimeAnnotationForCertManager: requestedLifetime.String()}
 		}
 		// create v1beta1 certificate request
