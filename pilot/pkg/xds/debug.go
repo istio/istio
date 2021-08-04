@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/network"
 	istiolog "istio.io/pkg/log"
+	istioversion "istio.io/pkg/version"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -203,6 +204,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
 	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
+	s.addDebugHandler(mux, internalMux, "/debug/proxy-info", "List proxy istio version", s.proxyInfo)
 
 	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
 }
@@ -247,6 +249,20 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 		// is visible to the authenticated SA. Will require changes in docs and istioctl too.
 		next.ServeHTTP(w, req)
 	}
+}
+
+func (s *DiscoveryServer) proxyInfo(w http.ResponseWriter, _ *http.Request) {
+	proxyInfo := make([]istioversion.ProxyInfo, 0)
+	for _, con := range s.Clients() {
+		node := con.proxy
+		if node != nil {
+			proxyInfo = append(proxyInfo, istioversion.ProxyInfo{
+				ID:           node.ID,
+				IstioVersion: node.Metadata.IstioVersion,
+			})
+		}
+	}
+	writeJSON(w, proxyInfo)
 }
 
 func isRequestFromLocalhost(r *http.Request) bool {

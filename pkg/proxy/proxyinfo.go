@@ -19,45 +19,32 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	istioVersion "istio.io/pkg/version"
+	"istio.io/pkg/version"
 )
 
-type sidecarSyncStatus struct {
-	// nolint: structcheck, unused
-	pilot string
-	xds.SyncStatus
-}
-
 // GetProxyInfo retrieves infos of proxies that connect to the Istio control plane of specific revision.
-func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*[]istioVersion.ProxyInfo, error) {
+func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*[]version.ProxyInfo, error) {
 	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 	if err != nil {
 		return nil, err
 	}
 	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
-	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
+	allProxyInfo, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/proxy-info")
 	if err != nil {
 		return nil, err
 	}
 
-	pi := []istioVersion.ProxyInfo{}
-	for _, syncz := range allSyncz {
-		var sss []*sidecarSyncStatus
-		err = json.Unmarshal(syncz, &sss)
-		if err != nil {
+	pi := []version.ProxyInfo{}
+	for _, info := range allProxyInfo {
+		var proxyInfo []*version.ProxyInfo
+		if err = json.Unmarshal(info, &proxyInfo); err != nil {
 			return nil, err
 		}
-
-		for _, ss := range sss {
-			pi = append(pi, istioVersion.ProxyInfo{
-				ID:           ss.ProxyID,
-				IstioVersion: ss.SyncStatus.IstioVersion,
-			})
+		for _, ss := range proxyInfo {
+			pi = append(pi, *ss)
 		}
 	}
-
 	return &pi, nil
 }
 
