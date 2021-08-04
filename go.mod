@@ -54,7 +54,7 @@ require (
 	github.com/kr/pretty v0.2.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.0
-	github.com/lucas-clemente/quic-go v0.21.1
+	github.com/lucas-clemente/quic-go v0.22.0
 	github.com/mattn/go-isatty v0.0.13
 	github.com/miekg/dns v1.1.42
 	github.com/mitchellh/copystructure v1.2.0
