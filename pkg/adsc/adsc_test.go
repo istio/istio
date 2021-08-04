@@ -343,8 +343,8 @@ func TestADSC_handleMCP(t *testing.T) {
 		{
 			desc: "create-resources",
 			resources: []*any.Any{
-				constructResource("foo1", "foo1.bar.com", "192.1.1.1"),
-				constructResource("foo2", "foo2.bar.com", "192.1.1.2"),
+				constructResource("foo1", "foo1.bar.com", "192.1.1.1", "1"),
+				constructResource("foo2", "foo2.bar.com", "192.1.1.2", "1"),
 			},
 			expectedResources: [][]string{
 				{"foo1", "foo1.bar.com", "192.1.1.1"},
@@ -354,23 +354,36 @@ func TestADSC_handleMCP(t *testing.T) {
 		{
 			desc: "update-and-create-resources",
 			resources: []*any.Any{
-				constructResource("foo1", "foo1.bar.com", "192.1.1.1"),
-				constructResource("foo2", "foo2.bar.com", "192.2.2.2"),
-				constructResource("foo3", "foo2.bar.com", "192.1.1.3"),
+				constructResource("foo1", "foo1.bar.com", "192.1.1.11", "2"),
+				constructResource("foo2", "foo2.bar.com", "192.1.1.22", "1"),
+				constructResource("foo3", "foo3.bar.com", "192.1.1.3", ""),
 			},
 			expectedResources: [][]string{
-				{"foo1", "foo1.bar.com", "192.1.1.1"},
-				{"foo2", "foo2.bar.com", "192.2.2.2"},
-				{"foo3", "foo2.bar.com", "192.1.1.3"},
+				{"foo1", "foo1.bar.com", "192.1.1.11"},
+				{"foo2", "foo2.bar.com", "192.1.1.2"},
+				{"foo3", "foo3.bar.com", "192.1.1.3"},
 			},
 		},
 		{
-			desc: "delete-and-create-resources",
+			desc: "update-delete-and-create-resources",
 			resources: []*any.Any{
-				constructResource("foo4", "foo4.bar.com", "192.1.1.4"),
+				constructResource("foo2", "foo2.bar.com", "192.1.1.222", "4"),
+				constructResource("foo4", "foo4.bar.com", "192.1.1.4", "1"),
 			},
 			expectedResources: [][]string{
+				{"foo2", "foo2.bar.com", "192.1.1.222"},
 				{"foo4", "foo4.bar.com", "192.1.1.4"},
+			},
+		},
+		{
+			desc: "update-and-delete-resources",
+			resources: []*any.Any{
+				constructResource("foo2", "foo2.bar.com", "192.2.2.22", "3"),
+				constructResource("foo3", "foo3.bar.com", "192.1.1.33", ""),
+			},
+			expectedResources: [][]string{
+				{"foo2", "foo2.bar.com", "192.2.2.22"},
+				{"foo3", "foo3.bar.com", "192.1.1.33"},
 			},
 		},
 	}
@@ -403,7 +416,7 @@ func TestADSC_handleMCP(t *testing.T) {
 	}
 }
 
-func constructResource(name string, host string, address string) *any.Any {
+func constructResource(name string, host string, address, version string) *any.Any {
 	service := &networking.ServiceEntry{
 		Hosts:     []string{host},
 		Addresses: []string{address},
@@ -413,6 +426,7 @@ func constructResource(name string, host string, address string) *any.Any {
 		Metadata: &mcp.Metadata{
 			Name:       "default/" + name,
 			CreateTime: types.TimestampNow(),
+			Version:    version,
 		},
 		Body: seAny,
 	}

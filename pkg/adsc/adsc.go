@@ -46,6 +46,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
+	mem "istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -584,6 +585,9 @@ func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 			Labels:          m.Metadata.Labels,
 			Annotations:     m.Metadata.Annotations,
 		},
+	}
+	if c.Meta.Annotations == nil {
+		c.Meta.Annotations = make(map[string]string)
 	}
 	nsn := strings.Split(m.Metadata.Name, "/")
 	if len(nsn) != 2 {
@@ -1240,36 +1244,38 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue
 		}
-		val, err := mcpToPilot(m)
+		newCfg, err := mcpToPilot(m)
 		if err != nil {
 			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
 			continue
 		}
-		received[val.Namespace+"/"+val.Name] = val
+		received[newCfg.Namespace+"/"+newCfg.Name] = newCfg
 
-		val.GroupVersionKind = groupVersionKind
-		cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
-		if cfg == nil {
-			_, err = a.Store.Create(*val)
-			if err != nil {
+		newCfg.GroupVersionKind = groupVersionKind
+		oldCfg := a.Store.Get(newCfg.GroupVersionKind, newCfg.Name, newCfg.Namespace)
+
+		if oldCfg == nil {
+			if _, err = a.Store.Create(*newCfg); err != nil {
 				adscLog.Warnf("Error adding a new resource to the store %v", err)
 				continue
 			}
-		} else {
-			_, err = a.Store.Update(*val)
-			if err != nil {
+		} else if oldCfg.ResourceVersion != newCfg.ResourceVersion || newCfg.ResourceVersion == "" {
+			// update the store only when resource version differs or unset.
+			newCfg.Annotations[mem.ResourceVersion] = newCfg.ResourceVersion
+			newCfg.ResourceVersion = oldCfg.ResourceVersion
+			if _, err = a.Store.Update(*newCfg); err != nil {
 				adscLog.Warnf("Error updating an existing resource in the store %v", err)
 				continue
 			}
 		}
 		if a.LocalCacheDir != "" {
-			strResponse, err := json.MarshalIndent(val, "  ", "  ")
+			strResponse, err := json.MarshalIndent(newCfg, "  ", "  ")
 			if err != nil {
 				adscLog.Warnf("Error marshaling received MCP config %v", err)
 				continue
 			}
 			err = os.WriteFile(a.LocalCacheDir+"_res."+
-				val.GroupVersionKind.Kind+"."+val.Namespace+"."+val.Name+".json", strResponse, 0o644)
+				newCfg.GroupVersionKind.Kind+"."+newCfg.Namespace+"."+newCfg.Name+".json", strResponse, 0o644)
 			if err != nil {
 				adscLog.Warnf("Error writing received MCP config to local file %v", err)
 			}
@@ -1279,8 +1285,7 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 	// remove deleted resources from cache
 	for _, config := range existingConfigs {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
-			err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil)
-			if err != nil {
+			if err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil); err != nil {
 				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
 			}
 		}
