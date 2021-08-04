@@ -20,6 +20,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -68,10 +69,10 @@ type configGenTest struct {
 //      ports:
 //        grpc: {generated portnum}
 func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
-	//if runtime.GOOS == "darwin" {
-	//	// TODO always skip if this breaks anywhere else
-	//	t.Skip("cannot use 127.0.0.x on OSX")
-	//}
+	if runtime.GOOS == "darwin" {
+		// TODO always skip if this breaks anywhere else
+		t.Skip("cannot use 127.0.0.x on OSX")
+	}
 
 	cgt := &configGenTest{T: t}
 	wg := sync.WaitGroup{}
@@ -274,11 +275,11 @@ spec:
 `,
 	}, echoCfg{version: "v1"})
 
+	// ensure we can make 10 consecutive successful requests
 	retry.UntilSuccessOrFail(tt.T, func() error {
 		cw := tt.dialEcho("xds:///echo-app.default.svc.cluster.local:7070")
 		for i := 0; i < 10; i++ {
-			res, err := cw.Echo(context.Background(), &proto.EchoRequest{Message: "needle"})
-			fmt.Println(res)
+			_, err := cw.Echo(context.Background(), &proto.EchoRequest{Message: "needle"})
 			if err != nil {
 				return err
 			}

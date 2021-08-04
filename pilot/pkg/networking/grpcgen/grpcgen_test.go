@@ -45,7 +45,7 @@ var (
 	grpcXdsAddr = "127.0.0.1:14057"
 
 	// Address of the Istiod gRPC service, used in tests.
-	// TODO `notistiod` is a hack to workaround a bug in cluster-local code
+	// TODO `notistiod` is a hack to workaround https://github.com/istio/istio/issues/34522
 	istiodSvcHost = "notistiod.istiod.istio-system.svc.cluster.local"
 	istiodSvcAddr = "notistiod.istiod.istio-system.svc.cluster.local:14057"
 )
