@@ -471,7 +471,7 @@ func (s *ServiceEntryStore) Provider() provider.ID {
 func (s *ServiceEntryStore) Cluster() cluster.ID {
 	// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 	// VIPs or CIDR ranges in the address field
-	return ""
+	return s.clusterID
 }
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
