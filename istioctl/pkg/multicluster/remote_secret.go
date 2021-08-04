@@ -484,7 +484,7 @@ const (
 	// Use a bearer token for authentication to the remote kubernetes cluster.
 	RemoteSecretAuthTypeBearerToken RemoteSecretAuthType = "bearer-token"
 
-	// User a custom custom authentication plugin for the remote kubernetes cluster.
+	// Use a custom authentication plugin for the remote kubernetes cluster.
 	RemoteSecretAuthTypePlugin RemoteSecretAuthType = "plugin"
 
 	// Secret generated from remote cluster
