@@ -146,30 +146,6 @@ func BenchmarkInitPushContext(b *testing.B) {
 	}
 }
 
-func BenchmarkRouteGeneration(b *testing.B) {
-	configureBenchmark(b)
-	for _, tt := range testCases {
-		b.Run(tt.Name, func(b *testing.B) {
-			s, proxy := setupAndInitializeTest(b, tt)
-			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
-			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
-			routeNames := xdstest.ExtractRoutesFromListeners(l)
-			if len(routeNames) == 0 {
-				b.Fatal("Got no route names!")
-			}
-			b.ResetTimer()
-			var c model.Resources
-			for n := 0; n < b.N; n++ {
-				c, _, _ = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
-				if len(c) == 0 {
-					b.Fatal("Got no routes!")
-				}
-			}
-			logDebug(b, c)
-		})
-	}
-}
-
 // Do a quick sanity tests to make sure telemetry v2 filters are applying. This ensures as they
 // update our benchmark doesn't become useless.
 func TestValidateTelemetry(t *testing.T) {
@@ -190,6 +166,14 @@ func TestValidateTelemetry(t *testing.T) {
 		}
 	}
 	t.Fatalf("telemetry v2 filters not found")
+}
+
+func BenchmarkRouteGeneration(b *testing.B) {
+	runBenchmark(b, v3.RouteType, testCases)
+}
+
+func TestRouteGeneration(t *testing.T) {
+	testBenchmark(t, v3.RouteType, testCases)
 }
 
 func BenchmarkClusterGeneration(b *testing.B) {
@@ -303,15 +287,7 @@ func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
-			var wr *model.WatchedResource
-			switch tpe {
-			case v3.SecretType:
-				watchedResources := []string{}
-				for i := 0; i < tt.Services; i++ {
-					watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://default/sds-credential-%d", i))
-				}
-				wr = &model.WatchedResource{ResourceNames: watchedResources}
-			}
+			wr := getWatchedResources(tpe, tt, s, proxy)
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
@@ -331,21 +307,29 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 			// No need for large test here
 			tt.Services = 1
 			s, proxy := setupAndInitializeTest(t, tt)
-			var wr *model.WatchedResource
-			switch tpe {
-			case v3.SecretType:
-				watchedResources := []string{}
-				for i := 0; i < tt.Services; i++ {
-					watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://default/sds-credential-%d", i))
-				}
-				wr = &model.WatchedResource{ResourceNames: watchedResources}
-			}
+			wr := getWatchedResources(tpe, tt, s, proxy)
 			c, _, _ := s.Discovery.Generators[tpe].Generate(proxy, s.PushContext(), wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 			if len(c) == 0 {
 				t.Fatalf("Got no %v's!", tpe)
 			}
 		})
 	}
+}
+
+func getWatchedResources(tpe string, tt ConfigInput, s *FakeDiscoveryServer, proxy *model.Proxy) *model.WatchedResource {
+	switch tpe {
+	case v3.SecretType:
+		watchedResources := []string{}
+		for i := 0; i < tt.Services; i++ {
+			watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://default/sds-credential-%d", i))
+		}
+		return &model.WatchedResource{ResourceNames: watchedResources}
+	case v3.RouteType:
+		l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
+		routeNames := xdstest.ExtractRoutesFromListeners(l)
+		return &model.WatchedResource{ResourceNames: routeNames}
+	}
+	return nil
 }
 
 // Setup test builds a mock test environment. Note: push context is not initialized, to be able to benchmark separately
