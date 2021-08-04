@@ -681,7 +681,7 @@ const prefixMatchRegex = `((\/).*)?`
 func createURIMatch(match k8s.HTTPRouteMatch) *istio.StringMatch {
 	if match.Path.Type == "" || match.Path.Type == k8s.PathMatchImplementationSpecific || match.Path.Type == k8s.PathMatchPrefix {
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(match.Path.Value) + prefixMatchRegex},
+			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(strings.TrimSuffix(match.Path.Value, "/")) + prefixMatchRegex},
 		}
 	} else if match.Path.Type == k8s.PathMatchExact {
 		return &istio.StringMatch{
