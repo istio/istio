@@ -18,7 +18,6 @@ package mesh
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -185,7 +184,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", err
 	}
 
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", "", fmt.Errorf("could not read values from file %s: %s", filePath, err)
 	}

@@ -20,6 +20,9 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
+
+	"github.com/cenkalti/backoff"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -61,28 +64,17 @@ var XTablesCmds = sets.NewSet(
 )
 
 // RealDependencies implementation of interface Dependencies, which is used in production
-type RealDependencies struct{}
-
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
-	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
-	externalCommand := exec.Command(cmd, args...)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	externalCommand.Stdout = stdout
-	externalCommand.Stderr = stderr
-
-	if len(stdout.String()) != 0 {
-		log.Infof("Command output: \n%v", stdout.String())
-	}
-
-	if !ignoreErrors && len(stderr.Bytes()) != 0 {
-		log.Errorf("Command error output: \n%v", stderr.String())
-	}
-
-	return externalCommand.Run()
+type RealDependencies struct {
+	NetworkNamespace string
+	CNIMode          bool
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
+func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
+	if r.CNIMode {
+		originalCmd := cmd
+		cmd = constants.NSENTER
+		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
+	}
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 	externalCommand := exec.Command(cmd, args...)
 	stdout := &bytes.Buffer{}
@@ -96,12 +88,64 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		log.Infof("Command output: \n%v", stdout.String())
 	}
 
+	if !ignoreErrors && len(stderr.Bytes()) != 0 {
+		log.Errorf("Command error output: \n%v", stderr.String())
+	}
+
+	return err
+}
+
+func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) (err error) {
+	if r.CNIMode {
+		originalCmd := cmd
+		cmd = constants.NSENTER
+		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
+	}
+	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
+
+	var stdout, stderr *bytes.Buffer
+
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 100 * time.Millisecond
+	b.MaxInterval = 2 * time.Second
+	b.MaxElapsedTime = 10 * time.Second
+	err = backoff.Retry(func() error {
+		externalCommand := exec.Command(cmd, args...)
+		stdout = &bytes.Buffer{}
+		stderr = &bytes.Buffer{}
+		externalCommand.Stdout = stdout
+		externalCommand.Stderr = stderr
+		err := externalCommand.Run()
+		exitCode, ok := exitCode(err)
+		if !ok {
+			// cannot get exit code. consider this as non-retriable.
+			return nil
+		}
+
+		if !isXTablesLockError(stderr, exitCode) {
+			// Command succeeded, or failed not because of xtables lock.
+			return nil
+		}
+
+		// If command failed because xtables was locked, try the command again.
+		// Note we retry invoking iptables command explicitly instead of using the `-w` option of iptables,
+		// because as of iptables 1.6.x (version shipped with bionic), iptables-restore does not support `-w`.
+		log.Debugf("Failed to acquire XTables lock, retry iptables command..")
+		return err
+	}, b)
+
+	if len(stdout.String()) != 0 {
+		log.Infof("Command output: \n%v", stdout.String())
+	}
+
 	// TODO Check naming and redirection logic
 	if (err != nil || len(stderr.String()) != 0) && !ignoreErrors {
 		stderrStr := stderr.String()
 
 		// Transform to xtables-specific error messages with more useful and actionable hints.
-		stderrStr = transformToXTablesErrorMessage(stderrStr, err)
+		if err != nil {
+			stderrStr = transformToXTablesErrorMessage(stderrStr, err)
+		}
 
 		log.Errorf("Command error output: %v", stderrStr)
 	}
@@ -135,6 +179,37 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 	}
 
 	return stderr
+}
+
+func isXTablesLockError(stderr *bytes.Buffer, exitcode int) bool {
+	// xtables lock acquire failure maps to resource problem exit code.
+	// https://git.netfilter.org/iptables/tree/iptables/iptables.c?h=v1.6.0#n1769
+	if exitcode != int(XTablesResourceProblem) {
+		return false
+	}
+
+	// check stderr output and see if there is `xtables lock` in it.
+	// https://git.netfilter.org/iptables/tree/iptables/iptables.c?h=v1.6.0#n1763
+	if strings.Contains(stderr.String(), "xtables lock") {
+		return true
+	}
+
+	return false
+}
+
+func exitCode(err error) (int, bool) {
+	if err == nil {
+		return 0, false
+	}
+
+	ee, ok := err.(*exec.ExitError)
+	if !ok {
+		// Not common, but can happen if file not found error, etc
+		return 0, false
+	}
+
+	exitcode := ee.ExitCode()
+	return exitcode, true
 }
 
 // RunOrFail runs a command and exits with an error message, if it fails

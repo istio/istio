@@ -116,7 +116,7 @@ type SidecarScope struct {
 	RootNamespace string
 }
 
-// Implement json.Marshaller
+// MarshalJSON implements json.Marshaller
 func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
 	return json.MarshalIndent(map[string]interface{}{
@@ -456,31 +456,11 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	vses := ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
-	out.virtualServices = out.selectVirtualServices(vses, out.listenerHosts)
+	out.virtualServices = SelectVirtualServices(vses, out.listenerHosts)
 	svces := ps.Services(&dummyNode)
 	out.services = out.selectServices(svces, configNamespace, out.listenerHosts)
 
 	return out
-}
-
-// Services returns the list of services imported across all egress listeners by this
-// Sidecar config
-func (sc *SidecarScope) Services() []*Service {
-	if sc == nil {
-		return nil
-	}
-
-	return sc.services
-}
-
-// DestinationRule returns the destination rule applicable for a given hostname
-// used by CDS code
-func (sc *SidecarScope) DestinationRule(hostname host.Name) *config.Config {
-	if sc == nil {
-		return nil
-	}
-
-	return sc.destinationRules[hostname]
 }
 
 // GetEgressListenerForRDS returns the egress listener corresponding to
@@ -577,72 +557,6 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	}
 }
 
-// Given a list of virtual services visible to this namespace,
-// selectVirtualServices returns the list of virtual services that are
-// applicable to this egress listener, based on the hosts field specified
-// in the API. This code is called only once during the construction of the
-// listener wrapper. The parent object (sidecarScope) and its listeners are
-// constructed only once and reused for every sidecar that selects this
-// sidecarScope object. Selection is based on labels at the moment.
-func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
-	importedVirtualServices := make([]config.Config, 0)
-	vsMap := map[string]struct{}{}
-	for _, c := range virtualServices {
-		configNamespace := c.Namespace
-		vsName := c.Name
-		rule := c.Spec.(*networking.VirtualService)
-
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// Sidecars have a list of hosts in the api spec (namespace/host format)
-		// if any host in the virtualService.hosts matches the sidecar's egress'
-		// entry <virtualServiceNamespace>/virtualServiceHost, select the virtual service
-		// and break out of the loop.
-		// OR if any host in the virtualService.hosts matches the sidecar's egress'
-		// entry */virtualServiceHost, select the virtual service and break out of the loop.
-
-		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
-					break
-				}
-				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts, so we need to avoid appending
-					// duplicated virtualservices to slice importedVirtualServices
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
-						break
-					}
-				}
-			}
-		}
-
-		// Check if there is an import of form */host or */*
-		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
-			for _, importedHost := range importedHosts {
-				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
-					break
-				}
-				for _, h := range rule.Hosts {
-					// VirtualServices can have many hosts, so we need to avoid appending
-					// duplicated virtualservices to slice importedVirtualServices
-					if importedHost.Matches(host.Name(h)) {
-						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
-						break
-					}
-				}
-			}
-		}
-	}
-
-	return importedVirtualServices
-}
-
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hosts map[string][]host.Name) []*Service {
@@ -676,9 +590,9 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 	filteredServices := make([]*Service, 0)
 	// Filter down to just instances in scope for the service
-	for _, i := range importedServices {
-		if validServices[i.Hostname] == i.Attributes.Namespace {
-			filteredServices = append(filteredServices, i)
+	for _, svc := range importedServices {
+		if validServices[svc.Hostname] == svc.Attributes.Namespace {
+			filteredServices = append(filteredServices, svc)
 		}
 	}
 	return filteredServices

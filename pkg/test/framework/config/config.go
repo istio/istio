@@ -17,7 +17,7 @@ package config
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"go.uber.org/atomic"
@@ -116,7 +116,7 @@ func readConfig() (Map, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed normalizing config file path %q: %v", configFilePath, err)
 	}
-	bytes, err := ioutil.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading %s: %v", path, err)
 	}

@@ -16,11 +16,11 @@ package envoy
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -53,7 +53,8 @@ type ProxyConfig struct {
 	Concurrency            int32
 
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
-	TestOnly bool
+	TestOnly    bool
+	AgentIsRoot bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -108,7 +109,7 @@ func (e *envoy) Drain() error {
 }
 
 func (e *envoy) UpdateConfig(config []byte) error {
-	return ioutil.WriteFile(e.ConfigPath, config, 0o666)
+	return os.WriteFile(e.ConfigPath, config, 0o666)
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
@@ -147,7 +148,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	startupArgs = append(startupArgs, e.extraArgs...)
 
 	if bootstrapConfig != "" {
-		bytes, err := ioutil.ReadFile(bootstrapConfig)
+		bytes, err := os.ReadFile(bootstrapConfig)
 		if err != nil {
 			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
 		} else {
@@ -173,6 +174,14 @@ func (e *envoy) Run(epoch int, abort <-chan error) error {
 	cmd := exec.Command(e.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if e.AgentIsRoot {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		cmd.SysProcAttr.Credential = &syscall.Credential{
+			Uid: 1337,
+			Gid: 1337,
+		}
+	}
+
 	if err := cmd.Start(); err != nil {
 		return err
 	}

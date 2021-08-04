@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -391,7 +390,7 @@ func TestProxyStatus(t *testing.T) {
 				cs := t.Clusters().Default()
 				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				err = ioutil.WriteFile(filename, dump, os.ModePerm)
+				err = os.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				args = []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
@@ -448,7 +447,7 @@ func TestXdsProxyStatus(t *testing.T) {
 				cs := t.Clusters().Default()
 				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				err = ioutil.WriteFile(filename, dump, os.ModePerm)
+				err = os.WriteFile(filename, dump, os.ModePerm)
 				g.Expect(err).ShouldNot(gomega.HaveOccurred())
 				args = []string{
 					"proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename,
@@ -530,6 +529,27 @@ func TestKubeInject(t *testing.T) {
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			if !strings.Contains(output, "istio-proxy") {
 				t.Fatal("istio-proxy has not been injected")
+			}
+		})
+}
+
+func TestRemoteClusters(t *testing.T) {
+	framework.NewTest(t).Features("usability.observability.remote-clusters").
+		RequiresMinClusters(2).
+		Run(func(t framework.TestContext) {
+			for _, cluster := range t.Clusters().Primaries() {
+				cluster := cluster
+				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
+					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: cluster})
+					var output string
+					args := []string{"x", "remote-clusters"}
+					output, _ = istioCtl.InvokeOrFail(t, args)
+					for _, otherName := range t.Clusters().Exclude(cluster).Names() {
+						if !strings.Contains(output, otherName) {
+							t.Fatalf("remote-clusters output did not contain %s; got:\n%s", otherName, output)
+						}
+					}
+				})
 			}
 		})
 }

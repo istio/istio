@@ -17,7 +17,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -30,6 +29,8 @@ import (
 	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
 )
+
+var installLog = log.RegisterScope("install", "CNI install", 0)
 
 type Installer struct {
 	cfg                *config.InstallConfig
@@ -54,18 +55,22 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 		if err = copyBinaries(
 			in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
 			in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
+			cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
 			return
 		}
 
 		if in.saToken, err = readServiceAccountToken(); err != nil {
+			cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
 			return
 		}
 
 		if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
+			cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
 			return
 		}
 
 		if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
+			cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
 			return
 		}
 
@@ -73,16 +78,16 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 			return
 		}
 		// Invalid config; pod set to "NotReady"
-		log.Info("Restarting...")
+		installLog.Info("Restarting...")
 	}
 }
 
 // Cleanup remove Istio CNI's config, kubeconfig file, and binaries.
 func (in *Installer) Cleanup() error {
-	log.Info("Cleaning up.")
+	installLog.Info("Cleaning up.")
 	if len(in.cniConfigFilepath) > 0 && file.Exists(in.cniConfigFilepath) {
 		if in.cfg.ChainedCNIPlugin {
-			log.Infof("Removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
+			installLog.Infof("Removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
 
 			// Read JSON from CNI config file
 			cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
@@ -113,7 +118,7 @@ func (in *Installer) Cleanup() error {
 				return err
 			}
 		} else {
-			log.Infof("Removing Istio CNI config file: %s", in.cniConfigFilepath)
+			installLog.Infof("Removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
 				return err
 			}
@@ -121,7 +126,7 @@ func (in *Installer) Cleanup() error {
 	}
 
 	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
-		log.Infof("Removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
+		installLog.Infof("Removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
 		if err := os.Remove(in.kubeconfigFilepath); err != nil {
 			return err
 		}
@@ -129,14 +134,8 @@ func (in *Installer) Cleanup() error {
 
 	for _, targetDir := range in.cfg.CNIBinTargetDirs {
 		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
-			log.Infof("Removing binary: %s", istioCNIBin)
+			installLog.Infof("Removing binary: %s", istioCNIBin)
 			if err := os.Remove(istioCNIBin); err != nil {
-				return err
-			}
-		}
-		if istioIptablesBin := filepath.Join(targetDir, "istio-iptables"); file.Exists(istioIptablesBin) {
-			log.Infof("Removing binary: %s", istioIptablesBin)
-			if err := os.Remove(istioIptablesBin); err != nil {
 				return err
 			}
 		}
@@ -150,7 +149,7 @@ func readServiceAccountToken() (string, error) {
 		return "", fmt.Errorf("service account token file %s does not exist. Is this not running within a pod?", saToken)
 	}
 
-	token, err := ioutil.ReadFile(saToken)
+	token, err := os.ReadFile(saToken)
 	if err != nil {
 		return "", err
 	}
@@ -176,7 +175,7 @@ func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfig
 	for {
 		if checkErr := checkInstall(cfg, cniConfigFilepath); checkErr != nil {
 			// Pod set to "NotReady" due to invalid configuration
-			log.Infof("Invalid configuration. %v", checkErr)
+			installLog.Infof("Invalid configuration. %v", checkErr)
 			return nil
 		}
 		// Check if file has been modified or if an error has occurred during checkInstall before setting isReady to true
@@ -190,6 +189,7 @@ func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfig
 		default:
 			// Valid configuration; set isReady to true and wait for modifications before checking again
 			SetReady(isReady)
+			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
 			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
 				// Pod set to "NotReady" before termination
 				return err
@@ -209,7 +209,7 @@ func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 		if len(cfg.CNIConfName) > 0 {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script
-			log.Warnf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)
+			installLog.Warnf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)
 		} else {
 			return fmt.Errorf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)
 		}

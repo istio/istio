@@ -17,13 +17,14 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/google/go-cmp/cmp"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,16 +78,16 @@ func TestGoldenConversion(t *testing.T) {
 			output := marshalYaml(t, ordered)
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
 			if util.Refresh() {
-				if err := ioutil.WriteFile(goldenFile, output, 0o644); err != nil {
+				if err := os.WriteFile(goldenFile, output, 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
-			expected, err := ioutil.ReadFile(goldenFile)
+			expected, err := os.ReadFile(goldenFile)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if string(output) != string(expected) {
-				t.Fatalf("expected %v, got %v", string(expected), string(output))
+			if diff := cmp.Diff(expected, output); diff != "" {
+				t.Fatalf("Diff:\n%s", diff)
 			}
 		})
 	}
@@ -115,7 +116,7 @@ func marshalYaml(t *testing.T, cl []config.Config) []byte {
 func readConfig(t *testing.T, filename string) ([]runtime.Object, error) {
 	t.Helper()
 
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}

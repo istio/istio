@@ -16,7 +16,7 @@ package env
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -83,7 +83,7 @@ func pubkeyHandler(w http.ResponseWriter, _ *http.Request) {
 // handle handles a request and sends response. If ?delay=n is in request URL, then sleeps for
 // n second and sends response.
 func (s *HTTPServer) handle(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

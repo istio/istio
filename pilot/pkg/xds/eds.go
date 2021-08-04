@@ -397,7 +397,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, push)
-		if marshalledEndpoint, token, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
+		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
 			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 			resources = append(resources, marshalledEndpoint)
 			cached++
@@ -416,13 +416,19 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 				Resource: util.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, token, resource)
+			eds.Server.Cache.Add(builder, req, resource)
 		}
 	}
 	return resources, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}, nil
+}
+
+func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	res, logs, err := eds.Generate(proxy, push, w, updates)
+	return res, nil, logs, false, err
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

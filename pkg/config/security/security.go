@@ -20,9 +20,11 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -180,4 +182,36 @@ func validateMapKey(key string) error {
 		return nil
 	}
 	return fmt.Errorf("bad key (%s): should have format a[b]", key)
+}
+
+// ValidCipherSuites contains a list of all ciphers supported in Gateway.server.tls.cipherSuites
+// Extracted from: `bssl ciphers -openssl-name ALL | rg -v PSK`
+var ValidCipherSuites = sets.NewSet(
+	"ECDHE-ECDSA-AES128-GCM-SHA256",
+	"ECDHE-RSA-AES128-GCM-SHA256",
+	"ECDHE-ECDSA-AES256-GCM-SHA384",
+	"ECDHE-RSA-AES256-GCM-SHA384",
+	"ECDHE-ECDSA-CHACHA20-POLY1305",
+	"ECDHE-RSA-CHACHA20-POLY1305",
+	"ECDHE-ECDSA-AES128-SHA",
+	"ECDHE-RSA-AES128-SHA",
+	"ECDHE-ECDSA-AES256-SHA",
+	"ECDHE-RSA-AES256-SHA",
+	"AES128-GCM-SHA256",
+	"AES256-GCM-SHA384",
+	"AES128-SHA",
+	"AES256-SHA",
+	"DES-CBC3-SHA",
+)
+
+func IsValidCipherSuite(cs string) bool {
+	if cs == "" || cs == "ALL" {
+		return true
+	}
+	if !unicode.IsNumber(rune(cs[0])) && !unicode.IsLetter(rune(cs[0])) {
+		// Not all of these are correct, but this is needed to support advanced cases like - and + operators
+		// without needing to parse the full expression
+		return true
+	}
+	return ValidCipherSuites.Contains(cs)
 }

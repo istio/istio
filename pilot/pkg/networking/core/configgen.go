@@ -15,16 +15,15 @@
 package core
 
 import (
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
-	nds "istio.io/istio/pilot/pkg/proto"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
@@ -35,13 +34,18 @@ type ConfigGenerator interface {
 	BuildListeners(node *model.Proxy, push *model.PushContext) []*listener.Listener
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters(node *model.Proxy, push *model.PushContext) []*cluster.Cluster
+	BuildClusters(node *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails)
+
+	// BuildDeltaClusters returns both a list of resources that need to be pushed for a given proxy and a list of resources
+	// that have been deleted and should be removed from a given proxy. This is Delta CDS output.
+	BuildDeltaClusters(node *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+		watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
-	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*route.RouteConfiguration
+	BuildHTTPRoutes(node *model.Proxy, req *model.PushRequest, routeNames []string) ([]*discovery.Resource, model.XdsLogDetails)
 
 	// BuildNameTable returns list of hostnames and the associated IPs
-	BuildNameTable(node *model.Proxy, push *model.PushContext) *nds.NameTable
+	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 
 	// BuildExtensionConfiguration returns the list of extension configuration for the given proxy and list of names. This is the ECDS output.
 	BuildExtensionConfiguration(node *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig

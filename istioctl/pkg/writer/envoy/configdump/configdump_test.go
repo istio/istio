@@ -16,7 +16,7 @@ package configdump
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,7 +41,7 @@ func TestConfigWriter_Prime(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cw := &ConfigWriter{}
-			cd, _ := ioutil.ReadFile(tt.inputFile)
+			cd, _ := os.ReadFile(tt.inputFile)
 			err := cw.Prime(cd)
 			if cw.configDump == nil {
 				if tt.wantConfigs != 0 {
@@ -81,7 +81,7 @@ func TestConfigWriter_PrintBootstrapDump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotOut := &bytes.Buffer{}
 			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
+			cd, _ := os.ReadFile("testdata/configdump.json")
 			if tt.callPrime {
 				cw.Prime(cd)
 			}
@@ -119,7 +119,7 @@ func TestConfigWriter_PrintVersionSummary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotOut := &bytes.Buffer{}
 			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
+			cd, _ := os.ReadFile("testdata/configdump.json")
 			if tt.callPrime {
 				cw.Prime(cd)
 			}

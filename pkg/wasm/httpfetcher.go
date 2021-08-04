@@ -16,7 +16,7 @@ package wasm
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -59,13 +59,13 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			defer resp.Body.Close()
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			return body, err
 		}
 		lastError = fmt.Errorf("wasm module download request failed: status code %v", resp.StatusCode)
 		if retryable(resp.StatusCode) {
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, _ := io.ReadAll(resp.Body)
 			wasmLog.Debugf("wasm module download failed: status code %v, body %v", resp.StatusCode, string(body))
 			resp.Body.Close()
 			time.Sleep(b.NextBackOff())
@@ -78,5 +78,8 @@ func (f *HTTPFetcher) Fetch(url string, timeout time.Duration) ([]byte, error) {
 }
 
 func retryable(code int) bool {
-	return code >= 500 && !(code == 501 || code == 505 || code == 511)
+	return code >= 500 &&
+		!(code == http.StatusNotImplemented ||
+			code == http.StatusHTTPVersionNotSupported ||
+			code == http.StatusNetworkAuthenticationRequired)
 }

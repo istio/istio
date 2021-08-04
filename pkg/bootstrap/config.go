@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -637,7 +636,7 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 }
 
 func readPodLabels() (map[string]string, error) {
-	b, err := ioutil.ReadFile(constants.PodInfoLabelsPath)
+	b, err := os.ReadFile(constants.PodInfoLabelsPath)
 	if err != nil {
 		return nil, err
 	}
@@ -648,14 +647,14 @@ func ReadPodAnnotations(path string) (map[string]string, error) {
 	if path == "" {
 		path = constants.PodInfoAnnotationsPath
 	}
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDownwardAPI(string(b))
 }
 
-// Fields are stored as format `%s=%q`, we will parse this back to a map
+// ParseDownwardAPI parses fields which are stored as format `%s=%q` back to a map
 func ParseDownwardAPI(i string) (map[string]string, error) {
 	res := map[string]string{}
 	for _, line := range strings.Split(i, "\n") {

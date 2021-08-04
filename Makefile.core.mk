@@ -19,10 +19,10 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-export VERSION ?= 1.11-dev
+export VERSION ?= 1.12-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.11-dev.3
+BASE_VERSION ?= 1.12-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -210,6 +210,7 @@ ifeq ($(PULL_POLICY),)
 endif
 
 include operator/operator.mk
+include pkg/dns/proto/nds.mk
 
 .PHONY: default
 default: init build test
@@ -348,6 +349,7 @@ refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/...
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pkg/kube/inject/...
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./pilot/pkg/security/authz/builder/...
+	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./cni/pkg/plugin/...
 
 update-golden: refresh-goldens
 
@@ -355,24 +357,60 @@ update-golden: refresh-goldens
 gen-charts:
 	@echo "This target is no longer required and will be removed in the future"
 
-gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto copy-templates gen-kustomize update-golden ## Update all generated code.
+gen: \
+	mod-download-go \
+	go-gen \
+	mirror-licenses \
+	format \
+	update-crds \
+	operator-proto \
+	gen-nds-proto \
+	copy-templates \
+	gen-kustomize \
+	update-golden ## Update all generated code.
 
 gen-check: gen check-clean-repo
 
 copy-templates:
+	# gateway charts
 	rm -r manifests/charts/gateways/istio-egress/templates
 	mkdir manifests/charts/gateways/istio-egress/templates
 	cp -r manifests/charts/gateways/istio-ingress/templates/* manifests/charts/gateways/istio-egress/templates
 	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/ingress/egress/g' {} \;
 	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
 
+	# external istiod remote cluster charts
+	cp manifests/charts/base/templates/reader-serviceaccount.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/mutatingwebhook.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrole.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/reader-clusterrolebinding.yaml manifests/charts/istiod-remote/templates
+
+	# external istiod config cluster charts
+	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files
+	cp manifests/charts/istio-control/istio-discovery/files/gateway-injection-template.yaml manifests/charts/istiod-remote/files
+	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates
+	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-operator.yaml > manifests/charts/istiod-remote/templates/crd-operator.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml > manifests/charts/istiod-remote/templates/validatingwebhookconfiguration.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/serviceaccount.yaml > manifests/charts/istiod-remote/templates/serviceaccount.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/role.yaml > manifests/charts/istiod-remote/templates/role.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/rolebinding.yaml > manifests/charts/istiod-remote/templates/rolebinding.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/clusterrole.yaml > manifests/charts/istiod-remote/templates/clusterrole.yaml
+	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/clusterrolebinding.yaml > manifests/charts/istiod-remote/templates/clusterrolebinding.yaml
+	# copy istio-discovery values, but apply some local customizations
+	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
+	yq w manifests/charts/istiod-remote/values.yaml telemetry.enabled false -i
+	yq w manifests/charts/istiod-remote/values.yaml global.externalIstiod true -i
+	yq w manifests/charts/istiod-remote/values.yaml global.omitSidecarInjectorConfigMap true -i
+	yq w manifests/charts/istiod-remote/values.yaml pilot.configMap false -i
 
 # Generate kustomize templates.
 gen-kustomize:
 	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
 	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		> manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
-	helm3 template operator --namespace istio-system manifests/charts/istio-operator \
+	helm3 template operator --namespace istio-operator manifests/charts/istio-operator \
 		--set hub=gcr.io/istio-testing --set tag=${VERSION} > manifests/charts/istio-operator/files/gen-operator.yaml
 
 #-----------------------------------------------------------------------------
@@ -394,13 +432,11 @@ ${ISTIO_OUT}/release/istioctl-win.exe: depend
 	GOOS=windows LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $@ ./istioctl/cmd/istioctl
 
 # generate the istioctl completion files
-${ISTIO_OUT}/release/istioctl.bash: istioctl
-	${LOCAL_OUT}/istioctl collateral --bash && \
-	mv istioctl.bash ${ISTIO_OUT}/release/istioctl.bash
+${ISTIO_OUT}/release/istioctl.bash: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion bash > ${ISTIO_OUT}/release/istioctl.bash
 
-${ISTIO_OUT}/release/_istioctl: istioctl
-	${LOCAL_OUT}/istioctl collateral --zsh && \
-	mv _istioctl ${ISTIO_OUT}/release/_istioctl
+${ISTIO_OUT}/release/_istioctl: ${LOCAL_OUT}/istioctl
+	${LOCAL_OUT}/istioctl completion zsh > ${ISTIO_OUT}/release/_istioctl
 
 .PHONY: binaries-test
 binaries-test:

@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"reflect"
 	"sort"
 	"testing"
 
@@ -655,6 +656,13 @@ func runNetworkFilterTest(t *testing.T, env *model.Environment, tests []networkF
 						t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
 					}
 				}
+			}
+
+			b2 := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", tt.conn.proxy, push)
+			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
+			if !reflect.DeepEqual(filtered2, filtered) {
+				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic")
 			}
 		})
 	}

@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"errors"
-	goflag "flag"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -26,7 +25,6 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
 
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
@@ -157,6 +155,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceAll,
 		"Config namespace")
 
+	_ = rootCmd.RegisterFlagCompletionFunc("istioNamespace", validNamespaceArgs)
+	_ = rootCmd.RegisterFlagCompletionFunc("namespace", validNamespaceArgs)
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 	hiddenFlags := []string{
@@ -261,7 +262,12 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(bugReportCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(bugReportCmd)
 
+	tagCmd := tagCommand()
+	hideInheritedFlags(tagCommand(), "namespace", "istioNamespace", "charts")
+	rootCmd.AddCommand(tagCmd)
+
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
+	experimentalCmd.AddCommand(clustersCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -314,30 +320,8 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
 		return err
 	}
-	// --vklog is non zero then KlogScope should be increased.
-	// klog is a special case.
-	if klogVerbose() {
-		log.KlogScope.SetOutputLevel(log.DebugLevel)
-	}
 	defaultNamespace = getDefaultNamespace(kubeconfig)
 	return nil
-}
-
-// isKlogVerbose returns true if klog verbosity is non-zero.
-// TODO move to istio.io/pkg/log
-func klogVerbose() bool {
-	gf := KlogVerboseFlag()
-	return gf.Value.String() != "0"
-}
-
-// KlogVerboseFlag returns verbose flag from the klog library.
-// After parsing it contains the parsed verbosity value.
-// TODO move to istio.io/pkg/log
-func KlogVerboseFlag() *goflag.Flag {
-	fs := &goflag.FlagSet{}
-	klog.InitFlags(fs)
-	// --v= flag of klog.
-	return fs.Lookup("v")
 }
 
 func getDefaultNamespace(kubeconfig string) string {

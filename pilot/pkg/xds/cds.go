@@ -15,10 +15,7 @@
 package xds
 
 import (
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -72,17 +69,20 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !cdsNeedsPush(req, proxy) {
+	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	if !cdsNeedsPush(updates, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)
-	resources := model.Resources{}
-	for _, c := range rawClusters {
-		resources = append(resources, &discovery.Resource{
-			Name:     c.Name,
-			Resource: util.MessageToAny(c),
-		})
+	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, updates)
+	return clusters, logs, nil
+}
+
+// GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
+func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
+	if !cdsNeedsPush(updates, proxy) {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
-	return resources, model.DefaultXdsLogDetails, nil
+	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, push, updates, w)
+	return updatedClusters, removedClusters, logs, usedDelta, nil
 }

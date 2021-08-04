@@ -288,7 +288,7 @@ var (
 			ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateTelemetry,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -321,7 +321,7 @@ var (
 		Resource: resource.Builder{
 			Group:         "apiextensions.k8s.io",
 			Kind:          "CustomResourceDefinition",
-			Plural:        "CustomResourceDefinitions",
+			Plural:        "customresourcedefinitions",
 			Version:       "v1",
 			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition",
 			ReflectType:   reflect.TypeOf(&k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition{}).Elem(),
@@ -832,7 +832,7 @@ var (
 			ReflectType: reflect.TypeOf(&istioioapitelemetryv1alpha1.Telemetry{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 			ProtoPackage: "istio.io/api/telemetry/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateProto: validation.ValidateTelemetry,
 		}.MustBuild(),
 	}.MustBuild()
 

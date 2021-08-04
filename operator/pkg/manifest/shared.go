@@ -17,7 +17,6 @@ package manifest
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,6 +211,9 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	if ns := GetValueForSetFlag(setFlags, "values.global.istioNamespace"); ns != "" {
 		finalIOP.Namespace = ns
 	}
+	if finalIOP.Spec.Profile == "" {
+		finalIOP.Spec.Profile = name.DefaultProfileName
+	}
 	return util.ToYAMLWithJSONPB(finalIOP), finalIOP, nil
 }
 
@@ -279,9 +281,9 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 				continue
 			}
 			stdin = true
-			b, err = ioutil.ReadAll(stdinReader)
+			b, err = io.ReadAll(stdinReader)
 		} else {
-			b, err = ioutil.ReadFile(strings.TrimSpace(fn))
+			b, err = os.ReadFile(strings.TrimSpace(fn))
 		}
 		if err != nil {
 			return "", err

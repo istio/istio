@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -219,7 +218,7 @@ spec:
 {{- end }}
         ports:
 {{- range $i, $p := $.ContainerPorts }}
-        - containerPort: {{ $p.Port }} 
+        - containerPort: {{ $p.Port }}
 {{- if eq .Port 3333 }}
           name: tcp-health-port
 {{- end }}
@@ -229,10 +228,23 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+{{- if $.ProxylessGRPC }}
+        - name: EXPOSE_GRPC_ADMIN
+          value: "true"
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "99"
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: info
+{{- end }}
         readinessProbe:
+{{- if $.ReadinessTCPPort }}
+          tcpSocket:
+            port: {{ $.ReadinessTCPPort }}
+{{- else }}
           httpGet:
             path: /
             port: 8080
+{{- end }}
           initialDelaySeconds: 1
           periodSeconds: 2
           failureThreshold: 10
@@ -515,17 +527,23 @@ func (d *deployment) Restart() error {
 		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
 	}
 	for _, deploymentName := range deploymentNames {
-		rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment/%s -n %s",
-			deploymentName, d.cfg.Namespace.Name())
-		_, err := shell.Execute(true, rolloutCmd)
-		errs = multierror.Append(errs, err).ErrorOrNil()
-		if err != nil {
+		wlType := "deployment"
+		if d.cfg.IsStatefulSet() {
+			wlType = "statefulset"
+		}
+		rolloutCmd := fmt.Sprintf("kubectl rollout restart %s/%s -n %s",
+			wlType, deploymentName, d.cfg.Namespace.Name())
+		if _, err := shell.Execute(true, rolloutCmd); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to rollout restart %v/%v: %v",
+				d.cfg.Namespace.Name(), deploymentName, err))
 			continue
 		}
-		waitCmd := fmt.Sprintf("kubectl rollout status deployment/%s -n %s",
-			deploymentName, d.cfg.Namespace.Name())
-		_, err = shell.Execute(true, waitCmd)
-		errs = multierror.Append(errs, err).ErrorOrNil()
+		waitCmd := fmt.Sprintf("kubectl rollout status %s/%s -n %s",
+			wlType, deploymentName, d.cfg.Namespace.Name())
+		if _, err := shell.Execute(true, waitCmd); err != nil {
+			errs = multierror.Append(errs, fmt.Errorf("failed to wait rollout status for %v/%v: %v",
+				d.cfg.Namespace.Name(), deploymentName, err))
+		}
 	}
 	return errs
 }
@@ -653,6 +671,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Version":            cfg.Version,
 		"Headless":           cfg.Headless,
 		"StatefulSet":        cfg.StatefulSet,
+		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
 		"Locality":           cfg.Locality,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"Ports":              cfg.Ports,
@@ -664,6 +683,7 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Cluster":            cfg.Cluster.Name(),
 		"Namespace":          namespace,
 		"ImagePullSecret":    imagePullSecret,
+		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
@@ -744,7 +764,7 @@ spec:
 		}
 	}
 
-	if err := ioutil.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0o600); err != nil {
+	if err := os.WriteFile(path.Join(dir, "workloadgroup.yaml"), []byte(wg), 0o600); err != nil {
 		return err
 	}
 
@@ -760,7 +780,7 @@ spec:
 
 	var subsetDir string
 	for _, subset := range cfg.Subsets {
-		subsetDir, err = ioutil.TempDir(dir, subset.Version+"-")
+		subsetDir, err = os.MkdirTemp(dir, subset.Version+"-")
 		if err != nil {
 			return err
 		}
@@ -804,7 +824,7 @@ spec:
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
 		for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
-			cmData[file], err = ioutil.ReadFile(path.Join(subsetDir, file))
+			cmData[file], err = os.ReadFile(path.Join(subsetDir, file))
 			if err != nil {
 				return err
 			}
@@ -818,7 +838,7 @@ spec:
 	}
 
 	// push the generated token as a Secret (only need one, they should be identical)
-	token, err := ioutil.ReadFile(path.Join(subsetDir, "istio-token"))
+	token, err := os.ReadFile(path.Join(subsetDir, "istio-token"))
 	if err != nil {
 		return err
 	}
@@ -877,11 +897,11 @@ func patchProxyConfigFile(file string, overrides string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(file, []byte(outYAML), 0o744)
+	return os.WriteFile(file, []byte(outYAML), 0o744)
 }
 
 func readMeshConfig(file string) (*meshconfig.MeshConfig, error) {
-	baseYAML, err := ioutil.ReadFile(file)
+	baseYAML, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}

@@ -19,8 +19,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -80,7 +80,7 @@ func getEchoNamespaceInstance() namespace.Instance {
 }
 
 func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDomain string) error {
-	templateFile, err := ioutil.ReadFile(file)
+	templateFile, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	templateBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, stackdriverBootstrapOverride))
+	templateBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, stackdriverBootstrapOverride))
 	if err != nil {
 		return
 	}

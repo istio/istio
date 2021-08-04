@@ -22,6 +22,7 @@ spec:
           concurrency: 0
           proxyMetadata:
             FOO: bar
+            ISTIO_META_TLS_CLIENT_KEY: /etc/identity2/client/keys/client-key.pem
       labels:
         app: traffic
     spec:

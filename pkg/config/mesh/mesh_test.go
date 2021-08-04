@@ -164,8 +164,8 @@ defaultConfig:
 	if len(got.DefaultProviders.GetMetrics()) != 0 {
 		t.Errorf("default providers deep merge failed, got %v", got.DefaultProviders.GetMetrics())
 	}
-	if len(got.ExtensionProviders) != 1 {
-		t.Errorf("extension providers deep merge failed, got %v", got.ExtensionProviders)
+	if len(got.ExtensionProviders) != 2 {
+		t.Errorf("extension providers deep merge failed")
 	}
 
 	gotY, err := gogoprotomarshal.ToYAML(got)

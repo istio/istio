@@ -78,12 +78,15 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	}
 
 	// TODO: Call authorizer.
-
+	crMetadata := request.Metadata.GetFields()
+	certSigner := crMetadata[security.CertSigner].GetStringValue()
+	log.Debugf("cert signer from workload %s", certSigner)
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	certOpts := ca.CertOpts{
 		SubjectIDs: caller.Identities,
 		TTL:        time.Duration(request.ValidityDuration) * time.Second,
 		ForCA:      false,
+		CertSigner: certSigner,
 	}
 	cert, signErr := s.ca.Sign([]byte(request.Csr), certOpts)
 	if signErr != nil {
@@ -94,6 +97,20 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	respCertChain := []string{string(cert)}
 	if len(certChainBytes) != 0 {
 		respCertChain = append(respCertChain, string(certChainBytes))
+	}
+	if len(rootCertBytes) == 0 {
+		rootCert, err := util.FindRootCertFromCertificateChainBytes(cert)
+		if err != nil {
+			serverCaLog.Errorf("failed to find root cert from signed cert-chain (%v)", err.Error())
+			s.monitoring.GetCertSignError(err.(*caerror.Error).ErrorType()).Increment()
+			return nil, status.Errorf(err.(*caerror.Error).HTTPErrorCode(), "failed to find root cert from signed cert-chain (%v)", err.(*caerror.Error))
+		}
+		if verifyErr := util.VerifyCertificate(nil, cert, rootCert, nil); verifyErr != nil {
+			serverCaLog.Errorf("root cert from signed cert-chain is invalid (%v)", err.Error())
+			s.monitoring.GetCertSignError(err.(*caerror.Error).ErrorType()).Increment()
+			return nil, status.Errorf(err.(*caerror.Error).HTTPErrorCode(), "root cert from signed cert-chain is invalid (%v)", err.(*caerror.Error))
+		}
+		rootCertBytes = rootCert
 	}
 	respCertChain = append(respCertChain, string(rootCertBytes))
 	response := &pb.IstioCertificateResponse{

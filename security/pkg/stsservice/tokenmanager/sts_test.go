@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -79,7 +79,7 @@ func TestStsCache(t *testing.T) {
 			t.Errorf("response HTTP status code does not match, get %d vs expected %d",
 				resp.StatusCode, http.StatusOK)
 		}
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		respStsParam := &stsservice.StsResponseParameters{}
 		json.Unmarshal(body, respStsParam)
 		if i == 0 {
@@ -173,7 +173,7 @@ func verifyDumpResponse(t *testing.T, resp *http.Response, oldFTime, oldATime ti
 	}
 
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	tokenDump := &stsservice.TokensDump{}
 	if err := json.Unmarshal(body, tokenDump); err != nil {
 		t.Errorf("failed to unmarshal status dump response: %v", err)
@@ -206,7 +206,7 @@ func verifyStsResponse(t *testing.T, resp *http.Response) {
 			ctVal)
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	respStsParam := &stsservice.StsResponseParameters{}
 	if err := json.Unmarshal(body, respStsParam); err != nil {
 		t.Errorf("failed to unmarshal STS success response: %v", err)

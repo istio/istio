@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,7 +76,7 @@ func setEnv(key, value string, t *testing.T) {
 
 func mktemp(dir, prefix string, t *testing.T) string {
 	t.Helper()
-	tempDir, err := ioutil.TempDir(dir, prefix)
+	tempDir, err := os.MkdirTemp(dir, prefix)
 	if err != nil {
 		t.Fatalf("Couldn't get current working directory, err: %v", err)
 	}
@@ -86,7 +85,7 @@ func mktemp(dir, prefix string, t *testing.T) string {
 }
 
 func ls(dir string, t *testing.T) []string {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	t.Helper()
 	if err != nil {
 		t.Fatalf("Failed to list files, err: %v", err)
@@ -100,11 +99,11 @@ func ls(dir string, t *testing.T) []string {
 
 func cp(src, dest string, t *testing.T) {
 	t.Helper()
-	data, err := ioutil.ReadFile(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		t.Fatalf("Failed to read file %v, err: %v", src, err)
 	}
-	if err = ioutil.WriteFile(dest, data, os.FileMode(defaultFileMode)); err != nil {
+	if err = os.WriteFile(dest, data, os.FileMode(defaultFileMode)); err != nil {
 		t.Fatalf("Failed to write file %v, err: %v", dest, err)
 	}
 }
@@ -179,6 +178,7 @@ func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
 	constants.CNIBinDir = filepath.Join(env.IstioSrc, "cni/test/testdata/bindir")
 	root.SetArgs([]string{
 		"--mounted-cni-net-dir", tempCNIConfDir,
+		"--ctrlz_port", "0",
 	})
 	os.Setenv("KUBERNETES_SERVICE_PORT", "443")
 	os.Setenv("KUBERNETES_SERVICE_HOST", "10.110.0.1")
@@ -199,11 +199,11 @@ func runInstall(ctx context.Context, tempCNIConfDir, tempCNIBinDir,
 
 // checkResult checks if resultFile is equal to expectedFile at each tick until timeout
 func checkResult(result, expected string) error {
-	resultFile, err := ioutil.ReadFile(result)
+	resultFile, err := os.ReadFile(result)
 	if err != nil {
 		return fmt.Errorf("couldn't read result: %v", err)
 	}
-	expectedFile, err := ioutil.ReadFile(expected)
+	expectedFile, err := os.ReadFile(expected)
 	if err != nil {
 		return fmt.Errorf("couldn't read expected: %v", err)
 	}
@@ -244,7 +244,7 @@ func checkBinDir(t *testing.T, tempCNIBinDir, op string, files ...string) {
 // checkTempFilesCleaned verifies that all temporary files have been cleaned up
 func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
 	t.Helper()
-	files, err := ioutil.ReadDir(tempCNIConfDir)
+	files, err := os.ReadDir(tempCNIConfDir)
 	if err != nil {
 		t.Fatalf("Failed to list files, err: %v", err)
 	}
@@ -271,8 +271,9 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	}
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
-	// disable monitoring
+	// disable monitoring & uds logging
 	viper.Set(constants.MonitoringPort, 0)
+	viper.Set(constants.LogUDSAddress, "")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
@@ -305,7 +306,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 	}
 
 	compareConfResult(resultFile, expectedOutputFile, t)
-	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
+	checkBinDir(t, tempCNIBinDir, "add", "istio-cni")
 
 	// Test script restart by removing configuration
 	if chainedCNIPlugin {
@@ -333,7 +334,7 @@ func doTest(t *testing.T, chainedCNIPlugin bool, wd, preConfFile, resultFileName
 			t.Logf("FAIL: Istio CNI config file was not removed: %s", resultFile)
 		}
 	}
-	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
+	checkBinDir(t, tempCNIBinDir, "del", "istio-cni")
 	checkTempFilesCleaned(tempCNIConfDir, t)
 }
 

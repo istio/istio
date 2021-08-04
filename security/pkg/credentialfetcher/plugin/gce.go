@@ -13,11 +13,12 @@
 // limitations under the License.
 
 // This is Google plugin of credentialfetcher.
+
 package plugin
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -46,7 +47,7 @@ func SetTokenRotation(enable bool) {
 	rotateToken = enable
 }
 
-// The plugin object.
+// GCEPlugin is the plugin object.
 type GCEPlugin struct {
 	// aud is the unique URI agreed upon by both the instance and the system verifying the instance's identity.
 	// For more info: https://cloud.google.com/compute/docs/instances/verifying-instance-identity
@@ -147,7 +148,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 	p.tokenCache = token
 	gcecredLog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
-	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0o640)
+	err = os.WriteFile(p.jwtPath, tokenbytes, 0o640)
 	if err != nil {
 		gcecredLog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err
@@ -161,7 +162,7 @@ func (p *GCEPlugin) GetType() string {
 }
 
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
-// GCE idenity provider is named "GoogleComputeEngine".
+// GCE identity provider is named "GoogleComputeEngine".
 func (p *GCEPlugin) GetIdentityProvider() string {
 	return p.identityProvider
 }

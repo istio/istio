@@ -15,14 +15,20 @@
 package v1alpha3
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"math"
+	"sort"
+	"strconv"
+	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -40,6 +46,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
@@ -82,14 +89,16 @@ type MutableCluster struct {
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
 	proxy *model.Proxy
-	push  *model.PushContext
+	req   *model.PushRequest
+	cache model.XdsCache
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
-func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuilder {
+func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	return &ClusterBuilder{
 		proxy: proxy,
-		push:  push,
+		req:   req,
+		cache: cache,
 	}
 }
 
@@ -102,7 +111,7 @@ func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
 
 func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
 	proxyNetworkView map[network.ID]bool) *cluster.Cluster {
-	opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
@@ -121,10 +130,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 		clusterType = cluster.Cluster_ORIGINAL_DST
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
-		if len(subset.Labels) != 0 {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, []labels.Instance{subset.Labels})
-		} else {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, nil)
+		lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, opts.port.Port, []labels.Instance{subset.Labels})
+		if len(lbEndpoints) == 0 {
+			log.Debugf("locality endpoints missing for cluster %s", subsetClusterName)
 		}
 	}
 
@@ -133,8 +141,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 		return nil
 	}
 
-	if len(cb.push.Mesh.OutboundClusterStatName) != 0 {
-		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.OutboundClusterStatName,
+	if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
+		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
 			string(service.Hostname), subset.Name, opts.port, service.Attributes)
 	}
 
@@ -158,29 +166,29 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
-	proxyNetworkView map[network.ID]bool) []*cluster.Cluster {
-	destRule := cb.push.DestinationRule(cb.proxy, service)
-	destinationRule := castDestinationRule(destRule)
+func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
+	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config) []*cluster.Cluster {
+	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
-		mesh:        cb.push.Mesh,
+		mesh:        cb.req.Push.Mesh,
 		mutable:     mc,
 		policy:      trafficPolicy,
 		port:        port,
 		clusterMode: clusterMode,
 		direction:   model.TrafficDirectionOutbound,
 		proxy:       cb.proxy,
+		cache:       cb.cache,
 	}
 
 	if clusterMode == DefaultClusterMode {
-		opts.serviceAccounts = cb.push.ServiceAccounts[service.Hostname][port.Port]
+		opts.serviceAccounts = cb.req.Push.ServiceAccounts[service.Hostname][port.Port]
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 		opts.simpleTLSSni = string(service.Hostname)
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
 	}
 	// Apply traffic policy for the main default cluster.
 	cb.applyTrafficPolicy(opts)
@@ -266,13 +274,13 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
 		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
+		dnsRate := gogo.DurationToProtoDuration(cb.req.Push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
-			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
+			cb.req.Push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy.ID,
 				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
 			return nil
 		}
@@ -285,7 +293,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
-		mesh:            cb.push.Mesh,
+		mesh:            cb.req.Push.Mesh,
 		mutable:         ec,
 		policy:          nil,
 		port:            port,
@@ -294,6 +302,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 		clusterMode:     DefaultClusterMode,
 		direction:       direction,
 		proxy:           cb.proxy,
+		cache:           cb.cache,
 	}
 	// decides whether the cluster corresponds to a service external to mesh or not.
 	if direction == model.TrafficDirectionInbound {
@@ -308,6 +317,94 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	addTelemetryMetadata(opts, service, direction, allInstances)
 	addNetworkingMetadata(opts, service, direction)
 	return ec
+}
+
+type clusterCache struct {
+	clusterName string
+
+	// proxy metadata
+	//
+	// proxyVersion is will be matched by envoyfilter patches
+	proxyVersion string
+	// locality identifies the locality the cluster is generated for
+	locality *core.Locality
+	// proxyClusterID identifies the cluster a proxy is in. Note cluster here refers to Kubernetes cluster, not Envoy cluster
+	proxyClusterID string
+	// proxySidecar identifies if this proxy is a Sidecar
+	proxySidecar bool
+	networkView  map[network.ID]bool
+
+	// service attributes
+	//
+	// http2 identifies if the cluster is for an http2 service
+	http2          bool
+	downstreamAuto bool
+
+	// Dependent configs
+	//
+	service         *model.Service
+	destinationRule *config.Config
+	envoyFilterKeys []string
+
+	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
+	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
+	// Hypothetically we could get smarter and determine the exact set of all configs we use and their versions,
+	// which we probably will need for proper delta XDS, but for now this is sufficient.
+	pushVersion string
+}
+
+func (t *clusterCache) Key() string {
+	params := []string{
+		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
+		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
+		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
+		t.pushVersion,
+	}
+	if t.networkView != nil {
+		nv := make([]string, 0, len(t.networkView))
+		for nw := range t.networkView {
+			nv = append(nv, string(nw))
+		}
+		sort.Strings(nv)
+		params = append(params, nv...)
+	}
+	if t.service != nil {
+		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
+	}
+	if t.destinationRule != nil {
+		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
+	}
+	params = append(params, t.envoyFilterKeys...)
+
+	hash := md5.New()
+	for _, param := range params {
+		hash.Write([]byte(param))
+	}
+	sum := hash.Sum(nil)
+	return hex.EncodeToString(sum)
+}
+
+func (t clusterCache) DependentConfigs() []model.ConfigKey {
+	configs := []model.ConfigKey{}
+	if t.destinationRule != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
+	}
+	if t.service != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+	}
+	for _, efKey := range t.envoyFilterKeys {
+		items := strings.Split(efKey, "/")
+		configs = append(configs, model.ConfigKey{Kind: gvk.EnvoyFilter, Name: items[1], Namespace: items[0]})
+	}
+	return configs
+}
+
+func (t *clusterCache) DependentTypes() []config.GroupVersionKind {
+	return nil
+}
+
+func (t clusterCache) Cacheable() bool {
+	return true
 }
 
 // buildInboundClusterForPortOrUDS constructs a single inbound listener. The cluster will be bound to
@@ -334,13 +431,13 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 		localCluster.cluster.CleanupInterval = &duration.Duration{Seconds: 60}
 	}
 	// If stat name is configured, build the alt statname.
-	if len(cb.push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.push.Mesh.InboundClusterStatName,
+	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
+		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
 
 	opts := buildClusterOpts{
-		mesh:            cb.push.Mesh,
+		mesh:            cb.req.Push.Mesh,
 		mutable:         localCluster,
 		policy:          nil,
 		port:            instance.ServicePort,
@@ -355,7 +452,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// (not the defaults) to handle the increased traffic volume
 	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := cb.push.DestinationRule(cb.proxy, instance.Service)
+	cfg := cb.req.Push.DestinationRule(cb.proxy, instance.Service)
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
@@ -386,11 +483,11 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 		return nil
 	}
 
-	instances := cb.push.ServiceInstancesByPort(service, port, labels)
+	instances := cb.req.Push.ServiceInstancesByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := cb.push.IsClusterLocal(service)
+	isClusterLocal := cb.req.Push.IsClusterLocal(service)
 
 	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
@@ -427,8 +524,15 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 	}
 
 	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
-
-	for locality, eps := range lbEndpoints {
+	locs := make([]string, 0, len(lbEndpoints))
+	for k := range lbEndpoints {
+		locs = append(locs, k)
+	}
+	if len(locs) >= 2 {
+		sort.Strings(locs)
+	}
+	for _, locality := range locs {
+		eps := lbEndpoints[locality]
 		var weight uint32
 		var overflowStatus bool
 		for _, ep := range eps {
@@ -498,7 +602,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
+		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	return c
@@ -510,14 +614,14 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
+		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 	}
 	cluster.TypedExtensionProtocolOptions = map[string]*any.Any{
 		v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
-	cb.applyConnectionPool(cb.push.Mesh, NewMutableCluster(cluster), passthroughSettings)
+	cb.applyConnectionPool(cb.req.Push.Mesh, NewMutableCluster(cluster), passthroughSettings)
 	return cluster
 }
 
@@ -613,8 +717,8 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
 	defaultConnectTimeout := &types.Duration{
-		Seconds: cb.push.Mesh.ConnectTimeout.Seconds,
-		Nanos:   cb.push.Mesh.ConnectTimeout.Nanos,
+		Seconds: cb.req.Push.Mesh.ConnectTimeout.Seconds,
+		Nanos:   cb.req.Push.Mesh.ConnectTimeout.Nanos,
 	}
 	cluster.ConnectTimeout = gogo.DurationToProtoDuration(defaultConnectTimeout)
 }
@@ -912,21 +1016,44 @@ func (cb *ClusterBuilder) setUpstreamProtocol(node *model.Proxy, mc *MutableClus
 
 // normalizeClusters normalizes clusters to avoid duplicate clusters. This should be called
 // at the end before adding the cluster to list of clusters.
-func (cb *ClusterBuilder) normalizeClusters(clusters []*cluster.Cluster) []*cluster.Cluster {
+func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*discovery.Resource {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 	// for any clusters that share the same name the first cluster is kept and the others are discarded.
 	have := sets.Set{}
-	out := make([]*cluster.Cluster, 0, len(clusters))
+	out := make([]*discovery.Resource, 0, len(clusters))
 	for _, c := range clusters {
 		if !have.Contains(c.Name) {
 			out = append(out, c)
 		} else {
-			cb.push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxy.ID,
+			cb.req.Push.AddMetric(model.DuplicatedClusters, c.Name, cb.proxy.ID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", c.Name))
 		}
 		have.Insert(c.Name)
 	}
 	return out
+}
+
+// getAllCachedSubsetClusters either fetches all cached clusters for a given key (there may be multiple due to subsets)
+// and returns them along with allFound=True, or returns allFound=False indicating a cache miss. In either case,
+// the cache tokens are returned to allow future writes to the cache.
+// This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
+// as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
+func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, bool) {
+	destinationRule := CastDestinationRule(clusterKey.destinationRule)
+	res := make([]*discovery.Resource, 0, 1+len(destinationRule.GetSubsets()))
+	cachedCluster, f := cb.cache.Get(&clusterKey)
+	allFound := f
+	res = append(res, cachedCluster)
+	dir, _, host, port := model.ParseSubsetKey(clusterKey.clusterName)
+	for _, ss := range destinationRule.GetSubsets() {
+		clusterKey.clusterName = model.BuildSubsetKey(dir, ss.Name, host, port)
+		cachedCluster, f := cb.cache.Get(&clusterKey)
+		if !f {
+			allFound = false
+		}
+		res = append(res, cachedCluster)
+	}
+	return res, allFound
 }
 
 // build does any final build operations needed, like marshaling etc.
@@ -952,9 +1079,9 @@ func (mc *MutableCluster) build() *cluster.Cluster {
 	return mc.cluster
 }
 
-// castDestinationRule returns the destination rule enclosed by the config, if not null.
+// CastDestinationRule returns the destination rule enclosed by the config, if not null.
 // Otherwise, return nil.
-func castDestinationRule(config *config.Config) *networking.DestinationRule {
+func CastDestinationRule(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}

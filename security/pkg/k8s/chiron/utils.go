@@ -19,54 +19,36 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"time"
 
-	cert "k8s.io/api/certificates/v1beta1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	certv1 "k8s.io/api/certificates/v1"
+	certv1beta1 "k8s.io/api/certificates/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	rand "k8s.io/apimachinery/pkg/util/rand"
-	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	"k8s.io/apimachinery/pkg/watch"
+	clientset "k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
 
 const (
-	maxNameLength       = 63
-	maxDomainNameLength = 6
-	maxNamespaceLength  = 8
-	maxSecretNameLength = 8
-	randomLength        = 18
+	randomLength  = 18
+	csrRetriesMax = 3
 )
 
-// GenCsrName : Generate CSR Name for K8s system
+type CsrNameGenerator func(string, string) string
+
+// GenCsrName : Generate CSR Name for Resource. Guarantees returning a resource name that doesn't already exist
 func GenCsrName() string {
 	name := fmt.Sprintf("csr-workload-%s", rand.String(randomLength))
-	return name
-}
-
-// getRandomCsrName : returns a random name for CSR.
-func getRandomCsrName(secretName, namespace string) string {
-	domain := spiffe.GetTrustDomain()
-	if len(domain) > maxDomainNameLength {
-		domain = domain[:maxDomainNameLength]
-	}
-	if len(namespace) > maxNamespaceLength {
-		namespace = namespace[:maxNamespaceLength]
-	}
-	if len(secretName) > maxSecretNameLength {
-		secretName = secretName[:maxSecretNameLength]
-	}
-	name := fmt.Sprintf("csr-%s-%s-%s-%s",
-		domain, namespace, secretName, rand.String(randomLength))
-	if len(name) > maxNameLength {
-		name = name[:maxNameLength]
-	}
 	return name
 }
 
@@ -74,9 +56,11 @@ func getRandomCsrName(secretName, namespace string) string {
 // Options are meant to sign DNS certs
 // 1. Generate a CSR
 // 2. Call SignCSRK8sCA to finish rest of the flow
-func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, dnsName,
-	secretName, secretNamespace, caFilePath string, signerName string) ([]byte, []byte, []byte, error) {
+func GenKeyCertK8sCA(client clientset.Interface, dnsName,
+	secretName, secretNamespace, caFilePath string,
+	signerName string, approveCsr bool) ([]byte, []byte, []byte, error) {
 	// 1. Generate a CSR
+
 	options := util.CertOptions{
 		Host:       dnsName,
 		RSAKeySize: keySize,
@@ -88,86 +72,74 @@ func GenKeyCertK8sCA(certClient certclient.CertificateSigningRequestInterface, d
 		log.Errorf("CSR generation error (%v)", err)
 		return nil, nil, nil, err
 	}
-	csrName := getRandomCsrName(secretName, secretNamespace)
-	csrSpec := &cert.CertificateSigningRequestSpec{
-		Request: csrPEM,
-		Groups:  []string{"system:authenticated"},
-		Usages: []cert.KeyUsage{
-			cert.UsageDigitalSignature,
-			cert.UsageKeyEncipherment,
-			cert.UsageServerAuth,
-			cert.UsageClientAuth,
-		},
+	usages := []certv1.KeyUsage{
+		certv1.UsageDigitalSignature,
+		certv1.UsageKeyEncipherment,
+		certv1.UsageServerAuth,
+		certv1.UsageClientAuth,
 	}
-	if signerName != "" {
-		csrSpec.SignerName = &signerName
+	if signerName == "" {
+		signerName = "kubernetes.io/legacy-unknown"
 	}
+	certChain, caCert, err := SignCSRK8s(client, csrPEM,
+		signerName, nil, usages, dnsName, caFilePath, approveCsr, true)
 
-	certChain, caCert, err := SignCSRK8s(certClient,
-		csrName, csrSpec, dnsName, caFilePath, true)
 	return certChain, keyPEM, caCert, err
 }
 
-// SignCSRK8sCA generates a certificate from CSR using the K8s CA
+// SignCSRK8s generates a certificate from CSR using the K8s CA
 // 1. Submit a CSR
 // 2. Approve a CSR
 // 3. Read the signed certificate
 // 4. Clean up the artifacts (e.g., delete CSR)
-func SignCSRK8s(certClient certclient.CertificateSigningRequestInterface,
-	csrName string, csrSpec *cert.CertificateSigningRequestSpec,
-	dnsName, caFilePath string, appendCaCert bool) ([]byte, []byte, error) {
+func SignCSRK8s(client clientset.Interface,
+	csrData []byte, signerName string, requestedDuration *time.Duration,
+	usages []certv1.KeyUsage,
+	dnsName, caFilePath string,
+	approveCsr bool, appendCaCert bool) ([]byte, []byte, error) {
+	var err error
+	var v1Req bool = false
+
 	// 1. Submit the CSR
-	numRetries := 3
-	r, err := submitCSR(certClient, csrName, csrSpec, numRetries)
+
+	csrName, v1CsrReq, v1Beta1CsrReq, err := submitCSR(client, csrData, signerName, usages, csrRetriesMax)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("unable to submit CSR request (%v). Error: %v", csrName, err)
 	}
-	if r == nil {
-		return nil, nil, fmt.Errorf("the CSR returned is nil")
+	log.Debugf("CSR (%v) has been created", csrName)
+	if v1CsrReq != nil {
+		v1Req = true
 	}
-	// 2. Approve a CSR
-	log.Debugf("approve CSR (%v) ...", csrName)
-	csrMsg := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csrName, dnsName)
-	r.Status.Conditions = append(r.Status.Conditions, cert.CertificateSigningRequestCondition{
-		Type:    cert.CertificateApproved,
-		Reason:  csrMsg,
-		Message: csrMsg,
-	})
-	reqApproval, err := certClient.UpdateApproval(context.TODO(), r, metav1.UpdateOptions{})
-	if err != nil {
-		log.Errorf("failed to approve CSR (%v): %v", csrName, err)
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
+
+	// clean up certificate request after deletion
+	defer func() {
+		_ = cleanUpCertGen(client, v1Req, csrName)
+	}()
+
+	// 2. Approve the CSR
+	if approveCsr {
+		csrMsg := fmt.Sprintf("CSR (%s) for the certificate (%s) is approved", csrName, dnsName)
+		err = approveCSR(csrName, csrMsg, client, v1CsrReq, v1Beta1CsrReq)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to approve CSR request. Error: %v", err)
 		}
-		return nil, nil, err
+		log.Debugf("CSR (%v) is approved", csrName)
 	}
-	log.Debugf("CSR (%v) is approved: %v", csrName, reqApproval)
 
 	// 3. Read the signed certificate
-	certChain, caCert, err := readSignedCertificate(certClient,
-		csrName, certReadInterval, certWatchTimeout, maxNumCertRead, caFilePath, appendCaCert)
+	certChain, caCert, err := readSignedCertificate(client,
+		csrName, certWatchTimeout, certReadInterval, maxNumCertRead, caFilePath, appendCaCert, v1Req)
 	if err != nil {
-		log.Errorf("failed to read signed cert. (%v): %v", csrName, err)
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
 		return nil, nil, err
 	}
 
-	// 4. Clean up the artifacts (e.g., delete CSR)
-	err = cleanUpCertGen(certClient, csrName)
-	if err != nil {
-		log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-	}
 	// If there is a failure of cleaning up CSR, the error is returned.
 	return certChain, caCert, err
 }
 
 // Read CA certificate and check whether it is a valid certificate.
 func readCACert(caCertPath string) ([]byte, error) {
-	caCert, err := ioutil.ReadFile(caCertPath)
+	caCert, err := os.ReadFile(caCertPath)
 	if err != nil {
 		log.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
 		return nil, fmt.Errorf("failed to read CA cert, cert. path: %v, error: %v", caCertPath, err)
@@ -195,7 +167,7 @@ func isTCPReachable(host string, port int) bool {
 		// No connection yet, so no need to conn.Close()
 		return false
 	}
-	defer conn.Close()
+	conn.Close()
 	return true
 }
 
@@ -215,196 +187,268 @@ func reloadCACert(wc *WebhookController) (bool, error) {
 	return certChanged, nil
 }
 
-func submitCSR(certClient certclient.CertificateSigningRequestInterface,
-	csrName string,
-	csrSpec *cert.CertificateSigningRequestSpec,
-	numRetries int) (*cert.CertificateSigningRequest, error) {
-	k8sCSR := &cert.CertificateSigningRequest{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "certificates.k8s.io/v1beta1",
-			Kind:       "CertificateSigningRequest",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: csrName,
-		},
-		Spec: *csrSpec,
-	}
-	var reqRet *cert.CertificateSigningRequest
-	var errRet error
+func submitCSR(clientset clientset.Interface,
+	csrData []byte, signerName string,
+	usages []certv1.KeyUsage, numRetries int) (string, *certv1.CertificateSigningRequest, *certv1beta1.CertificateSigningRequest, error) {
+	var err error = fmt.Errorf("unable to submit csr")
+	var useV1 bool = true
+	var csrName string = ""
 	for i := 0; i < numRetries; i++ {
-		log.Debugf("trial %v to create CSR (%v)", i, csrName)
-		reqRet, errRet = certClient.Create(context.TODO(), k8sCSR, metav1.CreateOptions{})
-		if errRet == nil && reqRet != nil {
-			break
+		if csrName == "" {
+			csrName = GenCsrName()
 		}
-		// If an err other than the CSR exists is returned, re-try
-		if !kerrors.IsAlreadyExists(errRet) {
-			log.Debugf("failed to create CSR (%v): %v", csrName, errRet)
-			continue
+		if useV1 && len(usages) > 0 && len(signerName) > 0 && signerName != "kubernetes.io/legacy-unknown" {
+			log.Debugf("trial %v using v1 api to create CSR (%v)", i+1, csrName)
+			csr := &certv1.CertificateSigningRequest{
+				// Username, UID, Groups will be injected by API server.
+				TypeMeta: metav1.TypeMeta{Kind: "CertificateSigningRequest"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: csrName,
+				},
+				Spec: certv1.CertificateSigningRequestSpec{
+					Request:    csrData,
+					Usages:     usages,
+					SignerName: signerName,
+				},
+			}
+			v1req, err := clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, metav1.CreateOptions{})
+			if err == nil {
+				return csrName, v1req, nil, nil
+			} else if apierrors.IsAlreadyExists(err) {
+				csrName = ""
+				continue
+			} else if apierrors.IsNotFound(err) {
+				// don't attempt to use older api unless we get an API error
+				useV1 = false
+			} else {
+				continue
+			}
 		}
-		// If CSR exists, delete the existing CSR and create again
-		log.Debugf("delete an existing CSR: %v", csrName)
-		errRet = certClient.Delete(context.TODO(), csrName, metav1.DeleteOptions{})
-		if errRet != nil {
-			log.Errorf("failed to delete CSR (%v): %v", csrName, errRet)
-			continue
+		// Only exercise v1beta1 logic if v1 api was not found
+		log.Debugf("trial %v using v1beta1 api for csr %v", i+1, csrName)
+		// convert relevant bits to v1beta1
+		v1beta1csr := &certv1beta1.CertificateSigningRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: csrName,
+			},
+			Spec: certv1beta1.CertificateSigningRequestSpec{
+				SignerName: &signerName,
+				Request:    csrData,
+			},
 		}
-		log.Debugf("create CSR (%v) after the existing one was deleted", csrName)
-		reqRet, errRet = certClient.Create(context.TODO(), k8sCSR, metav1.CreateOptions{})
-		if errRet == nil && reqRet != nil {
-			break
+		for _, usage := range usages {
+			v1beta1csr.Spec.Usages = append(v1beta1csr.Spec.Usages, certv1beta1.KeyUsage(usage))
+		}
+		// create v1beta1 certificate request
+		v1beta1req, err := clientset.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), v1beta1csr, metav1.CreateOptions{})
+		if err == nil {
+			return csrName, nil, v1beta1req, nil
+		} else if apierrors.IsAlreadyExists(err) {
+			csrName = ""
 		}
 	}
-	return reqRet, errRet
+	log.Errorf("retry attempts exceeded when creating csr request %v: %v", csrName, err)
+	return "", nil, nil, err
+}
+
+func approveCSR(csrName string, csrMsg string, client clientset.Interface,
+	v1CsrReq *certv1.CertificateSigningRequest, v1Beta1CsrReq *certv1beta1.CertificateSigningRequest) error {
+	var err error = errors.New("invalid CSR")
+
+	if v1Beta1CsrReq != nil {
+		v1Beta1CsrReq.Status.Conditions = append(v1Beta1CsrReq.Status.Conditions, certv1beta1.CertificateSigningRequestCondition{
+			Type:    certv1beta1.CertificateApproved,
+			Reason:  csrMsg,
+			Message: csrMsg,
+		})
+		_, err = client.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(context.TODO(), v1Beta1CsrReq, metav1.UpdateOptions{})
+		if err != nil {
+			log.Errorf("failed to approve CSR (%v): %v", csrName, err)
+			return err
+		}
+	} else if v1CsrReq != nil {
+		v1CsrReq.Status.Conditions = append(v1CsrReq.Status.Conditions, certv1.CertificateSigningRequestCondition{
+			Type:    certv1.CertificateApproved,
+			Reason:  csrMsg,
+			Message: csrMsg,
+			Status:  corev1.ConditionTrue,
+		})
+		_, err = client.CertificatesV1().CertificateSigningRequests().UpdateApproval(context.TODO(), csrName, v1CsrReq, metav1.UpdateOptions{})
+		if err != nil {
+			log.Errorf("failed to approve CSR (%v): %v", csrName, err)
+			return err
+		}
+	}
+	return err
 }
 
 // Read the signed certificate
-// verify and append CA certificate to certChain if verify is true
-func readSignedCertificate(certClient certclient.CertificateSigningRequestInterface, csrName string,
-	readInterval, watchTimeout time.Duration,
-	maxNumRead int, caCertPath string, appendCaCert bool) ([]byte, []byte, error) {
+// verify and append CA certificate to certChain if appendCaCert is true
+func readSignedCertificate(client clientset.Interface, csrName string,
+	watchTimeout, readInterval time.Duration,
+	maxNumRead int, caCertPath string, appendCaCert bool, usev1 bool) ([]byte, []byte, error) {
 	// First try to read the signed CSR through a watching mechanism
-	reqSigned := readSignedCsr(certClient, csrName, watchTimeout)
-	if reqSigned == nil {
-		// If watching fails, retry reading the signed CSR a few times after waiting.
-		for i := 0; i < maxNumRead; i++ {
-			r, err := certClient.Get(context.TODO(), csrName, metav1.GetOptions{})
-			if err != nil {
-				log.Errorf("failed to get the CSR (%v): %v", csrName, err)
-				errCsr := cleanUpCertGen(certClient, csrName)
-				if errCsr != nil {
-					log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-				}
-				return nil, nil, err
-			}
-			if r.Status.Certificate != nil {
-				// Certificate is ready
-				reqSigned = r
-				break
-			}
-			time.Sleep(readInterval)
-		}
-	}
-	// If still failed to read signed CSR, return error.
-	if reqSigned == nil {
-		log.Errorf("failed to read the certificate for CSR (%v), nil CSR", csrName)
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, errCsr)
-		}
-		return nil, nil, fmt.Errorf("failed to read the certificate for CSR (%v), nil CSR", csrName)
-	}
-	if reqSigned.Status.Certificate == nil {
-		log.Errorf("failed to read the certificate for CSR (%v), nil cert", csrName)
-		// Output the first CertificateDenied condition, if any, in the status
-		for _, c := range reqSigned.Status.Conditions {
-			if c.Type == cert.CertificateDenied {
-				log.Errorf("CertificateDenied, name: %v, uid: %v, cond-type: %v, cond: %s",
-					reqSigned.Name, reqSigned.UID, c.Type, c.String())
-				break
-			}
-		}
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, errCsr)
-		}
-		return nil, nil, fmt.Errorf("failed to read the certificate for CSR (%v), nil cert", csrName)
-	}
+	certPEM := readSignedCsr(client, csrName, watchTimeout, readInterval, maxNumRead, usev1)
 
-	log.Debugf("the length of the certificate is %v", len(reqSigned.Status.Certificate))
-	log.Debugf("the certificate for CSR (%v) is: %v", csrName, string(reqSigned.Status.Certificate))
-
-	certPEM := reqSigned.Status.Certificate
-	caCert, err := readCACert(caCertPath)
-	if err != nil {
-		log.Errorf("error when getting CA cert (%v)", err)
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, err
+	if len(certPEM) == 0 {
+		return []byte{}, []byte{}, nil
 	}
-	// Verify the certificate chain before returning the certificate
-	roots := x509.NewCertPool()
-	if roots == nil {
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to create cert pool")
-	}
-	if ok := roots.AppendCertsFromPEM(caCert); !ok {
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to append CA certificate")
-	}
-
 	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
 	if err != nil {
-		log.Errorf("failed to parse the certificate: %v", err)
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to parse the certificate: %v", err)
+		return nil, nil, fmt.Errorf("decoding certificate failed")
 	}
-	_, err = certParsed.Verify(x509.VerifyOptions{
-		Roots: roots,
-	})
-	if err != nil {
-		log.Errorf("failed to verify the certificate chain: %v", err)
-		errCsr := cleanUpCertGen(certClient, csrName)
-		if errCsr != nil {
-			log.Errorf("failed to clean up CSR (%v): %v", csrName, err)
-		}
-		return nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
-	}
+	caCert := []byte{}
 	certChain := []byte{}
 	certChain = append(certChain, certPEM...)
-
-	if appendCaCert {
+	if appendCaCert && caCertPath != "" {
+		caCert, err = readCACert(caCertPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error when retrieving CA cert: (%v)", err)
+		}
+		// Verify the certificate chain before returning the certificate
+		roots := x509.NewCertPool()
+		if roots == nil {
+			return nil, nil, fmt.Errorf("failed to create cert pool")
+		}
+		if ok := roots.AppendCertsFromPEM(caCert); !ok {
+			return nil, nil, fmt.Errorf("failed to append CA certificate")
+		}
+		_, err = certParsed.Verify(x509.VerifyOptions{
+			Roots: roots,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
+		}
 		certChain = append(certChain, caCert...)
 	}
 	return certChain, caCert, nil
 }
 
-// Return signed CSR through a watcher. If no CSR is read, return nil.
-// The following nonlint is to fix the lint error: `certClient` can be `k8s.io/client-go/tools/cache.Watcher` (interfacer)
-// nolint: interfacer
-func readSignedCsr(certClient certclient.CertificateSigningRequestInterface, csrName string, timeout time.Duration) *cert.CertificateSigningRequest {
-	watcher, err := certClient.Watch(context.TODO(), metav1.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
-	})
-	if err != nil {
-		log.Errorf("err when watching CSR %v: %v", csrName, err)
-		return nil
+func checkDuplicateCsr(client clientset.Interface, csrName string) (*certv1.CertificateSigningRequest, *certv1beta1.CertificateSigningRequest) {
+	v1CsrReq, err := client.CertificatesV1().CertificateSigningRequests().Get(context.TODO(), csrName, metav1.GetOptions{})
+	if err == nil {
+		return v1CsrReq, nil
 	}
-	// Set a timeout
-	timer := time.After(timeout)
-	for {
-		select {
-		case r := <-watcher.ResultChan():
-			reqSigned := r.Object.(*cert.CertificateSigningRequest)
-			if reqSigned.Status.Certificate != nil {
-				return reqSigned
+	v1Beta1CsrReq, err := client.CertificatesV1beta1().CertificateSigningRequests().Get(context.TODO(), csrName, metav1.GetOptions{})
+	if err == nil {
+		return nil, v1Beta1CsrReq
+	}
+	return nil, nil
+}
+
+func getSignedCsr(client clientset.Interface, csrName string, readInterval time.Duration, maxNumRead int, usev1 bool) []byte {
+	var err error
+	if usev1 {
+		var r *certv1.CertificateSigningRequest
+		for i := 0; i < maxNumRead; i++ {
+			r, err = client.CertificatesV1().CertificateSigningRequests().Get(context.TODO(), csrName, metav1.GetOptions{})
+			if err == nil && r.Status.Certificate != nil {
+				// Certificate is ready
+				return r.Status.Certificate
 			}
-		case <-timer:
-			log.Errorf("timeout when watching CSR %v", csrName)
-			return nil
+			time.Sleep(readInterval)
+		}
+		if err != nil || r.Status.Certificate == nil {
+			if err != nil {
+				log.Errorf("failed to read the CSR (%v): %v", csrName, err)
+			} else if r.Status.Certificate == nil {
+				for _, c := range r.Status.Conditions {
+					if c.Type == certv1.CertificateDenied {
+						log.Errorf("CertificateDenied, name: %v, uid: %v, cond-type: %v, cond: %s",
+							r.Name, r.UID, c.Type, c.String())
+						break
+					}
+				}
+			}
+			return []byte{}
+		}
+	} else {
+		var r *certv1beta1.CertificateSigningRequest
+		for i := 0; i < maxNumRead; i++ {
+			r, err = client.CertificatesV1beta1().CertificateSigningRequests().Get(context.TODO(), csrName, metav1.GetOptions{})
+			if err == nil && r.Status.Certificate != nil {
+				// Certificate is ready
+				return r.Status.Certificate
+			}
+			time.Sleep(readInterval)
+		}
+		if err != nil || r.Status.Certificate == nil {
+			if err != nil {
+				log.Errorf("failed to read the CSR (%v): %v", csrName, err)
+			} else if r.Status.Certificate == nil {
+				for _, c := range r.Status.Conditions {
+					if c.Type == certv1beta1.CertificateDenied {
+						log.Errorf("CertificateDenied, name: %v, uid: %v, cond-type: %v, cond: %s",
+							r.Name, r.UID, c.Type, c.String())
+						break
+					}
+				}
+			}
+			return []byte{}
 		}
 	}
+	return []byte{}
+}
+
+// Return signed CSR through a watcher. If no CSR is read, return nil.
+func readSignedCsr(client clientset.Interface, csrName string, watchTimeout time.Duration, readInterval time.Duration,
+	maxNumRead int, usev1 bool) []byte {
+	var watcher watch.Interface
+	var err error
+	if usev1 {
+		watcher, err = client.CertificatesV1().CertificateSigningRequests().Watch(context.TODO(), metav1.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+		})
+	} else {
+		watcher, err = client.CertificatesV1beta1().CertificateSigningRequests().Watch(context.TODO(), metav1.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("metadata.name", csrName).String(),
+		})
+	}
+	if err == nil {
+		var timeout bool = false
+		// Set a timeout
+		timer := time.After(watchTimeout)
+		for {
+			select {
+			case r := <-watcher.ResultChan():
+				if usev1 {
+					reqSigned := r.Object.(*certv1.CertificateSigningRequest)
+					if reqSigned.Status.Certificate != nil {
+						return reqSigned.Status.Certificate
+					}
+				} else {
+					reqSigned := r.Object.(*certv1beta1.CertificateSigningRequest)
+					if reqSigned.Status.Certificate != nil {
+						return reqSigned.Status.Certificate
+					}
+				}
+			case <-timer:
+				log.Debugf("timeout when watching CSR %v", csrName)
+				timeout = true
+			}
+			if timeout {
+				break
+			}
+		}
+	}
+
+	return getSignedCsr(client, csrName, readInterval, maxNumRead, usev1)
 }
 
 // Clean up the CSR
-func cleanUpCertGen(certClient certclient.CertificateSigningRequestInterface, csrName string) error {
-	// Delete CSR
-	log.Debugf("delete CSR: %v", csrName)
-	err := certClient.Delete(context.TODO(), csrName, metav1.DeleteOptions{})
+func cleanUpCertGen(client clientset.Interface, usev1 bool, csrName string) error {
+	var err error
+
+	if usev1 {
+		err = client.CertificatesV1().CertificateSigningRequests().Delete(context.TODO(), csrName, metav1.DeleteOptions{})
+	} else {
+		err = client.CertificatesV1beta1().CertificateSigningRequests().Delete(context.TODO(), csrName, metav1.DeleteOptions{})
+	}
+
 	if err != nil {
 		log.Errorf("failed to delete CSR (%v): %v", csrName, err)
-		return err
+	} else {
+		log.Debugf("deleted CSR: %v", csrName)
 	}
-	return nil
+	return err
 }

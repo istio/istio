@@ -19,9 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -148,7 +148,7 @@ type kubeComponent struct {
 }
 
 func getZipkinYaml() (string, error) {
-	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/extras/zipkin.yaml"))
+	yamlBytes, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/extras/zipkin.yaml"))
 	if err != nil {
 		return "", err
 	}
@@ -243,12 +243,12 @@ func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery string)
 		scopes.Framework.Debugf("zipking err %v", err)
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		scopes.Framework.Debugf("response err %v", resp.StatusCode)
 		return nil, fmt.Errorf("zipkin api returns non-ok: %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

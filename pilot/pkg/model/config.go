@@ -59,6 +59,10 @@ func (key ConfigKey) HashCode() uint64 {
 	return binary.BigEndian.Uint64(sum)
 }
 
+func (key ConfigKey) String() string {
+	return key.Kind.Kind + "/" + key.Namespace + "/" + key.Name
+}
+
 // ConfigsOfKind extracts configs of the specified kind.
 func ConfigsOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionKind) map[ConfigKey]struct{} {
 	ret := make(map[ConfigKey]struct{})
@@ -114,7 +118,7 @@ func ConfigNamesOfKind(configs map[ConfigKey]struct{}, kind config.GroupVersionK
 // treated as read-only. Modifying them violates thread-safety.
 type ConfigStore interface {
 	// Schemas exposes the configuration type schema known by the config store.
-	// The type schema defines the bidrectional mapping between configuration
+	// The type schema defines the bidirectional mapping between configuration
 	// types and the protobuf encoding schema.
 	Schemas() collection.Schemas
 
@@ -149,6 +153,8 @@ type ConfigStore interface {
 	Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error
 }
 
+type EventHandler = func(config.Config, config.Config, Event)
+
 // ConfigStoreCache is a local fully-replicated cache of the config store.  The
 // cache actively synchronizes its local state with the remote store and
 // provides a notification mechanism to receive update events. As such, the
@@ -167,7 +173,7 @@ type ConfigStoreCache interface {
 
 	// RegisterEventHandler adds a handler to receive config update events for a
 	// configuration type
-	RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, Event))
+	RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler)
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})
@@ -180,7 +186,6 @@ type ConfigStoreCache interface {
 
 // IstioConfigStore is a specialized interface to access config store using
 // Istio configuration types
-// nolint
 type IstioConfigStore interface {
 	ConfigStore
 
@@ -340,7 +345,7 @@ func (store *istioConfigStore) ServiceEntries() []config.Config {
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
 func sortConfigByCreationTime(configs []config.Config) {
-	sort.SliceStable(configs, func(i, j int) bool {
+	sort.Slice(configs, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.

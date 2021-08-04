@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/utils/clock"
@@ -94,7 +93,7 @@ func (r *Reporter) Init(ledger ledger.Ledger, stop <-chan struct{}) {
 	go r.readFromEventQueue(stop)
 }
 
-// Starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
+// Start starts the reporter, which watches dataplane ack's and resource changes so that it can update status leader
 // with distribution information.
 func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podname string, stop <-chan struct{}) {
 	scope.Info("Starting status follower controller")
@@ -110,13 +109,10 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, podna
 	ctx := NewIstioContext(stop)
 	x, err := clientSet.CoreV1().Pods(namespace).Get(ctx, podname, metav1.GetOptions{})
 	if err != nil {
-		scope.Errorf("can't identify pod context: %s", err)
+		scope.Errorf("can't identify pod %s context: %s", podname, err)
 	} else {
 		r.cm.OwnerReferences = []metav1.OwnerReference{
-			*metav1.NewControllerRef(x, schema.GroupVersionKind{
-				Version: "v1",
-				Kind:    "Pod",
-			}),
+			*metav1.NewControllerRef(x, metav1.SchemeGroupVersion.WithKind("Pod")),
 		}
 	}
 	go func() {
@@ -210,7 +206,7 @@ func (r *Reporter) removeCompletedResource(completedResources []Resource) {
 	}
 }
 
-// This function must be called every time a resource change is detected by pilot.  This allows us to lookup
+// AddInProgressResource must be called every time a resource change is detected by pilot.  This allows us to lookup
 // only the resources we expect to be in flight, not the ones that have already distributed
 func (r *Reporter) AddInProgressResource(res config.Config) {
 	tryLedgerPut(r.ledger, res)
@@ -255,7 +251,7 @@ func (r *Reporter) writeReport(ctx context.Context) {
 	}
 }
 
-// this is lifted with few modifications from kubeadm's apiclient
+// CreateOrUpdateConfigMap is lifted with few modifications from kubeadm's apiclient
 func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v1.ConfigMapInterface) (res *corev1.ConfigMap, err error) {
 	if res, err = client.Create(ctx, cm, metav1.CreateOptions{}); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
@@ -346,7 +342,7 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 	}
 }
 
-// When a dataplane disconnects, we should no longer count it, nor expect it to ack config.
+// RegisterDisconnect : when a dataplane disconnects, we should no longer count it, nor expect it to ack config.
 func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

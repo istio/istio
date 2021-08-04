@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -253,6 +252,13 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "traffic-annotations.yaml",
+			want: "traffic-annotations.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.ProxyMetadata["ISTIO_META_TLS_CLIENT_KEY"] = "/etc/identity/client/keys/client-key.pem"
+			},
+		},
+		{
 			in:   "proxy-override.yaml",
 			want: "proxy-override.yaml.injected",
 		},
@@ -273,6 +279,20 @@ func TestInjection(t *testing.T) {
 			want:       "custom-template.yaml.injected",
 			inFilePath: "custom-template.iop.yaml",
 		},
+		{
+			in:   "tcp-probes.yaml",
+			want: "tcp-probes.yaml.injected",
+		},
+		{
+			in:   "tcp-probes.yaml",
+			want: "tcp-probes-disabled.yaml.injected",
+			setup: func() {
+				features.RewriteTCPProbes = false
+			},
+			teardown: func() {
+				features.RewriteTCPProbes = true
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -284,7 +304,7 @@ func TestInjection(t *testing.T) {
 			alreadyTested.Insert(t.in + ".injected")
 		}
 	}
-	files, err := ioutil.ReadDir("testdata/inject")
+	files, err := os.ReadDir("testdata/inject")
 	if err != nil {
 		t.Fatal(err)
 	}

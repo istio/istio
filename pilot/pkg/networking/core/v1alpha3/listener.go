@@ -307,11 +307,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(listenerOpts buildListenerOpts,
 	pluginParams *plugin.InputParams, listenerMap map[int]*inboundListenerEntry) *listener.Listener {
 	// Local service instances can be accessed through one of four addresses:
-	// unix domain socket, localhost, endpoint IP, and service
-	// VIP. Localhost bypasses the proxy and doesn't need any TCP
-	// route config. Endpoint IP is handled below and Service IP is handled
-	// by outbound routes. Traffic sent to our service VIP is redirected by
-	// remote services' kubeproxy to our specific endpoint IP.
+	// unix domain socket, localhost, endpoint IP, and service VIP
+	// Localhost bypasses the proxy and doesn't need any TCP route config.
+	// Endpoint IP is handled below and Service IP is handled by outbound routes.
+	// Traffic sent to our service VIP is redirected by remote services' kubeproxy to our specific endpoint IP.
 
 	listenerOpts.class = ListenerClassSidecarInbound
 
@@ -1288,7 +1287,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
-	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager)
+	accessLogBuilder.setHTTPAccessLog(listenerOpts, connectionManager)
 
 	routerFilterCtx := configureTracing(listenerOpts, connectionManager)
 
@@ -1424,7 +1423,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		DeprecatedV1:     deprecatedV1,
 	}
 
-	accessLogBuilder.setListenerAccessLog(opts.push.Mesh, listener)
+	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, listener)
 
 	if opts.proxy.Type != model.Router {
 		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
@@ -1619,6 +1618,9 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 		return false
 	}
 	if !util.CidrRangeSliceEqual(first.SourcePrefixRanges, second.SourcePrefixRanges) {
+		return false
+	}
+	if !util.CidrRangeSliceEqual(first.DirectSourcePrefixRanges, second.DirectSourcePrefixRanges) {
 		return false
 	}
 	if first.AddressSuffix != second.AddressSuffix {

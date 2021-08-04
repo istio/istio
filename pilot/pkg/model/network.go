@@ -16,6 +16,8 @@ package model
 
 import (
 	"net"
+	"sort"
+	"strings"
 
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
@@ -38,14 +40,9 @@ type NetworkGateway struct {
 func NewNetworkManager(env *Environment) *NetworkManager {
 	// Generate the a snapshot of the state of gateways by merging the contents of
 	// MeshNetworks and the ServiceRegistries.
-	byNetwork := make(map[network.ID][]*NetworkGateway)
-	byNetworkAndCluster := make(map[networkAndCluster][]*NetworkGateway)
 
-	addGateway := func(gateway *NetworkGateway) {
-		byNetwork[gateway.Network] = append(byNetwork[gateway.Network], gateway)
-		nc := networkAndClusterForGateway(gateway)
-		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], gateway)
-	}
+	// Store all gateways in a set initially to eliminate duplicates.
+	gatewaySet := make(map[NetworkGateway]struct{})
 
 	// First, load gateways from the static MeshNetworks config.
 	meshNetworks := env.Networks()
@@ -54,12 +51,12 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 			gws := networkConf.Gateways
 			for _, gw := range gws {
 				if gwIP := net.ParseIP(gw.GetAddress()); gwIP != nil {
-					addGateway(&NetworkGateway{
+					gatewaySet[NetworkGateway{
 						Cluster: "", /* TODO(nmittler): Add Cluster to the API */
 						Network: network.ID(nw),
 						Addr:    gw.GetAddress(),
 						Port:    gw.Port,
-					})
+					}] = struct{}{}
 				} else {
 					log.Warnf("Failed parsing gateway address %s in MeshNetworks config. "+
 						"Hostnames are not supported for gateways",
@@ -74,7 +71,7 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
 			// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
 			// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-			addGateway(gw)
+			gatewaySet[*gw] = struct{}{}
 		} else {
 			log.Warnf("Failed parsing gateway address %s from Service Registry. "+
 				"Hostnames are not supported for gateways",
@@ -82,12 +79,30 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		}
 	}
 
-	// Calculate the upper-bound on the number of gateways per network.
+	// Now populate the maps by network and by network+cluster.
+	byNetwork := make(map[network.ID][]*NetworkGateway)
+	byNetworkAndCluster := make(map[networkAndCluster][]*NetworkGateway)
+	for gw := range gatewaySet {
+		gw := gw
+		byNetwork[gw.Network] = append(byNetwork[gw.Network], &gw)
+		nc := networkAndClusterForGateway(&gw)
+		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], &gw)
+	}
+
+	// Sort the gateways in byNetwork, and also calculate the max number
+	// of gateways per network.
 	var maxGatewaysPerNetwork int
-	for _, gws := range byNetwork {
+	for k, gws := range byNetwork {
+		byNetwork[k] = SortGateways(gws)
+
 		if len(gws) > maxGatewaysPerNetwork {
 			maxGatewaysPerNetwork = len(gws)
 		}
+	}
+
+	// Sort the gateways in byNetworkAndCluster.
+	for k, gws := range byNetworkAndCluster {
+		byNetworkAndCluster[k] = SortGateways(gws)
 	}
 
 	return &NetworkManager{
@@ -119,6 +134,15 @@ func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
 	for _, gateways := range mgr.byNetwork {
 		out = append(out, gateways...)
 	}
+
+	return SortGateways(out)
+}
+
+func (mgr *NetworkManager) GatewaysByNetwork() map[network.ID][]*NetworkGateway {
+	out := make(map[network.ID][]*NetworkGateway)
+	for k, v := range mgr.byNetwork {
+		out[k] = append(make([]*NetworkGateway, 0, len(v)), v...)
+	}
 	return out
 }
 
@@ -144,4 +168,15 @@ func networkAndClusterFor(nw network.ID, c cluster.ID) networkAndCluster {
 		network: nw,
 		cluster: c,
 	}
+}
+
+func SortGateways(gws []*NetworkGateway) []*NetworkGateway {
+	// Sort the array so that it's stable.
+	sort.SliceStable(gws, func(i, j int) bool {
+		if cmp := strings.Compare(gws[i].Addr, gws[j].Addr); cmp < 0 {
+			return true
+		}
+		return gws[i].Port < gws[j].Port
+	})
+	return gws
 }

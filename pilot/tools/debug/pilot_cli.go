@@ -53,7 +53,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
@@ -311,7 +310,7 @@ func main() {
 	strResponse, _ := gogoprotomarshal.ToJSONWithIndent(resp, " ")
 	if outputFile == nil || *outputFile == "" {
 		fmt.Printf("%v\n", strResponse)
-	} else if err := ioutil.WriteFile(*outputFile, []byte(strResponse), 0o644); err != nil {
+	} else if err := os.WriteFile(*outputFile, []byte(strResponse), 0o644); err != nil {
 		log.Errorf("Cannot write output to file %q", *outputFile)
 	}
 }

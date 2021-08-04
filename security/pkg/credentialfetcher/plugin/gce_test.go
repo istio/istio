@@ -16,7 +16,6 @@ package plugin
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -119,7 +118,7 @@ func getJWTFromFile(path string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
@@ -291,7 +290,7 @@ func TestTokenRotationJob(t *testing.T) {
 			ms.setToken(tc.jwt)
 
 			// Verify that rotation job is kicked multiple times.
-			retryTimeout := time.Duration(2+tc.expectedCall) * rotationInterval
+			retryTimeout := time.Duration(5+tc.expectedCall) * rotationInterval
 			retry.UntilSuccessOrFail(t, func() error {
 				callNumber := ms.NumGetTokenCall()
 				if callNumber < tc.expectedCall {

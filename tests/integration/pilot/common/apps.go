@@ -18,6 +18,9 @@ package common
 import (
 	"strconv"
 	"strings"
+	"sync"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -57,6 +60,8 @@ type EchoDeployments struct {
 	Naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
 	VM echo.Instances
+	// DeltaXDS echo app uses the delta XDS protocol. This should be functionally equivalent to PodA.
+	DeltaXDS echo.Instances
 
 	// Echo app to be used by tests, with no sidecar injected
 	External echo.Instances
@@ -75,6 +80,7 @@ const (
 	ProxylessGRPCSvc = "proxyless-grpc"
 	NakedSvc         = "naked"
 	ExternalSvc      = "external"
+	DeltaSvc         = "delta"
 
 	externalHostname = "fake.external.com"
 )
@@ -218,6 +224,21 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
 
+	skipDelta := t.Settings().SkipDelta || !t.Settings().Revisions.AtLeast("1.10")
+	if !skipDelta {
+		builder = builder.
+			WithConfig(echo.Config{
+				Service:   DeltaSvc,
+				Namespace: apps.Namespace,
+				Ports:     common.EchoPorts,
+				Subsets: []echo.SubsetConfig{{
+					Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
+  ISTIO_DELTA_XDS: "true"`),
+				}},
+				WorkloadOnlyPorts: common.WorkloadPorts,
+			})
+	}
+
 	if !t.Clusters().IsMulticluster() {
 		builder = builder.
 			// TODO when agent handles secure control-plane connection for grpc-less, deploy to "remote" clusters
@@ -254,6 +275,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
 	if !t.Settings().SkipVM {
 		apps.VM = echos.Match(echo.Service(VMSvc))
+	}
+	if !skipDelta {
+		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 
 	if err := t.Config().ApplyYAMLNoCleanup(apps.Namespace.Name(), `
@@ -307,4 +331,29 @@ spec:
 
 func (d EchoDeployments) IsMulticluster() bool {
 	return d.All.Clusters().IsMulticluster()
+}
+
+// Restart restarts all echo deployments.
+func (d EchoDeployments) Restart() error {
+	wg := sync.WaitGroup{}
+	aggregateErrMux := &sync.Mutex{}
+	var aggregateErr error
+	for _, app := range d.All {
+		app := app
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			if err := app.Restart(); err != nil {
+				aggregateErrMux.Lock()
+				aggregateErr = multierror.Append(aggregateErr, err)
+				aggregateErrMux.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	if aggregateErr != nil {
+		return aggregateErr
+	}
+	return nil
 }

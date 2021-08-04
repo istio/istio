@@ -7,9 +7,10 @@
     }
   ],
   "node": {
-    "id": "sidecar~10.0.0.1~foo.ns~ns.cluster.local",
+    "id": "sidecar~10.0.0.1~foo.default~cluster.local",
     "metadata": {
-      "GENERATOR": "grpc"
+      "GENERATOR": "grpc",
+      "NAMESPACE": "default"
     }
   }
 }

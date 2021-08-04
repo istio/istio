@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/test"
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -96,6 +99,12 @@ spec:
     tls:
       mode: SIMPLE
       credentialName: {{.Credential}}
+{{- if .Ciphers }}
+      cipherSuites:
+{{- range $cipher := .Ciphers }}
+      - "{{$cipher}}"
+{{- end }}
+{{- end }}
 {{- end }}
     hosts:
     - "{{.GatewayHost}}"
@@ -515,8 +524,8 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			name:          fmt.Sprintf("shifting-%d", split[0]),
 			toN:           len(split),
-			sourceFilters: []echotest.Filter{noHeadless, noNaked, noProxyless},
-			targetFilters: []echotest.Filter{noHeadless, noExternal, noProxyless},
+			sourceFilters: []echotest.Filter{noHeadless, noNaked},
+			targetFilters: []echotest.Filter{noHeadless, noExternal},
 			templateVars: func(_ echo.Callers, _ echo.Instances) map[string]interface{} {
 				return map[string]interface{}{
 					"split": split,
@@ -575,6 +584,12 @@ spec:
 						}
 						return nil
 					}))
+			},
+			setupOpts: func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions) {
+				// TODO force this globally in echotest?
+				if src, ok := src.(echo.Instance); ok && src.Config().IsProxylessGRPC() {
+					opts.PortName = "grpc"
+				}
 			},
 			opts: echo.CallOptions{
 				PortName: "http",
@@ -809,7 +824,7 @@ spec:
 }
 
 func gatewayCases() []TrafficTestCase {
-	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances) map[string]interface{} {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]interface{} {
 		host, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			host, portN, cred = dest.Config().FQDN(), 443, "cred"
@@ -824,6 +839,7 @@ func gatewayCases() []TrafficTestCase {
 			"VirtualServiceHost": dest.Config().FQDN(),
 			"Port":               dest.Config().PortByName("http").ServicePort,
 			"Credential":         cred,
+			"Ciphers":            ciphers,
 		}
 	}
 
@@ -964,6 +980,25 @@ spec:
 				}
 			},
 		},
+		{
+			name: "cipher suite",
+			config: gatewayTmpl + httpVirtualServiceTmpl +
+				ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
+			templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
+				// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
+				// and control plane should filter our invalid one.
+				return templateParams(protocol.HTTPS, src, dests, append(security.ValidCipherSuites.SortedList(), "fake"))
+			},
+			setupOpts: fqdnHostHeader,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTPS,
+				},
+			},
+			viaIngress:       true,
+			workloadAgnostic: true,
+		},
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
@@ -977,7 +1012,7 @@ spec:
 				name:   string(proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
-					return templateParams(proto, src, dests)
+					return templateParams(proto, src, dests, nil)
 				},
 				setupOpts: fqdnHostHeader,
 				opts: echo.CallOptions{
@@ -993,7 +1028,7 @@ spec:
 				name:   fmt.Sprintf("%s scheme match", proto),
 				config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 				templateVars: func(src echo.Callers, dests echo.Instances) map[string]interface{} {
-					params := templateParams(proto, src, dests)
+					params := templateParams(proto, src, dests, nil)
 					params["MatchScheme"] = strings.ToLower(string(proto))
 					return params
 				},
@@ -1074,6 +1109,125 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 							return ExpectString(strings.TrimSpace(xffIPs[1]), "72.9.5.6", "ip in xff header")
 						})
 					}),
+			},
+		})
+	}
+	return cases
+}
+
+func envoyFilterCases(apps *EchoDeployments) []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	// Test adding envoyfilter to inbound and outbound route/cluster/listeners
+	cfg := `
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: outbound
+spec:
+  workloadSelector:
+    labels:
+      app: a
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_OUTBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+       name: envoy.lua
+       typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              request_handle:headers():add("x-lua-outbound", "hello world")
+            end
+  - applyTo: VIRTUAL_HOST
+    match:
+      context: SIDECAR_OUTBOUND
+    patch:
+      operation: MERGE
+      value:
+        request_headers_to_add:
+        - header:
+            key: x-vhost-outbound
+            value: "hello world"
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+      cluster: {}
+    patch:
+      operation: MERGE
+      value:
+        http2_protocol_options: {}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: inbound
+spec:
+  workloadSelector:
+    labels:
+      app: b
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.router"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+       name: envoy.lua
+       typed_config:
+          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              request_handle:headers():add("x-lua-inbound", "hello world")
+            end
+  - applyTo: VIRTUAL_HOST
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: MERGE
+      value:
+        request_headers_to_add:
+        - header:
+            key: x-vhost-inbound
+            value: "hello world"
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_INBOUND
+      cluster: {}
+    patch:
+      operation: MERGE
+      value:
+        http2_protocol_options: {}
+`
+	for _, c := range apps.PodA {
+		cases = append(cases, TrafficTestCase{
+			config: cfg,
+			call:   c.CallWithRetryOrFail,
+			opts: echo.CallOptions{
+				PortName: "http",
+				Target:   apps.PodB[0],
+				Validator: echo.And(
+					echo.ExpectOK(),
+					echo.ExpectKey("X-Vhost-Inbound", "hello world"),
+					echo.ExpectKey("X-Vhost-Outbound", "hello world"),
+					echo.ExpectKey("X-Lua-Inbound", "hello world"),
+					echo.ExpectKey("X-Lua-Outbound", "hello world"),
+					echo.ExpectKey("Proto", "HTTP/2.0"),
+				),
 			},
 		})
 	}
@@ -1438,8 +1592,9 @@ func protocolSniffingCases() []TrafficTestCase {
 				Timeout:  time.Second * 5,
 			},
 			validate: func(src echo.Caller, dst echo.Instances) echo.Validator {
-				if call.scheme == scheme.TCP {
+				if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 					// no host header for TCP
+					// TODO understand why proxyless adds the port to :authority md
 					return echo.ExpectOK()
 				}
 				return echo.And(

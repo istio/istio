@@ -230,7 +230,7 @@ func GetTypedStatus(in interface{}) (out *v1alpha1.IstioStatus, err error) {
 	if ret, ok := in.(*v1alpha1.IstioStatus); ok {
 		return ret, nil
 	}
-	return nil, fmt.Errorf("cannot cast %t: %v to IstioStatus", in, in)
+	return nil, fmt.Errorf("cannot cast %T: %v to IstioStatus", in, in)
 }
 
 func boolToConditionStatus(b bool) string {
@@ -270,6 +270,7 @@ func ReconcileStatuses(current *config.Config, desired Progress, generation int6
 		if c.Type == "Reconciled" {
 			currentCondition = currentStatus.Conditions[i]
 			conditionIndex = i
+			break
 		}
 	}
 	if currentCondition == nil ||

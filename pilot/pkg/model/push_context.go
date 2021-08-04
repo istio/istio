@@ -298,25 +298,25 @@ type PushRequest struct {
 type TriggerReason string
 
 const (
-	// Describes a push triggered by an Endpoint change
+	// EndpointUpdate describes a push triggered by an Endpoint change
 	EndpointUpdate TriggerReason = "endpoint"
-	// Describes a push triggered by a config (generally and Istio CRD) change.
+	// ConfigUpdate describes a push triggered by a config (generally and Istio CRD) change.
 	ConfigUpdate TriggerReason = "config"
-	// Describes a push triggered by a Service change
+	// ServiceUpdate describes a push triggered by a Service change
 	ServiceUpdate TriggerReason = "service"
-	// Describes a push triggered by a change to an individual proxy (such as label change)
+	// ProxyUpdate describes a push triggered by a change to an individual proxy (such as label change)
 	ProxyUpdate TriggerReason = "proxy"
-	// Describes a push triggered by a change to global config, such as mesh config
+	// GlobalUpdate describes a push triggered by a change to global config, such as mesh config
 	GlobalUpdate TriggerReason = "global"
-	// Describes a push triggered by an unknown reason
+	// UnknownTrigger describes a push triggered by an unknown reason
 	UnknownTrigger TriggerReason = "unknown"
-	// Describes a push triggered for debugging
+	// DebugTrigger describes a push triggered for debugging
 	DebugTrigger TriggerReason = "debug"
-	// Describes a push triggered for a Secret change
+	// SecretTrigger describes a push triggered for a Secret change
 	SecretTrigger TriggerReason = "secret"
-	// Describes a push triggered for Networks change
+	// NetworksTrigger describes a push triggered for Networks change
 	NetworksTrigger TriggerReason = "networks"
-	// Desribes a push triggered based on proxy request
+	// ProxyRequest desribes a push triggered based on proxy request
 	ProxyRequest TriggerReason = "proxyrequest"
 )
 
@@ -544,7 +544,7 @@ func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][
 	}
 }
 
-// JSON implements json.Marshaller, with a lock.
+// StatusJSON implements json.Marshaller, with a lock.
 func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil
@@ -658,7 +658,7 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
 	if proxy != nil && proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
-		return proxy.SidecarScope.Services()
+		return proxy.SidecarScope.services
 	}
 
 	out := make([]*Service, 0)
@@ -791,7 +791,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
-		return proxy.SidecarScope.DestinationRule(service.Hostname)
+		return proxy.SidecarScope.destinationRules[service.Hostname]
 	}
 
 	// If the proxy config namespace is same as the root config namespace
@@ -1339,13 +1339,7 @@ func getGatewayNames(vs *networking.VirtualService) []string {
 		return meshGateways
 	}
 	res := make([]string, 0, len(vs.Gateways))
-	for _, g := range vs.Gateways {
-		if g == constants.IstioMeshGateway {
-			res = append(res, constants.IstioMeshGateway)
-		} else {
-			res = append(res, g)
-		}
-	}
+	res = append(res, vs.Gateways...)
 	return res
 }
 
@@ -1575,6 +1569,7 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 	for ns := range exportedDestRulesByNamespace {
 		sort.Sort(host.Names(exportedDestRulesByNamespace[ns].hosts))
 	}
+	sort.Sort(host.Names(rootNamespaceLocalDestRules.hosts))
 
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace
@@ -1606,13 +1601,13 @@ func (ps *PushContext) initEnvoyFilters(env *Environment) error {
 		return err
 	}
 
-	sort.SliceStable(envoyFilterConfigs, func(i, j int) bool {
+	sort.Slice(envoyFilterConfigs, func(i, j int) bool {
 		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
 		jfilter := envoyFilterConfigs[j].Spec.(*networking.EnvoyFilter)
 		if ifilter.Priority != jfilter.Priority {
 			return ifilter.Priority < jfilter.Priority
 		}
-		// If prirority is same fallback to name and creation timestamp, else use prirority.
+		// If priority is same fallback to name and creation timestamp, else use priority.
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
@@ -1641,37 +1636,18 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	if proxy == nil {
 		return nil
 	}
-	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
+	var matchedEnvoyFilters []*EnvoyFilterWrapper
 	// EnvoyFilters supports inheritance (global ones plus namespace local ones).
 	// First get all the filter configs from the config root namespace
 	// and then add the ones from proxy's own namespace
 	if ps.Mesh.RootNamespace != "" {
-		// if there is no workload selector, the config applies to all workloads
-		// if there is a workload selector, check for matching workload labels
-		for _, efw := range ps.envoyFiltersByNamespace[ps.Mesh.RootNamespace] {
-			var workloadLabels labels.Collection
-			// This should never happen except in tests.
-			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-				workloadLabels = labels.Collection{proxy.Metadata.Labels}
-			}
-			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
-				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
-			}
-		}
+		matchedEnvoyFilters = ps.getMatchedEnvoyFilters(proxy, ps.Mesh.RootNamespace)
 	}
 
 	// To prevent duplicate envoyfilters in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
-		for _, efw := range ps.envoyFiltersByNamespace[proxy.ConfigNamespace] {
-			var workloadLabels labels.Collection
-			// This should never happen except in tests.
-			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-				workloadLabels = labels.Collection{proxy.Metadata.Labels}
-			}
-			if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
-				matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
-			}
-		}
+		matched := ps.getMatchedEnvoyFilters(proxy, proxy.ConfigNamespace)
+		matchedEnvoyFilters = append(matchedEnvoyFilters, matched...)
 	}
 
 	var out *EnvoyFilterWrapper
@@ -1683,9 +1659,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		// merge EnvoyFilterWrapper
 		for _, efw := range matchedEnvoyFilters {
 			for applyTo, cps := range efw.Patches {
-				if out.Patches[applyTo] == nil {
-					out.Patches[applyTo] = []*EnvoyFilterConfigPatchWrapper{}
-				}
 				for _, cp := range cps {
 					if proxyMatch(proxy, cp) {
 						out.Patches[applyTo] = append(out.Patches[applyTo], cp)
@@ -1696,6 +1669,22 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 	}
 
 	return out
+}
+
+// if there is no workload selector, the config applies to all workloads
+// if there is a workload selector, check for matching workload labels
+func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
+	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
+	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
+		var workloadLabels labels.Collection
+		if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+			workloadLabels = labels.Collection{proxy.Metadata.Labels}
+		}
+		if efw.workloadSelector == nil || workloadLabels.IsSupersetOf(efw.workloadSelector) {
+			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
+		}
+	}
+	return matchedEnvoyFilters
 }
 
 // pre computes gateways per namespace
@@ -1738,7 +1727,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 	if proxy == nil {
 		return nil
 	}
-	out := make([]gatewayWithInstances, 0)
+	gatewayInstances := make([]gatewayWithInstances, 0)
 
 	var configs []config.Config
 	if features.ScopeGatewayToNamespace {
@@ -1763,11 +1752,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 			// Only if we have a matching instance should we apply the configuration
 			if len(matchingInstances) > 0 {
-				out = append(out, gatewayWithInstances{cfg, false, matchingInstances})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, false, matchingInstances})
 			}
 		} else if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			out = append(out, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			var workloadLabels labels.Collection
@@ -1776,16 +1765,16 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 				workloadLabels = labels.Collection{proxy.Metadata.Labels}
 			}
 			if workloadLabels.IsSupersetOf(gatewaySelector) {
-				out = append(out, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
 			}
 		}
 	}
 
-	if len(out) == 0 {
+	if len(gatewayInstances) == 0 {
 		return nil
 	}
 
-	return MergeGateways(out)
+	return MergeGateways(gatewayInstances, proxy)
 }
 
 // GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers

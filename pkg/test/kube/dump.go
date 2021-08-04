@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -69,7 +68,7 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 				if err != nil {
 					return err
 				}
-				return ioutil.WriteFile(outputPath(workDir, cluster, deployment.Name, "deployment.yaml"), out, os.ModePerm)
+				return os.WriteFile(outputPath(workDir, cluster, deployment.Name, "deployment.yaml"), out, os.ModePerm)
 			})
 		}
 	}
@@ -125,7 +124,7 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 			findDumps := fmt.Sprintf("find %s -name core.*", coredumpDir)
 			stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, findDumps)
 			if err != nil {
-				scopes.Framework.Warnf("Unable to get core dumps for pod: %s/%s", pod.Namespace, pod.Name)
+				scopes.Framework.Warnf("Unable to get core dumps for pod: %s/%s: %v", pod.Namespace, pod.Name, err)
 				continue
 			}
 			for _, cd := range strings.Split(stdout, "\n") {
@@ -134,11 +133,11 @@ func DumpCoreDumps(ctx resource.Context, c cluster.Cluster, workDir string, name
 				}
 				stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat "+cd)
 				if err != nil {
-					scopes.Framework.Warnf("Unable to get core dumps %v for pod: %s/%s", cd, pod.Namespace, pod.Name)
+					scopes.Framework.Warnf("Unable to get core dumps %v for pod: %s/%s: %v", cd, pod.Namespace, pod.Name, err)
 					continue
 				}
 				fname := podOutputPath(workDir, c, pod, filepath.Base(cd))
-				if err = ioutil.WriteFile(fname, []byte(stdout), os.ModePerm); err != nil {
+				if err = os.WriteFile(fname, []byte(stdout), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write envoy core dump log for pod: %s/%s: %v", pod.Namespace, pod.Name, err)
 				}
 			}
@@ -170,7 +169,7 @@ func DumpPodState(_ resource.Context, c cluster.Cluster, workDir string, namespa
 		}
 
 		outPath := podOutputPath(workDir, c, pod, "pod-state.yaml")
-		if err := ioutil.WriteFile(outPath, out, os.ModePerm); err != nil {
+		if err := os.WriteFile(outPath, out, os.ModePerm); err != nil {
 			scopes.Framework.Infof("Error writing out pod state to file: %v", err)
 		}
 	}
@@ -197,7 +196,7 @@ func DumpPodEvents(_ resource.Context, c cluster.Cluster, workDir, namespace str
 		}
 
 		outPath := podOutputPath(workDir, c, pod, "pod-events.yaml")
-		if err := ioutil.WriteFile(outPath, out, os.ModePerm); err != nil {
+		if err := os.WriteFile(outPath, out, os.ModePerm); err != nil {
 			scopes.Framework.Infof("Error writing out pod events to file: %v", err)
 		}
 	}
@@ -214,13 +213,13 @@ func containerRestarts(pod corev1.Pod, container string) int {
 	return 0
 }
 
-func containerCrashed(pod corev1.Pod, container string) bool {
+func containerCrashed(pod corev1.Pod, container string) (bool, *corev1.ContainerStateTerminated) {
 	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.Name == container {
-			return cs.State.Terminated != nil
+		if cs.Name == container && cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
+			return true, cs.State.Terminated
 		}
 	}
-	return false
+	return false, nil
 }
 
 // DumpPodLogs will dump logs from each container in each of the provided pods
@@ -238,36 +237,40 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 			}
 
 			fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.log", container.Name))
-			if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+			if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 				scopes.Framework.Warnf("Unable to write logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 			}
 
 			// Get previous container logs, if applicable
 			if restarts := containerRestarts(pod, container.Name); restarts > 0 {
-				// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
-				// a log which will get highlighted in the test logs
-				// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-				scopes.Framework.Errorf("FAIL: pod %v/%v container %v restarted %d times", pod.Name, pod.Namespace, container.Name, restarts)
+				// only care about istio components restart
+				if container.Name == "istio-proxy" || container.Name == "discovery" || container.Name == "istio-init" ||
+					container.Name == "istio-validation" || strings.HasPrefix(pod.Name, "istio-cni-node") {
+					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
+					// a log which will get highlighted in the test logs
+					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
+					scopes.Framework.Errorf("FAIL: pod %v/%v container %v restarted %d times", pod.Name, pod.Namespace, container.Name, restarts)
+				}
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
 				if err != nil {
 					scopes.Framework.Warnf("Unable to get previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				}
 
 				fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.previous.log", container.Name))
-				if err = ioutil.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+				if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
 					scopes.Framework.Warnf("Unable to write previous logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				}
 			}
 
-			if containerCrashed(pod, container.Name) {
-				scopes.Framework.Errorf("FAIL: pod %v/%v crashed with status: terminated", pod.Name, container.Name)
+			if crashed, terminateState := containerCrashed(pod, container.Name); crashed {
+				scopes.Framework.Errorf("FAIL: pod %v/%v crashed with status: %+v", pod.Name, container.Name, terminateState)
 			}
 
 			// Get envoy logs if the pod is a VM, since kubectl logs only shows the logs from iptables for VMs
 			if isVM && container.Name == "istio-proxy" {
 				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.err.log"); err == nil {
 					fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.err.log", container.Name))
-					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
+					if err = os.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Warnf("Unable to write envoy err log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
 					if strings.Contains(stdout, "envoy backtrace") {
@@ -279,7 +282,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 
 				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.log"); err == nil {
 					fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.log", container.Name))
-					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
+					if err = os.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Warnf("Unable to write envoy log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 					}
 				} else {
@@ -314,7 +317,7 @@ func dumpProxyCommand(c cluster.Cluster, pod corev1.Pod, workDir, filename, comm
 
 		if cfgDump, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, command); err == nil {
 			fname := podOutputPath(workDir, c, pod, filename)
-			if err = ioutil.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
+			if err = os.WriteFile(fname, []byte(cfgDump), os.ModePerm); err != nil {
 				scopes.Framework.Errorf("Unable to write output for command %q on pod/container: %s/%s/%s", command, pod.Namespace, pod.Name, container.Name)
 			}
 		} else {
@@ -380,7 +383,7 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 	}
 	for istiod, out := range outputs {
 		outPath := outputPath(workDir, c, istiod, endpoint)
-		if err := ioutil.WriteFile(outPath, []byte(out), 0o644); err != nil {
+		if err := os.WriteFile(outPath, []byte(out), 0o644); err != nil {
 			scopes.Framework.Warnf("failed dumping %q: %v", endpoint, err)
 			return
 		}

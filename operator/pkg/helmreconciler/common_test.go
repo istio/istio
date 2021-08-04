@@ -60,14 +60,12 @@ func TestHelmReconciler_saveNodePorts(t *testing.T) {
 		current string
 		overlay string
 		want    string
-		wantErr bool
 	}{
 		{
 			name:    "keeps the nodePorts set by the cluster",
 			current: "testdata/current.yaml",
 			overlay: "testdata/overlay.yaml",
 			want:    "testdata/clusterIP-changed.yaml",
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -77,9 +75,7 @@ func TestHelmReconciler_saveNodePorts(t *testing.T) {
 			objOverlay := loadData(t, tt.overlay)
 			overlay := objOverlay.UnstructuredObject()
 			overlayMap := createPortMap(overlay)
-			if err := saveNodePorts(current, overlay); (err != nil) != tt.wantErr {
-				t.Errorf("HelmReconciler.saveNodePorts() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			saveNodePorts(current, overlay)
 			currentMap := createPortMap(current)
 			overlayUpdatedMap := createPortMap(overlay)
 			for key, element := range overlayMap {

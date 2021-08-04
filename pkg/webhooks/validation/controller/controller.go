@@ -18,8 +18,6 @@ package controller
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"reflect"
@@ -46,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/webhooks/util"
 	"istio.io/pkg/log"
 )
 
@@ -70,7 +69,7 @@ type Options struct {
 func (o Options) Validate() error {
 	var errs *multierror.Error
 	if o.WatchedNamespace == "" || !labels.IsDNS1123Label(o.WatchedNamespace) {
-		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", o.WatchedNamespace)) // nolint: lll
+		errs = multierror.Append(errs, fmt.Errorf("invalid namespace: %q", o.WatchedNamespace))
 	}
 	if o.ServiceName == "" || !labels.IsDNS1123Label(o.ServiceName) {
 		errs = multierror.Append(errs, fmt.Errorf("invalid service name: %q", o.ServiceName))
@@ -81,7 +80,7 @@ func (o Options) Validate() error {
 	return errs.ErrorOrNil()
 }
 
-// String produces a stringified version of the arguments for debugging.
+// String produces a string field version of the arguments for debugging.
 func (o Options) String() string {
 	buf := &bytes.Buffer{}
 	_, _ = fmt.Fprintf(buf, "WatchedNamespace: %v\n", o.WatchedNamespace)
@@ -319,10 +318,10 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) (bool, error) {
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
-	caBundle, err := c.loadCABundle()
+	caBundle, err := util.LoadCABundle(c.o.CABundleWatcher)
 	if err != nil {
 		scope.Errorf("Failed to load CA bundle: %v", err)
-		reportValidationConfigLoadError(err.(*configError).Reason())
+		reportValidationConfigLoadError(err.(*util.ConfigError).Reason())
 		// no point in retrying unless cert file changes.
 		return false, nil
 	}
@@ -427,19 +426,6 @@ func (o *Options) validatingWebhookName() string {
 	return name
 }
 
-type configError struct {
-	err    error
-	reason string
-}
-
-func (e configError) Error() string {
-	return e.err.Error()
-}
-
-func (e configError) Reason() string {
-	return e.reason
-}
-
 var (
 	codec  runtime.Codec
 	scheme *runtime.Scheme
@@ -457,27 +443,4 @@ func init() {
 		kubeApiAdmission.SchemeGroupVersion,
 		runtime.InternalGroupVersioner,
 	)
-}
-
-func (c *Controller) loadCABundle() ([]byte, error) {
-	caBundle := c.o.CABundleWatcher.GetCABundle()
-	if err := verifyCABundle(caBundle); err != nil {
-		return nil, &configError{err, "could not verify caBundle"}
-	}
-
-	return caBundle, nil
-}
-
-func verifyCABundle(caBundle []byte) error {
-	block, _ := pem.Decode(caBundle)
-	if block == nil {
-		return errors.New("could not decode pem")
-	}
-	if block.Type != "CERTIFICATE" {
-		return fmt.Errorf("cert contains wrong pem type: %q", block.Type)
-	}
-	if _, err := x509.ParseCertificate(block.Bytes); err != nil {
-		return fmt.Errorf("cert contains invalid x509 certificate: %v", err)
-	}
-	return nil
 }

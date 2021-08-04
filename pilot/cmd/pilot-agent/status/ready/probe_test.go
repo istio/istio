@@ -61,7 +61,6 @@ func TestEnvoyDraining(t *testing.T) {
 }
 
 func TestEnvoyStats(t *testing.T) {
-	prefix := "config not received from Pilot (is Pilot running?): "
 	cases := []struct {
 		name   string
 		stats  string
@@ -70,18 +69,23 @@ func TestEnvoyStats(t *testing.T) {
 		{
 			"only lds",
 			"listener_manager.lds.update_success: 1",
-			prefix + "cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected",
+			"config not fully received from XDS server: cds updates: 0 successful, 0 rejected; lds updates: 1 successful, 0 rejected",
 		},
 		{
 			"only cds",
 			"cluster_manager.cds.update_success: 1",
-			prefix + "cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected",
+			"config not fully received from XDS server: cds updates: 1 successful, 0 rejected; lds updates: 0 successful, 0 rejected",
 		},
 		{
 			"reject CDS",
 			`cluster_manager.cds.update_rejected: 1
 listener_manager.lds.update_success: 1`,
-			prefix + "cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected",
+			"config received from XDS server, but was rejected: cds updates: 0 successful, 1 rejected; lds updates: 1 successful, 0 rejected",
+		},
+		{
+			"no config",
+			``,
+			"config not received from XDS server (is Istiod running?): cds updates: 0 successful, 0 rejected; lds updates: 0 successful, 0 rejected",
 		},
 		{
 			"workers not started",

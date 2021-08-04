@@ -16,7 +16,7 @@ package image
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -78,7 +78,7 @@ func (s *Settings) ImagePullSecretName() (string, error) {
 	if s.ImagePullSecret == "" {
 		return "", nil
 	}
-	data, err := ioutil.ReadFile(s.ImagePullSecret)
+	data, err := os.ReadFile(s.ImagePullSecret)
 	if err != nil {
 		return "", err
 	}

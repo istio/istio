@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -424,12 +425,34 @@ func buildHTTPVirtualServices(obj config.Config, gateways []gatewayReference, do
 			}
 		}
 
-		route, err := buildHTTPDestination(r.ForwardTo, obj.Namespace, domain)
+		zero := true
+		for _, w := range r.ForwardTo {
+			if w.Weight == nil || (w.Weight != nil && int(*w.Weight) != 0) {
+				zero = false
+				break
+			}
+		}
+		if zero {
+			vs.Fault = &istio.HTTPFaultInjection{Abort: &istio.HTTPFaultInjection_Abort{
+				Percentage: &istio.Percent{
+					Value: 100,
+				},
+				ErrorType: &istio.HTTPFaultInjection_Abort_HttpStatus{
+					HttpStatus: 503,
+				},
+			}}
+		}
+
+		route, err := buildHTTPDestination(r.ForwardTo, obj.Namespace, domain, zero)
 		if err != nil {
 			reportError(err)
 			return nil
 		}
+		if len(route) == 0 {
+			return nil
+		}
 		vs.Route = route
+
 		httproutes = append(httproutes, vs)
 	}
 	reportError(nil)
@@ -525,6 +548,9 @@ func buildTLSVirtualService(obj config.Config, gateways []gatewayReference, doma
 			reportError(err)
 			return nil
 		}
+		if len(route) == 0 {
+			return nil
+		}
 		ir := &istio.TLSRoute{
 			Match: buildTLSMatch(r.Matches),
 			Route: route,
@@ -551,17 +577,22 @@ func buildTLSVirtualService(obj config.Config, gateways []gatewayReference, doma
 	return &vsConfig
 }
 
-func buildTCPDestination(action []k8s.RouteForwardTo, ns, domain string) ([]*istio.RouteDestination, *ConfigError) {
-	if len(action) == 0 {
+func buildTCPDestination(forwardTo []k8s.RouteForwardTo, ns, domain string) ([]*istio.RouteDestination, *ConfigError) {
+	if forwardTo == nil {
 		return nil, nil
 	}
 
 	weights := []int{}
-	for _, w := range action {
+	action := []k8s.RouteForwardTo{}
+	for i, w := range forwardTo {
 		wt := 1
 		if w.Weight != nil {
 			wt = int(*w.Weight)
 		}
+		if wt == 0 {
+			continue
+		}
+		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
 	weights = standardizeWeights(weights)
@@ -616,17 +647,24 @@ func intSum(n []int) int {
 	return r
 }
 
-func buildHTTPDestination(action []k8s.HTTPRouteForwardTo, ns string, domain string) ([]*istio.HTTPRouteDestination, *ConfigError) {
-	if action == nil {
+func buildHTTPDestination(forwardTo []k8s.HTTPRouteForwardTo, ns string, domain string, totalZero bool) ([]*istio.HTTPRouteDestination, *ConfigError) {
+	if forwardTo == nil {
 		return nil, nil
 	}
 
 	weights := []int{}
-	for _, w := range action {
+	action := []k8s.HTTPRouteForwardTo{}
+	for i, w := range forwardTo {
 		wt := 1
 		if w.Weight != nil {
 			wt = int(*w.Weight)
 		}
+		// When total weight is zero, create destination to add falutInjection.
+		// When total weight is not zero, do not create the destination.
+		if wt == 0 && !totalZero {
+			continue
+		}
+		action = append(action, forwardTo[i])
 		weights = append(weights, wt)
 	}
 	weights = standardizeWeights(weights)
@@ -815,6 +853,10 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 	return res, nil
 }
 
+// prefixMatchRegex optionally matches "/..." at the end of a path.
+// regex taken from https://github.com/projectcontour/contour/blob/2b3376449bedfea7b8cea5fbade99fb64009c0f6/internal/envoy/v3/route.go#L59
+const prefixMatchRegex = `((\/).*)?`
+
 func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
 	tp := k8s.PathMatchPrefix
 	if match.Path.Type != nil {
@@ -827,7 +869,7 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	switch tp {
 	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
+			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(strings.TrimSuffix(dest, "/")) + prefixMatchRegex},
 		}, nil
 	case k8s.PathMatchExact:
 		return &istio.StringMatch{

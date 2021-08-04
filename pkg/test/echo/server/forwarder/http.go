@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -130,7 +130,7 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 		}
 	}
 
-	data, err := ioutil.ReadAll(httpResp.Body)
+	data, err := io.ReadAll(httpResp.Body)
 	defer func() {
 		if err = httpResp.Body.Close(); err != nil {
 			outBuffer.WriteString(fmt.Sprintf("[%d error] %s\n", req.RequestID, err))

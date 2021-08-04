@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -33,7 +32,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-// return proxyConfig and trustDomain
+// ConstructProxyConfig returns proxyConfig
 func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string, concurrency int, role *model.Proxy) (*meshconfig.ProxyConfig, error) {
 	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
@@ -45,7 +44,7 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	}
 	var fileMeshContents string
 	if fileExists(meshConfigFile) {
-		contents, err := ioutil.ReadFile(meshConfigFile)
+		contents, err := os.ReadFile(meshConfigFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read mesh config file %v: %v", meshConfigFile, err)
 		}
@@ -142,7 +141,7 @@ func applyAnnotations(config *meshconfig.ProxyConfig, annos map[string]string) *
 	if v, f := annos[annotation.SidecarStatusPort.Name]; f {
 		p, err := strconv.Atoi(v)
 		if err != nil {
-			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
+			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort.Name, v, err)
 		}
 		config.StatusPort = int32(p)
 	}

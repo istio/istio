@@ -16,7 +16,7 @@ package gateway
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -49,6 +49,7 @@ func TestConvertResources(t *testing.T) {
 		"tls",
 		"mismatch",
 		"weighted",
+		"zero",
 		"backendpolicy",
 		"mesh",
 		"invalid",
@@ -107,7 +108,7 @@ func TestConvertResources(t *testing.T) {
 			if util.Refresh() {
 				res := append(output.Gateway, output.VirtualService...)
 				res = append(res, output.DestinationRule...)
-				if err := ioutil.WriteFile(goldenFile, marshalYaml(t, res), 0o644); err != nil {
+				if err := os.WriteFile(goldenFile, marshalYaml(t, res), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -119,11 +120,11 @@ func TestConvertResources(t *testing.T) {
 			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.TLSRoute, kr.TCPRoute, kr.BackendPolicy)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt)
 			if util.Refresh() {
-				if err := ioutil.WriteFile(goldenStatusFile, outputStatus, 0o644); err != nil {
+				if err := os.WriteFile(goldenStatusFile, outputStatus, 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
-			goldenStatus, err := ioutil.ReadFile(goldenStatusFile)
+			goldenStatus, err := os.ReadFile(goldenStatusFile)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -207,7 +208,7 @@ func splitInput(configs []config.Config) *KubernetesResources {
 func readConfig(t *testing.T, filename string, validator *crdvalidation.Validator) []config.Config {
 	t.Helper()
 
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
@@ -274,7 +275,6 @@ func TestStandardizeWeight(t *testing.T) {
 		{"single", []int{1}, []int{0}},
 		{"double", []int{1, 1}, []int{50, 50}},
 		{"zero", []int{1, 0}, []int{100, 0}},
-		{"all zero", []int{0, 0}, []int{50, 50}},
 		{"overflow", []int{1, 1, 1}, []int{34, 33, 33}},
 		{"skewed", []int{9, 1}, []int{90, 10}},
 		{"multiple overflow", []int{1, 1, 1, 1, 1, 1}, []int{17, 17, 17, 17, 16, 16}},

@@ -32,7 +32,7 @@ spec:
               grpc_service:
                 envoy_grpc:
                   cluster_name: rate_limit_cluster
-                timeout: 10s
+            timeout: 10s
     - applyTo: CLUSTER
       match:
         cluster:

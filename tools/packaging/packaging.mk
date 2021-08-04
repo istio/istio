@@ -81,11 +81,12 @@ rpm/fpm:
 		--description "Istio Sidecar" \
 		--depends iproute \
 		--depends iptables \
+		--depends sudo \
 		$(SIDECAR_FILES)
 
 # Centos 7 compatible RPM
 rpm-7/fpm:
-	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar.rpm
+	rm -f ${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
 	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${ISTIO_OUT_LINUX}/release/istio-sidecar-centos-7.rpm --version $(PACKAGE_VERSION) -f \
 		--url http://istio.io  \
 		--license Apache \
@@ -97,6 +98,7 @@ rpm-7/fpm:
 		--description "Istio Sidecar" \
 		--depends iproute \
 		--depends iptables \
+		--depends sudo \
 		$(SIDECAR_CENTOS_7_FILES)
 
 # Package the sidecar deb file.
@@ -113,6 +115,7 @@ deb/fpm:
 		--description "Istio Sidecar" \
 		--depends iproute2 \
 		--depends iptables \
+		--depends sudo \
 		$(SIDECAR_FILES)
 
 ${ISTIO_OUT_LINUX}/release/istio.deb:

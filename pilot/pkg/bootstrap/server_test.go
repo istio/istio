@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -41,7 +40,7 @@ import (
 )
 
 func TestNewServerCertInit(t *testing.T) {
-	configDir, err := ioutil.TempDir("", "test_istiod_config")
+	configDir, err := os.MkdirTemp("", "test_istiod_config")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +48,7 @@ func TestNewServerCertInit(t *testing.T) {
 		_ = os.RemoveAll(configDir)
 	}()
 
-	certsDir, err := ioutil.TempDir("", "test_istiod_certs")
+	certsDir, err := os.MkdirTemp("", "test_istiod_certs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,13 +61,13 @@ func TestNewServerCertInit(t *testing.T) {
 	caCertFile := filepath.Join(certsDir, "ca-cert.pem")
 
 	// load key and cert files.
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
-	if err := ioutil.WriteFile(caCertFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(caCertFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
 	}
 
@@ -183,7 +182,7 @@ func TestNewServerCertInit(t *testing.T) {
 }
 
 func TestReloadIstiodCert(t *testing.T) {
-	dir, err := ioutil.TempDir("", "istiod_certs")
+	dir, err := os.MkdirTemp("", "istiod_certs")
 	stop := make(chan struct{})
 	s := &Server{
 		fileWatcher:             filewatcher.NewWatcher(),
@@ -205,14 +204,14 @@ func TestReloadIstiodCert(t *testing.T) {
 	caFile := filepath.Join(dir, "ca-file.yaml")
 
 	// load key and cert files.
-	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
-	if err := ioutil.WriteFile(caFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(caFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
 	}
 
@@ -241,10 +240,10 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// Update cert/key files.
-	if err := ioutil.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.CertFile, err)
 	}
-	if err := ioutil.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.KeyFile, err)
 	}
 
@@ -292,7 +291,7 @@ func TestNewServer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := ioutil.TempDir("", "TestNewServer")
+			configDir, err := os.MkdirTemp("", "TestNewServer")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -384,7 +383,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := ioutil.TempDir("", "TestIstiodCipherSuites")
+			configDir, err := os.MkdirTemp("", "TestIstiodCipherSuites")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -488,7 +487,7 @@ func TestNewServerWithMockRegistry(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configDir, err := ioutil.TempDir("", "TestNewServer")
+			configDir, err := os.MkdirTemp("", "TestNewServer")
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -28,7 +27,6 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pkg/file"
-	"istio.io/pkg/log"
 )
 
 const kubeconfigTemplate = `# Kubeconfig file for Istio CNI plugin.
@@ -94,7 +92,7 @@ func createKubeconfigFile(cfg *config.InstallConfig, saToken string) (kubeconfig
 			return "", fmt.Errorf("file does not exist: %s", caFile)
 		}
 		var caContents []byte
-		caContents, err = ioutil.ReadFile(caFile)
+		caContents, err = os.ReadFile(caFile)
 		if err != nil {
 			return
 		}
@@ -125,7 +123,7 @@ func createKubeconfigFile(cfg *config.InstallConfig, saToken string) (kubeconfig
 	}
 
 	kubeconfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-	log.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kcbbToPrint.String())
+	installLog.Infof("write kubeconfig file %s with: \n%+v", kubeconfigFilepath, kcbbToPrint.String())
 	if err = file.AtomicWrite(kubeconfigFilepath, kcbb.Bytes(), os.FileMode(cfg.KubeconfigMode)); err != nil {
 		return "", err
 	}

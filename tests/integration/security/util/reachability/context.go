@@ -105,7 +105,7 @@ func Run(testCases []TestCase, t framework.TestContext, apps *util.EchoDeploymen
 				return t.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
 			t.NewSubTest("wait for config").Run(func(t framework.TestContext) {
-				util.WaitForConfig(t, policyYAML, c.Namespace)
+				util.WaitForConfig(t, c.Namespace, policyYAML)
 			})
 			for _, clients := range []echo.Instances{apps.A, apps.B.Match(echo.Namespace(apps.Namespace1.Name())), apps.Headless, apps.Naked, apps.HeadlessNaked} {
 				for _, client := range clients {

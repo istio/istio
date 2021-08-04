@@ -15,7 +15,8 @@ FROM gcr.io/istio-release/distroless:${BASE_VERSION} as distroless
 FROM ${BASE_DISTRIBUTION}
 
 # install operator binary
-COPY operator /usr/local/bin/
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/operator /usr/local/bin/operator
 
 # add operator manifests
 COPY manifests/ /var/lib/istio/manifests/

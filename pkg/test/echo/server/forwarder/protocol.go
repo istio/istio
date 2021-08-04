@@ -23,9 +23,9 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -35,6 +35,8 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials/xds"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -83,12 +85,12 @@ func newProtocol(cfg Config) (protocol, error) {
 
 	var getClientCertificate func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	if cfg.Request.KeyFile != "" && cfg.Request.CertFile != "" {
-		certData, err := ioutil.ReadFile(cfg.Request.CertFile)
+		certData, err := os.ReadFile(cfg.Request.CertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate: %v", err)
 		}
 		cfg.Request.Cert = string(certData)
-		keyData, err := ioutil.ReadFile(cfg.Request.KeyFile)
+		keyData, err := os.ReadFile(cfg.Request.KeyFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate key: %v", err)
 		}
@@ -133,7 +135,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		ServerName:           cfg.Request.ServerName,
 	}
 	if cfg.Request.CaCertFile != "" {
-		certData, err := ioutil.ReadFile(cfg.Request.CaCertFile)
+		certData, err := os.ReadFile(cfg.Request.CaCertFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate: %v", err)
 		}
@@ -156,7 +158,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	if cfg.Request.FollowRedirects {
 		redirectFn = nil
 	}
-	switch scheme.Instance(urlScheme) {
+	switch s := scheme.Instance(urlScheme); s {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
 			tlsConfig.NextProtos = []string{"http/1.1"}
@@ -215,6 +217,13 @@ func newProtocol(cfg Config) (protocol, error) {
 
 		// transport security
 		security := grpc.WithInsecure()
+		if s == scheme.XDS {
+			creds, err := xds.NewClientCredentials(xds.ClientOptions{FallbackCreds: insecure.NewCredentials()})
+			if err != nil {
+				return nil, err
+			}
+			security = grpc.WithTransportCredentials(creds)
+		}
 		if getClientCertificate != nil {
 			security = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 		}

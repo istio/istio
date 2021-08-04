@@ -1,4 +1,6 @@
+//go:build !agent
 // +build !agent
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
@@ -77,19 +80,25 @@ type FakeOptions struct {
 	// Callback to modify the kube client before it is started
 	KubeClientModifier func(c kubelib.Client)
 
+	// ListenerBuilder, if specified, allows making the server use the given
+	// listener instead of a buffered conn.
+	ListenerBuilder func() (net.Listener, error)
+
 	// Time to debounce
 	// By default, set to 0s to speed up tests
 	DebounceTime time.Duration
 
 	// EnableFakeXDSUpdater will use a XDSUpdater that can be used to watch events
-	EnableFakeXDSUpdater bool
+	EnableFakeXDSUpdater       bool
+	DisableSecretAuthorization bool
 }
 
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
 	t            test.Failer
 	Discovery    *DiscoveryServer
-	Listener     *bufconn.Listener
+	Listener     net.Listener
+	BufListener  *bufconn.Listener
 	kubeClient   kubelib.Client
 	KubeRegistry *kube.FakeController
 	XdsUpdater   model.XDSUpdater
@@ -110,6 +119,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := NewDiscoveryServer(&model.Environment{PushContext: model.NewPushContext()}, []string{plugin.AuthzCustom, plugin.Authn, plugin.Authz},
 		"pilot-123", "istio-system")
+	s.InitGenerators(&model.Environment{PushContext: model.NewPushContext()}, "istio-system")
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -175,6 +185,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		registries = append(registries, k8s)
 	}
 
+	if opts.DisableSecretAuthorization {
+		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
+	}
 	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "", stop)
 	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache)
 	defaultKubeClient.RunAndWait(stop)
@@ -249,9 +262,18 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.DiscoveryServerModifier(s)
 	}
 
-	// Start in memory gRPC listener
-	buffer := 1024 * 1024
-	listener := bufconn.Listen(buffer)
+	var listener net.Listener
+	if opts.ListenerBuilder != nil {
+		var err error
+		if listener, err = opts.ListenerBuilder(); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		// Start in memory gRPC listener
+		buffer := 1024 * 1024
+		listener = bufconn.Listen(buffer)
+	}
+
 	grpcServer := grpc.NewServer()
 	s.Register(grpcServer)
 	go func() {
@@ -261,6 +283,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}()
 	t.Cleanup(func() {
 		grpcServer.Stop()
+		_ = listener.Close()
 	})
 	// Start the discovery server
 	s.Start(stop)
@@ -286,10 +309,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Mark ourselves ready
 	s.CachesSynced()
 
+	bufListener, _ := listener.(*bufconn.Listener)
 	fake := &FakeDiscoveryServer{
 		t:             t,
 		Discovery:     s,
 		Listener:      listener,
+		BufListener:   bufListener,
 		ConfigGenTest: cg,
 		kubeClient:    defaultKubeClient,
 		KubeRegistry:  defaultKubeController,
@@ -312,7 +337,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.Listener.Dial()
+		return f.BufListener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -323,7 +348,7 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 // ConnectDeltaADS starts a Delta ADS connection to the server. It will automatically be cleaned up when the test ends
 func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-		return f.Listener.Dial()
+		return f.BufListener.Dial()
 	}))
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
@@ -357,7 +382,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		InitialDiscoveryRequests: initialWatch,
 		GrpcOpts: []grpc.DialOption{
 			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-				return f.Listener.Dial()
+				return f.BufListener.Dial()
 			}),
 			grpc.WithInsecure(),
 		},
@@ -393,7 +418,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 	objects := map[cluster.ID][]runtime.Object{}
 
 	if len(opts.KubernetesObjects) > 0 {
-		objects["Kuberentes"] = append(objects["Kuberenetes"], opts.KubernetesObjects...)
+		objects["Kubernetes"] = append(objects["Kubernetes"], opts.KubernetesObjects...)
 	}
 	if len(opts.KubernetesObjectString) > 0 {
 		decode := scheme.Codecs.UniversalDeserializer().Decode

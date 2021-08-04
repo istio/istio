@@ -1,4 +1,3 @@
-{{- if not .Values.global.externalIstiod }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -160,6 +159,7 @@ spec:
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           securityContext:
+            readOnlyRootFilesystem: true
             runAsUser: 1337
             runAsGroup: 1337
             runAsNonRoot: true
@@ -214,4 +214,3 @@ spec:
           name: pilot-jwks-extra-cacerts{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- end }}
 ---
-{{- end }}

@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"sync"
@@ -240,10 +240,8 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
 		dReq.Header.Set("Content-Type", contentType)
 
-		if pluginLog.DebugEnabled() {
-			reqDump, _ := httputil.DumpRequest(dReq, true)
-			pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
-		}
+		reqDump, _ := httputil.DumpRequest(dReq, true)
+		pluginLog.Debugf("Prepared federated token request: \n%s", string(reqDump))
 	} else {
 		pluginLog.Infof("Prepared federated token request for aud %q", aud)
 	}
@@ -280,7 +278,7 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 			timeElapsed.String(), string(respDump))
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		pluginLog.Errorf("Failed to read federated token response body: %+v", err)
 		return respData, fmt.Errorf("failed to read federated token response body: %+v", err)
@@ -321,7 +319,7 @@ func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, e
 		time.Sleep(10 * time.Millisecond)
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		bodyBytes, _ := io.ReadAll(resp.Body)
 		defer resp.Body.Close()
 		return resp, time.Since(start), fmt.Errorf("HTTP Status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
@@ -410,7 +408,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 			timeElapsed.String(), string(respDump))
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		pluginLog.Errorf("Failed to read access token response body: %+v", err)
 		return respData, fmt.Errorf("failed to read access token response body: %+v", err)
@@ -472,7 +470,7 @@ func (p *Plugin) generateSTSRespInner(token string, expire int64) ([]byte, error
 	statusJSON, err := json.MarshalIndent(stsRespParam, "", " ")
 	if pluginLog.DebugEnabled() {
 		stsRespParam.AccessToken = "redacted"
-		pluginLog.Infof("Populated STS response parameters: %+v", stsRespParam)
+		pluginLog.Debugf("Populated STS response parameters: %+v", stsRespParam)
 	}
 	return statusJSON, err
 }

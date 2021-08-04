@@ -28,17 +28,17 @@ import (
 // DiscoveryNamespacesFilter tracks the set of namespaces selected for discovery, which are updated by the discovery namespace controller.
 // It exposes a filter function used for filtering out objects that don't reside in namespaces selected for discovery.
 type DiscoveryNamespacesFilter interface {
-	// return true if the input object resides in a namespace selected for discovery
+	// Filter returns true if the input object resides in a namespace selected for discovery
 	Filter(obj interface{}) bool
-	// invoked when meshConfig's discoverySelectors change, returns any newly selected namespaces and deselected namespaces
+	// SelectorsChanged is invoked when meshConfig's discoverySelectors change, returns any newly selected namespaces and deselected namespaces
 	SelectorsChanged(discoverySelectors []*metav1.LabelSelector) (selectedNamespaces []string, deselectedNamespaces []string)
-	// return true if the created namespace is selected for discovery
+	// NamespaceCreated returns true if the created namespace is selected for discovery
 	NamespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool)
-	// membershipChanged will be true if the updated namespace is newly selected or deselected for discovery
+	// NamespaceUpdated : membershipChanged will be true if the updated namespace is newly selected or deselected for discovery
 	NamespaceUpdated(oldNs, newNs metav1.ObjectMeta) (membershipChanged bool, namespaceAdded bool)
-	// return true if the deleted namespace was selected for discovery
+	// NamespaceDeleted returns true if the deleted namespace was selected for discovery
 	NamespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool)
-	// return the namespaces selected for discovery
+	// GetMembers returns the namespaces selected for discovery
 	GetMembers() sets.String
 }
 
@@ -75,7 +75,7 @@ func (d *discoveryNamespacesFilter) Filter(obj interface{}) bool {
 	return d.discoveryNamespaces.Has(obj.(metav1.Object).GetNamespace())
 }
 
-// initialize the discovery filter state with the discovery selectors and selected namespaces
+// SelectorsChanged initializes the discovery filter state with the discovery selectors and selected namespaces
 func (d *discoveryNamespacesFilter) SelectorsChanged(
 	discoverySelectors []*metav1.LabelSelector,
 ) (selectedNamespaces []string, deselectedNamespaces []string) {
@@ -128,7 +128,7 @@ func (d *discoveryNamespacesFilter) SelectorsChanged(
 	return
 }
 
-// if newly created namespace is selected, update namespace membership
+// NamespaceCreated : if newly created namespace is selected, update namespace membership
 func (d *discoveryNamespacesFilter) NamespaceCreated(ns metav1.ObjectMeta) (membershipChanged bool) {
 	if d.isSelected(ns.Labels) {
 		d.addNamespace(ns.Name)
@@ -137,7 +137,7 @@ func (d *discoveryNamespacesFilter) NamespaceCreated(ns metav1.ObjectMeta) (memb
 	return false
 }
 
-// if updated namespace was a member and no longer selected, or was not a member and now selected, update namespace membership
+// NamespaceUpdated : if updated namespace was a member and no longer selected, or was not a member and now selected, update namespace membership
 func (d *discoveryNamespacesFilter) NamespaceUpdated(oldNs, newNs metav1.ObjectMeta) (membershipChanged bool, namespaceAdded bool) {
 	if d.hasNamespace(oldNs.Name) && !d.isSelected(newNs.Labels) {
 		d.removeNamespace(oldNs.Name)
@@ -150,7 +150,7 @@ func (d *discoveryNamespacesFilter) NamespaceUpdated(oldNs, newNs metav1.ObjectM
 	return false, false
 }
 
-// if deleted namespace was a member, remove it
+// NamespaceDeleted : if deleted namespace was a member, remove it
 func (d *discoveryNamespacesFilter) NamespaceDeleted(ns metav1.ObjectMeta) (membershipChanged bool) {
 	if d.isSelected(ns.Labels) {
 		d.removeNamespace(ns.Name)
@@ -159,7 +159,7 @@ func (d *discoveryNamespacesFilter) NamespaceDeleted(ns metav1.ObjectMeta) (memb
 	return false
 }
 
-// return member namespaces
+// GetMembers returns member namespaces
 func (d *discoveryNamespacesFilter) GetMembers() sets.String {
 	d.lock.RLock()
 	defer d.lock.RUnlock()

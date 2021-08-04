@@ -237,11 +237,27 @@ func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 }
 
 func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
-	return f.ConfigGen.BuildClusters(p, f.PushContext())
+	raw, _ := f.ConfigGen.BuildClusters(p, &model.PushRequest{Push: f.PushContext()})
+	res := make([]*cluster.Cluster, 0, len(raw))
+	for _, r := range raw {
+		c := &cluster.Cluster{}
+		if err := r.Resource.UnmarshalTo(c); err != nil {
+			f.t.Fatal(err)
+		}
+		res = append(res, c)
+	}
+	return res
 }
 
 func (f *ConfigGenTest) Routes(p *model.Proxy) []*route.RouteConfiguration {
-	return f.ConfigGen.BuildHTTPRoutes(p, f.PushContext(), xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
+	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
+	out := make([]*route.RouteConfiguration, 0, len(resources))
+	for _, resource := range resources {
+		routeConfig := &route.RouteConfiguration{}
+		_ = resource.Resource.UnmarshalTo(routeConfig)
+		out = append(out, routeConfig)
+	}
+	return out
 }
 
 func (f *ConfigGenTest) PushContext() *model.PushContext {

@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -100,9 +101,16 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		hostname:   hostname,
 		port:       port,
 	}
+
+	enableMtlsChecker := false
+	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
 	if b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		// We only need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH
-		// As an optimization, we skip this logic entirely for everything else.
+		enableMtlsChecker = true
+	}
+	if features.EnableAutomTLSCheckPolicies {
+		enableMtlsChecker = true
+	}
+	if enableMtlsChecker {
 		b.mtlsChecker = newMtlsChecker(push, port, dr)
 	}
 	return b
@@ -142,7 +150,7 @@ func (b EndpointBuilder) Key() string {
 		sort.Strings(nv)
 		params = append(params, nv...)
 	}
-	return strings.Join(params, "~")
+	return "eds://" + strings.Join(params, "~")
 }
 
 func (b EndpointBuilder) Cacheable() bool {
@@ -282,8 +290,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	if len(keys) >= 2 {
 		sort.Strings(keys)
 	}
-	// The shards are updated independently, now need to filter and merge
-	// for this cluster
+	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, clusterID := range keys {
 		endpoints := shards.Shards[clusterID]
 		// If the downstream service is configured as cluster-local, only include endpoints that
@@ -317,6 +324,15 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			}
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
+			}
+			if features.EnableAutomTLSCheckPolicies {
+				tlsMode := ep.TLSMode
+				if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
+					tlsMode = ""
+				}
+				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
+					ep.EnvoyEndpoint = nep
+				}
 			}
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
@@ -400,7 +416,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
-	// Do not removepilot/pkg/xds/fake.go
+	// Do not remove pilot/pkg/xds/fake.go
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	return ep

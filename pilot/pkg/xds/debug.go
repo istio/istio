@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/network"
 	istiolog "istio.io/pkg/log"
 )
 
@@ -184,6 +185,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, internalMux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
 	s.addDebugHandler(mux, internalMux, "/debug/cachez?sizes=true", "Info about the size of the internal XDS caches", s.cachez)
+	s.addDebugHandler(mux, internalMux, "/debug/cachez?clear=true", "Clear the XDS caches", s.cachez)
 	s.addDebugHandler(mux, internalMux, "/debug/configz", "Debug support for config", s.configz)
 	s.addDebugHandler(mux, internalMux, "/debug/sidecarz", "Debug sidecar scope for a proxy", s.sidecarz)
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
@@ -198,6 +200,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 
 	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
 	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
 	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
 
@@ -237,7 +240,7 @@ func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.
 		if ids == nil {
 			istiolog.Errorf("Failed to authenticate %s %v", req.URL, authFailMsgs)
 			// Not including detailed info in the response, XDS doesn't either (returns a generic "authentication failure).
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		// TODO: Check that the identity contains istio-system namespace, else block or restrict to only info that
@@ -304,6 +307,11 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 	if err := req.ParseForm(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("Failed to parse request\n"))
+		return
+	}
+	if req.Form.Get("clear") != "" {
+		s.Cache.ClearAll()
+		_, _ = w.Write([]byte("Cache cleared\n"))
 		return
 	}
 	if req.Form.Get("sizes") != "" {
@@ -558,14 +566,10 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
+	clusters, _ := s.ConfigGenerator.BuildClusters(conn.proxy, &model.PushRequest{Push: s.globalPushContext()})
 
 	for _, cs := range clusters {
-		c, err := anypb.New(cs)
-		if err != nil {
-			return nil, err
-		}
-		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: c})
+		dynamicActiveClusters = append(dynamicActiveClusters, &adminapi.ClustersConfigDump_DynamicCluster{Cluster: cs.Resource})
 	}
 	clustersAny, err := util.MessageToAnyWithError(&adminapi.ClustersConfigDump{
 		VersionInfo:           versionInfo(),
@@ -595,16 +599,12 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		return nil, err
 	}
 
-	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.proxy, s.globalPushContext(), conn.Routes())
+	routes, _ := s.ConfigGenerator.BuildHTTPRoutes(conn.proxy, &model.PushRequest{Push: s.globalPushContext()}, conn.Routes())
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
 		for _, rs := range routes {
-			route, err := anypb.New(rs)
-			if err != nil {
-				return nil, err
-			}
-			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: route})
+			dynamicRouteConfig = append(dynamicRouteConfig, &adminapi.RoutesConfigDump_DynamicRouteConfig{RouteConfig: rs.Resource})
 		}
 		routeConfigAny, err = util.MessageToAnyWithError(&adminapi.RoutesConfigDump{DynamicRouteConfigs: dynamicRouteConfig})
 		if err != nil {
@@ -675,6 +675,8 @@ func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
 
 // PushStatusHandler dumps the last PushContext
 func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+	model.LastPushMutex.Lock()
+	defer model.LastPushMutex.Unlock()
 	if model.LastPushStatus == nil {
 		return
 	}
@@ -691,19 +693,14 @@ func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Req
 // PushContextDebug holds debug information for push context.
 type PushContextDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies
-	NetworkGateways       map[string][]*model.NetworkGateway
+	NetworkGateways       map[network.ID][]*model.NetworkGateway
 }
 
 // PushContextHandler dumps the current PushContext
 func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, _ *http.Request) {
-	gateways := s.globalPushContext().NetworkManager().AllGateways()
-	byNetwork := make(map[string][]*model.NetworkGateway)
-	for _, gateway := range gateways {
-		byNetwork[string(gateway.Network)] = append(byNetwork[string(gateway.Network)], gateway)
-	}
 	push := PushContextDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
-		NetworkGateways:       byNetwork,
+		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
 	}
 
 	writeJSON(w, push)
@@ -732,7 +729,7 @@ func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 
 	if err := indexTmpl.Execute(w, deps); err != nil {
 		istiolog.Errorf("Error in rendering index template %v", err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -863,6 +860,14 @@ func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	writeJSON(w, jsonMap)
+}
+
+func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ *http.Request) {
+	if s.ListRemoteClusters == nil {
+		w.WriteHeader(400)
+		return
+	}
+	writeJSON(w, s.ListRemoteClusters())
 }
 
 // handlePushRequest handles a ?push=true query param and triggers a push.

@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/pkg/log"
@@ -358,7 +359,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
-				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, port, map[string]bool{gatewayName: true})
+				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService, nameToServiceMap)
+				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap, hashByDestination,
+					port, map[string]bool{gatewayName: true})
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
@@ -637,7 +640,7 @@ func buildGatewayListenerTLSContext(
 		ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 			TlsMinimumProtocolVersion: convertTLSProtocol(server.Tls.MinProtocolVersion),
 			TlsMaximumProtocolVersion: convertTLSProtocol(server.Tls.MaxProtocolVersion),
-			CipherSuites:              server.Tls.CipherSuites,
+			CipherSuites:              filteredCipherSuites(server),
 		}
 	}
 
@@ -858,7 +861,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			})
 
 			destRule := push.DestinationRule(proxy, service)
-			destinationRule := castDestinationRule(destRule)
+			destinationRule := CastDestinationRule(destRule)
 			// Do the same, but for each subset
 			for _, subset := range destinationRule.GetSubsets() {
 				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
@@ -977,4 +980,18 @@ func buildGatewayVirtualHostDomains(hostname string, port int) []string {
 		domains = append(domains, hostname+":*")
 	}
 	return domains
+}
+
+// Invalid cipher suites lead Envoy to NACKing. This filters the list down to just the supported set.
+func filteredCipherSuites(server *networking.Server) []string {
+	suites := server.Tls.CipherSuites
+	ret := make([]string, 0, len(suites))
+	for _, s := range suites {
+		if security.IsValidCipherSuite(s) {
+			ret = append(ret, s)
+		} else if log.DebugEnabled() {
+			log.Debugf("ignoring unsupported cipherSuite: %q for server %s", s, server.String())
+		}
+	}
+	return ret
 }

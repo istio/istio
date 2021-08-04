@@ -15,7 +15,6 @@
 package mesh
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +52,7 @@ func TestOperatorDump(t *testing.T) {
 
 	if refreshGoldenFiles() {
 		t.Logf("Refreshing golden file for %s", goldenFilepath)
-		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0o644); err != nil {
+		if err := os.WriteFile(goldenFilepath, []byte(gotYAML), 0o644); err != nil {
 			t.Error(err)
 		}
 	}
@@ -90,7 +89,7 @@ func TestOperatorInit(t *testing.T) {
 
 	if refreshGoldenFiles() {
 		t.Logf("Refreshing golden file for %s", goldenFilepath)
-		if err := ioutil.WriteFile(goldenFilepath, []byte(gotYAML), 0o644); err != nil {
+		if err := os.WriteFile(goldenFilepath, []byte(gotYAML), 0o644); err != nil {
 			t.Error(err)
 		}
 	}

@@ -34,8 +34,6 @@ import (
 // ApplyListenerPatches applies patches to LDS output
 func ApplyListenerPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
-	proxy *model.Proxy,
-	push *model.PushContext,
 	efw *model.EnvoyFilterWrapper,
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {

@@ -347,9 +347,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 
 	// Recomputing the index here is too expensive - lazy build when it is needed.
 	// Only recompute indexes if services have changed.
-	s.storeMutex.Lock()
 	s.refreshIndexes.Store(true)
-	s.storeMutex.Unlock()
 
 	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
@@ -569,7 +567,7 @@ func (s *ServiceEntryStore) ResyncEDS() {
 // And triggers a push if `push` is true.
 func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
 	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new addes instances
+	// otherwise may get no instances or miss some new added instances
 	s.maybeRefreshIndexes()
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
@@ -581,7 +579,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 
 func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
 	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new addess instances
+	// otherwise may get no instances or miss some new added instances
 	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()

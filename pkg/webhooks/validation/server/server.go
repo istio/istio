@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -129,7 +129,7 @@ type admitFunc func(*kube.AdmissionRequest) *kube.AdmissionResponse
 func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	var body []byte
 	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
+		if data, err := io.ReadAll(r.Body); err == nil {
 			body = data
 		}
 	}

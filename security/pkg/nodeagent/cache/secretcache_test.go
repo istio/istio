@@ -17,7 +17,6 @@ package cache
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -56,7 +55,7 @@ func createCache(t *testing.T, caClient security.Client, notifyCb func(resourceN
 }
 
 func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, true)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -143,7 +142,7 @@ func (u *UpdateTracker) Reset() {
 
 func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	cacheLog.SetOutputLevel(log.DebugLevel)
-	fakeCACli, err := mock.NewMockCAClient(time.Millisecond * 200)
+	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*200, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -327,7 +326,7 @@ func TestFileSecrets(t *testing.T) {
 }
 
 func runFileAgentTest(t *testing.T, sds bool) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -345,15 +344,15 @@ func runFileAgentTest(t *testing.T, sds bool) {
 		rootResource = sc.existingCertificateFile.GetRootResourceName()
 	}
 
-	certchain, err := ioutil.ReadFile(sc.existingCertificateFile.CertificatePath)
+	certchain, err := os.ReadFile(sc.existingCertificateFile.CertificatePath)
 	if err != nil {
 		t.Fatalf("Error reading the cert chain file: %v", err)
 	}
-	privateKey, err := ioutil.ReadFile(sc.existingCertificateFile.PrivateKeyPath)
+	privateKey, err := os.ReadFile(sc.existingCertificateFile.PrivateKeyPath)
 	if err != nil {
 		t.Fatalf("Error reading the private key file: %v", err)
 	}
-	rootCert, err := ioutil.ReadFile(sc.existingCertificateFile.CaCertificatePath)
+	rootCert, err := os.ReadFile(sc.existingCertificateFile.CaCertificatePath)
 	if err != nil {
 		t.Fatalf("Error reading the root cert file: %v", err)
 	}
@@ -543,7 +542,7 @@ func TestConcatCerts(t *testing.T) {
 }
 
 func TestProxyConfigAnchors(t *testing.T) {
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -565,7 +564,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 		RootCert:     caClientRootCert,
 	})
 
-	rootCert, err := ioutil.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
+	rootCert, err := os.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
 	if err != nil {
 		t.Fatalf("Error reading the root cert file: %v", err)
 	}
@@ -587,7 +586,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	sc.UpdateConfigTrustBundle(caClientRootCert)
 	setupTestDir(t, sc)
 
-	rootCert, err = ioutil.ReadFile(sc.existingCertificateFile.CaCertificatePath)
+	rootCert, err = os.ReadFile(sc.existingCertificateFile.CaCertificatePath)
 	if err != nil {
 		t.Fatalf("Error reading the root cert file: %v", err)
 	}

@@ -72,6 +72,9 @@ type InstallConfig struct {
 
 	// The HTTP port for monitoring
 	MonitoringPort int
+
+	// The UDS server address that CNI plugin will send log to.
+	LogUDSAddress string
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -130,6 +133,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("UpdateCNIBinaries: " + fmt.Sprint(c.UpdateCNIBinaries) + "\n")
 	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
+	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
 	return b.String()
 }
 

@@ -18,8 +18,8 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -51,6 +51,13 @@ func TestGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
+			}
+			crd, err := os.ReadFile("testdata/service-apis-crd.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+				t.Fatal(err)
 			}
 			t.Config().ApplyYAMLOrFail(t, "", `
 apiVersion: networking.x-k8s.io/v1alpha1
@@ -95,7 +102,7 @@ spec:
   - matches:
     - path:
         type: Prefix
-        value: /get
+        value: /get/
     forwardTo:
     - serviceName: b
       port: 80
@@ -139,15 +146,18 @@ spec:
 `)
 
 			t.NewSubTest("http").Run(func(t framework.TestContext) {
-				_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
-					Port: &echo.Port{
-						Protocol: protocol.HTTP,
-					},
-					Path: "/get",
-					Headers: map[string][]string{
-						"Host": {"my.domain.example"},
-					},
-				})
+				paths := []string{"/get", "/get/", "/get/prefix"}
+				for _, path := range paths {
+					_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: path,
+						Headers: map[string][]string{
+							"Host": {"my.domain.example"},
+						},
+					})
+				}
 			})
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				host, port := apps.Ingress.TCPAddress()
@@ -246,7 +256,12 @@ spec:
           - path: %s
             backend:
               serviceName: b
-              servicePort: 80`
+              servicePort: 80
+          - path: %s
+            pathType: Prefix
+            backend:
+              serviceName: b
+              servicePort: http`
 			if apiVersion == "v1" {
 				ingressConfigTemplate = `
 apiVersion: networking.k8s.io/v1
@@ -277,23 +292,28 @@ spec:
               number: 80
         path: %s
         pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: b
+            port:
+              number: 80
+        path: %s
+        pathType: Prefix
 `
 			}
 
-			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-				fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test")); err != nil {
-				t.Fatal(err)
-			}
-
-			validator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(apps.PodB.Clusters()))
+			successValidator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(apps.PodB.Clusters()))
+			failureValidator := echo.ExpectCode("404")
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())
 			}
 			// TODO check all clusters were hit
 			cases := []struct {
-				name string
-				call echo.CallOptions
+				name       string
+				path       string
+				prefixPath string
+				call       echo.CallOptions
 			}{
 				{
 					// Basic HTTP call
@@ -306,9 +326,96 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: validator,
+						Validator: successValidator,
 						Count:     count,
 					},
+					path:       "/test",
+					prefixPath: "/prefix",
+				},
+				{
+					// Prefix /prefix/should MATCHES prefix/should/match
+					name: "http-prefix-matches-subpath",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/prefix/should/match",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/prefix/should",
+				},
+				{
+					// Prefix /prefix/test/ should match path /prefix/test
+					name: "http-prefix-matches-without-trailing-backslash",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/prefix/test",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/prefix/test/",
+				},
+				{
+					// Prefix /prefix/test should match /prefix/test/
+					name: "http-prefix-matches-trailing-blackslash",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/prefix/test/",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/prefix/test",
+				},
+				{
+					// Prefix /prefix/test should NOT match /prefix/testrandom
+					name: "http-prefix-should-not-match-path-continuation",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/prefix/testrandom/",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: failureValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/prefix/test",
+				},
+				{
+					// Prefix / should match any path
+					name: "http-root-prefix-should-match-random-path",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/testrandom",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/",
 				},
 				{
 					// Basic HTTPS call for foo. CaCert matches the secret
@@ -322,9 +429,11 @@ spec:
 							"Host": {"foo.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialA.CaCert,
-						Validator: validator,
+						Validator: successValidator,
 						Count:     count,
 					},
+					path:       "/test",
+					prefixPath: "/prefix",
 				},
 				{
 					// Basic HTTPS call for bar. CaCert matches the secret
@@ -338,9 +447,11 @@ spec:
 							"Host": {"bar.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: validator,
+						Validator: successValidator,
 						Count:     count,
 					},
+					path:       "/test",
+					prefixPath: "/prefix",
 				},
 				{
 					// HTTPS call for bar with namedport route. CaCert matches the secret
@@ -354,9 +465,11 @@ spec:
 							"Host": {"bar.example.com"},
 						},
 						CaCert:    ingressutil.IngressCredentialB.CaCert,
-						Validator: validator,
+						Validator: successValidator,
 						Count:     count,
 					},
+					path:       "/test",
+					prefixPath: "/prefix",
 				},
 			}
 
@@ -366,7 +479,11 @@ spec:
 					for _, c := range cases {
 						c := c
 						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
-							ingr.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute*2))
+							if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)); err != nil {
+								t.Fatal(err)
+							}
+							ingr.CallWithRetryOrFail(t, c.call, retry.Converge(3), retry.Delay(500*time.Millisecond), retry.Timeout(time.Minute*2))
 						})
 					}
 				})
@@ -375,6 +492,10 @@ spec:
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				if !t.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 					t.Skip("ingress status not supported without load balancer")
+				}
+				if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
+					fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", "/test", "/test", "/test")); err != nil {
+					t.Fatal(err)
 				}
 
 				host, _ := apps.Ingress.HTTPAddress()
@@ -418,7 +539,7 @@ spec:
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
 			const updateIngressName = "update-test-ingress"
 			if err := t.Config().ApplyYAML(apps.Namespace.Name(), ingressClassConfig,
-				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test")); err != nil {
+				fmt.Sprintf(ingressConfigTemplate, updateIngressName, "istio-test", "/update-test", "/update-test", "/update-test")); err != nil {
 				t.Fatal(err)
 			}
 			// these cases make sure that when new Ingress configs are applied our controller picks up on them
@@ -441,7 +562,7 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.ExpectCode("404"),
+						Validator: echo.Or(echo.ExpectError(), echo.ExpectCode("404")),
 					},
 				},
 				{
@@ -478,7 +599,7 @@ spec:
 
 			for _, c := range ingressUpdateCases {
 				c := c
-				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path)
+				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, c.path)
 				t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), updatedIngress)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					apps.Ingress.CallWithRetryOrFail(t, c.call, retry.Timeout(time.Minute))
@@ -595,7 +716,7 @@ spec:
 				if t.Settings().Revisions.Default() != "" {
 					rev = t.Settings().Revisions.Default()
 				}
-				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
+				os.WriteFile(d, []byte(fmt.Sprintf(`
 revision: %v
 gateways:
   istio-ingressgateway:
@@ -611,9 +732,9 @@ gateways:
       istio: custom-gateway-helm
 `, rev)), 0o644)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
-				h := helm.New(cs.Filename(), filepath.Join(env.IstioSrc, "manifests/charts"))
+				h := helm.New(cs.Filename())
 				// Install ingress gateway chart
-				if err := h.InstallChart("ingress", filepath.Join("gateways/istio-ingress"), gatewayNs.Name(),
+				if err := h.InstallChart("ingress", filepath.Join(env.IstioSrc, "manifests/charts/gateways/istio-ingress"), gatewayNs.Name(),
 					d, helmtest.Timeout); err != nil {
 					t.Fatal(err)
 				}

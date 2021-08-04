@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -34,16 +33,18 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/api/option"
+	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
-	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/model"
-	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	dnsClient "istio.io/istio/pkg/dns/client"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	cas "istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/log"
 )
@@ -113,7 +115,7 @@ type Agent struct {
 	xdsProxy *XdsProxy
 
 	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
-	localDNSServer *dns.LocalDNSServer
+	localDNSServer *dnsClient.LocalDNSServer
 
 	// Signals true completion (e.g. with delayed graceful termination of Envoy)
 	wg sync.WaitGroup
@@ -134,6 +136,8 @@ type AgentOptions struct {
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	// This option will not be considered if proxyXDSViaAgent is false.
 	DNSCapture bool
+	// DNSAddr is the DNS capture address
+	DNSAddr string
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -185,7 +189,8 @@ type AgentOptions struct {
 	GRPCBootstrapPath string
 
 	// Disables all envoy agent features
-	DisableEnvoy bool
+	DisableEnvoy          bool
+	DownstreamGrpcOptions []grpc.ServerOption
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -276,6 +281,12 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
 	a.envoyOpts.ParentShutdownDuration = a.proxyConfig.ParentShutdownDuration
 	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
+
+	// Checking only uid should be sufficient - but tests also run as root and
+	// will break due to permission errors if we start envoy as 1337.
+	// This is a mode used for permission-less docker, where iptables can't be
+	// used.
+	a.envoyOpts.AgentIsRoot = os.Getuid() == 0 && strings.HasSuffix(a.cfg.DNSAddr, ":53")
 
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
@@ -386,6 +397,10 @@ func (b *bootstrapDiscoveryRequest) Context() context.Context { return context.B
 // This is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
+	if err = a.initLocalDNSServer(); err != nil {
+		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
+	}
+
 	a.secretCache, err = a.newSecretManager()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start workload secret manager %v", err)
@@ -393,10 +408,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
-
-	if err = a.initLocalDNSServer(); err != nil {
-		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
-	}
 
 	if a.cfg.ProxyXDSViaAgent {
 		a.xdsProxy, err = initXdsProxy(a)
@@ -463,7 +474,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we dont need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
-		if a.localDNSServer, err = dns.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()
@@ -501,7 +512,7 @@ func (a *Agent) Check() (err error) {
 	return nil
 }
 
-func (a *Agent) GetDNSTable() *nds.NameTable {
+func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil {
 		return a.localDNSServer.NameTable()
 	}
@@ -632,6 +643,14 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 			return nil, err
 		}
 		return cache.NewSecretManagerClient(caClient, a.secOpts)
+	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
+		// Use a plugin
+		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
+			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))))
+		if err != nil {
+			return nil, err
+		}
+		return cache.NewSecretManagerClient(caClient, a.secOpts)
 	}
 
 	// Using citadel CA
@@ -652,7 +671,7 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 
 		if caCertFile == "" {
 			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
-		} else if rootCert, err = ioutil.ReadFile(caCertFile); err != nil {
+		} else if rootCert, err = os.ReadFile(caCertFile); err != nil {
 			log.Fatalf("invalid config - %s missing a root certificate %s", a.secOpts.CAEndpoint, caCertFile)
 		} else {
 			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, caCertFile)

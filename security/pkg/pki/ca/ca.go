@@ -19,7 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,6 +70,9 @@ type CertOpts struct {
 	// ForCA indicates whether the signed certificate if for CA.
 	// If true, the signed certificate is a CA certificate, otherwise, it is a workload certificate.
 	ForCA bool
+
+	// Cert Signer info
+	CertSigner string
 }
 
 const (
@@ -110,6 +113,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	if scrtErr != nil && readCertRetryInterval > time.Duration(0) {
 		pkiCaLog.Infof("Citadel in signing key/cert read only mode. Wait until secret %s:%s can be loaded...", namespace, CASecret)
 		ticker := time.NewTicker(readCertRetryInterval)
+		defer ticker.Stop()
 		for scrtErr != nil {
 			select {
 			case <-ticker.C:
@@ -242,7 +246,7 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 	// Validate that the passed in signing cert can be used as CA.
 	// The check can't be done inside `KeyCertBundle`, since bundle could also be used to
 	// validate workload certificates (i.e., where the leaf certificate is not a CA).
-	b, err := ioutil.ReadFile(signingCertFile)
+	b, err := os.ReadFile(signingCertFile)
 	if err != nil {
 		return nil, err
 	}

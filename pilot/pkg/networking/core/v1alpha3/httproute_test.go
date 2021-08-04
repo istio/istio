@@ -25,6 +25,7 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -40,11 +41,12 @@ import (
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
-		name    string
-		service *model.Service
-		port    int
-		node    *model.Proxy
-		want    []string
+		name        string
+		service     *model.Service
+		port        int
+		node        *model.Proxy
+		want        []string
+		wantWithMCS []string
 	}{
 		{
 			name: "same domain",
@@ -57,6 +59,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
+				"foo", "foo.local.campus.net",
+				"foo:80", "foo.local.campus.net:80",
+			},
+			wantWithMCS: []string{
 				"foo", "foo.local.campus.net",
 				"foo:80", "foo.local.campus.net:80",
 			},
@@ -75,6 +81,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
 			},
+			wantWithMCS: []string{
+				"foo.local", "foo.local.campus", "foo.local.campus.net",
+				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
+			},
 		},
 		{
 			name: "different domains with no shared dns",
@@ -86,7 +96,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			want:        []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			wantWithMCS: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
 		},
 		{
 			name: "k8s service with default domain",
@@ -101,6 +112,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			want: []string{
 				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
 				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+			},
+			wantWithMCS: []string{
+				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.clusterset.local", "echo.default.svc.clusterset.local:8123",
 			},
 		},
 		{
@@ -117,6 +133,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
 				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
 			},
+			wantWithMCS: []string{
+				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
+				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
+				"echo.default.svc.clusterset.local", "echo.default.svc.clusterset.local:8123",
+			},
 		},
 		{
 			name: "k8s service with custom domain 2",
@@ -128,18 +149,50 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "foo.svc.custom.k8s.local",
 			},
-			want: []string{"google.local", "google.local:8123"},
+			want:        []string{"google.local", "google.local:8123"},
+			wantWithMCS: []string{"google.local", "google.local:8123"},
 		},
 	}
 
-	for _, c := range cases {
-		out, _ := generateVirtualHostDomains(c.service, c.port, c.node)
-		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
+	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
+		out, _ := generateVirtualHostDomains(service, port, node)
+		sort.SliceStable(want, func(i, j int) bool { return want[i] < want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
-		if !reflect.DeepEqual(out, c.want) {
-			t.Errorf("buildVirtualHostDomains(%s): \ngot %v\n want %v", c.name, out, c.want)
+		if !reflect.DeepEqual(out, want) {
+			return fmt.Errorf("unexpected virtual hosts:\ngot  %v\nwant %v", out, want)
 		}
+		return nil
 	}
+
+	t.Run("MCS disabled", func(t *testing.T) {
+		origEnableMCSHost := features.EnableMCSHost
+		features.EnableMCSHost = false
+		defer func() { features.EnableMCSHost = origEnableMCSHost }()
+
+		for _, c := range cases {
+			c := c
+			t.Run(c.name, func(t *testing.T) {
+				if err := testFn(c.service, c.port, c.node, c.want); err != nil {
+					t.Error(err)
+				}
+			})
+		}
+	})
+
+	t.Run("MCS enabled", func(t *testing.T) {
+		origEnableMCSHost := features.EnableMCSHost
+		features.EnableMCSHost = true
+		defer func() { features.EnableMCSHost = origEnableMCSHost }()
+
+		for _, c := range cases {
+			c := c
+			t.Run(c.name, func(t *testing.T) {
+				if err := testFn(c.service, c.port, c.node, c.wantWithMCS); err != nil {
+					t.Error(err)
+				}
+			})
+		}
+	})
 }
 
 func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
@@ -293,8 +346,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": "PassthroughCluster",
 				// From the service, go to the service
 				"test.default.svc.cluster.local:80": "outbound|80||test.default.svc.cluster.local",
-				// From the VS, go to VS destination
-				"test.default:80": "outbound|80||test.default",
+				"test.default:80":                   "outbound|80||test.default",
 			},
 		},
 		{
@@ -328,7 +380,10 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 
 			vHostCache := make(map[int][]*route.VirtualHost)
 			routeName := "80"
-			routeCfg := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(cg.SetupProxy(nil), cg.PushContext(), "80", vHostCache)
+			resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+				cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, "80", vHostCache, nil, nil)
+			routeCfg := &route.RouteConfiguration{}
+			resource.Resource.UnmarshalTo(routeCfg)
 			xdstest.ValidateRouteConfiguration(t, routeCfg)
 			if routeCfg == nil {
 				t.Fatalf("got nil route for %s", routeName)
@@ -360,6 +415,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		buildHTTPService("test-private.com", visibility.Private, "9.9.9.9", "not-default", 80, 70),
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
+		buildHTTPService("service-A.default.svc.cluster.local", visibility.Public, "", "default", 7777),
 	}
 
 	sidecarConfig := &config.Config{
@@ -644,6 +700,58 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec6 := &networking.VirtualService{
+		Hosts:    []string{"match-no-service"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "non-exist-service",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec7 := &networking.VirtualService{
+		Hosts:    []string{"service-A.default.svc.cluster.local", "service-A.v2", "service-A.v3"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{":authority": {MatchType: &networking.StringMatch_Exact{Exact: "service-A.v2"}}},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "service-A",
+							Subset: "v2",
+						},
+					},
+				},
+			},
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{":authority": {MatchType: &networking.StringMatch_Exact{Exact: "service-A.v3"}}},
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "service-A",
+							Subset: "v3",
+						},
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -684,6 +792,22 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 		Spec: virtualServiceSpec5,
 	}
+	virtualService6 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: virtualServiceSpec6,
+	}
+	virtualService7 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "vs-1",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSpec7,
+	}
 
 	// With the config above, RDS should return a valid route for the following route names
 	// port 9000 - [bookinfo.com:9999, *.bookinfo.com:9990], [bookinfo.com:70, *.bookinfo.com:70] but no bookinfo.com
@@ -704,8 +828,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		sidecarConfig         *config.Config
 		virtualServiceConfigs []*config.Config
 		// virtualHost Name and domains
-		expectedHosts map[string]map[string]bool
-		registryOnly  bool
+		expectedHosts  map[string]map[string]bool
+		expectedRoutes int
+		registryOnly   bool
 	}{
 		{
 			name:                  "sidecar config port that is not in any service",
@@ -769,6 +894,24 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test-private.com:80": {
 					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
 				},
+				"allow_any": {
+					"*": true,
+				},
+			},
+			registryOnly: false,
+		},
+
+		{
+			name:                  "sidecar config with allow any and virtual service includes non existing service",
+			routeName:             "80",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: []*config.Config{&virtualService6},
+			expectedHosts: map[string]map[string]bool{
+				// does not include `match-no-service`
+				"test-private.com:80": {
+					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+				},
+				"match-no-service.not-default:80": {"match-no-service.not-default": true, "match-no-service.not-default:80": true},
 				"allow_any": {
 					"*": true,
 				},
@@ -1057,8 +1200,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"test.com:8080": {
 					"test.com:8080": true, "8.8.8.8:8080": true,
 				},
-				"test-svc.testns.svc.cluster.local:80": {
-					"test-svc.testns.svc.cluster.local": true, "test-svc.testns.svc.cluster.local:80": true,
+				"service-A.default.svc.cluster.local:7777": {
+					"service-A.default.svc.cluster.local:7777": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1066,19 +1209,44 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 			registryOnly: true,
 		},
+		{
+			name:                  "virtual service hosts with subsets and with existing service",
+			routeName:             "7777",
+			sidecarConfig:         sidecarConfigWithAllowAny,
+			virtualServiceConfigs: []*config.Config{&virtualService7},
+			expectedHosts: map[string]map[string]bool{
+				"allow_any": {
+					"*": true,
+				},
+				"service-A.default.svc.cluster.local:7777": {
+					"service-A.default.svc.cluster.local":      true,
+					"service-A.default.svc.cluster.local:7777": true,
+				},
+				"service-A.v2:7777": {
+					"service-A.v2":      true,
+					"service-A.v2:7777": true,
+				},
+				"service-A.v3:7777": {
+					"service-A.v3":      true,
+					"service-A.v3:7777": true,
+				},
+			},
+			expectedRoutes: 7,
+			registryOnly:   false,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
-				c.routeName, c.expectedHosts, c.registryOnly)
+				c.routeName, c.expectedHosts, c.expectedRoutes, c.registryOnly)
 		})
 	}
 }
 
 func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	sidecarConfig *config.Config, virtualServices []*config.Config, routeName string,
-	expectedHosts map[string]map[string]bool, registryOnly bool) {
+	expectedHosts map[string]map[string]bool, expectedRoutes int, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
@@ -1099,13 +1267,17 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 
 	vHostCache := make(map[int][]*route.VirtualHost)
-	routeCfg := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, env.PushContext, routeName, vHostCache)
+	resource, _ := configgen.buildSidecarOutboundHTTPRouteConfig(proxy, &model.PushRequest{Push: env.PushContext}, routeName, vHostCache, nil, nil)
+	routeCfg := &route.RouteConfiguration{}
+	resource.Resource.UnmarshalTo(routeCfg)
 	xdstest.ValidateRouteConfiguration(t, routeCfg)
 	if routeCfg == nil {
 		t.Fatalf("got nil route for %s", routeName)
 	}
 
-	expectedNumberOfRoutes := len(expectedHosts)
+	if expectedRoutes == 0 {
+		expectedRoutes = len(expectedHosts)
+	}
 	numberOfRoutes := 0
 	for _, vhost := range routeCfg.VirtualHosts {
 		numberOfRoutes += len(vhost.Routes)
@@ -1135,8 +1307,8 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 			t.Fatal("Expected that include request attempt count is set to true, but set to false")
 		}
 	}
-	if (expectedNumberOfRoutes >= 0) && (numberOfRoutes != expectedNumberOfRoutes) {
-		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedNumberOfRoutes, numberOfRoutes)
+	if (expectedRoutes >= 0) && (numberOfRoutes != expectedRoutes) {
+		t.Errorf("Wrong number of routes. expected: %v, Got: %v", expectedRoutes, numberOfRoutes)
 	}
 }
 

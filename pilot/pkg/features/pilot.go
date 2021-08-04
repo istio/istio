@@ -146,6 +146,11 @@ var (
 		false,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy").Get()
 
+	EnableAutomTLSCheckPolicies = env.RegisterBoolVar(
+		"ENABLE_AUTO_MTLS_CHECK_POLICIES", true,
+		"Enable the auto mTLS EDS output to consult the PeerAuthentication Policy, only set the {tlsMode: istio} "+
+			" when server side policy enables mTLS PERMISSIVE or STRICT.").Get()
+
 	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
 		"PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND",
 		true,
@@ -190,7 +195,7 @@ var (
 		"PILOT_JWT_ENABLE_REMOTE_JWKS",
 		false,
 		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
-			"and configures Remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
+			"and configures remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
 	).Get()
 
 	EnableEDSForHeadless = env.RegisterBoolVar(
@@ -233,6 +238,11 @@ var (
 		"If enabled, istiod will enable Kubernetes MCS service discovery mode. In this mode, service endpoints "+
 			"in a cluster will only discoverable within the same cluster unless explicitly exported "+
 			"(via the ServiceExport CR).").Get()
+
+	EnableMCSHost = env.RegisterBoolVar("ENABLE_MCS_HOST", false,
+		"If enabled, istiod will provide an alias <svc>.<namespace>.svc.clusterset.local for "+
+			"each Kubernetes service. Clients must, however, be able to successfully lookup these DNS hosts. "+
+			"That means that either Istio DNS interception must be enabled or an MCS controller must be used.").Get()
 
 	EnableAnalysis = env.RegisterBoolVar(
 		"PILOT_ENABLE_ANALYSIS",
@@ -352,10 +362,20 @@ var (
 	EnableXDSCaching = env.RegisterBoolVar("PILOT_ENABLE_XDS_CACHE", true,
 		"If true, Pilot will cache XDS responses.").Get()
 
+	// EnableCDSCaching determines if CDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
+	// so that in case there are issues with the CDS cache we can just disable the CDS cache.
+	EnableCDSCaching = env.RegisterBoolVar("PILOT_ENABLE_CDS_CACHE", true,
+		"If true, Pilot will cache CDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
+
+	// EnableRDSCaching determines if RDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
+	// so that in case there are issues with the RDS cache we can just disable the RDS cache.
+	EnableRDSCaching = env.RegisterBoolVar("PILOT_ENABLE_RDS_CACHE", true,
+		"If true, Pilot will cache RDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
+
 	EnableXDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
 
-	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
+	XDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 60000,
 		"The maximum number of cache entries for the XDS cache.").Get()
 
 	// EnableLegacyFSGroupInjection has first-party-jwt as allowed because we only
@@ -495,6 +515,20 @@ var (
 	// New behavior (true): we create listener 0.0.0.0_8080 and route http.8080. This has no conflicts; routes are 1:1 with listener.
 	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
 		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
+
+	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
+
+	AutoReloadPluginCerts = env.RegisterBoolVar(
+		"AUTO_RELOAD_PLUGIN_CERTS",
+		false,
+		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
+			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
+
+	RewriteTCPProbes = env.RegisterBoolVar(
+		"REWRITE_TCP_PROBES",
+		true,
+		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

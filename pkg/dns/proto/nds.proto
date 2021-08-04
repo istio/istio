@@ -1,0 +1,43 @@
+// Copyright Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio.networking.nds.v1;
+
+// Table of hostnames and their IPs to br used for DNS resolution at the agent
+// Sent by istiod to istio agents via xds
+message NameTable {
+    message NameInfo {
+        // List of IPs for the host.
+        repeated string ips = 1;
+
+        // The name of the service registry containing the service (e.g. 'Kubernetes').
+        string registry = 2;
+
+        // The k8s service name. Only applies when registry=`Kubernetes`
+        string shortname = 3;
+
+        // The k8s namespace for the service. Only applies when registry=`Kubernetes`
+        string namespace = 4;
+
+        // List of alternate hosts to map to the IPs.
+        // Only applies when registry=`Kubernetes`
+        repeated string alt_hosts = 5;
+    }
+
+    // Map of hostname to resolution attributes.
+    map<string, NameInfo> table = 1;
+}
+
