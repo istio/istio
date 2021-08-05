@@ -23,6 +23,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -223,14 +225,14 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 }
 
 func convertEndpoint(service *model.Service, servicePort *networking.Port,
-	endpoint *networking.WorkloadEntry, wleck *configKey) *model.ServiceInstance {
+	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID) *model.ServiceInstance {
 	var instancePort uint32
-	addr := endpoint.GetAddress()
+	addr := wle.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		instancePort = 0
 		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
-	} else if len(endpoint.Ports) > 0 { // endpoint port map takes precedence
-		instancePort = endpoint.Ports[servicePort.Name]
+	} else if len(wle.Ports) > 0 { // endpoint port map takes precedence
+		instancePort = wle.Ports[servicePort.Name]
 		if instancePort == 0 {
 			instancePort = servicePort.Number
 		}
@@ -241,28 +243,30 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		instancePort = servicePort.Number
 	}
 
-	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
+	tlsMode := getTLSModeFromWorkloadEntry(wle)
 	sa := ""
-	if endpoint.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, endpoint.ServiceAccount)
+	if wle.ServiceAccount != "" {
+		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
 	}
+	labels := labelutil.AugmentLabels(wle.Labels, clusterID, wle.Locality, network.ID(wle.Network))
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         addr,
 			EndpointPort:    instancePort,
 			ServicePortName: servicePort.Name,
-			Network:         network.ID(endpoint.Network),
+			Network:         network.ID(wle.Network),
 			Locality: model.Locality{
-				Label: endpoint.Locality,
+				Label:     wle.Locality,
+				ClusterID: clusterID,
 			},
-			LbWeight:       endpoint.Weight,
-			Labels:         endpoint.Labels,
+			LbWeight:       wle.Weight,
+			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 			// Workload entry config name is used as workload name, which will appear in metric label.
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName: wleck.name,
-			Namespace:    wleck.namespace,
+			WorkloadName: configKey.name,
+			Namespace:    configKey.namespace,
 		},
 		Service:     service,
 		ServicePort: convertPort(servicePort),
@@ -272,17 +276,17 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
 func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
-	se *networking.ServiceEntry, wleck *configKey) []*model.ServiceInstance {
+	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
-			out = append(out, convertEndpoint(service, port, wle, wleck))
+			out = append(out, convertEndpoint(service, port, wle, configKey, clusterID))
 		}
 	}
 	return out
 }
 
-func convertServiceEntryToInstances(cfg config.Config, services []*model.Service) []*model.ServiceInstance {
+func convertServiceEntryToInstances(cfg config.Config, services []*model.Service, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if services == nil {
@@ -314,7 +318,7 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}))
+					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}, clusterID))
 				}
 			}
 		}
@@ -364,7 +368,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadInstance {
+func convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
 	// we will merge labels from metadata with spec, with precedence to the metadata
 	labels := map[string]string{}
@@ -388,15 +392,21 @@ func convertWorkloadEntryToWorkloadInstance(cfg config.Config) *model.WorkloadIn
 	if we.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
+	labels = labelutil.AugmentLabels(labels, clusterID, we.Locality, network.ID(we.Network))
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			// Not setting ports here as its done by k8s controller
 			Network: network.ID(we.Network),
 			Locality: model.Locality{
-				Label: we.Locality,
+				Label:     we.Locality,
+				ClusterID: clusterID,
 			},
-			LbWeight:       we.Weight,
+			LbWeight:  we.Weight,
+			Namespace: cfg.Namespace,
+			// Workload entry config name is used as workload name, which will appear in metric label.
+			// After VM auto registry is introduced, workload group annotation should be used for workload name.
+			WorkloadName:   cfg.Name,
 			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,

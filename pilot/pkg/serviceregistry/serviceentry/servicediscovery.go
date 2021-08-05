@@ -160,7 +160,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		wi := convertWorkloadEntryToWorkloadInstance(curr)
+		wi := convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
 		if wi != nil {
 			for _, h := range s.workloadHandlers {
 				h(wi, event)
@@ -190,13 +190,13 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 				oldWorkloadLabels := labels.Collection{oldWle.Labels}
 				if oldWorkloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
 					selected = true
-					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key)
+					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key, s.Cluster())
 					instancesDeleted = append(instancesDeleted, instance...)
 				}
 			}
 		} else {
 			selected = true
-			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key)
+			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
 			instancesUpdated = append(instancesUpdated, instance...)
 		}
 
@@ -333,7 +333,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		// If will do full-push, leave the edsUpdate to that.
 		// XXX We should do edsUpdate for all unchangedSvcs since we begin to calculate service
 		// data according to this "configsUpdated" and thus remove the "!willFullPush" condition.
-		instances := convertServiceEntryToInstances(curr, unchangedSvcs)
+		instances := convertServiceEntryToInstances(curr, unchangedSvcs, s.Cluster())
 		key := configKey{
 			kind:      serviceEntryConfigType,
 			name:      curr.Name,
@@ -666,7 +666,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 				name:      cfg.Name,
 				namespace: cfg.Namespace,
 			}
-			updateInstances(key, convertServiceEntryToInstances(cfg, nil), instanceMap, ip2instances)
+			updateInstances(key, convertServiceEntryToInstances(cfg, nil, s.Cluster()), instanceMap, ip2instances)
 			services := convertServices(cfg)
 
 			se := cfg.Spec.(*networking.ServiceEntry)
@@ -722,7 +722,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 				// Not a match, skip this one
 				continue
 			}
-			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key), instanceMap, ip2instances)
+			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster()), instanceMap, ip2instances)
 		}
 	}
 

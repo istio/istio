@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/cluster"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/labels"
 	kubeUtil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
@@ -49,7 +49,7 @@ type EndpointBuilder struct {
 }
 
 func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
-	locality, sa, namespace, hostname, subdomain := "", "", "", "", ""
+	locality, sa, namespace, hostname, subdomain, ip := "", "", "", "", "", ""
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
@@ -63,12 +63,11 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 				hostname = pod.Name
 			}
 		}
+		ip = pod.Status.PodIP
 	}
 	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
-
-	return &EndpointBuilder{
+	out := &EndpointBuilder{
 		controller:     c,
-		labels:         augmentLabels(podLabels, c.Cluster(), locality),
 		serviceAccount: sa,
 		locality: model.Locality{
 			Label:     locality,
@@ -80,14 +79,16 @@ func NewEndpointBuilder(c controllerInterface, pod *v1.Pod) *EndpointBuilder {
 		hostname:     hostname,
 		subDomain:    subdomain,
 	}
+	networkID := out.endpointNetwork(ip)
+	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, networkID)
+	return out
 }
 
 func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *EndpointBuilder {
 	locality := util.LocalityToString(proxy.Locality)
-	return &EndpointBuilder{
+	out := &EndpointBuilder{
 		controller:     c,
 		metaNetwork:    proxy.Metadata.Network,
-		labels:         augmentLabels(proxy.Metadata.Labels, c.Cluster(), locality),
 		serviceAccount: proxy.Metadata.ServiceAccount,
 		locality: model.Locality{
 			Label:     locality,
@@ -95,30 +96,11 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 		},
 		tlsMode: model.GetTLSModeFromEndpointLabels(proxy.Metadata.Labels),
 	}
-}
-
-// augmentLabels adds additional labels to the those provided.
-func augmentLabels(in labels.Instance, clusterID cluster.ID, locality string) labels.Instance {
-	// Copy the original labels to a new map.
-	out := make(labels.Instance)
-	for k, v := range in {
-		out[k] = v
+	var networkID network.ID
+	if len(proxy.IPAddresses) > 0 {
+		networkID = out.endpointNetwork(proxy.IPAddresses[0])
 	}
-
-	// Don't need to add label.TopologyNetwork.Name, since that's already added by injection.
-	region, zone, subzone := model.SplitLocalityLabel(locality)
-	if len(region) > 0 {
-		out[NodeRegionLabelGA] = region
-	}
-	if len(zone) > 0 {
-		out[NodeZoneLabelGA] = zone
-	}
-	if len(subzone) > 0 {
-		out[label.TopologySubzone.Name] = subzone
-	}
-	if len(clusterID) > 0 {
-		out[label.TopologyCluster.Name] = clusterID.String()
-	}
+	out.labels = labelutil.AugmentLabels(proxy.Metadata.Labels, c.Cluster(), locality, networkID)
 	return out
 }
 
