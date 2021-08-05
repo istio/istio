@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -93,7 +92,7 @@ func createKubeconfigFile(cfg *config.InstallConfig, saToken string) (kubeconfig
 			return "", fmt.Errorf("file does not exist: %s", caFile)
 		}
 		var caContents []byte
-		caContents, err = ioutil.ReadFile(caFile)
+		caContents, err = os.ReadFile(caFile)
 		if err != nil {
 			return
 		}

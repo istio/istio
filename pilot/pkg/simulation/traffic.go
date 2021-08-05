@@ -378,7 +378,7 @@ func (sim *Simulation) matchRoute(vh *route.VirtualHost, input Call) *route.Rout
 		case *route.RouteMatch_SafeRegex:
 			r, err := regexp.Compile(pt.SafeRegex.GetRegex())
 			if err != nil {
-				sim.t.Fatalf("invalid regex %v: %v", r, err)
+				sim.t.Fatalf("invalid regex %v: %v", pt.SafeRegex.GetRegex(), err)
 			}
 			if !r.MatchString(input.Path) {
 				continue
@@ -532,6 +532,7 @@ func filter(chains []*listener.FilterChain,
 	for _, c := range chains {
 		if !empty(c.GetFilterChainMatch()) {
 			anySet = true
+			break
 		}
 	}
 	if !anySet {

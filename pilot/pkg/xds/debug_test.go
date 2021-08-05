@@ -166,7 +166,7 @@ func TestConfigDump(t *testing.T) {
 			wrapper := getConfigDump(t, s.Discovery, tt.proxyID, tt.wantCode)
 			if wrapper != nil {
 				if rs, err := wrapper.GetDynamicRouteDump(false); err != nil || len(rs.DynamicRouteConfigs) == 0 {
-					t.Errorf("routes were present, must have received an older connection's dump")
+					t.Errorf("routes were present, must have received an older connection's dump, err: %v", err)
 				}
 			} else if tt.wantCode < 400 {
 				t.Error("expected a non-nil wrapper with successful status code")

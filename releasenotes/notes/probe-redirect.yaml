@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 34238
+- 29468
+releaseNotes:
+- |
+  **Fixed** application readiness probes to properly handle redirects.

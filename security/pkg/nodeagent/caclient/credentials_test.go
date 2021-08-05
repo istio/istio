@@ -16,7 +16,6 @@ package caclient_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -138,7 +137,7 @@ func TestGetTokenForXDS(t *testing.T) {
 }
 
 func writeToTempFile(content, fileNamePrefix string) (string, error) {
-	outFile, err := ioutil.TempFile("", fileNamePrefix)
+	outFile, err := os.CreateTemp("", fileNamePrefix)
 	if err != nil {
 		return "", fmt.Errorf("failed creating a temp file: %v", err)
 	}

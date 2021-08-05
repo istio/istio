@@ -17,7 +17,6 @@ package fuzz
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -40,7 +39,7 @@ func createRandomConfigFile(f *fuzz.ConsumeFuzzer) (string, error) {
 	if err != nil {
 		return "nobytes", err
 	}
-	tmpfile, err := ioutil.TempFile("", "example")
+	tmpfile, err := os.CreateTemp("", "example")
 	if err != nil {
 		return "nofile", err
 	}

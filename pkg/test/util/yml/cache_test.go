@@ -15,7 +15,6 @@
 package yml
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -74,7 +73,7 @@ spec:
 
 func TestCache_Apply_Basic(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -93,7 +92,7 @@ func TestCache_Apply_Basic(t *testing.T) {
 	key1 := keys[0]
 
 	file := c.GetFileFor(keys[0])
-	by, err := ioutil.ReadFile(file)
+	by, err := os.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
@@ -110,7 +109,7 @@ func TestCache_Apply_Basic(t *testing.T) {
 	key2 := keys[0]
 
 	file = c.GetFileFor(keys[0])
-	by, err = ioutil.ReadFile(file)
+	by, err = os.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 
@@ -119,14 +118,14 @@ func TestCache_Apply_Basic(t *testing.T) {
 	g.Expect(keys).To(ContainElement(key1))
 	g.Expect(keys).To(ContainElement(key2))
 
-	items, err := ioutil.ReadDir(d)
+	items, err := os.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(2))
 }
 
 func TestCache_Apply_MultiPart(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -144,7 +143,7 @@ func TestCache_Apply_MultiPart(t *testing.T) {
 	g.Expect(keys[0]).To(Equal(expected))
 
 	file := c.GetFileFor(keys[0])
-	by, err := ioutil.ReadFile(file)
+	by, err := os.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
@@ -157,7 +156,7 @@ func TestCache_Apply_MultiPart(t *testing.T) {
 	g.Expect(keys[1]).To(Equal(expected))
 
 	file = c.GetFileFor(keys[1])
-	by, err = ioutil.ReadFile(file)
+	by, err = os.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 
@@ -167,14 +166,14 @@ func TestCache_Apply_MultiPart(t *testing.T) {
 	g.Expect(keys).To(ContainElement(applyKeys[0]))
 	g.Expect(keys).To(ContainElement(applyKeys[1]))
 
-	items, err := ioutil.ReadDir(d)
+	items, err := os.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(2))
 }
 
 func TestCache_Apply_Add_Update(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -184,14 +183,14 @@ func TestCache_Apply_Add_Update(t *testing.T) {
 	g.Expect(err).To(BeNil())
 
 	file := c.GetFileFor(keys[0])
-	by, err := ioutil.ReadFile(file)
+	by, err := os.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 
 	keys, err = c.Apply(updatedGateway)
 	g.Expect(err).To(BeNil())
 	file = c.GetFileFor(keys[0])
-	by, err = ioutil.ReadFile(file)
+	by, err = os.ReadFile(file)
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(updatedGateway)))
 
@@ -200,14 +199,14 @@ func TestCache_Apply_Add_Update(t *testing.T) {
 	g.Expect(keys).To(HaveLen(1))
 	g.Expect(keys).To(ContainElement(applyKeys[0]))
 
-	items, err := ioutil.ReadDir(d)
+	items, err := os.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(1))
 }
 
 func TestCache_Apply_SameContent(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -226,14 +225,14 @@ func TestCache_Apply_SameContent(t *testing.T) {
 	g.Expect(keys).To(ContainElement(keys1[0]))
 	g.Expect(keys).To(ContainElement(keys2[0]))
 
-	items, err := ioutil.ReadDir(d)
+	items, err := os.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(1))
 }
 
 func TestCache_Clear(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -251,14 +250,14 @@ func TestCache_Clear(t *testing.T) {
 	keys := c.AllKeys()
 	g.Expect(keys).To(HaveLen(0))
 
-	items, err := ioutil.ReadDir(d)
+	items, err := os.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(0))
 }
 
 func TestCache_GetFileFor_Empty(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -270,7 +269,7 @@ func TestCache_GetFileFor_Empty(t *testing.T) {
 
 func TestCache_Delete(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -290,18 +289,18 @@ func TestCache_Delete(t *testing.T) {
 	g.Expect(keys1).To(HaveLen(1))
 	g.Expect(keys).To(ContainElement(keys1[0]))
 
-	items, err := ioutil.ReadDir(d)
+	items, err := os.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(1))
 
-	by, err := ioutil.ReadFile(path.Join(d, items[0].Name()))
+	by, err := os.ReadFile(path.Join(d, items[0].Name()))
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(virtualService)))
 }
 
 func TestCache_Delete_Missing(t *testing.T) {
 	g := NewWithT(t)
-	d, err := ioutil.TempDir(os.TempDir(), t.Name())
+	d, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
 
@@ -313,11 +312,11 @@ func TestCache_Delete_Missing(t *testing.T) {
 	err = c.Delete(virtualService)
 	g.Expect(err).To(BeNil())
 
-	items, err := ioutil.ReadDir(d)
+	items, err := os.ReadDir(d)
 	g.Expect(err).To(BeNil())
 	g.Expect(items).To(HaveLen(1))
 
-	by, err := ioutil.ReadFile(path.Join(d, items[0].Name()))
+	by, err := os.ReadFile(path.Join(d, items[0].Name()))
 	g.Expect(err).To(BeNil())
 	g.Expect(strings.TrimSpace(string(by))).To(Equal(strings.TrimSpace(gateway)))
 }

@@ -15,7 +15,7 @@
 package platform
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -118,15 +118,15 @@ func getEC2MetadataClient() *ec2metadata.EC2Metadata {
 // Note: avoided importing the satellite package directly to reduce number of
 // dependencies, etc., required.
 func systemInfoSuggestsAWS() bool {
-	hypervisorUUIDBytes, _ := ioutil.ReadFile("/sys/hypervisor/uuid")
+	hypervisorUUIDBytes, _ := os.ReadFile("/sys/hypervisor/uuid")
 	hypervisorUUID := strings.ToLower(string(hypervisorUUIDBytes))
 
-	productUUIDBytes, _ := ioutil.ReadFile("/sys/class/dmi/id/product_uuid")
+	productUUIDBytes, _ := os.ReadFile("/sys/class/dmi/id/product_uuid")
 	productUUID := strings.ToLower(string(productUUIDBytes))
 
 	hasEC2Prefix := strings.HasPrefix(hypervisorUUID, "ec2") || strings.HasPrefix(productUUID, "ec2")
 
-	version, _ := ioutil.ReadFile("/sys/class/dmi/id/product_version")
+	version, _ := os.ReadFile("/sys/class/dmi/id/product_version")
 	hasAmazonProductVersion := strings.Contains(string(version), "amazon")
 
 	return hasEC2Prefix || hasAmazonProductVersion

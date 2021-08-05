@@ -17,7 +17,7 @@ package vm
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -145,7 +145,7 @@ func testSetup(ctx resource.Context) error {
 		return err
 	}
 
-	templateBytes, err := ioutil.ReadFile(stackdriverBootstrapOverride)
+	templateBytes, err := os.ReadFile(stackdriverBootstrapOverride)
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ func testSetup(ctx resource.Context) error {
 }
 
 func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *monitoring.TimeSeries, err error) {
-	srvRequestCountTmpl, err := ioutil.ReadFile(serverRequestCount)
+	srvRequestCountTmpl, err := os.ReadFile(serverRequestCount)
 	if err != nil {
 		return
 	}
@@ -251,7 +251,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 	if err = jsonpb.UnmarshalString(sr, srvRequestCount); err != nil {
 		return
 	}
-	cltRequestCountTmpl, err := ioutil.ReadFile(clientRequestCount)
+	cltRequestCountTmpl, err := os.ReadFile(clientRequestCount)
 	if err != nil {
 		return
 	}
@@ -267,7 +267,7 @@ func goldenRequestCounts(trustDomain string) (cltRequestCount, srvRequestCount *
 }
 
 func goldenLogEntry(trustDomain string) (srvLogEntry *loggingpb.LogEntry, err error) {
-	srvlogEntryTmpl, err := ioutil.ReadFile(serverLogEntry)
+	srvlogEntryTmpl, err := os.ReadFile(serverLogEntry)
 	if err != nil {
 		return
 	}
@@ -286,7 +286,7 @@ func goldenLogEntry(trustDomain string) (srvLogEntry *loggingpb.LogEntry, err er
 }
 
 func goldenTrace(trustDomain string) (*cloudtrace.Trace, error) {
-	traceTmpl, err := ioutil.ReadFile(traceTmplFile)
+	traceTmpl, err := os.ReadFile(traceTmplFile)
 	if err != nil {
 		return nil, err
 	}

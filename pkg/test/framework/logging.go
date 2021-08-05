@@ -16,7 +16,7 @@ package framework
 
 import (
 	"flag"
-	"io/ioutil"
+	"io"
 
 	"google.golang.org/grpc/grpclog"
 
@@ -39,7 +39,7 @@ func configureLogging() error {
 	o := *logOptionsFromCommandline
 
 	o.LogGrpc = false
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 
 	return log.Configure(&o)
 }

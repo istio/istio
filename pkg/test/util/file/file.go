@@ -15,9 +15,13 @@
 package file
 
 import (
+	"archive/tar"
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
@@ -25,9 +29,9 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-// AsBytes is a simple wrapper around ioutil.ReadFile provided for completeness.
+// AsBytes is a simple wrapper around os.ReadFile provided for completeness.
 func AsBytes(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
+	return os.ReadFile(filename)
 }
 
 // AsBytesOrFail calls AsBytes and fails the test if any errors occurred.
@@ -40,7 +44,7 @@ func AsBytesOrFail(t test.Failer, filename string) []byte {
 	return content
 }
 
-// AsString is a convenience wrapper around ioutil.ReadFile that converts the content to a string.
+// AsString is a convenience wrapper around os.ReadFile that converts the content to a string.
 func AsString(filename string) (string, error) {
 	bytes, err := AsBytes(filename)
 	if err != nil {
@@ -74,4 +78,31 @@ func NormalizePath(originalPath string) (string, error) {
 	}
 
 	return out, nil
+}
+
+// ReadTarFile reads a tar compress file from the embedded
+func ReadTarFile(filePath string) (string, error) {
+	b, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	tr := tar.NewReader(bytes.NewBuffer(b))
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return "", err
+		}
+		if hdr.Name != strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath)) {
+			continue
+		}
+		contents, err := ioutil.ReadAll(tr)
+		if err != nil {
+			return "", err
+		}
+		return string(contents), nil
+	}
+	return "", fmt.Errorf("file not found %v", filePath)
 }

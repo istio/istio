@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"text/template"
@@ -60,14 +59,14 @@ func main() {
 		os.Exit(-4)
 	}
 
-	if err = ioutil.WriteFile(output, []byte(code), os.ModePerm); err != nil {
+	if err = os.WriteFile(output, []byte(code), os.ModePerm); err != nil {
 		fmt.Println("Error writing output file:", err)
 		os.Exit(-5)
 	}
 }
 
 func read(path string) (*messages, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read input file: %v", err)
 	}

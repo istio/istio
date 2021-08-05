@@ -15,7 +15,7 @@
 package builder
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -361,7 +361,7 @@ func verify(t *testing.T, gots []proto.Message, baseDir string, wants []string, 
 
 func yamlPolicy(t *testing.T, filename string) *model.AuthorizationPolicies {
 	t.Helper()
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
@@ -379,7 +379,7 @@ func yamlPolicy(t *testing.T, filename string) *model.AuthorizationPolicies {
 
 func yamlConfig(t *testing.T, filename string, forTCP bool) proto.Message {
 	t.Helper()
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read file: %v", err)
 	}

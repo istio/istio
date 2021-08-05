@@ -15,7 +15,6 @@
 package keycertbundle
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -100,7 +99,7 @@ func TestWatcherFromFile(t *testing.T) {
 	default:
 	}
 
-	tmpDir, err := ioutil.TempDir(os.TempDir(), t.Name())
+	tmpDir, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 
 	key := []byte("key")
@@ -110,9 +109,9 @@ func TestWatcherFromFile(t *testing.T) {
 	certFile := path.Join(tmpDir, "cert.pem")
 	caFile := path.Join(tmpDir, "ca.pem")
 
-	ioutil.WriteFile(keyFile, key, os.ModePerm)
-	ioutil.WriteFile(certFile, cert, os.ModePerm)
-	ioutil.WriteFile(caFile, ca, os.ModePerm)
+	os.WriteFile(keyFile, key, os.ModePerm)
+	os.WriteFile(certFile, cert, os.ModePerm)
+	os.WriteFile(caFile, ca, os.ModePerm)
 
 	// 2. set key cert bundle
 	watcher.SetFromFilesAndNotify(keyFile, certFile, caFile)

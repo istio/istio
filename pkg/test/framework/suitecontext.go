@@ -16,7 +16,6 @@ package framework
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
@@ -154,6 +153,10 @@ func (s *suiteContext) Environment() resource.Environment {
 }
 
 func (s *suiteContext) Clusters() cluster.Clusters {
+	return s.AllClusters().MeshClusters()
+}
+
+func (s *suiteContext) AllClusters() cluster.Clusters {
 	return s.Environment().Clusters()
 }
 
@@ -164,7 +167,7 @@ func (s *suiteContext) Settings() *resource.Settings {
 
 // CreateDirectory creates a new subdirectory within this context.
 func (s *suiteContext) CreateDirectory(name string) (string, error) {
-	dir, err := ioutil.TempDir(s.workDir, name)
+	dir, err := os.MkdirTemp(s.workDir, name)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
 			s.settings.RunID, name, s.workDir, err)
@@ -180,7 +183,7 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 		prefix += "-"
 	}
 
-	dir, err := ioutil.TempDir(s.workDir, prefix)
+	dir, err := os.MkdirTemp(s.workDir, prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%s', prefix='%s', workDir='%v', err='%v'",
 			s.settings.RunID, prefix, s.workDir, err)

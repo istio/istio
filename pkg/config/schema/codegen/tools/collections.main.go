@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -45,7 +44,7 @@ func main() {
 	}
 
 	// Read the input file
-	b, err := ioutil.ReadFile(input)
+	b, err := os.ReadFile(input)
 	if err != nil {
 		fmt.Printf("unable to read input file: %v", err)
 		os.Exit(-2)
@@ -72,7 +71,7 @@ func main() {
 			fmt.Printf("Error applying static init template: %v", err)
 			os.Exit(-3)
 		}
-		if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+		if err = os.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
 			fmt.Printf("Error writing output file: %v", err)
 			os.Exit(-4)
 		}
@@ -86,7 +85,7 @@ func main() {
 			fmt.Printf("Error applying static init template: %v", err)
 			os.Exit(-3)
 		}
-		if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+		if err = os.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
 			fmt.Printf("Error writing output file: %v", err)
 			os.Exit(-4)
 		}
@@ -100,7 +99,7 @@ func main() {
 		fmt.Printf("Error applying static init template: %v", err)
 		os.Exit(-3)
 	}
-	if err = ioutil.WriteFile(output, []byte(fullContents), os.ModePerm); err != nil {
+	if err = os.WriteFile(output, []byte(fullContents), os.ModePerm); err != nil {
 		fmt.Printf("Error writing output file: %v", err)
 		os.Exit(-4)
 	}
@@ -112,7 +111,7 @@ func main() {
 		fmt.Printf("Error applying static init template: %v", err)
 		os.Exit(-3)
 	}
-	if err = ioutil.WriteFile(splitOutput, []byte(matchContents), os.ModePerm); err != nil {
+	if err = os.WriteFile(splitOutput, []byte(matchContents), os.ModePerm); err != nil {
 		fmt.Printf("Error writing output file: %v", err)
 		os.Exit(-4)
 	}

@@ -24,9 +24,56 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 )
+
+// SelectVirtualServices selects the virtual services by matching given services' host names.
+// This is a common function used by both sidecar converter and http route.
+func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
+	importedVirtualServices := make([]config.Config, 0)
+
+	vsset := sets.NewSet()
+	addVirtualService := func(vs config.Config, hosts host.Names) {
+		vsname := vs.Name
+		rule := vs.Spec.(*networking.VirtualService)
+		for _, ih := range hosts {
+			// Check if the hostnames match per usual hostname matching rules
+			if vsset.Contains(vsname) {
+				break
+			}
+			for _, h := range rule.Hosts {
+				// VirtualServices can have many hosts, so we need to avoid appending
+				// duplicated virtualservices to slice importedVirtualServices
+				if ih.Matches(host.Name(h)) {
+					importedVirtualServices = append(importedVirtualServices, vs)
+					vsset.Insert(vsname)
+					break
+				}
+			}
+		}
+	}
+	for _, c := range virtualServices {
+		configNamespace := c.Namespace
+		// Selection algorithm:
+		// virtualservices have a list of hosts in the API spec
+		// if any host in the list matches one service hostname, select the virtual service
+		// and break out of the loop.
+
+		// Check if there is an explicit import of form ns/* or ns/host
+		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
+			addVirtualService(c, importedHosts)
+		}
+
+		// Check if there is an import of form */host or */*
+		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
+			addVirtualService(c, importedHosts)
+		}
+	}
+
+	return importedVirtualServices
+}
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
 	// resolve top level hosts

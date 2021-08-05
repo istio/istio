@@ -1,4 +1,6 @@
+//go:build !agent
 // +build !agent
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
@@ -86,7 +89,8 @@ type FakeOptions struct {
 	DebounceTime time.Duration
 
 	// EnableFakeXDSUpdater will use a XDSUpdater that can be used to watch events
-	EnableFakeXDSUpdater bool
+	EnableFakeXDSUpdater       bool
+	DisableSecretAuthorization bool
 }
 
 type FakeDiscoveryServer struct {
@@ -181,6 +185,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		registries = append(registries, k8s)
 	}
 
+	if opts.DisableSecretAuthorization {
+		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
+	}
 	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "", stop)
 	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache)
 	defaultKubeClient.RunAndWait(stop)
@@ -411,7 +418,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 	objects := map[cluster.ID][]runtime.Object{}
 
 	if len(opts.KubernetesObjects) > 0 {
-		objects["Kuberentes"] = append(objects["Kuberenetes"], opts.KubernetesObjects...)
+		objects["Kubernetes"] = append(objects["Kubernetes"], opts.KubernetesObjects...)
 	}
 	if len(opts.KubernetesObjectString) > 0 {
 		decode := scheme.Codecs.UniversalDeserializer().Decode

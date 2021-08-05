@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -158,7 +157,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
-	token, err := ioutil.ReadFile(getJwtPath())
+	token, err := os.ReadFile(getJwtPath())
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
@@ -260,7 +259,7 @@ func (s *Server) loadRemoteCACerts(caOpts *caOptions, dir string) error {
 	}
 	for key, data := range secret.Data {
 		filename := path.Join(dir, key)
-		if err := ioutil.WriteFile(filename, data, 0o600); err != nil {
+		if err := os.WriteFile(filename, data, 0o600); err != nil {
 			return err
 		}
 	}
@@ -292,7 +291,7 @@ func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
 
 	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-	newCABundle, err := ioutil.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
+	newCABundle, err := os.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
 	if err != nil {
 		log.Error("failed reading root-cert.pem: ", err)
 		return
@@ -464,11 +463,20 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *caOptions) (
 
 // createIstioRA initializes the Istio RA signing functionality.
 // the caOptions defines the external provider
+// ca cert can come from three sources, order matters:
+// 1. Define ca cert via kubernetes secret and mount the secret through `external-ca-cert` volume
+// 2. Use kubernetes ca cert `/var/run/secrets/kubernetes.io/serviceaccount/ca.crt` if signer is
+//    kubernetes built-in `kubernetes.io/legacy-unknown" signer
+// 3. Extract from the cert-chain signed by other CSR signer.
 func (s *Server) createIstioRA(client kubelib.Client,
 	opts *caOptions) (ra.RegistrationAuthority, error) {
 	caCertFile := path.Join(ra.DefaultExtCACertDir, constants.CACertNamespaceConfigMapDataName)
-	if _, err := os.Stat(caCertFile); err != nil {
+	certSignerDomain := opts.CertSignerDomain
+	_, err := os.Stat(caCertFile)
+	if err != nil && certSignerDomain == "" {
 		caCertFile = defaultCACertPath
+	} else {
+		caCertFile = ""
 	}
 	raOpts := &ra.IstioRAOptions{
 		ExternalCAType:   opts.ExternalCAType,

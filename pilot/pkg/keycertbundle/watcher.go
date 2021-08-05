@@ -15,7 +15,7 @@
 package keycertbundle
 
 import (
-	"io/ioutil"
+	"os"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -73,15 +73,15 @@ func (w *Watcher) SetAndNotify(key, cert, caBundle []byte) {
 
 // SetFromFilesAndNotify sets the key cert and root cert from files and notify the watchers.
 func (w *Watcher) SetFromFilesAndNotify(keyFile, certFile, rootCert string) error {
-	cert, err := ioutil.ReadFile(certFile)
+	cert, err := os.ReadFile(certFile)
 	if err != nil {
 		return err
 	}
-	key, err := ioutil.ReadFile(keyFile)
+	key, err := os.ReadFile(keyFile)
 	if err != nil {
 		return err
 	}
-	caBundle, err := ioutil.ReadFile(rootCert)
+	caBundle, err := os.ReadFile(rootCert)
 	if err != nil {
 		return err
 	}

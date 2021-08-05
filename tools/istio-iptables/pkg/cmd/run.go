@@ -16,7 +16,6 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -668,7 +667,7 @@ func (iptConfigurator *IptablesConfigurator) executeIptablesRestoreCommand(isIpv
 		}
 	} else {
 		// Otherwise create a temporary file to write iptables rules to, which will be cleaned up at the end.
-		rulesFile, err = ioutil.TempFile("", filename)
+		rulesFile, err = os.CreateTemp("", filename)
 		if err != nil {
 			return fmt.Errorf("unable to create iptables-restore file: %v", err)
 		}

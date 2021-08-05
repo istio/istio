@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/enhancements/issues/86
+
+releaseNotes:
+- |
+  **Promoted** CNI to beta.

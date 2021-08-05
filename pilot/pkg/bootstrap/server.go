@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -998,7 +997,7 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions) (*spiffe.PeerCert
 	var rootCertBytes []byte
 	var err error
 	if tlsOptions.CaCertFile != "" {
-		if rootCertBytes, err = ioutil.ReadFile(tlsOptions.CaCertFile); err != nil {
+		if rootCertBytes, err = os.ReadFile(tlsOptions.CaCertFile); err != nil {
 			return nil, err
 		}
 	} else {

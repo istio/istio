@@ -21,9 +21,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -191,7 +192,7 @@ func newJwksResolverWithCABundlePaths(
 
 	if caCertPool != nil {
 		for _, pemFile := range caBundlePaths {
-			caCert, err := ioutil.ReadFile(pemFile)
+			caCert, err := os.ReadFile(pemFile)
 			if err == nil {
 				caCertsFound = caCertPool.AppendCertsFromPEM(caCert) || caCertsFound
 			}
@@ -331,20 +332,20 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int) ([]byte,
 	}
 
 	getPublicKey := func() (b []byte, e error) {
-		resp, err := client.Get(uri)
 		defer func() {
 			if e != nil {
 				networkFetchFailCounter.Increment()
-				return
+			} else {
+				networkFetchSuccessCounter.Increment()
 			}
-			networkFetchSuccessCounter.Increment()
-			_ = resp.Body.Close()
 		}()
+		resp, err := client.Get(uri)
 		if err != nil {
 			return nil, err
 		}
+		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -394,8 +395,7 @@ func (r *JwksResolver) refresher() {
 				r.refreshInterval = r.refreshDefaultInterval
 			}
 			lastHasError = currentHasError
-			r.refreshTicker.Stop()
-			r.refreshTicker = time.NewTicker(r.refreshInterval)
+			r.refreshTicker.Reset(r.refreshInterval)
 		case <-closeChan:
 			r.refreshTicker.Stop()
 			return

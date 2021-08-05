@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -138,7 +140,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				t.SkipNow()
 			}
 			if c.minIstioVersion != "" {
-				skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+				skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
 				if skipMV {
 					t.SkipNow()
 				}
@@ -198,7 +200,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 			t.SkipNow()
 		}
 		if c.minIstioVersion != "" {
-			skipMV := resource.IstioVersion(c.minIstioVersion).Compare(t.Settings().Revisions.Minimum()) > 0
+			skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
 			if skipMV {
 				t.SkipNow()
 			}
@@ -242,6 +244,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
+	cases["envoyfilter"] = envoyFilterCases(apps)
 	if len(t.Clusters().ByNetwork()) == 1 {
 		// Consistent hashing does not work for multinetwork. The first request will consistently go to a
 		// gateway, but that gateway will tcp_proxy it to a random pod.

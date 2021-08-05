@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"sort"
@@ -163,7 +162,7 @@ func (e ExternalInjector) Inject(pod *corev1.Pod) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +365,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 	var err error
 	injector := &ExternalInjector{nil, nil}
 	if injectConfigFile != "" {
-		injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
+		injectionConfig, err := os.ReadFile(injectConfigFile) // nolint: vetshadow
 		if err != nil {
 			return nil, nil, err
 		}
@@ -397,7 +396,7 @@ func setupKubeInjectParameters(sidecarTemplate *inject.Templates, valuesConfig *
 		}
 	}
 	if valuesFile != "" {
-		valuesConfigBytes, err := ioutil.ReadFile(valuesFile) // nolint: vetshadow
+		valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
 		if err != nil {
 			return nil, nil, err
 		}

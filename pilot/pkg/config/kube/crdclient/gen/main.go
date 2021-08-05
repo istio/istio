@@ -22,8 +22,8 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
-	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"text/template"
 
@@ -142,7 +142,7 @@ func main() {
 	// Output
 	if outputFile == nil || *outputFile == "" {
 		fmt.Println(string(out))
-	} else if err := ioutil.WriteFile(*outputFile, out, 0o644); err != nil {
+	} else if err := os.WriteFile(*outputFile, out, 0o644); err != nil {
 		panic(err)
 	}
 }

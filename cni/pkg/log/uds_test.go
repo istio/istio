@@ -15,7 +15,7 @@
 package log
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +54,7 @@ func TestUDSLog(t *testing.T) {
 	log.Configure(loggingOptions)
 
 	w.Close()
-	out, _ := ioutil.ReadAll(r)
+	out, _ := io.ReadAll(r)
 
 	// For each level, there should be two lines, one from direct log,
 	// the other one from UDS server

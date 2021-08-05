@@ -16,7 +16,7 @@
 package filebasedtlsorigination
 
 import (
-	"io/ioutil"
+	"os"
 	"path"
 	"testing"
 	"time"
@@ -33,7 +33,7 @@ import (
 )
 
 func mustReadFile(t framework.TestContext, f string) string {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
+	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs/dns", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}

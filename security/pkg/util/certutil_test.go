@@ -15,7 +15,7 @@
 package util
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 )
@@ -28,7 +28,7 @@ const (
 )
 
 func TestGetWaitTime(t *testing.T) {
-	testCert, err := ioutil.ReadFile(testCertFile)
+	testCert, err := os.ReadFile(testCertFile)
 	if err != nil {
 		t.Errorf("cannot read testing cert file")
 		return

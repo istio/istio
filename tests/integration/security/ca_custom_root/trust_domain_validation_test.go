@@ -18,7 +18,7 @@ package cacustomroot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"testing"
@@ -198,7 +198,7 @@ func TestTrustDomainValidation(t *testing.T) {
 }
 
 func readFile(ctx framework.TestContext, name string) string {
-	data, err := ioutil.ReadFile(path.Join(env.IstioSrc, "samples/certs", name))
+	data, err := os.ReadFile(path.Join(env.IstioSrc, "samples/certs", name))
 	if err != nil {
 		ctx.Fatal(err)
 	}

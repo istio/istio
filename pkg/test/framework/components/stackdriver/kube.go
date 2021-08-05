@@ -17,7 +17,6 @@ package stackdriver
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -132,7 +131,7 @@ func (c *kubeComponent) ListTimeSeries(_ string) ([]*monitoringpb.TimeSeries, er
 		return []*monitoringpb.TimeSeries{}, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return []*monitoringpb.TimeSeries{}, err
 	}
@@ -155,7 +154,7 @@ func (c *kubeComponent) ListLogEntries(lt LogType, _ string) ([]*loggingpb.LogEn
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
 	}
@@ -176,7 +175,7 @@ func (c *kubeComponent) ListTraces(_ string) ([]*cloudtracepb.Trace, error) {
 		return []*cloudtracepb.Trace{}, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return []*cloudtracepb.Trace{}, err
 	}

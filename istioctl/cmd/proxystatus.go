@@ -17,7 +17,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -129,7 +129,7 @@ func readConfigFile(filename string) ([]byte, error) {
 			log.Errorf("failed to close %s: %s", filename, err)
 		}
 	}()
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}

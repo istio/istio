@@ -16,7 +16,6 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"regexp"
@@ -447,7 +446,7 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) 
 }
 
 func createTempDirOrFail(t *testing.T, prefix string) string {
-	dir, err := ioutil.TempDir("", prefix)
+	dir, err := os.MkdirTemp("", prefix)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,7 +17,6 @@ package kube
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -232,7 +231,7 @@ func (c *configsVal) Set(s string) error {
 	if err != nil {
 		return err
 	}
-	topologyBytes, err := ioutil.ReadFile(filename)
+	topologyBytes, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}

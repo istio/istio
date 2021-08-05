@@ -21,7 +21,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"net"
 	"net/http"
@@ -707,7 +706,7 @@ func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
 	}
 
 	if xdsCACertPath != "" {
-		rootCert, err = ioutil.ReadFile(xdsCACertPath)
+		rootCert, err = os.ReadFile(xdsCACertPath)
 		if err != nil {
 			return nil, err
 		}
