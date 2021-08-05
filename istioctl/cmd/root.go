@@ -76,6 +76,34 @@ var (
 
 	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
 	scope = log.RegisterScope("cli", "istioctl", 0)
+
+	// usageTemplate is nearly identical to the default template.
+	// only change available commands name to name and aliases.
+	usageTemplate = `Usage:{{if .Runnable}}
+  {{.UseLine}}{{end}}{{if .HasSubCommands}}
+  {{ .CommandPath}} [command]{{end}}{{if gt .Aliases 0}}
+
+Aliases:
+  {{.NameAndAliases}}
+{{end}}{{if .HasExample}}
+
+Examples:
+{{ .Example }}{{end}}{{ if .HasAvailableSubCommands}}
+
+Available Commands:{{range .Commands}}{{if .IsAvailableCommand}}
+  {{rpad .NameAndAliases .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasLocalFlags}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+
+Global Flags:
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
+
+Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+
+Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+`
 )
 
 func defaultLogOptions() *log.Options {
@@ -301,6 +329,8 @@ debug and diagnose their Istio mesh.
 			return CommandParseError{e}
 		})
 	}
+
+	rootCmd.SetUsageTemplate(usageTemplate)
 
 	return rootCmd
 }
