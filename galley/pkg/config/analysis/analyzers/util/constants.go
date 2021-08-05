@@ -21,16 +21,20 @@ import (
 )
 
 const (
-	DefaultKubernetesDomain   = "svc." + constants.DefaultKubernetesDomain
-	ExportToNamespaceLocal    = "."
-	ExportToAllNamespaces     = "*"
-	IstioProxyName            = "istio-proxy"
-	IstioOperator             = "istio-operator"
-	MeshGateway               = "mesh"
-	Wildcard                  = "*"
-	MeshConfigName            = "istio"
-	InjectionLabelName        = "istio-injection"
-	InjectionLabelEnableValue = "enabled"
+	DefaultKubernetesDomain    = "svc." + constants.DefaultKubernetesDomain
+	ExportToNamespaceLocal     = "."
+	ExportToAllNamespaces      = "*"
+	IstioProxyName             = "istio-proxy"
+	IstioOperator              = "istio-operator"
+	MeshGateway                = "mesh"
+	Wildcard                   = "*"
+	MeshConfigName             = "istio"
+	InjectionLabelName         = "istio-injection"
+	InjectionLabelEnableValue  = "enabled"
+	InjectionConfigMap         = "istio-sidecar-injector"
+	InjectionConfigMapValue    = "values"
+	InjectorWebhookConfigKey   = "sidecarInjectorWebhook"
+	InjectorWebhookConfigValue = "enableNamespacesByDefault"
 )
 
 var fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)
