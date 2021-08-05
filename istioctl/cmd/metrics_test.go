@@ -227,3 +227,7 @@ func (client mockPromAPI) LabelValues(context.Context, string, []string, time.Ti
 func (client mockPromAPI) Buildinfo(ctx context.Context) (promv1.BuildinfoResult, error) {
 	return promv1.BuildinfoResult{}, nil
 }
+
+func (client mockPromAPI) QueryExemplars(ctx context.Context, query string, startTime time.Time, endTime time.Time) ([]promv1.ExemplarQueryResult, error) {
+	return nil, nil
+}

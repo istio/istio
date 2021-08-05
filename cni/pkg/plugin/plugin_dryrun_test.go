@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/testutils"
 	"k8s.io/client-go/kubernetes"
 
@@ -125,8 +126,12 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 				t.Fatalf("Failed to create temp file for IPTables rule output: %v", err)
 			}
 			os.Setenv(dryRunFilePath.Name, outputFilePath)
-			_, _, err := testutils.CmdAddWithResult(
-				sandboxDirectory, ifname, []byte(cniConf), func() error { return CmdAdd(args) })
+			_, _, err := testutils.CmdAddWithArgs(
+				&skel.CmdArgs{
+					Netns:     sandboxDirectory,
+					IfName:    ifname,
+					StdinData: []byte(cniConf),
+				}, func() error { return CmdAdd(args) })
 			os.Unsetenv(dryRunFilePath.Name)
 			if err != nil {
 				t.Fatalf("CNI cmdAdd failed with error: %v", err)
