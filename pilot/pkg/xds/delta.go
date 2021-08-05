@@ -416,7 +416,17 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	}
 	t0 := time.Now()
 
-	res, deletedRes, logdata, usedDelta, err := gen.GenerateDeltas(con.proxy, push, req, w)
+	var res model.Resources
+	var deletedRes model.DeletedResources
+	var logdata model.XdsLogDetails
+	var usedDelta bool
+	var err error
+	switch g := gen.(type) {
+	case model.XdsDeltaResourceGenerator:
+		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, push, req, w)
+	case model.XdsResourceGenerator:
+		res, logdata, err = g.Generate(con.proxy, push, w, req)
+	}
 	if err != nil || res == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
