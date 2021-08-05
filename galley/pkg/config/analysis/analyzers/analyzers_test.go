@@ -179,6 +179,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.Analyzer{},
 		expected: []message{
+			{msg.NamespaceInjectionEnabledByDefault, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
 		},
