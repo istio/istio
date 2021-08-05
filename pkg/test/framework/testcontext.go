@@ -203,6 +203,10 @@ func (c *testContext) Environment() resource.Environment {
 }
 
 func (c *testContext) Clusters() cluster.Clusters {
+	return c.AllClusters().MeshClusters()
+}
+
+func (c *testContext) AllClusters() cluster.Clusters {
 	if c == nil || c.Environment() == nil {
 		return nil
 	}

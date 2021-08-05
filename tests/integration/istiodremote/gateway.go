@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicluster
+package istiodremote
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func GatewayTest(t *testing.T, feature features.Feature) {
 					clusters := ctx.Environment().Clusters()
 					args := []string{
 						"install", "-f", filepath.Join(env.IstioSrc,
-							"tests/integration/multicluster/testdata/gateway.yaml"), "--manifests",
+							"tests/integration/istiodremote/testdata/gateway.yaml"), "--manifests",
 						filepath.Join(env.IstioSrc, "manifests"), "--skip-confirmation",
 					}
 					for _, cluster := range clusters {
