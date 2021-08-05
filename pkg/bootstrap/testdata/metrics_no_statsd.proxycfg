@@ -1,0 +1,12 @@
+config_path:                      "/etc/istio/proxy"
+binary_path:                      "/usr/local/bin/envoy"
+service_cluster:                  "istio-proxy"
+drain_duration:                   {seconds: 5}
+parent_shutdown_duration:         {seconds: 6}
+discovery_address:                "mypilot:15011"
+envoy_metrics_service:            {address: "metrics-service:15000", tls_settings: { mode: MUTUAL, client_certificate: "/etc/istio/ms/client.pem", private_key: "/etc/istio/ms/key.pem", ca_certificates: "/etc/istio/ms/ca.pem"}}
+proxy_admin_port:                 15000
+control_plane_auth_policy:        MUTUAL_TLS
+stat_name_length:                 200
+
+# Sets all relevant options to values different than default
