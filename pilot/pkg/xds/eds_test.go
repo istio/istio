@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/test/xdstest"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -34,12 +36,15 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	uatomic "go.uber.org/atomic"
 
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
@@ -173,6 +178,90 @@ func TestEds(t *testing.T) {
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
 		_ = os.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
 	})
+}
+
+func TestClusterLocal(t *testing.T) {
+	k8sObjects := map[cluster.ID]string{
+		"cluster-1": "",
+		"cluster-2": "",
+	}
+	i := 1
+	for clusterID := range k8sObjects {
+		k8sObjects[clusterID] = fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: echo-app
+  name: echo-app
+  namespace: default
+spec:
+  clusterIP: 1.2.3.4
+  selector:
+    app: echo-app
+  ports:
+  - name: grpc
+    port: 7070
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: echo-app
+  name: echo-app-%s
+  namespace: default
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: echo-app
+  namespace: default
+  labels:
+    app: echo-app
+subsets:
+- addresses:
+  - ip: 10.0.0.%d
+  ports:
+  - name: grpc
+    port: 7070
+`, clusterID, i)
+		i++
+	}
+	meshConfig := mesh.DefaultMeshConfig()
+	meshConfig.ServiceSettings = []*v1alpha1.MeshConfig_ServiceSettings{
+		// everything is cluster-local
+		{Hosts: []string{"*"}, Settings: &v1alpha1.MeshConfig_ServiceSettings_Settings{
+			ClusterLocal: true,
+		}},
+	}
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		MeshConfig:                      &meshConfig,
+		KubernetesObjectStringByCluster: k8sObjects,
+		ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: echo-app
+  namespace: default
+spec:
+  address: 10.1.1.1
+  labels:
+    app: echo-app
+`,
+	})
+	wantByCluster := map[cluster.ID][]string{
+		"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070"},
+		// TODO this doesn't actually work yet; we need to add a check on the actual IstioEndpoint cluster label
+		// there is another PR aut that adds that label for WorkloadEntry
+		"cluster-2": {"10.0.0.2:7070"},
+	}
+	for clusterID := range k8sObjects {
+		p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
+		eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))["outbound|7070||echo-app.default.svc.cluster.local"]
+		if want := wantByCluster[clusterID]; !util.StringSliceEqual(eps, want) {
+			t.Errorf("got %v but want %v for %s", eps, want, clusterID)
+		}
+	}
 }
 
 // newEndpointWithAccount is a helper for IstioEndpoint creation. Creates endpoints with

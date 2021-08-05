@@ -79,6 +79,9 @@ type TestOptions struct {
 
 	// If set, we will not run immediately, allowing adding event handlers, etc prior to start.
 	SkipRun bool
+
+	// The cluster name to use for the ServiceEntryStore and any components requiring cluster-ID
+	DefaultClusterID cluster2.ID
 }
 
 type ConfigGenTest struct {
@@ -116,7 +119,12 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
-	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), &FakeXdsUpdater{})
+	se := serviceentry.NewServiceDiscovery(
+		configController,
+		model.MakeIstioStore(configStore),
+		&FakeXdsUpdater{},
+		serviceentry.WithClusterID(opts.DefaultClusterID),
+	)
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services)

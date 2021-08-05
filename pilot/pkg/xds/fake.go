@@ -19,6 +19,7 @@ package xds
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -61,6 +62,8 @@ type FakeOptions struct {
 	KubernetesObjectsByCluster map[cluster.ID][]runtime.Object
 	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
 	KubernetesObjects []runtime.Object
+	// If provided, a service registry with the name of each map key will be created with the given objects.
+	KubernetesObjectStringByCluster map[cluster.ID]string
 	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes")
 	KubernetesObjectString string
 	// Endpoint mode for the Kubernetes service registry
@@ -207,6 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
 		SkipRun:             true,
+		DefaultClusterID:    defaultKubeController.Cluster(),
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
@@ -421,20 +425,19 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 		objects["Kubernetes"] = append(objects["Kubernetes"], opts.KubernetesObjects...)
 	}
 	if len(opts.KubernetesObjectString) > 0 {
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
-		for _, s := range objectStrs {
-			if len(strings.TrimSpace(s)) == 0 {
-				continue
-			}
-			o, _, err := decode([]byte(s), nil, nil)
-			if err != nil {
-				t.Fatalf("failed deserializing kubernetes object: %v", err)
-			}
-			objects["Kubernetes"] = append(objects["Kubernetes"], o)
+		parsed, err := kubernetesObjectsFromString(opts.KubernetesObjectString)
+		if err != nil {
+			t.Fatalf("failed parsing KubernetesObjectString: %v", err)
 		}
+		objects["Kubernetes"] = append(objects["Kubernetes"], parsed...)
 	}
-
+	for k8sCluster, objectStr := range opts.KubernetesObjectStringByCluster {
+		parsed, err := kubernetesObjectsFromString(objectStr)
+		if err != nil {
+			t.Fatalf("failed parsing KubernetesObjectStringByCluster for %s: %v", k8sCluster, err)
+		}
+		objects[k8sCluster] = append(objects[k8sCluster], parsed...)
+	}
 	for k8sCluster, clusterObjs := range opts.KubernetesObjectsByCluster {
 		objects[k8sCluster] = append(objects[k8sCluster], clusterObjs...)
 	}
@@ -444,6 +447,23 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 	}
 
 	return objects
+}
+
+func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
+	var objects []runtime.Object
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	objectStrs := strings.Split(s, "---")
+	for _, s := range objectStrs {
+		if len(strings.TrimSpace(s)) == 0 {
+			continue
+		}
+		o, _, err := decode([]byte(s), nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed deserializing kubernetes object: %v", err)
+		}
+		objects = append(objects, o)
+	}
+	return objects, nil
 }
 
 type FakeXdsEvent struct {
