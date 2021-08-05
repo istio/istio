@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: feature
-area: installation
+area: traffic-management
 issue:
   - https://github.com/istio/enhancements/issues/86
 
