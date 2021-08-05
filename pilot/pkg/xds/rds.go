@@ -64,9 +64,3 @@ func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 	resources, logDetails := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames)
 	return resources, logDetails, nil
 }
-
-func (c *RdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	res, logs, err := c.Generate(proxy, push, w, updates)
-	return res, nil, logs, false, err
-}
