@@ -885,24 +885,24 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	return nil
 }
 
-func (ps *PushContext) DestinationRuleByName(proxy *Proxy, name string) *config.Config {
+func (ps *PushContext) DestinationRuleByName(proxy *Proxy, name, namespace string) *config.Config {
 	if proxy == nil || proxy.SidecarScope == nil {
 		return nil
 	}
 	for _, v := range proxy.SidecarScope.destinationRules {
-		if v.Name == name {
+		if v.Name == name && v.Namespace == namespace {
 			return v
 		}
 	}
 	return nil
 }
 
-func (ps *PushContext) PrevDestinationRuleByName(proxy *Proxy, name string) *config.Config {
+func (ps *PushContext) PrevDestinationRuleByName(proxy *Proxy, name, namespace string) *config.Config {
 	if proxy == nil || proxy.PrevSidecarScope == nil {
 		return nil
 	}
 	for _, v := range proxy.PrevSidecarScope.destinationRules {
-		if v.Name == name {
+		if v.Name == name && v.Namespace == namespace {
 			return v
 		}
 	}

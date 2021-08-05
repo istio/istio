@@ -159,16 +159,23 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 			}
 		} else {
 			// destination rules
-			cfg := push.DestinationRuleByName(proxy, key.Name)
+			cfg := push.DestinationRuleByName(proxy, key.Name, key.Namespace)
+			log.Infof("adiprerepa: destinationRule name: %v namespace: %v", key.Name, key.Namespace)
 			if cfg == nil {
+				// subset clusters need to be removed, actual cluster needs to be updated
 				// a destinationrule was deleted, get the populated destinationRule from PrevSidecarScope
-				prevCfg := push.PrevDestinationRuleByName(proxy, key.Name)
+				prevCfg := push.PrevDestinationRuleByName(proxy, key.Name, key.Namespace)
 				if prevCfg == nil {
 					// something went wrong, skip -- we shouldn't be nil here
 					break
 				}
+				// populate removed clusters ONLY for subsets.
 				dr := prevCfg.Spec.(*networking.DestinationRule)
-				removedClusterNames = append(removedClusterNames, getRemovedClusterNames(watched.ResourceNames, nil, dr.Host)...)
+				removedClusterNames = append(removedClusterNames, getRemovedClusterNames(subsetClusters(watched.ResourceNames), nil, dr.Host)...)
+
+				// for non-subset destinationrule deletion -- generate the cluster as it changed
+				matched := push.ServicesForHostname(proxy, host.Name(dr.Host))
+				services = append(services, matched...)
 			} else {
 				// destination exists, was updated
 				// generate cluster based on service associated with destinationrule
@@ -177,7 +184,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, pus
 				matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host))
 				services = append(services, matchedSvcs...)
 				// check for removed subsets
-				prevCfg := push.PrevDestinationRuleByName(proxy, key.Name)
+				prevCfg := push.PrevDestinationRuleByName(proxy, key.Name, key.Namespace	)
 				if prevCfg == nil {
 					log.Infof("Prev DestinationRule form PrevSidecarScope is nil for %v", key.String())
 					break
@@ -253,6 +260,17 @@ func getRemovedClusterNames(resNames []string, subsets []string, target string) 
 		}
 	}
 	return removed
+}
+
+func subsetClusters(resNames []string) []string {
+	ss := make([]string, 0)
+	for _, n := range resNames {
+		_, sub, _, _ := model.ParseSubsetKey(n)
+		if sub != "" {
+			ss = append(ss, n)
+		}
+	}
+	return ss
 }
 
 // getDeletedSubsets detects deleted subsets and returns those names
