@@ -27,7 +27,12 @@ spec:
   hosts:
   - first.domain.example
   http:
-  - match:
+  - fault:
+      abort:
+        httpStatus: 503
+        percentage:
+          value: 100
+    match:
     - uri:
         regex: /get((\/).*)?
     route:
@@ -35,12 +40,6 @@ spec:
         host: httpbin-zero.default.svc.domain.suffix
         port:
           number: 8080
-      weight: 0
-    fault:
-      abort:
-        percentage:
-          value: 100
-        httpStatus: 503
   - match:
     - uri:
         regex: /weighted-100((\/).*)?
