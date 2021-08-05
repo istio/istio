@@ -60,3 +60,11 @@ func IsIncluded(slice []string, term string) bool {
 	}
 	return false
 }
+
+func GetInjectorConfigMapName(revision string) string {
+	name := InjectionConfigMap
+	if revision == "" || revision == "default" {
+		return name
+	}
+	return name + "-" + revision
+}

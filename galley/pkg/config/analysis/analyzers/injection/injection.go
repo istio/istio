@@ -15,6 +15,7 @@
 package injection
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -51,16 +52,18 @@ func (a *Analyzer) Metadata() analysis.Metadata {
 		Inputs: collection.Names{
 			collections.K8SCoreV1Namespaces.Name(),
 			collections.K8SCoreV1Pods.Name(),
+			collections.K8SCoreV1Configmaps.Name(),
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (a *Analyzer) Analyze(c analysis.Context) {
+	enableNamespacesByDefault := false
 	injectedNamespaces := make(map[string]bool)
 
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.FullName.Namespace == constants.IstioSystemNamespace {
+		if r.Metadata.FullName.String() == constants.IstioSystemNamespace {
 			return true
 		}
 
@@ -70,11 +73,27 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		injectionLabel := r.Metadata.Labels[util.InjectionLabelName]
-		_, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
+		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
+
+		// verify the enableNamespacesByDefault flag in injection configmaps
+		c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
+			injectionCMName := util.GetInjectorConfigMapName(nsRevision)
+			if r.Metadata.FullName.Name.String() == injectionCMName {
+				cm := r.Message.(*v1.ConfigMap)
+				enableNamespacesByDefault = GetEnableNamespacesByDefaultFromInjectedConfigMap(cm)
+				return false
+			}
+			return true
+		})
 
 		if injectionLabel == "" && !okNewInjectionLabel {
-			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
+			// if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
+			if enableNamespacesByDefault {
+				m := msg.NewNamespaceInjectionEnabledByDefault(r)
+				c.Report(collections.K8SCoreV1Namespaces.Name(), m)
+				return true
+			}
 
 			m := msg.NewNamespaceNotInjected(r, ns, ns)
 
@@ -134,4 +153,16 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 
 		return true
 	})
+}
+
+// GetInjectedConfigMapValuesStruct retrieves value of sidecarInjectorWebhook.enableNamespacesByDefault
+// defined in the sidecar injector configuration.
+func GetEnableNamespacesByDefaultFromInjectedConfigMap(cm *v1.ConfigMap) bool {
+	var injectedCMValues map[string]interface{}
+	if err := json.Unmarshal([]byte(cm.Data[util.InjectionConfigMapValue]), &injectedCMValues); err != nil {
+		return false
+	}
+
+	injectionEnable := injectedCMValues[util.InjectorWebhookConfigKey].(map[string]interface{})[util.InjectorWebhookConfigValue]
+	return injectionEnable.(bool)
 }
