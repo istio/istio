@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -794,7 +794,7 @@ func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 
 func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 	t.Helper()
-	dir, err := ioutil.TempDir("", "webhook_test")
+	dir, err := os.MkdirTemp("", "webhook_test")
 	if err != nil {
 		t.Fatalf("TempDir() failed: %v", err)
 	}
@@ -814,11 +814,11 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		port       = 0
 	)
 
-	if err := ioutil.WriteFile(configFile, configBytes, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(configFile, configBytes, 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := ioutil.WriteFile(valuesFile, []byte(values), 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(valuesFile, []byte(values), 0o644); err != nil { // nolint: vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 
@@ -979,7 +979,7 @@ func TestRunAndServe(t *testing.T) {
 				return
 			}
 
-			gotBody, err := ioutil.ReadAll(res.Body)
+			gotBody, err := io.ReadAll(res.Body)
 			if err != nil {
 				t.Fatalf("could not read body: %v", err)
 			}

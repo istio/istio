@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -672,7 +671,7 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 
 		if caCertFile == "" {
 			log.Infof("Using CA %s cert with system certs", a.secOpts.CAEndpoint)
-		} else if rootCert, err = ioutil.ReadFile(caCertFile); err != nil {
+		} else if rootCert, err = os.ReadFile(caCertFile); err != nil {
 			log.Fatalf("invalid config - %s missing a root certificate %s", a.secOpts.CAEndpoint, caCertFile)
 		} else {
 			log.Infof("Using CA %s cert with certs: %s", a.secOpts.CAEndpoint, caCertFile)

@@ -16,7 +16,6 @@ package util
 
 import (
 	"errors"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -65,19 +64,19 @@ func Compare(content, golden []byte) error {
 // CompareYAML compares a file "x" against a golden file "x.golden"
 func CompareYAML(filename string, t *testing.T) {
 	t.Helper()
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 	goldenFile := filename + ".golden"
 	if Refresh() {
 		t.Logf("Refreshing golden file for %s", filename)
-		if err = ioutil.WriteFile(goldenFile, content, 0o644); err != nil {
+		if err = os.WriteFile(goldenFile, content, 0o644); err != nil {
 			t.Errorf(err.Error())
 		}
 	}
 
-	golden, err := ioutil.ReadFile(goldenFile)
+	golden, err := os.ReadFile(goldenFile)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -119,7 +118,7 @@ func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 // ReadFile reads the content of the given file or fails the test if an error is encountered.
 func ReadFile(file string, t testing.TB) []byte {
 	t.Helper()
-	golden, err := ioutil.ReadFile(file)
+	golden, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -62,7 +61,8 @@ var (
 	outputDir      string
 	clusterID      string
 	ingressIP      string
-	workloadIP     string
+	internalIP     string
+	externalIP     string
 	ingressSvc     string
 	autoRegister   bool
 	dnsCapture     bool
@@ -221,10 +221,16 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
-			if err = createConfig(kubeClient, wg, clusterID, ingressIP, workloadIP, outputDir, cmd.OutOrStderr()); err != nil {
+			if err = createConfig(kubeClient, wg, clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
 			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
+			return nil
+		},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if len(internalIP) > 0 && len(externalIP) > 0 {
+				return fmt.Errorf("the flags --internalIP and --externalIP are mutually exclusive")
+			}
 			return nil
 		},
 	}
@@ -239,7 +245,8 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	configureCmd.PersistentFlags().BoolVar(&autoRegister, "autoregister", false, "Creates a WorkloadEntry upon connection to istiod (if enabled in pilot).")
 	configureCmd.PersistentFlags().BoolVar(&dnsCapture, "capture-dns", true, "Enables the capture of outgoing DNS packets on port 53, redirecting to istio-agent")
-	configureCmd.PersistentFlags().StringVar(&workloadIP, "workloadIP", "", "IP address of the workload used in the WorkloadEntry")
+	configureCmd.PersistentFlags().StringVar(&internalIP, "internalIP", "", "Internal IP address of the workload")
+	configureCmd.PersistentFlags().StringVar(&externalIP, "externalIP", "", "External IP address of the workload")
 	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }
@@ -247,7 +254,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 // Reads a WorkloadGroup yaml. Additionally populates default values if unset
 // TODO: add WorkloadGroup validation in pkg/config/validation
 func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error {
-	f, err := ioutil.ReadFile(filename)
+	f, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
@@ -269,8 +276,8 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, workloadIP,
-	outputDir string, out io.Writer) error {
+func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, internalIP,
+	externalIP string, outputDir string, out io.Writer) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
@@ -284,7 +291,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
 		return err
 	}
-	if err := createSidecarEnv(workloadIP, outputDir); err != nil {
+	if err := createSidecarEnv(internalIP, externalIP, outputDir); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
@@ -338,13 +345,11 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		}
 	}
 
-	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
+	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
 
-func createSidecarEnv(workloadIP string, dir string) error {
-	sidecarEnv := map[string]string{
-		"ISTIO_SVC_IP": workloadIP,
-	}
+func createSidecarEnv(internalIP string, externalIP, dir string) error {
+	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP)
 
 	// If there is no sidecar specific configuration, then don't write the file and exit first.
 	allEmpty := true
@@ -357,7 +362,19 @@ func createSidecarEnv(workloadIP string, dir string) error {
 		return nil
 	}
 
-	return ioutil.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
+	return os.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
+}
+
+func generateSidecarEnvAsMap(internalIP string, externalIP string) map[string]string {
+	sidecarEnv := make(map[string]string)
+
+	if len(internalIP) > 0 {
+		sidecarEnv["ISTIO_SVC_IP"] = internalIP
+	} else if len(externalIP) > 0 {
+		sidecarEnv["ISTIO_SVC_IP"] = externalIP
+		sidecarEnv["REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION"] = "true"
+	}
+	return sidecarEnv
 }
 
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and
@@ -369,7 +386,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("configmap %s was not found in namespace %s: %v", controller.CACertNamespaceConfigMap, wg.Namespace, err)
 	}
-	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert.pem"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
+	if err = os.WriteFile(filepath.Join(dir, "root-cert.pem"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
 		return err
 	}
 
@@ -391,7 +408,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
+		if err := os.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated "+
@@ -414,7 +431,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("could not create a token under service account %s in namespace %s: %v", serviceAccount, wg.Namespace, err)
 	}
-	if err := ioutil.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
+	if err := os.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated and "+
@@ -479,6 +496,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	md := meshConfig.DefaultConfig.ProxyMetadata
 	if md == nil {
 		md = map[string]string{}
+		meshConfig.DefaultConfig.ProxyMetadata = md
 	}
 	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
 	md["POD_NAMESPACE"] = wg.Namespace
@@ -516,7 +534,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		return nil, err
 	}
 
-	return meshConfig.DefaultConfig, ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
+	return meshConfig.DefaultConfig, os.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
 }
 
 func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
@@ -559,7 +577,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	} else {
 		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)
 	}
-	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
+	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }
 
 // Returns a map with each k,v entry on a new line

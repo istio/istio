@@ -18,7 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"google.golang.org/grpc/credentials"
@@ -101,7 +101,7 @@ func (t *TokenProvider) GetToken() (string, error) {
 		if t.opts.JWTPath == "" {
 			return "", nil
 		}
-		tok, err := ioutil.ReadFile(t.opts.JWTPath)
+		tok, err := os.ReadFile(t.opts.JWTPath)
 		if err != nil {
 			log.Warnf("failed to fetch token from file: %v", err)
 			return "", nil
@@ -123,7 +123,7 @@ func (t *TokenProvider) GetTokenForXDS() (string, error) {
 	if t.opts.JWTPath == "" {
 		return "", nil
 	}
-	tok, err := ioutil.ReadFile(t.opts.JWTPath)
+	tok, err := os.ReadFile(t.opts.JWTPath)
 	if err != nil {
 		log.Warnf("failed to fetch token from file: %v", err)
 		return "", nil
@@ -146,7 +146,7 @@ func (t *TokenProvider) getTokenForGCP() (string, error) {
 		if t.opts.JWTPath == "" {
 			return "", fmt.Errorf("the JWTPath is not set")
 		}
-		tokBytes, err := ioutil.ReadFile(t.opts.JWTPath)
+		tokBytes, err := os.ReadFile(t.opts.JWTPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to fetch token from file: %v", err)
 		}

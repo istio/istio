@@ -19,9 +19,9 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net"
 	"net/http"
@@ -236,11 +236,35 @@ func NewServer(config Options) (*Server, error) {
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 					DialContext:     d.DialContext,
 				},
+				CheckRedirect: redirectChecker(),
 			}
 		}
 	}
 
 	return s, nil
+}
+
+// Copies logic from https://github.com/kubernetes/kubernetes/blob/b152001f459/pkg/probe/http/http.go#L129-L130
+func isRedirect(code int) bool {
+	return code >= http.StatusMultipleChoices && code < http.StatusBadRequest
+}
+
+// Using the same redirect logic that kubelet does: https://github.com/kubernetes/kubernetes/blob/b152001f459/pkg/probe/http/http.go#L141
+// This means that:
+// * If we exceed 10 redirects, the probe fails
+// * If we redirect somewhere external, the probe succeeds (https://github.com/kubernetes/kubernetes/blob/b152001f459/pkg/probe/http/http.go#L130)
+// * If we redirect to the same address, the probe will follow the redirect
+func redirectChecker() func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if req.URL.Hostname() != via[0].URL.Hostname() {
+			return http.ErrUseLastResponse
+		}
+		// Default behavior: stop after 10 redirects.
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		return nil
+	}
 }
 
 func validateAppKubeProber(path string, prober *Prober) error {
@@ -549,7 +573,7 @@ func (s *Server) scrape(url string, header http.Header) ([]byte, string, error) 
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
-	metrics, err := ioutil.ReadAll(resp.Body)
+	metrics, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, "", fmt.Errorf("error reading %s: %v", url, err)
 	}
@@ -648,10 +672,16 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 	defer func() {
 		// Drain and close the body to let the Transport reuse the connection
-		_, _ = io.Copy(ioutil.Discard, response.Body)
+		_, _ = io.Copy(io.Discard, response.Body)
 		_ = response.Body.Close()
 	}()
 
+	if isRedirect(response.StatusCode) { // Redirect
+		// In other cases, we return the original status code. For redirects, it is illegal to
+		// not have Location header, so we need to switch to just 200.
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
 }

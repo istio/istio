@@ -169,7 +169,7 @@ func getRemoteServiceAddress(s *kube.Settings, cluster cluster.Cluster, ns, labe
 }
 
 func (i *operatorComponent) isExternalControlPlane() bool {
-	for _, cluster := range i.ctx.Clusters() {
+	for _, cluster := range i.ctx.AllClusters() {
 		if cluster.IsPrimary() && !cluster.IsConfig() {
 			return true
 		}

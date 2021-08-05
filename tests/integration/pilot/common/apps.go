@@ -224,8 +224,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
 
-	skipDelta := t.Settings().SkipDelta || t.Settings().Revisions.Minimum().Compare("1.10") > 0
-	if skipDelta {
+	skipDelta := t.Settings().SkipDelta || !t.Settings().Revisions.AtLeast("1.10")
+	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
 				Service:   DeltaSvc,
@@ -276,7 +276,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	if !t.Settings().SkipVM {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
-	if skipDelta {
+	if !skipDelta {
 		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 

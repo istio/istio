@@ -16,7 +16,7 @@ package grpcgen_test
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -45,7 +45,7 @@ var (
 )
 
 func resolverForTest(t test.Failer) resolver.Builder {
-	bootstrap, err := ioutil.ReadFile("testdata/xds_bootstrap.json")
+	bootstrap, err := os.ReadFile("testdata/xds_bootstrap.json")
 	if err != nil {
 		t.Fatal(err)
 	}

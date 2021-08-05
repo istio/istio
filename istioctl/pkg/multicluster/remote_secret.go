@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -395,7 +395,7 @@ func createNamespaceIfNotExist(client kube.Client, ns string) error {
 }
 
 func writeToTempFile(content string) (string, error) {
-	outFile, err := ioutil.TempFile("", "remote-secret-manifest-*")
+	outFile, err := os.CreateTemp("", "remote-secret-manifest-*")
 	if err != nil {
 		return "", fmt.Errorf("failed creating temp file for manifest: %v", err)
 	}
@@ -484,7 +484,7 @@ const (
 	// Use a bearer token for authentication to the remote kubernetes cluster.
 	RemoteSecretAuthTypeBearerToken RemoteSecretAuthType = "bearer-token"
 
-	// User a custom custom authentication plugin for the remote kubernetes cluster.
+	// Use a custom authentication plugin for the remote kubernetes cluster.
 	RemoteSecretAuthTypePlugin RemoteSecretAuthType = "plugin"
 
 	// Secret generated from remote cluster

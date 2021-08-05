@@ -16,7 +16,6 @@ package local
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -288,7 +287,7 @@ func TestResourceFiltering(t *testing.T) {
 
 func tempFileFromString(t *testing.T, content string) *os.File {
 	t.Helper()
-	tmpfile, err := ioutil.TempFile("", "")
+	tmpfile, err := os.CreateTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}

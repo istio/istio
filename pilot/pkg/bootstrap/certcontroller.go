@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -118,7 +117,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		if err != nil {
 			return fmt.Errorf("failed generating key and cert by kubernetes: %v", err)
 		}
-		caBundle, err = ioutil.ReadFile(defaultCACertPath)
+		caBundle, err = os.ReadFile(defaultCACertPath)
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
@@ -143,7 +142,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 			})
 		} else {
 			log.Infof("Use plugged-in cert at %v", signingKeyFile)
-			caBundle, err = ioutil.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
+			caBundle, err = os.ReadFile(path.Join(LocalCertDir.Get(), ca.RootCertFile))
 			if err != nil {
 				return fmt.Errorf("failed reading %s: %v", path.Join(LocalCertDir.Get(), ca.RootCertFile), err)
 			}
@@ -152,7 +151,7 @@ func (s *Server) initDNSCerts(hostname, namespace string) error {
 		customCACertPath := security.DefaultRootCertFilePath
 		log.Infof("User specified cert provider: %v, mounted in a well known location %v",
 			features.PilotCertProvider, customCACertPath)
-		caBundle, err = ioutil.ReadFile(customCACertPath)
+		caBundle, err = os.ReadFile(customCACertPath)
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", customCACertPath, err)
 		}

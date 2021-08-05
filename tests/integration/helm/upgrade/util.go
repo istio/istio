@@ -18,7 +18,6 @@ package helmupgrade
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -146,7 +145,7 @@ func getValuesOverrides(ctx framework.TestContext, hub, tag, revision string) st
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
 	overrideValues := fmt.Sprintf(defaultValues, hub, tag, revision)
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
-	if err := ioutil.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
 	}
 

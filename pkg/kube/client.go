@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -695,7 +694,7 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 		return nil, formatError(err)
 	}
 	defer closeQuietly(resp.Body)
-	out, err := ioutil.ReadAll(resp.Body)
+	out, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, formatError(err)
 	}

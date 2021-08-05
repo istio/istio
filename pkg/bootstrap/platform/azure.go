@@ -17,8 +17,9 @@ package platform
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -53,7 +54,7 @@ type azureEnv struct {
 // IsAzure returns whether or not the platform for bootstrapping is Azure
 // Checks the system vendor file (similar to https://github.com/banzaicloud/satellite/blob/master/providers/azure.go)
 func IsAzure() bool {
-	sysVendor, err := ioutil.ReadFile(SysVendorPath)
+	sysVendor, err := os.ReadFile(SysVendorPath)
 	if err != nil {
 		log.Debugf("Error reading sys_vendor in Azure platform detection: %v", err)
 	}
@@ -123,7 +124,7 @@ func metadataRequest(query string) string {
 		log.Warnf("HTTP request unsuccessful with status: %v", response.Status)
 	}
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Warnf("Could not read response body: %v", err)
 		return ""

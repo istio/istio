@@ -18,7 +18,7 @@ package cache
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -365,7 +365,7 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 // If there is existing root certificates under a well known path, return true.
 // Otherwise, return false.
 func (sc *SecretManagerClient) rootCertificateExist(filePath string) bool {
-	b, err := ioutil.ReadFile(filePath)
+	b, err := os.ReadFile(filePath)
 	if err != nil || len(b) == 0 {
 		return false
 	}
@@ -375,11 +375,11 @@ func (sc *SecretManagerClient) rootCertificateExist(filePath string) bool {
 // If there is an existing private key and certificate under a well known path, return true.
 // Otherwise, return false.
 func (sc *SecretManagerClient) keyCertificateExist(certPath, keyPath string) bool {
-	b, err := ioutil.ReadFile(certPath)
+	b, err := os.ReadFile(certPath)
 	if err != nil || len(b) == 0 {
 		return false
 	}
-	b, err = ioutil.ReadFile(keyPath)
+	b, err = os.ReadFile(keyPath)
 	if err != nil || len(b) == 0 {
 		return false
 	}
@@ -445,7 +445,7 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 	retryBackoffInMS := int64(firstRetryBackOffInMilliSec)
 	timeout := time.After(totalTimeout)
 	for {
-		cert, err := ioutil.ReadFile(path)
+		cert, err := os.ReadFile(path)
 		if err == nil {
 			return cert, nil
 		}

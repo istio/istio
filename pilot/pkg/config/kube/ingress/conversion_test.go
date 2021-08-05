@@ -17,7 +17,7 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -78,11 +78,11 @@ func TestGoldenConversion(t *testing.T) {
 			output := marshalYaml(t, ordered)
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt)
 			if util.Refresh() {
-				if err := ioutil.WriteFile(goldenFile, output, 0o644); err != nil {
+				if err := os.WriteFile(goldenFile, output, 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
-			expected, err := ioutil.ReadFile(goldenFile)
+			expected, err := os.ReadFile(goldenFile)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -116,7 +116,7 @@ func marshalYaml(t *testing.T, cl []config.Config) []byte {
 func readConfig(t *testing.T, filename string) ([]runtime.Object, error) {
 	t.Helper()
 
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}

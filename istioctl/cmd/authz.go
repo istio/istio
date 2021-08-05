@@ -17,7 +17,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -101,7 +101,7 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 			log.Errorf("failed to close %s: %s", filename, err)
 		}
 	}()
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err
 	}

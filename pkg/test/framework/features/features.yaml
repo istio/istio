@@ -151,6 +151,7 @@ features:
       multimaster:
       remote:
       centralremotekubeconfig:
+    istiodremote:
     helm:
       default:
         install:

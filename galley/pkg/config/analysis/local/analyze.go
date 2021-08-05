@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -248,7 +248,7 @@ func (sa *SourceAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue
 	for _, r := range readers {
-		by, err := ioutil.ReadAll(r.Reader)
+		by, err := io.ReadAll(r.Reader)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
@@ -301,7 +301,7 @@ func (sa *SourceAnalyzer) AddInMemorySource(src *inmemory.Source) {
 
 // AddFileKubeMeshConfig gets mesh config from the specified yaml file
 func (sa *SourceAnalyzer) AddFileKubeMeshConfig(file string) error {
-	by, err := ioutil.ReadFile(file)
+	by, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}

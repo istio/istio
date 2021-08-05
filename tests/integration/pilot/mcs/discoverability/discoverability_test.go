@@ -18,7 +18,7 @@ package discoverability
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -128,7 +128,7 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 }
 
 func installServiceExportCRD(t resource.Context) error {
-	crd, err := ioutil.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")
+	crd, err := os.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")
 	if err != nil {
 		return err
 	}

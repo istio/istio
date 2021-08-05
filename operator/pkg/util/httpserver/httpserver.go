@@ -15,9 +15,9 @@
 package httpserver
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 )
 
@@ -57,12 +57,12 @@ func (s *Server) MoveFiles(origin string) ([]string, error) {
 	}
 	tmpFiles := make([]string, len(files))
 	for i, file := range files {
-		data, err := ioutil.ReadFile(file)
+		data, err := os.ReadFile(file)
 		if err != nil {
 			return []string{}, err
 		}
 		newName := filepath.Join(s.Root, filepath.Base(file))
-		if err := ioutil.WriteFile(newName, data, 0o755); err != nil {
+		if err := os.WriteFile(newName, data, 0o755); err != nil {
 			return []string{}, err
 		}
 		tmpFiles[i] = newName

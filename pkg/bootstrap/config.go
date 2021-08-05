@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -637,7 +636,7 @@ func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeM
 }
 
 func readPodLabels() (map[string]string, error) {
-	b, err := ioutil.ReadFile(constants.PodInfoLabelsPath)
+	b, err := os.ReadFile(constants.PodInfoLabelsPath)
 	if err != nil {
 		return nil, err
 	}
@@ -648,7 +647,7 @@ func ReadPodAnnotations(path string) (map[string]string, error) {
 	if path == "" {
 		path = constants.PodInfoAnnotationsPath
 	}
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

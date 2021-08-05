@@ -16,7 +16,6 @@ package envoy
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -110,7 +109,7 @@ func (e *envoy) Drain() error {
 }
 
 func (e *envoy) UpdateConfig(config []byte) error {
-	return ioutil.WriteFile(e.ConfigPath, config, 0o666)
+	return os.WriteFile(e.ConfigPath, config, 0o666)
 }
 
 func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
@@ -149,7 +148,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 	startupArgs = append(startupArgs, e.extraArgs...)
 
 	if bootstrapConfig != "" {
-		bytes, err := ioutil.ReadFile(bootstrapConfig)
+		bytes, err := os.ReadFile(bootstrapConfig)
 		if err != nil {
 			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
 		} else {

@@ -18,8 +18,8 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -52,7 +52,7 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+			crd, err := os.ReadFile("testdata/service-apis-crd.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -401,6 +401,23 @@ spec:
 					prefixPath: "/prefix/test",
 				},
 				{
+					// Prefix / should match any path
+					name: "http-root-prefix-should-match-random-path",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/testrandom",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/",
+				},
+				{
 					// Basic HTTPS call for foo. CaCert matches the secret
 					name: "https-foo",
 					call: echo.CallOptions{
@@ -699,7 +716,7 @@ spec:
 				if t.Settings().Revisions.Default() != "" {
 					rev = t.Settings().Revisions.Default()
 				}
-				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
+				os.WriteFile(d, []byte(fmt.Sprintf(`
 revision: %v
 gateways:
   istio-ingressgateway:

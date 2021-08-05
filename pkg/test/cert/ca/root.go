@@ -15,7 +15,6 @@
 package ca
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -65,7 +64,7 @@ func NewRoot(workDir string) (Root, error) {
 	}
 
 	// Write out the conf file.
-	if err := ioutil.WriteFile(root.ConfFile, []byte(rootCAConf), os.ModePerm); err != nil {
+	if err := os.WriteFile(root.ConfFile, []byte(rootCAConf), os.ModePerm); err != nil {
 		return Root{}, err
 	}
 

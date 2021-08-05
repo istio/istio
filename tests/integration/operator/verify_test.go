@@ -16,7 +16,7 @@
 package operator
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -52,7 +52,7 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 			}
 			istioCtl.InvokeOrFail(t, installCmd)
 
-			tfLogger := clog.NewConsoleLogger(ioutil.Discard, ioutil.Discard, scopes.Framework)
+			tfLogger := clog.NewConsoleLogger(io.Discard, io.Discard, scopes.Framework)
 			statusVerifier := verifier.NewStatusVerifier(IstioNamespace, ManifestPath, "",
 				"", []string{}, clioptions.ControlPlaneOptions{}, tfLogger, nil)
 			if err := statusVerifier.Verify(); err != nil {

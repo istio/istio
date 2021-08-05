@@ -102,6 +102,13 @@ func (c Clusters) Remotes(excluded ...Cluster) Clusters {
 	}, exclude(excluded...))
 }
 
+// MeshClusters returns the subset that are not external control plane clusters.
+func (c Clusters) MeshClusters(excluded ...Cluster) Clusters {
+	return c.filterClusters(func(cc Cluster) bool {
+		return !cc.IsExternalControlPlane()
+	}, exclude(excluded...))
+}
+
 // Kube returns OfKind(cluster.Kubernetes)
 func (c Clusters) Kube() Clusters {
 	return c.OfKind(Kubernetes)
@@ -183,6 +190,10 @@ type Cluster interface {
 	// IsRemote returns true if this is a remote cluster, which uses a control plane
 	// residing in another cluster.
 	IsRemote() bool
+
+	// IsExternalControlPlane returns true if this is a cluster containing an instance
+	// of the Istio control plane but with its source of config in another cluster.
+	IsExternalControlPlane() bool
 
 	// Primary returns the primary cluster for this cluster. Will return itself if
 	// IsPrimary.

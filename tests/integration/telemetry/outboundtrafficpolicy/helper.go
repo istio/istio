@@ -19,7 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"io/ioutil"
+	"os"
 	"path"
 	"reflect"
 	"testing"
@@ -197,7 +197,7 @@ func createSidecarScope(t *testing.T, ctx resource.Context, tPolicy TrafficPolic
 }
 
 func mustReadCert(t *testing.T, f string) string {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))
+	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))
 	if err != nil {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
