@@ -187,7 +187,7 @@ var (
 
 	// NamespaceInjectionEnabledByDefault defines a diag.MessageType for message "NamespaceInjectionEnabledByDefault".
 	// Description: user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set.
-	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "neither injection label is set for namespace %s, but Istio is installed with enableNamespacesByDefault enabled.")
+	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true.")
 )
 
 // All returns a list of all known message types.
@@ -684,10 +684,9 @@ func NewImageAutoWithoutInjectionError(r *resource.Instance, resourceType string
 }
 
 // NewNamespaceInjectionEnabledByDefault returns a new diag.Message based on NamespaceInjectionEnabledByDefault.
-func NewNamespaceInjectionEnabledByDefault(r *resource.Instance, namespace string) diag.Message {
+func NewNamespaceInjectionEnabledByDefault(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		NamespaceInjectionEnabledByDefault,
 		r,
-		namespace,
 	)
 }
