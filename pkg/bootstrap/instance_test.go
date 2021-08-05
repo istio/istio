@@ -150,6 +150,9 @@ func TestGolden(t *testing.T) {
 			base: "tracing_datadog",
 		},
 		{
+			base: "metrics_no_statsd",
+		},
+		{
 			base:    "tracing_stackdriver",
 			stsPort: 15463,
 			platformMeta: map[string]string{
