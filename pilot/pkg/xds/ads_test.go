@@ -556,7 +556,8 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "foo.com"}},
-			expectUpdates: []string{v3.ClusterType, v3.EndpointType},
+			expectUpdates:   []string{v3.ListenerType, v3.RouteType},
+			unexpectUpdates: []string{v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc: "Add instances for transitively scoped svc",
@@ -576,7 +577,8 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4}},
-			expectUpdates: []string{v3.ClusterType},
+			expectUpdates:   []string{v3.ListenerType, v3.RouteType},
+			unexpectUpdates: []string{v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc: "Add delegation virtual service for scoped service with transitively scoped dest svc",
@@ -586,7 +588,8 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "foo.com"}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+			expectUpdates:   []string{v3.ListenerType, v3.RouteType},
+			unexpectUpdates: []string{v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc: "Update delegate virtual service should trigger full push",
@@ -596,7 +599,8 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4, hosts: []string{fmt.Sprintf("svc%d%s", 4, svcSuffix)}, dest: "foo.com"}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+			expectUpdates:   []string{v3.ListenerType, v3.RouteType},
+			unexpectUpdates: []string{v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc: "Delete delegate virtual service for scoped service with transitively scoped dest svc",
@@ -606,7 +610,8 @@ func TestAdsPushScoping(t *testing.T) {
 				hosts []string
 				dest  string
 			}{{index: 4}},
-			expectUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
+			expectUpdates:   []string{v3.ListenerType, v3.RouteType},
+			unexpectUpdates: []string{v3.ClusterType, v3.EndpointType},
 		},
 		{
 			desc:          "Remove a scoped service",
