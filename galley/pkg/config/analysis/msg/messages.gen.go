@@ -184,6 +184,10 @@ var (
 	// ImageAutoWithoutInjectionError defines a diag.MessageType for message "ImageAutoWithoutInjectionError".
 	// Description: Pods with `image: auto` should be targeted for injection.
 	ImageAutoWithoutInjectionError = diag.NewMessageType(diag.Error, "IST0147", "%s %s contains `image: auto` but does not match any Istio injection webhook selectors.")
+
+	// NamespaceInjectionEnabledByDefault defines a diag.MessageType for message "NamespaceInjectionEnabledByDefault".
+	// Description: user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set.
+	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "neither injection label is set for namespace %s, but Istio is installed with enableNamespacesByDefault enabled.")
 )
 
 // All returns a list of all known message types.
@@ -233,6 +237,7 @@ func All() []*diag.MessageType {
 		ConflictingGateways,
 		ImageAutoWithoutInjectionWarning,
 		ImageAutoWithoutInjectionError,
+		NamespaceInjectionEnabledByDefault,
 	}
 }
 
@@ -675,5 +680,14 @@ func NewImageAutoWithoutInjectionError(r *resource.Instance, resourceType string
 		r,
 		resourceType,
 		resourceName,
+	)
+}
+
+// NewNamespaceInjectionEnabledByDefault returns a new diag.Message based on NamespaceInjectionEnabledByDefault.
+func NewNamespaceInjectionEnabledByDefault(r *resource.Instance, namespace string) diag.Message {
+	return diag.NewMessage(
+		NamespaceInjectionEnabledByDefault,
+		r,
+		namespace,
 	)
 }

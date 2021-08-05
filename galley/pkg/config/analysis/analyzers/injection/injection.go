@@ -62,16 +62,6 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 	enableNamespacesByDefault := false
 	injectedNamespaces := make(map[string]bool)
 
-	// verify the enableNamespacesByDefault flag in injection configmaps
-	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.FullName.Name.String() == util.InjectionConfigMap {
-			cm := r.Message.(*v1.ConfigMap)
-			enableNamespacesByDefault = GetEnableNamespacesByDefaultFromInjectedConfigMap(cm)
-			return false
-		}
-		return true
-	})
-
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
 		if r.Metadata.FullName.String() == constants.IstioSystemNamespace {
 			return true
@@ -83,12 +73,25 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		injectionLabel := r.Metadata.Labels[util.InjectionLabelName]
-		_, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
+		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
+
+		// verify the enableNamespacesByDefault flag in injection configmaps
+		c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
+			injectionCMName := util.GetInjectorConfigMapName(nsRevision)
+			if r.Metadata.FullName.Name.String() == injectionCMName {
+				cm := r.Message.(*v1.ConfigMap)
+				enableNamespacesByDefault = GetEnableNamespacesByDefaultFromInjectedConfigMap(cm)
+				return false
+			}
+			return true
+		})
 
 		if injectionLabel == "" && !okNewInjectionLabel {
 			// if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 			if enableNamespacesByDefault {
+				m := msg.NewNamespaceInjectionEnabledByDefault(r, ns)
+				c.Report(collections.K8SCoreV1Namespaces.Name(), m)
 				return true
 			}
 
