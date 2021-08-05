@@ -51,7 +51,7 @@ func TestProxyCachedToken(t *testing.T) {
 	setup.StartProxy(t)
 	// Verify that proxy re-connects XDS server after each stream close, and the
 	// same token is received.
-	gomega.SetDefaultEventuallyTimeout(10 * time.Second)
+	g.SetDefaultEventuallyTimeout(10 * time.Second)
 	g.Eventually(func() int { return cb.NumStream() }).Should(gomega.Equal(numCloseStream + 1)) // nolint:gocritic
 	g.Expect(cb.NumTokenReceived()).To(gomega.Equal(1))
 	// Verify there is only one extra call for each token.
