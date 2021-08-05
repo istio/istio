@@ -76,10 +76,10 @@ spec:
       trafficPolicy:
         loadBalancer:
           simple: RANDOM
-    - name: bar
-      labels:
-        version: v2
-      trafficPolicy:
-        loadBalancer:
-          simple: ROUND_ROBIN
+#    - name: bar
+#      labels:
+#        version: v2
+#      trafficPolicy:
+#        loadBalancer:
+#          simple: ROUND_ROBIN
 ---

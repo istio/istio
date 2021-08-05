@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -58,7 +57,7 @@ var defaultTransportSocketMatch = &cluster.Cluster_TransportSocketMatch{
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind)
+var deltaConfigTypes = sets.NewSet(gvk.ServiceEntry.Kind, gvk.DestinationRule.Kind)
 
 // getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
 func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
