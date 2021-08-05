@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/api/label"
 	"sort"
 	"strconv"
 	"strings"
@@ -293,12 +294,19 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, clusterID := range keys {
 		endpoints := shards.Shards[clusterID]
+
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
 		if isClusterLocal && (cluster.ID(clusterID) != b.clusterID) {
 			continue
 		}
 		for _, ep := range endpoints {
+			// cross-cluster WorkloadEntry may come from a shard with a different cluster ID
+			// AugmentLabels adds an internal label to indicate individual endpoint origin
+			if epCluster := ep.Labels[label.TopologyCluster.Name]; epCluster != "" && epCluster != b.clusterID {
+				continue
+			}
+
 			// TODO(nmittler): Consider merging discoverability policy with cluster-local
 			if !ep.IsDiscoverableFromProxy(b.proxy) {
 				continue
