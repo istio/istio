@@ -154,6 +154,10 @@ func (s *suiteContext) Environment() resource.Environment {
 }
 
 func (s *suiteContext) Clusters() cluster.Clusters {
+	return s.AllClusters().MeshClusters()
+}
+
+func (s *suiteContext) AllClusters() cluster.Clusters {
 	return s.Environment().Clusters()
 }
 
