@@ -34,17 +34,12 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	uatomic "go.uber.org/atomic"
 
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
@@ -178,155 +173,6 @@ func TestEds(t *testing.T) {
 		strResponse, _ := json.MarshalIndent(clusters, " ", " ")
 		_ = os.WriteFile(env.IstioOut+"/cdsv2_sidecar.json", strResponse, 0o644)
 	})
-}
-
-func TestClusterLocal(t *testing.T) {
-	tests := map[string]struct {
-		fakeOpts            xds.FakeOptions
-		serviceCluster      string
-		wantClusterLocal    map[cluster.ID][]string
-		wantNonClusterLocal map[cluster.ID][]string
-	}{
-		// set up a k8s service in each cluster, with a pod in each cluster and a workloadentry in cluster-1
-		"k8s service with pod and workloadentry": {
-			fakeOpts: func() xds.FakeOptions {
-				k8sObjects := map[cluster.ID]string{
-					"cluster-1": "",
-					"cluster-2": "",
-				}
-				i := 1
-				for range k8sObjects {
-					clusterID := fmt.Sprintf("cluster-%d", i)
-					k8sObjects[cluster.ID(clusterID)] = fmt.Sprintf(`
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: echo-app
-  name: echo-app
-  namespace: default
-spec:
-  clusterIP: 1.2.3.4
-  selector:
-    app: echo-app
-  ports:
-  - name: grpc
-    port: 7070
----
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    app: echo-app
-  name: echo-app-%s
-  namespace: default
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: echo-app
-  namespace: default
-  labels:
-    app: echo-app
-subsets:
-- addresses:
-  - ip: 10.0.0.%d
-  ports:
-  - name: grpc
-    port: 7070
-`, clusterID, i)
-					i++
-				}
-				return xds.FakeOptions{
-					KubernetesObjectStringByCluster: k8sObjects,
-					ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
-kind: WorkloadEntry
-metadata:
-  name: echo-app
-  namespace: default
-spec:
-  address: 10.1.1.1
-  labels:
-    app: echo-app
-`,
-				}
-			}(),
-			serviceCluster: "outbound|7070||echo-app.default.svc.cluster.local",
-			wantClusterLocal: map[cluster.ID][]string{
-				"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070"},
-				"cluster-2": {"10.0.0.2:7070"},
-			},
-			wantNonClusterLocal: map[cluster.ID][]string{
-				"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070", "10.0.0.2:7070"},
-				"cluster-2": {"10.0.0.1:7070", "10.1.1.1:7070", "10.0.0.2:7070"},
-			},
-		},
-		"serviceentry": {
-			fakeOpts: xds.FakeOptions{
-				ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: external-svc-mongocluster
-spec:
-  hosts:
-  - mymongodb.somedomain 
-  addresses:
-  - 192.192.192.192/24 # VIPs
-  ports:
-  - number: 27018
-    name: mongodb
-    protocol: MONGO
-  location: MESH_INTERNAL
-  resolution: STATIC
-  endpoints:
-  - address: 2.2.2.2
-  - address: 3.3.3.3
-`,
-			},
-			serviceCluster: "outbound|27018||mymongodb.somedomain",
-			wantClusterLocal: map[cluster.ID][]string{
-				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
-				"other":      {},
-			},
-			wantNonClusterLocal: map[cluster.ID][]string{
-				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
-				"other":      {"2.2.2.2:27018", "3.3.3.3:27018"},
-			},
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			for _, local := range []bool{true, false} {
-				name := "cluster-local"
-				want := tt.wantClusterLocal
-				if !local {
-					name = "non-cluster-local"
-					want = tt.wantNonClusterLocal
-				}
-				t.Run(name, func(t *testing.T) {
-					meshConfig := mesh.DefaultMeshConfig()
-					meshConfig.ServiceSettings = []*v1alpha1.MeshConfig_ServiceSettings{
-						{Hosts: []string{"*"}, Settings: &v1alpha1.MeshConfig_ServiceSettings_Settings{
-							ClusterLocal: local,
-						}},
-					}
-					fakeOpts := tt.fakeOpts
-					fakeOpts.MeshConfig = &meshConfig
-					s := xds.NewFakeDiscoveryServer(t, fakeOpts)
-					for clusterID := range want {
-						p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
-						eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
-						if want := want[clusterID]; !util.StringSliceEqual(eps, want) {
-							t.Errorf("got %v but want %v for %s", eps, want, clusterID)
-						}
-					}
-				})
-			}
-		})
-	}
 }
 
 // newEndpointWithAccount is a helper for IstioEndpoint creation. Creates endpoints with
