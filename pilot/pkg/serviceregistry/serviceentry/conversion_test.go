@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
@@ -828,7 +829,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 }
 
 func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
-	labels := map[string]string{
+	workloadLabel := map[string]string{
 		"app": "wle",
 	}
 
@@ -839,9 +840,10 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	}
 
 	workloadInstanceTests := []struct {
-		name string
-		wle  config.Config
-		out  *model.WorkloadInstance
+		name           string
+		getNetworkIDCb func(IP string, labels labels.Instance) network.ID
+		wle            config.Config
+		out            *model.WorkloadInstance
 	}{
 		{
 			name: "simple",
@@ -851,7 +853,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				},
 				Spec: &networking.WorkloadEntry{
 					Address: "1.1.1.1",
-					Labels:  labels,
+					Labels:  workloadLabel,
 					Ports: map[string]uint32{
 						"http": 80,
 					},
@@ -942,7 +944,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			name: "metadata labels only",
 			wle: config.Config{
 				Meta: config.Meta{
-					Labels:    labels,
+					Labels:    workloadLabel,
 					Namespace: "ns1",
 				},
 				Spec: &networking.WorkloadEntry{
@@ -981,7 +983,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				},
 				Spec: &networking.WorkloadEntry{
 					Address: "1.1.1.1",
-					Labels:  labels,
+					Labels:  workloadLabel,
 					Ports: map[string]uint32{
 						"http": 80,
 					},
@@ -1017,7 +1019,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				},
 				Spec: &networking.WorkloadEntry{
 					Address: "1.1.1.1",
-					Labels:  labels,
+					Labels:  workloadLabel,
 					Ports: map[string]uint32{
 						"http": 80,
 					},
@@ -1052,11 +1054,55 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "augment labels: networkID get from cb",
+			wle: config.Config{
+				Meta: config.Meta{
+					Namespace: "ns1",
+				},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels:  workloadLabel,
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					Locality:       "region1/zone1/subzone1",
+					ServiceAccount: "scooby",
+				},
+			},
+			getNetworkIDCb: func(IP string, labels labels.Instance) network.ID {
+				return "cb-network1"
+			},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"app":                           "wle",
+						"topology.kubernetes.io/region": "region1",
+						"topology.kubernetes.io/zone":   "zone1",
+						"topology.istio.io/subzone":     "subzone1",
+						"topology.istio.io/network":     "cb-network1",
+						"topology.istio.io/cluster":     clusterID,
+					},
+					Address: "1.1.1.1",
+					Locality: model.Locality{
+						Label:     "region1/zone1/subzone1",
+						ClusterID: cluster.ID(clusterID),
+					},
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
 	}
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &ServiceEntryStore{}
+			s := &ServiceEntryStore{getNetworkIDCb: tt.getNetworkIDCb}
 			instance := s.convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
