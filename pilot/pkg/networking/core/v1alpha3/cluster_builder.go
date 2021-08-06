@@ -743,6 +743,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		}
 
 		if settings.Http.MaxRequestsPerConnection > 0 {
+			// nolint: staticcheck
 			mc.cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
 		}
 

@@ -184,8 +184,12 @@ func testCmdAddWithStdinData(t *testing.T, stdinData string) {
 
 	args := testSetArgs(stdinData)
 
-	result, _, err := testutils.CmdAddWithResult(
-		sandboxDirectory, ifname, []byte(stdinData), func() error { return CmdAdd(args) })
+	result, _, err := testutils.CmdAddWithArgs(
+		&skel.CmdArgs{
+			Netns:     sandboxDirectory,
+			IfName:    ifname,
+			StdinData: []byte(stdinData),
+		}, func() error { return CmdAdd(args) })
 	if err != nil {
 		t.Fatalf("failed with error: %v", err)
 	}
