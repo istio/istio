@@ -36,7 +36,9 @@ var (
 	serviceCol = collections.K8SCoreV1Services.Name()
 )
 
-type Analyzer struct{}
+type Analyzer struct {
+	SkipServiceCheck bool
+}
 
 var _ analysis.Analyzer = &Analyzer{}
 
@@ -124,6 +126,9 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	}
 
 	// Next, check service references
+	if a.SkipServiceCheck {
+		return
+	}
 	for name, whs := range webhooks {
 		for _, wh := range whs {
 			if wh.ClientConfig.Service == nil {

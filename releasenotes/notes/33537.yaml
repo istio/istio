@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 33537
+
+releaseNotes:
+  - |
+    **Added** `istioctl install` will now do `IST0139` analysis on webhooks.
