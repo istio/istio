@@ -19,6 +19,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -95,6 +96,10 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 			c.queue.Push(func() error {
 				ns, err := c.namespaceLister.Get(cm.Namespace)
 				if err != nil {
+					// namespace is deleted before
+					if apierrors.IsNotFound(err) {
+						return nil
+					}
 					return err
 				}
 				// If the namespace is terminating, we may get into a loop of trying to re-add the configmap back
