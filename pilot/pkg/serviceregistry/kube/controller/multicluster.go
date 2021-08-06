@@ -49,7 +49,7 @@ const (
 
 type kubeController struct {
 	*Controller
-	workloadEntryStore *serviceentry.ServiceEntryStore
+	serviceEntryStore *serviceentry.ServiceEntryStore
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -197,12 +197,13 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 		} else if features.WorkloadEntryCrossCluster {
 			// TODO only do this for non-remotes, can't guarantee CRDs in remotes (depends on https://github.com/istio/istio/pull/29824)
 			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
-				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
+				m.remoteKubeControllers[clusterID].serviceEntryStore = serviceentry.NewServiceDiscovery(
 					configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
-					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(clusterID))
-				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
+					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(clusterID),
+					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
+				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].serviceEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
-				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
+				m.remoteKubeControllers[clusterID].serviceEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 				go configStore.Run(clusterStopCh)
 			} else {
 				return fmt.Errorf("failed creating config configStore for cluster %s: %v", clusterID, err)
@@ -314,7 +315,7 @@ func (m *Multicluster) DeleteMemberCluster(clusterID cluster.ID) error {
 	if err := kc.Cleanup(); err != nil {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
-	if kc.workloadEntryStore != nil {
+	if kc.serviceEntryStore != nil {
 		m.serviceController.DeleteRegistry(clusterID, provider.External)
 	}
 	delete(m.remoteKubeControllers, clusterID)

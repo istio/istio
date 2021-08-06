@@ -224,7 +224,7 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 	return out
 }
 
-func convertEndpoint(service *model.Service, servicePort *networking.Port,
+func (s *ServiceEntryStore) convertEndpoint(service *model.Service, servicePort *networking.Port,
 	wle *networking.WorkloadEntry, configKey *configKey, clusterID cluster.ID) *model.ServiceInstance {
 	var instancePort uint32
 	addr := wle.GetAddress()
@@ -248,7 +248,8 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	if wle.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
 	}
-	labels := labelutil.AugmentLabels(wle.Labels, clusterID, wle.Locality, network.ID(wle.Network))
+	networkID := s.workloadEntryNetwork(wle)
+	labels := labelutil.AugmentLabels(wle.Labels, clusterID, wle.Locality, networkID)
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         addr,
@@ -275,18 +276,18 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
-func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
+func (s *ServiceEntryStore) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
 	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
-			out = append(out, convertEndpoint(service, port, wle, configKey, clusterID))
+			out = append(out, s.convertEndpoint(service, port, wle, configKey, clusterID))
 		}
 	}
 	return out
 }
 
-func convertServiceEntryToInstances(cfg config.Config, services []*model.Service, clusterID cluster.ID) []*model.ServiceInstance {
+func (s *ServiceEntryStore) convertServiceEntryToInstances(cfg config.Config, services []*model.Service, clusterID cluster.ID) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if services == nil {
@@ -318,7 +319,7 @@ func convertServiceEntryToInstances(cfg config.Config, services []*model.Service
 				})
 			} else {
 				for _, endpoint := range serviceEntry.Endpoints {
-					out = append(out, convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}, clusterID))
+					out = append(out, s.convertEndpoint(service, serviceEntryPort, endpoint, &configKey{}, clusterID))
 				}
 			}
 		}
@@ -368,7 +369,7 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a WorkloadInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this workload instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
+func (s *ServiceEntryStore) convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster.ID) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
 	// we will merge labels from metadata with spec, with precedence to the metadata
 	labels := map[string]string{}
@@ -392,7 +393,8 @@ func convertWorkloadEntryToWorkloadInstance(cfg config.Config, clusterID cluster
 	if we.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
-	labels = labelutil.AugmentLabels(labels, clusterID, we.Locality, network.ID(we.Network))
+	networkID := s.workloadEntryNetwork(we)
+	labels = labelutil.AugmentLabels(labels, clusterID, we.Locality, networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,

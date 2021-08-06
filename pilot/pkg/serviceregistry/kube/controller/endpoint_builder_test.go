@@ -19,10 +19,10 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
-	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
+
 	"istio.io/istio/pilot/pkg/model"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
@@ -234,11 +234,7 @@ func (c testController) getPodLocality(*v1.Pod) string {
 	return c.locality
 }
 
-func (c testController) cidrRanger() cidranger.Ranger {
-	return nil
-}
-
-func (c testController) defaultNetwork() network.ID {
+func (c testController) Network(ip string, instance labels.Instance) network.ID {
 	return c.network
 }
 
