@@ -358,7 +358,7 @@ func describeMatch(match *route.RouteMatch) string {
 		conds = append(conds, match.GetPath())
 	}
 	if match.GetSafeRegex() != nil {
-		conds = append(conds, fmt.Sprintf("regex %s", match.GetSafeRegex().String()))
+		conds = append(conds, fmt.Sprintf("regex %s", match.GetSafeRegex().Regex))
 	}
 	// Ignore headers
 	return strings.Join(conds, " ")

@@ -15,7 +15,6 @@
 package monitor_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -134,13 +133,13 @@ type testState struct {
 func (ts *testState) testSetup(t *testing.T) {
 	var err error
 
-	ts.rootPath, err = ioutil.TempDir("", "config-root")
+	ts.rootPath, err = os.MkdirTemp("", "config-root")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for name, content := range ts.ConfigFiles {
-		err = ioutil.WriteFile(filepath.Join(ts.rootPath, name), content, 0o600)
+		err = os.WriteFile(filepath.Join(ts.rootPath, name), content, 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -17,7 +17,7 @@ package filemountedcerts
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"testing"
@@ -220,7 +220,7 @@ func CreateCustomSecret(ctx resource.Context, name string, namespace namespace.I
 }
 
 func ReadCustomCertFromFile(certsPath string, f string) ([]byte, error) {
-	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, certsPath, f))
+	b, err := os.ReadFile(path.Join(env.IstioSrc, certsPath, f))
 	if err != nil {
 		return nil, err
 	}

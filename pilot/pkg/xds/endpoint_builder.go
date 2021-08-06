@@ -290,8 +290,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	if len(keys) >= 2 {
 		sort.Strings(keys)
 	}
-	// The shards are updated independently, now need to filter and merge
-	// for this cluster
+	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, clusterID := range keys {
 		endpoints := shards.Shards[clusterID]
 		// If the downstream service is configured as cluster-local, only include endpoints that
@@ -417,7 +416,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint) *endpoint.LbEndpoint {
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
-	// Do not removepilot/pkg/xds/fake.go
+	// Do not remove pilot/pkg/xds/fake.go
 	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
 
 	return ep

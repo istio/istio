@@ -16,8 +16,8 @@ package opentelemetry
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"strings"
 
 	"istio.io/istio/pkg/test/env"
@@ -116,7 +116,7 @@ spec:
 )
 
 func getYaml() (string, error) {
-	b, err := ioutil.ReadFile(env.OtelCollectorInstallFilePath)
+	b, err := os.ReadFile(env.OtelCollectorInstallFilePath)
 	if err != nil {
 		return "", err
 	}

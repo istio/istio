@@ -66,4 +66,12 @@ spec:
         host: httpbin-second.default.svc.domain.suffix
         port:
           number: 80
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: httpbin-second.default.svc.domain.suffix
+        port:
+          number: 80
 ---

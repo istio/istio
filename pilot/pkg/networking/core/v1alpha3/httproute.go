@@ -16,10 +16,12 @@ package v1alpha3
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -43,38 +45,56 @@ const (
 )
 
 // BuildHTTPRoutes produces a list of routes for the proxy
-func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *model.PushContext,
-	routeNames []string) []*route.RouteConfiguration {
-	routeConfigurations := make([]*route.RouteConfiguration, 0)
+func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
+	node *model.Proxy,
+	req *model.PushRequest,
+	routeNames []string) ([]*discovery.Resource, model.XdsLogDetails) {
+	routeConfigurations := make([]*discovery.Resource, 0)
 
-	efw := push.EnvoyFilters(node)
-
+	efw := req.Push.EnvoyFilters(node)
+	hit, miss := 0, 0
 	switch node.Type {
 	case model.SidecarProxy:
 		vHostCache := make(map[int][]*route.VirtualHost)
+		// dependent envoyfilters' key, calculate in front once to prevent calc for each route.
+		envoyfilterKeys := efw.Keys()
 		for _, routeName := range routeNames {
-			rc := configgen.buildSidecarOutboundHTTPRouteConfig(node, push, routeName, vHostCache)
-			if rc != nil {
-				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, rc)
+			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
+			if cached && !features.EnableUnsafeAssertions {
+				hit++
 			} else {
-				rc = &route.RouteConfiguration{
+				miss++
+			}
+			if rc == nil {
+				emptyRoute := &route.RouteConfiguration{
 					Name:             routeName,
 					VirtualHosts:     []*route.VirtualHost{},
 					ValidateClusters: proto.BoolFalse,
+				}
+				rc = &discovery.Resource{
+					Name:     routeName,
+					Resource: util.MessageToAny(emptyRoute),
 				}
 			}
 			routeConfigurations = append(routeConfigurations, rc)
 		}
 	case model.Router:
 		for _, routeName := range routeNames {
-			rc := configgen.buildGatewayHTTPRouteConfig(node, push, routeName)
+			rc := configgen.buildGatewayHTTPRouteConfig(node, req.Push, routeName)
 			if rc != nil {
 				rc = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_GATEWAY, node, efw, rc)
-				routeConfigurations = append(routeConfigurations, rc)
+				resource := &discovery.Resource{
+					Name:     routeName,
+					Resource: util.MessageToAny(rc),
+				}
+				routeConfigurations = append(routeConfigurations, resource)
 			}
 		}
 	}
-	return routeConfigurations
+	if !features.EnableRDSCaching {
+		return routeConfigurations, model.DefaultXdsLogDetails
+	}
+	return routeConfigurations, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", hit, hit+miss)}
 }
 
 // buildSidecarInboundHTTPRouteConfig builds the route config with a single wildcard virtual host on the inbound path
@@ -82,7 +102,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(node *model.Proxy, push *m
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	node *model.Proxy, push *model.PushContext, instance *model.ServiceInstance, clusterName string) *route.RouteConfiguration {
 	traceOperation := traceOperation(string(instance.Service.Hostname), instance.ServicePort.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(node, clusterName, traceOperation)
+	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(instance.ServicePort.Port), // Format: "inbound|http|%d"
@@ -112,8 +132,14 @@ func traceOperation(host string, port int) string {
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
 // Based on port, will determine all virtual hosts that listen on the port.
-func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *model.Proxy, push *model.PushContext,
-	routeName string, vHostCache map[int][]*route.VirtualHost) *route.RouteConfiguration {
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
+	node *model.Proxy,
+	req *model.PushRequest,
+	routeName string,
+	vHostCache map[int][]*route.VirtualHost,
+	efw *model.EnvoyFilterWrapper,
+	efKeys []string,
+) (*discovery.Resource, bool) {
 	var virtualHosts []*route.VirtualHost
 	listenerPort := 0
 	useSniffing := false
@@ -137,9 +163,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 			// user wants to ship a custom RDS. But at this point, the match semantics are murky. We have no
 			// object to match upon. This needs more thought. For now, we will continue to return nil for
 			// unknown routes
-			return nil
+			return nil, false
 		}
 	}
+
+	var routeCache *istio_route.Cache
+	var resource *discovery.Resource
 
 	cacheHit := false
 	if useSniffing && listenerPort != 0 {
@@ -152,7 +181,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 		}
 	}
 	if !cacheHit {
-		virtualHosts = BuildSidecarOutboundVirtualHosts(node, push, routeName, listenerPort)
+		virtualHosts, resource, routeCache = BuildSidecarOutboundVirtualHosts(node, req.Push, routeName, listenerPort, efKeys, configgen.Cache)
+		if resource != nil {
+			return resource, true
+		}
 		if listenerPort > 0 {
 			// only cache for tcp ports and not for uds
 			vHostCache[listenerPort] = virtualHosts
@@ -178,52 +210,26 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(node *
 		ValidateClusters: proto.BoolFalse,
 	}
 
-	return out
-}
+	// apply envoy filter patches
+	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
 
-// TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
-// selectVirtualServices selects the virtual services by matching given services' host names.
-func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
-	out := make([]config.Config, 0)
-	for _, c := range virtualServices {
-		rule := c.Spec.(*networking.VirtualService)
-		var match bool
-
-		// Selection algorithm:
-		// virtualservices have a list of hosts in the API spec
-		// if any host in the list matches one service hostname, select the virtual service
-		// and break out of the loop.
-		for _, h := range rule.Hosts {
-			// TODO: This is a bug. VirtualServices can have many hosts
-			// while the user might be importing only a single host
-			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(h)] != nil {
-				match = true
-				break
-			}
-
-			for svcHost := range servicesByName {
-				if host.Name(h).Matches(svcHost) {
-					match = true
-					break
-				}
-			}
-
-			if match {
-				break
-			}
-		}
-
-		if match {
-			out = append(out, c)
-		}
+	resource = &discovery.Resource{
+		Name:     out.Name,
+		Resource: util.MessageToAny(out),
 	}
 
-	return out
+	if features.EnableRDSCaching && routeCache != nil {
+		configgen.Cache.Add(routeCache, req, resource)
+	}
+
+	return resource, false
 }
 
 func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
-	routeName string, listenerPort int) []*route.VirtualHost {
+	routeName string,
+	listenerPort int,
+	efKeys []string,
+	xdsCache model.XdsCache) ([]*route.VirtualHost, *discovery.Resource, *istio_route.Cache) {
 	var virtualServices []config.Config
 	var services []*model.Service
 
@@ -236,7 +242,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	// We should never be getting a nil egress listener because the code that setup this RDS
 	// call obviously saw an egress listener
 	if egressListener == nil {
-		return nil
+		return nil, nil, nil
 	}
 
 	services = egressListener.Services()
@@ -252,11 +258,13 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	servicesByName := make(map[host.Name]*model.Service)
+	hostsByNamespace := make(map[string][]host.Name)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
 			servicesByName[svc.Hostname] = svc
+			hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			servicesByName[svc.Hostname] = &model.Service{
 				Hostname:     svc.Hostname,
@@ -268,18 +276,52 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
 				},
 			}
+			hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		}
 	}
 
 	// This is hack to keep consistent with previous behavior.
 	if listenerPort != 80 {
 		// only select virtualServices that matches a service
-		virtualServices = selectVirtualServices(virtualServices, servicesByName)
+		virtualServices = model.SelectVirtualServices(virtualServices, hostsByNamespace)
 	}
-	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(node, push, servicesByName, virtualServices, listenerPort)
-	vHostPortMap := make(map[int][]*route.VirtualHost)
 
+	var routeCache *istio_route.Cache
+
+	if listenerPort > 0 {
+		services = make([]*model.Service, 0, len(servicesByName))
+		// sort services
+		for _, svc := range servicesByName {
+			services = append(services, svc)
+		}
+		sort.SliceStable(services, func(i, j int) bool {
+			return services[i].Hostname <= services[j].Hostname
+		})
+
+		routeCache = &istio_route.Cache{
+			RouteName:       routeName,
+			ProxyVersion:    node.Metadata.IstioVersion,
+			ClusterID:       string(node.Metadata.ClusterID),
+			DNSDomain:       node.DNSDomain,
+			DNSCapture:      bool(node.Metadata.DNSCapture),
+			DNSAutoAllocate: bool(node.Metadata.DNSAutoAllocate),
+			ListenerPort:    listenerPort,
+			Services:        services,
+			VirtualServices: virtualServices,
+			EnvoyFilterKeys: efKeys,
+			PushVersion:     push.PushVersion,
+		}
+	}
+
+	// Get list of virtual services bound to the mesh gateway
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
+
+	resource, exist := xdsCache.Get(routeCache)
+	if exist {
+		return nil, resource, routeCache
+	}
+
+	vHostPortMap := make(map[int][]*route.VirtualHost)
 	vhosts := sets.Set{}
 	vhdomains := sets.Set{}
 	knownFQDN := sets.Set{}
@@ -353,7 +395,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				virtualHosts = append(virtualHosts, vhost)
 			}
 		}
-
 		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
 	}
 
@@ -364,7 +405,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		out = vHostPortMap[listenerPort]
 	}
 
-	return out
+	return out, nil, routeCache
 }
 
 // duplicateVirtualHost checks whether the virtual host with the same name exists in the route.

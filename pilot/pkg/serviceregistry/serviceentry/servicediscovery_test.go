@@ -153,9 +153,7 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
 
-	sd.storeMutex.Lock()
 	sd.refreshIndexes.Store(true)
-	sd.storeMutex.Unlock()
 
 	services, err := sd.Services()
 	if err != nil {
@@ -177,9 +175,7 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
 
-	sd.storeMutex.Lock()
 	sd.refreshIndexes.Store(true)
-	sd.storeMutex.Unlock()
 
 	service, err := sd.GetService(host.Name(hostDNE))
 	if err != nil {

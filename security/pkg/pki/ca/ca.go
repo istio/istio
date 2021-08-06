@@ -19,7 +19,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -246,7 +246,7 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 	// Validate that the passed in signing cert can be used as CA.
 	// The check can't be done inside `KeyCertBundle`, since bundle could also be used to
 	// validate workload certificates (i.e., where the leaf certificate is not a CA).
-	b, err := ioutil.ReadFile(signingCertFile)
+	b, err := os.ReadFile(signingCertFile)
 	if err != nil {
 		return nil, err
 	}

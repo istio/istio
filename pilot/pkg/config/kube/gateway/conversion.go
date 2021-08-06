@@ -868,8 +868,14 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	}
 	switch tp {
 	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
+		if dest == "/" {
+			// Optimize common case of / to not needed regex
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Prefix{Prefix: dest},
+			}, nil
+		}
 		return &istio.StringMatch{
-			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(dest) + prefixMatchRegex},
+			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(strings.TrimSuffix(dest, "/")) + prefixMatchRegex},
 		}, nil
 	case k8s.PathMatchExact:
 		return &istio.StringMatch{
@@ -1033,11 +1039,17 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[RouteKey][]ga
 		}
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
-			gs.Addresses = make([]k8s.GatewayAddress, 0, len(external))
-			for _, addr := range external {
-				ip := k8s.IPAddressType
+			addressesToReport := external
+			addrType := k8s.IPAddressType
+			if len(addressesToReport) == 0 {
+				addressesToReport = internal
+				// TODO should be hostname, in v1alpha2
+				addrType = k8s.NamedAddressType
+			}
+			gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
+			for _, addr := range addressesToReport {
 				gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
-					Type:  &ip,
+					Type:  &addrType,
 					Value: addr,
 				})
 			}

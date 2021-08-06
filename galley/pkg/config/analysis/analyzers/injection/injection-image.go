@@ -34,8 +34,6 @@ type ImageAnalyzer struct{}
 
 var _ analysis.Analyzer = &ImageAnalyzer{}
 
-const sidecarInjectorConfigName = "istio-sidecar-injector"
-
 // injectionConfigMap is a snippet of the sidecar injection ConfigMap
 type injectionConfigMap struct {
 	Global global `json:"global"`
@@ -70,7 +68,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 
 	// TODO: when multiple injector configmaps exist, we may need to assess them respectively.
 	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.FullName.Name.String() == sidecarInjectorConfigName {
+		if r.Metadata.FullName.Name.String() == util.InjectionConfigMap {
 			cm := r.Message.(*v1.ConfigMap)
 
 			proxyImage = GetIstioProxyImage(cm)
@@ -132,7 +130,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 // configuration.
 func GetIstioProxyImage(cm *v1.ConfigMap) string {
 	var m injectionConfigMap
-	if err := json.Unmarshal([]byte(cm.Data["values"]), &m); err != nil {
+	if err := json.Unmarshal([]byte(cm.Data[util.InjectionConfigMapValue]), &m); err != nil {
 		return ""
 	}
 	// The injector template has a similar '{ contains "/" ... }' conditional

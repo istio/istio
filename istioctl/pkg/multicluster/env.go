@@ -17,7 +17,7 @@ package multicluster
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -66,7 +66,7 @@ func (e *KubeEnvironment) Errorf(format string, a ...interface{}) {
 func (e *KubeEnvironment) GetConfig() *api.Config                   { return e.config }
 func (e *KubeEnvironment) Stdout() io.Writer                        { return e.stdout }
 func (e *KubeEnvironment) Stderr() io.Writer                        { return e.stderr }
-func (e *KubeEnvironment) ReadFile(filename string) ([]byte, error) { return ioutil.ReadFile(filename) }
+func (e *KubeEnvironment) ReadFile(filename string) ([]byte, error) { return os.ReadFile(filename) }
 func (e *KubeEnvironment) Poll(interval, timeout time.Duration, condition ConditionFunc) error {
 	return wait.Poll(interval, timeout, func() (bool, error) {
 		return condition()

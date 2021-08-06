@@ -172,6 +172,19 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "istioInjectionEnableNamespacesByDefault",
+		inputFiles: []string{
+			"testdata/injection.yaml",
+			"testdata/common/sidecar-injector-enabled-nsbydefault.yaml",
+		},
+		analyzer: &injection.Analyzer{},
+		expected: []message{
+			{msg.NamespaceInjectionEnabledByDefault, "Namespace bar"},
+			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+		},
+	},
+	{
 		name: "istioInjectionProxyImageMismatch",
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",

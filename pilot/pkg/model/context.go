@@ -172,6 +172,9 @@ func (e *Environment) SetLedger(l ledger.Ledger) {
 // Resources is an alias for array of marshaled resources.
 type Resources = []*discovery.Resource
 
+// DeletedResources is an alias for array of strings that represent removed resources in delta.
+type DeletedResources = []string
+
 func AnyToUnnamedResources(r []*any.Any) Resources {
 	a := make(Resources, 0, len(r))
 	for _, rr := range r {
@@ -201,14 +204,22 @@ type XdsLogDetails struct {
 
 var DefaultXdsLogDetails = XdsLogDetails{}
 
-// XdsResourceGenerator creates the response for a typeURL DiscoveryRequest. If no generator is associated
-// with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
+// XdsResourceGenerator creates the response for a typeURL DiscoveryRequest or DeltaDiscoveryRequest. If no generator
+// is associated with a Proxy, the default (a networking.core.ConfigGenerator instance) will be used.
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 // Note: any errors returned will completely close the XDS stream. Use with caution; typically and empty
 // or no response is preferred.
 type XdsResourceGenerator interface {
+	// Generate generates the Sotw resources for Xds.
 	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+}
+
+// XdsDeltaResourceGenerator generates Sotw and delta resources.
+type XdsDeltaResourceGenerator interface {
+	XdsResourceGenerator
+	// Generate returns the changed and removed resources, along with whether or not delta was actually used.
+	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,

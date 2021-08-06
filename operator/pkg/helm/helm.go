@@ -16,7 +16,7 @@ package helm
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -201,7 +201,7 @@ func IsDefaultProfile(profile string) bool {
 }
 
 func readFile(path string) (string, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	return string(b), err
 }
 

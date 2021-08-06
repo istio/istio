@@ -17,7 +17,6 @@ package framework
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -204,6 +203,10 @@ func (c *testContext) Environment() resource.Environment {
 }
 
 func (c *testContext) Clusters() cluster.Clusters {
+	return c.AllClusters().MeshClusters()
+}
+
+func (c *testContext) AllClusters() cluster.Clusters {
 	if c == nil || c.Environment() == nil {
 		return nil
 	}
@@ -231,7 +234,7 @@ func (c *testContext) CreateDirectoryOrFail(name string) string {
 }
 
 func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
-	dir, err := ioutil.TempDir(c.workDir, prefix)
+	dir, err := os.MkdirTemp(c.workDir, prefix)
 	if err != nil {
 		scopes.Framework.Errorf("Error creating temp dir: runID='%v', prefix='%s', workDir='%v', err='%v'",
 			c.suite.settings.RunID, prefix, c.workDir, err)

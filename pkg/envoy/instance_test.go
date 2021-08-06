@@ -17,7 +17,6 @@ package envoy_test
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -448,7 +447,7 @@ func (h *bootstrapHelper) BootstrapFile() string {
 
 func (h *bootstrapHelper) BootstrapContent(t *testing.T) string {
 	t.Helper()
-	content, err := ioutil.ReadFile(h.bootstrapFile)
+	content, err := os.ReadFile(h.bootstrapFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -484,7 +483,7 @@ func absPath(path string) string {
 
 func newTempDir(t *testing.T) string {
 	t.Helper()
-	dir, err := ioutil.TempDir("", t.Name())
+	dir, err := os.MkdirTemp("", t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -503,7 +502,7 @@ func newBootstrapFile(t *testing.T, tempDir string, adminPort, listenerPort uint
 	}
 
 	// Read the template file.
-	tmplContent, err := ioutil.ReadFile("testdata/envoy_bootstrap_v2.tmpl.json")
+	tmplContent, err := os.ReadFile("testdata/envoy_bootstrap_v2.tmpl.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -516,7 +515,7 @@ func newBootstrapFile(t *testing.T, tempDir string, adminPort, listenerPort uint
 
 	// Write out the result to the output file.
 	outputFile := filepath.Join(tempDir, t.Name()+".json")
-	if err := ioutil.WriteFile(outputFile, []byte(content), os.ModePerm); err != nil {
+	if err := os.WriteFile(outputFile, []byte(content), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
 	return outputFile

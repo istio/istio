@@ -160,7 +160,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// fire off the k8s handlers
 	if len(s.workloadHandlers) > 0 {
-		wi := convertWorkloadEntryToWorkloadInstance(curr)
+		wi := convertWorkloadEntryToWorkloadInstance(curr, s.Cluster())
 		if wi != nil {
 			for _, h := range s.workloadHandlers {
 				h(wi, event)
@@ -190,13 +190,13 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 				oldWorkloadLabels := labels.Collection{oldWle.Labels}
 				if oldWorkloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
 					selected = true
-					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key)
+					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key, s.Cluster())
 					instancesDeleted = append(instancesDeleted, instance...)
 				}
 			}
 		} else {
 			selected = true
-			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key)
+			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
 			instancesUpdated = append(instancesUpdated, instance...)
 		}
 
@@ -333,7 +333,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 		// If will do full-push, leave the edsUpdate to that.
 		// XXX We should do edsUpdate for all unchangedSvcs since we begin to calculate service
 		// data according to this "configsUpdated" and thus remove the "!willFullPush" condition.
-		instances := convertServiceEntryToInstances(curr, unchangedSvcs)
+		instances := convertServiceEntryToInstances(curr, unchangedSvcs, s.Cluster())
 		key := configKey{
 			kind:      serviceEntryConfigType,
 			name:      curr.Name,
@@ -347,9 +347,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 
 	// Recomputing the index here is too expensive - lazy build when it is needed.
 	// Only recompute indexes if services have changed.
-	s.storeMutex.Lock()
 	s.refreshIndexes.Store(true)
-	s.storeMutex.Unlock()
 
 	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
@@ -569,7 +567,7 @@ func (s *ServiceEntryStore) ResyncEDS() {
 // And triggers a push if `push` is true.
 func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
 	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new addes instances
+	// otherwise may get no instances or miss some new added instances
 	s.maybeRefreshIndexes()
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
@@ -581,7 +579,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 
 func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
 	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new addess instances
+	// otherwise may get no instances or miss some new added instances
 	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()
@@ -668,7 +666,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 				name:      cfg.Name,
 				namespace: cfg.Namespace,
 			}
-			updateInstances(key, convertServiceEntryToInstances(cfg, nil), instanceMap, ip2instances)
+			updateInstances(key, convertServiceEntryToInstances(cfg, nil, s.Cluster()), instanceMap, ip2instances)
 			services := convertServices(cfg)
 
 			se := cfg.Spec.(*networking.ServiceEntry)
@@ -724,7 +722,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 				// Not a match, skip this one
 				continue
 			}
-			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key), instanceMap, ip2instances)
+			updateInstances(key, convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster()), instanceMap, ip2instances)
 		}
 	}
 

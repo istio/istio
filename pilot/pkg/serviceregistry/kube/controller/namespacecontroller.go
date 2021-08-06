@@ -31,11 +31,11 @@ import (
 )
 
 const (
-	// Every NamespaceResyncPeriod, namespaceUpdated() will be invoked
+	// NamespaceResyncPeriod : every NamespaceResyncPeriod, namespaceUpdated() will be invoked
 	// for every namespace. This value must be configured so Citadel
 	// can update its CA certificate in a ConfigMap in every namespace.
 	NamespaceResyncPeriod = time.Second * 60
-	// The name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
+	// CACertNamespaceConfigMap is the name of the ConfigMap in each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMap = "istio-ca-root-cert"
 )
 
@@ -72,6 +72,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 			cm, err := convertToConfigMap(obj)
 			if err != nil {
 				log.Errorf("failed to convert to configmap: %v", err)
+				return
 			}
 			// This is a change to a configmap we don't watch, ignore it
 			if cm.Name != CACertNamespaceConfigMap {
@@ -85,6 +86,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 			cm, err := convertToConfigMap(obj)
 			if err != nil {
 				log.Errorf("failed to convert to configmap: %v", err)
+				return
 			}
 			// This is a change to a configmap we don't watch, ignore it
 			if cm.Name != CACertNamespaceConfigMap {

@@ -17,7 +17,6 @@ package framework
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -432,7 +431,7 @@ func (s *suiteImpl) writeOutput() {
 		if err != nil {
 			log.Errorf("failed writing test suite outcome to yaml: %s", err)
 		}
-		err = ioutil.WriteFile(path.Join(artifactsPath, out.Name+".yaml"), outbytes, 0o644)
+		err = os.WriteFile(path.Join(artifactsPath, out.Name+".yaml"), outbytes, 0o644)
 		if err != nil {
 			log.Errorf("failed writing test suite outcome to file: %s", err)
 		}

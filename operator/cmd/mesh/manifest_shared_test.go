@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -323,7 +323,7 @@ func getAllIstioObjects() object.K8sObjects {
 
 // readFile reads a file and returns the contents.
 func readFile(path string) (string, error) {
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	return string(b), err
 }
 

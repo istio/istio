@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 
 	environ "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -83,7 +83,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	templateBytes, err := ioutil.ReadFile(environ.RedisInstallFilePath)
+	templateBytes, err := os.ReadFile(environ.RedisInstallFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s, err: %v", environ.RedisInstallFilePath, err)
 	}

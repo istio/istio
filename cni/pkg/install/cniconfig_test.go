@@ -17,7 +17,6 @@ package install
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,7 +30,7 @@ import (
 )
 
 func TestGetDefaultCNINetwork(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "")
+	tempDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +108,7 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if c.fileContents != "" {
-				err = ioutil.WriteFile(filepath.Join(c.dir, c.inFilename), []byte(c.fileContents), 0o644)
+				err = os.WriteFile(filepath.Join(c.dir, c.inFilename), []byte(c.fileContents), 0o644)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -202,7 +201,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 	for i, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// Create temp directory for files
-			tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))
+			tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -283,11 +282,11 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				if len(c.delayedConfName) > 0 {
 					// Delayed case
 					// Write delayed CNI config file
-					data, err := ioutil.ReadFile(filepath.Join("testdata", c.delayedConfName))
+					data, err := os.ReadFile(filepath.Join("testdata", c.delayedConfName))
 					if err != nil {
 						t.Fatal(err)
 					}
-					err = ioutil.WriteFile(filepath.Join(tempDir, c.delayedConfName), data, 0o644)
+					err = os.WriteFile(filepath.Join(tempDir, c.delayedConfName), data, 0o644)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -489,7 +488,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {
 				// Create temp directory for files
-				tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))
+				tempDir, err := os.MkdirTemp("", fmt.Sprintf("test-case-%d-", i))
 				if err != nil {
 					t.Fatal(err)
 				}

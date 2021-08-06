@@ -15,7 +15,6 @@
 package helm
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -49,7 +48,7 @@ func TestFetch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmp, err := ioutil.TempDir("", InstallationDirectory)
+			tmp, err := os.MkdirTemp("", InstallationDirectory)
 			if err != nil {
 				t.Fatal(err)
 			}

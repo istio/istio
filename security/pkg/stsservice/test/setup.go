@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -66,7 +65,7 @@ func (e *Env) TearDown() {
 }
 
 func getDataFromFile(filePath string, t *testing.T) string {
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("failed to read %q", filePath)
 	}
@@ -214,6 +213,7 @@ func (e *Env) WaitForStsFlowReady(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		resp, err := hTTPClient.Do(req)
 		if err == nil {
+			resp.Body.Close()
 			if resp.StatusCode == http.StatusOK && resp.Header.Get("Content-Type") == "application/json" {
 				t.Logf("%s all servers in the STS flow are up and ready", time.Now().String())
 				return

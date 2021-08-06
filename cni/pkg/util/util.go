@@ -17,7 +17,7 @@ package util
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
@@ -74,7 +74,7 @@ func WaitForFileMod(ctx context.Context, fileModified chan bool, errChan chan er
 
 // Read CNI config from file and return the unmarshalled JSON as a map
 func ReadCNIConfigMap(path string) (map[string]interface{}, error) {
-	cniConfig, err := ioutil.ReadFile(path)
+	cniConfig, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

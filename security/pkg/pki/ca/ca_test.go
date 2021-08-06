@@ -19,7 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -729,7 +729,7 @@ func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms
 }
 
 func comparePem(expectedBytes []byte, file string) bool {
-	fileBytes, err := ioutil.ReadFile(file)
+	fileBytes, err := os.ReadFile(file)
 	if err != nil {
 		return false
 	}

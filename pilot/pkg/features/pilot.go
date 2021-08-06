@@ -195,7 +195,7 @@ var (
 		"PILOT_JWT_ENABLE_REMOTE_JWKS",
 		false,
 		"If enabled, checks to see if the configured JwksUri in RequestAuthentication is a mesh cluster URL "+
-			"and configures Remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
+			"and configures remote Jwks to let Envoy fetch the Jwks instead of Istiod.",
 	).Get()
 
 	EnableEDSForHeadless = env.RegisterBoolVar(
@@ -366,6 +366,11 @@ var (
 	// so that in case there are issues with the CDS cache we can just disable the CDS cache.
 	EnableCDSCaching = env.RegisterBoolVar("PILOT_ENABLE_CDS_CACHE", true,
 		"If true, Pilot will cache CDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
+
+	// EnableRDSCaching determines if RDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
+	// so that in case there are issues with the RDS cache we can just disable the RDS cache.
+	EnableRDSCaching = env.RegisterBoolVar("PILOT_ENABLE_RDS_CACHE", true,
+		"If true, Pilot will cache RDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
 
 	EnableXDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()

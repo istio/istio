@@ -16,32 +16,84 @@
 package fuzz
 
 import (
+	"errors"
+	"os"
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	"istio.io/istio/pkg/test"
 )
 
 func init() {
 	testing.Init()
 }
 
+type NopTester struct{}
+
+func (n NopTester) Fail() {}
+
+func (n NopTester) FailNow() {}
+
+func (n NopTester) Fatal(args ...interface{}) {}
+
+func (n NopTester) Fatalf(format string, args ...interface{}) {}
+
+func (n NopTester) Log(args ...interface{}) {}
+
+func (n NopTester) Logf(format string, args ...interface{}) {}
+
+func (n NopTester) TempDir() string {
+	tempDir, _ := os.MkdirTemp("", "test")
+	return tempDir
+}
+
+func (n NopTester) Helper() {}
+
+func (n NopTester) Cleanup(f func()) {}
+
+var _ test.Failer = NopTester{}
+
+func ValidateTestOptions(to v1alpha3.TestOptions) error {
+	for _, plugin := range to.Plugins {
+		if plugin == nil {
+			return errors.New("a Plugin was nil")
+		}
+	}
+	for _, csc := range to.ConfigStoreCaches {
+		if csc == nil {
+			return errors.New("a ConfigStoreCache was nil")
+		}
+	}
+	for _, sr := range to.ServiceRegistries {
+		if sr == nil {
+			return errors.New("a ServiceRegistry was nil")
+		}
+	}
+	return nil
+}
+
 func FuzzValidateClusters(data []byte) int {
-	t := &testing.T{}
 	proxy := model.Proxy{}
 	f := fuzz.NewConsumer(data)
-	err := f.GenerateStruct(&proxy)
-	if err != nil {
-		return 0
-	}
 	to := v1alpha3.TestOptions{}
-	err = f.GenerateStruct(&to)
+	err := f.GenerateStruct(&to)
 	if err != nil {
 		return 0
 	}
-	cg := v1alpha3.NewConfigGenTest(t, to)
-	_ = cg.Clusters(cg.SetupProxy(&proxy))
+	err = ValidateTestOptions(to)
+	if err != nil {
+		return 0
+	}
+	err = f.GenerateStruct(&proxy)
+	if err != nil {
+		return 0
+	}
+	cg := v1alpha3.NewConfigGenTest(NopTester{}, to)
+	p := cg.SetupProxy(&proxy)
+	_ = cg.Clusters(p)
+	_ = cg.Routes(p)
 	return 1
 }

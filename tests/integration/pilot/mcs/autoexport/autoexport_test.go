@@ -18,7 +18,7 @@ package autoexport
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireMinVersion(17).
 		Setup(func(ctx resource.Context) error {
-			crd, err := ioutil.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")
+			crd, err := os.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")
 			if err != nil {
 				return err
 			}

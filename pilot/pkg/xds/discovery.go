@@ -468,7 +468,7 @@ func configsUpdated(req *model.PushRequest) string {
 		break
 	}
 	if len(req.ConfigsUpdated) > 1 {
-		more := fmt.Sprintf(", %d more...", len(req.ConfigsUpdated)-1)
+		more := fmt.Sprintf(" and %d more configs", len(req.ConfigsUpdated)-1)
 		configs += more
 	}
 	return configs

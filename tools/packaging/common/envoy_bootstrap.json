@@ -740,7 +740,10 @@
           }
         }
       }
-    },
+    }
+    {{ end }}
+    {{ if and .envoy_metrics_service_address .statsd }}
+    ,
     {{ end }}
     {{ if .statsd }}
     {

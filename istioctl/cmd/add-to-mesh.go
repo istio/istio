@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -303,7 +303,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 		}
 	}
 	if injectConfigFile != "" {
-		injectionConfig, err := ioutil.ReadFile(injectConfigFile) // nolint: vetshadow
+		injectionConfig, err := os.ReadFile(injectConfigFile) // nolint: vetshadow
 		if err != nil {
 			return nil, err
 		}
@@ -316,7 +316,7 @@ func setupParameters(sidecarTemplate *inject.Templates, valuesConfig *string, re
 		return nil, err
 	}
 	if valuesFile != "" {
-		valuesConfigBytes, err := ioutil.ReadFile(valuesFile) // nolint: vetshadow
+		valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
 		if err != nil {
 			return nil, err
 		}

@@ -19,7 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -137,7 +137,7 @@ func TestDashboard(t *testing.T) {
 			ctx.Config().ApplyYAMLOrFail(ctx, common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name()))
 
 			// Apply just the grafana dashboards
-			cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
+			cfg, err := os.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
 			if err != nil {
 				ctx.Fatal(err)
 			}

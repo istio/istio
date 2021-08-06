@@ -18,7 +18,7 @@ package plugin
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 
@@ -148,7 +148,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 	p.tokenCache = token
 	gcecredLog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
-	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0o640)
+	err = os.WriteFile(p.jwtPath, tokenbytes, 0o640)
 	if err != nil {
 		gcecredLog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err

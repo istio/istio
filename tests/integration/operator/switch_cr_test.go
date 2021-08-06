@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -285,7 +284,7 @@ spec:
 
 	scopes.Framework.Infof("=== installing with IOP: ===\n%s\n", overlayYAML)
 
-	if err := ioutil.WriteFile(iopCRFile, []byte(overlayYAML), os.ModePerm); err != nil {
+	if err := os.WriteFile(iopCRFile, []byte(overlayYAML), os.ModePerm); err != nil {
 		t.Fatalf("failed to write iop cr file: %v", err)
 	}
 

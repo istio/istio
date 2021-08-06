@@ -16,7 +16,6 @@ package mesh
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -367,7 +366,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	fixtures.ExpectEventsEventually(t, acc, expected...)
 	acc.Clear()
 
-	err = ioutil.WriteFile(file, []byte(":@#Hallo!"), os.ModePerm)
+	err = os.WriteFile(file, []byte(":@#Hallo!"), os.ModePerm)
 	g.Expect(err).To(BeNil())
 
 	time.Sleep(time.Millisecond * 100)
@@ -377,7 +376,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {
 	g := NewWithT(t)
 
-	p, err := ioutil.TempDir(os.TempDir(), t.Name())
+	p, err := os.MkdirTemp(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	file := path.Join(p, "meshconfig.yaml")
 
@@ -392,7 +391,7 @@ func writeMeshCfg(t *testing.T, file string, m *v1alpha1.MeshConfig) { // nolint
 	g := NewWithT(t)
 	s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(m)
 	g.Expect(err).To(BeNil())
-	err = ioutil.WriteFile(file, []byte(s), os.ModePerm)
+	err = os.WriteFile(file, []byte(s), os.ModePerm)
 	g.Expect(err).To(BeNil())
 }
 

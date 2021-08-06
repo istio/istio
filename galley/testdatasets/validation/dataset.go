@@ -14,5 +14,8 @@
 
 package validation
 
-//go:generate go-bindata --nocompress --nometadata --pkg validation -o dataset.gen.go dataset/...
-//go:generate goimports -w dataset.gen.go
+import "embed"
+
+// FS embeds the manifests
+//go:embed dataset/*
+var FS embed.FS

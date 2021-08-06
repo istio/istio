@@ -18,7 +18,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"istio.io/istio/pkg/config/schema"
@@ -38,7 +37,7 @@ func main() {
 	output := os.Args[3]
 
 	// Read the input file
-	b, err := ioutil.ReadFile(input)
+	b, err := os.ReadFile(input)
 	if err != nil {
 		fmt.Printf("unable to read input file: %v", err)
 		os.Exit(-2)
@@ -63,7 +62,7 @@ func main() {
 		os.Exit(-5)
 	}
 
-	if err = ioutil.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
+	if err = os.WriteFile(output, []byte(contents), os.ModePerm); err != nil {
 		fmt.Printf("Error writing output file: %v", err)
 		os.Exit(-6)
 	}

@@ -18,8 +18,8 @@ package pilot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -51,6 +51,13 @@ func TestGateway(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
+			}
+			crd, err := os.ReadFile("testdata/service-apis-crd.yaml")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+				t.Fatal(err)
 			}
 			t.Config().ApplyYAMLOrFail(t, "", `
 apiVersion: networking.x-k8s.io/v1alpha1
@@ -296,7 +303,7 @@ spec:
 			}
 
 			successValidator := echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(apps.PodB.Clusters()))
-			failureValidator := echo.And(echo.ExpectCode("404"))
+			failureValidator := echo.ExpectCode("404")
 			count := 1
 			if t.Clusters().IsMulticluster() {
 				count = 2 * len(t.Clusters())
@@ -392,6 +399,23 @@ spec:
 					},
 					path:       "/test",
 					prefixPath: "/prefix/test",
+				},
+				{
+					// Prefix / should match any path
+					name: "http-root-prefix-should-match-random-path",
+					call: echo.CallOptions{
+						Port: &echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						Path: "/testrandom",
+						Headers: map[string][]string{
+							"Host": {"server"},
+						},
+						Validator: successValidator,
+						Count:     count,
+					},
+					path:       "/test",
+					prefixPath: "/",
 				},
 				{
 					// Basic HTTPS call for foo. CaCert matches the secret
@@ -538,7 +562,7 @@ spec:
 						Headers: map[string][]string{
 							"Host": {"server"},
 						},
-						Validator: echo.ExpectCode("404"),
+						Validator: echo.Or(echo.ExpectError(), echo.ExpectCode("404")),
 					},
 				},
 				{
@@ -692,7 +716,7 @@ spec:
 				if t.Settings().Revisions.Default() != "" {
 					rev = t.Settings().Revisions.Default()
 				}
-				ioutil.WriteFile(d, []byte(fmt.Sprintf(`
+				os.WriteFile(d, []byte(fmt.Sprintf(`
 revision: %v
 gateways:
   istio-ingressgateway:
