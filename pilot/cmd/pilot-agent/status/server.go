@@ -120,7 +120,7 @@ type Options struct {
 // Server provides an endpoint for handling status probes.
 type Server struct {
 	ready                 []ready.Prober
-	prometheus            *PrometheusScrapeConfiguration
+	prometheus            []*PrometheusScrapeConfiguration
 	mutex                 sync.RWMutex
 	appProbersDestination string
 	appKubeProbers        KubeAppProbers
@@ -188,23 +188,39 @@ func NewServer(config Options) (*Server, error) {
 	// only. For now, its not needed for gateway, as we can just get Envoy stats directly, but if we
 	// want to expose istio-agent metrics we may want to revisit this.
 	if cfg, f := PrometheusScrapingConfig.Lookup(); config.NodeType == model.SidecarProxy && f {
-		var prom PrometheusScrapeConfiguration
-		if err := json.Unmarshal([]byte(cfg), &prom); err != nil {
+		var promFull []*PrometheusScrapeConfiguration
+		var promBase PrometheusScrapeConfiguration
+
+		if err := json.Unmarshal([]byte(cfg), &promBase); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal %s: %v", PrometheusScrapingConfig.Name, err)
 		}
-		log.Infof("Prometheus scraping configuration: %v", prom)
-		if prom.Scrape != "false" {
-			s.prometheus = &prom
-			if s.prometheus.Path == "" {
-				s.prometheus.Path = "/metrics"
+
+		// Parse additional scrape configs in case they exist
+		if promBase.Additional != "" {
+			if err := json.Unmarshal([]byte(promBase.Additional), &promFull); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal %s (additional): %v", PrometheusScrapingConfig.Name, err)
 			}
-			if s.prometheus.Port == "" {
-				s.prometheus.Port = "80"
-			}
-			if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
-				return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
-					"application port is the same as agent port, which may lead to a recursive loop. "+
-					"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+		}
+
+		// Complete the full set of scrape configs
+		promFull = append(promFull, &promBase)
+
+		log.Infof("Prometheus scraping configuration: %v", promFull)
+
+		for _, prom := range promFull {
+			if prom.Scrape != "false" {
+				if prom.Path == "" {
+					prom.Path = "/metrics"
+				}
+				if prom.Port == "" {
+					prom.Port = "80"
+				}
+				if prom.Port == strconv.Itoa(int(config.StatusPort)) {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"application port is the same as agent port, which may lead to a recursive loop. "+
+						"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+				}
+				s.prometheus = append(s.prometheus, prom)
 			}
 		}
 	}
@@ -433,9 +449,10 @@ func isRequestFromLocalhost(r *http.Request) bool {
 }
 
 type PrometheusScrapeConfiguration struct {
-	Scrape string `json:"scrape"`
-	Path   string `json:"path"`
-	Port   string `json:"port"`
+	Scrape     string `json:"scrape"`
+	Path       string `json:"path"`
+	Port       string `json:"port"`
+	Additional string `json:"additional,omitempty"`
 }
 
 // handleStats handles prometheus stats scraping. This will scrape envoy metrics, and, if configured,
@@ -459,14 +476,24 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 	// Scrape app metrics if defined and capture their format
 	var format expfmt.Format
-	if s.prometheus != nil {
+	if len(s.prometheus) > 0 {
 		var contentType string
-		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-		if application, contentType, err = s.scrape(url, r.Header); err != nil {
-			log.Errorf("failed scraping application metrics: %v", err)
-			metrics.AppScrapeErrors.Increment()
+		for _, prom := range s.prometheus {
+			if prom == nil {
+				// Check for invalid state; should not happen but let's be safe
+				log.Errorf("Invalid state, %v", s.prometheus)
+				metrics.AppScrapeErrors.Increment()
+				continue
+			}
+			// Scrape endpoint
+			url := fmt.Sprintf("http://localhost:%s%s", prom.Port, prom.Path)
+			if application, contentType, err = s.scrape(url, r.Header); err != nil {
+				log.Errorf("failed scraping application metrics: %v", err)
+				metrics.AppScrapeErrors.Increment()
+			}
+			// The last scraped endpoint determines the metric format
+			format = negotiateMetricsFormat(contentType)
 		}
-		format = negotiateMetricsFormat(contentType)
 	}
 
 	if agent, err = scrapeAgentMetrics(); err != nil {
