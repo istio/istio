@@ -593,7 +593,6 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	// Analyze webhooks
 	res, err := sa.Analyze(make(chan struct{}))
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 	relevantMessages := res.Messages.FilterOutBasedOnResources(parsedK8sObjects)
@@ -602,7 +601,6 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		if err != nil {
 			return err
 		}
-		// nolint
 		return fmt.Errorf("creating default tag would conflict:\n%v", o)
 	}
 	return nil

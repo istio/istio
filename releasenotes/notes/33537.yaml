@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
   - |
-    **Added** `istioctl install` will now do IST0139 analysis on webhooks.
+    **Added** `istioctl install` will now do `IST0139` analysis on webhooks.
