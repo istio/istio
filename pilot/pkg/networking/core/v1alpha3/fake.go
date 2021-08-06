@@ -78,7 +78,7 @@ type TestOptions struct {
 	PushContextLock *sync.RWMutex
 
 	// If set, we will not run immediately, allowing adding event handlers, etc prior to start.
-	SkipRun   bool
+	SkipRun bool
 
 	// Used to set the serviceentry registry's cluster id
 	ClusterID cluster2.ID

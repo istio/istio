@@ -17,18 +17,22 @@ package model
 import (
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+
 	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -1049,7 +1053,7 @@ func (ps *PushContext) updateContext(
 	oldPushContext *PushContext,
 	pushReq *PushRequest) error {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-	authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged bool
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged bool
 
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {

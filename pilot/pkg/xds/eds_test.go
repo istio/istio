@@ -18,8 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/test/xdstest"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -33,14 +31,22 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/test/xdstest"
+
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/test/xdstest"
+
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	uatomic "go.uber.org/atomic"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
@@ -181,7 +187,6 @@ func TestEds(t *testing.T) {
 }
 
 func TestClusterLocal(t *testing.T) {
-
 	tests := map[string]struct {
 		fakeOpts            xds.FakeOptions
 		serviceCluster      string
