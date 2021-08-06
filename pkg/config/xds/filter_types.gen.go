@@ -46,6 +46,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/core/v4alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v4alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/accesslog/v2"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/dubbo/router/v2alpha1"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/filter/fault/v2"

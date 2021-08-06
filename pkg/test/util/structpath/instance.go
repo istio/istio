@@ -233,6 +233,9 @@ func (i *Instance) NotExists(path string, args ...interface{}) *Instance {
 		if err != nil {
 			return fmt.Errorf("err finding results for path: %v - %v", path, err)
 		}
+		if len(values) == 0 {
+			return nil
+		}
 		if len(values[0]) > 0 {
 			return fmt.Errorf("expected no result but got: %v for path: %v", values[0], path)
 		}

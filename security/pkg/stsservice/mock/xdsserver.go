@@ -130,10 +130,10 @@ func StartXDSServer(conf XDSConf, cb *XDSCallbacks, ls *DynamicListener, isTLS b
 	xdsServerLog.Infof("%s xDS server listens on %s", time.Now().String(), lis.Addr().String())
 	discovery.RegisterAggregatedDiscoveryServiceServer(gRPCServer, server)
 	snapshot := cache.Snapshot{}
-	snapshot.Resources[types.Listener] = cache.Resources{Version: time.Now().String(), Items: map[string]types.ResourceWithTtl{
+	snapshot.Resources[types.Listener] = cache.Resources{Version: time.Now().String(), Items: map[string]types.ResourceWithTTL{
 		"backend": {Resource: ls.makeListener()},
 	}}
-	_ = snapshotCache.SetSnapshot("", snapshot)
+	_ = snapshotCache.SetSnapshot(context.Background(), "", snapshot)
 	go func() {
 		_ = gRPCServer.Serve(lis)
 	}()
@@ -176,6 +176,8 @@ func (c *XDSCallbacks) OnStreamDeltaResponse(i int64, request *discovery.DeltaDi
 func CreateXdsCallback(t *testing.T) *XDSCallbacks {
 	return &XDSCallbacks{t: t}
 }
+
+var _ xds.Callbacks = &XDSCallbacks{}
 
 func (c *XDSCallbacks) SetCallbackError(setErr bool) {
 	c.mutex.Lock()
@@ -272,7 +274,7 @@ func (c *XDSCallbacks) OnStreamRequest(id int64, _ *discovery.DiscoveryRequest) 
 	return nil
 }
 
-func (c *XDSCallbacks) OnStreamResponse(id int64, _ *discovery.DiscoveryRequest, _ *discovery.DiscoveryResponse) {
+func (c *XDSCallbacks) OnStreamResponse(_ context.Context, id int64, _ *discovery.DiscoveryRequest, _ *discovery.DiscoveryResponse) {
 	xdsServerLog.Infof("on stream %d response", id)
 }
 
