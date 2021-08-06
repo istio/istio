@@ -35,8 +35,13 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/galley/pkg/config/analysis/local"
+	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
-	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/istioctl/pkg/util/formatting"
+	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -44,6 +49,8 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/resource"
+	istioConfigSchema "istio.io/istio/pkg/config/schema"
 	"istio.io/pkg/version"
 )
 
@@ -52,7 +59,7 @@ type HelmReconciler struct {
 	client     client.Client
 	restConfig *rest.Config
 	clientSet  *kubernetes.Clientset
-	iop        *valuesv1alpha1.IstioOperator
+	iop        *istioV1Alpha1.IstioOperator
 	opts       *Options
 	// copy of the last generated manifests.
 	manifests name.ManifestMap
@@ -88,7 +95,7 @@ var defaultOptions = &Options{
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
-func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *valuesv1alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
+func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
 	if opts == nil {
 		opts = defaultOptions
 	}
@@ -111,7 +118,7 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
-		iop = &valuesv1alpha1.IstioOperator{}
+		iop = &istioV1Alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
 	var cs *kubernetes.Clientset
@@ -147,7 +154,7 @@ func initDependencies() map[name.ComponentName]chan struct{} {
 
 // Reconcile reconciles the associated resources.
 func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
-	if err := h.createNamespace(valuesv1alpha1.Namespace(h.iop.Spec), h.networkName()); err != nil {
+	if err := h.createNamespace(istioV1Alpha1.Namespace(h.iop.Spec), h.networkName()); err != nil {
 		return nil, err
 	}
 	manifestMap, err := h.RenderCharts()
@@ -155,6 +162,14 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 		return nil, err
 	}
 
+	err = h.analyzeWebhooks(manifestMap[name.PilotComponentName])
+	if err != nil {
+		if h.opts.Force {
+			scope.Error("invalid webhook configs; continuing because of --force")
+		} else {
+			return nil, err
+		}
+	}
 	status := h.processRecursive(manifestMap)
 
 	h.opts.ProgressLog.SetState(progress.StatePruning)
@@ -297,7 +312,7 @@ func (h *HelmReconciler) DeleteAll() error {
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) SetStatusBegin() error {
-	isop := &valuesv1alpha1.IstioOperator{}
+	isop := &istioV1Alpha1.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      h.iop.Name,
 		Namespace: h.iop.Namespace,
@@ -325,7 +340,7 @@ func (h *HelmReconciler) SetStatusBegin() error {
 
 // SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error {
-	iop := &valuesv1alpha1.IstioOperator{}
+	iop := &istioV1Alpha1.IstioOperator{}
 	namespacedName := types.NamespacedName{
 		Name:      h.iop.Name,
 		Namespace: h.iop.Namespace,
@@ -537,6 +552,57 @@ func CreateNamespace(cs kubernetes.Interface, namespace string, network string) 
 		}
 	}
 
+	return nil
+}
+
+func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
+	if len(whs) == 0 {
+		return nil
+	}
+
+	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{
+		SkipServiceCheck: true,
+	}),
+		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
+	var localWebhookYAMLReaders []local.ReaderSource
+	var parsedK8sObjects object.K8sObjects
+	for _, wh := range whs {
+		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
+		if err != nil {
+			return err
+		}
+		objYaml, err := k8sObjects.YAMLManifest()
+		if err != nil {
+			return err
+		}
+		whReaderSource := local.ReaderSource{
+			Name:   "",
+			Reader: strings.NewReader(objYaml),
+		}
+		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
+		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
+	}
+	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
+	if err != nil {
+		return err
+	}
+
+	k := cfgKube.NewInterfaces(h.restConfig)
+	sa.AddRunningKubeSource(k)
+
+	// Analyze webhooks
+	res, err := sa.Analyze(make(chan struct{}))
+	if err != nil {
+		return err
+	}
+	relevantMessages := res.Messages.FilterOutBasedOnResources(parsedK8sObjects)
+	if len(relevantMessages) > 0 {
+		o, err := formatting.Print(relevantMessages, formatting.LogFormat, false)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("creating default tag would conflict:\n%v", o)
+	}
 	return nil
 }
 

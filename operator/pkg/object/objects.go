@@ -297,8 +297,9 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 			log.Error(err.Error())
 			continue
 		}
-
-		objects = append(objects, o)
+		if o.Valid() {
+			objects = append(objects, o)
+		}
 	}
 
 	return objects, nil
