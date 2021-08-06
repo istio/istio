@@ -28,7 +28,6 @@ var _ model.XdsResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
 var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.VirtualService:        {},
 	gvk.Gateway:               {},
 	gvk.WorkloadEntry:         {},
 	gvk.WorkloadGroup:         {},
@@ -43,7 +42,7 @@ var pushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
 	gvk.Gateway:        {},
 }
 
-func CdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if req == nil {
 		return true
 	}
@@ -55,7 +54,6 @@ func CdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
-
 	for config := range req.ConfigsUpdated {
 		if proxy.Type == model.Router {
 			if _, f := pushCdsGatewayConfig[config.Kind]; f {
@@ -72,7 +70,7 @@ func CdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
 	updates *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !CdsNeedsPush(updates, proxy) {
+	if !cdsNeedsPush(updates, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, updates)
@@ -82,7 +80,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *m
 // GenerateDeltas for CDS currently only builds deltas when services change. todo implement changes for DestinationRule, etc
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
 	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	if !CdsNeedsPush(updates, proxy) {
+	if !cdsNeedsPush(updates, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, updates, w)
