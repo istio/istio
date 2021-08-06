@@ -24,4 +24,6 @@ const (
 	Kubernetes ID = "Kubernetes"
 	// External is a service registry for externally provided ServiceEntries
 	External ID = "External"
+	// Memory is an in-memory service registry, mostly used for testing.
+	Memory ID = "External"
 )

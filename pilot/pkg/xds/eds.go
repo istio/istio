@@ -65,8 +65,8 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}
-
-			s.edsCacheUpdate(string(registry.Cluster()), string(svc.Hostname), svc.Attributes.Namespace, endpoints)
+			shard := model.ShardKeyFromRegistry(registry)
+			s.edsCacheUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, endpoints)
 		}
 	}
 
@@ -74,12 +74,12 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 }
 
 // SvcUpdate is a callback from service discovery when service info changes.
-func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, event model.Event) {
+func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
 	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointShardsByService to
 	// prevent memory leaks.
 	if event == model.EventDelete {
 		inboundServiceDeletes.Increment()
-		s.deleteService(cluster, hostname, namespace)
+		s.deleteService(shard, hostname, namespace)
 	} else {
 		inboundServiceUpdates.Increment()
 	}
@@ -90,11 +90,11 @@ func (s *DiscoveryServer) SvcUpdate(cluster, hostname string, namespace string, 
 // It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
-func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string,
+func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	fp := s.edsCacheUpdate(clusterID, serviceName, namespace, istioEndpoints)
+	fp := s.edsCacheUpdate(shard, serviceName, namespace, istioEndpoints)
 	// Trigger a push
 	s.ConfigUpdate(&model.PushRequest{
 		Full: fp,
@@ -114,7 +114,7 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 //
 // Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
-func (s *DiscoveryServer) EDSCacheUpdate(shard, serviceName string, namespace string,
+func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
@@ -124,8 +124,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard, serviceName string, namespace st
 // edsCacheUpdate updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether a full push
 // is needed or incremental push is sufficient.
-func (s *DiscoveryServer) edsCacheUpdate(shard string, hostname string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) bool {
+func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, namespace string, istioEndpoints []*model.IstioEndpoint) bool {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not do not delete the keys from EndpointShardsByService map - that will trigger
@@ -183,7 +182,7 @@ func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string
 	}
 	// This endpoint is for a service that was not previously loaded.
 	ep := &EndpointShards{
-		Shards:          map[string][]*model.IstioEndpoint{},
+		Shards:          map[model.ShardKey][]*model.IstioEndpoint{},
 		ServiceAccounts: sets.Set{},
 	}
 	s.EndpointShardsByService[serviceName][namespace] = ep
@@ -198,7 +197,7 @@ func (s *DiscoveryServer) getOrCreateEndpointShard(serviceName, namespace string
 
 // deleteEndpointShards deletes matching endpoint shards from EndpointShardsByService map. This is called when
 // endpoints are deleted.
-func (s *DiscoveryServer) deleteEndpointShards(shard string, serviceName, namespace string) {
+func (s *DiscoveryServer) deleteEndpointShards(shard model.ShardKey, serviceName, namespace string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.EndpointShardsByService[serviceName] != nil &&
@@ -218,7 +217,7 @@ func (s *DiscoveryServer) deleteEndpointShards(shard string, serviceName, namesp
 
 // deleteService deletes all service related references from EndpointShardsByService. This is called
 // when a service is deleted.
-func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) {
+func (s *DiscoveryServer) deleteService(shard model.ShardKey, serviceName, namespace string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -226,7 +225,7 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 		s.EndpointShardsByService[serviceName][namespace] != nil {
 		epShards := s.EndpointShardsByService[serviceName][namespace]
 		epShards.mutex.Lock()
-		delete(epShards.Shards, cluster)
+		delete(epShards.Shards, shard)
 		shardsLen := len(epShards.Shards)
 		s.UpdateServiceAccount(epShards, serviceName)
 		// Clear the cache here to avoid race in cache writes (see edsCacheUpdate for details).

@@ -162,7 +162,7 @@ type EndpointShards struct {
 	// Shards is used to track the shards. EDS updates are grouped by shard.
 	// Current implementation uses the registry name as key - in multicluster this is the
 	// name of the k8s cluster, derived from the config (secret).
-	Shards map[string][]*model.IstioEndpoint
+	Shards map[model.ShardKey][]*model.IstioEndpoint
 
 	// ServiceAccounts has the concatenation of all service accounts seen so far in endpoints.
 	// This is updated on push, based on shards. If the previous list is different than

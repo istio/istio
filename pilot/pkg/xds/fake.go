@@ -210,7 +210,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		PushContextLock:     &s.updateMutex,
 		ConfigStoreCaches:   []model.ConfigStoreCache{ingr},
 		SkipRun:             true,
-		DefaultClusterID:    defaultKubeController.Cluster(),
+		ClusterID:           defaultKubeController.Cluster(),
 	})
 	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
 	s.updateMutex.Lock()
@@ -254,7 +254,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	for _, registry := range registries {
 		k8s, ok := registry.(*kube.FakeController)
-		if !ok {
+		// this closely matches what we do in serviceregistry/kube/controller/multicluster.go
+		if !ok || k8s.Cluster() != cg.ServiceEntryRegistry.Cluster() {
 			continue
 		}
 		cg.ServiceEntryRegistry.AppendWorkloadHandler(k8s.WorkloadInstanceHandler)
@@ -482,14 +483,14 @@ type FakeXdsUpdater struct {
 
 var _ model.XDSUpdater = &FakeXdsUpdater{}
 
-func (fx *FakeXdsUpdater) EDSUpdate(s, hostname string, namespace string, entry []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSUpdate(s model.ShardKey, hostname string, namespace string, entry []*model.IstioEndpoint) {
 	fx.Events <- FakeXdsEvent{Kind: "eds", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
 	if fx.Delegate != nil {
 		fx.Delegate.EDSUpdate(s, hostname, namespace, entry)
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSCacheUpdate(s, hostname string, namespace string, entry []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSCacheUpdate(s model.ShardKey, hostname string, namespace string, entry []*model.IstioEndpoint) {
 	fx.Events <- FakeXdsEvent{Kind: "edscache", Host: hostname, Namespace: namespace, Endpoints: len(entry)}
 	if fx.Delegate != nil {
 		fx.Delegate.EDSCacheUpdate(s, hostname, namespace, entry)
@@ -509,7 +510,7 @@ func (fx *FakeXdsUpdater) ProxyUpdate(c cluster.ID, p string) {
 	}
 }
 
-func (fx *FakeXdsUpdater) SvcUpdate(s, hostname string, namespace string, e model.Event) {
+func (fx *FakeXdsUpdater) SvcUpdate(s model.ShardKey, hostname string, namespace string, e model.Event) {
 	fx.Events <- FakeXdsEvent{Kind: "svcupdate", Host: hostname, Namespace: namespace}
 	if fx.Delegate != nil {
 		fx.Delegate.SvcUpdate(s, hostname, namespace, e)

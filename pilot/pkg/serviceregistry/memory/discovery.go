@@ -17,6 +17,7 @@ package memory
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/cluster"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -99,6 +100,10 @@ func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 	}
 }
 
+func (sd *ServiceDiscovery) shardKey() model.ShardKey {
+	return model.NewShardKey(cluster.ID(sd.ClusterID), provider.Memory)
+}
+
 func (sd *ServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
 	sd.ip2workloadLabels[ip] = &labels
 }
@@ -133,7 +138,7 @@ func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	sd.mutex.Lock()
 	delete(sd.services, name)
 	sd.mutex.Unlock()
-	sd.EDSUpdater.SvcUpdate(sd.ClusterID, string(name), "", model.EventDelete)
+	sd.EDSUpdater.SvcUpdate(sd.shardKey(), string(name), "", model.EventDelete)
 }
 
 // AddInstance adds an in-memory instance.
@@ -228,8 +233,7 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 
 	}
 	sd.mutex.Unlock()
-
-	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
+	sd.EDSUpdater.EDSUpdate(sd.shardKey(), service, namespace, endpoints)
 }
 
 // Services implements discovery interface

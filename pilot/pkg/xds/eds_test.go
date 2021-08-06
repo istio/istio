@@ -181,13 +181,24 @@ func TestEds(t *testing.T) {
 }
 
 func TestClusterLocal(t *testing.T) {
-	k8sObjects := map[cluster.ID]string{
-		"cluster-1": "",
-		"cluster-2": "",
-	}
-	i := 1
-	for clusterID := range k8sObjects {
-		k8sObjects[clusterID] = fmt.Sprintf(`
+
+	tests := map[string]struct {
+		fakeOpts            xds.FakeOptions
+		serviceCluster      string
+		wantClusterLocal    map[cluster.ID][]string
+		wantNonClusterLocal map[cluster.ID][]string
+	}{
+		// set up a k8s service in each cluster, with a pod in each cluster and a workloadentry in cluster-1
+		"k8s service with pod and workloadentry": {
+			fakeOpts: func() xds.FakeOptions {
+				k8sObjects := map[cluster.ID]string{
+					"cluster-1": "",
+					"cluster-2": "",
+				}
+				i := 1
+				for range k8sObjects {
+					clusterID := fmt.Sprintf("cluster-%d", i)
+					k8sObjects[cluster.ID(clusterID)] = fmt.Sprintf(`
 apiVersion: v1
 kind: Service
 metadata:
@@ -225,19 +236,11 @@ subsets:
   - name: grpc
     port: 7070
 `, clusterID, i)
-		i++
-	}
-	meshConfig := mesh.DefaultMeshConfig()
-	meshConfig.ServiceSettings = []*v1alpha1.MeshConfig_ServiceSettings{
-		// everything is cluster-local
-		{Hosts: []string{"*"}, Settings: &v1alpha1.MeshConfig_ServiceSettings_Settings{
-			ClusterLocal: true,
-		}},
-	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		MeshConfig:                      &meshConfig,
-		KubernetesObjectStringByCluster: k8sObjects,
-		ConfigString: `
+					i++
+				}
+				return xds.FakeOptions{
+					KubernetesObjectStringByCluster: k8sObjects,
+					ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadEntry
 metadata:
@@ -248,19 +251,82 @@ spec:
   labels:
     app: echo-app
 `,
-	})
-	wantByCluster := map[cluster.ID][]string{
-		"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070"},
-		// TODO this doesn't actually work yet; we need to add a check on the actual IstioEndpoint cluster label
-		// there is another PR aut that adds that label for WorkloadEntry
-		"cluster-2": {"10.0.0.2:7070"},
+				}
+			}(),
+			serviceCluster: "outbound|7070||echo-app.default.svc.cluster.local",
+			wantClusterLocal: map[cluster.ID][]string{
+				"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070"},
+				"cluster-2": {"10.0.0.2:7070"},
+			},
+			wantNonClusterLocal: map[cluster.ID][]string{
+				"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070", "10.0.0.2:7070"},
+				"cluster-2": {"10.0.0.1:7070", "10.1.1.1:7070", "10.0.0.2:7070"},
+			},
+		},
+		"serviceentry": {
+			fakeOpts: xds.FakeOptions{
+				ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-mongocluster
+spec:
+  hosts:
+  - mymongodb.somedomain 
+  addresses:
+  - 192.192.192.192/24 # VIPs
+  ports:
+  - number: 27018
+    name: mongodb
+    protocol: MONGO
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 2.2.2.2
+  - address: 3.3.3.3
+`,
+			},
+			serviceCluster: "outbound|27018||mymongodb.somedomain",
+			wantClusterLocal: map[cluster.ID][]string{
+				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":      {},
+			},
+			wantNonClusterLocal: map[cluster.ID][]string{
+				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":      {"2.2.2.2:27018", "3.3.3.3:27018"},
+			},
+		},
 	}
-	for clusterID := range k8sObjects {
-		p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
-		eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))["outbound|7070||echo-app.default.svc.cluster.local"]
-		if want := wantByCluster[clusterID]; !util.StringSliceEqual(eps, want) {
-			t.Errorf("got %v but want %v for %s", eps, want, clusterID)
-		}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			for _, local := range []bool{true, false} {
+				name := "cluster-local"
+				want := tt.wantClusterLocal
+				if !local {
+					name = "non-cluster-local"
+					want = tt.wantNonClusterLocal
+				}
+				t.Run(name, func(t *testing.T) {
+					meshConfig := mesh.DefaultMeshConfig()
+					meshConfig.ServiceSettings = []*v1alpha1.MeshConfig_ServiceSettings{
+						{Hosts: []string{"*"}, Settings: &v1alpha1.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: local,
+						}},
+					}
+					fakeOpts := tt.fakeOpts
+					fakeOpts.MeshConfig = &meshConfig
+					s := xds.NewFakeDiscoveryServer(t, fakeOpts)
+					for clusterID := range want {
+						p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
+						eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
+						if want := want[clusterID]; !util.StringSliceEqual(eps, want) {
+							t.Errorf("got %v but want %v for %s", eps, want, clusterID)
+						}
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -535,25 +601,25 @@ func TestUpdateServiceAccount(t *testing.T) {
 
 	testCases := []struct {
 		name      string
-		clusterID string
+		shardKey  model.ShardKey
 		endpoints []*model.IstioEndpoint
 		expect    bool
 	}{
 		{
 			name:      "added new endpoint",
-			clusterID: "c1",
+			shardKey:  "c1",
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
-			clusterID: "c1",
+			shardKey:  "c1",
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
-			name:      "updated endpoints address",
-			clusterID: "c1",
+			name:     "updated endpoints address",
+			shardKey: "c1",
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.5", ServiceAccount: "sa1"},
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
@@ -561,16 +627,16 @@ func TestUpdateServiceAccount(t *testing.T) {
 			expect: false,
 		},
 		{
-			name:      "deleted one endpoint with unique sa",
-			clusterID: "c1",
+			name:     "deleted one endpoint with unique sa",
+			shardKey: "c1",
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.1", ServiceAccount: "sa1"},
 			},
 			expect: true,
 		},
 		{
-			name:      "deleted one endpoint with duplicate sa",
-			clusterID: "c1",
+			name:     "deleted one endpoint with duplicate sa",
+			shardKey: "c1",
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
 			},
@@ -578,7 +644,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:      "deleted endpoints",
-			clusterID: "c1",
+			shardKey:  "c1",
 			endpoints: nil,
 			expect:    true,
 		},
@@ -588,7 +654,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := new(xds.DiscoveryServer)
 			originalEndpointsShard := &xds.EndpointShards{
-				Shards: map[string][]*model.IstioEndpoint{
+				Shards: map[model.ShardKey][]*model.IstioEndpoint{
 					"c1": cluster1Endppoints,
 					"c2": {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
 				},
@@ -598,7 +664,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 					"sa-vm2": {},
 				},
 			}
-			originalEndpointsShard.Shards[tc.clusterID] = tc.endpoints
+			originalEndpointsShard.Shards[tc.shardKey] = tc.endpoints
 			ret := s.UpdateServiceAccount(originalEndpointsShard, "test-svc")
 			if ret != tc.expect {
 				t.Errorf("expect UpdateServiceAccount %v, but got %v", tc.expect, ret)

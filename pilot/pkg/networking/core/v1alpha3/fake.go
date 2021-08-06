@@ -78,10 +78,10 @@ type TestOptions struct {
 	PushContextLock *sync.RWMutex
 
 	// If set, we will not run immediately, allowing adding event handlers, etc prior to start.
-	SkipRun bool
+	SkipRun   bool
 
-	// The cluster name to use for the ServiceEntryStore and any components requiring cluster-ID
-	DefaultClusterID cluster2.ID
+	// Used to set the serviceentry registry's cluster id
+	ClusterID cluster2.ID
 }
 
 type ConfigGenTest struct {
@@ -120,11 +120,8 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
 	se := serviceentry.NewServiceDiscovery(
-		configController,
-		model.MakeIstioStore(configStore),
-		&FakeXdsUpdater{},
-		serviceentry.WithClusterID(opts.DefaultClusterID),
-	)
+		configController, model.MakeIstioStore(configStore),
+		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services)
@@ -326,10 +323,10 @@ type FakeXdsUpdater struct{}
 
 func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {}
 
-func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, _ []*model.IstioEndpoint) {}
+func (f *FakeXdsUpdater) EDSUpdate(_ model.ShardKey, _, _ string, _ []*model.IstioEndpoint) {}
 
-func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {}
+func (f *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, _, _ string, _ []*model.IstioEndpoint) {}
 
-func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {}
+func (f *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, _, _ string, _ model.Event) {}
 
 func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}
