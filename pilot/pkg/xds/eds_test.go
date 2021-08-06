@@ -31,12 +31,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/test/xdstest"
-
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/test/xdstest"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	uatomic "go.uber.org/atomic"
 

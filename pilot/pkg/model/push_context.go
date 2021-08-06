@@ -23,10 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-
 	"go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
