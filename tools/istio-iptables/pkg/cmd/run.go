@@ -167,7 +167,7 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIOTPROXY' redirects to Envoy.
-			iptConfigurator.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", constants.IpVersionSpecific,
+			iptConfigurator.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", constants.IPVersionSpecific,
 				"-p", constants.TCP, "-j", constants.TPROXY,
 				"--tproxy-mark", iptConfigurator.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", iptConfigurator.cfg.InboundCapturePort)
 			table = constants.MANGLE
@@ -344,7 +344,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	// 127.0.0.6/::7 is bind connect from inbound passthrough cluster
 	iptConfigurator.iptables.AppendVersionedRule("127.0.0.6/32", "::6/128", constants.ISTIOOUTPUT, constants.NAT,
-		"-o", "lo", "-s", constants.IpVersionSpecific, "-j", constants.RETURN)
+		"-o", "lo", "-s", constants.IPVersionSpecific, "-j", constants.RETURN)
 
 	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
@@ -356,12 +356,12 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			// Instead, we just have:
 			// app => istio-agent => dns server
 			iptConfigurator.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", constants.ISTIOOUTPUT, constants.NAT,
-				"-o", "lo", "!", "-d", constants.IpVersionSpecific,
+				"-o", "lo", "!", "-d", constants.IPVersionSpecific,
 				"-p", "tcp", "!", "--dport", "53",
 				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 		} else {
 			iptConfigurator.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", constants.ISTIOOUTPUT, constants.NAT,
-				"-o", "lo", "!", "-d", constants.IpVersionSpecific,
+				"-o", "lo", "!", "-d", constants.IPVersionSpecific,
 				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 		}
 
@@ -392,7 +392,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		iptConfigurator.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", constants.ISTIOOUTPUT, constants.NAT,
-			"-o", "lo", "!", "-d", constants.IpVersionSpecific,
+			"-o", "lo", "!", "-d", constants.IPVersionSpecific,
 			"-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
@@ -461,7 +461,7 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// container-to-container traffic both of which explicitly use
 	// localhost.
 	iptConfigurator.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", constants.ISTIOOUTPUT, constants.NAT,
-		"-d", constants.IpVersionSpecific, "-j", constants.RETURN)
+		"-d", constants.IPVersionSpecific, "-j", constants.RETURN)
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv4RangesExclude.IPNets {
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)

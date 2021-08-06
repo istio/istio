@@ -197,7 +197,7 @@ func (rb *IptablesBuilder) AppendVersionedRule(ipv4 string, ipv6 string, chain s
 func replaceVersionSpecific(contents string, inputs ...string) []string {
 	res := make([]string, 0, len(inputs))
 	for _, i := range inputs {
-		if i == constants.IpVersionSpecific {
+		if i == constants.IPVersionSpecific {
 			res = append(res, contents)
 		} else {
 			res = append(res, i)

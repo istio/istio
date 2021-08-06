@@ -56,9 +56,9 @@ const (
 )
 
 const (
-	// IpVersionSpecific is used as an input to rules that will be replaced with an ip version (v4/v6)
+	// IPVersionSpecific is used as an input to rules that will be replaced with an ip version (v4/v6)
 	// specific value
-	IpVersionSpecific = "PLACEHOLDER_IP_VERSION_SPECIFIC"
+	IPVersionSpecific = "PLACEHOLDER_IP_VERSION_SPECIFIC"
 )
 
 // iptables chains
