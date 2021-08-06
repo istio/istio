@@ -101,7 +101,7 @@ func NewServiceDiscovery(services []*model.Service) *ServiceDiscovery {
 }
 
 func (sd *ServiceDiscovery) shardKey() model.ShardKey {
-	return model.NewShardKey(cluster.ID(sd.ClusterID), provider.Memory)
+	return model.NewShardKey(cluster.ID(sd.ClusterID), provider.Mock)
 }
 
 func (sd *ServiceDiscovery) AddWorkload(ip string, labels labels.Instance) {
