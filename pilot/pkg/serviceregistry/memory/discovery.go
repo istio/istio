@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
