@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"sync"
 	"time"
@@ -190,8 +191,7 @@ type kubernetesNode struct {
 // controllerInterface is a simplified interface for the Controller used for testing.
 type controllerInterface interface {
 	getPodLocality(pod *v1.Pod) string
-	cidrRanger() cidranger.Ranger
-	defaultNetwork() network.ID
+	Network(endpointIP string, labels labels.Instance) network.ID
 	Cluster() cluster.ID
 }
 
@@ -375,19 +375,52 @@ func (c *Controller) ExportedServices() []string {
 	return c.exports.ExportedServices()
 }
 
-func (c *Controller) cidrRanger() cidranger.Ranger {
-	c.RLock()
-	defer c.RUnlock()
-	return c.ranger
-}
-
-func (c *Controller) defaultNetwork() network.ID {
+func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
 	c.RLock()
 	defer c.RUnlock()
 	if c.networkForRegistry != "" {
 		return c.networkForRegistry
 	}
+
+	if c.ranger != nil {
+		entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
+		if err != nil {
+			log.Error(err)
+			return ""
+		}
+		if len(entries) > 1 {
+			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
+		}
+		if len(entries) > 0 {
+			return (entries[0].(namedRangerEntry)).name
+		}
+	}
+	return ""
+}
+
+func (c *Controller) networkFromSystemNamespace() network.ID {
+	c.RLock()
+	defer c.RUnlock()
 	return c.network
+}
+
+func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
+	// 1. check the pod/workloadEntry label
+	if nw := labels[label.TopologyNetwork.Name]; nw != "" {
+		return network.ID(nw)
+	}
+
+	// 2. check the system namespace labels
+	if nw := c.networkFromSystemNamespace(); nw != "" {
+		return nw
+	}
+
+	// 3. check the meshNetworks config
+	if nw := c.networkFromMeshNetworks(endpointIP); nw != "" {
+		return nw
+	}
+
+	return ""
 }
 
 func (c *Controller) Cleanup() error {
@@ -1078,8 +1111,8 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 	oldDefaultNetwork := c.network
 	c.network = network.ID(nw)
 	c.Unlock()
-	// network changed, not using mesh networks, and controller has been initialized
-	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() {
+	// network changed, rarely happen
+	if oldDefaultNetwork != c.network {
 		// refresh pods/endpoints/services
 		c.onNetworkChanged()
 	}

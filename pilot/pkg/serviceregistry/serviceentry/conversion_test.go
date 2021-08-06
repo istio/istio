@@ -720,7 +720,8 @@ func TestConvertInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(strings.Join(tt.externalSvc.Spec.(*networking.ServiceEntry).Hosts, "_"), func(t *testing.T) {
-			instances := convertServiceEntryToInstances(*tt.externalSvc, nil, "")
+			s := &ServiceEntryStore{}
+			instances := s.convertServiceEntryToInstances(*tt.externalSvc, nil, "")
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
@@ -802,7 +803,8 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			instances := convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
+			s := &ServiceEntryStore{}
+			instances := s.convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 
@@ -1054,7 +1056,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			instance := convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
+			s := &ServiceEntryStore{}
+			instance := s.convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
 			}

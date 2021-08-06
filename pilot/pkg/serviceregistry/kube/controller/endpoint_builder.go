@@ -15,8 +15,6 @@
 package controller
 
 import (
-	"net"
-
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
@@ -121,7 +119,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		Address:               endpointAddress,
 		EndpointPort:          uint32(endpointPort),
 		ServicePortName:       svcPortName,
-		Network:               b.endpointNetwork(endpointAddress),
+		Network:               network.ID(b.labels[label.TopologyNetwork.Name]),
 		WorkloadName:          b.workloadName,
 		Namespace:             b.namespace,
 		HostName:              b.hostname,
@@ -132,32 +130,10 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 
 // return the mesh network for the endpoint IP. Empty string if not found.
 func (b *EndpointBuilder) endpointNetwork(endpointIP string) network.ID {
-	// Try to determine the network by checking whether the endpoint IP belongs
-	// to any of the configure networks' CIDR ranges
-	if b.controller.cidrRanger() != nil {
-		entries, err := b.controller.cidrRanger().ContainingNetworks(net.ParseIP(endpointIP))
-		if err != nil {
-			log.Error(err)
-			return ""
-		}
-		if len(entries) > 1 {
-			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
-		}
-		if len(entries) > 0 {
-			return (entries[0].(namedRangerEntry)).name
-		}
-	}
-
-	// If not using cidr-lookup, or non of the given ranges contain the address, use the pod-label
-	if nw := b.labels[label.TopologyNetwork.Name]; nw != "" {
-		return network.ID(nw)
-	}
-
 	// If we're building the endpoint based on proxy meta, prefer the injected ISTIO_META_NETWORK value.
 	if b.metaNetwork != "" {
 		return b.metaNetwork
 	}
 
-	// Fallback to legacy fromRegistry setting, all endpoints from this cluster are on that network.
-	return b.controller.defaultNetwork()
+	return b.controller.Network(endpointIP, b.labels)
 }
