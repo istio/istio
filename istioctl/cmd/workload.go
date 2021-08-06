@@ -179,7 +179,6 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-// TODO: extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 func configureCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
@@ -221,6 +220,17 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
+
+			// extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
+			if !validateFlagIsSetManuallyOrNot(cmd, "clusterID") {
+				fmt.Println("INFO: Flag clusterID is not set manually, extract from injector config")
+				// extract the cluster ID from the injector config if it is not set by user
+				clusterName := extractClusterIDFromInjectionConfig(kubeClient)
+				if clusterName != "" {
+					clusterID = clusterName
+				}
+			}
+
 			if err = createConfig(kubeClient, wg, clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
@@ -588,4 +598,30 @@ func mapToString(m map[string]string) string {
 	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// extractClusterIDFromInjectionConfig can extract clusterID from injection configmap
+func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) string {
+	injectionConfigMap := "istio-sidecar-injector"
+	// Case with multiple control planes
+	revision := kubeClient.Revision()
+	if revision != "" && revision != "default" {
+		injectionConfigMap = fmt.Sprintf("%s-%s", injectionConfigMap, revision)
+	}
+	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
+	// retuen empty if the requested configmap does not exist in the given namespace
+	if err != nil {
+		log.Warnf("configmap %s was not found in namespace %s: %v", istioInjectionCM, istioNamespace, err)
+		return ""
+	}
+
+	var injectedCMValues map[string]interface{}
+	if err := json.Unmarshal([]byte(istioInjectionCM.Data[valuesConfigMapKey]), &injectedCMValues); err != nil {
+		return ""
+	}
+	globalMap := injectedCMValues["global"].(map[string]interface{})
+	multiClusterMap := globalMap["multiCluster"].(map[string]interface{})
+	clusterName := multiClusterMap["clusterName"].(string)
+	fmt.Printf("INFO: Extracted clusterName is [%s]\n", clusterName)
+	return clusterName
 }
