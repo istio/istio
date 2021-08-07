@@ -521,7 +521,7 @@ var (
 	AutoReloadPluginCerts = env.RegisterBoolVar(
 		"AUTO_RELOAD_PLUGIN_CERTS",
 		false,
-		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart isitod to pick up certs."+
+		"If enabled, if user introduces new intermediate plug-in CA, user need not to restart istiod to pick up certs."+
 			"Istiod picks newly added intermediate plug-in CA certs and updates it. Plug-in new Root-CA not supported.").Get()
 
 	RewriteTCPProbes = env.RegisterBoolVar(

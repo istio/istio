@@ -50,7 +50,7 @@ var _ Metrics = &PushContext{}
 
 // serviceIndex is an index of all services by various fields for easy access during push.
 type serviceIndex struct {
-	// privateServices are reachable within the same namespace, with exportTo "."
+	// privateByNamespace are services that can reachable within the same namespace, with exportTo "."
 	privateByNamespace map[string][]*Service
 	// public are services reachable within the mesh with exportTo "*"
 	public []*Service
@@ -1879,7 +1879,7 @@ func (ps *PushContext) NetworkManager() *NetworkManager {
 // This function is used to give a hint for auto-mTLS configuration on client side.
 func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
 	if service.MeshExternal {
-		// Only need the authentication MTLS mode when service is not external.
+		// Only need the authentication mTLS mode when service is not external.
 		return MTLSUnknown
 	}
 

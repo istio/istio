@@ -164,7 +164,7 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 	return true
 }
 
-// Returns all the wrapped envoyfilters.
+// Returns the keys of all the wrapped envoyfilters.
 func (efw *EnvoyFilterWrapper) Keys() []string {
 	if efw == nil {
 		return nil
