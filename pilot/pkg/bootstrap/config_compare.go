@@ -35,12 +35,12 @@ func needsPush(prev config.Config, curr config.Config) bool {
 		return true
 	}
 	// If current metadata has "*istio.io" label/annotation, just push
-	for label, _ := range curr.Meta.Labels {
+	for label := range curr.Meta.Labels {
 		if strings.Contains(label, "istio.io") {
 			return true
 		}
 	}
-	for annotation, _ := range curr.Meta.Annotations {
+	for annotation := range curr.Meta.Annotations {
 		if strings.Contains(annotation, "istio.io") {
 			return true
 		}
