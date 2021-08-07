@@ -14,8 +14,9 @@
 
 syntax = "proto3";
 
-// Generate with protoc --go_out=plugins=grpc:. echo.proto
+// Generate with protoc --go_out=. echo.proto && protoc --go-grpc_out=:. ./echo.proto
 package proto;
+option go_package="../proto";
 
 service EchoTestService {
   rpc Echo (EchoRequest) returns (EchoResponse);

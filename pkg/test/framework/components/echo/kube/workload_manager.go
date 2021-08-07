@@ -56,20 +56,27 @@ type workloadManager struct {
 
 func newWorkloadManager(ctx resource.Context, cfg echo.Config, handler workloadHandler) (*workloadManager, error) {
 	// Get the gRPC port and TLS settings.
-	grpcPort := common.GetPortForProtocol(&cfg, protocol.GRPC)
-	if grpcPort == nil {
-		return nil, errors.New("unable fo find GRPC command port")
-	}
+	var grpcInstancePort int
 	var tls *echoCommon.TLSSettings
-	if grpcPort.TLS {
-		tls = cfg.TLSSettings
+	if cfg.IsProxylessGRPC() {
+		grpcInstancePort = grpcMagicPort
+	}
+	if grpcInstancePort == 0 {
+		grpcPort := common.GetPortForProtocol(&cfg, protocol.GRPC)
+		if grpcPort.TLS {
+			tls = cfg.TLSSettings
+		}
+		grpcInstancePort = grpcPort.InstancePort
+	}
+	if grpcInstancePort == 0 {
+		return nil, errors.New("unable fo find GRPC command port")
 	}
 
 	m := &workloadManager{
 		cfg:      cfg,
 		ctx:      ctx,
 		handler:  handler,
-		grpcPort: uint16(grpcPort.InstancePort),
+		grpcPort: uint16(grpcInstancePort),
 		tls:      tls,
 		stopCh:   make(chan struct{}, 1),
 	}
