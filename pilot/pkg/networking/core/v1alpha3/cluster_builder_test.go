@@ -239,6 +239,106 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
+		{
+			name:        "subset without labels in both",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes:  serviceAttribute,
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS},
+			}},
+		},
+		{
+			name:        "subset without labels in dest rule",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "bar"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both, not matching",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "not-match"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
 	}
 
 	for _, tt := range cases {
@@ -254,6 +354,7 @@ func TestApplyDestinationRule(t *testing.T) {
 							ClusterID: "",
 							Label:     "region1/zone1/subzone1",
 						},
+						Labels:  tt.service.Attributes.Labels,
 						TLSMode: model.IstioMutualTLSModeLabel,
 					},
 				},
@@ -271,6 +372,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				}
 			}
 			cg := NewConfigGenTest(t, TestOptions{
+				Instances:      instances,
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
@@ -279,9 +381,11 @@ func TestApplyDestinationRule(t *testing.T) {
 
 			ec := NewMutableCluster(tt.cluster)
 			destRule := cb.req.Push.DestinationRule(cb.proxy, tt.service)
+
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
-				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
+				t.Fatalf("Unexpected subset clusters want %v, got %v. keys=%v",
+					len(tt.expectedSubsetClusters), len(subsetClusters), xdstest.MapKeys(xdstest.ExtractClusters(subsetClusters)))
 			}
 			if len(tt.expectedSubsetClusters) > 0 {
 				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
