@@ -48,7 +48,7 @@ func TestNeedsPush(t *testing.T) {
 				},
 				Spec: &networking.VirtualService{},
 			},
-			expected: false,
+			expected: true,
 		},
 		{
 			name: "same gvk label change",
@@ -95,7 +95,7 @@ func TestNeedsPush(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "config with always push label",
+			name: "config with istio.io label",
 			prev: config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.Ingress,
@@ -111,6 +111,48 @@ func TestNeedsPush(t *testing.T) {
 					Namespace:        "not-default",
 					Labels:           map[string]string{constants.AlwaysPushLabel: "true"},
 				},
+			},
+			expected: true,
+		},
+		{
+			name: "config with istio.io annotation",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
+				},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Ingress,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Annotations:      map[string]string{constants.AlwaysPushLabel: "true"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "non istio resources",
+			prev: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.TCPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "test-v1"},
+				},
+				Spec: &networking.VirtualService{},
+			},
+			curr: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.TCPRoute,
+					Name:             "acme2-v1",
+					Namespace:        "not-default",
+					Labels:           map[string]string{"test": "test-v2"},
+				},
+				Spec: &networking.VirtualService{},
 			},
 			expected: true,
 		},

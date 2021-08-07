@@ -114,7 +114,7 @@ const (
 	TestVMVersionLabel = "istio.io/test-vm-version"
 
 	// Label to skip config comparison.
-	AlwaysPushLabel = "istio.io/alwayspush"
+	AlwaysPushLabel = "internal.istio.io/always-push"
 
 	// TrustworthyJWTPath is the defaut 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"

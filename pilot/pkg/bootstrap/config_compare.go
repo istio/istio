@@ -15,22 +15,35 @@
 package bootstrap
 
 import (
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 )
 
 // needsPush checks whether the passed in config has same spec and hence push needs
 // to be triggered. This is to avoid unnecessary pushes only when labels have changed
 // for example.
 func needsPush(prev config.Config, curr config.Config) bool {
-	if _, exists := prev.Meta.Labels[constants.AlwaysPushLabel]; exists {
-		return true
-	}
 	if prev.GroupVersionKind != curr.GroupVersionKind {
 		// This should never happen.
-		return false
+		return true
+	}
+	// If the config is not Istio, let us just push.
+	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
+		return true
+	}
+	// If current metadata has "*istio.io" label/annotation, just push
+	for label, _ := range curr.Meta.Labels {
+		if strings.Contains(label, "istio.io") {
+			return true
+		}
+	}
+	for annotation, _ := range curr.Meta.Annotations {
+		if strings.Contains(annotation, "istio.io") {
+			return true
+		}
 	}
 	prevspec, ok := prev.Spec.(proto.Message)
 	if !ok {
