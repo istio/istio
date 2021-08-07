@@ -16,7 +16,9 @@ package grpcgen_test
 
 import (
 	"context"
-	"os"
+	"encoding/json"
+	"fmt"
+	"path"
 	"testing"
 	"time"
 
@@ -26,30 +28,57 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 
-	//  To install the xds resolvers and balancers.
-	grpcxds "google.golang.org/grpc/xds"
+	// To install the xds resolvers and balancers.
+	grpcxdsresolver "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (
 	grpcXdsAddr = "127.0.0.1:14057"
 
 	// Address of the Istiod gRPC service, used in tests.
-	istiodSvcAddr = "istiod.istio-system.svc.cluster.local:14057"
+	// TODO `notistiod` is a hack to workaround https://github.com/istio/istio/issues/34522
+	istiodSvcHost = "notistiod.istiod.istio-system.svc.cluster.local"
+	istiodSvcAddr = "notistiod.istiod.istio-system.svc.cluster.local:14057"
 )
 
+func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
+	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
+		Node: &model.Node{
+			ID: nodeID,
+			RawMetadata: map[string]interface{}{
+				"NAMESPACE":  namespace,
+				"GENERATOR":  "grpc",
+				"CLUSTER_ID": "Kubernetes",
+			},
+		},
+		DiscoveryAddress: grpcXdsAddr,
+		CertDir:          path.Join(env.IstioSrc, "tests/testdata/certs/default"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed generating bootstrap: %v", err)
+	}
+	bootstrapBytes, err := json.Marshal(bootstrap)
+	if err != nil {
+		return nil, fmt.Errorf("failed marshaling bootstrap: %v", err)
+	}
+	return bootstrapBytes, nil
+}
+
 func resolverForTest(t test.Failer) resolver.Builder {
-	bootstrap, err := os.ReadFile("testdata/xds_bootstrap.json")
+	bootstrap, err := bootstrapForTest("sidecar~10.0.0.1~foo.default~cluster.local", "default")
 	if err != nil {
 		t.Fatal(err)
 	}
-	xdsresolver, err := grpcxds.NewXDSResolverWithConfigForTesting(bootstrap)
+	xdsresolver, err := grpcxdsresolver.NewXDSResolverWithConfigForTesting(bootstrap)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,8 +92,8 @@ func TestGRPC(t *testing.T) {
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 
-	sd.AddHTTPService("istiod.istio-system.svc.cluster.local", "10.10.10.2", 14057)
-	sd.SetEndpoints("istiod.istio-system.svc.cluster.local", "", []*model.IstioEndpoint{
+	sd.AddHTTPService(istiodSvcHost, "10.10.10.2", 14057)
+	sd.SetEndpoints(istiodSvcHost, "", []*model.IstioEndpoint{
 		{
 			Address:         "127.0.0.1",
 			EndpointPort:    uint32(14057),
@@ -102,14 +131,14 @@ func TestGRPC(t *testing.T) {
 		},
 	})
 
-	store.Create(config.Config{
+	_, _ = store.Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "mtls",
 			Namespace:        "istio-system",
 		},
 		Spec: &networking.DestinationRule{
-			Host: "istiod.istio-system.svc.cluster.local",
+			Host: istiodSvcHost,
 			TrafficPolicy: &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{
 				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
 			}},
@@ -157,7 +186,7 @@ func TestGRPC(t *testing.T) {
 	t.Run("gRPC-dial", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		conn, err := grpc.DialContext(ctx, "xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure(), grpc.WithBlock(),
+		conn, err := grpc.DialContext(ctx, "xds:///"+istiodSvcAddr, grpc.WithInsecure(), grpc.WithBlock(),
 			grpc.WithResolvers(xdsresolver))
 		if err != nil {
 			t.Fatal("XDS gRPC", err)

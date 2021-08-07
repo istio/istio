@@ -30,13 +30,23 @@ import (
 	"istio.io/istio/pkg/file"
 )
 
+const (
+	ServerListenerNamePrefix = "xds.istio.io/grpc/lds/inbound/"
+	// ServerListenerNameTemplate for the name of the Listener resource to subscribe to for a gRPC
+	// server. If the token `%s` is present in the string, all instances of the
+	// token will be replaced with the server's listening "IP:port" (e.g.,
+	// "0.0.0.0:8080", "[::]:8080").
+	ServerListenerNameTemplate = ServerListenerNamePrefix + "%s"
+)
+
 // Bootstrap contains the general structure of what's expected by GRPC's XDS implementation.
 // See https://github.com/grpc/grpc-go/blob/master/xds/internal/xdsclient/bootstrap/bootstrap.go
 // TODO use structs from gRPC lib if created/exported
 type Bootstrap struct {
-	XDSServers    []XdsServer                    `json:"xds_servers,omitempty"`
-	Node          *corev3.Node                   `json:"node,omitempty"`
-	CertProviders map[string]CertificateProvider `json:"certificate_providers,omitempty"`
+	XDSServers                 []XdsServer                    `json:"xds_servers,omitempty"`
+	Node                       *corev3.Node                   `json:"node,omitempty"`
+	CertProviders              map[string]CertificateProvider `json:"certificate_providers,omitempty"`
+	ServerListenerNameTemplate string                         `json:"server_listener_resource_name_template,omitempty"`
 }
 
 type ChannelCreds struct {
@@ -131,6 +141,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 			Locality: opts.Node.Locality,
 			Metadata: xdsMeta,
 		},
+		ServerListenerNameTemplate: ServerListenerNameTemplate,
 	}
 
 	if opts.CertDir != "" {

@@ -63,7 +63,7 @@ func TestTrustDomainsForValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := trustDomainsForValidation(tt.meshConfig); !reflect.DeepEqual(got, tt.want) {
+			if got := TrustDomainsForValidation(tt.meshConfig); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("trustDomainsForValidation() = %#v, want %#v", got, tt.want)
 			}
 		})
