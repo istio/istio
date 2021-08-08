@@ -1,8 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
 area: installation
-issue:
-  - 34466
 releaseNotes:
   - |
-    **Fixed** `meshConfig.accessLogFormat` field doesn't work.
+    **Fixed** the old `meshConfig.accessLogFormat` syntax deprecated in Enovy v1.17.0
