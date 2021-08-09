@@ -315,8 +315,8 @@ spec:
                             localityLbSetting:
                               properties:
                                 distribute:
-                                  description: 'Optional: only one of distribute or
-                                    failover can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -338,8 +338,8 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only failover or distribute
-                                    can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -348,6 +348,13 @@ spec:
                                       to:
                                         type: string
                                     type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints to do priority
+                                    based load balancing.
+                                  items:
+                                    type: string
                                   type: array
                               type: object
                             simple:
@@ -555,8 +562,8 @@ spec:
                                   localityLbSetting:
                                     properties:
                                       distribute:
-                                        description: 'Optional: only one of distribute
-                                          or failover can be set.'
+                                        description: 'Optional: only one of distribute,
+                                          failover or failoverPriority can be set.'
                                         items:
                                           properties:
                                             from:
@@ -578,8 +585,8 @@ spec:
                                         nullable: true
                                         type: boolean
                                       failover:
-                                        description: 'Optional: only failover or distribute
-                                          can be set.'
+                                        description: 'Optional: only one of distribute,
+                                          failover or failoverPriority can be set.'
                                         items:
                                           properties:
                                             from:
@@ -588,6 +595,13 @@ spec:
                                             to:
                                               type: string
                                           type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints to
+                                          do priority based load balancing.
+                                        items:
+                                          type: string
                                         type: array
                                     type: object
                                   simple:
@@ -864,8 +878,8 @@ spec:
                       localityLbSetting:
                         properties:
                           distribute:
-                            description: 'Optional: only one of distribute or failover
-                              can be set.'
+                            description: 'Optional: only one of distribute, failover
+                              or failoverPriority can be set.'
                             items:
                               properties:
                                 from:
@@ -886,8 +900,8 @@ spec:
                             nullable: true
                             type: boolean
                           failover:
-                            description: 'Optional: only failover or distribute can
-                              be set.'
+                            description: 'Optional: only one of distribute, failover
+                              or failoverPriority can be set.'
                             items:
                               properties:
                                 from:
@@ -896,6 +910,12 @@ spec:
                                 to:
                                   type: string
                               type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints to do priority based load balancing.
+                            items:
+                              type: string
                             type: array
                         type: object
                       simple:
@@ -1098,8 +1118,8 @@ spec:
                             localityLbSetting:
                               properties:
                                 distribute:
-                                  description: 'Optional: only one of distribute or
-                                    failover can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -1121,8 +1141,8 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only failover or distribute
-                                    can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -1131,6 +1151,13 @@ spec:
                                       to:
                                         type: string
                                     type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints to do priority
+                                    based load balancing.
+                                  items:
+                                    type: string
                                   type: array
                               type: object
                             simple:
@@ -1455,8 +1482,8 @@ spec:
                             localityLbSetting:
                               properties:
                                 distribute:
-                                  description: 'Optional: only one of distribute or
-                                    failover can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -1478,8 +1505,8 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only failover or distribute
-                                    can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -1488,6 +1515,13 @@ spec:
                                       to:
                                         type: string
                                     type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints to do priority
+                                    based load balancing.
+                                  items:
+                                    type: string
                                   type: array
                               type: object
                             simple:
@@ -1695,8 +1729,8 @@ spec:
                                   localityLbSetting:
                                     properties:
                                       distribute:
-                                        description: 'Optional: only one of distribute
-                                          or failover can be set.'
+                                        description: 'Optional: only one of distribute,
+                                          failover or failoverPriority can be set.'
                                         items:
                                           properties:
                                             from:
@@ -1718,8 +1752,8 @@ spec:
                                         nullable: true
                                         type: boolean
                                       failover:
-                                        description: 'Optional: only failover or distribute
-                                          can be set.'
+                                        description: 'Optional: only one of distribute,
+                                          failover or failoverPriority can be set.'
                                         items:
                                           properties:
                                             from:
@@ -1728,6 +1762,13 @@ spec:
                                             to:
                                               type: string
                                           type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints to
+                                          do priority based load balancing.
+                                        items:
+                                          type: string
                                         type: array
                                     type: object
                                   simple:
@@ -2004,8 +2045,8 @@ spec:
                       localityLbSetting:
                         properties:
                           distribute:
-                            description: 'Optional: only one of distribute or failover
-                              can be set.'
+                            description: 'Optional: only one of distribute, failover
+                              or failoverPriority can be set.'
                             items:
                               properties:
                                 from:
@@ -2026,8 +2067,8 @@ spec:
                             nullable: true
                             type: boolean
                           failover:
-                            description: 'Optional: only failover or distribute can
-                              be set.'
+                            description: 'Optional: only one of distribute, failover
+                              or failoverPriority can be set.'
                             items:
                               properties:
                                 from:
@@ -2036,6 +2077,12 @@ spec:
                                 to:
                                   type: string
                               type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints to do priority based load balancing.
+                            items:
+                              type: string
                             type: array
                         type: object
                       simple:
@@ -2238,8 +2285,8 @@ spec:
                             localityLbSetting:
                               properties:
                                 distribute:
-                                  description: 'Optional: only one of distribute or
-                                    failover can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -2261,8 +2308,8 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only failover or distribute
-                                    can be set.'
+                                  description: 'Optional: only one of distribute,
+                                    failover or failoverPriority can be set.'
                                   items:
                                     properties:
                                       from:
@@ -2271,6 +2318,13 @@ spec:
                                       to:
                                         type: string
                                     type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints to do priority
+                                    based load balancing.
+                                  items:
+                                    type: string
                                   type: array
                               type: object
                             simple:
