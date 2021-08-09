@@ -127,8 +127,10 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}
 	// Start serving GRPC traffic.
 	go func() {
-		err := s.server.Serve(listener)
-		epLog.Warnf("Port %d listener terminated with error: %v", p, err)
+		for {
+			err := s.server.Serve(listener)
+			epLog.Warnf("Port %d listener terminated with error: %v", p, err)
+		}
 	}()
 
 	// Notify the WaitGroup once the port has transitioned to ready.
