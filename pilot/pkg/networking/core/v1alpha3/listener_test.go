@@ -1592,7 +1592,8 @@ func TestListenerAccessLogs(t *testing.T) {
 			t.Fatal("expected filter config in listener access log configuration")
 		}
 		cfg, _ := conversion.MessageToStruct(l.AccessLog[0].GetTypedConfig())
-		textFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format"].GetStringValue()
+		textFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format_source"].GetStructValue().
+			GetFields()["inline_string"].GetStringValue()
 		if textFormat != env.Mesh().AccessLogFormat {
 			t.Fatalf("expected format to be %s, but got %s", env.Mesh().AccessLogFormat, textFormat)
 		}
@@ -1609,7 +1610,8 @@ func validateAccessLog(t *testing.T, l *listener.Listener, format string) {
 		t.Fatal("expected access log configuration")
 	}
 	cfg, _ := conversion.MessageToStruct(fc.AccessLog[0].GetTypedConfig())
-	textFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format"].GetStringValue()
+	textFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format_source"].GetStructValue().
+		GetFields()["inline_string"].GetStringValue()
 	if textFormat != format {
 		t.Fatalf("expected format to be %s, but got %s", format, textFormat)
 	}
