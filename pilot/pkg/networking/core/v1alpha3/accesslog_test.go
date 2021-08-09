@@ -142,7 +142,8 @@ func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got 
 			t.Errorf("\nwant: %s\n got: %s", wantFormat, jsonFormatString)
 		}
 	} else {
-		textFormatString := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format"].GetStringValue()
+		textFormatString := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format_source"].GetStructValue().
+			GetFields()["inline_string"].GetStringValue()
 		if textFormatString != wantFormat {
 			t.Errorf("\nwant: %s\n got: %s", wantFormat, textFormatString)
 		}
