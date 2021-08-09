@@ -57,6 +57,13 @@ type Port struct {
 
 	// LocalhostIP determines if echo will listen on the localhost IP; otherwise, it will listen on wildcard
 	LocalhostIP bool
+
+	// XDSServer, for gRPC servers, will use the xds.NewGRPCServer constructor to rely on XDS configuration.
+	// If this flag is set but the environment variable feature gates aren't, we should fail due to gRPC internals.
+	XDSServer bool
+
+	// XDSTestBootstrap allows settinga per-endpoint bootstrap without using the GRPC_XDS_BOOTSTRAP env var
+	XDSTestBootstrap []byte
 }
 
 // PortList is a set of ports

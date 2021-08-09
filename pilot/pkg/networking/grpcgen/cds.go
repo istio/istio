@@ -51,6 +51,9 @@ func (g *GrpcConfigGenerator) BuildClusters(node *model.Proxy, push *model.PushC
 			Resource: util.MessageToAny(c),
 		})
 	}
+	if len(resp) == 0 && len(names) == 0 {
+		log.Warnf("did not generate any cds for %s; no names provided", node.ID)
+	}
 	return resp
 }
 
@@ -233,7 +236,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 	case networking.ClientTLSSettings_MUTUAL:
 		// TODO support this
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		tlsCtx := buildTLSContext(b.push.ServiceAccounts[b.hostname][b.portNum])
+		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts[b.hostname][b.portNum])
 		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsCtx)},
@@ -245,26 +248,8 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 // management server (see grpc/xds/internal/client/xds.go securityConfigFromCluster).
 const transportSocketName = "envoy.transport_sockets.tls"
 
-// buildTLSContext creates a TLS context that assumes 'default' name, and credentials/tls/certprovider/pemfile
-// (see grpc/xds/internal/client/xds.go securityConfigFromCluster).
-func buildTLSContext(sans []string) *tls.UpstreamTlsContext {
+func buildUpstreamTLSContext(sans []string) *tls.UpstreamTlsContext {
 	return &tls.UpstreamTlsContext{
-		CommonTlsContext: &tls.CommonTlsContext{
-			TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
-				InstanceName:    "default",
-				CertificateName: "default",
-			},
-			ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-					ValidationContextCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
-						InstanceName:    "default",
-						CertificateName: "ROOTCA",
-					},
-					DefaultValidationContext: &tls.CertificateValidationContext{
-						MatchSubjectAltNames: util.StringToExactMatch(sans),
-					},
-				},
-			},
-		},
+		CommonTlsContext: buildCommonTLSContext(sans),
 	}
 }

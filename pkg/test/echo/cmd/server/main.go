@@ -40,6 +40,7 @@ var (
 	instanceIPPorts  []int
 	localhostIPPorts []int
 	serverFirstPorts []int
+	xdsGRPCServers   []int
 	metricsPort      int
 	uds              string
 	version          string
@@ -66,6 +67,10 @@ var (
 			for _, p := range serverFirstPorts {
 				serverFirstByPort[p] = true
 			}
+			xdsGRPCByPort := map[int]bool{}
+			for _, p := range xdsGRPCServers {
+				xdsGRPCByPort[p] = true
+			}
 			portIndex := 0
 			for i, p := range httpPorts {
 				ports[portIndex] = &common.Port{
@@ -84,6 +89,7 @@ var (
 					Port:        p,
 					TLS:         tlsByPort[p],
 					ServerFirst: serverFirstByPort[p],
+					XDSServer:   xdsGRPCByPort[p],
 				}
 				portIndex++
 			}
@@ -150,6 +156,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
+	rootCmd.PersistentFlags().IntSliceVar(&xdsGRPCServers, "xds-grpc-server", []int{}, "Ports that should rely on XDS configuration to serve.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
 	rootCmd.PersistentFlags().StringVar(&version, "version", "", "Version string")

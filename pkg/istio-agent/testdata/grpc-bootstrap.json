@@ -28,5 +28,6 @@
         "refresh_interval": "900s"
       }
     }
-  }
+  },
+  "server_listener_resource_name_template": "xds.istio.io/grpc/lds/inbound/%s"
 }
