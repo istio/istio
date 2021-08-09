@@ -111,6 +111,13 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		return nil
 	}
 
+	// in case pod is not found when init EndpointBuilder.
+	networkID := network.ID(b.labels[label.TopologyNetwork.Name])
+	if networkID == "" {
+		networkID = b.endpointNetwork(endpointAddress)
+		b.labels[label.TopologyNetwork.Name] = string(networkID)
+	}
+
 	return &model.IstioEndpoint{
 		Labels:                b.labels,
 		ServiceAccount:        b.serviceAccount,
@@ -119,7 +126,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		Address:               endpointAddress,
 		EndpointPort:          uint32(endpointPort),
 		ServicePortName:       svcPortName,
-		Network:               network.ID(b.labels[label.TopologyNetwork.Name]),
+		Network:               networkID,
 		WorkloadName:          b.workloadName,
 		Namespace:             b.namespace,
 		HostName:              b.hostname,
