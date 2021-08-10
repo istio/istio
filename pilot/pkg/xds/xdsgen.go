@@ -111,9 +111,10 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	resp := &discovery.DiscoveryResponse{
 		ControlPlane: ControlPlane(),
 		TypeUrl:      w.TypeUrl,
-		VersionInfo:  push.PushVersion,
-		Nonce:        nonce(push.LedgerVersion),
-		Resources:    model.ResourcesToAny(res),
+		// TODO: send different version for incremental eds
+		VersionInfo: push.PushVersion,
+		Nonce:       nonce(push.LedgerVersion),
+		Resources:   model.ResourcesToAny(res),
 	}
 
 	configSize := ResourceSize(res)
