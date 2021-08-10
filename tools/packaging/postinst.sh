@@ -20,7 +20,7 @@ set -e
 umask 022
 
 if ! getent passwd istio-proxy >/dev/null; then
-    if [ -x /usr/sbin/useradd ]; then
+    if command -v useradd >/dev/null; then
         groupadd --system istio-proxy
         useradd --system --gid istio-proxy --home-dir /var/lib/istio istio-proxy
     else
