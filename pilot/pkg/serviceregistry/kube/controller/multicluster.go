@@ -199,7 +199,8 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 			if configStore, err := createConfigStore(client, m.revision, options); err == nil {
 				m.remoteKubeControllers[clusterID].workloadEntryStore = serviceentry.NewServiceDiscovery(
 					configStore, model.MakeIstioStore(configStore), options.XDSUpdater,
-					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(clusterID))
+					serviceentry.DisableServiceEntryProcessing(), serviceentry.WithClusterID(clusterID),
+					serviceentry.WithNetworkIDCb(kubeRegistry.Network))
 				m.serviceController.AddRegistry(m.remoteKubeControllers[clusterID].workloadEntryStore)
 				// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 				m.remoteKubeControllers[clusterID].workloadEntryStore.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
