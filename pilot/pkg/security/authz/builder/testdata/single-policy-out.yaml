@@ -10,11 +10,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[0]-host[1]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[0\]-to\[0\]-host\[1\]
                 - header:
-                    exactMatch: rule[0]-to[0]-host[2]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[0\]-to\[0\]-host\[2\]
             - orRules:
                 rules:
                 - header:
@@ -48,11 +52,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[1]-host[1]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[0\]-to\[1\]-host\[1\]
                 - header:
-                    exactMatch: rule[0]-to[1]-host[2]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[0\]-to\[1\]-host\[2\]
             - orRules:
                 rules:
                 - header:
@@ -270,11 +278,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[0]-host[1]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[1\]-to\[0\]-host\[1\]
                 - header:
-                    exactMatch: rule[1]-to[0]-host[2]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[1\]-to\[0\]-host\[2\]
             - orRules:
                 rules:
                 - header:
@@ -300,11 +312,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[1]-host[1]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[1\]-to\[1\]-host\[1\]
                 - header:
-                    exactMatch: rule[1]-to[1]-host[2]
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)rule\[1\]-to\[1\]-host\[2\]
             - orRules:
                 rules:
                 - header:
