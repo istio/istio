@@ -130,6 +130,18 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConfigValidation2", FuzzConfigValidation2},
 		{"FuzzBNMUnmarshalJSON", FuzzBNMUnmarshalJSON},
 		{"FuzzValidateClusters", FuzzValidateClusters},
+		{"FuzzCheckIstioOperatorSpec", FuzzCheckIstioOperatorSpec},
+		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig},
+		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents},
+		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS},
+		{"FuzzVerify", FuzzVerify},
+		{"FuzzRenderManifests", FuzzRenderManifests},
+		{"FuzzOverlayIOP", FuzzOverlayIOP},
+		{"FuzzNewControlplane", FuzzNewControlplane},
+		{"FuzzResolveK8sConflict", FuzzResolveK8sConflict},
+		{"FuzzYAMLManifestPatch", FuzzYAMLManifestPatch},
+		{"FuzzGalleyMeshFs", FuzzGalleyMeshFs},
+		{"FuzzGalleyDiag", FuzzGalleyDiag},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {
