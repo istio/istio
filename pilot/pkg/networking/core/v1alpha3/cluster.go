@@ -207,6 +207,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		clusterName:     clusterName,
 		proxyVersion:    cb.proxy.Metadata.IstioVersion,
 		locality:        cb.proxy.Locality,
+		proxyMetadata:   cb.proxy.Metadata.ProxyConfig.ProxyMetadata,
 		proxyClusterID:  string(cb.proxy.Metadata.ClusterID),
 		proxySidecar:    cb.proxy.Type == model.SidecarProxy,
 		networkView:     cb.proxy.GetNetworkView(),

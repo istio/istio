@@ -327,26 +327,19 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 type clusterCache struct {
 	clusterName string
 
-	// proxy metadata
-	//
-	// proxyVersion is will be matched by envoyfilter patches
-	proxyVersion string
-	// locality identifies the locality the cluster is generated for
-	locality *core.Locality
-	// proxyClusterID identifies the cluster a proxy is in. Note cluster here refers to Kubernetes cluster, not Envoy cluster
-	proxyClusterID string
-	// proxySidecar identifies if this proxy is a Sidecar
-	proxySidecar bool
-	networkView  map[network.ID]bool
+	// proxy related cache fields
+	proxyVersion   string         // will be matched by envoyfilter patches
+	locality       *core.Locality // identifies the locality the cluster is generated for
+	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
+	proxySidecar   bool           // identifies if this proxy is a Sidecar
+	networkView    map[network.ID]bool
+	proxyMetadata  map[string]string // metadata of proxy
 
 	// service attributes
-	//
-	// http2 identifies if the cluster is for an http2 service
-	http2          bool
+	http2          bool // http2 identifies if the cluster is for an http2 service
 	downstreamAuto bool
 
 	// Dependent configs
-	//
 	service         *model.Service
 	destinationRule *config.Config
 	envoyFilterKeys []string
@@ -361,6 +354,7 @@ type clusterCache struct {
 func (t *clusterCache) Key() string {
 	params := []string{
 		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
+
 		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
 		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
 		t.pushVersion,
@@ -372,6 +366,14 @@ func (t *clusterCache) Key() string {
 		}
 		sort.Strings(nv)
 		params = append(params, nv...)
+	}
+	if t.proxyMetadata != nil {
+		md := make([]string, 0, len(t.proxyMetadata))
+		for mk, mv := range t.proxyMetadata {
+			md = append(md, mk+"~"+mv)
+		}
+		sort.Strings(md)
+		params = append(params, md...)
 	}
 	if t.service != nil {
 		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
