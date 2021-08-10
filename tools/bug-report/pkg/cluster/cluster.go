@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
-	"istio.io/pkg/log"
 )
 
 type ResourceType int
@@ -56,7 +55,6 @@ func ParsePath(path string) (namespace string, deployment, pod string, container
 
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
 func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (*Resources, error) {
-	var errs []string
 	out := &Resources{
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
@@ -88,9 +86,6 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 			out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
 			out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
 		}
-	}
-	if len(errs) != 0 {
-		log.Warn(strings.Join(errs, "\n"))
 	}
 	return out, nil
 }
