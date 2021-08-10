@@ -246,7 +246,7 @@ func (hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permiss
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	m := matcher.HeaderMatcher(hostHeader, value)
+	m := matcher.HostMatcher(hostHeader, value)
 	return permissionHeader(m), nil
 
 }

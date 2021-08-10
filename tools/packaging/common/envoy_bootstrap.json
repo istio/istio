@@ -28,6 +28,10 @@
               "static_layer": {
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
                   "envoy.reloadable_features.strict_1xx_and_204_response_headers": false,
+                  "envoy.reloadable_features.http_reject_path_with_fragment": false,
+                  {{- if eq (or .config.ProxyMetadata.HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED "") "false" }}
+                  "envoy.reloadable_features.http_strip_fragment_from_path_unsafe_if_disabled": false,
+                  {{- end }}
                   "re2.max_program_size.error_level": 1024
               }
           },
