@@ -962,6 +962,8 @@ data:
           {{- range $index, $container := .Spec.Containers  }}
           {{ if not (eq $container.Name "istio-proxy") }}
           - name: {{ $container.Name }}
+            annotations:
+              proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
             env:
             - name: "GRPC_XDS_BOOTSTRAP"
               value: "/var/lib/istio/data/grpc-bootstrap.json"
