@@ -90,7 +90,6 @@ func (a *Analyzer) analyzeNamespaceWideConflicts(r *resource.Instance, c analysi
 		switch v := r.Message.(type) {
 		case *v1beta1.PeerAuthentication:
 			// Throw a Peer Authentication conflict
-			// x := r.Message.(*v1beta1.PeerAuthentication)
 			m := msg.NewNamespaceResourceConflict(r, peerAuthCollection.String(),
 				string(xNS), fmt.Sprintf("(ALL) Namespace: %v", xNS),
 				matches.SortedList())
@@ -98,14 +97,13 @@ func (a *Analyzer) analyzeNamespaceWideConflicts(r *resource.Instance, c analysi
 			return
 		case *v1beta1.RequestAuthentication:
 			// Throw an Authorization Policy conflict
-			// x := r.Message.(*v1beta1.RequestAuthentication)
 			m := msg.NewNamespaceResourceConflict(r, requestAuthCollection.String(),
 				string(xNS), fmt.Sprintf("(ALL) Namespace: %v", xNS),
 				matches.SortedList())
 			c.Report(collections.IstioSecurityV1Beta1Requestauthentications.Name(), m)
 			return
 		default:
-			fmt.Printf("I don't know about type %T!\n", v)
+			fmt.Printf("Unsupported type:  %T!\n", v)
 		}
 	}
 }
@@ -144,7 +142,7 @@ func (a *Analyzer) findMatchingNamespace(r *resource.Instance, c analysis.Contex
 		})
 
 	default:
-		fmt.Printf("I don't know about type %T!\n", v)
+		fmt.Printf("Unsupported type:  %T!\n", v)
 	}
 
 	return matches
@@ -179,7 +177,7 @@ func (a *Analyzer) analyzeWorkloadSelectorConflicts(r *resource.Instance, c anal
 			c.Report(collections.IstioSecurityV1Beta1Requestauthentications.Name(), m)
 			return
 		default:
-			fmt.Printf("Incorrect collection iterated: %T.\n", v)
+			fmt.Printf("Unsupported type:  %T!\n", v)
 		}
 	}
 }
@@ -230,7 +228,7 @@ func (a *Analyzer) findMatchingSelectors(r *resource.Instance, c analysis.Contex
 		})
 
 	default:
-		fmt.Printf("Incorrect collection iterated: %T.\n", v)
+		fmt.Printf("Unsupported type:  %T!\n", v)
 	}
 
 	return matches

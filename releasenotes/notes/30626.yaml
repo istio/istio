@@ -5,4 +5,5 @@ issue:
 - 30626
 releaseNotes:
 - |
-  **Added** a namespace level analyzer for `PeerAuthentication` and `RequestAuthentication`.
+  **Added** a namespace level analyzer for `PeerAuthentication`
+  and `RequestAuthentication`.
