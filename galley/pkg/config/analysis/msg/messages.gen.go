@@ -188,6 +188,10 @@ var (
 	// NamespaceInjectionEnabledByDefault defines a diag.MessageType for message "NamespaceInjectionEnabledByDefault".
 	// Description: user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set.
 	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true.")
+
+	// NamespaceResourceConflict defines a diag.MessageType for message "NamespaceResourceConflict".
+	// Description: Multiple specifiers of the same kind in a namespace select the same workload.
+	NamespaceResourceConflict = diag.NewMessageType(diag.Warning, "IST0149", "More than one %s in namespace %q for workload %q: %v.")
 )
 
 // All returns a list of all known message types.
@@ -238,6 +242,7 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionWarning,
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
+		NamespaceResourceConflict,
 	}
 }
 
@@ -688,5 +693,17 @@ func NewNamespaceInjectionEnabledByDefault(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		NamespaceInjectionEnabledByDefault,
 		r,
+	)
+}
+
+// NewNamespaceResourceConflict returns a new diag.Message based on NamespaceResourceConflict.
+func NewNamespaceResourceConflict(r *resource.Instance, kind string, namespace string, workloadSelector string, conflictingCRs []string) diag.Message {
+	return diag.NewMessage(
+		NamespaceResourceConflict,
+		r,
+		kind,
+		namespace,
+		workloadSelector,
+		conflictingCRs,
 	)
 }
