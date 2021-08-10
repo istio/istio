@@ -1045,7 +1045,7 @@ func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*d
 // This code will only trigger a cache hit if all subset clusters are present. This simplifies the code a bit,
 // as the non-subset and subset cluster generation are tightly coupled, in exchange for a likely trivial cache hit rate impact.
 func (cb *ClusterBuilder) getAllCachedSubsetClusters(clusterKey clusterCache) ([]*discovery.Resource, bool) {
-	if features.EnableCDSCaching {
+	if !features.EnableCDSCaching {
 		return nil, false
 	}
 	destinationRule := CastDestinationRule(clusterKey.destinationRule)
