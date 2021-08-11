@@ -14,7 +14,13 @@
   ],
   "node": {
     "id": "sidecar~127.0.0.1~pod1.fake-namespace~fake-namespace.svc.cluster.local",
-    "metadata": {},
+    "metadata": {
+      "INSTANCE_IPS": "127.0.0.1",
+      "PILOT_SAN": [
+        "istiod.istio-system.svc"
+      ],
+      "PROXY_VIA_AGENT": true
+    },
     "locality": {},
     "UserAgentVersionType": null
   },
@@ -22,9 +28,9 @@
     "default": {
       "plugin_name": "file_watcher",
       "config": {
+        "ca_certificate_file": "/cert/path/root-cert.pem",
         "certificate_file": "/cert/path/cert-chain.pem",
         "private_key_file": "/cert/path/key.pem",
-        "ca_certificate_file": "/cert/path/root-cert.pem",
         "refresh_interval": "900s"
       }
     }

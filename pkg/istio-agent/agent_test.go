@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
@@ -385,12 +386,21 @@ func TestAgent(t *testing.T) {
 			a.envoyEnable = false
 			return a
 		})
-		got, err := os.ReadFile(bootstrapPath)
+		generated, err := grpcxds.LoadBootstrap(bootstrapPath)
 		if err != nil {
 			t.Fatalf("could not read bootstrap config: %v", err)
 		}
-		// make UDS path in file deterministic
+
+		// goldenfile determinism
+		for _, k := range []string{"PROV_CERT", "PROXY_CONFIG"} {
+			delete(generated.Node.Metadata.Fields, k)
+		}
+		got, err := json.MarshalIndent(generated, "", "  ")
+		if err != nil {
+			t.Fatalf("failed to marshal bootstrap: %v", err)
+		}
 		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
+
 		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
 	})
 }

@@ -54,10 +54,12 @@ func bootstrapForTest(nodeID, namespace string) ([]byte, error) {
 	bootstrap, err := grpcxds.GenerateBootstrap(grpcxds.GenerateBootstrapOptions{
 		Node: &model.Node{
 			ID: nodeID,
-			RawMetadata: map[string]interface{}{
-				"NAMESPACE":  namespace,
-				"GENERATOR":  "grpc",
-				"CLUSTER_ID": "Kubernetes",
+			Metadata: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					Namespace: namespace,
+					Generator: "grpc",
+					ClusterID: "Kubernetes",
+				},
 			},
 		},
 		DiscoveryAddress: grpcXdsAddr,
