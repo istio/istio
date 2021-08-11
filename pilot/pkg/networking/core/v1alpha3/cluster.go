@@ -207,7 +207,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		clusterName:     clusterName,
 		proxyVersion:    cb.proxy.Metadata.IstioVersion,
 		locality:        cb.proxy.Locality,
-		proxyClusterID:  string(cb.proxy.Metadata.ClusterID),
+		proxyClusterID:  cb.clusterID,
 		proxySidecar:    cb.proxy.Type == model.SidecarProxy,
 		networkView:     cb.proxy.GetNetworkView(),
 		http2:           port.Protocol.IsHTTP2(),
@@ -216,6 +216,9 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		destinationRule: cb.req.Push.DestinationRule(cb.proxy, service),
 		envoyFilterKeys: efKeys,
 		pushVersion:     cb.req.Push.PushVersion,
+	}
+	if cb.hasMetadataCerts() {
+		clusterKey.metadataCerts = &cb.metadataCerts
 	}
 	return clusterKey
 }
@@ -523,91 +526,6 @@ func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Clust
 		return cluster.Cluster_EDS
 	default:
 		return cluster.Cluster_EDS
-	}
-}
-
-type mtlsContextType int
-
-const (
-	userSupplied mtlsContextType = iota
-	autoDetected
-)
-
-// buildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-// If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
-// creates and populates the config as if they are set as ISTIO_MUTUAL.
-func buildAutoMtlsSettings(
-	tls *networking.ClientTLSSettings,
-	serviceAccounts []string,
-	sni string,
-	proxy *model.Proxy,
-	autoMTLSEnabled bool,
-	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
-	if tls != nil {
-		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
-			return tls, userSupplied
-		}
-		// For backward compatibility, use metadata certs if provided.
-		if hasMetadataCerts(proxy.Metadata) {
-			// When building Mutual TLS settings, we should always user supplied SubjectAltNames and SNI
-			// in destination rule. The Service Accounts and auto computed SNI should only be used for
-			// ISTIO_MUTUAL.
-			return buildMutualTLS(tls.SubjectAltNames, tls.Sni, proxy), userSupplied
-		}
-		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return tls, userSupplied
-		}
-		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
-		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
-		// are useful when routing via gateways. Use Service Acccounts if Subject Alt names
-		// are not specified in TLS settings.
-		sniToUse := tls.Sni
-		if len(sniToUse) == 0 {
-			sniToUse = sni
-		}
-		subjectAltNamesToUse := tls.SubjectAltNames
-		if len(subjectAltNamesToUse) == 0 {
-			subjectAltNamesToUse = serviceAccounts
-		}
-		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
-	}
-
-	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
-		return nil, userSupplied
-	}
-
-	// For backward compatibility, use metadata certs if provided.
-	if hasMetadataCerts(proxy.Metadata) {
-		return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
-	}
-
-	// Build settings for auto MTLS.
-	return buildIstioMutualTLS(serviceAccounts, sni), autoDetected
-}
-
-func hasMetadataCerts(m *model.NodeMetadata) bool {
-	return m.TLSClientRootCert != "" || m.TLSServerRootCert != ""
-}
-
-// buildMutualTLS returns a `TLSSettings` for MUTUAL mode.
-func buildMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.ClientTLSSettings {
-	return &networking.ClientTLSSettings{
-		Mode:              networking.ClientTLSSettings_MUTUAL,
-		CaCertificates:    proxy.Metadata.TLSClientRootCert,
-		ClientCertificate: proxy.Metadata.TLSClientCertChain,
-		PrivateKey:        proxy.Metadata.TLSClientKey,
-		SubjectAltNames:   serviceAccounts,
-		Sni:               sni,
-	}
-}
-
-// buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
-	return &networking.ClientTLSSettings{
-		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-		SubjectAltNames: serviceAccounts,
-		Sni:             sni,
 	}
 }
 

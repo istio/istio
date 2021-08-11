@@ -87,20 +87,55 @@ type MutableCluster struct {
 	httpProtocolOptions *http.HttpProtocolOptions
 }
 
+// MetadataCerts hosts certificate related metadata specified in proxy metadata.
+type MetadataCerts struct {
+	// tlsServerCertChain is the absolute path to server cert-chain file
+	tlsServerCertChain string
+	// tlsServerKey is the absolute path to server private key file
+	tlsServerKey string
+	// tlsServerRootCert is the absolute path to server root cert file
+	tlsServerRootCert string
+	// tlsClientCertChain is the absolute path to client cert-chain file
+	tlsClientCertChain string
+	// tlsClientKey is the absolute path to client private key file
+	tlsClientKey string
+	// tlsClientRootCert is the absolute path to client root cert file
+	tlsClientRootCert string
+}
+
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
-	proxy *model.Proxy
-	req   *model.PushRequest
-	cache model.XdsCache
+	proxy         *model.Proxy
+	req           *model.PushRequest
+	cache         model.XdsCache
+	metadataCerts MetadataCerts
+	clusterID     string
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
-	return &ClusterBuilder{
+	cb := &ClusterBuilder{
 		proxy: proxy,
 		req:   req,
 		cache: cache,
 	}
+	if proxy.Metadata != nil {
+		cb.metadataCerts = MetadataCerts{
+			tlsServerCertChain: proxy.Metadata.TLSServerCertChain,
+			tlsServerKey:       proxy.Metadata.TLSServerKey,
+			tlsServerRootCert:  proxy.Metadata.TLSServerRootCert,
+			tlsClientCertChain: proxy.Metadata.TLSClientCertChain,
+			tlsClientKey:       proxy.Metadata.TLSClientKey,
+			tlsClientRootCert:  proxy.Metadata.TLSClientRootCert,
+		}
+		cb.clusterID = string(proxy.Metadata.ClusterID)
+	}
+	return cb
+}
+
+func (m MetadataCerts) String() string {
+	return m.tlsClientCertChain + "~" + m.tlsClientKey + "~" + m.tlsClientRootCert +
+		"~" + m.tlsServerCertChain + "~" + m.tlsServerKey + "~" + m.tlsServerRootCert
 }
 
 // NewMutableCluster initializes MutableCluster with the cluster passed.
@@ -327,26 +362,19 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 type clusterCache struct {
 	clusterName string
 
-	// proxy metadata
-	//
-	// proxyVersion is will be matched by envoyfilter patches
-	proxyVersion string
-	// locality identifies the locality the cluster is generated for
-	locality *core.Locality
-	// proxyClusterID identifies the cluster a proxy is in. Note cluster here refers to Kubernetes cluster, not Envoy cluster
-	proxyClusterID string
-	// proxySidecar identifies if this proxy is a Sidecar
-	proxySidecar bool
-	networkView  map[network.ID]bool
+	// proxy related cache fields
+	proxyVersion   string         // will be matched by envoyfilter patches
+	locality       *core.Locality // identifies the locality the cluster is generated for
+	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
+	proxySidecar   bool           // identifies if this proxy is a Sidecar
+	networkView    map[network.ID]bool
+	metadataCerts  *MetadataCerts // metadata certificates of proxy
 
 	// service attributes
-	//
-	// http2 identifies if the cluster is for an http2 service
-	http2          bool
+	http2          bool // http2 identifies if the cluster is for an http2 service
 	downstreamAuto bool
 
 	// Dependent configs
-	//
 	service         *model.Service
 	destinationRule *config.Config
 	envoyFilterKeys []string
@@ -361,6 +389,7 @@ type clusterCache struct {
 func (t *clusterCache) Key() string {
 	params := []string{
 		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
+
 		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
 		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
 		t.pushVersion,
@@ -372,6 +401,9 @@ func (t *clusterCache) Key() string {
 		}
 		sort.Strings(nv)
 		params = append(params, nv...)
+	}
+	if t.metadataCerts != nil {
+		params = append(params, t.metadataCerts.String())
 	}
 	if t.service != nil {
 		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
@@ -504,7 +536,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 		}
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (cb.proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
+		if isClusterLocal && (cb.clusterID != string(instance.Endpoint.Locality.ClusterID)) {
 			continue
 		}
 		// TODO(nmittler): Consider merging discoverability policy with cluster-local
@@ -709,7 +741,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-			tls, mtlsCtxType := buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 		}
@@ -717,6 +749,90 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 
 	if opts.mutable.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 		opts.mutable.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+	}
+}
+
+// buildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+// If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
+// creates and populates the config as if they are set as ISTIO_MUTUAL.
+func (cb *ClusterBuilder) buildAutoMtlsSettings(
+	tls *networking.ClientTLSSettings,
+	serviceAccounts []string,
+	sni string,
+	autoMTLSEnabled bool,
+	meshExternal bool,
+	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
+	if tls != nil {
+		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
+			return tls, userSupplied
+		}
+		// For backward compatibility, use metadata certs if provided.
+		if cb.hasMetadataCerts() {
+			// When building Mutual TLS settings, we should always user supplied SubjectAltNames and SNI
+			// in destination rule. The Service Accounts and auto computed SNI should only be used for
+			// ISTIO_MUTUAL.
+			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
+		}
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return tls, userSupplied
+		}
+		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
+		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
+		// are useful when routing via gateways. Use Service Acccounts if Subject Alt names
+		// are not specified in TLS settings.
+		sniToUse := tls.Sni
+		if len(sniToUse) == 0 {
+			sniToUse = sni
+		}
+		subjectAltNamesToUse := tls.SubjectAltNames
+		if len(subjectAltNamesToUse) == 0 {
+			subjectAltNamesToUse = serviceAccounts
+		}
+		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
+	}
+
+	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
+		return nil, userSupplied
+	}
+
+	// For backward compatibility, use metadata certs if provided.
+	if cb.hasMetadataCerts() {
+		return cb.buildMutualTLS(serviceAccounts, sni), autoDetected
+	}
+
+	// Build settings for auto MTLS.
+	return cb.buildIstioMutualTLS(serviceAccounts, sni), autoDetected
+}
+
+func (cb *ClusterBuilder) hasMetadataCerts() bool {
+	return cb.metadataCerts.tlsClientRootCert != "" || cb.metadataCerts.tlsServerRootCert != ""
+}
+
+type mtlsContextType int
+
+const (
+	userSupplied mtlsContextType = iota
+	autoDetected
+)
+
+// buildMutualTLS returns a `TLSSettings` for MUTUAL mode.
+func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
+	return &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_MUTUAL,
+		CaCertificates:    cb.metadataCerts.tlsClientRootCert,
+		ClientCertificate: cb.metadataCerts.tlsClientCertChain,
+		PrivateKey:        cb.metadataCerts.tlsClientKey,
+		SubjectAltNames:   serviceAccounts,
+		Sni:               sni,
+	}
+}
+
+// buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
+func (cb *ClusterBuilder) buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
+	return &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+		SubjectAltNames: serviceAccounts,
+		Sni:             sni,
 	}
 }
 
