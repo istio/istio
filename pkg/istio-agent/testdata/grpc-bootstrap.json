@@ -23,9 +23,9 @@
       "PROXY_CONFIG": {
         "binaryPath": "/Users/landow/go/src/istio.io/istio/out/darwin_amd64/envoy",
         "concurrency": 2,
-        "configPath": "/var/folders/43/dd38c_f97lvdt_p9rgj7hvq400r4rr/T/TestAgent_gRPC_XDS_bootstrap3603799447/001",
+        "configPath": "/something/predictable",
         "controlPlaneAuthPolicy": "MUTUAL_TLS",
-        "discoveryAddress": "localhost:55690",
+        "discoveryAddress": "something.predictable:123",
         "drainDuration": "45s",
         "parentShutdownDuration": "60s",
         "proxyAdminPort": 15000,

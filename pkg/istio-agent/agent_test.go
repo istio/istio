@@ -389,8 +389,11 @@ func TestAgent(t *testing.T) {
 		if err != nil {
 			t.Fatalf("could not read bootstrap config: %v", err)
 		}
-		// make UDS path in file deterministic
+		// make results determinitstic
 		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
+		got = []byte(strings.ReplaceAll(string(got), a.agent.proxyConfig.ConfigPath, "/something/predictable"))
+		got = []byte(strings.ReplaceAll(string(got), a.agent.proxyConfig.DiscoveryAddress, "something.predictable:123"))
+
 		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
 	})
 }
