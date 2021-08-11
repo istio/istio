@@ -158,6 +158,7 @@ const goldenSuffix = ".golden"
 // Each subdirectory contains two input files: workloadgroup.yaml and meshconfig.yaml that are used
 // to generate golden outputs from the VM command.
 func TestWorkloadEntryConfigure(t *testing.T) {
+	noClusterID := "--clusterID not supplied"
 	files, err := os.ReadDir("testdata/vmconfig")
 	if err != nil {
 		t.Fatal(err)
@@ -195,14 +196,27 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 				}, nil
 			}
 
-			cmd := []string{
+			cmdWithClusterID := []string{
+				"x", "workload", "entry", "configure",
+				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
+				"--internalIP", "10.10.10.10",
+				"--clusterID", "Kubernetes",
+				"-o", testdir,
+			}
+			if _, err := runTestCmd(t, cmdWithClusterID); err != nil {
+				t.Fatal(err)
+			}
+
+			cmdNoClusterID := []string{
 				"x", "workload", "entry", "configure",
 				"-f", path.Join("testdata/vmconfig", dir.Name(), "workloadgroup.yaml"),
 				"--internalIP", "10.10.10.10",
 				"-o", testdir,
 			}
-			if _, err := runTestCmd(t, cmd); err != nil {
-				t.Fatal(err)
+			if output, err := runTestCmd(t, cmdNoClusterID); err != nil {
+				if !strings.Contains(output, noClusterID) {
+					t.Fatal(err)
+				}
 			}
 
 			checkFiles := map[string]bool{
@@ -221,6 +235,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 // proxyMetadata is nil, no metadata would be generated at all.
 func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	testdir := "testdata/vmconfig-nil-proxy-metadata"
+	noClusterID := "--clusterID not supplied"
 
 	kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
 		return &kube.MockClient{
@@ -249,15 +264,28 @@ func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 		}, nil
 	}
 
-	cmd := []string{
+	cmdWithClusterID := []string{
+		"x", "workload", "entry", "configure",
+		"-f", path.Join(testdir, "workloadgroup.yaml"),
+		"--internalIP", "10.10.10.10",
+		"--clusterID", "Kubernetes",
+		"-o", testdir,
+	}
+	if output, err := runTestCmd(t, cmdWithClusterID); err != nil {
+		t.Logf("output: %v", output)
+		t.Fatal(err)
+	}
+
+	cmdNoClusterID := []string{
 		"x", "workload", "entry", "configure",
 		"-f", path.Join(testdir, "workloadgroup.yaml"),
 		"--internalIP", "10.10.10.10",
 		"-o", testdir,
 	}
-	if output, err := runTestCmd(t, cmd); err != nil {
-		t.Logf("output: %v", output)
-		t.Fatal(err)
+	if output, err := runTestCmd(t, cmdNoClusterID); err != nil {
+		if !strings.Contains(output, noClusterID) {
+			t.Fatal(err)
+		}
 	}
 
 	checkFiles := map[string]bool{
