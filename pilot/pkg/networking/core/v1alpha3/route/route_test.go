@@ -43,8 +43,9 @@ import (
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {
-	serviceRegistry := map[host.Name]*model.Service{
-		"*.example.org": {
+	serviceRegistry := make(map[host.Name][]*model.Service)
+	services := []*model.Service{
+		{
 			Hostname:    "*.example.org",
 			Address:     "1.1.1.1",
 			ClusterVIPs: make(map[cluster.ID]string),
@@ -57,6 +58,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		},
 	}
+	serviceRegistry[services[0].Hostname] = services
 
 	node := &model.Proxy{
 		Type:        model.SidecarProxy,

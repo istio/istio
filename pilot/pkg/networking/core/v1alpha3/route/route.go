@@ -84,7 +84,7 @@ type VirtualHostWrapper struct {
 // the given set of virtual Services and a list of Services from the
 // service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
-func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
+func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name][]*model.Service,
 	virtualServices []config.Config, listenPort int) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
@@ -97,8 +97,8 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 			for _, destination := range httpRoute.Route {
 				hostName := destination.Destination.Host
 				var configNamespace string
-				if serviceRegistry[host.Name(hostName)] != nil {
-					configNamespace = serviceRegistry[host.Name(hostName)].Attributes.Namespace
+				if service, _ := GetFirstServiceByHostName(serviceRegistry, host.Name(hostName)); service != nil {
+					configNamespace = service.Attributes.Namespace
 				} else {
 					configNamespace = virtualService.Namespace
 				}
@@ -125,7 +125,11 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	}
 
 	hashByService := map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
-	for _, svc := range serviceRegistry {
+	for _, svcs := range serviceRegistry {
+		if len(svcs) == 0 {
+			continue
+		}
+		svc := svcs[0]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				hash, destinationRule := getHashForService(node, push, svc, port)
@@ -152,7 +156,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 // separateVSHostsAndServices splits the virtual service hosts into Services (if they are found in the registry) and
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service) ([]string, []*model.Service) {
+	serviceRegistry map[host.Name][]*model.Service) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
@@ -163,8 +167,8 @@ func separateVSHostsAndServices(virtualService config.Config,
 	for _, hostname := range rule.Hosts {
 		vshost := host.Name(hostname)
 		if !vshost.IsWildCarded() {
-			if svc, exists := serviceRegistry[vshost]; exists {
-				servicesInVirtualService = append(servicesInVirtualService, svc)
+			if svcs, exists := serviceRegistry[vshost]; exists && svcs != nil {
+				servicesInVirtualService = append(servicesInVirtualService, svcs...)
 			} else {
 				hosts = append(hosts, hostname)
 			}
@@ -179,10 +183,10 @@ func separateVSHostsAndServices(virtualService config.Config,
 		// Say host is *.global
 		foundSvcMatch := false
 		// Say we have Services *.foo.global, *.bar.global
-		for svcHost, svc := range serviceRegistry {
+		for svcHost, svcs := range serviceRegistry {
 			// *.foo.global matches *.global
-			if svcHost.Matches(hostname) {
-				servicesInVirtualService = append(servicesInVirtualService, svc)
+			if svcHost.Matches(hostname) && svcs != nil {
+				servicesInVirtualService = append(servicesInVirtualService, svcs...)
 				foundSvcMatch = true
 			}
 		}
@@ -199,7 +203,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
+	serviceRegistry map[host.Name][]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	listenPort int) []VirtualHostWrapper {
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
@@ -246,18 +250,22 @@ func buildSidecarVirtualHostsForVirtualService(
 }
 
 func buildSidecarVirtualHostsForService(
-	serviceRegistry map[host.Name]*model.Service,
+	serviceRegistry map[host.Name][]*model.Service,
 	hashByService map[host.Name]map[int]*networking.LoadBalancerSettings_ConsistentHashLB,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
-	for _, svc := range serviceRegistry {
+	for _, svcs := range serviceRegistry {
+		if len(svcs) == 0 {
+			continue
+		}
+		svc := svcs[0]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
 				traceOperation := traceOperation(string(svc.Hostname), port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation)
 
-				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
+				// if this host has no virtualService, the consistentHash on its destinationRule will be useless
 				if hashByPort, ok := hashByService[svc.Hostname]; ok {
 					hashPolicy := consistentHashToHashPolicy(hashByPort[port.Port])
 					if hashPolicy != nil {
@@ -266,7 +274,7 @@ func buildSidecarVirtualHostsForService(
 				}
 				out = append(out, VirtualHostWrapper{
 					Port:     port.Port,
-					Services: []*model.Service{svc},
+					Services: svcs,
 					Routes:   []*route.Route{httpRoute},
 				})
 			}
@@ -305,7 +313,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
+	serviceRegistry map[host.Name][]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	listenPort int,
 	gatewayNames map[string]bool) ([]*route.Route, error) {
@@ -372,7 +380,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Coll
 func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
+	serviceRegistry map[host.Name][]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	gatewayNames map[string]bool) *route.Route {
 	// When building routes, its okay if the target cluster cannot be
@@ -469,8 +477,9 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 
 		if in.Mirror != nil {
 			if mp := mirrorPercent(in); mp != nil {
+				svcs, _ := GetFirstServiceByHostName(serviceRegistry, host.Name(in.Mirror.Host))
 				action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-					Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], port),
+					Cluster:         GetDestinationCluster(in.Mirror, svcs, port),
 					RuntimeFraction: mp,
 					TraceSampled:    &wrappers.BoolValue{Value: false},
 				}}
@@ -490,8 +499,9 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 					continue
 				}
 			}
-			hostname := host.Name(dst.GetDestination().GetHost())
-			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
+
+			svcs, _ := GetFirstServiceByHostName(serviceRegistry, host.Name(dst.GetDestination().GetHost()))
+			n := GetDestinationCluster(dst.Destination, svcs, port)
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
 				Name:   n,
 				Weight: weight,
@@ -537,6 +547,16 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	}
 
 	return out
+}
+
+func GetFirstServiceByHostName(serviceRegistry map[host.Name][]*model.Service, hostname host.Name) (*model.Service, bool) {
+	var svcRegistry *model.Service
+	exist := false
+	if svcs, ok := serviceRegistry[hostname]; ok && len(svcs) > 0 {
+		svcRegistry = svcs[0]
+		exist = true
+	}
+	return svcRegistry, exist
 }
 
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
@@ -1142,14 +1162,14 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 
 func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service) map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB {
+	serviceRegistry map[host.Name][]*model.Service) map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB {
 	hashByDestination := map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB{}
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
 			hostName := destination.Destination.Host
 			var configNamespace string
-			if serviceRegistry[host.Name(hostName)] != nil {
-				configNamespace = serviceRegistry[host.Name(hostName)].Attributes.Namespace
+			if service, _ := GetFirstServiceByHostName(serviceRegistry, host.Name(hostName)); service != nil {
+				configNamespace = service.Attributes.Namespace
 			} else {
 				configNamespace = virtualService.Namespace
 			}

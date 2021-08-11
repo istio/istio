@@ -230,9 +230,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 }
 
 func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushContext,
-	virtualService config.Config) map[host.Name]*model.Service {
+	virtualService config.Config) map[host.Name][]*model.Service {
 	vs := virtualService.Spec.(*networking.VirtualService)
-	nameToServiceMap := map[host.Name]*model.Service{}
+	nameToServiceMap := map[host.Name][]*model.Service{}
 
 	addService := func(hostname host.Name) {
 		if _, exist := nameToServiceMap[hostname]; exist {
@@ -253,7 +253,7 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 		if service == nil {
 			service = push.ServiceForHostname(node, hostname)
 		}
-		nameToServiceMap[hostname] = service
+		nameToServiceMap[hostname] = append(nameToServiceMap[hostname], service)
 	}
 
 	for _, httpRoute := range vs.Http {

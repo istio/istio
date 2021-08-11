@@ -33,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
+	pilotroute "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
@@ -1884,7 +1885,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		t.Errorf("The length of nameToServiceMap is wrong.")
 	}
 
-	if service, exist := nameToServiceMap[fooHostName]; !exist || service == nil {
+	if service, exist := pilotroute.GetFirstServiceByHostName(nameToServiceMap, fooHostName); !exist || service == nil {
 		t.Errorf("The service of %s not found or should be not nil.", fooHostName)
 	} else {
 		if service.Ports[0].Port != 80 {
@@ -1896,7 +1897,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}
 	}
 
-	if service, exist := nameToServiceMap[barHostName]; !exist || service == nil {
+	if service, exist := pilotroute.GetFirstServiceByHostName(nameToServiceMap, barHostName); !exist || service == nil {
 		t.Errorf("The service of %s not found or should be not nil", barHostName)
 	} else {
 		if service.Ports[0].Port != 8080 {
@@ -1908,7 +1909,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}
 	}
 
-	if service, exist := nameToServiceMap[bazHostName]; !exist || service != nil {
+	if service, exist := pilotroute.GetFirstServiceByHostName(nameToServiceMap, bazHostName); !exist || service != nil {
 		t.Errorf("The value of hostname %s mapping must be exist and it should be nil.", bazHostName)
 	}
 }

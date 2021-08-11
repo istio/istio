@@ -173,8 +173,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	cacheHit := false
 	if useSniffing && listenerPort != 0 {
 		// Check if we have already computed the list of all virtual hosts for this port
-		// If so, then  we simply have to return only the relevant virtual hosts for
-		// this listener's host:port
+		// If so, then we simply have to return only the relevant virtual hosts for this listener's host:port
 		if vhosts, exists := vHostCache[listenerPort]; exists {
 			virtualHosts = getVirtualHostsForSniffedServicePort(vhosts, routeName)
 			cacheHit = true
@@ -246,7 +245,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	services = egressListener.Services()
-	// To maintain correctness, we should only use the virtualservices for
+	// To maintain correctness, we should only use the virtual services for
 	// this listener and not all virtual services accessible to this proxy.
 	virtualServices = egressListener.VirtualServices()
 
@@ -257,16 +256,16 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		listenerPort = 0
 	}
 
-	servicesByName := make(map[host.Name]*model.Service)
+	servicesByName := make(map[host.Name][]*model.Service)
 	hostsByNamespace := make(map[string][]host.Name)
 	for _, svc := range services {
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
-			servicesByName[svc.Hostname] = svc
+			servicesByName[svc.Hostname] = append(servicesByName[svc.Hostname], svc)
 			hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
-			servicesByName[svc.Hostname] = &model.Service{
+			servicesByName[svc.Hostname] = append(servicesByName[svc.Hostname], &model.Service{
 				Hostname:     svc.Hostname,
 				Address:      svc.GetServiceAddressForProxy(node),
 				MeshExternal: svc.MeshExternal,
@@ -275,7 +274,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				Attributes: model.ServiceAttributes{
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
 				},
-			}
+			})
 			hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
 		}
 	}
@@ -292,7 +291,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		services = make([]*model.Service, 0, len(servicesByName))
 		// sort services
 		for _, svc := range servicesByName {
-			services = append(services, svc)
+			services = append(services, svc[0])
 		}
 		sort.SliceStable(services, func(i, j int) bool {
 			return services[i].Hostname <= services[j].Hostname
@@ -382,20 +381,34 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		if len(virtualHostWrapper.Routes) == 0 {
 			continue
 		}
-		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
+		virtualHosts := make(map[string]*route.VirtualHost)
 
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
 			if vhost := buildVirtualHost(hostname, virtualHostWrapper, nil); vhost != nil {
-				virtualHosts = append(virtualHosts, vhost)
+				virtualHosts[hostname] = vhost
 			}
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			if vhost := buildVirtualHost(string(svc.Hostname), virtualHostWrapper, svc); vhost != nil {
-				virtualHosts = append(virtualHosts, vhost)
+			if existVir, ok := virtualHosts[string(svc.Hostname)]; ok {
+				exist := sets.Set{}
+				for _, d := range existVir.Domains {
+					exist.Insert(d)
+				}
+				domains, _ := generateVirtualHostDomains(svc, virtualHostWrapper.Port, node)
+				for _, v := range domains {
+					if !exist.Contains(v) {
+						existVir.Domains = append(existVir.Domains, v)
+					}
+				}
+				virtualHosts[string(svc.Hostname)] = existVir
+			} else if vhost := buildVirtualHost(string(svc.Hostname), virtualHostWrapper, svc); vhost != nil {
+				virtualHosts[string(svc.Hostname)] = vhost
 			}
 		}
-		vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHosts...)
+		for _, virtualHost := range virtualHosts {
+			vHostPortMap[virtualHostWrapper.Port] = append(vHostPortMap[virtualHostWrapper.Port], virtualHost)
+		}
 	}
 
 	var out []*route.VirtualHost
