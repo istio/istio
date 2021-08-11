@@ -223,9 +223,13 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 
 			// extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 			if !validateFlagIsSetManuallyOrNot(cmd, "clusterID") {
-				fmt.Println("INFO: Flag clusterID is not set manually, extract from injector config")
+				fmt.Fprintf(cmd.OutOrStderr(),
+					"--clusterID not supplied, using the value in configmap of 'istio-sidecar-injector' located at 'values->global->multiCluster->clusterName'\n")
 				// extract the cluster ID from the injector config if it is not set by user
-				clusterName := extractClusterIDFromInjectionConfig(kubeClient)
+				clusterName, err := extractClusterIDFromInjectionConfig(kubeClient, cmd.OutOrStderr())
+				if err != nil {
+					return fmt.Errorf("error occours when retrieving clusterID from configmap, %v", err)
+				}
 				if clusterName != "" {
 					clusterID = clusterName
 				}
@@ -248,7 +252,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
 	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
-	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "Kubernetes", "The ID used to identify the cluster")
+	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", multicluster.IstioEastWestGatewayServiceName, "Name of the Service to be"+
 		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
@@ -601,7 +605,7 @@ func mapToString(m map[string]string) string {
 }
 
 // extractClusterIDFromInjectionConfig can extract clusterID from injection configmap
-func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) string {
+func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient, out io.Writer) (string, error) {
 	injectionConfigMap := "istio-sidecar-injector"
 	// Case with multiple control planes
 	revision := kubeClient.Revision()
@@ -611,17 +615,32 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) string 
 	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
 	// retuen empty if the requested configmap does not exist in the given namespace
 	if err != nil {
-		log.Warnf("configmap %s was not found in namespace %s: %v", istioInjectionCM, istioNamespace, err)
-		return ""
+		fmt.Fprintf(out, "Error: configmap [%q] was not found in namespace [%q]\n", istioInjectionCM, istioNamespace)
+		return "", err
 	}
 
 	var injectedCMValues map[string]interface{}
 	if err := json.Unmarshal([]byte(istioInjectionCM.Data[valuesConfigMapKey]), &injectedCMValues); err != nil {
-		return ""
+		return "", err
 	}
-	globalMap := injectedCMValues["global"].(map[string]interface{})
-	multiClusterMap := globalMap["multiCluster"].(map[string]interface{})
-	clusterName := multiClusterMap["clusterName"].(string)
-	fmt.Printf("INFO: Extracted clusterName is [%s]\n", clusterName)
-	return clusterName
+	var clusterName string
+	var reErr error
+	globalMap, gbok := injectedCMValues["global"].(map[string]interface{})
+	if gbok {
+		multiClusterMap, mcok := globalMap["multiCluster"].(map[string]interface{})
+		if mcok {
+			csName, csok := multiClusterMap["clusterName"].(string)
+			if csok {
+				clusterName = csName
+				fmt.Printf("INFO: Extracted clusterID is [%s]\n", clusterName)
+			} else {
+				reErr = fmt.Errorf("can not retrieve clusterName from configmap")
+			}
+		} else {
+			reErr = fmt.Errorf("can not retrieve multiCluster info from configmap")
+		}
+	} else {
+		reErr = fmt.Errorf("can not retrieve global info from configmap")
+	}
+	return clusterName, reErr
 }
