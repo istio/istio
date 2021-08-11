@@ -87,7 +87,7 @@ func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.X
 // based on the passed in generator. Based on the updates field, generators may
 // choose to send partial or even no response if there are no changes.
 func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
-	currentVersion string, w *model.WatchedResource, req *model.PushRequest) error {
+	w *model.WatchedResource, req *model.PushRequest) error {
 	if w == nil {
 		return nil
 	}
@@ -111,9 +111,10 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	resp := &discovery.DiscoveryResponse{
 		ControlPlane: ControlPlane(),
 		TypeUrl:      w.TypeUrl,
-		VersionInfo:  currentVersion,
-		Nonce:        nonce(push.LedgerVersion),
-		Resources:    model.ResourcesToAny(res),
+		// TODO: send different version for incremental eds
+		VersionInfo: push.PushVersion,
+		Nonce:       nonce(push.LedgerVersion),
+		Resources:   model.ResourcesToAny(res),
 	}
 
 	configSize := ResourceSize(res)

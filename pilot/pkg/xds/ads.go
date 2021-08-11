@@ -199,7 +199,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
+		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
 		}, &model.PushRequest{Full: true})
 	}
@@ -234,7 +234,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	request.Start = time.Now()
-	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
+	return s.pushXds(con, push, con.Watched(req.TypeUrl), request)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -702,14 +702,12 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		return nil
 	}
 
-	currentVersion := versionInfo()
-
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
-			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
+			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
 				return err
 			}
 			continue
@@ -725,7 +723,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		}
 		if synced || timeout {
 			// Send the push now
-			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
+			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
 				return err
 			}
 		} else {
