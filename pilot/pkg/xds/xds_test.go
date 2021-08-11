@@ -462,6 +462,7 @@ subsets:
 					i++
 				}
 				return FakeOptions{
+					DefaultClusterName:              "cluster-1",
 					KubernetesObjectStringByCluster: k8sObjects,
 					ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
