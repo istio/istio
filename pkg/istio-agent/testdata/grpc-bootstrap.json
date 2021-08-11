@@ -19,26 +19,6 @@
       "PILOT_SAN": [
         "istiod.istio-system.svc"
       ],
-      "PROV_CERT": "/Users/landow/go/src/istio.io/istio/tests/testdata/certs/pilot/root-cert.pem",
-      "PROXY_CONFIG": {
-        "binaryPath": "/Users/landow/go/src/istio.io/istio/out/darwin_amd64/envoy",
-        "concurrency": 2,
-        "configPath": "/something/predictable",
-        "controlPlaneAuthPolicy": "MUTUAL_TLS",
-        "discoveryAddress": "something.predictable:123",
-        "drainDuration": "45s",
-        "parentShutdownDuration": "60s",
-        "proxyAdminPort": 15000,
-        "proxyBootstrapTemplatePath": "/Users/landow/go/src/istio.io/istio/tools/packaging/common/envoy_bootstrap.json",
-        "serviceCluster": "istio-proxy",
-        "statNameLength": 189,
-        "statusPort": 15020,
-        "tracing": {
-          "zipkin": {
-            "address": "zipkin.istio-system:9411"
-          }
-        }
-      },
       "PROXY_VIA_AGENT": true
     },
     "locality": {},
@@ -48,9 +28,9 @@
     "default": {
       "plugin_name": "file_watcher",
       "config": {
+        "ca_certificate_file": "/cert/path/root-cert.pem",
         "certificate_file": "/cert/path/cert-chain.pem",
         "private_key_file": "/cert/path/key.pem",
-        "ca_certificate_file": "/cert/path/root-cert.pem",
         "refresh_interval": "900s"
       }
     }
