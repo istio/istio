@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -378,12 +379,17 @@ func TestCertExpired(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to listen: %v", err)
 		}
+		var wg sync.WaitGroup
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			pb.RegisterIstioCertificateServiceServer(s, &mockTokenCAServer{Certs: []string{}})
 			if err := s.Serve(lis); err != nil {
 				t.Logf("failed to serve: %v", err)
 			}
 		}()
+
+		wg.Wait()
 
 		opts := &security.Options{CAEndpoint: lis.Addr().String(), ClusterID: "Kubernetes", CredFetcher: plugin.CreateMockPlugin(validToken)}
 		cli, err := NewCitadelClient(opts, false, nil)
