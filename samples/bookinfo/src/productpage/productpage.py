@@ -30,7 +30,6 @@ import requests
 import sys
 from json2html import *
 import logging
-import requests
 import os
 import asyncio
 
