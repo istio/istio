@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"sort"
@@ -265,7 +266,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 		Received:    map[string]*discovery.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
-		syncCh:      make(chan string, len(collections.Pilot.All())),
+		syncCh:      make(chan string, int(math.Max(float64(len(opts.InitialDiscoveryRequests)), float64(len(collections.Pilot.All()))))),
 		sync:        map[string]time.Time{},
 		errChan:     make(chan error, 10),
 	}
