@@ -58,13 +58,15 @@ import (
 )
 
 type FakeOptions struct {
+	// If provided, sets the name of the "default" or local cluster to the similaed pilots. (Defaults to opts.DefaultClusterName)
+	DefaultClusterName cluster.ID
 	// If provided, a service registry with the name of each map key will be created with the given objects.
 	KubernetesObjectsByCluster map[cluster.ID][]runtime.Object
-	// If provided, these objects will be used directly for the default cluster ("Kubernetes")
+	// If provided, these objects will be used directly for the default cluster ("Kubernetes" or DefaultClusterName)
 	KubernetesObjects []runtime.Object
 	// If provided, a service registry with the name of each map key will be created with the given objects.
 	KubernetesObjectStringByCluster map[cluster.ID]string
-	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes")
+	// If provided, the yaml string will be parsed and used as objects for the default cluster ("Kubernetes" or DefaultClusterName)
 	KubernetesObjectString string
 	// Endpoint mode for the Kubernetes service registry
 	KubernetesEndpointMode kube.EndpointMode
@@ -141,6 +143,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.ConfigUpdate(pushReq)
 	}
 
+	if opts.DefaultClusterName == "" {
+		opts.DefaultClusterName = "Kubernetes"
+	}
 	k8sObjects := getKubernetesObjects(t, opts)
 	var defaultKubeClient kubelib.Client
 	var defaultKubeController *kube.FakeController
@@ -179,7 +184,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Stop:              stop,
 		})
 		// start default client informers after creating ingress/secret controllers
-		if defaultKubeClient == nil || k8sCluster == "Kubernetes" {
+		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
 			defaultKubeController = k8s
 		} else {
@@ -423,14 +428,14 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 	objects := map[cluster.ID][]runtime.Object{}
 
 	if len(opts.KubernetesObjects) > 0 {
-		objects["Kubernetes"] = append(objects["Kubernetes"], opts.KubernetesObjects...)
+		objects[opts.DefaultClusterName] = append(objects[opts.DefaultClusterName], opts.KubernetesObjects...)
 	}
 	if len(opts.KubernetesObjectString) > 0 {
 		parsed, err := kubernetesObjectsFromString(opts.KubernetesObjectString)
 		if err != nil {
 			t.Fatalf("failed parsing KubernetesObjectString: %v", err)
 		}
-		objects["Kubernetes"] = append(objects["Kubernetes"], parsed...)
+		objects[opts.DefaultClusterName] = append(objects[opts.DefaultClusterName], parsed...)
 	}
 	for k8sCluster, objectStr := range opts.KubernetesObjectStringByCluster {
 		parsed, err := kubernetesObjectsFromString(objectStr)
@@ -444,7 +449,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 	}
 
 	if len(objects) == 0 {
-		return map[cluster.ID][]runtime.Object{"Kubernetes": {}}
+		return map[cluster.ID][]runtime.Object{opts.DefaultClusterName: {}}
 	}
 
 	return objects
