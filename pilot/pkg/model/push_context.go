@@ -1777,13 +1777,6 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 			if prio := slice[j].Priority; prio != nil {
 				jPriority = prio.Value
 			}
-			// if priority is the same, in order to still have a
-			// deterministic ordering, we sort based on name + url
-			if iPriority == jPriority {
-				in := slice[i].Name + slice[i].Url
-				jn := slice[j].Name + slice[j].Url
-				return in < jn
-			}
 			return iPriority > jPriority
 		})
 		matchedPlugins[i] = slice
