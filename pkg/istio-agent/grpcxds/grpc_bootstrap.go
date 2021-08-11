@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 )
