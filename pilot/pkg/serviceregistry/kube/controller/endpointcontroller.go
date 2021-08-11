@@ -109,7 +109,8 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		}
 	}
 
-	c.opts.XDSUpdater.EDSUpdate(string(c.Cluster()), string(host), ns, endpoints)
+	shard := model.ShardKeyFromRegistry(c)
+	c.opts.XDSUpdater.EDSUpdate(shard, string(host), ns, endpoints)
 }
 
 // getPod fetches a pod by name or IP address.

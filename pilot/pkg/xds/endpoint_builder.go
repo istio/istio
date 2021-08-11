@@ -283,19 +283,21 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output. Since
 	// len(shards) ~= number of remote clusters which isn't too large, doing this sort shouldn't be
 	// too problematic. If it becomes an issue we can cache it in the EndpointShards struct.
-	keys := make([]string, 0, len(shards.Shards))
+	keys := make([]model.ShardKey, 0, len(shards.Shards))
 	for k := range shards.Shards {
 		keys = append(keys, k)
 	}
 	if len(keys) >= 2 {
-		sort.Strings(keys)
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i] < keys[j]
+		})
 	}
 	// The shards are updated independently, now need to filter and merge for this cluster
-	for _, clusterID := range keys {
-		endpoints := shards.Shards[clusterID]
+	for _, shardKey := range keys {
+		endpoints := shards.Shards[shardKey]
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (cluster.ID(clusterID) != b.clusterID) {
+		if isClusterLocal && (shardKey.Cluster() != b.clusterID) {
 			continue
 		}
 		for _, ep := range endpoints {

@@ -94,7 +94,8 @@ func (ec *serviceExportCacheImpl) updateXDS(se *mcsCore.ServiceExport) {
 	// Update the endpoint cache for this cluster and push an update.
 	endpoints := ec.buildEndpointsForService(svc)
 	if len(endpoints) > 0 {
-		ec.opts.XDSUpdater.EDSUpdate(string(ec.Cluster()), string(hostname), se.Namespace, endpoints)
+		shard := model.ShardKeyFromRegistry(ec)
+		ec.opts.XDSUpdater.EDSUpdate(shard, string(hostname), se.Namespace, endpoints)
 	}
 }
 

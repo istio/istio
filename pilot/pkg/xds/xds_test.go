@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -22,8 +23,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -398,4 +402,153 @@ func mustReadFile(t *testing.T, f string) string {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
 	return string(b)
+}
+
+func TestClusterLocal(t *testing.T) {
+	tests := map[string]struct {
+		fakeOpts            FakeOptions
+		serviceCluster      string
+		wantClusterLocal    map[cluster.ID][]string
+		wantNonClusterLocal map[cluster.ID][]string
+	}{
+		// set up a k8s service in each cluster, with a pod in each cluster and a workloadentry in cluster-1
+		"k8s service with pod and workloadentry": {
+			fakeOpts: func() FakeOptions {
+				k8sObjects := map[cluster.ID]string{
+					"cluster-1": "",
+					"cluster-2": "",
+				}
+				i := 1
+				for range k8sObjects {
+					clusterID := fmt.Sprintf("cluster-%d", i)
+					k8sObjects[cluster.ID(clusterID)] = fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: echo-app
+  name: echo-app
+  namespace: default
+spec:
+  clusterIP: 1.2.3.4
+  selector:
+    app: echo-app
+  ports:
+  - name: grpc
+    port: 7070
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: echo-app
+  name: echo-app-%s
+  namespace: default
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: echo-app
+  namespace: default
+  labels:
+    app: echo-app
+subsets:
+- addresses:
+  - ip: 10.0.0.%d
+  ports:
+  - name: grpc
+    port: 7070
+`, clusterID, i)
+					i++
+				}
+				return FakeOptions{
+					KubernetesObjectStringByCluster: k8sObjects,
+					ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: echo-app
+  namespace: default
+spec:
+  address: 10.1.1.1
+  labels:
+    app: echo-app
+`,
+				}
+			}(),
+			serviceCluster: "outbound|7070||echo-app.default.svc.cluster.local",
+			wantClusterLocal: map[cluster.ID][]string{
+				"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070"},
+				"cluster-2": {"10.0.0.2:7070"},
+			},
+			wantNonClusterLocal: map[cluster.ID][]string{
+				"cluster-1": {"10.0.0.1:7070", "10.1.1.1:7070", "10.0.0.2:7070"},
+				"cluster-2": {"10.0.0.1:7070", "10.1.1.1:7070", "10.0.0.2:7070"},
+			},
+		},
+		"serviceentry": {
+			fakeOpts: FakeOptions{
+				ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc-mongocluster
+spec:
+  hosts:
+  - mymongodb.somedomain 
+  addresses:
+  - 192.192.192.192/24 # VIPs
+  ports:
+  - number: 27018
+    name: mongodb
+    protocol: MONGO
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: 2.2.2.2
+  - address: 3.3.3.3
+`,
+			},
+			serviceCluster: "outbound|27018||mymongodb.somedomain",
+			wantClusterLocal: map[cluster.ID][]string{
+				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":      {},
+			},
+			wantNonClusterLocal: map[cluster.ID][]string{
+				"Kubernetes": {"2.2.2.2:27018", "3.3.3.3:27018"},
+				"other":      {"2.2.2.2:27018", "3.3.3.3:27018"},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			for _, local := range []bool{true, false} {
+				name := "cluster-local"
+				want := tt.wantClusterLocal
+				if !local {
+					name = "non-cluster-local"
+					want = tt.wantNonClusterLocal
+				}
+				t.Run(name, func(t *testing.T) {
+					meshConfig := mesh.DefaultMeshConfig()
+					meshConfig.ServiceSettings = []*v1alpha1.MeshConfig_ServiceSettings{
+						{Hosts: []string{"*"}, Settings: &v1alpha1.MeshConfig_ServiceSettings_Settings{
+							ClusterLocal: local,
+						}},
+					}
+					fakeOpts := tt.fakeOpts
+					fakeOpts.MeshConfig = &meshConfig
+					s := NewFakeDiscoveryServer(t, fakeOpts)
+					for clusterID := range want {
+						p := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: clusterID}}
+						eps := xdstest.ExtractLoadAssignments(s.Endpoints(p))[tt.serviceCluster]
+						if want := want[clusterID]; !listEqualUnordered(eps, want) {
+							t.Errorf("got %v but want %v for %s", eps, want, clusterID)
+						}
+					}
+				})
+			}
+		})
+	}
 }
