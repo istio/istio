@@ -26,9 +26,35 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
+type Config struct {
+	HasSynced func() bool
+	SyncProc  bool
+}
+
 type controller struct {
 	monitor     Monitor
 	configStore model.ConfigStore
+	opts        *Config
+}
+
+// NewControllerWithOptions return an implementation of model.ConfigStoreCache.
+func NewControllerWithOptions(cs model.ConfigStore, opts *Config) model.ConfigStoreCache {
+	if opts == nil {
+		opts = &Config{}
+	}
+
+	out := &controller{
+		configStore: cs,
+		opts:        opts,
+	}
+
+	if opts.SyncProc {
+		out.monitor = NewSyncMonitor(cs)
+	} else {
+		out.monitor = NewMonitor(cs)
+	}
+
+	return out
 }
 
 // NewController return an implementation of model.ConfigStoreCache
@@ -61,7 +87,10 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 
 // Memory implementation is always synchronized with cache
 func (c *controller) HasSynced() bool {
-	return true
+	if c.opts.HasSynced == nil {
+		return true
+	}
+	return c.opts.HasSynced()
 }
 
 func (c *controller) Run(stop <-chan struct{}) {

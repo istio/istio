@@ -221,7 +221,9 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
 			}
 			store := memory.MakeSkipValidation(collections.Pilot)
-			configController := memory.NewController(store)
+			configController := memory.NewControllerWithOptions(store, &memory.Config{
+				HasSynced: xdsMCP.HasSynced,
+			})
 			xdsMCP.Store = model.MakeIstioStore(configController)
 			err = xdsMCP.Run()
 			if err != nil {
