@@ -28,6 +28,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -240,17 +241,17 @@ type XDSUpdater interface {
 	// For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the
 	// registry name.
-	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint)
+	EDSUpdate(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
 
 	// EDSCacheUpdate is called when the list of endpoints or labels in a Service is changed.
 	// For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the
 	// registry name.
 	// Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
-	EDSCacheUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint)
+	EDSCacheUpdate(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
 
 	// SvcUpdate is called when a service definition is updated/deleted.
-	SvcUpdate(shard, hostname string, namespace string, event Event)
+	SvcUpdate(shard ShardKey, hostname string, namespace string, event Event)
 
 	// ConfigUpdate is called to notify the XDS server of config updates and request a push.
 	// The requests may be collapsed and throttled.
@@ -259,6 +260,32 @@ type XDSUpdater interface {
 	// ProxyUpdate is called to notify the XDS server to send a push to the specified proxy.
 	// The requests may be collapsed and throttled.
 	ProxyUpdate(clusterID cluster.ID, ip string)
+}
+
+// shardRegistry is a simplified interface for registries that can produce a shard key
+type shardRegistry interface {
+	Cluster() cluster.ID
+	Provider() provider.ID
+}
+
+func NewShardKey(cluster cluster.ID, provider provider.ID) ShardKey {
+	return ShardKey(fmt.Sprintf("%s/%s", cluster, provider))
+}
+
+// ShardKeyFromRegistry computes the shard key based on provider type and cluster id.
+func ShardKeyFromRegistry(instance shardRegistry) ShardKey {
+	return NewShardKey(instance.Cluster(), instance.Provider())
+}
+
+// ShardKey is the key for EndpointShards made of a key with the format "cluster/provider"
+type ShardKey string
+
+func (sk ShardKey) Cluster() cluster.ID {
+	p := strings.Split(string(sk), "/")
+	if len(p) < 1 {
+		return ""
+	}
+	return cluster.ID(p[0])
 }
 
 // PushRequest defines a request to push to proxies

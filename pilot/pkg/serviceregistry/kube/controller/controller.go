@@ -430,7 +430,7 @@ func (c *Controller) Cleanup() error {
 	}
 	for _, s := range svcs {
 		name := kube.ServiceHostname(s.Name, s.Namespace, c.opts.DomainSuffix)
-		c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(name), s.Namespace, model.EventDelete)
+		c.opts.XDSUpdater.SvcUpdate(model.ShardKeyFromRegistry(c), string(name), s.Namespace, model.EventDelete)
 	}
 	return nil
 }
@@ -490,16 +490,17 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 	}
 
+	shard := model.ShardKeyFromRegistry(c)
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	if event == model.EventAdd || event == model.EventUpdate {
 		endpoints := c.buildEndpointsForService(svcConv)
 		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), svc.Namespace, endpoints)
 		}
 	}
 
-	c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, event)
+	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), svc.Namespace, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -1061,6 +1062,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 		ObjectMeta: metav1.ObjectMeta{Namespace: si.Namespace, Labels: si.Endpoint.Labels},
 	}
 
+	shard := model.ShardKeyFromRegistry(c)
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
@@ -1089,7 +1091,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 			}
 			// fire off eds update
-			c.opts.XDSUpdater.EDSUpdate(string(c.Cluster()), string(service.Hostname), service.Attributes.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSUpdate(shard, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
 }
