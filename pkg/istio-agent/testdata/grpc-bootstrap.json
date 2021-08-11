@@ -14,7 +14,33 @@
   ],
   "node": {
     "id": "sidecar~127.0.0.1~pod1.fake-namespace~fake-namespace.svc.cluster.local",
-    "metadata": {},
+    "metadata": {
+      "INSTANCE_IPS": "127.0.0.1",
+      "PILOT_SAN": [
+        "istiod.istio-system.svc"
+      ],
+      "PROV_CERT": "/Users/landow/go/src/istio.io/istio/tests/testdata/certs/pilot/root-cert.pem",
+      "PROXY_CONFIG": {
+        "binaryPath": "/Users/landow/go/src/istio.io/istio/out/darwin_amd64/envoy",
+        "concurrency": 2,
+        "configPath": "/var/folders/43/dd38c_f97lvdt_p9rgj7hvq400r4rr/T/TestAgent_gRPC_XDS_bootstrap3603799447/001",
+        "controlPlaneAuthPolicy": "MUTUAL_TLS",
+        "discoveryAddress": "localhost:55690",
+        "drainDuration": "45s",
+        "parentShutdownDuration": "60s",
+        "proxyAdminPort": 15000,
+        "proxyBootstrapTemplatePath": "/Users/landow/go/src/istio.io/istio/tools/packaging/common/envoy_bootstrap.json",
+        "serviceCluster": "istio-proxy",
+        "statNameLength": 189,
+        "statusPort": 15020,
+        "tracing": {
+          "zipkin": {
+            "address": "zipkin.istio-system:9411"
+          }
+        }
+      },
+      "PROXY_VIA_AGENT": true
+    },
     "locality": {},
     "UserAgentVersionType": null
   },

@@ -17,6 +17,7 @@ package grpcxds
 import (
 	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/types/known/structpb"
 	"os"
 	"path"
 	"time"
@@ -24,8 +25,6 @@ import (
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 )
@@ -118,9 +117,9 @@ type GenerateBootstrapOptions struct {
 
 // GenerateBootstrap generates the bootstrap structure for gRPC XDS integration.
 func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
-	xdsMeta, err := structpb.NewStruct(opts.Node.RawMetadata)
+	xdsMeta, err := extractMeta(opts.Node)
 	if err != nil {
-		return nil, fmt.Errorf("failed converting to xds metadata: %v", err)
+		return nil, fmt.Errorf("failed extracting xds metadata: %v", err)
 	}
 
 	// TODO direct to CP should use secure channel (most likely JWT + TLS, but possibly allow mTLS)
@@ -165,6 +164,22 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 	}
 
 	return &bootstrap, err
+}
+
+func extractMeta(node *model.Node) (*structpb.Struct, error) {
+	bytes, err := json.Marshal(node.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	rawMeta := map[string]interface{}{}
+	if err := json.Unmarshal(bytes, &rawMeta); err != nil {
+		return nil, err
+	}
+	xdsMeta, err := structpb.NewStruct(rawMeta)
+	if err != nil {
+		return nil, err
+	}
+	return xdsMeta, nil
 }
 
 // GenerateBootstrapFile generates and writes atomically as JSON to the given file path.
