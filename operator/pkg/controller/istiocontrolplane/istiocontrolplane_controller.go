@@ -313,17 +313,20 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	if err != nil {
 		return reconcile.Result{}, nil
 	}
-	var jwtPolicy util.JWTPolicy
-	if jwtPolicy, err = util.DetectSupportedJWTPolicy(kubeClient); err != nil {
-		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
-		scope.Warnf("Failed to detect third-party JWT support: %v", err)
-	} else {
-		if jwtPolicy == util.FirstPartyJWT {
-			scope.Info("Detected that your cluster does not support third party JWT authentication. " +
-				"Falling back to less secure first party JWT. " +
-				"See " + url.ConfigureSAToken + " for details.")
+	if iopMerged.Status == nil || iopMerged.Status.Status == v1alpha1.InstallStatus_NONE {
+		// Detect JWT Policy at the first time.
+		var jwtPolicy util.JWTPolicy
+		if jwtPolicy, err = util.DetectSupportedJWTPolicy(kubeClient); err != nil {
+			// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
+			scope.Warnf("Failed to detect third-party JWT support: %v", err)
+		} else {
+			if jwtPolicy == util.FirstPartyJWT {
+				scope.Info("Detected that your cluster does not support third party JWT authentication. " +
+					"Falling back to less secure first party JWT. " +
+					"See " + url.ConfigureSAToken + " for details.")
+			}
+			globalValues["jwtPolicy"] = string(jwtPolicy)
 		}
-		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
 	client, err := kubernetes.NewForConfig(r.config)
 	if err != nil {
