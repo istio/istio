@@ -741,7 +741,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
-			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 		}
@@ -759,7 +759,6 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
 	sni string,
-	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
