@@ -41,18 +41,18 @@ func (s Set) Delete(items ...string) Set {
 	return s
 }
 
-// Union returns a set of objects that are in both s and s2
+// Union returns a set of objects that are in s or s2
 // For example:
 // s = {a1, a2, a3}
 // s2 = {a1, a2, a4, a5}
-// s.Union(s2) = {a1, a2}
-// s2.Union(s) = {a1, a2}
+// s.Union(s2) = s2.Union(s) = {a1, a2, a3, a4, a5}
 func (s Set) Union(s2 Set) Set {
 	result := NewSet()
 	for key := range s {
-		if _, exist := s2[key]; exist {
-			result.Insert(key)
-		}
+		result.Insert(key)
+	}
+	for key := range s2 {
+		result.Insert(key)
 	}
 	return result
 }
