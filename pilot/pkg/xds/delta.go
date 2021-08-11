@@ -142,14 +142,12 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		return nil
 	}
 
-	currentVersion := versionInfo()
-
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
-			if err := s.pushDeltaXds(con, pushRequest.Push, currentVersion, w, nil, pushRequest); err != nil {
+			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
 				return err
 			}
 			continue
@@ -165,7 +163,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		}
 		if synced || timeout {
 			// Send the push now
-			if err := s.pushDeltaXds(con, pushRequest.Push, currentVersion, w, nil, pushRequest); err != nil {
+			if err := s.pushDeltaXds(con, pushRequest.Push, w, nil, pushRequest); err != nil {
 				return err
 			}
 		} else {
@@ -276,7 +274,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return nil
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
+		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe,
 		}, &model.PushRequest{Full: true})
 	}
@@ -311,7 +309,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	request.Start = time.Now()
-	return s.pushDeltaXds(con, push, versionInfo(), con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)
+	return s.pushDeltaXds(con, push, con.Watched(req.TypeUrl), req.ResourceNamesSubscribe, request)
 }
 
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
@@ -405,7 +403,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 // Push an XDS resource for the given connection. Configuration will be generated
 // based on the passed in generator. Based on the updates field, generators may
 // choose to send partial or even no response if there are no changes.
-func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext, currentVersion string,
+func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	w *model.WatchedResource, subscribe []string, req *model.PushRequest) error {
 	if w == nil {
 		return nil
@@ -452,9 +450,10 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		res = filteredResponse
 	}
 	resp := &discovery.DeltaDiscoveryResponse{
-		ControlPlane:      ControlPlane(),
-		TypeUrl:           w.TypeUrl,
-		SystemVersionInfo: currentVersion,
+		ControlPlane: ControlPlane(),
+		TypeUrl:      w.TypeUrl,
+		// TODO: send different version for incremental eds
+		SystemVersionInfo: push.PushVersion,
 		Nonce:             nonce(push.LedgerVersion),
 		Resources:         res,
 	}
