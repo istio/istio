@@ -604,3 +604,30 @@ func TestProxyConfigAnchors(t *testing.T) {
 		RootCert:     rootCert,
 	})
 }
+
+func TestOSCACertGenerateSecret(t *testing.T) {
+	certPath := security.GetOSRootPath()
+
+	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	opt := &security.Options{}
+
+	fakePlugin := mock.NewMockTokenExchangeServer(nil)
+	opt.TokenExchanger = fakePlugin
+
+	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{})
+	expected, err := sc.GenerateSecret(certPath, "WrongValue")
+	if err != nil {
+		t.Fatalf("Could not get OS Cert: %v", err)
+	}
+
+	gotSecret, err := sc.GenerateSecret("file-root:system", certPath)
+	if err != nil {
+		t.Fatalf("Error using file-root:system : %v", err)
+	}
+	if !bytes.Equal(gotSecret.CertificateChain, expected.CertificateChain) {
+		t.Fatal("Certs did not match")
+	}
+}

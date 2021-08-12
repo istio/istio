@@ -2369,3 +2369,57 @@ func TestTelemetryMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestSystemCACert(t *testing.T) {
+	features.VerifyCertAtClient = true
+	policy := &networking.TrafficPolicy{
+		ConnectionPool: &networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				MaxRetries:        10,
+				UseClientProtocol: true,
+			},
+		},
+		Tls: &networking.ClientTLSSettings{
+			CaCertificates: "",
+		},
+	}
+	selectTrafficPolicyComponents(policy)
+	features.VerifyCertAtClient = false
+	if policy.Tls.CaCertificates != "file-root:system" {
+		t.Error("Could not set OS CA Cert: ")
+	}
+}
+
+func TestSystemCACertNotUsed(t *testing.T) {
+	features.VerifyCertAtClient = false
+	policy := &networking.TrafficPolicy{
+		ConnectionPool: &networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				MaxRetries:        10,
+				UseClientProtocol: true,
+			},
+		},
+		Tls: &networking.ClientTLSSettings{
+			CaCertificates: "file-root:certPath",
+		},
+	}
+	selectTrafficPolicyComponents(policy)
+	if policy.Tls.CaCertificates != "file-root:certPath" {
+		t.Error("Could not set OS CA Cert: ")
+	}
+	emptyPolicy := &networking.TrafficPolicy{
+		ConnectionPool: &networking.ConnectionPoolSettings{
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				MaxRetries:        10,
+				UseClientProtocol: true,
+			},
+		},
+		Tls: &networking.ClientTLSSettings{
+			CaCertificates: "",
+		},
+	}
+	selectTrafficPolicyComponents(emptyPolicy)
+	if emptyPolicy.Tls.CaCertificates != "" {
+		t.Error("Could not set OS CA Cert: ")
+	}
+}

@@ -158,6 +158,39 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
+	t.Run("File system certs", func(t *testing.T) {
+		// User sets FileMountedCerts. They also need to set ISTIO_META_TLS_CLIENT* to specify the
+		// file paths. CA communication is disabled. mTLS is always used for authentication with
+		// Istiod, never JWT.
+		dir := mktemp()
+		copyCertsWithOSRootCA(t, dir)
+
+		osRootPath := security.GetOSRootPath()
+		caRootCertSlices := strings.Split(osRootPath, "/")
+		caRootCert := caRootCertSlices[len(caRootCertSlices)-1]
+		if caRootCert == "" {
+			t.Fatal("OS CA Root Cert couldn't be found.")
+		}
+
+		cfg := model.SdsCertificateConfig{
+			CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
+			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
+			CaCertificatePath: filepath.Join(dir, caRootCert),
+		}
+		Setup(t, func(a AgentTest) AgentTest {
+			// Ensure we use the mTLS certs for XDS
+			a.XdsAuthenticator.Set("", preProvisionID)
+			// Ensure we don't try to connect to CA
+			a.CaAuthenticator.Set("", "")
+			a.ProxyConfig.ProxyMetadata = map[string]string{}
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "cert-chain.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, caRootCert)
+			a.Security.FileMountedCerts = true
+			a.Security.CARootPath = security.GetOSRootPath()
+			return a
+		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
+	})
 	t.Run("Implicit file mounted certs", func(t *testing.T) {
 		// User mounts certificates in /etc/certs (hardcoded path). CA communication is disabled.
 		// mTLS is always used for authentication with Istiod, never JWT.
@@ -531,6 +564,30 @@ func copyCerts(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"), dir, "root-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func copyCertsWithOSRootCA(t *testing.T, dir string) {
+	caRootPath := security.GetOSRootPath()
+	if caRootPath == "" {
+		t.Fatal("OS CA Root Cert could not be found.")
+	}
+	caRootCertSlices := strings.Split(caRootPath, "/")
+	caRootCert := caRootCertSlices[len(caRootCertSlices)-1]
+	if caRootCert == "" {
+		t.Fatal("OS CA Root Cert couldn't be found.")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/cert-chain.pem"), dir, "cert-chain.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/key.pem"), dir, "key.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(caRootPath), dir, caRootCert); err != nil {
 		t.Fatal(err)
 	}
 }

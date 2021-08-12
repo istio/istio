@@ -543,7 +543,7 @@ func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
-	if features.VerifyCertAtClient && tls.CaCertificates == "" {
+	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
 		tls.CaCertificates = "file-root:system"
 	}
 
