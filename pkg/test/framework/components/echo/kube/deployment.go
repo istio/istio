@@ -148,6 +148,7 @@ spec:
 {{- if and
   (ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false")
   (ne ($subset.Annotations.GetByName "inject.istio.io/templates") "grpc")
+  ($.OverlayIstioProxy)
 }}
       - name: istio-proxy
         image: auto
@@ -690,11 +691,12 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
-		"StartupProbe":    supportStartupProbe,
-		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"Revisions":       settings.Revisions.TemplateMap(),
-		"Compatibility":   settings.Compatibility,
-		"Class":           getConfigClass(cfg),
+		"StartupProbe":      supportStartupProbe,
+		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
+		"Revisions":         settings.Revisions.TemplateMap(),
+		"Compatibility":     settings.Compatibility,
+		"Class":             getConfigClass(cfg),
+		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
 	}
 	return params, nil
 }
@@ -1009,4 +1011,15 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 		}
 	}
 	return
+}
+
+func canCreateIstioProxy(version resource.IstioVersion) bool {
+	// if no revision specified create the istio-proxy
+	if string(version) == "" {
+		return true
+	}
+	if minor := strings.Split(string(version), ".")[1]; minor > "8" || len(minor) > 1 {
+		return true
+	}
+	return false
 }
