@@ -31,7 +31,6 @@ spec:
       labels:
         app: foo
         version: bar
-        test.istio.io/class: standard
         istio.io/rev: rev-a
       annotations:
         prometheus.io/scrape: "true"
@@ -109,7 +108,6 @@ spec:
       labels:
         app: foo
         version: bar
-        test.istio.io/class: standard
         istio.io/rev: rev-b
       annotations:
         prometheus.io/scrape: "true"
