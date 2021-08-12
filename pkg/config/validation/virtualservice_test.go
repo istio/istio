@@ -605,6 +605,15 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
+		{name: "negative mirror percentage", route: &networking.HTTPRoute{
+			MirrorPercentage: &networking.Percent{
+				Value: -1,
+			},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
 		{name: "delegate route with delegate", route: &networking.HTTPRoute{
 			Delegate: &networking.Delegate{
 				Name:      "test",
