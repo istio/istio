@@ -16,6 +16,7 @@ package trustdomain
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -115,6 +116,8 @@ func TestReplaceTrustDomainAliases(t *testing.T) {
 
 	for _, tc := range testCases {
 		got := tc.trustDomainBundle.ReplaceTrustDomainAliases(tc.principals)
+		sort.Strings(tc.expect)
+		sort.Strings(got)
 		if !reflect.DeepEqual(got, tc.expect) {
 			t.Errorf("%s failed. Expect: %s. Got: %s", tc.name, tc.expect, got)
 		}

@@ -29,10 +29,10 @@ typedConfig:
                         regex: spiffe://.*/ns/foo/sa/rule[0]-from[1]-principal[0]
                 - authenticated:
                     principalName:
-                      exact: spiffe://td1/ns/foo/sa/rule[0]-from[1]-principal[1]
-                - authenticated:
-                    principalName:
                       safeRegex:
                         googleRe2: {}
                         regex: spiffe://.*bar/ns/foo/sa/rule[0]-from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/foo/sa/rule[0]-from[1]-principal[1]
   shadowRulesStatPrefix: istio_dry_run_allow_

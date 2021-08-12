@@ -19,26 +19,26 @@ typedConfig:
                 ids:
                 - authenticated:
                     principalName:
-                      exact: spiffe://td1/ns/rule[0]/sa/from[0]-principal[0]
+                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[0]-principal[0]
                 - authenticated:
                     principalName:
-                      exact: spiffe://cluster.local/ns/rule[0]/sa/from[0]-principal[0]
+                      exact: spiffe://td1/ns/rule[0]/sa/from[0]-principal[0]
         - andIds:
             ids:
             - orIds:
                 ids:
                 - authenticated:
                     principalName:
-                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[0]
-                - authenticated:
-                    principalName:
                       exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[0]
                 - authenticated:
                     principalName:
-                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[1]
+                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[0]
                 - authenticated:
                     principalName:
                       exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[1]
+                - authenticated:
+                    principalName:
+                      exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[1]
             - orIds:
                 ids:
                 - authenticated:
@@ -62,8 +62,8 @@ typedConfig:
                 ids:
                 - authenticated:
                     principalName:
-                      exact: spiffe://td1/ns/rule[1]/sa/from[0]-principal[0]
+                      exact: spiffe://cluster.local/ns/rule[1]/sa/from[0]-principal[0]
                 - authenticated:
                     principalName:
-                      exact: spiffe://cluster.local/ns/rule[1]/sa/from[0]-principal[0]
+                      exact: spiffe://td1/ns/rule[1]/sa/from[0]-principal[0]
   shadowRulesStatPrefix: istio_dry_run_allow_
