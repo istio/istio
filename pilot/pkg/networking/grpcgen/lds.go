@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -163,66 +164,105 @@ func buildOutboundListeners(node *model.Proxy, filter listenerNameFilter) model.
 	out := make(model.Resources, 0, len(filter))
 	for _, el := range node.SidecarScope.EgressListeners {
 		for _, sv := range el.Services() {
-			sHost := string(sv.Hostname)
-			if !filter.includeHostOrExactName(sHost) {
+			serviceHost := string(sv.Hostname)
+			// the host used in the xds:/// path is what we use for the filter, and we must return the name
+			// the same way it was asked for. we don't want to match on the :port ones, so we set an invalid port.
+			// TODO would it be better to go from shortname -> fqdn in the filter, and store the requested name?
+			filterableNames := append(v1alpha3.GenerateAltVirtualHosts(serviceHost, 65536, node.DNSDomain), serviceHost)
+			matchedHosts, ok := filter.includeHostOrExactName(filterableNames)
+			if !ok {
 				continue
 			}
-			for _, p := range sv.Ports {
-				sPort := strconv.Itoa(p.Port)
-				if !filter.includeHostPort(sHost, sPort) {
-					continue
-				}
-				hp := net.JoinHostPort(sHost, sPort)
-				ll := &listener.Listener{
-					Name: hp,
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Address: sv.Address,
-								PortSpecifier: &core.SocketAddress_PortValue{
-									PortValue: uint32(p.Port),
+			// we must duplicate the listener for every matching host - grpc may have watches for both foo and foo.ns
+			for _, matchedHost := range matchedHosts {
+				for _, p := range sv.Ports {
+					sPort := strconv.Itoa(p.Port)
+					// it's also possible we watch foo:80,but foo.ns:81 so we check the port with matched host
+					if !filter.includeHostPort(matchedHost, sPort) {
+						continue
+					}
+					ll := &listener.Listener{
+						Name: net.JoinHostPort(matchedHost, sPort),
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									Address: sv.Address,
+									PortSpecifier: &core.SocketAddress_PortValue{
+										PortValue: uint32(p.Port),
+									},
 								},
 							},
 						},
-					},
-					ApiListener: &listener.ApiListener{
-						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
-							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
-								Rds: &hcm.Rds{
-									ConfigSource: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_Ads{
-											Ads: &core.AggregatedConfigSource{},
+						ApiListener: &listener.ApiListener{
+							ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+								RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+									// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
+									Rds: &hcm.Rds{
+										ConfigSource: &core.ConfigSource{
+											ConfigSourceSpecifier: &core.ConfigSource_Ads{
+												Ads: &core.AggregatedConfigSource{},
+											},
 										},
+										RouteConfigName: clusterKey(serviceHost, p.Port),
 									},
-									RouteConfigName: clusterKey(sHost, p.Port),
 								},
-							},
-						}),
-					},
+							}),
+						},
+					}
+					out = append(out, &discovery.Resource{
+						Name:     ll.Name,
+						Resource: util.MessageToAny(ll),
+					})
 				}
-
-				out = append(out, &discovery.Resource{
-					Name:     ll.Name,
-					Resource: util.MessageToAny(ll),
-				})
 			}
 		}
 	}
 	return out
 }
 
+//
+//func filterableHostnames(node *model.Proxy, hostname host.Name) []string {
+//	shost := string(hostname)
+//	out := []string{shost}
+//	for _, suffix := range []string{
+//		"." + node.DNSDomain,
+//		".svc" + "." + node.DNSDomain,
+//		"." + node.Metadata.Namespace + ".svc" + "." + node.DNSDomain ,
+//	} {
+//		if trimmed := strings.TrimSuffix(shost, suffix); trimmed != shost {
+//			out = append(out, trimmed)
+//		}
+//	}
+//	return out
+//}
+
+/*
+
+name.ns.svc.cluster.local -<
+name.ns.svc.
+
+
+*/
+
 // map[host] -> map[port] -> exists
 // if the map[port] is empty, an exact listener name was provided (non-hostport)
 type listenerNameFilter map[string]map[string]struct{}
 
-func (f listenerNameFilter) includeHostOrExactName(s string) bool {
+func (f listenerNameFilter) includeHostOrExactName(s []string) ([]string, bool) {
 	if len(f) == 0 {
 		// filter is empty, include everything
-		return true
+		return s, true
 	}
-	_, ok := f[s]
-	return ok
+	var out []string
+	for _, hostname := range s {
+		if _, ok := f[hostname]; ok {
+			out = append(out, hostname)
+		}
+	}
+	if len(out) == 0 {
+		return nil, false
+	}
+	return out, true
 }
 
 func (f listenerNameFilter) includeHostPort(host string, port string) bool {
