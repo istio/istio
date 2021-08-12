@@ -2903,7 +2903,7 @@ func TestBuildDefaultClusterSystemCACert(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &mesh})
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
+			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
 			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
@@ -3042,10 +3042,10 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				Services:       []*model.Service{tt.service},
 			})
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
-			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext(), nil)
+			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.push.DestinationRule(cb.proxy, tt.service)
+			destRule := cb.req.Push.DestinationRule(cb.proxy, tt.service)
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))

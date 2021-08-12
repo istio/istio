@@ -608,7 +608,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 func TestOSCACertGenerateSecret(t *testing.T) {
 	certPath := security.GetOSRootPath()
 
-	fakeCACli, err := mock.NewMockCAClient(time.Hour)
+	fakeCACli, err := mock.NewMockCAClient(time.Hour, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
