@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/pkg/log"
 )
@@ -84,9 +85,9 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 // replaceTrustDomains replace the given principal's trust domain with the trust domains from the
 // trustDomains list and return the new principals.
 func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) []string {
-	principalsForAliases := []string{}
+	principalsForAliases := sets.Set{}
 	for _, td := range t.TrustDomains {
-		// If the trust domain has a prefix * (e.g. *local from *local/ns/foo/ns/bar), keep the principal
+		// If the trust domain has a prefix * (e.g. *local from *local/ns/foo/sa/bar), keep the principal
 		// as-is for the matched trust domain. For others, replace the trust domain with the new trust domain
 		// or alias.
 		var newPrincipal string
@@ -103,11 +104,11 @@ func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) 
 		// Check to make sure we don't generate duplicated principals. This happens when trust domain
 		// has a * prefix. For example, "*-td" can match with "old-td" and "new-td", but we only want
 		// to keep the principal as-is in the generated config, .i.e. *-td.
-		if !isKeyInList(newPrincipal, principalsForAliases) {
-			principalsForAliases = append(principalsForAliases, newPrincipal)
+		if !principalsForAliases.Contains(newPrincipal) {
+			principalsForAliases.Insert(newPrincipal)
 		}
 	}
-	return principalsForAliases
+	return principalsForAliases.UnsortedList()
 }
 
 // replaceTrustDomainInPrincipal returns a new SPIFFE identity with the new trust domain.
