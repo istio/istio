@@ -531,7 +531,7 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	out.Decorator = &route.Decorator{
 		Operation: getRouteOperation(out, virtualService.Name, port),
 	}
-	if fault := in.Fault; fault != nil {
+	if in.Fault != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
 		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
@@ -814,11 +814,11 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 // isCatchAllHeaderMatch determines if the given header is matched with all strings or not.
 // Currently, if the regex has "*" value, it returns true
 func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
-	catchall := false
-
 	if in == nil {
 		return true
 	}
+
+	catchall := false
 
 	switch m := in.MatchType.(type) {
 	case *networking.StringMatch_Regex:
