@@ -648,10 +648,10 @@ func templateParams(cfg echo.Config, settings *image.Settings, revisions resourc
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
-		"StartupProbe":    supportStartupProbe,
-		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"Revisions":       revisions.TemplateMap(),
-		"IsMultiVersion":  revisions.IsMultiVersion(),
+		"StartupProbe":      supportStartupProbe,
+		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
+		"Revisions":         revisions.TemplateMap(),
+		"IsMultiVersion":    revisions.IsMultiVersion(),
 		"OverlayIstioProxy": canCreateIstioProxy(revisions.Minimum()),
 	}
 	return params, nil

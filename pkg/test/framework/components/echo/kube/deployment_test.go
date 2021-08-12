@@ -154,7 +154,6 @@ func TestDeploymentYAML(t *testing.T) {
 				"rev-a": resource.IstioVersion("1.9.0"),
 				"rev-b": resource.IstioVersion("1.10.0"),
 			},
-			compatibility: true,
 		},
 		{
 			name:         "multiple-istio-versions-no-proxy",
