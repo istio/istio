@@ -87,14 +87,8 @@ type MutableCluster struct {
 	httpProtocolOptions *http.HttpProtocolOptions
 }
 
-// MetadataCerts hosts certificate related metadata specified in proxy metadata.
-type MetadataCerts struct {
-	// tlsServerCertChain is the absolute path to server cert-chain file
-	tlsServerCertChain string
-	// tlsServerKey is the absolute path to server private key file
-	tlsServerKey string
-	// tlsServerRootCert is the absolute path to server root cert file
-	tlsServerRootCert string
+// metadataCerts hosts client certificate related metadata specified in proxy metadata.
+type metadataCerts struct {
 	// tlsClientCertChain is the absolute path to client cert-chain file
 	tlsClientCertChain string
 	// tlsClientKey is the absolute path to client private key file
@@ -108,7 +102,7 @@ type ClusterBuilder struct {
 	proxy         *model.Proxy
 	req           *model.PushRequest
 	cache         model.XdsCache
-	metadataCerts MetadataCerts
+	metadataCerts *metadataCerts
 	clusterID     string
 }
 
@@ -120,22 +114,20 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		cache: cache,
 	}
 	if proxy.Metadata != nil {
-		cb.metadataCerts = MetadataCerts{
-			tlsServerCertChain: proxy.Metadata.TLSServerCertChain,
-			tlsServerKey:       proxy.Metadata.TLSServerKey,
-			tlsServerRootCert:  proxy.Metadata.TLSServerRootCert,
-			tlsClientCertChain: proxy.Metadata.TLSClientCertChain,
-			tlsClientKey:       proxy.Metadata.TLSClientKey,
-			tlsClientRootCert:  proxy.Metadata.TLSClientRootCert,
+		if proxy.Metadata.TLSClientCertChain != "" {
+			cb.metadataCerts = &metadataCerts{
+				tlsClientCertChain: proxy.Metadata.TLSClientCertChain,
+				tlsClientKey:       proxy.Metadata.TLSClientKey,
+				tlsClientRootCert:  proxy.Metadata.TLSClientRootCert,
+			}
 		}
 		cb.clusterID = string(proxy.Metadata.ClusterID)
 	}
 	return cb
 }
 
-func (m MetadataCerts) String() string {
-	return m.tlsClientCertChain + "~" + m.tlsClientKey + "~" + m.tlsClientRootCert +
-		"~" + m.tlsServerCertChain + "~" + m.tlsServerKey + "~" + m.tlsServerRootCert
+func (m *metadataCerts) String() string {
+	return m.tlsClientCertChain + "~" + m.tlsClientKey + "~" + m.tlsClientRootCert
 }
 
 // NewMutableCluster initializes MutableCluster with the cluster passed.
@@ -368,7 +360,7 @@ type clusterCache struct {
 	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
 	proxySidecar   bool           // identifies if this proxy is a Sidecar
 	networkView    map[network.ID]bool
-	metadataCerts  *MetadataCerts // metadata certificates of proxy
+	metadataCerts  *metadataCerts // metadata certificates of proxy
 
 	// service attributes
 	http2          bool // http2 identifies if the cluster is for an http2 service
@@ -805,7 +797,7 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 }
 
 func (cb *ClusterBuilder) hasMetadataCerts() bool {
-	return cb.metadataCerts.tlsClientRootCert != "" || cb.metadataCerts.tlsServerRootCert != ""
+	return cb.metadataCerts != nil
 }
 
 type mtlsContextType int
@@ -815,7 +807,7 @@ const (
 	autoDetected
 )
 
-// buildMutualTLS returns a `TLSSettings` for MUTUAL mode.
+// buildMutualTLS returns a `TLSSettings` for MUTUAL mode with proxy metadata certificates.
 func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
 	return &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
