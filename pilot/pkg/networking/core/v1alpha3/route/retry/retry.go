@@ -75,7 +75,7 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 
 	// A policy was specified. Start with the default and override with user-provided fields where appropriate.
 	out := DefaultPolicy()
-	out.NumRetries = &wrappers.UInt32Value{Value: uint32(in.GetAttempts())}
+	out.NumRetries = &wrappers.UInt32Value{Value: uint32(in.Attempts)}
 
 	if in.RetryOn != "" {
 		// Allow the incoming configuration to specify both Envoy RetryOn and RetriableStatusCodes. Any integers are
