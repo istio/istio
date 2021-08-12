@@ -4,4 +4,4 @@ area: traffic-management
 
 releaseNotes:
 - |
-  **Fixed** adsc wrong syncCh size which will make it be certain to hang
+  **Fixed** an issue in which ADS would hang due to the wrong `syncCh` size being provided.
