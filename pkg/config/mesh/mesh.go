@@ -128,13 +128,16 @@ func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfi
 }
 
 func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
-	origMetadata := proxyConfig.ProxyMetadata
-	if err := gogoprotomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
+	result, err := deepCopyProxyConfig(proxyConfig)
+	if err != nil {
+		return nil, fmt.Errorf("could not deep copy proxy config: %v", err)
+	}
+	if err := gogoprotomarshal.ApplyYAML(yaml, result); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
-	newMetadata := proxyConfig.ProxyMetadata
-	proxyConfig.ProxyMetadata = mergeMap(origMetadata, newMetadata)
-	return proxyConfig, nil
+	origMetadata := proxyConfig.ProxyMetadata
+	result.ProxyMetadata = mergeMap(origMetadata, result.ProxyMetadata)
+	return result, nil
 }
 
 func extractYamlField(key string, mp map[string]interface{}) (string, error) {
@@ -231,13 +234,14 @@ func mergeMap(original map[string]string, merger map[string]string) map[string]s
 	if original == nil && merger == nil {
 		return nil
 	}
-	if original == nil {
-		original = map[string]string{}
+	result := map[string]string{}
+	for k, v := range original {
+		result[k] = v
 	}
 	for k, v := range merger {
-		original[k] = v
+		result[k] = v
 	}
-	return original
+	return result
 }
 
 // ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
@@ -256,6 +260,18 @@ func DeepCopyMeshConfig(mc *meshconfig.MeshConfig) (*meshconfig.MeshConfig, erro
 		return nil, err
 	}
 	return nmc, nil
+}
+
+func deepCopyProxyConfig(mc *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
+	j, err := gogoprotomarshal.ToJSON(mc)
+	if err != nil {
+		return nil, err
+	}
+	npc := &meshconfig.ProxyConfig{}
+	if err := gogoprotomarshal.ApplyJSON(j, npc); err != nil {
+		return nil, err
+	}
+	return npc, nil
 }
 
 // EmptyMeshNetworks configuration with no networks
