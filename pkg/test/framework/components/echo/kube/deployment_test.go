@@ -152,6 +152,27 @@ func TestDeploymentYAML(t *testing.T) {
 				},
 			},
 			revVerMap: resource.RevVerMap{
+				"rev-a": resource.IstioVersion("1.9.0"),
+				"rev-b": resource.IstioVersion("1.10.0"),
+			},
+			compatibility: true,
+		},
+		{
+			name:         "multiple-istio-versions-no-proxy",
+			wantFilePath: "testdata/multiple-istio-versions-no-proxy.yaml",
+			config: echo.Config{
+				Service: "foo",
+				Version: "bar",
+				Ports: []echo.Port{
+					{
+						Name:         "http",
+						Protocol:     protocol.HTTP,
+						InstancePort: 8090,
+						ServicePort:  8090,
+					},
+				},
+			},
+			revVerMap: resource.RevVerMap{
 				"rev-a": resource.IstioVersion("1.8.2"),
 				"rev-b": resource.IstioVersion("1.9.0"),
 			},
