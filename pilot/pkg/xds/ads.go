@@ -234,6 +234,12 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	request.Start = time.Now()
+	// SidecarScope for the proxy may not have been updated based on this pushContext.
+	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
+	// but before proxy's SidecarScope has been updated(s.updateProxy).
+	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
+		s.computeProxyState(con.proxy, request)
+	}
 	return s.pushXds(con, push, con.Watched(req.TypeUrl), request)
 }
 
