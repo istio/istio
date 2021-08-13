@@ -215,7 +215,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPYaml, overrideIOPYaml, l)
 
-	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
+	waitForConfirmation(args.skipConfirmation || rootArgs.dryRun, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
 	iop, err := InstallManifests(targetIOP, args.force, rootArgs.dryRun, restConfig, client, args.readinessTimeout, l)
