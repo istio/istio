@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -190,7 +191,9 @@ func RetrieveSpiffeBundleRootCertsFromStringInput(inputString string, extraTrust
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
 func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.CertPool, retryTimeout time.Duration) (
 	map[string][]*x509.Certificate, error) {
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Timeout: time.Second * 10,
+	}
 
 	ret := map[string][]*x509.Certificate{}
 	for trustdomain, endpoint := range config {
@@ -208,7 +211,14 @@ func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.Ce
 		}
 
 		httpClient.Transport = &http.Transport{
+			Proxy:           http.ProxyFromEnvironment,
 			TLSClientConfig: config,
+			DialContext: (&net.Dialer{
+				Timeout: time.Second * 10,
+			}).DialContext,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
 		}
 
 		retryBackoffTime := firstRetryBackOffTime
