@@ -86,7 +86,7 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) []string {
 	principalsForAliases := []string{}
 	for _, td := range t.TrustDomains {
-		// If the trust domain has a prefix * (e.g. *local from *local/ns/foo/ns/bar), keep the principal
+		// If the trust domain has a prefix * (e.g. *local from *local/ns/foo/sa/bar), keep the principal
 		// as-is for the matched trust domain. For others, replace the trust domain with the new trust domain
 		// or alias.
 		var newPrincipal string
