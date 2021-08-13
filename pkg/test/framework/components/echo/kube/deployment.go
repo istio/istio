@@ -135,7 +135,7 @@ spec:
       - name: {{ $.ImagePullSecret }}
 {{- end }}
       containers:
-{{- if ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false" }}
+{{- if and $.OverlayIstioProxy (ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false") }}
       - name: istio-proxy
         image: auto
         securityContext: # to allow core dumps
@@ -648,10 +648,11 @@ func templateParams(cfg echo.Config, settings *image.Settings, revisions resourc
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
-		"StartupProbe":    supportStartupProbe,
-		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"Revisions":       revisions.TemplateMap(),
-		"IsMultiVersion":  revisions.IsMultiVersion(),
+		"StartupProbe":      supportStartupProbe,
+		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
+		"Revisions":         revisions.TemplateMap(),
+		"IsMultiVersion":    revisions.IsMultiVersion(),
+		"OverlayIstioProxy": canCreateIstioProxy(revisions.Minimum()),
 	}
 	return params, nil
 }
@@ -936,4 +937,15 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 		}
 	}
 	return
+}
+
+func canCreateIstioProxy(version resource.IstioVersion) bool {
+	// if no revision specified create the istio-proxy
+	if string(version) == "" {
+		return true
+	}
+	if minor := strings.Split(string(version), ".")[1]; minor > "8" || len(minor) > 1 {
+		return true
+	}
+	return false
 }
