@@ -20,8 +20,6 @@ This folder contains Istio integration tests that use the test framework checked
         1. [Step 2: Add a Prow Job](#step-2-add-a-prow-job)
         1. [Step 3: Update TestGrid](#step-3-update-testgrid)
 1. [Environments](#environments)
-    1. [Native Environment](#native-environment-default)
-    1. [Kubernetes Environment](#kubernetes-environment)
 1. [Diagnosing Failures](#diagnosing-failures)
     1. [Working Directory](#working-directory)
     1. [Enabling CI Mode](#enabling-ci-mode)
@@ -211,7 +209,7 @@ same way: T2 exits, then T2a and T2b are run asynchronously to completion.
 
 ### Using Components
 
-The framework, itself, is just a platform for running tests and tracking resources. Without these `resources`, there
+The framework itself is just a platform for running tests and tracking resources. Without these `resources`, there
 isn't much added value. Enter: components.
 
 Components are utilities that provide abstractions for Istio resources. They are maintained in the
@@ -366,9 +364,9 @@ Tests are tagged with the `integ` build target to avoid accidental invocation. I
 By default, Go will run tests within the same package (i.e. suite) synchronously. However, tests in other packages
 may be run concurrently.
 
-When running in the [Kubernetes environment](#kubernetes-environment) this can be problematic for suites that deploy
-Istio. The Istio deployment, as it stands is a singleton per cluster. If multiple suites attempt to deploy/configure
-Istio, they can corrupt each other and/or simply fail.  To avoid this issue, you have a couple of options:
+When running in the Kubernetes environment this can be problematic for suites that deploy Istio. The Istio deployment,
+as it stands is a singleton per cluster. If multiple suites attempt to deploy/configure Istio,
+they can corrupt each other and/or simply fail.  To avoid this issue, you have a couple of options:
 
 1. Run one suite per command (e.g. `go test ./tests/integration/mysuite/...`)
 1. Disable parallelism with `-p 1` (e.g. `go test -p 1 ./...`). A major disadvantage to doing this is that it will also disable
@@ -571,8 +569,6 @@ The test framework supports the following command-line flags:
   -istio.test.skipVM bool
         Skip all the VM related parts in all the tests. (default is "false")
 ```
-
-}
 
 ## Notes
 
