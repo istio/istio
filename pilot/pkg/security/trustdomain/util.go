@@ -49,6 +49,7 @@ func suffixMatch(a string, pattern string) bool {
 	return strings.HasSuffix(a, pattern)
 }
 
+// isKeyInList it's fine to use this naive implementation for searching in a very short list.
 func isKeyInList(key string, list []string) bool {
 	for _, l := range list {
 		if key == l {
