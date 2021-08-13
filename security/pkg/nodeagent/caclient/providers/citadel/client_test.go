@@ -373,14 +373,20 @@ func TestCertExpired(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
+
+		var wg sync.WaitGroup
+		wg.Add(1)
 		s := grpc.NewServer()
-		defer s.Stop()
+		defer func() {
+			s.Stop()
+			wg.Wait()
+		}()
+
 		lis, err := net.Listen("tcp", mockServerAddress)
 		if err != nil {
 			t.Fatalf("failed to listen: %v", err)
 		}
-		var wg sync.WaitGroup
-		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
 			pb.RegisterIstioCertificateServiceServer(s, &mockTokenCAServer{Certs: []string{}})
@@ -389,13 +395,12 @@ func TestCertExpired(t *testing.T) {
 			}
 		}()
 
-		wg.Wait()
-
 		opts := &security.Options{CAEndpoint: lis.Addr().String(), ClusterID: "Kubernetes", CredFetcher: plugin.CreateMockPlugin(validToken)}
 		cli, err := NewCitadelClient(opts, false, nil)
 		if err != nil {
 			t.Fatalf("failed to create ca client: %v", err)
 		}
+
 		t.Cleanup(cli.Close)
 		t.Run(id, func(t *testing.T) {
 			certExpired, err := cli.isCertExpired(tc.filepath)
