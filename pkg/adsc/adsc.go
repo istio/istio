@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net"
 	"os"
 	"sort"
@@ -197,7 +196,6 @@ type ADSC struct {
 	sendNodeMeta bool
 
 	sync     map[string]time.Time
-	syncCh   chan string
 	Locality *core.Locality
 }
 
@@ -266,7 +264,6 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 		Received:    map[string]*discovery.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
-		syncCh:      make(chan string, int(math.Max(float64(len(opts.InitialDiscoveryRequests)), float64(len(collections.Pilot.All()))))),
 		sync:        map[string]time.Time{},
 		errChan:     make(chan error, 10),
 	}
@@ -562,7 +559,6 @@ func (a *ADSC) handleRecv() {
 			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			if _, exist := a.sync[gt.String()]; !exist {
 				a.sync[gt.String()] = time.Now()
-				a.syncCh <- gt.String()
 			}
 		}
 		a.Received[msg.TypeUrl] = msg
@@ -1114,26 +1110,6 @@ func (a *ADSC) WatchConfig() {
 			Node:          a.node(),
 			TypeUrl:       sch.Resource().GroupVersionKind().String(),
 		})
-	}
-}
-
-// WaitConfigSync will wait for the memory controller to sync.
-func (a *ADSC) WaitConfigSync(max time.Duration) bool {
-	// TODO: when adding support for multiple config controllers (matching MCP), make sure the
-	// new stores support reporting sync events on the syncCh, to avoid the sleep loop from MCP.
-	if a.hasSynced() {
-		return true
-	}
-	maxCh := time.After(max)
-	for {
-		select {
-		case <-a.syncCh:
-			if a.hasSynced() {
-				return true
-			}
-		case <-maxCh:
-			return a.hasSynced()
-		}
 	}
 }
 
