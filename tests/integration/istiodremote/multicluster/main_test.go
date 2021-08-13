@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.Multicluster).
-		RequireMinClusters(3).
+		RequireMinClusters(2).
 		Setup(multicluster.Setup(&appCtx)).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = appCtx.ControlPlaneValues

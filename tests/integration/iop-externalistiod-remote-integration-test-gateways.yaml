@@ -1,0 +1,20 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: default-gateways
+spec:
+  profile: empty
+  components:
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+  values:
+    gateways:
+      istio-ingressgateway:
+        injectionTemplate: gateway
+      istio-egressgateway:
+        injectionTemplate: gateway
