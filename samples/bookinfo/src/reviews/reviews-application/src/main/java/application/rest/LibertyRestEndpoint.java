@@ -88,6 +88,11 @@ public class LibertyRestEndpoint extends Application {
         // Application-specific headers to forward.
         "end-user",
         "user-agent",
+
+        // Context and session specific headers
+        "cookie",
+        "authorization",
+        "jwt",
     };
 
     private String getJsonResponse (String productId, int starsReviewer1, int starsReviewer2) {
