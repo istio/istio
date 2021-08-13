@@ -681,10 +681,10 @@ func (c *client) portForwardRequest(ctx context.Context, podName, podNamespace, 
 	if err != nil {
 		return nil, err
 	}
+	defer fw.Close()
 	if err = fw.Start(); err != nil {
 		return nil, formatError(err)
 	}
-	defer fw.Close()
 	req, err := http.NewRequest(method, fmt.Sprintf("http://%s/%s", fw.Address(), path), nil)
 	if err != nil {
 		return nil, formatError(err)
