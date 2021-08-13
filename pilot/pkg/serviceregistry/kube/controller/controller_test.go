@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -315,6 +316,7 @@ func TestController_GetPodLocality(t *testing.T) {
 
 func TestGetProxyServiceInstances(t *testing.T) {
 	clusterID := cluster.ID("fakeCluster")
+	networkID := network.ID("fakeNetwork")
 	for mode, name := range EndpointModeNames {
 		mode := mode
 		t.Run(name, func(t *testing.T) {
@@ -322,6 +324,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Mode:      mode,
 				ClusterID: clusterID,
 			})
+			// add a network ID to test endpoints include topology.istio.io/network label
+			controller.network = networkID
 			defer controller.Stop()
 			p := generatePod("128.0.0.1", "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 			addPods(t, controller, fx, p)
@@ -404,7 +408,6 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			})
 
 			expected := &model.ServiceInstance{
-
 				Service: &model.Service{
 					Hostname:        "svc1.nsa.svc.company.com",
 					Address:         "10.0.0.1",
@@ -427,9 +430,11 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						NodeRegionLabelGA:          "r",
 						NodeZoneLabelGA:            "z",
 						label.TopologyCluster.Name: clusterID.String(),
+						label.TopologyNetwork.Name: networkID.String(),
 					},
 					ServiceAccount:  "account",
 					Address:         "1.1.1.1",
+					Network:         networkID,
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
 					Locality: model.Locality{
@@ -493,6 +498,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
 					Address:         "129.0.0.1",
+					Network:         networkID,
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
 					Locality: model.Locality{
@@ -505,6 +511,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						NodeZoneLabelGA:            "zone1",
 						label.TopologySubzone.Name: "subzone1",
 						label.TopologyCluster.Name: clusterID.String(),
+						label.TopologyNetwork.Name: networkID.String(),
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,
@@ -559,6 +566,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
 				Endpoint: &model.IstioEndpoint{
 					Address:         "129.0.0.2",
+					Network:         networkID,
 					EndpointPort:    0,
 					ServicePortName: "tcp-port",
 					Locality: model.Locality{
@@ -571,6 +579,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						NodeRegionLabelGA:          "region",
 						NodeZoneLabelGA:            "zone",
 						label.TopologyCluster.Name: clusterID.String(),
+						label.TopologyNetwork.Name: networkID.String(),
 					},
 					ServiceAccount: "spiffe://cluster.local/ns/nsa/sa/svcaccount",
 					TLSMode:        model.DisabledTLSModeLabel,

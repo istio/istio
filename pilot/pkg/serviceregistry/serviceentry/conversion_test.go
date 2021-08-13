@@ -24,12 +24,15 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -717,7 +720,7 @@ func TestConvertInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(strings.Join(tt.externalSvc.Spec.(*networking.ServiceEntry).Hosts, "_"), func(t *testing.T) {
-			instances := convertServiceEntryToInstances(*tt.externalSvc, nil)
+			instances := convertServiceEntryToInstances(*tt.externalSvc, nil, "")
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
@@ -732,10 +735,11 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 		"app": "wle",
 	}
 	serviceInstanceTests := []struct {
-		name string
-		wle  *networking.WorkloadEntry
-		se   *config.Config
-		out  []*model.ServiceInstance
+		name      string
+		wle       *networking.WorkloadEntry
+		se        *config.Config
+		clusterID cluster.ID
+		out       []*model.ServiceInstance
 	}{
 		{
 			name: "simple",
@@ -777,14 +781,43 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 				makeInstance(selector, "1.1.1.1", 8080, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, PlainText),
 			},
 		},
+		{
+			name: "augment label",
+			wle: &networking.WorkloadEntry{
+				Address:        "1.1.1.1",
+				Labels:         labels,
+				Locality:       "region1/zone1/sunzone1",
+				Network:        "network1",
+				ServiceAccount: "default",
+			},
+			se:        selector,
+			clusterID: "fakeCluster",
+			out: []*model.ServiceInstance{
+				makeInstanceWithServiceAccount(selector, "1.1.1.1", 444, selector.Spec.(*networking.ServiceEntry).Ports[0], labels, "default"),
+				makeInstanceWithServiceAccount(selector, "1.1.1.1", 445, selector.Spec.(*networking.ServiceEntry).Ports[1], labels, "default"),
+			},
+		},
 	}
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			instances := convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{})
+			instances := convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
+
+			if tt.wle.Locality != "" || tt.clusterID != "" || tt.wle.Network != "" {
+				for _, serviceInstance := range tt.out {
+					serviceInstance.Endpoint.Locality = model.Locality{
+						Label:     tt.wle.Locality,
+						ClusterID: tt.clusterID,
+					}
+					serviceInstance.Endpoint.Network = network.ID(tt.wle.Network)
+					serviceInstance.Endpoint.Labels = labelutil.AugmentLabels(serviceInstance.Endpoint.Labels,
+						tt.clusterID, tt.wle.Locality, network.ID(tt.wle.Network))
+				}
+			}
+
 			if err := compare(t, instances, tt.out); err != nil {
 				t.Fatal(err)
 			}
@@ -795,6 +828,12 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	labels := map[string]string{
 		"app": "wle",
+	}
+
+	clusterID := "fakeCluster"
+	expectedLabel := map[string]string{
+		"app":                       "wle",
+		"topology.istio.io/cluster": clusterID,
 	}
 
 	workloadInstanceTests := []struct {
@@ -820,10 +859,14 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
-					Labels:         labels,
+					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
 				},
 				PortMap: map[string]uint32{
 					"http": 80,
@@ -852,10 +895,15 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
 						"security.istio.io/tlsMode": "disabled",
+						"topology.istio.io/cluster": clusterID,
 					},
 					Address:        "1.1.1.1",
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "disabled",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
 				},
 				PortMap: map[string]uint32{
 					"http": 80,
@@ -906,10 +954,14 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
-					Labels:         labels,
+					Labels:         expectedLabel,
 					Address:        "1.1.1.1",
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
 				},
 				PortMap: map[string]uint32{
 					"http": 80,
@@ -938,12 +990,60 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
 					Labels: map[string]string{
-						"my-label": "bar",
-						"app":      "wle",
+						"my-label":                  "bar",
+						"app":                       "wle",
+						"topology.istio.io/cluster": clusterID,
 					},
 					Address:        "1.1.1.1",
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
+					Namespace:      "ns1",
+					Locality: model.Locality{
+						ClusterID: cluster.ID(clusterID),
+					},
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+		{
+			name: "augment labels",
+			wle: config.Config{
+				Meta: config.Meta{
+					Namespace: "ns1",
+				},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels:  labels,
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					Locality:       "region1/zone1/subzone1",
+					Network:        "network1",
+					ServiceAccount: "scooby",
+				},
+			},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"app":                           "wle",
+						"topology.kubernetes.io/region": "region1",
+						"topology.kubernetes.io/zone":   "zone1",
+						"topology.istio.io/subzone":     "subzone1",
+						"topology.istio.io/network":     "network1",
+						"topology.istio.io/cluster":     clusterID,
+					},
+					Address: "1.1.1.1",
+					Network: "network1",
+					Locality: model.Locality{
+						Label:     "region1/zone1/subzone1",
+						ClusterID: cluster.ID(clusterID),
+					},
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+					Namespace:      "ns1",
 				},
 				PortMap: map[string]uint32{
 					"http": 80,
@@ -954,7 +1054,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			instance := convertWorkloadEntryToWorkloadInstance(tt.wle)
+			instance := convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
 			}
