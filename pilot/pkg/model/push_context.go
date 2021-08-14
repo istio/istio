@@ -682,11 +682,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
-	configNamespace := ""
 	if proxy != nil {
-		configNamespace = proxy.ConfigNamespace
+		return ps.ServicesBySidecar(proxy.SidecarScope, proxy.Type == SidecarProxy, proxy.ConfigNamespace)
 	}
-	return ps.ServicesBySidecar(proxy.SidecarScope, proxy.Type == SidecarProxy, configNamespace)
+	return ps.ServicesBySidecar(nil, true, "")
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
