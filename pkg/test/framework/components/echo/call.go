@@ -86,6 +86,9 @@ type CallOptions struct {
 	// will be verified.
 	Validator Validator
 
+	// Http proxy used for making ingress echo call via proxy
+	Proxy string
+
 	Alpn       *proto.Alpn
 	ServerName string
 }
