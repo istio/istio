@@ -310,7 +310,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			virtualServices = push.VirtualServicesForGateway(node, gatewayName)
 			gatewayVirtualServices[gatewayName] = virtualServices
 		}
-		if len(virtualServices) == 0 && server.Tls != nil && server.Tls.HttpsRedirect {
+		if server.Tls != nil && server.Tls.HttpsRedirect {
+			// if server.Tls != nil && server.Tls.HttpsRedirect {
 			// this is a plaintext server with TLS redirect enabled. There is no point in processing the
 			// virtual services for this server because all traffic is anyway going to get redirected
 			// to https. short circuit the route computation by generating a virtual host with no routes

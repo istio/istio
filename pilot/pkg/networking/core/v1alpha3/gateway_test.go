@@ -1132,6 +1132,28 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	httpsGateway := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway-https",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+				},
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_TLSmode(networking.ClientTLSSettings_SIMPLE)},
+				},
+			},
+		},
+	}
 	httpGatewayWildcard := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway",
@@ -1166,6 +1188,29 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceHTTPSMatchSpec := &networking.VirtualService{
+		Hosts:    []string{"example.org"},
+		Gateways: []string{"gateway-https"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Port: 443,
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	virtualService := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
@@ -1173,6 +1218,14 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec,
+	}
+	virtualServiceHTTPS := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-https",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceHTTPSMatchSpec,
 	}
 	virtualServiceCopy := config.Config{
 		Meta: config.Meta{
@@ -1265,7 +1318,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 1},
+			map[string]int{"example.org:80": 0},
 			true,
 		},
 		{
@@ -1281,7 +1334,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 4},
+			map[string]int{"example.org:80": 2},
 			true,
 		},
 		{
@@ -1297,7 +1350,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 4},
+			map[string]int{"example.org:80": 2},
 			true,
 		},
 		{
@@ -1393,6 +1446,35 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 			map[string]int{"*.org:80": 1},
 			false,
+		},
+		{
+			"https redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGateway},
+			"https.443.https.gateway-https.default",
+			map[string][]string{
+				"example.org:443": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:443": {"example.org"},
+			},
+			map[string]int{"example.org:443": 1},
+			false,
+		},
+		{
+			"https redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGateway},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			// We will setup a VHost which just redirects; no routes
+			map[string]int{"example.org:80": 0},
+			true,
 		},
 	}
 
