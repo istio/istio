@@ -802,7 +802,7 @@ spec:
 			cmd = append(cmd, "--autoregister")
 		}
 		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-			// LoadBalancer may not be suppported and the command doesn't have NodePort fallback logic that the tests do
+			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 		}
 		// make sure namespace controller has time to create root-cert ConfigMap
