@@ -16,10 +16,12 @@ package mesh
 
 import (
 	"github.com/spf13/cobra"
+
+	"istio.io/pkg/log"
 )
 
 // ProfileCmd is a group of commands related to profile listing, dumping and diffing.
-func ProfileCmd() *cobra.Command {
+func ProfileCmd(logOpts *log.Options) *cobra.Command {
 	pc := &cobra.Command{
 		Use:   "profile",
 		Short: "Commands related to Istio configuration profiles",
@@ -34,8 +36,8 @@ func ProfileCmd() *cobra.Command {
 	args := &rootArgs{}
 
 	plc := profileListCmd(args, plArgs)
-	pdc := profileDumpCmd(args, pdArgs)
-	pdfc := profileDiffCmd(args, pdfArgs)
+	pdc := profileDumpCmd(args, pdArgs, logOpts)
+	pdfc := profileDiffCmd(args, pdfArgs, logOpts)
 
 	addFlags(pc, args)
 	addFlags(plc, args)
