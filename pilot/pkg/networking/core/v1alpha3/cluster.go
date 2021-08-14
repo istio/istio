@@ -145,7 +145,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
+		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
@@ -205,15 +205,15 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	clusterKey := &clusterCache{
 		clusterName:     clusterName,
-		proxyVersion:    cb.proxy.Metadata.IstioVersion,
-		locality:        cb.proxy.Locality,
+		proxyVersion:    cb.proxyVersion,
+		locality:        cb.locality,
 		proxyClusterID:  cb.clusterID,
-		proxySidecar:    cb.proxy.Type == model.SidecarProxy,
-		networkView:     cb.proxy.GetNetworkView(),
+		proxySidecar:    cb.sidecarProxy,
+		networkView:     cb.networkView,
 		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.proxy.Type == model.SidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		downstreamAuto:  cb.sidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		service:         service,
-		destinationRule: cb.req.Push.DestinationRule(cb.proxy, service),
+		destinationRule: cb.req.Push.DestinationRuleBySidecar(service, cb.sidecarScope, cb.sidecarProxy, cb.configNamespace),
 		envoyFilterKeys: efKeys,
 		pushVersion:     cb.req.Push.PushVersion,
 		metadataCerts:   cb.metadataCerts,
@@ -247,7 +247,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(cb.proxy, service)
+			discoveryType := convertResolution(cb.sidecarProxy, service)
 			defaultCluster := cb.buildDefaultCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
@@ -342,14 +342,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(proxy, service)
+			discoveryType := convertResolution(cb.sidecarProxy, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
-			destRule := cb.req.Push.DestinationRule(cb.proxy, service)
+			destRule := cb.req.Push.DestinationRuleBySidecar(service, cb.sidecarScope, cb.sidecarProxy, cb.configNamespace)
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
@@ -378,7 +378,7 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
@@ -386,10 +386,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 	// to those listeners i.e. clusters made out of the defaultEndpoint field.
 	// If the node has no sidecarScope and has interception mode set to NONE, then we should skip the inbound
 	// clusters, because there would be no corresponding inbound listeners
-	sidecarScope := cb.proxy.SidecarScope
-	noneMode := cb.proxy.GetInterceptionMode() == model.InterceptionNone
+	sidecarScope := proxy.SidecarScope
+	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
-	_, actualLocalHost := getActualWildcardAndLocalHost(cb.proxy)
+	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
 
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
@@ -417,7 +417,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		// For each workload port, we will construct a cluster
 		for epPort, instances := range clustersToBuild {
 			// The inbound cluster port equals to endpoint port.
-			localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, instances[0], instances)
+			localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, instances[0], instances)
 			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 			hosts := make([]host.Name, 0, len(instances))
 			for _, si := range instances {
@@ -458,7 +458,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				continue
 			}
 			if parts[0] == model.PodIPAddressPrefix {
-				endpointAddress = cb.proxy.IPAddresses[0]
+				endpointAddress = cb.proxyIPAddresses[0]
 			} else if parts[0] == model.LocalhostAddressPrefix {
 				endpointAddress = actualLocalHost
 			}
@@ -473,7 +473,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.ServicePortName = listenPort.Name
 		instance.Endpoint.EndpointPort = uint32(port)
 
-		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, proxy, instance, nil)
 		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster.build())
 	}
 
@@ -506,7 +506,7 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 	}
 }
 
-func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Cluster_DiscoveryType {
+func convertResolution(sidecar bool, service *model.Service) cluster.Cluster_DiscoveryType {
 	switch service.Resolution {
 	case model.ClientSideLB:
 		return cluster.Cluster_EDS
@@ -514,7 +514,7 @@ func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Clust
 		return cluster.Cluster_STRICT_DNS
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
-		if proxy.Type == model.SidecarProxy {
+		if sidecar {
 			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
 				return cluster.Cluster_EDS
 			}
@@ -552,11 +552,12 @@ const (
 )
 
 type buildClusterOpts struct {
-	mesh            *meshconfig.MeshConfig
-	mutable         *MutableCluster
-	policy          *networking.TrafficPolicy
-	port            *model.Port
-	serviceAccounts []string
+	mesh             *meshconfig.MeshConfig
+	mutable          *MutableCluster
+	policy           *networking.TrafficPolicy
+	port             *model.Port
+	serviceAccounts  []string
+	serviceInstances []*model.ServiceInstance
 	// Used for traffic across multiple Istio clusters
 	// the ingress gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
@@ -566,11 +567,9 @@ type buildClusterOpts struct {
 	// because usually in this case the traffic is going to a
 	// non-sidecar workload that can only understand the service's
 	// hostname in the SNI.
-	simpleTLSSni string
-	clusterMode  ClusterMode
-	direction    model.TrafficDirection
-	// TODO drop this, replace with all fields we use
-	proxy           *model.Proxy
+	simpleTLSSni    string
+	clusterMode     ClusterMode
+	direction       model.TrafficDirection
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
@@ -684,7 +683,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 }
 
-func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
+func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, locality *core.Locality, meshConfig *meshconfig.MeshConfig) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if localityLbSetting != nil && (localityLbSetting.Distribute != nil || localityLbSetting.Failover != nil) {
 		if c.CommonLbConfig == nil {
@@ -696,7 +695,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(proxy.Locality, c, localityLbSetting)
+	applyLocalityLBSetting(locality, c, localityLbSetting)
 
 	// apply default round robin lb policy
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
@@ -766,8 +765,8 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	if opts.mutable.cluster == nil {
 		return
 	}
-	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
-		len(opts.proxy.ServiceInstances) == 0 || opts.port == nil) {
+	if direction == model.TrafficDirectionInbound && (opts.serviceInstances == nil ||
+		len(opts.serviceInstances) == 0 || opts.port == nil) {
 		// At inbound, port and local service instance has to be provided
 		return
 	}

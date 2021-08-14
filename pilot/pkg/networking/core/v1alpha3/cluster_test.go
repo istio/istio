@@ -1735,7 +1735,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				defer func() { features.EnableRedisFilter = defaultValue }()
 			}
 
-			applyLoadBalancer(c, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
+			applyLoadBalancer(c, test.lbSettings, test.port, proxy.Locality, &meshconfig.MeshConfig{})
 
 			if c.LbPolicy != test.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, test.expectedLbPolicy)
@@ -2333,11 +2333,9 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				mutable: NewMutableCluster(tt.cluster),
-				port:    &model.Port{Port: 80},
-				proxy: &model.Proxy{
-					ServiceInstances: tt.svcInsts,
-				},
+				mutable:          NewMutableCluster(tt.cluster),
+				port:             &model.Port{Port: 80},
+				serviceInstances: tt.svcInsts,
 			}
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
