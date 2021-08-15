@@ -330,9 +330,13 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		writeJSON(w, res)
 		return
 	}
-	keys := s.Cache.Keys()
-	sort.Strings(keys)
-	writeJSON(w, keys)
+	snapshot := s.Cache.Snapshot()
+	resources := make(map[string][]string) // Key is typeUrl and value is resource names.
+	for _, resource := range snapshot {
+		typeUrl := resource.Resource.TypeUrl
+		resources[typeUrl] = append(resources[typeUrl], resource.Name)
+	}
+	writeJSON(w, resources)
 }
 
 type endpointzResponse struct {
