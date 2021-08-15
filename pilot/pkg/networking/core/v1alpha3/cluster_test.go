@@ -2523,69 +2523,33 @@ func TestTelemetryMetadata(t *testing.T) {
 	}
 }
 
-func TestAllConfigKeysAreOfTypes(t *testing.T) {
-	tests := []struct {
-		name   string
-		cfgs   map[model.ConfigKey]struct{}
-		target []config.GroupVersionKind
-		want   bool
-	}{
+func TestGetRemovedClusterNames(t *testing.T) {
+	tests := []struct{
+		desc string
+		resNames []string
+		subsets []string
+		target string
+		expected []string
+	} {
 		{
-			name: "only of type",
-			cfgs: map[model.ConfigKey]struct{}{
-				model.ConfigKey{Kind: gvk.DestinationRule}: {},
-				model.ConfigKey{Kind: gvk.Service}:         {},
-			},
-			target: []config.GroupVersionKind{gvk.DestinationRule, gvk.Service},
-			want:   true,
+			desc: "removed cluster, no subsets",
+			resNames: []string{"outbound|80||foo.com", "outbound|80||bar.com", "outbound|80||istio.io"},
+			subsets: []string{},
+			target: "istio.io",
+			expected: []string{"outbound|80||istio.io"},
 		},
 		{
-			name: "only of one type type",
-			cfgs: map[model.ConfigKey]struct{}{
-				// model.ConfigKey{Kind: gvk.DestinationRule}: {},
-				model.ConfigKey{Kind: gvk.Service}: {},
-			},
-			target: []config.GroupVersionKind{gvk.DestinationRule, gvk.Service},
-			want:   true,
-		},
-		{
-			name: "include other types",
-			cfgs: map[model.ConfigKey]struct{}{
-				model.ConfigKey{Kind: gvk.DestinationRule}: {},
-				model.ConfigKey{Kind: gvk.Service}:         {},
-				model.ConfigKey{Kind: gvk.Sidecar}:         {},
-				model.ConfigKey{Kind: gvk.Service}:         {},
-			},
-			target: []config.GroupVersionKind{gvk.DestinationRule, gvk.Service},
-			want:   false,
-		},
-		{
-			name: "only other types",
-			cfgs: map[model.ConfigKey]struct{}{
-				model.ConfigKey{Kind: gvk.VirtualService}:      {},
-				model.ConfigKey{Kind: gvk.AuthorizationPolicy}: {},
-				model.ConfigKey{Kind: gvk.Sidecar}:             {},
-				model.ConfigKey{Kind: gvk.Endpoints}:           {},
-			},
-			target: []config.GroupVersionKind{gvk.DestinationRule, gvk.Service},
-			want:   false,
-		},
-		{
-			name: "dupe types",
-			cfgs: map[model.ConfigKey]struct{}{
-				model.ConfigKey{Kind: gvk.DestinationRule}: {},
-				model.ConfigKey{Kind: gvk.Service}:         {},
-				model.ConfigKey{Kind: gvk.DestinationRule}: {},
-				model.ConfigKey{Kind: gvk.Service}:         {},
-			},
-			target: []config.GroupVersionKind{gvk.DestinationRule, gvk.Service},
-			want:   true,
+			desc: "removed cluster, subsets",
+			resNames: []string{"outbound|80|ss|foo.com", "outbound|80|baz|bar.com", "outbound|80||istio.io"},
+			subsets: []string{"ss", "baz"},
+			target: "bar.com",
+			expected: []string{"outbound|80|baz|bar.com"},
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := AllConfigKeysAreOfTypes(tt.cfgs, tt.target); got != tt.want {
-				t.Errorf("expected %v got %v with configs %v and targets %v", tt.want, got, tt.cfgs, tt.target)
+		t.Run(tt.desc, func(t *testing.T) {
+			if removed := getRemovedClusterNames(tt.resNames, tt.subsets, tt.target); !reflect.DeepEqual(tt.expected, removed) {
+				t.Fatalf("%s => expected %s, got %s", tt.desc, tt.expected, removed)
 			}
 		})
 	}
