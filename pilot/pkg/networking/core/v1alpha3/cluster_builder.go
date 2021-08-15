@@ -105,7 +105,7 @@ type ClusterBuilder struct {
 	clusterID         string
 	proxyID           string
 	proxyVersion      string
-	sidecarProxy      bool
+	proxyType         model.NodeType
 	sidecarScope      *model.SidecarScope
 	passThroughBindIP string
 	supportsIPv4      bool
@@ -123,7 +123,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 	cb := &ClusterBuilder{
 		serviceInstances:  proxy.ServiceInstances,
 		proxyID:           proxy.ID,
-		sidecarProxy:      proxy.Type == model.SidecarProxy,
+		proxyType:         proxy.Type,
 		proxyVersion:      proxy.Metadata.IstioVersion,
 		sidecarScope:      proxy.SidecarScope,
 		passThroughBindIP: getPassthroughBindIP(proxy),
@@ -158,6 +158,11 @@ func NewMutableCluster(cluster *cluster.Cluster) *MutableCluster {
 	return &MutableCluster{
 		cluster: cluster,
 	}
+}
+
+// sidecarProxy returns true if the clusters are being built for sidecar proxy otherwise false.
+func (cb *ClusterBuilder) sidecarProxy() bool {
+	return cb.proxyType == model.SidecarProxy
 }
 
 func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
@@ -974,7 +979,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 	// Hack to avoid egress sds cluster config generation for sidecar when
 	// CredentialName is set in DestinationRule
-	if tls.CredentialName != "" && cb.sidecarProxy {
+	if tls.CredentialName != "" && cb.sidecarProxy() {
 		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			return nil, nil
 		}
@@ -1144,7 +1149,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(mc *MutableCluster, port *model.Po
 	// Since protocol detection is disabled for gateway and use_downstream_protocol is used
 	// under protocol detection for cluster to select upstream connection protocol when
 	// the service port is unnamed. use_downstream_protocol should be disabled for gateway.
-	if cb.sidecarProxy && ((util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
+	if cb.sidecarProxy() && ((util.IsProtocolSniffingEnabledForInboundPort(port) && direction == model.TrafficDirectionInbound) ||
 		(util.IsProtocolSniffingEnabledForOutboundPort(port) && direction == model.TrafficDirectionOutbound)) {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,

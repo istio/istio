@@ -683,16 +683,16 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 // Services returns the list of services that are visible to a Proxy in a given config namespace
 func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	if proxy != nil {
-		return ps.ServicesBySidecar(proxy.SidecarScope, proxy.Type == SidecarProxy, proxy.ConfigNamespace)
+		return ps.ServicesBySidecar(proxy.SidecarScope, proxy.ConfigNamespace)
 	}
-	return ps.ServicesBySidecar(nil, true, "")
+	return ps.ServicesBySidecar(nil, "")
 }
 
 // Services returns the list of services that are visible to a Proxy in a given config namespace
-func (ps *PushContext) ServicesBySidecar(sidecarScope *SidecarScope, sidecar bool, configNamespace string) []*Service {
+func (ps *PushContext) ServicesBySidecar(sidecarScope *SidecarScope, configNamespace string) []*Service {
 	// If proxy has a sidecar scope that is user supplied, then get the services from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	if sidecarScope != nil && sidecar {
+	if sidecarScope != nil {
 		return sidecarScope.services
 	}
 
@@ -817,18 +817,18 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.Config {
-	return ps.DestinationRuleBySidecar(service, proxy.SidecarScope, proxy.Type == SidecarProxy, proxy.ConfigNamespace)
+	return ps.DestinationRuleBySidecar(service, proxy.SidecarScope, proxy.ConfigNamespace)
 }
 
 // DestinationRuleBySidecar returns a destination rule for a service name in a given domain with passed in sidecar.
-func (ps *PushContext) DestinationRuleBySidecar(service *Service, sidecarScope *SidecarScope, sidecar bool, configNamespace string) *config.Config {
+func (ps *PushContext) DestinationRuleBySidecar(service *Service, sidecarScope *SidecarScope, configNamespace string) *config.Config {
 	if service == nil {
 		return nil
 	}
 
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
-	if sidecarScope != nil && sidecar {
+	if sidecarScope != nil {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
 		return sidecarScope.destinationRules[service.Hostname]
@@ -873,7 +873,7 @@ func (ps *PushContext) DestinationRuleBySidecar(service *Service, sidecarScope *
 	// Because based on a pure cluster's fqdn, we do not know the service and
 	// construct a fake service without setting Attributes at all.
 	if svcNs == "" {
-		for _, svc := range ps.ServicesBySidecar(sidecarScope, sidecar, configNamespace) {
+		for _, svc := range ps.ServicesBySidecar(sidecarScope, configNamespace) {
 			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
 				svcNs = svc.Attributes.Namespace
 				break

@@ -208,12 +208,12 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		proxyVersion:    cb.proxyVersion,
 		locality:        cb.locality,
 		proxyClusterID:  cb.clusterID,
-		proxySidecar:    cb.sidecarProxy,
+		proxySidecar:    cb.sidecarProxy(),
 		networkView:     cb.networkView,
 		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.sidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		service:         service,
-		destinationRule: cb.req.Push.DestinationRuleBySidecar(service, cb.sidecarScope, cb.sidecarProxy, cb.configNamespace),
+		destinationRule: cb.req.Push.DestinationRuleBySidecar(service, cb.sidecarScope, cb.configNamespace),
 		envoyFilterKeys: efKeys,
 		pushVersion:     cb.req.Push.PushVersion,
 		metadataCerts:   cb.metadataCerts,
@@ -247,7 +247,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(cb.sidecarProxy, service)
+			discoveryType := convertResolution(cb.sidecarProxy(), service)
 			defaultCluster := cb.buildDefaultCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
@@ -342,14 +342,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(cb.sidecarProxy, service)
+			discoveryType := convertResolution(cb.sidecarProxy(), service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
-			destRule := cb.req.Push.DestinationRuleBySidecar(service, cb.sidecarScope, cb.sidecarProxy, cb.configNamespace)
+			destRule := cb.req.Push.DestinationRuleBySidecar(service, cb.sidecarScope, cb.configNamespace)
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
