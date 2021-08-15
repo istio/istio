@@ -310,8 +310,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			virtualServices = push.VirtualServicesForGateway(node, gatewayName)
 			gatewayVirtualServices[gatewayName] = virtualServices
 		}
-		if server.Tls != nil && server.Tls.HttpsRedirect {
-			// if server.Tls != nil && server.Tls.HttpsRedirect {
+		if len(virtualServices) == 0 && server.Tls != nil && server.Tls.HttpsRedirect {
 			// this is a plaintext server with TLS redirect enabled. There is no point in processing the
 			// virtual services for this server because all traffic is anyway going to get redirected
 			// to https. short circuit the route computation by generating a virtual host with no routes
@@ -388,6 +387,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					}
 					vHostDedupMap[hostname] = newVHost
 				}
+			}
+		}
+
+		// check all hostname in vHostDedupMap and if is not exist with HttpsRedirect set to true
+		// create VirtualHost to redirect
+		for _, hostname := range server.Hosts {
+			if _, exists := vHostDedupMap[host.Name(hostname)]; exists {
+				continue
+			} else if server.Tls != nil && server.Tls.HttpsRedirect {
+				newVHost := &route.VirtualHost{
+					Name:                       domainName(hostname, port),
+					Domains:                    buildGatewayVirtualHostDomains(hostname, port),
+					IncludeRequestAttemptCount: true,
+					RequireTls:                 route.VirtualHost_ALL,
+				}
+				vHostDedupMap[host.Name(hostname)] = newVHost
 			}
 		}
 	}
