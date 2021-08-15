@@ -247,7 +247,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(cb.sidecarProxy(), service)
+			discoveryType := convertResolution(cb.proxyType, service)
 			defaultCluster := cb.buildDefaultCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
@@ -342,7 +342,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(cb.sidecarProxy(), service)
+			discoveryType := convertResolution(cb.proxyType, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
@@ -507,7 +507,7 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 	}
 }
 
-func convertResolution(sidecar bool, service *model.Service) cluster.Cluster_DiscoveryType {
+func convertResolution(proxyType model.NodeType, service *model.Service) cluster.Cluster_DiscoveryType {
 	switch service.Resolution {
 	case model.ClientSideLB:
 		return cluster.Cluster_EDS
@@ -515,7 +515,7 @@ func convertResolution(sidecar bool, service *model.Service) cluster.Cluster_Dis
 		return cluster.Cluster_STRICT_DNS
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
-		if sidecar {
+		if proxyType == model.SidecarProxy {
 			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
 				return cluster.Cluster_EDS
 			}
