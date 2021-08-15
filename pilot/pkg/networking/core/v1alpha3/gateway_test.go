@@ -1082,7 +1082,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 }
 
 func TestGatewayHTTPRouteConfig(t *testing.T) {
-	httpsRedirectGateway := config.Config{
+	httpRedirectGateway := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway-redirect",
 			Namespace:        "default",
@@ -1099,7 +1099,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	httpsRedirectGatewayWithoutVS := config.Config{
+	httpRedirectGatewayWithoutVS := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway-redirect-noroutes",
 			Namespace:        "default",
@@ -1150,6 +1150,28 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"example.org"},
 					Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
 					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_TLSmode(networking.ClientTLSSettings_SIMPLE)},
+				},
+			},
+		},
+	}
+	httpsGatewayRedirect := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway-https",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+				},
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true, Mode: networking.ServerTLSSettings_TLSmode(networking.ClientTLSSettings_SIMPLE)},
 				},
 			},
 		},
@@ -1291,7 +1313,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"tls redirect without virtual services",
 			[]config.Config{virtualService},
-			[]config.Config{httpsRedirectGatewayWithoutVS},
+			[]config.Config{httpRedirectGatewayWithoutVS},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1308,7 +1330,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"virtual services with tls redirect",
 			[]config.Config{virtualService},
-			[]config.Config{httpsRedirectGateway},
+			[]config.Config{httpRedirectGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1318,13 +1340,13 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 0},
+			map[string]int{"example.org:80": 1},
 			true,
 		},
 		{
 			"merging of virtual services when tls redirect is set",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpsRedirectGateway, httpGateway},
+			[]config.Config{httpRedirectGateway, httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1334,13 +1356,13 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 2},
+			map[string]int{"example.org:80": 4},
 			true,
 		},
 		{
 			"reverse merging of virtual services when tls redirect is set",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpGateway, httpsRedirectGateway},
+			[]config.Config{httpGateway, httpRedirectGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1350,13 +1372,13 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			map[string]int{"example.org:80": 2},
+			map[string]int{"example.org:80": 4},
 			true,
 		},
 		{
 			"merging of virtual services when tls redirect is set without VS",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpGateway, httpsRedirectGatewayWithoutVS},
+			[]config.Config{httpGateway, httpRedirectGatewayWithoutVS},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1372,7 +1394,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"reverse merging of virtual services when tls redirect is set without VS",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpsRedirectGatewayWithoutVS, httpGateway},
+			[]config.Config{httpRedirectGatewayWithoutVS, httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1448,7 +1470,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			false,
 		},
 		{
-			"https redirection not working when virtualservice not match http port",
+			"http redirection not working when virtualservice not match http port",
 			[]config.Config{virtualServiceHTTPS},
 			[]config.Config{httpsGateway},
 			"https.443.https.gateway-https.default",
@@ -1462,9 +1484,38 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			false,
 		},
 		{
-			"https redirection not working when virtualservice not match http port",
+			"http redirection not working when virtualservice not match http port",
 			[]config.Config{virtualServiceHTTPS},
 			[]config.Config{httpsGateway},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			// We will setup a VHost which just redirects; no routes
+			map[string]int{"example.org:80": 0},
+			true,
+		},
+		{
+			"http & https redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGatewayRedirect},
+			"https.443.https.gateway-https.default",
+			map[string][]string{
+				"example.org:443": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:443": {"example.org"},
+			},
+			map[string]int{"example.org:443": 1},
+			true,
+		},
+		{
+			"http & https redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGatewayRedirect},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {"example.org", "example.org:*"},
