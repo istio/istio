@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 
@@ -104,14 +105,22 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	return r
 }
 
+// IPv6 addresses are enclosed within square brackets
+func ipv6Compliant(host string) string {
+	if net.ParseIP(host) != nil && strings.Contains(host, ":") {
+		return "[" + host + "]"
+	}
+	return host
+}
+
 // domainName builds the domain name for a given host and port
 func domainName(host string, port int) string {
-	return host + ":" + strconv.Itoa(port)
+	return ipv6Compliant(host) + ":" + strconv.Itoa(port)
 }
 
 func traceOperation(host string, port int) string {
 	// Format : "%s:%d/*"
-	return host + ":" + strconv.Itoa(port) + "/*"
+	return ipv6Compliant(host) + ":" + strconv.Itoa(port) + "/*"
 }
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
@@ -261,7 +270,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundVirtualHosts(node *mod
 			name := domainName(hostname, virtualHostWrapper.Port)
 			duplicate := duplicateVirtualHost(name, vhosts)
 			if !duplicate {
-				domains := []string{hostname, name}
+				domains := []string{ipv6Compliant(hostname), name}
 				dl := len(domains)
 				domains = dedupeDomains(domains, vhdomains, nil, nil)
 				if dl != len(domains) {
@@ -376,7 +385,7 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
 	altHosts := generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
-	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
+	domains := []string{ipv6Compliant(string(service.Hostname)), domainName(string(service.Hostname), port)}
 	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&
