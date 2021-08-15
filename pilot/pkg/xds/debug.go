@@ -333,8 +333,8 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 	snapshot := s.Cache.Snapshot()
 	resources := make(map[string][]string) // Key is typeUrl and value is resource names.
 	for _, resource := range snapshot {
-		typeUrl := resource.Resource.TypeUrl
-		resources[typeUrl] = append(resources[typeUrl], resource.Name)
+		resourceType := resource.Resource.TypeUrl
+		resources[resourceType] = append(resources[resourceType], resource.Name)
 	}
 	writeJSON(w, resources)
 }
