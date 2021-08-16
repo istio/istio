@@ -1,8 +1,8 @@
-{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+{{- $gateway := deepCopy (index .Values "gateways" "istio-egressgateway") | mergeOverwrite .Values | merge (dict "Release" .Release) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ $gateway.name }}-sds
+  name: {{ include "gateway.fullname" $gateway }}-sds
   namespace: {{ .Release.Namespace }}
   labels:
     release: {{ .Release.Name }}

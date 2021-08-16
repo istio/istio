@@ -1,9 +1,9 @@
-{{ $gateway := index .Values "gateways" "istio-egressgateway" }}
+{{- $gateway := deepCopy (index .Values "gateways" "istio-egressgateway") | mergeOverwrite .Values | merge (dict "Release" .Release) }}
 {{- if not $gateway.customService }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ include "gateway.fullname" $gateway }}
   namespace: {{ .Release.Namespace }}
   annotations:
     {{- range $key, $val := $gateway.serviceAnnotations }}

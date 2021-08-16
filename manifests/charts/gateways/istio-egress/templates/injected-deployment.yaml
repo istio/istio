@@ -1,4 +1,4 @@
-{{- $gateway := index .Values "gateways" "istio-egressgateway" }}
+{{- $gateway := deepCopy (index .Values "gateways" "istio-egressgateway") | mergeOverwrite .Values | merge (dict "Release" .Release) }}
 {{- if ne $gateway.injectionTemplate "" }}
 {{/* This provides a minimal gateway, ready to be injected.
      Any settings from values.gateways should be here - these are options specific to the gateway.
@@ -7,7 +7,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $gateway.name | default "istio-egressgateway" }}
+  name: {{ include "gateway.fullname" $gateway }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -57,7 +57,7 @@ spec:
         runAsNonRoot: true
         fsGroup: 1337
 {{- end }}
-      serviceAccountName: {{ $gateway.name | default "istio-egressgateway" }}-service-account
+      serviceAccountName: {{ include "gateway.fullname" $gateway }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}

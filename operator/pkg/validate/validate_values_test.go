@@ -204,7 +204,8 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 	valuesYAML := ""
 	var allFiles []string
 	manifestDir := filepath.Join(repoRootDir, "manifests/charts")
-	for _, sd := range []string{"base", "gateways", "istio-cni", "istio-control"} {
+	// Gateways are not checked since Helm pushes things to top level, while istioctl has it nested
+	for _, sd := range []string{"base", "istio-cni", "istio-control"} {
 		dir := filepath.Join(manifestDir, sd)
 		files, err := util.FindFiles(dir, yamlFileFilter)
 		if err != nil {
