@@ -26,54 +26,58 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 )
 
-type Config struct {
-	HasSynced func() bool
-	SyncProc  bool
+var PatchHasSynced = func(hasSynced func() bool) func(model.ConfigStoreCache) {
+	return wrapPatch(func(c *controller) {
+		c.hasSynced = hasSynced
+	})
+}
+
+func wrapPatch(p func(c *controller)) func(model.ConfigStoreCache) {
+	return func(c model.ConfigStoreCache) {
+		if c == nil {
+			return
+		}
+		con, ok := c.(*controller)
+		if !ok || con == nil {
+			return
+		}
+		p(con)
+	}
+}
+
+func applyPatches(out *controller, patches ...func(model.ConfigStoreCache)) {
+	for _, p := range patches {
+		p(out)
+	}
 }
 
 type controller struct {
 	monitor     Monitor
 	configStore model.ConfigStore
-	opts        *Config
-}
-
-// NewControllerWithOptions return an implementation of model.ConfigStoreCache.
-func NewControllerWithOptions(cs model.ConfigStore, opts *Config) model.ConfigStoreCache {
-	if opts == nil {
-		opts = &Config{}
-	}
-
-	out := &controller{
-		configStore: cs,
-		opts:        opts,
-	}
-
-	if opts.SyncProc {
-		out.monitor = NewSyncMonitor(cs)
-	} else {
-		out.monitor = NewMonitor(cs)
-	}
-
-	return out
+	hasSynced   func() bool
 }
 
 // NewController return an implementation of model.ConfigStoreCache
 // This is a client-side monitor that dispatches events as the changes are being
 // made on the client.
-func NewController(cs model.ConfigStore) model.ConfigStoreCache {
+func NewController(cs model.ConfigStore, patches ...func(model.ConfigStoreCache)) model.ConfigStoreCache {
 	out := &controller{
 		configStore: cs,
 		monitor:     NewMonitor(cs),
 	}
+
+	applyPatches(out, patches...)
 	return out
 }
 
 // NewSyncController return an implementation of model.ConfigStoreCache which processes events synchronously
-func NewSyncController(cs model.ConfigStore) model.ConfigStoreCache {
+func NewSyncController(cs model.ConfigStore, patches ...func(model.ConfigStoreCache)) model.ConfigStoreCache {
 	out := &controller{
 		configStore: cs,
 		monitor:     NewSyncMonitor(cs),
 	}
+
+	applyPatches(out, patches...)
 	return out
 }
 
@@ -85,12 +89,14 @@ func (c *controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 	return nil
 }
 
-// Memory implementation is always synchronized with cache
+// HasSynced return whether store has synced
+// It can be controlled externally (such as by the data source),
+// otherwise it'll always consider synced.
 func (c *controller) HasSynced() bool {
-	if c.opts == nil || c.opts.HasSynced == nil {
-		return true
+	if c.hasSynced != nil {
+		return c.hasSynced()
 	}
-	return c.opts.HasSynced()
+	return true
 }
 
 func (c *controller) Run(stop <-chan struct{}) {

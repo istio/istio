@@ -50,11 +50,9 @@ func TestControllerClientSync(t *testing.T) {
 func TestControllerHashSynced(t *testing.T) {
 	store := memory.Make(collections.Mocks)
 	var v int32
-	ctl := memory.NewControllerWithOptions(store, &memory.Config{
-		HasSynced: func() bool {
-			return atomic.LoadInt32(&v) > 0
-		},
-	})
+	ctl := memory.NewController(store, memory.PatchHasSynced(func() bool {
+		return atomic.LoadInt32(&v) > 0
+	}))
 
 	if ctl.HasSynced() {
 		t.Error("has synced but should not")

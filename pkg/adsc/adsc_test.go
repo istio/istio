@@ -137,7 +137,6 @@ func TestADSC_Run(t *testing.T) {
 		var initReqs []*xdsapi.DiscoveryRequest
 		for _, typeURL := range desc.reqTypeUrls {
 			initReqs = append(initReqs, &xdsapi.DiscoveryRequest{TypeUrl: typeURL})
-			expected[typeURL] = &xdsapi.DiscoveryResponse{TypeUrl: typeURL}
 		}
 		for _, typeURL := range desc.expectedTypeUrls {
 			expected[typeURL] = &xdsapi.DiscoveryResponse{TypeUrl: typeURL}
@@ -164,7 +163,6 @@ func TestADSC_Run(t *testing.T) {
 				},
 				VersionInfo: map[string]string{},
 				sync:        map[string]time.Time{},
-				syncCh:      make(chan string, len(desc.reqTypeUrls)),
 			},
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 				for _, typeURL := range desc.expectedTypeUrls {
