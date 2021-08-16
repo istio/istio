@@ -48,11 +48,6 @@ gateways:
     loadBalancerSourceRanges: []
     serviceAnnotations: {}
 
-    # Enable cross-cluster access using SNI matching
-    zvpn:
-      enabled: false
-      suffix: global
-
     # To generate an internal load balancer:
     # --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
     #serviceAnnotations:

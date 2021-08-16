@@ -156,7 +156,6 @@ spec:
       
     gateways:
       istio-egressgateway:
-        zvpn: {}
         env: {}
         autoscaleEnabled: true
         type: ClusterIP
@@ -173,7 +172,6 @@ spec:
         autoscaleEnabled: true
         type: LoadBalancer
         name: istio-ingressgateway
-        zvpn: {}
         env: {}
         secretVolumes:
           - name: ingressgateway-certs

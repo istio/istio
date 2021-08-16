@@ -13,17 +13,6 @@ gateways:
       targetPort: 8443
       protocol: TCP
 
-    # Enable cross-cluster access using SNI matching.
-    # Make sure you set suffix if deploying multiple egress gateways.
-    zvpn:
-      # Must be different for each egress namespace.
-      # Used to control the domain name suffix for zero vpn routing.
-      # Domain names ending with this suffix will be routed to this egress gateway
-      # automatically.
-      # This can be a real domain name ( istio.example.com )
-      suffix: global
-      enabled: false
-
     labels:
       app: istio-egressgateway
       istio: egressgateway
