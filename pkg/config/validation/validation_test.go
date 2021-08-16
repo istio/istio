@@ -6093,7 +6093,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "empy value",
+			name:       "empty value",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
@@ -6112,7 +6112,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:       "bad selector - empy key",
+			name:       "bad selector - empty key",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{

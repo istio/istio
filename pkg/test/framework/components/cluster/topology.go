@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-// Map can be given as a shared reference to multiple Topology/Cluster implemetations
+// Map can be given as a shared reference to multiple Topology/Cluster implementations.
 // allowing clusters to find each other for lookups of Primary, ConfigCluster, etc.
 type Map = map[string]Cluster
 
