@@ -59,7 +59,8 @@ func TestGateway(t *testing.T) {
 			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
 				t.Fatal(err)
 			}
-			t.Config().ApplyYAMLOrFail(t, "", `
+			retry.UntilSuccessOrFail(t, func() error {
+				err := t.Config().ApplyYAML("", `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -89,7 +90,10 @@ spec:
         from: All
       kind: TCPRoute
 ---`)
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
+				return err
+			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
+			retry.UntilSuccessOrFail(t, func() error {
+				err := t.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
@@ -144,7 +148,8 @@ spec:
     - serviceName: b
       port: 80
 `)
-
+				return err
+			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
 			t.NewSubTest("http").Run(func(t framework.TestContext) {
 				paths := []string{"/get", "/get/", "/get/prefix"}
 				for _, path := range paths {
