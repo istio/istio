@@ -841,6 +841,8 @@ data:
             fsGroup: 1337
           {{- end }}
       grpc-simple: |
+        metadata:
+          sidecar.istio.io/rewriteAppHTTPProbers: "false"
         spec:
           initContainers:
             - name: grpc-bootstrap-init
@@ -908,6 +910,7 @@ data:
             kubectl.kubernetes.io/default-logs-container: "{{ index $containers 0 }}",
             kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
             {{ end }}
+            sidecar.istio.io/rewriteAppHTTPProbers: "false",
           }
         spec:
           containers:
@@ -918,7 +921,7 @@ data:
             - name: "GRPC_XDS_BOOTSTRAP"
               value: "/var/lib/istio/data/grpc-bootstrap.json"
             - name: "GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT"
-              value: "/var/lib/istio/data/grpc-bootstrap.json"
+              value: "true"
             volumeMounts:
             - mountPath: /var/lib/istio/data
               name: istio-data
