@@ -379,6 +379,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			}
 
 			// Install ingress and egress gateways
+			// These need to be installed as a separate step for external control planes because config clusters are installed
+			// before the external control plane cluster. Since remote clusters use gateway injection, we can't install the gateways
+			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
+			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
 			if err = installRemoteClusterGateways(i, c); err != nil {
 				return i, err
 			}
