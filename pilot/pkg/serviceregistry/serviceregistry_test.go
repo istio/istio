@@ -245,7 +245,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, kc, expectedSvc, 80, instances)
 	})
 
-	t.Run("External only", func(t *testing.T) {
+	t.Run("External only: workLoadEntry port and serviceEntry target port is not set, use serviceEntry port.number", func(t *testing.T) {
 		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, workloadEntry)
@@ -259,7 +259,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
-	t.Run("External only with named port override", func(t *testing.T) {
+	t.Run("External only: the port name of the workloadEntry and serviceEntry does match, use workloadEntry port to override", func(t *testing.T) {
 		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, config.Config{
@@ -287,7 +287,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
-	t.Run("External only with target port", func(t *testing.T) {
+	t.Run("External only: workloadEntry port is not set, use target port", func(t *testing.T) {
 		_, wc, store, _, _ := setupTest(t)
 		makeIstioObject(t, store, config.Config{
 			Meta: config.Meta{
@@ -316,6 +316,82 @@ func TestWorkloadInstances(t *testing.T) {
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       8080,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
+	t.Run("External only: the port name of the workloadEntry and serviceEntry does not match, use target port", func(t *testing.T) {
+		_, wc, store, _, _ := setupTest(t)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service.namespace.svc.cluster.local"},
+				Ports: []*networking.Port{{
+					Name:       "http",
+					Number:     80,
+					Protocol:   "http",
+					TargetPort: 8080,
+				}},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workload",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"different-port-name": 8081,
+				},
+			},
+		})
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       8080,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
+	t.Run("External only: the port name of the workloadEntry and serviceEntry does not match, "+
+		"and the serivceEntry target port is not set, use serviceEntry port.number", func(t *testing.T) {
+		_, wc, store, _, _ := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
+				Name:             "workload",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"different-port-name": 8081,
+				},
+			},
+		})
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       80,
 		}}
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
