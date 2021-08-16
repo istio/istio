@@ -318,21 +318,29 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		snapshot := s.Cache.Snapshot()
 		res := make(map[string]string, len(snapshot))
 		totalSize := 0
-		for k, v := range snapshot {
-			if v == nil {
+		for _, resource := range snapshot {
+			if resource == nil {
 				continue
 			}
-			sz := len(v.Resource.GetValue())
-			res[k] = util.ByteCount(sz)
+			resourceType := resource.Resource.TypeUrl
+			sz := len(resource.Resource.GetValue())
+			res[resourceType] += util.ByteCount(sz)
 			totalSize += sz
 		}
 		res["total"] = util.ByteCount(totalSize)
 		writeJSON(w, res)
 		return
 	}
-	keys := s.Cache.Keys()
-	sort.Strings(keys)
-	writeJSON(w, keys)
+	snapshot := s.Cache.Snapshot()
+	resources := make(map[string][]string, len(snapshot)) // Key is typeUrl and value is resource names.
+	for key, resource := range snapshot {
+		if resource == nil {
+			continue
+		}
+		resourceType := resource.Resource.TypeUrl
+		resources[resourceType] = append(resources[resourceType], resource.Name+"/"+key)
+	}
+	writeJSON(w, resources)
 }
 
 type endpointzResponse struct {
