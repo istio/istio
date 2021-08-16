@@ -190,10 +190,9 @@ func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfig
 			// Valid configuration; set isReady to true and wait for modifications before checking again
 			SetReady(isReady)
 			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
-			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
-				// Pod set to "NotReady" before termination
-				return err
-			}
+			err = util.WaitForFileMod(ctx, fileModified, errChan)
+			// Pod set to "NotReady" before termination
+			return err
 		}
 	}
 }

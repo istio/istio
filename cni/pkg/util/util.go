@@ -46,11 +46,13 @@ func CreateFileWatcher(dir string) (watcher *fsnotify.Watcher, fileModified chan
 func watchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error) {
 	for {
 		select {
-		case _, ok := <-watcher.Events:
+		case event, ok := <-watcher.Events:
 			if !ok {
 				return
 			}
-			fileModified <- true
+			if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove) != 0 {
+				fileModified <- true
+			}
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
