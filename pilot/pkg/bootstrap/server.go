@@ -892,7 +892,7 @@ func (s *Server) initRegistryEventHandlers() {
 			}()
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {
-				log.Infof("skipping push for %s as spec has not changed", prev.Key())
+				log.Debugf("skipping push for %s as spec has not changed", prev.Key())
 				return
 			}
 			pushReq := &model.PushRequest{
