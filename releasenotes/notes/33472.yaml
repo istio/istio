@@ -5,4 +5,4 @@ issue:
   - 33472
 releaseNotes:
   - |
-    **Added** VerifyCertAtClient Environmental Variable to pilot. Setting VerifyCertAtClient to `true` will verify server certificates using the OS CA certificate.
+    **Added** `VERTIFY_CERT_AT_CLIENT` environmental variable to pilot. Setting `VERTIFY_CERT_AT_CLIENT` to `true` will verify server certificates using the OS CA certificates when not using a `DestinationRule` `caCertificates` field [Issue #33472](github.com/istio/istio/issues/33472).

@@ -2728,200 +2728,6 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	}
 }
 
-func TestBuildDefaultClusterSystemCACert(t *testing.T) {
-	features.VerifyCertAtClient = true
-	servicePort := &model.Port{
-		Name:     "default",
-		Port:     8080,
-		Protocol: protocol.HTTP,
-	}
-
-	cases := []struct {
-		name            string
-		clusterName     string
-		discovery       cluster.Cluster_DiscoveryType
-		endpoints       []*endpoint.LocalityLbEndpoints
-		direction       model.TrafficDirection
-		external        bool
-		expectedCluster *cluster.Cluster
-	}{
-		{
-			name:        "default EDS cluster",
-			clusterName: "foo",
-			discovery:   cluster.Cluster_EDS,
-			endpoints:   nil,
-			direction:   model.TrafficDirectionOutbound,
-			external:    false,
-			expectedCluster: &cluster.Cluster{
-				Name:                 "foo",
-				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
-				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
-				},
-				Metadata: &core.Metadata{
-					FilterMetadata: map[string]*structpb.Struct{
-						util.IstioMetadataKey: {
-							Fields: map[string]*structpb.Value{
-								"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-									{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-										"host": {
-											Kind: &structpb.Value_StringValue{
-												StringValue: "host",
-											},
-										},
-										"name": {
-											Kind: &structpb.Value_StringValue{
-												StringValue: "svc",
-											},
-										},
-										"namespace": {
-											Kind: &structpb.Value_StringValue{
-												StringValue: "default",
-											},
-										},
-									}}}},
-								}}}},
-								"default_original_port": {
-									Kind: &structpb.Value_NumberValue{
-										NumberValue: float64(8080),
-									},
-								},
-							},
-						},
-					},
-				},
-				EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
-					ServiceName: "foo",
-					EdsConfig: &core.ConfigSource{
-						ConfigSourceSpecifier: &core.ConfigSource_Ads{
-							Ads: &core.AggregatedConfigSource{},
-						},
-						InitialFetchTimeout: durationpb.New(0),
-						ResourceApiVersion:  core.ApiVersion_V3,
-					},
-				},
-			},
-		},
-		{
-			name:            "static cluster with no endpoints",
-			clusterName:     "foo",
-			discovery:       cluster.Cluster_STATIC,
-			endpoints:       nil,
-			direction:       model.TrafficDirectionOutbound,
-			external:        false,
-			expectedCluster: nil,
-		},
-		{
-			name:            "strict DNS cluster with no endpoints",
-			clusterName:     "foo",
-			discovery:       cluster.Cluster_STRICT_DNS,
-			endpoints:       nil,
-			direction:       model.TrafficDirectionOutbound,
-			external:        false,
-			expectedCluster: nil,
-		},
-		{
-			name:        "static cluster with endpoints",
-			clusterName: "foo",
-			discovery:   cluster.Cluster_STATIC,
-			endpoints: []*endpoint.LocalityLbEndpoints{
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone1",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-			},
-			direction: model.TrafficDirectionOutbound,
-			external:  false,
-			expectedCluster: &cluster.Cluster{
-				Name:                 "foo",
-				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
-				LoadAssignment: &endpoint.ClusterLoadAssignment{
-					ClusterName: "foo",
-					Endpoints: []*endpoint.LocalityLbEndpoints{
-						{
-							Locality: &core.Locality{
-								Region:  "region1",
-								Zone:    "zone1",
-								SubZone: "subzone1",
-							},
-							LbEndpoints: []*endpoint.LbEndpoint{},
-							LoadBalancingWeight: &wrappers.UInt32Value{
-								Value: 1,
-							},
-							Priority: 0,
-						},
-					},
-				},
-				CircuitBreakers: &cluster.CircuitBreakers{
-					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
-				},
-				Metadata: &core.Metadata{
-					FilterMetadata: map[string]*structpb.Struct{
-						util.IstioMetadataKey: {Fields: map[string]*structpb.Value{
-							"services": {Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: []*structpb.Value{
-								{Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
-									"host": {
-										Kind: &structpb.Value_StringValue{
-											StringValue: "host",
-										},
-									},
-									"name": {
-										Kind: &structpb.Value_StringValue{
-											StringValue: "svc",
-										},
-									},
-									"namespace": {
-										Kind: &structpb.Value_StringValue{
-											StringValue: "default",
-										},
-									},
-								}}}},
-							}}}},
-							"default_original_port": {
-								Kind: &structpb.Value_NumberValue{
-									NumberValue: float64(8080),
-								},
-							},
-						}},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			mesh := testMesh()
-			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &mesh})
-			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
-			service := &model.Service{
-				Ports: model.PortList{
-					servicePort,
-				},
-				Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"},
-			}
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
-			if defaultCluster != nil {
-				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxy.GetNetworkView(), nil)
-			}
-
-			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
-				t.Errorf("Unexpected default cluster, diff: %v", diff)
-			}
-		})
-	}
-}
-
 func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	features.VerifyCertAtClient = true
 	servicePort := model.PortList{
@@ -2949,14 +2755,14 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                   string
-		cluster                *cluster.Cluster
-		clusterMode            ClusterMode
-		service                *model.Service
-		port                   *model.Port
-		networkView            map[network.ID]bool
-		destRule               *networking.DestinationRule
-		expectedSubsetClusters []*cluster.Cluster
+		name                   		string
+		cluster                		*cluster.Cluster
+		clusterMode            		ClusterMode
+		service                		*model.Service
+		port                   		*model.Port
+		networkView           		map[network.ID]bool
+		destRule               		*networking.DestinationRule
+		expectedCaCertificateName 	string
 	}{
 		{
 			name:        "destination rule with no CaCertificates",
@@ -2980,7 +2786,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 					},
 				},
 			},
-			expectedSubsetClusters: []*cluster.Cluster{},
+			expectedCaCertificateName: "file-root:system",
 		},
 		{
 			name:        "destination rule with CaCertificates",
@@ -3004,11 +2810,11 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 					},
 				},
 			},
-			expectedSubsetClusters: []*cluster.Cluster{},
+			expectedCaCertificateName: constants.DefaultRootCert,
 		},
 	}
 
-	for caseNumber, tt := range cases {
+	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			instances := []*model.ServiceInstance{
 				{
@@ -3046,23 +2852,9 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 
 			ec := NewMutableCluster(tt.cluster)
 			destRule := cb.req.Push.DestinationRule(cb.proxy, tt.service)
-			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
-			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
-				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
-			}
-			if len(tt.expectedSubsetClusters) > 0 {
-				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
-			}
-			// Validate that use client protocol configures cluster correctly.
-			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().UseClientProtocol {
-				if ec.httpProtocolOptions == nil {
-					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
-				}
-				if ec.httpProtocolOptions.UpstreamProtocolOptions == nil &&
-					ec.httpProtocolOptions.GetUseDownstreamProtocolConfig() == nil {
-					t.Errorf("Expected cluster %s to have downstream protocol options but not found", tt.cluster.Name)
-				}
-			}
+
+			// ACT
+			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
 
 			byteArray, err := config.ToJSON(destRule.Spec)
 			if err != nil {
@@ -3074,11 +2866,8 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				t.Errorf("Could not unmarshal destination rule: %v", err)
 			}
 			ca := dr.TrafficPolicy.Tls.CaCertificates
-			if caseNumber == 0 && ca != "file-root:system" {
-				t.Error("Did not use System OS CA when should have")
-			} else if caseNumber == 1 && ca != constants.DefaultRootCert {
-				t.Error("Did not use specified CA Cert when specified")
-			}
+			if ca != tt.expectedCaCertificateName {
+				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedCaCertificateName, ca)			}
 		})
 	}
 }

@@ -158,19 +158,13 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
-	t.Run("File system certs", func(t *testing.T) {
-		// User sets FileMountedCerts. They also need to set ISTIO_META_TLS_CLIENT* to specify the
-		// file paths. CA communication is disabled. mTLS is always used for authentication with
-		// Istiod, never JWT.
+	t.Run("OS CA Certs are able to be accessed", func(t *testing.T) {
+		// Try loading an OS CA Cert from OS CA Certs file paths.
 		dir := mktemp()
 		copyCertsWithOSRootCA(t, dir)
 
-		osRootPath := security.GetOSRootPath()
-		caRootCertSlices := strings.Split(osRootPath, "/")
-		caRootCert := caRootCertSlices[len(caRootCertSlices)-1]
-		if caRootCert == "" {
-			t.Fatal("OS CA Root Cert couldn't be found.")
-		}
+		osRootPath := security.GetOSRootFilePath()
+		caRootCert := filepath.Base(osRootPath)
 
 		cfg := model.SdsCertificateConfig{
 			CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
@@ -187,7 +181,7 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, caRootCert)
 			a.Security.FileMountedCerts = true
-			a.Security.CARootPath = security.GetOSRootPath()
+			a.Security.CARootPath = security.GetOSRootFilePath()
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
@@ -472,7 +466,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in
 		// our CI, causing flakes. We use ECC as the default to speed this up.
 		ECCSigAlg:  string(pkiutil.EcdsaSigAlg),
-		CARootPath: security.GetOSRootPath(),
+		CARootPath: security.GetOSRootFilePath(),
 	}
 	proxy := &model.Proxy{
 		ID:          "pod1.fake-namespace",
@@ -569,12 +563,11 @@ func copyCerts(t *testing.T, dir string) {
 }
 
 func copyCertsWithOSRootCA(t *testing.T, dir string) {
-	caRootPath := security.GetOSRootPath()
+	caRootPath := security.GetOSRootFilePath()
 	if caRootPath == "" {
 		t.Fatal("OS CA Root Cert could not be found.")
 	}
-	caRootCertSlices := strings.Split(caRootPath, "/")
-	caRootCert := caRootCertSlices[len(caRootCertSlices)-1]
+	caRootCert := filepath.Base(caRootPath)
 	if caRootCert == "" {
 		t.Fatal("OS CA Root Cert couldn't be found.")
 	}

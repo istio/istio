@@ -245,6 +245,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string, caRootPath string) (secret *security.SecretItem, err error) {
 	cacheLog.Debugf("generate secret %q", resourceName)
+	sc.SetCARootPath(caRootPath)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -268,7 +269,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string, caRootPath st
 	}()
 
 	// First try to generate secret from file.
-	if sdsFromFile, ns, err := sc.generateFileSecret(resourceName, caRootPath); sdsFromFile {
+	if sdsFromFile, ns, err := sc.generateFileSecret(resourceName); sdsFromFile {
 		if err != nil {
 			return nil, err
 		}
@@ -463,8 +464,7 @@ func (sc *SecretManagerClient) readFileWithTimeout(path string) ([]byte, error) 
 	}
 }
 
-func (sc *SecretManagerClient) generateFileSecret(resourceName string, caRootPath string) (bool, *security.SecretItem, error) {
-	sc.SetCARootPath(caRootPath)
+func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *security.SecretItem, error) {
 	logPrefix := cacheLogPrefix(resourceName)
 
 	cf := sc.existingCertificateFile
@@ -504,7 +504,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string, caRootPat
 		cfg := nodeagentutil.SdsCertificateConfig{}
 		ok := false
 		if resourceName == "file-root:system" {
-			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(caRootPath)
+			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
 		} else {
 			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(resourceName)
 		}

@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"istio.io/pkg/env"
+	istiolog "istio.io/pkg/log"
 )
 
 const (
@@ -360,8 +361,9 @@ func ExtractRequestToken(req *http.Request) (string, error) {
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }
 
-func GetOSRootPath() string {
-	// Get and store the OS CA certificate path
+func GetOSRootFilePath() string {
+	// Get and store the OS CA certificate path for Linux systems
+	// Source of CA File Paths: https://golang.org/src/crypto/x509/root_linux.go
 	certFiles := []string{
 		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
 		"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
@@ -377,5 +379,6 @@ func GetOSRootPath() string {
 			return cert
 		}
 	}
+	istiolog.Warn("OS CA Cert could not be found for agent")
 	return ""
 }

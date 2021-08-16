@@ -52,7 +52,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 		STSPort:                        stsPort,
 		CertSigner:                     certSigner.Get(),
-		CARootPath:                     security.GetOSRootPath(),
+		CARootPath:                     security.GetOSRootFilePath(),
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),
