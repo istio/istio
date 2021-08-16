@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/features"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -38,7 +37,7 @@ import (
 // GatewayTest tests that istio ingress gateway can be started successfully in remote cluster
 func GatewayTest(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
-		Label(label.Multicluster).
+		RequiresMinClusters(2).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("gateway").
