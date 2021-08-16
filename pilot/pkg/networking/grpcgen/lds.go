@@ -15,6 +15,7 @@
 package grpcgen
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -27,11 +28,11 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
@@ -40,7 +41,7 @@ import (
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
 // specific services.
 func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
-	filter := newListenerNameFilter(names)
+	filter := newListenerNameFilter(names, node)
 
 	log.Debugf("building lds for %s with filter:\n%v", node.ID, filter)
 
@@ -160,25 +161,20 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 	return out
 }
 
-func buildOutboundListeners(node *model.Proxy, filter listenerNameFilter) model.Resources {
+func buildOutboundListeners(node *model.Proxy, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
 	for _, el := range node.SidecarScope.EgressListeners {
 		for _, sv := range el.Services() {
 			serviceHost := string(sv.Hostname)
-			// the host used in the xds:/// path is what we use for the filter, and we must return the name
-			// the same way it was asked for. we don't want to match on the :port ones, so we set an invalid port.
-			// TODO would it be better to go from shortname -> fqdn in the filter, and store the requested name?
-			filterableNames := append(v1alpha3.GenerateAltVirtualHosts(serviceHost, 65536, node.DNSDomain), serviceHost)
-			matchedHosts, ok := filter.includeHostOrExactName(filterableNames)
+			match, ok := filter.includes(serviceHost)
 			if !ok {
 				continue
 			}
-			// we must duplicate the listener for every matching host - grpc may have watches for both foo and foo.ns
-			for _, matchedHost := range matchedHosts {
+			// we must duplicate the listener for every requested host - grpc may have watches for both foo and foo.ns
+			for _, matchedHost := range match.RequestedNames.SortedList() {
 				for _, p := range sv.Ports {
 					sPort := strconv.Itoa(p.Port)
-					// it's also possible we watch foo:80,but foo.ns:81 so we check the port with matched host
-					if !filter.includeHostPort(matchedHost, sPort) {
+					if !match.includesPort(sPort) {
 						continue
 					}
 					ll := &listener.Listener{
@@ -236,52 +232,33 @@ func buildOutboundListeners(node *model.Proxy, filter listenerNameFilter) model.
 //	return out
 //}
 
-/*
-
-name.ns.svc.cluster.local -<
-name.ns.svc.
-
-
-*/
-
 // map[host] -> map[port] -> exists
 // if the map[port] is empty, an exact listener name was provided (non-hostport)
-type listenerNameFilter map[string]map[string]struct{}
+type listenerNames map[string]listenerName
 
-func (f listenerNameFilter) includeHostOrExactName(s []string) ([]string, bool) {
-	if len(f) == 0 {
-		// filter is empty, include everything
-		return s, true
-	}
-	var out []string
-	for _, hostname := range s {
-		if _, ok := f[hostname]; ok {
-			out = append(out, hostname)
-		}
-	}
-	if len(out) == 0 {
-		return nil, false
-	}
-	return out, true
+type listenerName struct {
+	RequestedNames sets.Set
+	Ports          sets.Set
 }
 
-func (f listenerNameFilter) includeHostPort(host string, port string) bool {
-	if len(f) == 0 {
-		// filter is empty, include everything
+func (ln *listenerName) includesPort(port string) bool {
+	if len(ln.Ports) == 0 {
 		return true
 	}
-	portMap, ok := f[host]
-	if !ok {
-		return false
-	}
-	if len(portMap) == 0 {
-		return true
-	}
-	_, ok = portMap[port]
+	_, ok := ln.Ports[port]
 	return ok
 }
 
-func (f listenerNameFilter) inboundNames() []string {
+func (f listenerNames) includes(s string) (listenerName, bool) {
+	if len(f) == 0 {
+		// filter is empty, include everything
+		return listenerName{RequestedNames: sets.NewSet(s)}, true
+	}
+	n, ok := f[s]
+	return n, ok
+}
+
+func (f listenerNames) inboundNames() []string {
 	var out []string
 	for key := range f {
 		if strings.HasPrefix(key, grpcxds.ServerListenerNamePrefix) {
@@ -291,33 +268,64 @@ func (f listenerNameFilter) inboundNames() []string {
 	return out
 }
 
-func newListenerNameFilter(names []string) listenerNameFilter {
-	filter := make(listenerNameFilter, len(names))
+func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
+	filter := make(listenerNames, len(names))
 	for _, name := range names {
+		// inbound, create a simple entry and move on
 		if strings.HasPrefix(name, grpcxds.ServerListenerNamePrefix) {
-			filter[name] = map[string]struct{}{}
+			filter[name] = listenerName{RequestedNames: sets.NewSet(name)}
 			continue
 		}
-		if host, port, err := net.SplitHostPort(name); err == nil {
-			var first bool
-			portMap, ok := filter[host]
-			if !ok {
-				portMap = map[string]struct{}{}
-				filter[host] = portMap
-				first = true
-			}
-			// the portMap is empty and we didn't just create it, we want to include all ports
-			if len(portMap) == 0 && !first {
-				continue
-			}
 
-			portMap[port] = struct{}{}
-		} else {
-			// if the listener name was "foo.com" and we already have "foo.com" -> {80 -> struct{}{}}, replace
-			// with an empty map to indicate we will include all ports since only the hostname was provided
-			// TODO, should we just default to some port in this case?
-			filter[name] = map[string]struct{}{}
+		host, port, err := net.SplitHostPort(name)
+		hasPort := err == nil
+
+		// attempt to expand shortname to FQDN
+		requestedName := name
+		if hasPort {
+			requestedName = host
+		}
+		allNames := []string{requestedName}
+		if fqdn := tryFindFQDN(requestedName, node); fqdn != "" {
+			allNames = append(allNames, fqdn)
+		}
+
+		for _, name := range allNames {
+			ln, ok := filter[name]
+			if !ok {
+				ln = listenerName{RequestedNames: sets.NewSet()}
+			}
+			ln.RequestedNames.Insert(requestedName)
+
+			// only build the portmap if we aren't filtering this name yet, or if the existing filter is non-empty
+			if hasPort && (!ok || len(ln.Ports) != 0) {
+				if ln.Ports == nil {
+					ln.Ports = map[string]struct{}{}
+				}
+				ln.Ports.Insert(port)
+			} else if !hasPort {
+				// if we didn't have a port, we should clear the portmap
+				ln.Ports = nil
+			}
+			filter[name] = ln
 		}
 	}
 	return filter
+}
+
+func tryFindFQDN(name string, node *model.Proxy) string {
+	// no "." - assuming this is a shortname "foo" -> "foo.ns.svc.cluster.local"
+	if !strings.Contains(name, ".") {
+		return fmt.Sprintf("%s.%s", name, node.DNSDomain)
+	}
+	for _, suffix := range []string{
+		node.Metadata.Namespace,
+		node.Metadata.Namespace + ".svc",
+	} {
+		shortname := strings.TrimSuffix(name, "."+suffix)
+		if shortname != name && strings.HasPrefix(node.DNSDomain, suffix) {
+			return fmt.Sprintf("%s.%s", shortname, node.DNSDomain)
+		}
+	}
+	return ""
 }
