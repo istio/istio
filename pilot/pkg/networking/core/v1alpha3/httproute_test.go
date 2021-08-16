@@ -162,7 +162,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"1.2.3.4", "1.2.3.4:8123"},
+			want:        []string{"1.2.3.4", "1.2.3.4:8123"},
+			wantWithMCS: []string{"1.2.3.4", "1.2.3.4:8123"},
 		},
 		{
 			name: "ipv6 domain",
@@ -174,12 +175,15 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
+			want:        []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
+			wantWithMCS: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
 		},
 	}
 
 	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
 		out, _ := generateVirtualHostDomains(service, port, node)
+		fmt.Println(out)
+		fmt.Println(want)
 		sort.SliceStable(want, func(i, j int) bool { return want[i] < want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, want) {
