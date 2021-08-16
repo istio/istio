@@ -370,16 +370,25 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	// Configure discovery and east-west gateways for remote clusters.
+	// Configure discovery and gateways for remote clusters.
 	for _, c := range ctx.Clusters().Kube().Remotes() {
 		c := c
 		if i.isExternalControlPlane() || cfg.IstiodlessRemotes {
 			if err = configureRemoteClusterDiscovery(i, cfg, c); err != nil {
 				return i, err
 			}
+
+			// Install ingress and egress gateways
+			// These need to be installed as a separate step for external control planes because config clusters are installed
+			// before the external control plane cluster. Since remote clusters use gateway injection, we can't install the gateways
+			// until after the control plane is running, so we install them here. This is not really necessary for pure (non-config)
+			// remote clusters, but it's cleaner to just install gateways as a separate step for all remote clusters.
+			if err = installRemoteClusterGateways(i, c); err != nil {
+				return i, err
+			}
 		}
 
-		// remote clusters only need this gateway for multi-network purposes
+		// remote clusters only need east-west gateway for multi-network purposes
 		if ctx.Environment().IsMultinetwork() {
 			spec := istioctlConfigFiles.remoteOperatorSpec
 			if c.IsConfig() {
@@ -649,6 +658,34 @@ func installRemoteCommon(i *operatorComponent, cfg Config, c cluster.Cluster, de
 	return nil
 }
 
+func installRemoteClusterGateways(i *operatorComponent, c cluster.Cluster) error {
+	s, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return err
+	}
+	installSettings := []string{
+		"-f", filepath.Join(testenv.IstioSrc, IntegrationTestExternalIstiodRemoteGatewaysIOP),
+		"--istioNamespace", i.settings.SystemNamespace,
+		"--manifests", filepath.Join(testenv.IstioSrc, "manifests"),
+		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
+	}
+
+	// Create an istioctl to configure this cluster.
+	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
+		Cluster: c,
+	})
+	if err != nil {
+		return err
+	}
+
+	scopes.Framework.Infof("Deploying ingress and egress gateways in %s: %v", c.Name(), installSettings)
+	if err = install(i, installSettings, istioCtl, c.Name()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (i *operatorComponent) generateCommonInstallSettings(cfg Config, c cluster.Cluster, defaultsIOPFile, iopFile string) ([]string, error) {
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
@@ -736,15 +773,15 @@ func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context,
 
 func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, cfg Config,
 	c cluster.Cluster) error {
-	// Create a secret.
-	secret, err := CreateRemoteSecret(ctx, c, cfg)
-	if err != nil {
-		return fmt.Errorf("failed creating remote secret for cluster %s: %v", c.Name(), err)
-	}
 	clusters := ctx.Clusters().Configs(c)
 	if len(clusters) == 0 {
 		// giving 0 clusters to ctx.Config() means using all clusters
 		return nil
+	}
+	// Create a secret.
+	secret, err := CreateRemoteSecret(ctx, c, cfg)
+	if err != nil {
+		return fmt.Errorf("failed creating remote secret for cluster %s: %v", c.Name(), err)
 	}
 	if err := ctx.Config(clusters...).ApplyYAMLNoCleanup(cfg.SystemNamespace, secret); err != nil {
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
@@ -967,15 +1004,14 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 		return err
 	}
 
-	scopes.Framework.Infof("configuring external control plane in %s to use config cluster in %s", c.Name(), configCluster.Name())
+	scopes.Framework.Infof("configuring external control plane in %s to use config cluster %s", c.Name(), configCluster.Name())
 	// ensure system namespace exists
-	_, err = c.CoreV1().Namespaces().
+	if _, err = c.CoreV1().Namespaces().
 		Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name: cfg.SystemNamespace,
 			},
-		}, kubeApiMeta.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
+		}, kubeApiMeta.CreateOptions{}); err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
 	// create kubeconfig secret
@@ -989,8 +1025,7 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 				"config": []byte(istioKubeConfig),
 			},
 		}, kubeApiMeta.CreateOptions{}); err != nil {
-		// Allow easier running locally when we run multiple tests in a row
-		if errors.IsAlreadyExists(err) {
+		if errors.IsAlreadyExists(err) { // Allow easier running locally when we run multiple tests in a row
 			if _, err := c.CoreV1().Secrets(cfg.SystemNamespace).Update(context.TODO(), &kubeApiCore.Secret{
 				ObjectMeta: kubeApiMeta.ObjectMeta{
 					Name:      "istio-kubeconfig",
@@ -1000,28 +1035,14 @@ func (i *operatorComponent) configureRemoteConfigForControlPlane(c cluster.Clust
 					"config": []byte(istioKubeConfig),
 				},
 			}, kubeApiMeta.UpdateOptions{}); err != nil {
-				scopes.Framework.Errorf("has error in updating istio-kubeconfig secrets: %v", err)
+				scopes.Framework.Infof("error updating istio-kubeconfig secret: %v", err)
 				return err
 			}
 		} else {
-			scopes.Framework.Infof("has error in creating istio-kubeconfig secrets %v", err)
+			scopes.Framework.Infof("error creating istio-kubeconfig secret %v", err)
 			return err
 		}
-		return nil
 	}
-	// create service account for reading the secrets
-	_, err = c.CoreV1().ServiceAccounts(cfg.SystemNamespace).
-		Create(context.TODO(), &kubeApiCore.ServiceAccount{
-			ObjectMeta: kubeApiMeta.ObjectMeta{
-				Namespace: cfg.SystemNamespace,
-				Name:      "istiod-service-account",
-			},
-		}, kubeApiMeta.CreateOptions{})
-	if err != nil {
-		scopes.Framework.Infof("has error in creating istiod service account %v", err)
-		return err
-	}
-
 	return nil
 }
 
