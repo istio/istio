@@ -62,7 +62,7 @@ type Port struct {
 	// If this flag is set but the environment variable feature gates aren't, we should fail due to gRPC internals.
 	XDSServer bool
 
-	// XDSTestBootstrap allows settinga per-endpoint bootstrap without using the GRPC_XDS_BOOTSTRAP env var
+	// XDSTestBootstrap allows settings per-endpoint bootstrap without using the GRPC_XDS_BOOTSTRAP env var
 	XDSTestBootstrap []byte
 }
 
