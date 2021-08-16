@@ -29,8 +29,7 @@
                   "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
                   "envoy.reloadable_features.require_strict_1xx_and_204_response_headers": false,
                   "re2.max_program_size.error_level": 1024,
-                  "envoy.reloadable_features.treat_host_like_authority": false,
-                  "envoy.reloadable_features.new_tcp_connection_pool": false
+                  "envoy.reloadable_features.treat_host_like_authority": false
               }
           },
           {
