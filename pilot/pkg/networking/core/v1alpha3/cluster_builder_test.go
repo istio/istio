@@ -380,7 +380,11 @@ func TestApplyDestinationRule(t *testing.T) {
 			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRuleBySidecar(tt.service, cb.sidecarScope, cb.configNamespace)
+			destRule := cb.req.Push.DestinationRule(&model.Proxy{
+				Type:            cb.proxyType,
+				SidecarScope:    cb.sidecarScope,
+				ConfigNamespace: cb.configNamespace,
+			}, tt.service)
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
