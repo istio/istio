@@ -1,9 +1,9 @@
-{{- $gateway := index .Values "gateways" "istio-ingressgateway" }}
+{{- $gateway := deepCopy (index .Values "gateways" "istio-ingressgateway") | mergeOverwrite .Values | merge (dict "Release" .Release) }}
 {{- if eq $gateway.injectionTemplate "" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $gateway.name }}
+  name: {{ include "gateway.fullname" $gateway }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ $gateway.labels | toYaml | indent 4 }}
@@ -33,7 +33,7 @@ spec:
         release: istio
         chart: gateways
 {{- end }}
-        service.istio.io/canonical-name: {{ $gateway.name }}
+        service.istio.io/canonical-name: {{ include "gateway.fullname" $gateway }}
         {{- if not (eq .Values.revision "") }}
         service.istio.io/canonical-revision: {{ .Values.revision }}
         {{- else}}
@@ -61,7 +61,7 @@ spec:
         runAsNonRoot: true
         fsGroup: 1337
 {{- end }}
-      serviceAccountName: {{ $gateway.name }}-service-account
+      serviceAccountName: {{ include "gateway.fullname" $gateway }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -191,9 +191,9 @@ spec:
               fieldRef:
                 fieldPath: spec.serviceAccountName
           - name: ISTIO_META_WORKLOAD_NAME
-            value: {{ $gateway.name }}
+            value: {{ include "gateway.fullname" $gateway }}
           - name: ISTIO_META_OWNER
-            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ $gateway.name }}
+            value: kubernetes://apis/apps/v1/namespaces/{{ .Release.Namespace }}/deployments/{{ include "gateway.fullname" $gateway }}
           {{- if $.Values.global.meshID }}
           - name: ISTIO_META_MESH_ID
             value: "{{ $.Values.global.meshID }}"

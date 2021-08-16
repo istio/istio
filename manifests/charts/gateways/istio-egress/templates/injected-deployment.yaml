@@ -44,11 +44,6 @@ spec:
         istio.io/rev: {{ . }}
         {{- end }}
       annotations:
-        {{- if .Values.meshConfig.enablePrometheusMerge }}
-        prometheus.io/port: "15020"
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/stats/prometheus"
-        {{- end }}
         sidecar.istio.io/inject: "true"
         inject.istio.io/templates: "{{ $gateway.injectionTemplate }}"
 {{- if $gateway.podAnnotations }}

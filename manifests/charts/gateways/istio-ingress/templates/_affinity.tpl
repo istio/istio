@@ -1,5 +1,13 @@
 {{/* affinity - https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ */}}
 
+{{- define "gateway.fullname" -}}
+{{- if eq .Release.Name "RELEASE-NAME" -}}
+    {{- .name | default "istio-ingressgateway" -}}
+{{- else -}}
+    {{- .name | default .Release.Name | default "what" -}}
+{{- end -}}
+{{- end }}
+
 {{ define "nodeaffinity" }}
 nodeAffinity:
   requiredDuringSchedulingIgnoredDuringExecution:
