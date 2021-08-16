@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -123,7 +122,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 
 // IPv6 addresses are enclosed within square brackets
 func ipv6Compliant(host string) string {
-	if net.ParseIP(host) != nil && strings.Contains(host, ":") {
+	if strings.Contains(host, ":") {
 		return "[" + host + "]"
 	}
 	return host
