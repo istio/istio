@@ -835,8 +835,10 @@ func (p *XdsProxy) initDebugInterface() error {
 	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
 
 	p.httpTapServer = &http.Server{
-		Addr:    "localhost:15004",
-		Handler: httpMux,
+		Addr:        "localhost:15004",
+		Handler:     httpMux,
+		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
+		ReadTimeout: 30 * time.Second,
 	}
 
 	// create HTTP listener

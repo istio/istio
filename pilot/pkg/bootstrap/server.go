@@ -610,8 +610,10 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 // initIstiodAdminServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, whc func() map[string]string) error {
 	s.httpServer = &http.Server{
-		Addr:    args.ServerOptions.HTTPAddr,
-		Handler: s.httpMux,
+		Addr:        args.ServerOptions.HTTPAddr,
+		Handler:     s.httpMux,
+		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
+		ReadTimeout: 30 * time.Second,
 	}
 
 	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
