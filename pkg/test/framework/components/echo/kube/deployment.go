@@ -484,8 +484,8 @@ type deployment struct {
 }
 
 func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
-	if !cfg.Cluster.IsPrimary() && cfg.DeployAsVM {
-		return nil, fmt.Errorf("cannot deploy %s/%s as VM on non-primary %s",
+	if !cfg.Cluster.IsConfig() && cfg.DeployAsVM {
+		return nil, fmt.Errorf("cannot deploy %s/%s as VM on non-config %s",
 			cfg.Namespace.Name(),
 			cfg.Service,
 			cfg.Cluster.Name())

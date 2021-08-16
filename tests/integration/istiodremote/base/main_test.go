@@ -28,7 +28,7 @@ var ist istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireMinClusters(2).
+		RequireMinClusters(1).
 		Setup(istio.Setup(&ist, nil)).
 		Run()
 }

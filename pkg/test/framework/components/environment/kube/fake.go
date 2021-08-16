@@ -46,7 +46,7 @@ func (f FakeEnvironment) EnvironmentName() string {
 	return f.Name
 }
 
-func (f FakeEnvironment) Clusters() cluster.Clusters {
+func (f FakeEnvironment) AllClusters() cluster.Clusters {
 	factory := clusterboot.NewFactory()
 	for i := 0; i < f.NumClusters; i++ {
 		factory = factory.With(cluster.Config{Kind: cluster.Fake, Name: fmt.Sprintf("cluster-%d", i)})
@@ -56,4 +56,8 @@ func (f FakeEnvironment) Clusters() cluster.Clusters {
 		panic(err)
 	}
 	return out
+}
+
+func (f FakeEnvironment) Clusters() cluster.Clusters {
+	return f.AllClusters().MeshClusters()
 }

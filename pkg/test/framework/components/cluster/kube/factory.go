@@ -16,6 +16,8 @@ package kube
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 
 	"k8s.io/client-go/rest"
 
@@ -45,9 +47,21 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 		return nil, err
 	}
 
-	client, err := buildClient(kubeconfigPath)
-	if err != nil {
-		return nil, err
+	var client istioKube.ExtendedClient
+	if len(cfg.HTTPProxy) > 0 {
+		proxyURL, err := url.Parse(cfg.HTTPProxy)
+		if err != nil {
+			return nil, err
+		}
+		client, err = buildClientWithProxy(kubeconfigPath, proxyURL)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		client, err = buildClient(kubeconfigPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// support fake VMs by default
@@ -80,5 +94,17 @@ func buildClient(kubeconfig string) (istioKube.ExtendedClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	return istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
+}
+
+func buildClientWithProxy(kubeconfig string, proxyURL *url.URL) (istioKube.ExtendedClient, error) {
+	rc, err := istioKube.DefaultRestConfig(kubeconfig, "", func(config *rest.Config) {
+		config.QPS = 200
+		config.Burst = 400
+	})
+	if err != nil {
+		return nil, err
+	}
+	rc.Proxy = http.ProxyURL(proxyURL)
 	return istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
 }
