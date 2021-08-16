@@ -126,10 +126,6 @@ type Agent struct {
 // Eventually most non-test settings should graduate to ProxyConfig
 // Please don't add 100 parameters to the NewAgent function (or any other)!
 type AgentOptions struct {
-	// ProxyXDSViaAgent if true will enable a local XDS proxy that will simply
-	// ferry Envoy's XDS requests to istiod and responses back to envoy
-	// This flag is temporary until the feature is stabilized.
-	ProxyXDSViaAgent bool
 	// ProxyXDSDebugViaAgent if true will listen on 15004 and forward queries
 	// to XDS istio.io/debug. (Requires ProxyXDSViaAgent).
 	ProxyXDSDebugViaAgent bool
@@ -242,7 +238,6 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		InstanceIPs:         a.cfg.ProxyIPAddresses,
 		StsPort:             a.secOpts.STSPort,
 		ProxyConfig:         a.proxyConfig,
-		ProxyViaAgent:       a.cfg.ProxyXDSViaAgent,
 		PilotSubjectAltName: pilotSAN,
 		OutlierLogPath:      a.envoyOpts.OutlierLogPath,
 		ProvCert:            provCert,
@@ -409,16 +404,14 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	a.sdsServer = sds.NewServer(a.secOpts, a.secretCache)
 	a.secretCache.SetUpdateCallback(a.sdsServer.UpdateCallback)
 
-	if a.cfg.ProxyXDSViaAgent {
-		a.xdsProxy, err = initXdsProxy(a)
+	a.xdsProxy, err = initXdsProxy(a)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start xds proxy: %v", err)
+	}
+	if a.cfg.ProxyXDSDebugViaAgent {
+		err = a.xdsProxy.initDebugInterface()
 		if err != nil {
-			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
-		}
-		if a.cfg.ProxyXDSDebugViaAgent {
-			err = a.xdsProxy.initDebugInterface()
-			if err != nil {
-				return nil, fmt.Errorf("failed to start istio tap server: %v", err)
-			}
+			return nil, fmt.Errorf("failed to start istio tap server: %v", err)
 		}
 	}
 
@@ -473,7 +466,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 func (a *Agent) initLocalDNSServer() (err error) {
 	// we dont need dns server on gateways
-	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
+	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
 		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
 			return err
 		}
@@ -491,7 +484,6 @@ func (a *Agent) generateGRPCBootstrap() error {
 
 	_, err = grpcxds.GenerateBootstrapFile(grpcxds.GenerateBootstrapOptions{
 		Node:             node,
-		ProxyXDSViaAgent: a.cfg.ProxyXDSViaAgent,
 		XdsUdsPath:       a.cfg.XdsUdsPath,
 		DiscoveryAddress: a.proxyConfig.DiscoveryAddress,
 		CertDir:          a.secOpts.OutputKeyCertToDir,
@@ -504,7 +496,7 @@ func (a *Agent) generateGRPCBootstrap() error {
 
 func (a *Agent) Check() (err error) {
 	// we dont need dns server on gateways
-	if a.cfg.DNSCapture && a.cfg.ProxyXDSViaAgent && a.cfg.ProxyType == model.SidecarProxy {
+	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
 		if !a.localDNSServer.IsReady() {
 			return errors.New("istio DNS capture is turned ON and DNS lookup table is not ready yet")
 		}
