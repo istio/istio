@@ -123,6 +123,7 @@ func ServiceToServiceEntry(svc *model.Service) *config.Config {
 			Name:              "synthetic-" + svc.Attributes.Name,
 			Namespace:         svc.Attributes.Namespace,
 			CreationTimestamp: svc.CreationTime,
+			ResourceVersion:   svc.ResourceVersion,
 		},
 		Spec: se,
 	}
