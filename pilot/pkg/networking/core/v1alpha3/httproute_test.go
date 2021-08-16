@@ -182,8 +182,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 
 	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {
 		out, _ := generateVirtualHostDomains(service, port, node)
-		fmt.Println(out)
-		fmt.Println(want)
 		sort.SliceStable(want, func(i, j int) bool { return want[i] < want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, want) {
