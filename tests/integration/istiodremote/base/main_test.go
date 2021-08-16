@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/istiodremote"
 )
 
@@ -29,7 +28,6 @@ var ist istio.Instance
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(istio.Setup(&ist, nil)).
 		Run()
