@@ -48,8 +48,8 @@ func buildKube(origCfg cluster.Config, topology cluster.Topology) (cluster.Clust
 	}
 
 	var client istioKube.ExtendedClient
-	if len(cfg.Proxy) > 0 {
-		proxyURL, err := url.Parse(cfg.Proxy)
+	if len(cfg.HTTPProxy) > 0 {
+		proxyURL, err := url.Parse(cfg.HTTPProxy)
 		if err != nil {
 			return nil, err
 		}

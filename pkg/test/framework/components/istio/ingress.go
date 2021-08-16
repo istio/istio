@@ -236,8 +236,8 @@ func (c *ingressImpl) callEcho(options echo.CallOptions, retry bool, retryOption
 	if host := options.Headers["Host"]; len(host) == 0 {
 		options.Headers["Host"] = []string{options.Address}
 	}
-	if len(c.cluster.Proxy()) > 0 {
-		options.Proxy = c.cluster.Proxy()
+	if len(c.cluster.HTTPProxy()) > 0 {
+		options.HTTPProxy = c.cluster.HTTPProxy()
 	}
 	return common.CallEcho(&options, retry, retryOptions...)
 }

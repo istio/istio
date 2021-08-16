@@ -30,7 +30,7 @@ func NewTopology(config Config, allClusters Map) Topology {
 		ClusterName:        config.Name,
 		ClusterKind:        config.Kind,
 		Network:            config.Network,
-		ClusterHTTPProxy:   config.Proxy,
+		ClusterHTTPProxy:   config.HTTPProxy,
 		PrimaryClusterName: config.PrimaryClusterName,
 		ConfigClusterName:  config.ConfigClusterName,
 		AllClusters:        allClusters,
@@ -62,8 +62,8 @@ func (c Topology) Name() string {
 	return c.ClusterName
 }
 
-// Proxy to connect to the cluster
-func (c Topology) Proxy() string {
+// HTTPProxy to connect to the cluster
+func (c Topology) HTTPProxy() string {
 	return c.ClusterHTTPProxy
 }
 
@@ -187,7 +187,7 @@ func (c Topology) String() string {
 	_, _ = fmt.Fprintf(buf, "PrimaryCluster:     %s\n", c.Primary().Name())
 	_, _ = fmt.Fprintf(buf, "ConfigCluster:      %s\n", c.Config().Name())
 	_, _ = fmt.Fprintf(buf, "Network:            %s\n", c.NetworkName())
-	_, _ = fmt.Fprintf(buf, "Proxy:            %s\n", c.Proxy())
+	_, _ = fmt.Fprintf(buf, "HTTPProxy:            %s\n", c.HTTPProxy())
 
 	return buf.String()
 }

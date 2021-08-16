@@ -209,6 +209,6 @@ type Cluster interface {
 	// ConfigName returns the name of the config cluster for this cluster.
 	ConfigName() string
 
-	// Proxy returns the http proxy config to connect to the cluster
-	Proxy() string
+	// HTTPProxy returns the HTTP proxy config to connect to the cluster
+	HTTPProxy() string
 }
