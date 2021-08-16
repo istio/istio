@@ -120,7 +120,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	return r
 }
 
-// IPv6 addresses are enclosed within square brackets
+// IPv6 addresses are enclosed in square brackets followed by port number in Host header/URIs
+// needed distinguish port number as ':' is part of IPv6 address
 func ipv6Compliant(host string) string {
 	if strings.Contains(host, ":") {
 		return "[" + host + "]"
