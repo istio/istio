@@ -130,9 +130,11 @@ type AgentOptions struct {
 	// ferry Envoy's XDS requests to istiod and responses back to envoy
 	// This flag is temporary until the feature is stabilized.
 	ProxyXDSViaAgent bool
-	// ProxyXDSDebugViaAgent if true will listen on 15004 and forward queries
+	// ProxyXDSDebugViaAgent if true will listen on the debug port and forward queries
 	// to XDS istio.io/debug. (Requires ProxyXDSViaAgent).
 	ProxyXDSDebugViaAgent bool
+	// Port value for the debugging endpoint.
+	ProxyXDSDebugViaAgentPort int
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	// This option will not be considered if proxyXDSViaAgent is false.
 	DNSCapture bool
@@ -415,7 +417,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
 		}
 		if a.cfg.ProxyXDSDebugViaAgent {
-			err = a.xdsProxy.initDebugInterface()
+			err = a.xdsProxy.initDebugInterface(a.cfg.ProxyXDSDebugViaAgentPort)
 			if err != nil {
 				return nil, fmt.Errorf("failed to start istio tap server: %v", err)
 			}
