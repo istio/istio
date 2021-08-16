@@ -45,7 +45,7 @@ spec:
     args:
     - istio-iptables
     - "-p"
-    - "15001"
+    - {{ .MeshConfig.ProxyListenPort | default "15001" | quote }}
     - "-z"
     - "15006"
     - "-u"
