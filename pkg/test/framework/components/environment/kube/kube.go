@@ -68,7 +68,7 @@ func (e *Environment) EnvironmentName() string {
 }
 
 func (e *Environment) IsMulticluster() bool {
-	return len(e.clusters) > 1
+	return len(e.Clusters()) > 1
 }
 
 // IsMultinetwork returns true if there is more than one network name in networkTopology.
@@ -76,16 +76,20 @@ func (e *Environment) IsMultinetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }
 
-func (e *Environment) Clusters() cluster.Clusters {
+func (e *Environment) AllClusters() cluster.Clusters {
 	out := make([]cluster.Cluster, 0, len(e.clusters))
 	out = append(out, e.clusters...)
 	return out
 }
 
+func (e *Environment) Clusters() cluster.Clusters {
+	return e.AllClusters().MeshClusters()
+}
+
 // ClustersByNetwork returns an inverse mapping of the network topolgoy to a slice of clusters in a given network.
 func (e *Environment) ClustersByNetwork() map[string][]cluster.Cluster {
 	out := make(map[string][]cluster.Cluster)
-	for _, c := range e.clusters {
+	for _, c := range e.Clusters() {
 		out[c.NetworkName()] = append(out[c.NetworkName()], c)
 	}
 	return out
