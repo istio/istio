@@ -120,14 +120,23 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPRouteConfig(
 	return r
 }
 
+// IPv6 addresses are enclosed in square brackets followed by port number in Host header/URIs
+// needed distinguish port number as ':' is part of IPv6 address
+func ipv6Compliant(host string) string {
+	if strings.Contains(host, ":") {
+		return "[" + host + "]"
+	}
+	return host
+}
+
 // domainName builds the domain name for a given host and port
 func domainName(host string, port int) string {
-	return host + ":" + strconv.Itoa(port)
+	return ipv6Compliant(host) + ":" + strconv.Itoa(port)
 }
 
 func traceOperation(host string, port int) string {
 	// Format : "%s:%d/*"
-	return host + ":" + strconv.Itoa(port) + "/*"
+	return ipv6Compliant(host) + ":" + strconv.Itoa(port) + "/*"
 }
 
 // buildSidecarOutboundHTTPRouteConfig builds an outbound HTTP Route for sidecar.
@@ -342,7 +351,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		var domains []string
 		var altHosts []string
 		if svc == nil {
-			domains = []string{hostname, name}
+			domains = []string{ipv6Compliant(hostname), name}
 		} else {
 			domains, altHosts = generateVirtualHostDomains(svc, vhwrapper.Port, node)
 		}
@@ -462,7 +471,7 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, port int, node *model.Proxy) ([]string, []string) {
 	altHosts := generateAltVirtualHosts(string(service.Hostname), port, node.DNSDomain)
-	domains := []string{string(service.Hostname), domainName(string(service.Hostname), port)}
+	domains := []string{ipv6Compliant(string(service.Hostname)), domainName(string(service.Hostname), port)}
 	domains = append(domains, altHosts...)
 
 	if service.Resolution == model.Passthrough &&

@@ -393,7 +393,7 @@ func TestADSC_handleMCP(t *testing.T) {
 			adsc.handleMCP(gvk, tt.resources)
 			configs, _ := adsc.Store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), "")
 			if len(configs) != len(tt.expectedResources) {
-				t.Errorf("expecte %v got %v", len(tt.expectedResources), len(configs))
+				t.Errorf("expected %v got %v", len(tt.expectedResources), len(configs))
 			}
 			configMap := make(map[string][]string)
 			for _, conf := range configs {
@@ -403,11 +403,11 @@ func TestADSC_handleMCP(t *testing.T) {
 			for _, expected := range tt.expectedResources {
 				got, ok := configMap[expected[0]]
 				if !ok {
-					t.Errorf("expecte %v got none", expected)
+					t.Errorf("expected %v got none", expected)
 				} else {
 					for i, value := range expected {
 						if value != got[i] {
-							t.Errorf("expecte %v got %v", value, got[i])
+							t.Errorf("expected %v got %v", value, got[i])
 						}
 					}
 				}

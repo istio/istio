@@ -152,6 +152,32 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			want:        []string{"google.local", "google.local:8123"},
 			wantWithMCS: []string{"google.local", "google.local:8123"},
 		},
+		{
+			name: "ipv4 domain",
+			service: &model.Service{
+				Hostname:     "1.2.3.4",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "example.com",
+			},
+			want:        []string{"1.2.3.4", "1.2.3.4:8123"},
+			wantWithMCS: []string{"1.2.3.4", "1.2.3.4:8123"},
+		},
+		{
+			name: "ipv6 domain",
+			service: &model.Service{
+				Hostname:     "2406:3003:2064:35b8:864:a648:4b96:e37d",
+				MeshExternal: false,
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "example.com",
+			},
+			want:        []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
+			wantWithMCS: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
+		},
 	}
 
 	testFn := func(service *model.Service, port int, node *model.Proxy, want []string) error {

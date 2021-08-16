@@ -85,7 +85,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
-		option.ProxyViaAgent(cfg.Metadata.ProxyViaAgent),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.ProvCert(cfg.Metadata.ProvCert),
 		option.DiscoveryHost(discHost),
@@ -453,7 +452,6 @@ type MetadataOptions struct {
 	StsPort             int
 	ID                  string
 	ProxyConfig         *meshAPI.ProxyConfig
-	ProxyViaAgent       bool
 	PilotSubjectAltName []string
 	OutlierLogPath      string
 	ProvCert            string
@@ -551,7 +549,6 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		l = util.ConvertLocality(localityString)
 	}
 
-	meta.ProxyViaAgent = options.ProxyViaAgent
 	meta.PilotSubjectAltName = options.PilotSubjectAltName
 	meta.OutlierLogPath = options.OutlierLogPath
 	meta.ProvCert = options.ProvCert

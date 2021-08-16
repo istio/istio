@@ -99,6 +99,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
 		ClusterVIPs:     map[cluster.ID]string{clusterID: addr},
+		ResourceVersion: svc.ResourceVersion,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Name:            svc.Name,
