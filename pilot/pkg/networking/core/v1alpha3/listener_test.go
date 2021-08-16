@@ -1261,7 +1261,7 @@ func testInboundListenerConfigWithHTTP10Proxy(t *testing.T, proxy *model.Proxy, 
 		verifyInboundHTTPListenerNormalizePath(t, listeners[0])
 	}
 	for _, l := range listeners {
-		verifyInboundHTTP10(t, isNodeHTTP10(proxy), l)
+		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), l)
 	}
 
 	verifyInboundEnvoyListenerNumber(t, listeners[0])
@@ -1307,7 +1307,7 @@ func testInboundListenerConfigWithSidecarWithHTTP10Proxy(t *testing.T, proxy *mo
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	for _, l := range listeners {
-		verifyInboundHTTP10(t, isNodeHTTP10(proxy), l)
+		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), l)
 	}
 }
 
@@ -1341,7 +1341,7 @@ func testInboundListenerConfigWithSidecarWithoutServicesWithHTTP10Proxy(t *testi
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	for _, l := range listeners {
-		verifyInboundHTTP10(t, isNodeHTTP10(proxy), l)
+		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), l)
 	}
 }
 
@@ -2449,10 +2449,6 @@ func isMysqlListener(listener *listener.Listener) bool {
 		return listener.FilterChains[0].Filters[0].Name == wellknown.MySQLProxy
 	}
 	return false
-}
-
-func isNodeHTTP10(proxy *model.Proxy) bool {
-	return proxy.Metadata.HTTP10 == "1"
 }
 
 func findListenerByPort(listeners []*listener.Listener, port uint32) *listener.Listener {
