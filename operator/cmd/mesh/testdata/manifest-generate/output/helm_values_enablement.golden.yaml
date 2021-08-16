@@ -34,9 +34,6 @@ spec:
         operator.istio.io/component: "EgressGateways"
         sidecar.istio.io/inject: "false"
       annotations:
-        prometheus.io/port: "15020"
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/stats/prometheus"
         sidecar.istio.io/inject: "false"
     spec:
       securityContext:
@@ -134,8 +131,6 @@ spec:
             value: "cluster.local"
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
-          - name: ISTIO_META_ROUTER_MODE
-            value: "standard"
           - name: ISTIO_META_CLUSTER_ID
             value: "Kubernetes"
           volumeMounts:
