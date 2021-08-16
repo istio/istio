@@ -32,6 +32,7 @@ type Config struct {
 	Kind               Kind       `yaml:"kind,omitempty"`
 	Name               string     `yaml:"clusterName,omitempty"`
 	Network            string     `yaml:"network,omitempty"`
+	HTTPProxy          string     `yaml:"httpProxy,omitempty"`
 	PrimaryClusterName string     `yaml:"primaryClusterName,omitempty"`
 	ConfigClusterName  string     `yaml:"configClusterName,omitempty"`
 	Meta               config.Map `yaml:"meta,omitempty"`

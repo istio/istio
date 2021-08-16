@@ -128,6 +128,7 @@ func CallEcho(opts *echo.CallOptions, retry bool, retryOptions ...retry.Option) 
 	send := func(req *proto.ForwardEchoRequest) (client.ParsedResponses, error) {
 		instance, err := forwarder.New(forwarder.Config{
 			Request: req,
+			Proxy:   opts.HTTPProxy,
 		})
 		if err != nil {
 			return nil, err
