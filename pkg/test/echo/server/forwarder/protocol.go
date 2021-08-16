@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -179,6 +180,13 @@ func newProtocol(cfg Config) (protocol, error) {
 				Timeout: timeout,
 			},
 			do: cfg.Dialer.HTTP,
+		}
+		if len(cfg.Proxy) > 0 {
+			proxyURL, err := url.Parse(cfg.Proxy)
+			if err != nil {
+				return nil, err
+			}
+			proto.client.Transport.(*http.Transport).Proxy = http.ProxyURL(proxyURL)
 		}
 		if cfg.Request.Http3 && scheme.Instance(urlScheme) == scheme.HTTP {
 			return nil, fmt.Errorf("http3 requires HTTPS")
