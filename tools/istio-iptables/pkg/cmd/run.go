@@ -211,7 +211,7 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 	}
 }
 
-func (iptConfigurator *IptablesConfigurator) handleInboundRules(
+func (iptConfigurator *IptablesConfigurator) handleOutboundIncludeRules(
 	rangeInclude NetworkRange,
 	appendRule func(chain string, table string, params ...string) *builder.IptablesBuilder,
 	insert func(chain string, table string, position int, params ...string) *builder.IptablesBuilder) {
@@ -455,8 +455,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	iptConfigurator.handleOutboundPortsInclude()
 
-	iptConfigurator.handleInboundRules(ipv4RangesInclude, iptConfigurator.iptables.AppendRuleV4, iptConfigurator.iptables.InsertRuleV4)
-	iptConfigurator.handleInboundRules(ipv6RangesInclude, iptConfigurator.iptables.AppendRuleV6, iptConfigurator.iptables.InsertRuleV6)
+	iptConfigurator.handleOutboundIncludeRules(ipv4RangesInclude, iptConfigurator.iptables.AppendRuleV4, iptConfigurator.iptables.InsertRuleV4)
+	iptConfigurator.handleOutboundIncludeRules(ipv6RangesInclude, iptConfigurator.iptables.AppendRuleV6, iptConfigurator.iptables.InsertRuleV6)
 
 	if redirectDNS {
 		HandleDNSUDP(
