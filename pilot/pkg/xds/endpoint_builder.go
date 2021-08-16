@@ -15,9 +15,10 @@
 package xds
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"sort"
 	"strconv"
-	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -150,7 +151,12 @@ func (b EndpointBuilder) Key() string {
 		sort.Strings(nv)
 		params = append(params, nv...)
 	}
-	return "eds://" + strings.Join(params, "~")
+	hash := md5.New()
+	for _, param := range params {
+		hash.Write([]byte(param))
+	}
+	sum := hash.Sum(nil)
+	return hex.EncodeToString(sum)
 }
 
 func (b EndpointBuilder) Cacheable() bool {
