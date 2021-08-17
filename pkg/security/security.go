@@ -183,6 +183,10 @@ type Options struct {
 
 	// Cert signer info
 	CertSigner string
+
+	// Delay in reading certificates from file after the change is detected. This is useful in cases
+	// where the write operation of key and cert take longer.
+	FileDebounceDuration time.Duration
 }
 
 // TokenManager contains methods for generating token.
