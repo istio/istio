@@ -37,7 +37,7 @@ fi
 # Determine the latest Istio version by version number ignoring alpha, beta, and rc versions.
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   ISTIO_VERSION="$(curl -sL https://github.com/istio/istio/releases | \
-                  grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort --version-sort | \
+                  grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort -V | \
                   tail -1 | awk -F'/' '{ print $2}')"
   ISTIO_VERSION="${ISTIO_VERSION##*/}"
 fi
@@ -108,7 +108,7 @@ ARCH_SUPPORTED="1.6"
 
 if [ "${OS}" = "Linux" ] ; then
   # This checks if ISTIO_VERSION is less than ARCH_SUPPORTED (version-sort's before it)
-  if [ "$(printf '%s\n%s' "${ARCH_SUPPORTED}" "${ISTIO_VERSION}" | sort --version-sort | head -n 1)" = "${ISTIO_VERSION}" ]; then
+  if [ "$(printf '%s\n%s' "${ARCH_SUPPORTED}" "${ISTIO_VERSION}" | sort -V | head -n 1)" = "${ISTIO_VERSION}" ]; then
     without_arch
   else
     with_arch
