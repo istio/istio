@@ -112,6 +112,7 @@ type ClusterBuilder struct {
 	supportsIPv4      bool                     // Whether Proxy IPs has IPv4 address.
 	supportsIPv6      bool                     // Whether Proxy IPs has IPv6 address.
 	locality          *core.Locality           // Locality information of proxy.
+	proxyLabels       map[string]string        // Proxy labels.
 	networkView       map[network.ID]bool      // Proxy network view.
 	proxyIPAddresses  []string                 // IP addresses on which proxy is listenining on.
 	configNamespace   string                   // Proxy config namespace.
@@ -132,6 +133,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		supportsIPv4:      proxy.SupportsIPv4(),
 		supportsIPv6:      proxy.SupportsIPv6(),
 		locality:          proxy.Locality,
+		proxyLabels:       proxy.Metadata.Labels,
 		networkView:       proxy.GetNetworkView(),
 		proxyIPAddresses:  proxy.IPAddresses,
 		configNamespace:   proxy.ConfigNamespace,
@@ -763,7 +765,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts, connectionPool)
 		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
-		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, opts.mesh)
+		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,

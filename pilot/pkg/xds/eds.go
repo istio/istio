@@ -336,7 +336,14 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
-		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
+		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(l.Endpoints))
+		for i := range llbOpts {
+			wrappedLocalityLbEndpoints = append(wrappedLocalityLbEndpoints, &loadbalancer.WrappedLocalityLbEndpoints{
+				IstioEndpoints:      llbOpts[i].istioEndpoints,
+				LocalityLbEndpoints: l.Endpoints[i],
+			})
+		}
+		loadbalancer.ApplyLocalityLBSetting(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Metadata.Labels, lbSetting, enableFailover)
 	}
 	return l
 }
