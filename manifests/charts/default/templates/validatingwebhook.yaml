@@ -34,7 +34,7 @@ webhooks:
           - "*"
         resources:
           - "*"
-    failurePolicy: Fail
+    failurePolicy: Ignore
     sideEffects: None
     admissionReviewVersions: ["v1beta1", "v1"]
     objectSelector:
