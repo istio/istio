@@ -74,6 +74,7 @@ SpAJos6OfJqyok7JXDdOYRDD5/hBerj68R9llWzNJd27/1jZ0NF2sIE1W4QFddy/
 e+5z6MTAO6ktvHdQlSuH6ARn47bJrZOlkttAhg==
 -----END CERTIFICATE-----
 `
+	DefaulCertTTL = 24 * time.Hour
 )
 
 type mockTLSServer struct {
@@ -127,7 +128,7 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		}
 
 		_, _, _, err = GenKeyCertK8sCA(wc.clientset, tc.dnsNames[0], tc.secretNames[0],
-			tc.serviceNamespaces[0], wc.k8sCaCertFile, "testSigner", true)
+			tc.serviceNamespaces[0], wc.k8sCaCertFile, "testSigner", true, DefaulCertTTL)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("should have failed")
@@ -387,7 +388,7 @@ func TestSubmitCSR(t *testing.T) {
 		}
 
 		_, r, _, err := submitCSR(wc.clientset, []byte("test-pem"), "test-signer",
-			usages, numRetries)
+			usages, numRetries, DefaulCertTTL)
 		if tc.expectFail {
 			if err == nil {
 				t.Errorf("test case (%s) should have failed", tcName)

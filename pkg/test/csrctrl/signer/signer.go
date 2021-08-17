@@ -30,7 +30,7 @@ import (
 
 type Signer struct {
 	caProvider *caProvider
-	certTTL    time.Duration
+	CertTTL    time.Duration
 }
 
 func NewSigner(signerRoot, signerName string, certificateDuration time.Duration) (*Signer, error) {
@@ -41,18 +41,18 @@ func NewSigner(signerRoot, signerName string, certificateDuration time.Duration)
 
 	ret := &Signer{
 		caProvider: caProvider,
-		certTTL:    certificateDuration,
+		CertTTL:    certificateDuration,
 	}
 	return ret, nil
 }
 
-func (s *Signer) Sign(x509cr *x509.CertificateRequest, usages []capi.KeyUsage) ([]byte, error) {
+func (s *Signer) Sign(x509cr *x509.CertificateRequest, usages []capi.KeyUsage, requestedLifetime time.Duration) ([]byte, error) {
 	currCA, err := s.caProvider.currentCA()
 	if err != nil {
 		return nil, err
 	}
 	der, err := currCA.Sign(x509cr.Raw, authority.PermissiveSigningPolicy{
-		TTL:    s.certTTL,
+		TTL:    requestedLifetime,
 		Usages: usages,
 	})
 	if err != nil {
