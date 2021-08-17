@@ -1,7 +1,0 @@
-2021-08-17T17:51:22.3768763Z stderr F time="2021-08-17T17:51:22Z" level=debug msg="Applied config: {\"nodePathMap\":[{\"node\":\"DEFAULT_PATH_FOR_NON_LISTED_NODES\",\"paths\":[\"/var/local-path-provisioner\"]}]}" 
-2021-08-17T17:51:22.3784466Z stderr F time="2021-08-17T17:51:22Z" level=debug msg="Provisioner started" 
-2021-08-17T17:51:22.3797043Z stderr F I0817 17:51:22.378207       1 leaderelection.go:242] attempting to acquire leader lease  local-path-storage/rancher.io-local-path...
-2021-08-17T17:51:22.4107374Z stderr F I0817 17:51:22.409843       1 leaderelection.go:252] successfully acquired lease local-path-storage/rancher.io-local-path
-2021-08-17T17:51:22.4107843Z stderr F I0817 17:51:22.410238       1 event.go:281] Event(v1.ObjectReference{Kind:"Endpoints", Namespace:"local-path-storage", Name:"rancher.io-local-path", UID:"59785eee-852d-45ac-8087-27e2b6690714", APIVersion:"v1", ResourceVersion:"629", FieldPath:""}): type: 'Normal' reason: 'LeaderElection' local-path-provisioner-547f784dff-fpkm8_06f8f05c-bcda-4c24-bd79-f395c2dd3c2e became leader
-2021-08-17T17:51:22.410836Z stderr F I0817 17:51:22.410460       1 controller.go:773] Starting provisioner controller rancher.io/local-path_local-path-provisioner-547f784dff-fpkm8_06f8f05c-bcda-4c24-bd79-f395c2dd3c2e!
-2021-08-17T17:51:22.5114693Z stderr F I0817 17:51:22.511165       1 controller.go:822] Started provisioner controller rancher.io/local-path_local-path-provisioner-547f784dff-fpkm8_06f8f05c-bcda-4c24-bd79-f395c2dd3c2e!

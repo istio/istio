@@ -1,4 +1,0 @@
-2021-08-17T17:51:22.9177717Z stdout F .:53
-2021-08-17T17:51:22.9179192Z stdout F [INFO] plugin/reload: Running configuration MD5 = db32ca3650231d74073ff4cf814959a7
-2021-08-17T17:51:22.9188319Z stdout F CoreDNS-1.8.0
-2021-08-17T17:51:22.918856Z stdout F linux/amd64, go1.15.3, 054c9ae
