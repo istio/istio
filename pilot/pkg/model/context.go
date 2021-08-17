@@ -632,7 +632,10 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 // endpoints corresponding to the networks that the proxy wants to see.
 // If not set, we assume that the proxy wants to see endpoints in any network.
 func (node *Proxy) GetNetworkView() map[network.ID]bool {
-	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+	if node == nil || node.Metadata == nil {
+		return nil
+	}
+	if len(node.Metadata.RequestedNetworkView) == 0 {
 		return nil
 	}
 
