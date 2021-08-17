@@ -60,6 +60,10 @@ const (
 	// on external istiod remote clusters for integration tests
 	IntegrationTestExternalIstiodRemoteDefaultsIOP = "tests/integration/iop-externalistiod-remote-integration-test-defaults.yaml"
 
+	// IntegrationTestExternalIstiodRemoteDefaultsIOP is the path of the default IstioOperator spec to use
+	// to install gateways on external istiod remote clusters for integration tests
+	IntegrationTestExternalIstiodRemoteGatewaysIOP = "tests/integration/iop-externalistiod-remote-integration-test-gateways.yaml"
+
 	// DefaultDeployTimeout for Istio
 	DefaultDeployTimeout = time.Second * 300
 

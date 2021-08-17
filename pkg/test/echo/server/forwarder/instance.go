@@ -41,6 +41,8 @@ type Config struct {
 
 	// XDSTestBootstrap, for gRPC forwarders, is used to set the bootstrap without using a global one defined in the env
 	XDSTestBootstrap []byte
+	// Http proxy used for connection
+	Proxy string
 }
 
 func (c Config) fillInDefaults() Config {

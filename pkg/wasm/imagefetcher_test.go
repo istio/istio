@@ -502,7 +502,7 @@ func TestExtractOCIArtifactImage(t *testing.T) {
 		}
 	})
 
-	t.Run("invald number of layers", func(t *testing.T) {
+	t.Run("invalid number of layers", func(t *testing.T) {
 		l, err := random.Layer(1000, "application/vnd.module.wasm.content.layer.v1+wasm")
 		if err != nil {
 			t.Fatal(err)
@@ -517,7 +517,7 @@ func TestExtractOCIArtifactImage(t *testing.T) {
 		}
 	})
 
-	t.Run("invald media types", func(t *testing.T) {
+	t.Run("invalid media types", func(t *testing.T) {
 		// Create the image with invalid media types.
 		layer, err := random.Layer(1000, "aaa")
 		if err != nil {

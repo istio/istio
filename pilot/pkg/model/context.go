@@ -487,9 +487,6 @@ type BootstrapNodeMetadata struct {
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
 
-	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
-	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
-
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
 

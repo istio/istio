@@ -1476,7 +1476,7 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 	return ValidateProxyAddress(strings.Replace(d.GetAddress(), "$(HOST_IP)", "127.0.0.1", 1))
 }
 
-// ValidateConnectTimeout validates the envoy conncection timeout
+// ValidateConnectTimeout validates the envoy connection timeout
 func ValidateConnectTimeout(timeout *types.Duration) error {
 	if err := ValidateDuration(timeout); err != nil {
 		return err

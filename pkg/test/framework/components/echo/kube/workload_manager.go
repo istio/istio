@@ -140,7 +140,7 @@ func (m *workloadManager) Start() error {
 	// Wait for the cache to sync.
 	if !m.podController.WaitForSync(m.stopCh) {
 		return fmt.Errorf(
-			"failed synching cache for echo %s/%s: controller stopping",
+			"failed syncing cache for echo %s/%s: controller stopping",
 			m.cfg.Namespace.Name(),
 			m.cfg.Service)
 	}

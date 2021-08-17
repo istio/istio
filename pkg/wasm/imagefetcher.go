@@ -30,7 +30,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-// This file implements the fetcher of "Wasm Image Specificiation" compatible container images.
+// This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
 

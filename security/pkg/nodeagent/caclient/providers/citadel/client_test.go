@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -372,13 +373,22 @@ func TestCertExpired(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
+
+		var wg sync.WaitGroup
+		wg.Add(1)
 		s := grpc.NewServer()
-		defer s.Stop()
+		defer func() {
+			s.Stop()
+			wg.Wait()
+		}()
+
 		lis, err := net.Listen("tcp", mockServerAddress)
 		if err != nil {
 			t.Fatalf("failed to listen: %v", err)
 		}
+
 		go func() {
+			defer wg.Done()
 			pb.RegisterIstioCertificateServiceServer(s, &mockTokenCAServer{Certs: []string{}})
 			if err := s.Serve(lis); err != nil {
 				t.Logf("failed to serve: %v", err)
@@ -390,6 +400,7 @@ func TestCertExpired(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create ca client: %v", err)
 		}
+
 		t.Cleanup(cli.Close)
 		t.Run(id, func(t *testing.T) {
 			certExpired, err := cli.isCertExpired(tc.filepath)

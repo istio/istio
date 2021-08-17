@@ -484,8 +484,8 @@ type deployment struct {
 }
 
 func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
-	if !cfg.Cluster.IsPrimary() && cfg.DeployAsVM {
-		return nil, fmt.Errorf("cannot deploy %s/%s as VM on non-primary %s",
+	if !cfg.Cluster.IsConfig() && cfg.DeployAsVM {
+		return nil, fmt.Errorf("cannot deploy %s/%s as VM on non-config %s",
 			cfg.Namespace.Name(),
 			cfg.Service,
 			cfg.Cluster.Name())
@@ -802,7 +802,7 @@ spec:
 			cmd = append(cmd, "--autoregister")
 		}
 		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-			// LoadBalancer may not be suppported and the command doesn't have NodePort fallback logic that the tests do
+			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 		}
 		// make sure namespace controller has time to create root-cert ConfigMap
