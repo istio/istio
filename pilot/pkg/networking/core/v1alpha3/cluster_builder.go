@@ -100,22 +100,24 @@ type metadataCerts struct {
 
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
-	serviceInstances  []*model.ServiceInstance
-	metadataCerts     *metadataCerts
-	clusterID         string
-	proxyID           string
-	proxyVersion      string
-	proxyType         model.NodeType
-	sidecarScope      *model.SidecarScope
-	passThroughBindIP string
-	supportsIPv4      bool
-	supportsIPv6      bool
-	locality          *core.Locality
-	networkView       map[network.ID]bool
-	proxyIPAddresses  []string
-	configNamespace   string
-	req               *model.PushRequest
-	cache             model.XdsCache
+	// Proxy related information used to build clusters.
+	serviceInstances  []*model.ServiceInstance // Service instances of Proxy.
+	metadataCerts     *metadataCerts           // Client certificates specified in metadata.
+	clusterID         string                   // Cluster in which proxy is running.
+	proxyID           string                   // Identifier that uniquely identifies a proxy.
+	proxyVersion      string                   // Version of Proxy.
+	proxyType         model.NodeType           // Indicates whether the proxy is sidecar or gateway.
+	sidecarScope      *model.SidecarScope      // Computed sidecar for the proxy.
+	passThroughBindIP string                   // Passthrough IP to be used while building clusters.
+	supportsIPv4      bool                     // Whether Proxy IPs has IPv4 address.
+	supportsIPv6      bool                     // Whether Proxy IPs has IPv6 address.
+	locality          *core.Locality           // Locality information of proxy.
+	networkView       map[network.ID]bool      // Proxy network view.
+	proxyIPAddresses  []string                 // IP addresses on which proxy is listenining on.
+	configNamespace   string                   // Proxy config namespace.
+	// PushRequest to look for updates.
+	req   *model.PushRequest
+	cache model.XdsCache
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
