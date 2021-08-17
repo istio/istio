@@ -22,6 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/scopes"
+
+	revtag "istio.io/istio/istioctl/pkg/tag"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
@@ -30,7 +34,6 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
-	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -191,7 +194,7 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 
 	rev := iop.Spec.Revision
 	if !exists || rev == "" {
-		cmd.Println("Making this installation the default for injection and validation.")
+		l.LogAndPrint("Making this installation the default for injection and validation.")
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
 		}
@@ -201,8 +204,14 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, log
 			Overwrite: true,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
+		// generate has side effects. calling it without the associated create? FAIL!
 		tagManifests, err := revtag.Generate(context.Background(), kubeClient, o)
+		if err != nil {
+			scopes.Framework.Errorf("SAM: ERROR GENERATING: %v", err)
+		}
+		scopes.Framework.Error(tagManifests)
 		if err == nil {
+			scopes.Framework.Error("SAM: continuing gen")
 			err = revtag.Create(kubeClient, tagManifests)
 			if err != nil {
 				return err

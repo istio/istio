@@ -274,6 +274,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 	}
 	// Dump istio-cni.
 	kube2.DumpPods(ctx, d, "kube-system", []string{"k8s-app=istio-cni-node"})
+	kube2.DumpWebhooks(ctx, d)
 }
 
 // saveManifestForCleanup will ensure we delete the given yaml from the given cluster during cleanup.
