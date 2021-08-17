@@ -889,24 +889,22 @@ func (ps *PushContext) DestinationRuleByName(proxy *Proxy, name, namespace strin
 	if proxy == nil || proxy.SidecarScope == nil {
 		return nil
 	}
-	for _, v := range proxy.SidecarScope.destinationRules {
-		if v.Name == name && v.Namespace == namespace {
-			return v
-		}
-	}
-	return nil
+	return proxy.SidecarScope.destinationRulesByNames[ConfigKey{
+		Kind:      gvk.DestinationRule,
+		Name:      name,
+		Namespace: namespace,
+	}]
 }
 
 func (ps *PushContext) PrevDestinationRuleByName(proxy *Proxy, name, namespace string) *config.Config {
 	if proxy == nil || proxy.PrevSidecarScope == nil {
 		return nil
 	}
-	for _, v := range proxy.PrevSidecarScope.destinationRules {
-		if v.Name == name && v.Namespace == namespace {
-			return v
-		}
-	}
-	return nil
+	return proxy.PrevSidecarScope.destinationRulesByNames[ConfigKey{
+		Kind:      gvk.DestinationRule,
+		Name:      name,
+		Namespace: namespace,
+	}]
 }
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) *config.Config {

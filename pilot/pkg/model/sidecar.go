@@ -98,6 +98,7 @@ type SidecarScope struct {
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
 	destinationRules map[host.Name]*config.Config
+	destinationRulesByNames map[ConfigKey]*config.Config
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
@@ -189,6 +190,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name]*config.Config),
+		destinationRulesByNames: make(map[ConfigKey]*config.Config),
 		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies: make(map[uint64]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
@@ -212,6 +214,11 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		out.servicesByHostname[s.Hostname] = s
 		if dr := ps.DestinationRule(&dummyNode, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
+			out.destinationRulesByNames[ConfigKey{
+				Kind:      gvk.DestinationRule,
+				Name:      dr.Name,
+				Namespace: s.Attributes.Namespace,
+			}] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
 			Kind:      gvk.ServiceEntry,
@@ -403,16 +410,19 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// that these services need
 	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name]*config.Config)
+	out.destinationRulesByNames = make(map[ConfigKey]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
 		dr := ps.DestinationRule(&dummyNode, s)
 		if dr != nil {
-			out.destinationRules[s.Hostname] = dr
-			out.AddConfigDependencies(ConfigKey{
+			ckey := ConfigKey{
 				Kind:      gvk.DestinationRule,
 				Name:      dr.Name,
 				Namespace: dr.Namespace,
-			})
+			}
+			out.destinationRules[s.Hostname] = dr
+			out.destinationRulesByNames[ckey] = dr
+			out.AddConfigDependencies(ckey)
 		}
 	}
 

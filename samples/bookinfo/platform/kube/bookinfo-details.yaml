@@ -22,7 +22,7 @@ metadata:
   labels:
     app: details
     service: details
-    foo: bar
+#    foo: bar
 spec:
   ports:
   - port: 9080
@@ -62,8 +62,8 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: bookinfo-details
-#  labels:
-#    foo: bar
+  labels:
+    foo: bar
 spec:
   host: details.default.svc.cluster.local
   trafficPolicy:
@@ -76,10 +76,10 @@ spec:
       trafficPolicy:
         loadBalancer:
           simple: RANDOM
-#    - name: bar
-#      labels:
-#        version: v2
-#      trafficPolicy:
-#        loadBalancer:
-#          simple: ROUND_ROBIN
+    - name: bar
+      labels:
+        version: v2
+      trafficPolicy:
+        loadBalancer:
+          simple: ROUND_ROBIN
 ---

@@ -192,7 +192,6 @@ func (configgen *ConfigGeneratorImpl) generateDeltaDestinationRules(updatedDr mo
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	cfg := push.DestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
-	log.Infof("adiprerepa: destinationRule name: %v namespace: %v", updatedDr.Name, updatedDr.Namespace)
 	if cfg == nil {
 		// subset clusters need to be removed, actual cluster needs to be updated
 		// a destinationrule was deleted, get the populated destinationRule from PrevSidecarScope
