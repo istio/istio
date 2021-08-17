@@ -2524,25 +2524,25 @@ func TestTelemetryMetadata(t *testing.T) {
 }
 
 func TestGetRemovedClusterNames(t *testing.T) {
-	tests := []struct{
-		desc string
+	tests := []struct {
+		desc     string
 		resNames []string
-		subsets []string
-		target string
+		subsets  []string
+		target   string
 		expected []string
-	} {
+	}{
 		{
-			desc: "removed cluster, no subsets",
+			desc:     "removed cluster, no subsets",
 			resNames: []string{"outbound|80||foo.com", "outbound|80||bar.com", "outbound|80||istio.io"},
-			subsets: []string{},
-			target: "istio.io",
+			subsets:  []string{},
+			target:   "istio.io",
 			expected: []string{"outbound|80||istio.io"},
 		},
 		{
-			desc: "removed cluster, subsets",
+			desc:     "removed cluster, subsets",
 			resNames: []string{"outbound|80|ss|foo.com", "outbound|80|baz|bar.com", "outbound|80||istio.io"},
-			subsets: []string{"ss", "baz"},
-			target: "bar.com",
+			subsets:  []string{"ss", "baz"},
+			target:   "bar.com",
 			expected: []string{"outbound|80|baz|bar.com"},
 		},
 	}

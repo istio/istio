@@ -169,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-func (configgen* ConfigGeneratorImpl) deltaServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
+func (configgen *ConfigGeneratorImpl) deltaServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	service := push.ServicesForHostname(proxy, host.Name(updatedService.Name))

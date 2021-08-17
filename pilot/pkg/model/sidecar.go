@@ -97,7 +97,7 @@ type SidecarScope struct {
 	// corresponds to a service in the services array above. When computing
 	// CDS, we simply have to find the matching service and return the
 	// destination rule.
-	destinationRules map[host.Name]*config.Config
+	destinationRules        map[host.Name]*config.Config
 	destinationRulesByNames map[ConfigKey]*config.Config
 
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
@@ -185,16 +185,16 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
-		Name:               defaultSidecar,
-		Namespace:          configNamespace,
-		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:           defaultEgressListener.services,
-		destinationRules:   make(map[host.Name]*config.Config),
+		Name:                    defaultSidecar,
+		Namespace:               configNamespace,
+		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
+		services:                defaultEgressListener.services,
+		destinationRules:        make(map[host.Name]*config.Config),
 		destinationRulesByNames: make(map[ConfigKey]*config.Config),
-		servicesByHostname: make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies: make(map[uint64]struct{}),
-		RootNamespace:      ps.Mesh.RootNamespace,
-		Version:            ps.PushVersion,
+		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
+		configDependencies:      make(map[uint64]struct{}),
+		RootNamespace:           ps.Mesh.RootNamespace,
+		Version:                 ps.PushVersion,
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
