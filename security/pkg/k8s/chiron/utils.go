@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientset "k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
@@ -43,6 +42,8 @@ import (
 const (
 	randomLength  = 18
 	csrRetriesMax = 3
+	// cert-manager use below annotation on kubernetes CSR to control TTL for the generated cert.
+	RequestLifeTimeAnnotationForCertManager = "experimental.cert-manager.io/request-duration"
 )
 
 type CsrNameGenerator func(string, string) string
@@ -214,7 +215,7 @@ func submitCSR(clientset clientset.Interface,
 				},
 			}
 			if requestedLifetime != time.Duration(0) {
-				csr.ObjectMeta.Annotations = map[string]string{constants.RequestLifeTimeAnnotationForCertManager: requestedLifetime.String()}
+				csr.ObjectMeta.Annotations = map[string]string{RequestLifeTimeAnnotationForCertManager: requestedLifetime.String()}
 			}
 			v1req, err := clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, metav1.CreateOptions{})
 			if err == nil {
@@ -245,7 +246,7 @@ func submitCSR(clientset clientset.Interface,
 			v1beta1csr.Spec.Usages = append(v1beta1csr.Spec.Usages, certv1beta1.KeyUsage(usage))
 		}
 		if requestedLifetime != time.Duration(0) {
-			v1beta1csr.ObjectMeta.Annotations = map[string]string{constants.RequestLifeTimeAnnotationForCertManager: requestedLifetime.String()}
+			v1beta1csr.ObjectMeta.Annotations = map[string]string{RequestLifeTimeAnnotationForCertManager: requestedLifetime.String()}
 		}
 		// create v1beta1 certificate request
 		v1beta1req, err := clientset.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), v1beta1csr, metav1.CreateOptions{})

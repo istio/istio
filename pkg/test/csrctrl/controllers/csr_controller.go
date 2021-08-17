@@ -25,8 +25,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/csrctrl/signer"
+	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/pkg/log"
 )
@@ -78,7 +78,7 @@ func (r *CertificateSigningRequestSigningReconciler) Reconcile(_ context.Context
 			return ctrl.Result{}, fmt.Errorf("error no signer can sign this csr: %v", err)
 		}
 		requestedLifeTime := signer.CertTTL
-		requestedDuration, ok := csr.Annotations[constants.RequestLifeTimeAnnotationForCertManager]
+		requestedDuration, ok := csr.Annotations[chiron.RequestLifeTimeAnnotationForCertManager]
 		if ok {
 			duration, err := time.ParseDuration(requestedDuration)
 			if err == nil {
