@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/security"
-
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -51,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/identifier"
 )
 
