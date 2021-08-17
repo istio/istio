@@ -107,10 +107,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		var deleted []string
 		if key.Kind == gvk.ServiceEntry {
 			// services
-			svcs, deleted = configgen.generateDeltaServices(key, proxy, updates.Push, watched.ResourceNames)
+			svcs, deleted = configgen.deltaServices(key, proxy, updates.Push, watched.ResourceNames)
 		} else {
 			// destination rules
-			svcs, deleted = configgen.generateDeltaDestinationRules(key, proxy, updates.Push, watched.ResourceNames)
+			svcs, deleted = configgen.deltaServicesFromDestinationRules(key, proxy, updates.Push, watched.ResourceNames)
 		}
 		services = append(services, svcs...)
 		deletedClusters = append(deletedClusters, deleted...)
@@ -169,11 +169,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-func (configgen* ConfigGeneratorImpl) generateDeltaServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
+func (configgen* ConfigGeneratorImpl) deltaServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	service := push.ServicesForHostname(proxy, host.Name(updatedService.Name))
-	// SidecarScope.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
+	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
 		// we assume a service was deleted, it doesn't hurt to have positives for removedResources when a resource included
@@ -188,7 +188,7 @@ func (configgen* ConfigGeneratorImpl) generateDeltaServices(updatedService model
 	return services, deletedClusters
 }
 
-func (configgen *ConfigGeneratorImpl) generateDeltaDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
+func (configgen *ConfigGeneratorImpl) deltaServicesFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	cfg := push.DestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
@@ -223,7 +223,6 @@ func (configgen *ConfigGeneratorImpl) generateDeltaDestinationRules(updatedDr mo
 		}
 		prevDr := prevCfg.Spec.(*networking.DestinationRule)
 		// detecting added/updated subsets works, we just need to track deletions
-		log.Infof("Prev DR Subsets: %v\nNew DR subsets: %v", getSubsetNames(prevDr.GetSubsets()), getSubsetNames(dr.GetSubsets()))
 		if !reflect.DeepEqual(prevDr.GetSubsets(), dr.GetSubsets()) {
 			// subsets changed, did something delete?
 			deletedSubsetNames := getDeletedSubsets(prevDr.GetSubsets(), dr.GetSubsets())
