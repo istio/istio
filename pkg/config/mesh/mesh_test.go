@@ -99,6 +99,27 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
 		}
 	})
+	t.Run("apply should not modify", func(t *testing.T) {
+		config := mesh.DefaultMeshConfig()
+		config.DefaultConfig.ProxyMetadata = map[string]string{
+			"foo": "bar",
+		}
+		orig, err := protomarshal.ToYAML(&config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
+			t.Fatal(err)
+		}
+		after, err := protomarshal.ToYAML(&config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if orig != after {
+			t.Fatalf("Changed before and after. Expected %v, got %v", orig, after)
+		}
+	})
 }
 
 func TestDefaultProxyConfig(t *testing.T) {
