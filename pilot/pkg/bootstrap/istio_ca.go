@@ -120,7 +120,7 @@ var (
 			"and the back off time is below root cert check interval.")
 
 	k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
-		"Kuberenetes service host, set automatically when running in-cluster")
+		"Kubernetes service host, set automatically when running in-cluster")
 
 	// This value can also be extracted from the mounted token
 	trustedIssuer = env.RegisterStringVar("TOKEN_ISSUER", "",

@@ -29,7 +29,7 @@ import (
 )
 
 var k8sInCluster = env.RegisterStringVar("KUBERNETES_SERVICE_HOST", "",
-	"Kuberenetes service host, set automatically when running in-cluster")
+	"Kubernetes service host, set automatically when running in-cluster")
 
 // ParseCertAndGetExpiryTimestamp parses the first certificate in certByte and returns cert expire
 // time, or return error if fails to parse certificate.
