@@ -531,7 +531,7 @@ func (m *CNIRepairConfig) GetInitContainerName() string {
 }
 
 type ResourceQuotas struct {
-	// Controls whether to apply resource quotas or not.
+	// Controls whether to create resource quotas or not for the CNI DaemonSet.
 	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Pods                 int64               `protobuf:"varint,2,opt,name=pods,proto3" json:"pods,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`

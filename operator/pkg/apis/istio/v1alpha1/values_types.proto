@@ -107,7 +107,7 @@ message CNIRepairConfig {
 }
 
 message ResourceQuotas {
-  // Controls whether to apply resource quotas or not.
+  // Controls whether to create resource quotas or not for the CNI DaemonSet.
   google.protobuf.BoolValue enabled = 1;
 
   int64 pods = 2;
