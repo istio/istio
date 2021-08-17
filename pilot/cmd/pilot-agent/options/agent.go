@@ -45,6 +45,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		Platform:                 platform.Discover(),
 		GRPCBootstrapPath:        grpcBootstrapEnv,
 		DisableEnvoy:             disableEnvoyEnv,
+		FileDebounceDuration:     fileDebounceDuration,
 	}
 	extractXDSHeadersFromEnv(o)
 	if proxyXDSViaAgent {
