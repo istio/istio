@@ -25,12 +25,15 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -43,26 +46,44 @@ var log = istiolog.RegisterScope("gateway", "gateway-api controller", 0)
 
 var (
 	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
-	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway, destination rule, and virtual service resource type")
+	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway and virtual service resource type")
 )
 
+// Controller defines the controller for the gateway-api. The controller acts a bit different from most.
+// Rather than watching the CRs directly, we depend on the existing model.ConfigStoreCache which
+// already watches all CRs. When there are updates, a new PushContext will be computed, which will eventually
+// call Controller.Recompute(). Once this happens, we will inspect the current state of the world, and transform
+// gateway-api types into Istio types (Gateway/VirtualService). Future calls to Get/List will return these
+// Istio types. These are not stored in the cluster at all, and are purely internal; they can be seen on /debug/configz.
+// During Recompute(), the status on all gateway-api types is also tracked. Once completed, if the status
+// has changed at all, it is queued to asynchronously update the status of the object in Kubernetes.
 type Controller struct {
-	client            kube.Client
-	cache             model.ConfigStoreCache
+	// client for accessing Kubernetes
+	client kube.Client
+	// cache provides access to the underlying gateway-configs
+	cache model.ConfigStoreCache
+
+	// Gateway-api types reference namespace labels directly, so we need access to these
 	namespaceLister   listerv1.NamespaceLister
 	namespaceInformer cache.SharedIndexInformer
-	domain            string
+	namespaceHandler  model.EventHandler
 
+	// domain stores the cluster domain, typically cluster.local
+	domain string
+
+	// state is our computed Istio resources. Access is guarded by stateMu. This is updated from Recompute().
 	state   OutputResources
 	stateMu sync.RWMutex
 
-	statusEnabled *atomic.Bool
+	// status controls the status working queue. Status will only be written if statusEnabled is true, which
+	// is only the case when we are the leader.
 	status        status.WorkerQueue
+	statusEnabled *atomic.Bool
 }
 
 var _ model.GatewayController = &Controller{}
 
-func NewController(client kube.Client, c model.ConfigStoreCache, options controller2.Options) *Controller {
+func NewController(client kube.Client, c model.ConfigStoreCache, options controller.Options) *Controller {
 	var statusQueue status.WorkerQueue
 	if features.EnableGatewayAPIStatus {
 		statusQueue = status.NewWorkerPool(func(resource status.Resource, resourceStatus status.ResourceStatus) {
@@ -78,23 +99,33 @@ func NewController(client kube.Client, c model.ConfigStoreCache, options control
 			}
 		}, uint(features.StatusMaxWorkers))
 	}
-	return &Controller{
+	nsInformer := client.KubeInformer().Core().V1().Namespaces().Informer()
+	gatewayController := &Controller{
 		client:            client,
 		cache:             c,
 		namespaceLister:   client.KubeInformer().Core().V1().Namespaces().Lister(),
-		namespaceInformer: client.KubeInformer().Core().V1().Namespaces().Informer(),
+		namespaceInformer: nsInformer,
 		domain:            options.DomainSuffix,
 		status:            statusQueue,
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
 	}
+
+	nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			gatewayController.namespaceEvent(nil, obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			gatewayController.namespaceEvent(oldObj, newObj)
+		},
+	})
+	return gatewayController
 }
 
 func (c *Controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
 		collections.IstioNetworkingV1Alpha3Virtualservices,
 		collections.IstioNetworkingV1Alpha3Gateways,
-		collections.IstioNetworkingV1Alpha3Destinationrules,
 	)
 }
 
@@ -102,34 +133,8 @@ func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return nil
 }
 
-func deepCopyStatus(configs []config.Config) []config.Config {
-	res := make([]config.Config, 0, len(configs))
-	for _, c := range configs {
-		nc := config.Config{
-			Meta:   c.Meta,
-			Spec:   c.Spec,
-			Status: kstatus.Wrap(c.Status),
-		}
-		res = append(res, nc)
-	}
-	return res
-}
-
-func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
-	if namespace == metav1.NamespaceAll {
-		return cfgs
-	}
-	filtered := make([]config.Config, 0, len(cfgs))
-	for _, c := range cfgs {
-		if c.Namespace == namespace {
-			filtered = append(filtered, c)
-		}
-	}
-	return filtered
-}
-
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	if typ != gvk.Gateway && typ != gvk.VirtualService && typ != gvk.DestinationRule {
+	if typ != gvk.Gateway && typ != gvk.VirtualService {
 		return nil, errUnsupportedType
 	}
 
@@ -140,8 +145,6 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) ([]conf
 		return filterNamespace(c.state.Gateway, namespace), nil
 	case gvk.VirtualService:
 		return filterNamespace(c.state.VirtualService, namespace), nil
-	case gvk.DestinationRule:
-		return filterNamespace(c.state.DestinationRule, namespace), nil
 	default:
 		return nil, errUnsupportedType
 	}
@@ -151,6 +154,8 @@ func (c *Controller) SetStatusWrite(enabled bool) {
 	c.statusEnabled.Store(enabled)
 }
 
+// Recompute takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
+// Any status updates required will be enqueued as well.
 func (c *Controller) Recompute(context model.GatewayContext) error {
 	t0 := time.Now()
 	defer func() {
@@ -160,7 +165,7 @@ func (c *Controller) Recompute(context model.GatewayContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type GatewayClass: %v", err)
 	}
-	gateway, err := c.cache.List(gvk.ServiceApisGateway, metav1.NamespaceAll)
+	gateway, err := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
 	if err != nil {
 		return fmt.Errorf("failed to list type Gateway: %v", err)
 	}
@@ -176,20 +181,20 @@ func (c *Controller) Recompute(context model.GatewayContext) error {
 	if err != nil {
 		return fmt.Errorf("failed to list type TLSRoute: %v", err)
 	}
-	backendPolicy, err := c.cache.List(gvk.BackendPolicy, metav1.NamespaceAll)
+	referencePolicy, err := c.cache.List(gvk.ReferencePolicy, metav1.NamespaceAll)
 	if err != nil {
 		return fmt.Errorf("failed to list type BackendPolicy: %v", err)
 	}
 
 	input := &KubernetesResources{
-		GatewayClass:  deepCopyStatus(gatewayClass),
-		Gateway:       deepCopyStatus(gateway),
-		HTTPRoute:     deepCopyStatus(httpRoute),
-		TCPRoute:      deepCopyStatus(tcpRoute),
-		TLSRoute:      deepCopyStatus(tlsRoute),
-		BackendPolicy: deepCopyStatus(backendPolicy),
-		Domain:        c.domain,
-		Context:       context,
+		GatewayClass:    deepCopyStatus(gatewayClass),
+		Gateway:         deepCopyStatus(gateway),
+		HTTPRoute:       deepCopyStatus(httpRoute),
+		TCPRoute:        deepCopyStatus(tcpRoute),
+		TLSRoute:        deepCopyStatus(tlsRoute),
+		ReferencePolicy: referencePolicy,
+		Domain:          c.domain,
+		Context:         context,
 	}
 
 	if !anyApisUsed(input) {
@@ -227,7 +232,6 @@ func (c *Controller) QueueStatusUpdates(r *KubernetesResources) {
 	c.handleStatusUpdates(r.HTTPRoute)
 	c.handleStatusUpdates(r.TCPRoute)
 	c.handleStatusUpdates(r.TLSRoute)
-	c.handleStatusUpdates(r.BackendPolicy)
 }
 
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
@@ -241,15 +245,6 @@ func (c *Controller) handleStatusUpdates(configs []config.Config) {
 			c.status.Push(res, ws.Unwrap())
 		}
 	}
-}
-
-func anyApisUsed(input *KubernetesResources) bool {
-	return len(input.GatewayClass) > 0 ||
-		len(input.Gateway) > 0 ||
-		len(input.HTTPRoute) > 0 ||
-		len(input.TCPRoute) > 0 ||
-		len(input.TLSRoute) > 0 ||
-		len(input.BackendPolicy) > 0
 }
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {
@@ -273,7 +268,11 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 }
 
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
-	// do nothing as c.cache has been registered
+	switch typ {
+	case gvk.Namespace:
+		c.namespaceHandler = handler
+	}
+	// For all other types, do nothing as c.cache has been registered
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
@@ -289,6 +288,103 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
-	// TODO: Implement ReferencePolicy.
-	return false
+	p, err := credentials.ParseResourceName(resourceName, "", "", "")
+	if err != nil {
+		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
+		return false
+	}
+	from := Reference{Kind: gvk.KubernetesGateway, Namespace: k8s.Namespace(namespace)}
+	to := Reference{Kind: gvk.Secret, Namespace: k8s.Namespace(p.Namespace)}
+	_, f := c.state.AllowedReferences[from][to]
+	return f
+}
+
+// namespaceEvent handles a namespace add/update. Gateway's can select routes by label, so we need to handle
+// when the labels change.
+// Note: we don't handle delete as a delete would also clean up any relevant gateway-api types which will
+// trigger its own event.
+func (c *Controller) namespaceEvent(oldObj interface{}, newObj interface{}) {
+	// First, find all the label keys on the old/new namespace. We include NamespaceNameLabel
+	// since we have special logic to always allow this on namespace.
+	touchedNamespaceLabels := sets.NewSet(NamespaceNameLabel)
+	touchedNamespaceLabels.Insert(getLabelKeys(oldObj)...)
+	touchedNamespaceLabels.Insert(getLabelKeys(newObj)...)
+
+	// Next, we find all keys our Gateways actually reference.
+	c.stateMu.RLock()
+	intersection := touchedNamespaceLabels.Intersection(c.state.ReferencedNamespaceKeys)
+	c.stateMu.RUnlock()
+
+	// If there was any overlap, then a relevant namespace label may have changed, and we trigger a
+	// push A more exact check could actually determine if the label selection result actually changed.
+	// However, this is a much simpler approach that is likely to scale well enough for now.
+	if !intersection.Empty() && c.namespaceHandler != nil {
+		log.Debugf("namespace labels changed, triggering namespace handler: %v", intersection.UnsortedList())
+		c.namespaceHandler(config.Config{}, config.Config{}, model.EventUpdate)
+	}
+}
+
+// getLabelKeys extracts all label keys from a namespace object.
+func getLabelKeys(obj interface{}) []string {
+	if obj == nil {
+		return nil
+	}
+	ns, ok := obj.(*corev1.Namespace)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return nil
+		}
+		ns, ok = tombstone.Obj.(*corev1.Namespace)
+		if !ok {
+			return nil
+		}
+	}
+	keys := make([]string, 0, len(ns.Labels))
+	for k := range ns.Labels {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// deepCopyStatus creates a copy of all configs, with a copy of the status field that we can mutate.
+// This allows our functions to call Status.Mutate, and then we can later persist all changes into the
+// API server.
+func deepCopyStatus(configs []config.Config) []config.Config {
+	res := make([]config.Config, 0, len(configs))
+	for _, c := range configs {
+		nc := config.Config{
+			Meta:   c.Meta,
+			Spec:   c.Spec,
+			Status: kstatus.Wrap(c.Status),
+		}
+		res = append(res, nc)
+	}
+	return res
+}
+
+// filterNamespace allows filtering out configs to only a specific namespace. This allows implementing the
+// List call which can specify a specific namespace.
+func filterNamespace(cfgs []config.Config, namespace string) []config.Config {
+	if namespace == metav1.NamespaceAll {
+		return cfgs
+	}
+	filtered := make([]config.Config, 0, len(cfgs))
+	for _, c := range cfgs {
+		if c.Namespace == namespace {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+// anyApisUsed determines if there are any gateway-api resources created at all. If not, we can
+// short circuit all processing to avoid excessive work.
+func anyApisUsed(input *KubernetesResources) bool {
+	return len(input.GatewayClass) > 0 ||
+		len(input.Gateway) > 0 ||
+		len(input.HTTPRoute) > 0 ||
+		len(input.TCPRoute) > 0 ||
+		len(input.TLSRoute) > 0 ||
+		len(input.ReferencePolicy) > 0
 }

@@ -909,8 +909,8 @@ func (s *Server) initRegistryEventHandlers() {
 			s.XDSServer.ConfigUpdate(pushReq)
 		}
 		schemas := collections.Pilot.All()
-		if features.EnableServiceApis {
-			schemas = collections.PilotServiceApi.All()
+		if features.EnableGatewayAPI {
+			schemas = collections.PilotGatewayAPI.All()
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
@@ -928,6 +928,14 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+		}
+		if s.environment.GatewayAPIController != nil {
+			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Namespace, func(config.Config, config.Config, model.Event) {
+				s.XDSServer.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: []model.TriggerReason{model.NamespaceUpdate},
+				})
+			})
 		}
 	}
 }

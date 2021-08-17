@@ -174,8 +174,8 @@ var (
 	Pilot = collection.NewSchemasBuilder().
 		Build()
 
-	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
-	PilotServiceApi = collection.NewSchemasBuilder().
+	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
+	PilotGatewayAPI = collection.NewSchemasBuilder().
 			Build()
 
 	// Deprecated contains only collections used by that will soon be used by nothing.

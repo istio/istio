@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/gateway-api/apis/v1alpha1"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/test/config"
@@ -95,9 +95,9 @@ func TestDeepCopyTypes(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			&v1alpha1.GatewayClassSpec{Controller: "foo"},
+			&v1alpha2.GatewayClassSpec{Controller: "foo"},
 			func(c Spec) Spec {
-				c.(*v1alpha1.GatewayClassSpec).Controller = "bar"
+				c.(*v1alpha2.GatewayClassSpec).Controller = "bar"
 				return c
 			},
 			nil,
@@ -165,9 +165,9 @@ func TestApplyJSON(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			input:  &v1alpha1.GatewayClassSpec{},
+			input:  &v1alpha2.GatewayClassSpec{},
 			json:   `{"controller":"foobar","fake-field":1}`,
-			output: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
+			output: &v1alpha2.GatewayClassSpec{Controller: "foobar"},
 		},
 		// mock type
 		{
@@ -222,7 +222,7 @@ func TestToJSON(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			input: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
+			input: &v1alpha2.GatewayClassSpec{Controller: "foobar"},
 			json:  `{"controller":"foobar"}`,
 		},
 		// mock type
@@ -276,7 +276,7 @@ func TestToMap(t *testing.T) {
 		},
 		// gateway-api type
 		{
-			input: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
+			input: &v1alpha2.GatewayClassSpec{Controller: "foobar"},
 			mp: map[string]interface{}{
 				"controller": "foobar",
 			},

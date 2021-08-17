@@ -12,7 +12,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	sigsk8siogatewayapiapisv1alpha1 "sigs.k8s.io/gateway-api/apis/v1alpha1"
+	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
@@ -486,9 +486,123 @@ var (
 			Kind:    "Ingress",
 			Plural:  "ingresses",
 			Version: "v1beta1",
-			Proto:   "k8s.io.api.extensions.v1beta1.IngressSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.IngressStatus",
+			Proto:   "k8s.io.api.extensions.v1beta1.IngressSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.IngressStatus",
 			ReflectType: reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressStatus{}).Elem(),
 			ProtoPackage: "k8s.io/api/extensions/v1beta1", StatusPackage: "k8s.io/api/extensions/v1beta1",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SGatewayApiV1Alpha2Gatewayclasses describes the collection
+	// k8s/gateway_api/v1alpha2/gatewayclasses
+	K8SGatewayApiV1Alpha2Gatewayclasses = collection.Builder{
+		Name:         "k8s/gateway_api/v1alpha2/gatewayclasses",
+		VariableName: "K8SGatewayApiV1Alpha2Gatewayclasses",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "gateway.networking.k8s.io",
+			Kind:    "GatewayClass",
+			Plural:  "gatewayclasses",
+			Version: "v1alpha2",
+			Proto:   "k8s.io.gateway_api.api.v1alpha1.GatewayClassSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassStatus",
+			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.GatewayClassSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.GatewayClassStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+			ClusterScoped: true,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SGatewayApiV1Alpha2Gateways describes the collection
+	// k8s/gateway_api/v1alpha2/gateways
+	K8SGatewayApiV1Alpha2Gateways = collection.Builder{
+		Name:         "k8s/gateway_api/v1alpha2/gateways",
+		VariableName: "K8SGatewayApiV1Alpha2Gateways",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "gateway.networking.k8s.io",
+			Kind:    "Gateway",
+			Plural:  "gateways",
+			Version: "v1alpha2",
+			Proto:   "k8s.io.gateway_api.api.v1alpha1.GatewaySpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayStatus",
+			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.GatewaySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.GatewayStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SGatewayApiV1Alpha2Httproutes describes the collection
+	// k8s/gateway_api/v1alpha2/httproutes
+	K8SGatewayApiV1Alpha2Httproutes = collection.Builder{
+		Name:         "k8s/gateway_api/v1alpha2/httproutes",
+		VariableName: "K8SGatewayApiV1Alpha2Httproutes",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "gateway.networking.k8s.io",
+			Kind:    "HTTPRoute",
+			Plural:  "httproutes",
+			Version: "v1alpha2",
+			Proto:   "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus",
+			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.HTTPRouteStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SGatewayApiV1Alpha2Referencepolicies describes the collection
+	// k8s/gateway_api/v1alpha2/referencepolicies
+	K8SGatewayApiV1Alpha2Referencepolicies = collection.Builder{
+		Name:         "k8s/gateway_api/v1alpha2/referencepolicies",
+		VariableName: "K8SGatewayApiV1Alpha2Referencepolicies",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "gateway.networking.k8s.io",
+			Kind:          "ReferencePolicy",
+			Plural:        "referencepolicies",
+			Version:       "v1alpha2",
+			Proto:         "k8s.io.gateway_api.api.v1alpha1.ReferencePolicySpec",
+			ReflectType:   reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.ReferencePolicySpec{}).Elem(),
+			ProtoPackage:  "sigs.k8s.io/gateway-api/apis/v1alpha2",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SGatewayApiV1Alpha2Tcproutes describes the collection
+	// k8s/gateway_api/v1alpha2/tcproutes
+	K8SGatewayApiV1Alpha2Tcproutes = collection.Builder{
+		Name:         "k8s/gateway_api/v1alpha2/tcproutes",
+		VariableName: "K8SGatewayApiV1Alpha2Tcproutes",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "gateway.networking.k8s.io",
+			Kind:    "TCPRoute",
+			Plural:  "tcproutes",
+			Version: "v1alpha2",
+			Proto:   "k8s.io.gateway_api.api.v1alpha1.TCPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.TCPRouteStatus",
+			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
+	// K8SGatewayApiV1Alpha2Tlsroutes describes the collection
+	// k8s/gateway_api/v1alpha2/tlsroutes
+	K8SGatewayApiV1Alpha2Tlsroutes = collection.Builder{
+		Name:         "k8s/gateway_api/v1alpha2/tlsroutes",
+		VariableName: "K8SGatewayApiV1Alpha2Tlsroutes",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:   "gateway.networking.k8s.io",
+			Kind:    "TLSRoute",
+			Plural:  "tlsroutes",
+			Version: "v1alpha2",
+			Proto:   "k8s.io.gateway_api.api.v1alpha1.TLSRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteStatus",
+			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteStatus{}).Elem(),
+			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -703,120 +817,6 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SServiceApisV1Alpha1Backendpolicies describes the collection
-	// k8s/service_apis/v1alpha1/backendpolicies
-	K8SServiceApisV1Alpha1Backendpolicies = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/backendpolicies",
-		VariableName: "K8SServiceApisV1Alpha1Backendpolicies",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.x-k8s.io",
-			Kind:    "BackendPolicy",
-			Plural:  "backendpolicies",
-			Version: "v1alpha1",
-			Proto:   "k8s.io.service_apis.api.v1alpha1.BackendPolicySpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.BackendPolicyStatus",
-			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.BackendPolicySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.BackendPolicyStatus{}).Elem(),
-			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SServiceApisV1Alpha1Gatewayclasses describes the collection
-	// k8s/service_apis/v1alpha1/gatewayclasses
-	K8SServiceApisV1Alpha1Gatewayclasses = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/gatewayclasses",
-		VariableName: "K8SServiceApisV1Alpha1Gatewayclasses",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.x-k8s.io",
-			Kind:    "GatewayClass",
-			Plural:  "gatewayclasses",
-			Version: "v1alpha1",
-			Proto:   "k8s.io.service_apis.api.v1alpha1.GatewayClassSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.GatewayClassStatus",
-			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.GatewayClassSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.GatewayClassStatus{}).Elem(),
-			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1",
-			ClusterScoped: true,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SServiceApisV1Alpha1Gateways describes the collection
-	// k8s/service_apis/v1alpha1/gateways
-	K8SServiceApisV1Alpha1Gateways = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/gateways",
-		VariableName: "K8SServiceApisV1Alpha1Gateways",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.x-k8s.io",
-			Kind:    "Gateway",
-			Plural:  "gateways",
-			Version: "v1alpha1",
-			Proto:   "k8s.io.service_apis.api.v1alpha1.GatewaySpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.GatewayStatus",
-			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.GatewaySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.GatewayStatus{}).Elem(),
-			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SServiceApisV1Alpha1Httproutes describes the collection
-	// k8s/service_apis/v1alpha1/httproutes
-	K8SServiceApisV1Alpha1Httproutes = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/httproutes",
-		VariableName: "K8SServiceApisV1Alpha1Httproutes",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.x-k8s.io",
-			Kind:    "HTTPRoute",
-			Plural:  "httproutes",
-			Version: "v1alpha1",
-			Proto:   "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteStatus",
-			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.HTTPRouteStatus{}).Elem(),
-			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SServiceApisV1Alpha1Tcproutes describes the collection
-	// k8s/service_apis/v1alpha1/tcproutes
-	K8SServiceApisV1Alpha1Tcproutes = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/tcproutes",
-		VariableName: "K8SServiceApisV1Alpha1Tcproutes",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.x-k8s.io",
-			Kind:    "TCPRoute",
-			Plural:  "tcproutes",
-			Version: "v1alpha1",
-			Proto:   "k8s.io.service_apis.api.v1alpha1.TCPRouteSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.TCPRouteStatus",
-			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.TCPRouteStatus{}).Elem(),
-			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SServiceApisV1Alpha1Tlsroutes describes the collection
-	// k8s/service_apis/v1alpha1/tlsroutes
-	K8SServiceApisV1Alpha1Tlsroutes = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/tlsroutes",
-		VariableName: "K8SServiceApisV1Alpha1Tlsroutes",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:   "networking.x-k8s.io",
-			Kind:    "TLSRoute",
-			Plural:  "tlsroutes",
-			Version: "v1alpha1",
-			Proto:   "k8s.io.service_apis.api.v1alpha1.TLSRouteSpec", StatusProto: "k8s.io.service_apis.api.v1alpha1.TLSRouteStatus",
-			ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha1.TLSRouteStatus{}).Elem(),
-			ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
 	// K8STelemetryIstioIoV1Alpha1Telemetries describes the collection
 	// k8s/telemetry.istio.io/v1alpha1/telemetries
 	K8STelemetryIstioIoV1Alpha1Telemetries = collection.Builder{
@@ -863,6 +863,12 @@ var (
 		MustAdd(K8SCoreV1Secrets).
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
+		MustAdd(K8SGatewayApiV1Alpha2Gatewayclasses).
+		MustAdd(K8SGatewayApiV1Alpha2Gateways).
+		MustAdd(K8SGatewayApiV1Alpha2Httproutes).
+		MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
+		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
+		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Destinationrules).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Envoyfilters).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Gateways).
@@ -874,12 +880,6 @@ var (
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
-		MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
-		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
-		MustAdd(K8SServiceApisV1Alpha1Gateways).
-		MustAdd(K8SServiceApisV1Alpha1Httproutes).
-		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 		MustAdd(K8STelemetryIstioIoV1Alpha1Telemetries).
 		Build()
 
@@ -914,6 +914,12 @@ var (
 		MustAdd(K8SCoreV1Secrets).
 		MustAdd(K8SCoreV1Services).
 		MustAdd(K8SExtensionsV1Beta1Ingresses).
+		MustAdd(K8SGatewayApiV1Alpha2Gatewayclasses).
+		MustAdd(K8SGatewayApiV1Alpha2Gateways).
+		MustAdd(K8SGatewayApiV1Alpha2Httproutes).
+		MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
+		MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
+		MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Destinationrules).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Envoyfilters).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Gateways).
@@ -925,12 +931,6 @@ var (
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
-		MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
-		MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
-		MustAdd(K8SServiceApisV1Alpha1Gateways).
-		MustAdd(K8SServiceApisV1Alpha1Httproutes).
-		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
 		MustAdd(K8STelemetryIstioIoV1Alpha1Telemetries).
 		Build()
 
@@ -950,8 +950,8 @@ var (
 		MustAdd(IstioTelemetryV1Alpha1Telemetries).
 		Build()
 
-	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
-	PilotServiceApi = collection.NewSchemasBuilder().
+	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
+	PilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 			MustAdd(IstioNetworkingV1Alpha3Gateways).
@@ -964,12 +964,12 @@ var (
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
 			MustAdd(IstioTelemetryV1Alpha1Telemetries).
-			MustAdd(K8SServiceApisV1Alpha1Backendpolicies).
-			MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
-			MustAdd(K8SServiceApisV1Alpha1Gateways).
-			MustAdd(K8SServiceApisV1Alpha1Httproutes).
-			MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(K8SServiceApisV1Alpha1Tlsroutes).
+			MustAdd(K8SGatewayApiV1Alpha2Gatewayclasses).
+			MustAdd(K8SGatewayApiV1Alpha2Gateways).
+			MustAdd(K8SGatewayApiV1Alpha2Httproutes).
+			MustAdd(K8SGatewayApiV1Alpha2Referencepolicies).
+			MustAdd(K8SGatewayApiV1Alpha2Tcproutes).
+			MustAdd(K8SGatewayApiV1Alpha2Tlsroutes).
 			Build()
 
 	// Deprecated contains only collections used by that will soon be used by nothing.

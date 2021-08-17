@@ -1,4 +1,4 @@
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   creationTimestamp: null
@@ -13,7 +13,7 @@ status:
     status: "True"
     type: Admitted
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -21,14 +21,12 @@ metadata:
   namespace: istio-system
 spec: null
 status:
-  addresses:
-  - type: IPAddress
-    value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Gateway valid, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
-    reason: ListenersValid
-    status: "True"
+    message: 'failed to assign to any requested addresses: port 443 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: AddressNotAssigned
+    status: "False"
     type: Ready
   - lastTransitionTime: fake
     message: Resources available
@@ -36,7 +34,8 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - conditions:
+  - attachedRoutes: 1
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -57,66 +56,28 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    port: 34000
-    protocol: TCP
+    name: cross
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: TCPRoute
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: tcp
-  namespace: default
+  name: http
+  namespace: cert
 spec: null
 status:
-  gateways:
+  parents:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
       type: Admitted
-    gatewayRef:
-      controller: istio.io/gateway-controller
+    controller: istio.io/gateway-controller
+    parentRef:
       name: gateway
       namespace: istio-system
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: BackendPolicy
-metadata:
-  creationTimestamp: null
-  name: httpbin1
-  namespace: default
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Configuration was valid
-    reason: Admitted
-    status: "True"
-    type: Admitted
-  - lastTransitionTime: fake
-    message: All backends are valid
-    reason: BackendValid
-    status: "False"
-    type: NoSuchBackend
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: BackendPolicy
-metadata:
-  creationTimestamp: null
-  name: httpbin2
-  namespace: default
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Configuration was valid
-    reason: Admitted
-    status: "True"
-    type: Admitted
-  - lastTransitionTime: fake
-    message: All backends are valid
-    reason: BackendValid
-    status: "False"
-    type: NoSuchBackend
 ---
