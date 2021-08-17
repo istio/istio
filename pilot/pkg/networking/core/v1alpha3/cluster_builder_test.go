@@ -2755,14 +2755,14 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                   		string
-		cluster                		*cluster.Cluster
-		clusterMode            		ClusterMode
-		service                		*model.Service
-		port                   		*model.Port
-		networkView           		map[network.ID]bool
-		destRule               		*networking.DestinationRule
-		expectedCaCertificateName 	string
+		name                      string
+		cluster                   *cluster.Cluster
+		clusterMode               ClusterMode
+		service                   *model.Service
+		port                      *model.Port
+		networkView               map[network.ID]bool
+		destRule                  *networking.DestinationRule
+		expectedCaCertificateName string
 	}{
 		{
 			name:        "destination rule with no CaCertificates",
@@ -2867,7 +2867,8 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			}
 			ca := dr.TrafficPolicy.Tls.CaCertificates
 			if ca != tt.expectedCaCertificateName {
-				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedCaCertificateName, ca)			}
+				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedCaCertificateName, ca)
+			}
 		})
 	}
 }

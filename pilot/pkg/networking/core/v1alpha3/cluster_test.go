@@ -2378,17 +2378,17 @@ func TestVerifyCertAtClient(t *testing.T) {
 	defer resetVerifyCertAtClient()
 
 	testCases := []struct {
-		name				string
-		policy				*networking.TrafficPolicy
-		verifyCertAtClient	bool
-		expectedCARootPath	string
+		name               string
+		policy             *networking.TrafficPolicy
+		verifyCertAtClient bool
+		expectedCARootPath string
 	}{
 		{
 			name: "VERIFY_CERTIFICATE_AT_CLIENT works as expected",
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries:        10,
+						MaxRetries: 10,
 					},
 				},
 				Tls: &networking.ClientTLSSettings{
@@ -2403,7 +2403,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries:        10,
+						MaxRetries: 10,
 					},
 				},
 				Tls: &networking.ClientTLSSettings{
@@ -2418,7 +2418,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries:        10,
+						MaxRetries: 10,
 					},
 				},
 				Tls: &networking.ClientTLSSettings{
@@ -2433,7 +2433,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries:        10,
+						MaxRetries: 10,
 					},
 				},
 				Tls: &networking.ClientTLSSettings{
