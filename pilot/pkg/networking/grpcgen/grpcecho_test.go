@@ -143,7 +143,7 @@ func makeWE(s echoCfg, host string, port int) config.Config {
 }
 
 func (t *configGenTest) dialEcho(addr string) *client.Instance {
-	resolver := resolverForTest(t)
+	resolver := resolverForTest(t, "default")
 	out, err := client.New(addr, nil, grpc.WithResolvers(resolver))
 	if err != nil {
 		t.Fatal(err)

@@ -21,31 +21,38 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
 
-var wildcardMap = map[string]struct{}{}
+var node = &model.Proxy{DNSDomain: "ns.svc.cluster.local", Metadata: &model.NodeMetadata{Namespace: "ns"}}
 
 func TestListenerNameFilter(t *testing.T) {
 	cases := map[string]struct {
 		in          []string
-		want        listenerNameFilter
+		want        listenerNames
 		wantInbound []string
 	}{
 		"simple": {
 			in: []string{"foo.com:80", "foo.com:443", "wildcard.com"},
-			want: listenerNameFilter{
-				"foo.com":      {"80": {}, "443": {}},
-				"wildcard.com": wildcardMap,
+			want: listenerNames{
+				"foo.com": {
+					RequestedNames: sets.NewSet("foo.com"),
+					Ports:          sets.NewSet("80", "443"),
+				},
+				"wildcard.com": {RequestedNames: sets.NewSet("wildcard.com")},
 			},
 		},
 		"plain-host clears port-map": {
 			in:   []string{"foo.com:80", "foo.com"},
-			want: listenerNameFilter{"foo.com": wildcardMap},
+			want: listenerNames{"foo.com": {RequestedNames: sets.NewSet("foo.com")}},
 		},
 		"port-map stays clear": {
-			in:   []string{"foo.com:80", "foo.com", "foo.com:443"},
-			want: listenerNameFilter{"foo.com": wildcardMap},
+			in: []string{"foo.com:80", "foo.com", "foo.com:443"},
+			want: listenerNames{"foo.com": {
+				RequestedNames: sets.NewSet("foo.com"),
+			}},
 		},
 		"special listeners preserved exactly": {
 			in: []string{
@@ -54,11 +61,20 @@ func TestListenerNameFilter(t *testing.T) {
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"),
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"),
 			},
-			want: listenerNameFilter{
-				"foo.com": {"80": {}},
-				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"):  wildcardMap,
-				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"):       wildcardMap,
-				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"): wildcardMap,
+			want: listenerNames{
+				"foo.com": {
+					RequestedNames: sets.NewSet("foo.com"),
+					Ports:          sets.NewSet("80"),
+				},
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"): {
+					RequestedNames: sets.NewSet(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234")),
+				},
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo"): {
+					RequestedNames: sets.NewSet(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo")),
+				},
+				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"): {
+					RequestedNames: sets.NewSet(fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076")),
+				},
 			},
 			wantInbound: []string{
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "foo:1234"),
@@ -66,10 +82,45 @@ func TestListenerNameFilter(t *testing.T) {
 				fmt.Sprintf(grpcxds.ServerListenerNameTemplate, "[::]:8076"),
 			},
 		},
+		"expand shortnames": {
+			in: []string{
+				"bar",
+				"bar.ns",
+				"bar.ns.svc",
+				"bar.ns.svc.cluster.local",
+				"foo:80",
+				"foo.ns:81",
+				"foo.ns.svc:82",
+				"foo.ns.svc.cluster.local:83",
+			},
+			want: listenerNames{
+				"bar":        {RequestedNames: sets.NewSet("bar")},
+				"bar.ns":     {RequestedNames: sets.NewSet("bar.ns")},
+				"bar.ns.svc": {RequestedNames: sets.NewSet("bar.ns.svc")},
+				"bar.ns.svc.cluster.local": {RequestedNames: sets.NewSet(
+					"bar",
+					"bar.ns",
+					"bar.ns.svc",
+					"bar.ns.svc.cluster.local",
+				)},
+				"foo":        {RequestedNames: sets.NewSet("foo"), Ports: sets.NewSet("80")},
+				"foo.ns":     {RequestedNames: sets.NewSet("foo.ns"), Ports: sets.NewSet("81")},
+				"foo.ns.svc": {RequestedNames: sets.NewSet("foo.ns.svc"), Ports: sets.NewSet("82")},
+				"foo.ns.svc.cluster.local": {
+					RequestedNames: sets.NewSet(
+						"foo",
+						"foo.ns",
+						"foo.ns.svc",
+						"foo.ns.svc.cluster.local",
+					),
+					Ports: sets.NewSet("80", "81", "82", "83"),
+				},
+			},
+		},
 	}
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
-			got := newListenerNameFilter(tt.in)
+			got := newListenerNameFilter(tt.in, node)
 			if diff := cmp.Diff(got, tt.want); diff != "" {
 				t.Fatal(diff)
 			}
@@ -78,6 +129,31 @@ func TestListenerNameFilter(t *testing.T) {
 			sort.Strings(tt.wantInbound)
 			if diff := cmp.Diff(gotInbound, tt.wantInbound); diff != "" {
 				t.Fatalf(diff)
+			}
+		})
+	}
+}
+
+func TestTryFindFQDN(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"foo", "foo.ns.svc.cluster.local"},
+		{"foo.ns", "foo.ns.svc.cluster.local"},
+		{"foo.ns.svc", "foo.ns.svc.cluster.local"},
+		{"foo.ns.svc.cluster.local", ""},
+		{"foo.com", ""},
+		{"foo.ns.com", ""},
+		{"foo.ns.svc.notdnsdomain", ""},
+		{"foo.ns.svc.cluster.local.extra", ""},
+		{"xds.istio.io/grpc/lds/inbound/0.0.0.0:1234", ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			if got := tryFindFQDN(tc.in, node); got != tc.want {
+				t.Errorf("want %q but got %q", tc.want, got)
 			}
 		})
 	}
