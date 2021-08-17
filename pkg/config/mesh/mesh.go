@@ -106,7 +106,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	mc := proto.Clone(&meshConfig).(*meshconfig.MeshConfig)
 
-	origMetadata := meshConfig.DefaultConfig.ProxyMetadata
+	origMetadata := mc.DefaultConfig.ProxyMetadata
 	if err := gogoprotomarshal.ApplyYAML(yaml, mc.DefaultConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
