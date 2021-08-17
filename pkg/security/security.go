@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc/metadata"
@@ -196,9 +195,6 @@ type Options struct {
 	// Delay in reading certificates from file after the change is detected. This is useful in cases
 	// where the write operation of key and cert take longer.
 	FileDebounceDuration time.Duration
-
-	// Prevents collision when accessing CARootPath
-	caRootPathMutex sync.Mutex
 
 	// Root Cert generated
 	CARootPath string
