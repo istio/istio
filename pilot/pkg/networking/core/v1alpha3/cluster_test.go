@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/security"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
@@ -2396,7 +2398,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 				},
 			},
 			verifyCertAtClient: true,
-			expectedCARootPath: "file-root:system",
+			expectedCARootPath: security.FileRootSystemCACert,
 		},
 		{
 			name: "VERIFY_CERTIFICATE_AT_CLIENT does not override CaCertificates",

@@ -65,6 +65,9 @@ const (
 
 	// GoogleCASProvider uses the Google certificate Authority Service to sign workload certificates
 	GoogleCASProvider = "GoogleCAS"
+
+	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
+	FileRootSystemCACert = "file-root:system"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,

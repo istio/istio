@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/security"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -543,8 +545,9 @@ func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
+	// Check if CA Certificate should be System CA Certificate
 	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
-		tls.CaCertificates = "file-root:system"
+		tls.CaCertificates = security.FileRootSystemCACert
 	}
 
 	return connectionPool, outlierDetection, loadBalancer, tls

@@ -503,7 +503,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
 		cfg := nodeagentutil.SdsCertificateConfig{}
 		ok := false
-		if resourceName == "file-root:system" {
+		if resourceName == security.FileRootSystemCACert {
 			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
 		} else {
 			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(resourceName)

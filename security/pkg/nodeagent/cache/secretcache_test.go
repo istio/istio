@@ -622,9 +622,9 @@ func TestOSCACertGenerateSecret(t *testing.T) {
 		t.Fatalf("Could not get OS Cert: %v", err)
 	}
 
-	gotSecret, err := sc.GenerateSecret("file-root:system", certPath)
+	gotSecret, err := sc.GenerateSecret(security.FileRootSystemCACert, certPath)
 	if err != nil {
-		t.Fatalf("Error using file-root:system : %v", err)
+		t.Fatalf("Error using %s: %v", security.FileRootSystemCACert, err)
 	}
 	if !bytes.Equal(gotSecret.CertificateChain, expected.CertificateChain) {
 		t.Fatal("Certs did not match")

@@ -210,7 +210,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 	}
 	cfg := nodeagentutil.SdsCertificateConfig{}
 	ok := false
-	if s.ResourceName == "file-root:system" {
+	if s.ResourceName == security.FileRootSystemCACert {
 		cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(caRootPath)
 	} else {
 		cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(s.ResourceName)
