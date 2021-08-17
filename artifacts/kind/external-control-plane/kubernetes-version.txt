@@ -1,0 +1,2 @@
+WARNING: Error loading config file: /home/.docker/config.json: Invalid auth configuration file
+v1.21.1

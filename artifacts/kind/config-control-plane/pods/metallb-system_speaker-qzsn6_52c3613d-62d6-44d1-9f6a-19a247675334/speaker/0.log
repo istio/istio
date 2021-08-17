@@ -1,0 +1,29 @@
+2021-08-17T17:51:30.1952097Z stdout F {"branch":"HEAD","caller":"main.go:82","commit":"v0.9.3","msg":"MetalLB speaker starting version 0.9.3 (commit v0.9.3, branch HEAD)","ts":"2021-08-17T17:51:30.1948485Z","version":"0.9.3"}
+2021-08-17T17:51:30.1987941Z stdout F {"caller":"main.go:186","msg":"Node event","node addr":"172.18.0.3","node event":"NodeJoin","node name":"config-control-plane","ts":"2021-08-17T17:51:30.1985547Z"}
+2021-08-17T17:51:30.1988487Z stdout F {"caller":"main.go:187","msg":"Call Force Sync","ts":"2021-08-17T17:51:30.1986373Z"}
+2021-08-17T17:51:30.291474Z stdout F {"caller":"announcer.go:103","event":"createARPResponder","interface":"vethd9d781de","msg":"created ARP responder for interface","ts":"2021-08-17T17:51:30.2909694Z"}
+2021-08-17T17:51:30.2915394Z stdout F {"caller":"announcer.go:103","event":"createARPResponder","interface":"veth93f265a8","msg":"created ARP responder for interface","ts":"2021-08-17T17:51:30.2912511Z"}
+2021-08-17T17:51:30.2943551Z stdout F {"caller":"announcer.go:103","event":"createARPResponder","interface":"veth640561eb","msg":"created ARP responder for interface","ts":"2021-08-17T17:51:30.2940808Z"}
+2021-08-17T17:51:30.2948629Z stdout F {"caller":"announcer.go:103","event":"createARPResponder","interface":"veth7d620c6c","msg":"created ARP responder for interface","ts":"2021-08-17T17:51:30.2946287Z"}
+2021-08-17T17:51:30.2951478Z stdout F {"caller":"announcer.go:103","event":"createARPResponder","interface":"veth22e32543","msg":"created ARP responder for interface","ts":"2021-08-17T17:51:30.2949898Z"}
+2021-08-17T17:51:30.2955555Z stdout F {"caller":"announcer.go:103","event":"createARPResponder","interface":"eth0","msg":"created ARP responder for interface","ts":"2021-08-17T17:51:30.2953354Z"}
+2021-08-17T17:51:30.2963295Z stdout F {"caller":"announcer.go:112","event":"createNDPResponder","interface":"eth0","msg":"created NDP responder for interface","ts":"2021-08-17T17:51:30.2959925Z"}
+2021-08-17T17:51:30.3982428Z stdout F {"caller":"main.go:202","component":"MemberList","msg":"net.go:210: [DEBUG] memberlist: Stream connection from=172.18.0.3:43140","ts":"2021-08-17T17:51:30.3978626Z"}
+2021-08-17T17:51:30.4963231Z stdout F {"caller":"main.go:202","component":"MemberList","msg":"net.go:785: [DEBUG] memberlist: Initiating push/pull sync with: 172.18.0.3:7946","ts":"2021-08-17T17:51:30.4960047Z"}
+2021-08-17T17:51:30.4974102Z stdout F {"caller":"main.go:163","error ?":null,"msg":"Memberlist join","nb joigned":1,"op":"startup","ts":"2021-08-17T17:51:30.4971986Z"}
+2021-08-17T17:51:30.7979551Z stdout F {"caller":"main.go:267","event":"startUpdate","msg":"start of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:30.7977507Z"}
+2021-08-17T17:51:30.7980273Z stdout F {"caller":"main.go:271","event":"endUpdate","msg":"end of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:30.7979051Z"}
+2021-08-17T17:51:30.7981621Z stdout F {"caller":"main.go:267","event":"startUpdate","msg":"start of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:30.7980602Z"}
+2021-08-17T17:51:30.7982511Z stdout F {"caller":"main.go:271","event":"endUpdate","msg":"end of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:30.7981691Z"}
+2021-08-17T17:51:30.7983574Z stdout F {"caller":"main.go:267","event":"startUpdate","msg":"start of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:30.7982659Z"}
+2021-08-17T17:51:30.7985624Z stdout F {"caller":"main.go:271","event":"endUpdate","msg":"end of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:30.798397Z"}
+2021-08-17T17:51:30.7988519Z stdout F {"caller":"main.go:386","configmap":"metallb-system/config","event":"startUpdate","msg":"start of config update","ts":"2021-08-17T17:51:30.7987113Z"}
+2021-08-17T17:51:30.7988956Z stdout F {"caller":"main.go:410","configmap":"metallb-system/config","event":"endUpdate","msg":"end of config update","ts":"2021-08-17T17:51:30.7988393Z"}
+2021-08-17T17:51:30.7991067Z stdout F {"caller":"k8s.go:402","configmap":"metallb-system/config","event":"configLoaded","msg":"config (re)loaded","ts":"2021-08-17T17:51:30.7989089Z"}
+2021-08-17T17:51:30.7993964Z stdout F {"caller":"bgp_controller.go:285","event":"nodeLabelsChanged","msg":"Node labels changed, resyncing BGP peers","ts":"2021-08-17T17:51:30.7992665Z"}
+2021-08-17T17:51:30.8046102Z stdout F {"caller":"main.go:267","event":"startUpdate","msg":"start of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:30.8043238Z"}
+2021-08-17T17:51:30.8046368Z stdout F {"caller":"main.go:271","event":"endUpdate","msg":"end of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:30.8043998Z"}
+2021-08-17T17:51:30.804655Z stdout F {"caller":"main.go:267","event":"startUpdate","msg":"start of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:30.8044296Z"}
+2021-08-17T17:51:30.804671Z stdout F {"caller":"main.go:271","event":"endUpdate","msg":"end of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:30.8044547Z"}
+2021-08-17T17:51:30.8046891Z stdout F {"caller":"main.go:267","event":"startUpdate","msg":"start of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:30.8044792Z"}
+2021-08-17T17:51:30.8047237Z stdout F {"caller":"main.go:271","event":"endUpdate","msg":"end of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:30.8044971Z"}

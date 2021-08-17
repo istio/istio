@@ -1,0 +1,250 @@
+2021-08-17T17:50:34.0474989Z stderr F Flag --insecure-port has been deprecated, This flag has no effect now and will be removed in v1.24.
+2021-08-17T17:50:34.0475558Z stderr F I0817 17:50:34.045256       1 server.go:629] external host was not specified, using 172.18.0.3
+2021-08-17T17:50:34.047593Z stderr F I0817 17:50:34.045926       1 server.go:181] Version: v1.21.1
+2021-08-17T17:50:34.9103412Z stderr F I0817 17:50:34.903296       1 plugins.go:158] Loaded 12 mutating admission controller(s) successfully in the following order: NamespaceLifecycle,LimitRanger,ServiceAccount,NodeRestriction,TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection,RuntimeClass,DefaultIngressClass,MutatingAdmissionWebhook.
+2021-08-17T17:50:34.9103661Z stderr F I0817 17:50:34.903332       1 plugins.go:161] Loaded 10 validating admission controller(s) successfully in the following order: LimitRanger,ServiceAccount,Priority,PersistentVolumeClaimResize,RuntimeClass,CertificateApproval,CertificateSigning,CertificateSubjectRestriction,ValidatingAdmissionWebhook,ResourceQuota.
+2021-08-17T17:50:34.9103802Z stderr F I0817 17:50:34.904325       1 plugins.go:158] Loaded 12 mutating admission controller(s) successfully in the following order: NamespaceLifecycle,LimitRanger,ServiceAccount,NodeRestriction,TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection,RuntimeClass,DefaultIngressClass,MutatingAdmissionWebhook.
+2021-08-17T17:50:34.9103931Z stderr F I0817 17:50:34.904341       1 plugins.go:161] Loaded 10 validating admission controller(s) successfully in the following order: LimitRanger,ServiceAccount,Priority,PersistentVolumeClaimResize,RuntimeClass,CertificateApproval,CertificateSigning,CertificateSubjectRestriction,ValidatingAdmissionWebhook,ResourceQuota.
+2021-08-17T17:50:34.9104071Z stderr F I0817 17:50:34.905996       1 shared_informer.go:240] Waiting for caches to sync for node_authorizer
+2021-08-17T17:50:34.9104165Z stderr F I0817 17:50:34.906633       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:34.9104309Z stderr F I0817 17:50:34.906662       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:34.9168836Z stderr F W0817 17:50:34.912194       1 clientconn.go:1223] grpc: addrConn.createTransport failed to connect to {https://127.0.0.1:2379  <nil> 0 <nil>}. Err :connection error: desc = "transport: Error while dialing dial tcp 127.0.0.1:2379: connect: connection refused". Reconnecting...
+2021-08-17T17:50:35.908369Z stderr F I0817 17:50:35.907517       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:35.9083921Z stderr F I0817 17:50:35.907565       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:35.9084059Z stderr F W0817 17:50:35.907893       1 clientconn.go:1223] grpc: addrConn.createTransport failed to connect to {https://127.0.0.1:2379  <nil> 0 <nil>}. Err :connection error: desc = "transport: Error while dialing dial tcp 127.0.0.1:2379: connect: connection refused". Reconnecting...
+2021-08-17T17:50:35.9135238Z stderr F W0817 17:50:35.913312       1 clientconn.go:1223] grpc: addrConn.createTransport failed to connect to {https://127.0.0.1:2379  <nil> 0 <nil>}. Err :connection error: desc = "transport: Error while dialing dial tcp 127.0.0.1:2379: connect: connection refused". Reconnecting...
+2021-08-17T17:50:37.5433062Z stderr F I0817 17:50:37.543134       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.5433513Z stderr F I0817 17:50:37.543247       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.552695Z stderr F I0817 17:50:37.552514       1 client.go:360] parsed scheme: "passthrough"
+2021-08-17T17:50:37.5528006Z stderr F I0817 17:50:37.552636       1 passthrough.go:48] ccResolverWrapper: sending update to cc: {[{https://127.0.0.1:2379  <nil> 0 <nil>}] <nil> <nil>}
+2021-08-17T17:50:37.5528188Z stderr F I0817 17:50:37.552671       1 clientconn.go:948] ClientConn switching balancer to "pick_first"
+2021-08-17T17:50:37.5538541Z stderr F I0817 17:50:37.553697       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.5538969Z stderr F I0817 17:50:37.553784       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.5895119Z stderr F I0817 17:50:37.589349       1 instance.go:283] Using reconciler: lease
+2021-08-17T17:50:37.5900791Z stderr F I0817 17:50:37.589848       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.5900974Z stderr F I0817 17:50:37.589893       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.59994Z stderr F E0817 17:50:37.599697       1 instance.go:385] Could not construct pre-rendered responses for ServiceAccountIssuerDiscovery endpoints. Endpoints will not be enabled. Error: issuer URL must use https scheme, got: kubernetes.default.svc
+2021-08-17T17:50:37.6003427Z stderr F I0817 17:50:37.600154       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6003594Z stderr F I0817 17:50:37.600199       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6091987Z stderr F I0817 17:50:37.609009       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6092244Z stderr F I0817 17:50:37.609087       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6192663Z stderr F I0817 17:50:37.619012       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6192909Z stderr F I0817 17:50:37.619083       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6270801Z stderr F I0817 17:50:37.626692       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6270997Z stderr F I0817 17:50:37.626736       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6350761Z stderr F I0817 17:50:37.634923       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6351084Z stderr F I0817 17:50:37.635023       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.644917Z stderr F I0817 17:50:37.644714       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.644945Z stderr F I0817 17:50:37.644805       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6518025Z stderr F I0817 17:50:37.651615       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6518232Z stderr F I0817 17:50:37.651656       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6628624Z stderr F I0817 17:50:37.662619       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6628878Z stderr F I0817 17:50:37.662662       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.672604Z stderr F I0817 17:50:37.672453       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6726477Z stderr F I0817 17:50:37.672495       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6807345Z stderr F I0817 17:50:37.680481       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6807672Z stderr F I0817 17:50:37.680520       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6889701Z stderr F I0817 17:50:37.688777       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6889966Z stderr F I0817 17:50:37.688818       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.6978699Z stderr F I0817 17:50:37.697678       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.6979003Z stderr F I0817 17:50:37.697720       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.7049988Z stderr F I0817 17:50:37.704706       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.7050227Z stderr F I0817 17:50:37.704785       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.7132427Z stderr F I0817 17:50:37.712962       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.7132787Z stderr F I0817 17:50:37.713008       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.7216623Z stderr F I0817 17:50:37.721356       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.7216822Z stderr F I0817 17:50:37.721403       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.7289103Z stderr F I0817 17:50:37.728367       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.7289594Z stderr F I0817 17:50:37.728409       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.7358565Z stderr F I0817 17:50:37.735702       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.7358981Z stderr F I0817 17:50:37.735823       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.7431805Z stderr F I0817 17:50:37.742961       1 rest.go:130] the default service ipfamily for this cluster is: IPv4
+2021-08-17T17:50:37.8106959Z stderr F I0817 17:50:37.810501       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8107174Z stderr F I0817 17:50:37.810547       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8189973Z stderr F I0817 17:50:37.818843       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8190181Z stderr F I0817 17:50:37.818879       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8278773Z stderr F I0817 17:50:37.827712       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8279056Z stderr F I0817 17:50:37.827770       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8379314Z stderr F I0817 17:50:37.837708       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8379822Z stderr F I0817 17:50:37.837750       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8452012Z stderr F I0817 17:50:37.845027       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8452274Z stderr F I0817 17:50:37.845102       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8542003Z stderr F I0817 17:50:37.853945       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8542757Z stderr F I0817 17:50:37.853975       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8653161Z stderr F I0817 17:50:37.865122       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8653382Z stderr F I0817 17:50:37.865163       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8718929Z stderr F I0817 17:50:37.871760       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8719165Z stderr F I0817 17:50:37.871801       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8796442Z stderr F I0817 17:50:37.878987       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8796701Z stderr F I0817 17:50:37.879030       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8855965Z stderr F I0817 17:50:37.885445       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8856212Z stderr F I0817 17:50:37.885499       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.8941402Z stderr F I0817 17:50:37.893963       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.8941651Z stderr F I0817 17:50:37.894093       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9022574Z stderr F I0817 17:50:37.901698       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9022807Z stderr F I0817 17:50:37.901740       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.912009Z stderr F I0817 17:50:37.911850       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9120385Z stderr F I0817 17:50:37.911931       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9208402Z stderr F I0817 17:50:37.920284       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9208833Z stderr F I0817 17:50:37.920323       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.928769Z stderr F I0817 17:50:37.927771       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.928794Z stderr F I0817 17:50:37.927811       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9372724Z stderr F I0817 17:50:37.937087       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9373235Z stderr F I0817 17:50:37.937135       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9442436Z stderr F I0817 17:50:37.943979       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9442633Z stderr F I0817 17:50:37.944036       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9514064Z stderr F I0817 17:50:37.951242       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.95143Z stderr F I0817 17:50:37.951283       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9615567Z stderr F I0817 17:50:37.961398       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9615806Z stderr F I0817 17:50:37.961443       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9707128Z stderr F I0817 17:50:37.970527       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9707315Z stderr F I0817 17:50:37.970572       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9779015Z stderr F I0817 17:50:37.977686       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9779295Z stderr F I0817 17:50:37.977736       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9872034Z stderr F I0817 17:50:37.986128       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9872429Z stderr F I0817 17:50:37.986173       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:37.9967587Z stderr F I0817 17:50:37.995131       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:37.9967984Z stderr F I0817 17:50:37.995171       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0041247Z stderr F I0817 17:50:38.003982       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.004156Z stderr F I0817 17:50:38.004102       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0135868Z stderr F I0817 17:50:38.013432       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.013621Z stderr F I0817 17:50:38.013531       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0203558Z stderr F I0817 17:50:38.020216       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.0203767Z stderr F I0817 17:50:38.020304       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0424859Z stderr F I0817 17:50:38.042317       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.0425277Z stderr F I0817 17:50:38.042431       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0541338Z stderr F I0817 17:50:38.053876       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.0542233Z stderr F I0817 17:50:38.053919       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0616885Z stderr F I0817 17:50:38.061509       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.0617095Z stderr F I0817 17:50:38.061552       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0703061Z stderr F I0817 17:50:38.070185       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.0705092Z stderr F I0817 17:50:38.070347       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0781276Z stderr F I0817 17:50:38.077792       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.0785765Z stderr F I0817 17:50:38.078430       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.0914243Z stderr F I0817 17:50:38.091211       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.0914744Z stderr F I0817 17:50:38.091256       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1038379Z stderr F I0817 17:50:38.102960       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1039192Z stderr F I0817 17:50:38.103026       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1113622Z stderr F I0817 17:50:38.110981       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1114259Z stderr F I0817 17:50:38.111155       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1307881Z stderr F I0817 17:50:38.130561       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1308151Z stderr F I0817 17:50:38.130622       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1395537Z stderr F I0817 17:50:38.139240       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1395788Z stderr F I0817 17:50:38.139297       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1493292Z stderr F I0817 17:50:38.149185       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1493658Z stderr F I0817 17:50:38.149294       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.158361Z stderr F I0817 17:50:38.156652       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1583848Z stderr F I0817 17:50:38.156732       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1652988Z stderr F I0817 17:50:38.165139       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1653221Z stderr F I0817 17:50:38.165179       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1736149Z stderr F I0817 17:50:38.173466       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1736359Z stderr F I0817 17:50:38.173507       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1819948Z stderr F I0817 17:50:38.181849       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.182015Z stderr F I0817 17:50:38.181876       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.1900024Z stderr F I0817 17:50:38.189858       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.1902304Z stderr F I0817 17:50:38.190131       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2007993Z stderr F I0817 17:50:38.199903       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2008419Z stderr F I0817 17:50:38.199941       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2091377Z stderr F I0817 17:50:38.208609       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2091623Z stderr F I0817 17:50:38.208636       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2172095Z stderr F I0817 17:50:38.217084       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2177344Z stderr F I0817 17:50:38.217629       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2248331Z stderr F I0817 17:50:38.224722       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2251799Z stderr F I0817 17:50:38.225074       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2340288Z stderr F I0817 17:50:38.233862       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2340674Z stderr F I0817 17:50:38.233906       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2420124Z stderr F I0817 17:50:38.241830       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2420394Z stderr F I0817 17:50:38.241875       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2493584Z stderr F I0817 17:50:38.249037       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2494012Z stderr F I0817 17:50:38.249111       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2570198Z stderr F I0817 17:50:38.256765       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2571233Z stderr F I0817 17:50:38.256808       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2649279Z stderr F I0817 17:50:38.264728       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2649489Z stderr F I0817 17:50:38.264767       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.271455Z stderr F I0817 17:50:38.271275       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2714903Z stderr F I0817 17:50:38.271313       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2780317Z stderr F I0817 17:50:38.277877       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2781051Z stderr F I0817 17:50:38.277918       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2855005Z stderr F I0817 17:50:38.285357       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2855201Z stderr F I0817 17:50:38.285401       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.2928207Z stderr F I0817 17:50:38.292641       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.2928446Z stderr F I0817 17:50:38.292682       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.4424703Z stderr F W0817 17:50:38.442267       1 genericapiserver.go:425] Skipping API node.k8s.io/v1alpha1 because it has no resources.
+2021-08-17T17:50:38.4537439Z stderr F W0817 17:50:38.453522       1 genericapiserver.go:425] Skipping API rbac.authorization.k8s.io/v1alpha1 because it has no resources.
+2021-08-17T17:50:38.4574073Z stderr F W0817 17:50:38.457249       1 genericapiserver.go:425] Skipping API scheduling.k8s.io/v1alpha1 because it has no resources.
+2021-08-17T17:50:38.463527Z stderr F W0817 17:50:38.463366       1 genericapiserver.go:425] Skipping API storage.k8s.io/v1alpha1 because it has no resources.
+2021-08-17T17:50:38.4659457Z stderr F W0817 17:50:38.465786       1 genericapiserver.go:425] Skipping API flowcontrol.apiserver.k8s.io/v1alpha1 because it has no resources.
+2021-08-17T17:50:38.4711953Z stderr F W0817 17:50:38.471026       1 genericapiserver.go:425] Skipping API apps/v1beta2 because it has no resources.
+2021-08-17T17:50:38.4712181Z stderr F W0817 17:50:38.471060       1 genericapiserver.go:425] Skipping API apps/v1beta1 because it has no resources.
+2021-08-17T17:50:38.4811396Z stderr F I0817 17:50:38.480790       1 plugins.go:158] Loaded 12 mutating admission controller(s) successfully in the following order: NamespaceLifecycle,LimitRanger,ServiceAccount,NodeRestriction,TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection,RuntimeClass,DefaultIngressClass,MutatingAdmissionWebhook.
+2021-08-17T17:50:38.481169Z stderr F I0817 17:50:38.480829       1 plugins.go:161] Loaded 10 validating admission controller(s) successfully in the following order: LimitRanger,ServiceAccount,Priority,PersistentVolumeClaimResize,RuntimeClass,CertificateApproval,CertificateSigning,CertificateSubjectRestriction,ValidatingAdmissionWebhook,ResourceQuota.
+2021-08-17T17:50:38.4826525Z stderr F I0817 17:50:38.482405       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.4826723Z stderr F I0817 17:50:38.482446       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:38.4926607Z stderr F I0817 17:50:38.492421       1 client.go:360] parsed scheme: "endpoint"
+2021-08-17T17:50:38.4927018Z stderr F I0817 17:50:38.492465       1 endpoint.go:68] ccResolverWrapper: sending new addresses to cc: [{https://127.0.0.1:2379  <nil> 0 <nil>}]
+2021-08-17T17:50:40.7029032Z stderr F I0817 17:50:40.702708       1 secure_serving.go:197] Serving securely on [::]:6443
+2021-08-17T17:50:40.702999Z stderr F I0817 17:50:40.702774       1 controller.go:83] Starting OpenAPI AggregationController
+2021-08-17T17:50:40.7030244Z stderr F I0817 17:50:40.702881       1 available_controller.go:475] Starting AvailableConditionController
+2021-08-17T17:50:40.7031253Z stderr F I0817 17:50:40.702926       1 autoregister_controller.go:141] Starting autoregister controller
+2021-08-17T17:50:40.7031443Z stderr F I0817 17:50:40.702951       1 cache.go:32] Waiting for caches to sync for autoregister controller
+2021-08-17T17:50:40.7031826Z stderr F I0817 17:50:40.702930       1 cache.go:32] Waiting for caches to sync for AvailableConditionController controller
+2021-08-17T17:50:40.7168899Z stderr F I0817 17:50:40.703666       1 customresource_discovery_controller.go:209] Starting DiscoveryController
+2021-08-17T17:50:40.7169225Z stderr F I0817 17:50:40.705115       1 crdregistration_controller.go:111] Starting crd-autoregister controller
+2021-08-17T17:50:40.7169458Z stderr F I0817 17:50:40.716911       1 shared_informer.go:240] Waiting for caches to sync for crd-autoregister
+2021-08-17T17:50:40.7171313Z stderr F I0817 17:50:40.705539       1 cluster_authentication_trust_controller.go:440] Starting cluster_authentication_trust_controller controller
+2021-08-17T17:50:40.7176466Z stderr F I0817 17:50:40.717512       1 shared_informer.go:240] Waiting for caches to sync for cluster_authentication_trust_controller
+2021-08-17T17:50:40.7176742Z stderr F I0817 17:50:40.705585       1 dynamic_serving_content.go:130] Starting aggregator-proxy-cert::/etc/kubernetes/pki/front-proxy-client.crt::/etc/kubernetes/pki/front-proxy-client.key
+2021-08-17T17:50:40.7182043Z stderr F I0817 17:50:40.705637       1 dynamic_cafile_content.go:167] Starting client-ca-bundle::/etc/kubernetes/pki/ca.crt
+2021-08-17T17:50:40.718508Z stderr F I0817 17:50:40.705658       1 dynamic_cafile_content.go:167] Starting request-header::/etc/kubernetes/pki/front-proxy-ca.crt
+2021-08-17T17:50:40.7186333Z stderr F I0817 17:50:40.706485       1 controller.go:86] Starting OpenAPI controller
+2021-08-17T17:50:40.718747Z stderr F I0817 17:50:40.706512       1 naming_controller.go:291] Starting NamingConditionController
+2021-08-17T17:50:40.7188088Z stderr F I0817 17:50:40.706534       1 establishing_controller.go:76] Starting EstablishingController
+2021-08-17T17:50:40.7188316Z stderr F I0817 17:50:40.706561       1 nonstructuralschema_controller.go:192] Starting NonStructuralSchemaConditionController
+2021-08-17T17:50:40.7189218Z stderr F I0817 17:50:40.706584       1 apiapproval_controller.go:186] Starting KubernetesAPIApprovalPolicyConformantConditionController
+2021-08-17T17:50:40.7189911Z stderr F I0817 17:50:40.706606       1 crd_finalizer.go:266] Starting CRDFinalizer
+2021-08-17T17:50:40.7190245Z stderr F I0817 17:50:40.706896       1 apf_controller.go:294] Starting API Priority and Fairness config controller
+2021-08-17T17:50:40.7191504Z stderr F I0817 17:50:40.706927       1 tlsconfig.go:240] Starting DynamicServingCertificateController
+2021-08-17T17:50:40.7192351Z stderr F I0817 17:50:40.706986       1 dynamic_cafile_content.go:167] Starting request-header::/etc/kubernetes/pki/front-proxy-ca.crt
+2021-08-17T17:50:40.7193709Z stderr F I0817 17:50:40.707011       1 dynamic_serving_content.go:130] Starting serving-cert::/etc/kubernetes/pki/apiserver.crt::/etc/kubernetes/pki/apiserver.key
+2021-08-17T17:50:40.7195105Z stderr F I0817 17:50:40.707030       1 dynamic_cafile_content.go:167] Starting client-ca-bundle::/etc/kubernetes/pki/ca.crt
+2021-08-17T17:50:40.7198113Z stderr F I0817 17:50:40.707601       1 apiservice_controller.go:97] Starting APIServiceRegistrationController
+2021-08-17T17:50:40.7198399Z stderr F I0817 17:50:40.719757       1 cache.go:32] Waiting for caches to sync for APIServiceRegistrationController controller
+2021-08-17T17:50:40.7255239Z stderr F E0817 17:50:40.721457       1 controller.go:152] Unable to remove old endpoints from kubernetes service: StorageError: key not found, Code: 1, Key: /registry/masterleases/172.18.0.3, ResourceVersion: 0, AdditionalErrorMsg: 
+2021-08-17T17:50:40.8052686Z stderr F I0817 17:50:40.803035       1 cache.go:39] Caches are synced for autoregister controller
+2021-08-17T17:50:40.8082028Z stderr F I0817 17:50:40.806275       1 shared_informer.go:247] Caches are synced for node_authorizer 
+2021-08-17T17:50:40.8213303Z stderr F I0817 17:50:40.817855       1 shared_informer.go:247] Caches are synced for cluster_authentication_trust_controller 
+2021-08-17T17:50:40.821364Z stderr F I0817 17:50:40.817897       1 cache.go:39] Caches are synced for AvailableConditionController controller
+2021-08-17T17:50:40.8213929Z stderr F I0817 17:50:40.817855       1 shared_informer.go:247] Caches are synced for crd-autoregister 
+2021-08-17T17:50:40.8214088Z stderr F I0817 17:50:40.819422       1 apf_controller.go:299] Running API Priority and Fairness config worker
+2021-08-17T17:50:40.8214175Z stderr F I0817 17:50:40.821036       1 cache.go:39] Caches are synced for APIServiceRegistrationController controller
+2021-08-17T17:50:40.8330057Z stderr F I0817 17:50:40.832770       1 controller.go:611] quota admission added evaluator for: namespaces
+2021-08-17T17:50:41.7030241Z stderr F I0817 17:50:41.702820       1 controller.go:132] OpenAPI AggregationController: action for item : Nothing (removed from the queue).
+2021-08-17T17:50:41.7030934Z stderr F I0817 17:50:41.702876       1 controller.go:132] OpenAPI AggregationController: action for item k8s_internal_local_delegation_chain_0000000000: Nothing (removed from the queue).
+2021-08-17T17:50:41.7159437Z stderr F I0817 17:50:41.714858       1 storage_scheduling.go:132] created PriorityClass system-node-critical with value 2000001000
+2021-08-17T17:50:41.7289037Z stderr F I0817 17:50:41.728619       1 storage_scheduling.go:132] created PriorityClass system-cluster-critical with value 2000000000
+2021-08-17T17:50:41.7289284Z stderr F I0817 17:50:41.728652       1 storage_scheduling.go:148] all system priority classes are created successfully or already exist.
+2021-08-17T17:50:42.4831753Z stderr F I0817 17:50:42.482903       1 controller.go:611] quota admission added evaluator for: roles.rbac.authorization.k8s.io
+2021-08-17T17:50:42.5351893Z stderr F I0817 17:50:42.535002       1 controller.go:611] quota admission added evaluator for: rolebindings.rbac.authorization.k8s.io
+2021-08-17T17:50:42.6541831Z stderr F W0817 17:50:42.654003       1 lease.go:233] Resetting endpoints for master service "kubernetes" to [172.18.0.3]
+2021-08-17T17:50:42.6558558Z stderr F I0817 17:50:42.655638       1 controller.go:611] quota admission added evaluator for: endpoints
+2021-08-17T17:50:42.660639Z stderr F I0817 17:50:42.660478       1 controller.go:611] quota admission added evaluator for: endpointslices.discovery.k8s.io
+2021-08-17T17:50:43.074696Z stderr F I0817 17:50:43.074570       1 controller.go:611] quota admission added evaluator for: leases.coordination.k8s.io
+2021-08-17T17:50:43.6424514Z stderr F I0817 17:50:43.642294       1 controller.go:611] quota admission added evaluator for: serviceaccounts
+2021-08-17T17:50:44.2533662Z stderr F I0817 17:50:44.253186       1 controller.go:611] quota admission added evaluator for: deployments.apps
+2021-08-17T17:50:44.3073612Z stderr F I0817 17:50:44.302313       1 controller.go:611] quota admission added evaluator for: daemonsets.apps
+2021-08-17T17:50:57.6722918Z stderr F I0817 17:50:57.671357       1 controller.go:611] quota admission added evaluator for: replicasets.apps
+2021-08-17T17:50:57.8386029Z stderr F I0817 17:50:57.838435       1 controller.go:611] quota admission added evaluator for: controllerrevisions.apps
+2021-08-17T17:51:11.5322896Z stderr F I0817 17:51:11.531992       1 client.go:360] parsed scheme: "passthrough"
+2021-08-17T17:51:11.5324669Z stderr F I0817 17:51:11.532338       1 passthrough.go:48] ccResolverWrapper: sending update to cc: {[{https://127.0.0.1:2379  <nil> 0 <nil>}] <nil> <nil>}
+2021-08-17T17:51:11.5330832Z stderr F I0817 17:51:11.532442       1 clientconn.go:948] ClientConn switching balancer to "pick_first"
+2021-08-17T17:51:18.4481343Z stderr F W0817 17:51:18.447992       1 handler_proxy.go:102] no RequestInfo found in the context
+2021-08-17T17:51:18.4483637Z stderr F E0817 17:51:18.448258       1 controller.go:116] loading OpenAPI spec for "v1beta1.metrics.k8s.io" failed with: failed to retrieve openAPI spec, http error: ResponseCode: 503, Body: service unavailable
+2021-08-17T17:51:18.4483858Z stderr F , Header: map[Content-Type:[text/plain; charset=utf-8] X-Content-Type-Options:[nosniff]]
+2021-08-17T17:51:18.4486687Z stderr F I0817 17:51:18.448568       1 controller.go:129] OpenAPI AggregationController: action for item v1beta1.metrics.k8s.io: Rate Limited Requeue.
+2021-08-17T17:51:26.5651636Z stderr F E0817 17:51:26.564978       1 available_controller.go:508] v1beta1.metrics.k8s.io failed with: failing or missing response from https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1: Get "https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1": dial tcp 10.255.20.115:443: connect: connection refused
+2021-08-17T17:51:26.5671802Z stderr F E0817 17:51:26.566794       1 available_controller.go:508] v1beta1.metrics.k8s.io failed with: failing or missing response from https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1: Get "https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1": dial tcp 10.255.20.115:443: connect: connection refused
+2021-08-17T17:51:26.5724738Z stderr F E0817 17:51:26.572206       1 available_controller.go:508] v1beta1.metrics.k8s.io failed with: failing or missing response from https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1: Get "https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1": dial tcp 10.255.20.115:443: connect: connection refused
+2021-08-17T17:51:26.6066241Z stderr F E0817 17:51:26.602813       1 available_controller.go:508] v1beta1.metrics.k8s.io failed with: failing or missing response from https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1: Get "https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1": dial tcp 10.255.20.115:443: connect: connection refused
+2021-08-17T17:51:26.6502902Z stderr F E0817 17:51:26.647670       1 available_controller.go:508] v1beta1.metrics.k8s.io failed with: failing or missing response from https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1: Get "https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1": dial tcp 10.255.20.115:443: connect: connection refused
+2021-08-17T17:51:26.7312056Z stderr F E0817 17:51:26.730794       1 available_controller.go:508] v1beta1.metrics.k8s.io failed with: failing or missing response from https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1: Get "https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1": dial tcp 10.255.20.115:443: connect: connection refused
+2021-08-17T17:51:26.8955251Z stderr F E0817 17:51:26.895167       1 available_controller.go:508] v1beta1.metrics.k8s.io failed with: failing or missing response from https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1: Get "https://10.255.20.115:443/apis/metrics.k8s.io/v1beta1": dial tcp 10.255.20.115:443: connect: connection refused

@@ -1,0 +1,47 @@
+2021-08-17T17:50:36.4842279Z stderr F [WARNING] Deprecated '--logger=capnslog' flag is set; use '--logger=zap' flag instead
+2021-08-17T17:50:36.4842844Z stderr F 2021-08-17 17:50:36.484004 I | etcdmain: etcd Version: 3.4.13
+2021-08-17T17:50:36.4842996Z stderr F 2021-08-17 17:50:36.484081 I | etcdmain: Git SHA: ae9734ed2
+2021-08-17T17:50:36.48431Z stderr F 2021-08-17 17:50:36.484095 I | etcdmain: Go Version: go1.12.17
+2021-08-17T17:50:36.4843228Z stderr F 2021-08-17 17:50:36.484107 I | etcdmain: Go OS/Arch: linux/amd64
+2021-08-17T17:50:36.4843368Z stderr F 2021-08-17 17:50:36.484116 I | etcdmain: setting maximum number of CPUs to 8, total number of available CPUs is 8
+2021-08-17T17:50:36.4844551Z stderr F [WARNING] Deprecated '--logger=capnslog' flag is set; use '--logger=zap' flag instead
+2021-08-17T17:50:36.4845056Z stderr F 2021-08-17 17:50:36.484209 I | embed: peerTLS: cert = /etc/kubernetes/pki/etcd/peer.crt, key = /etc/kubernetes/pki/etcd/peer.key, trusted-ca = /etc/kubernetes/pki/etcd/ca.crt, client-cert-auth = true, crl-file = 
+2021-08-17T17:50:36.4848835Z stderr F 2021-08-17 17:50:36.484696 I | embed: name = config-control-plane
+2021-08-17T17:50:36.4849041Z stderr F 2021-08-17 17:50:36.484726 I | embed: data dir = /tmp/kind-cluster-etcd
+2021-08-17T17:50:36.4849233Z stderr F 2021-08-17 17:50:36.484737 I | embed: member dir = /tmp/kind-cluster-etcd/member
+2021-08-17T17:50:36.4849626Z stderr F 2021-08-17 17:50:36.484745 I | embed: heartbeat = 100ms
+2021-08-17T17:50:36.4849805Z stderr F 2021-08-17 17:50:36.484755 I | embed: election = 1000ms
+2021-08-17T17:50:36.4849943Z stderr F 2021-08-17 17:50:36.484765 I | embed: snapshot count = 10000
+2021-08-17T17:50:36.4850068Z stderr F 2021-08-17 17:50:36.484777 I | embed: advertise client URLs = https://172.18.0.3:2379
+2021-08-17T17:50:36.4976442Z stderr F 2021-08-17 17:50:36.497462 I | etcdserver: starting member 23da9c3f2594532a in cluster d4a51ce2d5480c89
+2021-08-17T17:50:36.4976691Z stderr F raft2021/08/17 17:50:36 INFO: 23da9c3f2594532a switched to configuration voters=()
+2021-08-17T17:50:36.4976857Z stderr F raft2021/08/17 17:50:36 INFO: 23da9c3f2594532a became follower at term 0
+2021-08-17T17:50:36.4977067Z stderr F raft2021/08/17 17:50:36 INFO: newRaft 23da9c3f2594532a [peers: [], term: 0, commit: 0, applied: 0, lastindex: 0, lastterm: 0]
+2021-08-17T17:50:36.4977209Z stderr F raft2021/08/17 17:50:36 INFO: 23da9c3f2594532a became follower at term 1
+2021-08-17T17:50:36.4977451Z stderr F raft2021/08/17 17:50:36 INFO: 23da9c3f2594532a switched to configuration voters=(2583549131277751082)
+2021-08-17T17:50:36.4981376Z stderr F 2021-08-17 17:50:36.498001 W | auth: simple token is not cryptographically signed
+2021-08-17T17:50:36.5008442Z stderr F 2021-08-17 17:50:36.500712 I | etcdserver: starting server... [version: 3.4.13, cluster version: to_be_decided]
+2021-08-17T17:50:36.5013367Z stderr F 2021-08-17 17:50:36.501272 I | etcdserver: 23da9c3f2594532a as single-node; fast-forwarding 9 ticks (election ticks 10)
+2021-08-17T17:50:36.5023623Z stderr F raft2021/08/17 17:50:36 INFO: 23da9c3f2594532a switched to configuration voters=(2583549131277751082)
+2021-08-17T17:50:36.5027862Z stderr F 2021-08-17 17:50:36.502358 I | etcdserver/membership: added member 23da9c3f2594532a [https://172.18.0.3:2380] to cluster d4a51ce2d5480c89
+2021-08-17T17:50:36.5038519Z stderr F 2021-08-17 17:50:36.503423 I | embed: ClientTLS: cert = /etc/kubernetes/pki/etcd/server.crt, key = /etc/kubernetes/pki/etcd/server.key, trusted-ca = /etc/kubernetes/pki/etcd/ca.crt, client-cert-auth = true, crl-file = 
+2021-08-17T17:50:36.5038672Z stderr F 2021-08-17 17:50:36.503494 I | embed: listening for peers on 172.18.0.3:2380
+2021-08-17T17:50:36.5038927Z stderr F 2021-08-17 17:50:36.503601 I | embed: listening for metrics on http://127.0.0.1:2381
+2021-08-17T17:50:37.2983173Z stderr F raft2021/08/17 17:50:37 INFO: 23da9c3f2594532a is starting a new election at term 1
+2021-08-17T17:50:37.298349Z stderr F raft2021/08/17 17:50:37 INFO: 23da9c3f2594532a became candidate at term 2
+2021-08-17T17:50:37.2983663Z stderr F raft2021/08/17 17:50:37 INFO: 23da9c3f2594532a received MsgVoteResp from 23da9c3f2594532a at term 2
+2021-08-17T17:50:37.2984183Z stderr F raft2021/08/17 17:50:37 INFO: 23da9c3f2594532a became leader at term 2
+2021-08-17T17:50:37.2984326Z stderr F raft2021/08/17 17:50:37 INFO: raft.node: 23da9c3f2594532a elected leader 23da9c3f2594532a at term 2
+2021-08-17T17:50:37.2987681Z stderr F 2021-08-17 17:50:37.298529 I | etcdserver: published {Name:config-control-plane ClientURLs:[https://172.18.0.3:2379]} to cluster d4a51ce2d5480c89
+2021-08-17T17:50:37.298788Z stderr F 2021-08-17 17:50:37.298566 I | embed: ready to serve client requests
+2021-08-17T17:50:37.2988046Z stderr F 2021-08-17 17:50:37.298580 I | embed: ready to serve client requests
+2021-08-17T17:50:37.2988235Z stderr F 2021-08-17 17:50:37.298768 I | etcdserver: setting up the initial cluster version to 3.4
+2021-08-17T17:50:37.2997374Z stderr F 2021-08-17 17:50:37.299594 N | etcdserver/membership: set the initial cluster version to 3.4
+2021-08-17T17:50:37.2998259Z stderr F 2021-08-17 17:50:37.299733 I | etcdserver/api: enabled capabilities for version 3.4
+2021-08-17T17:50:37.3014454Z stderr F 2021-08-17 17:50:37.301244 I | embed: serving client requests on 172.18.0.3:2379
+2021-08-17T17:50:37.3016524Z stderr F 2021-08-17 17:50:37.301521 I | embed: serving client requests on 127.0.0.1:2379
+2021-08-17T17:50:57.1841973Z stderr F 2021-08-17 17:50:57.184006 I | etcdserver/api/etcdhttp: /health OK (status code 200)
+2021-08-17T17:51:01.6763535Z stderr F 2021-08-17 17:51:01.673973 I | etcdserver/api/etcdhttp: /health OK (status code 200)
+2021-08-17T17:51:11.6759092Z stderr F 2021-08-17 17:51:11.675398 I | etcdserver/api/etcdhttp: /health OK (status code 200)
+2021-08-17T17:51:21.640275Z stderr F 2021-08-17 17:51:21.639869 I | etcdserver/api/etcdhttp: /health OK (status code 200)
+2021-08-17T17:51:31.6388035Z stderr F 2021-08-17 17:51:31.638498 I | etcdserver/api/etcdhttp: /health OK (status code 200)

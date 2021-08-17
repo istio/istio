@@ -1,0 +1,13 @@
+2021-08-17T17:51:23.478684Z stderr F I0817 17:51:23.478047       1 serving.go:325] Generated self-signed cert (/tmp/apiserver.crt, /tmp/apiserver.key)
+2021-08-17T17:51:24.6756865Z stderr F I0817 17:51:24.668195       1 secure_serving.go:197] Serving securely on [::]:4443
+2021-08-17T17:51:24.675796Z stderr F I0817 17:51:24.668656       1 requestheader_controller.go:169] Starting RequestHeaderAuthRequestController
+2021-08-17T17:51:24.6758233Z stderr F I0817 17:51:24.668678       1 shared_informer.go:240] Waiting for caches to sync for RequestHeaderAuthRequestController
+2021-08-17T17:51:24.6758472Z stderr F I0817 17:51:24.668897       1 dynamic_serving_content.go:130] Starting serving-cert::/tmp/apiserver.crt::/tmp/apiserver.key
+2021-08-17T17:51:24.6758648Z stderr F I0817 17:51:24.668960       1 tlsconfig.go:240] Starting DynamicServingCertificateController
+2021-08-17T17:51:24.675881Z stderr F I0817 17:51:24.668994       1 configmap_cafile_content.go:202] Starting client-ca::kube-system::extension-apiserver-authentication::client-ca-file
+2021-08-17T17:51:24.6758999Z stderr F I0817 17:51:24.669060       1 shared_informer.go:240] Waiting for caches to sync for client-ca::kube-system::extension-apiserver-authentication::client-ca-file
+2021-08-17T17:51:24.6759186Z stderr F I0817 17:51:24.669202       1 configmap_cafile_content.go:202] Starting client-ca::kube-system::extension-apiserver-authentication::requestheader-client-ca-file
+2021-08-17T17:51:24.6759355Z stderr F I0817 17:51:24.669233       1 shared_informer.go:240] Waiting for caches to sync for client-ca::kube-system::extension-apiserver-authentication::requestheader-client-ca-file
+2021-08-17T17:51:24.7703187Z stderr F I0817 17:51:24.769563       1 shared_informer.go:247] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::client-ca-file 
+2021-08-17T17:51:24.7703878Z stderr F I0817 17:51:24.769649       1 shared_informer.go:247] Caches are synced for client-ca::kube-system::extension-apiserver-authentication::requestheader-client-ca-file 
+2021-08-17T17:51:24.7704096Z stderr F I0817 17:51:24.769747       1 shared_informer.go:247] Caches are synced for RequestHeaderAuthRequestController 

@@ -1,0 +1,26 @@
+2021-08-17T17:51:29.39102Z stdout F {"branch":"HEAD","caller":"main.go:142","commit":"v0.9.3","msg":"MetalLB controller starting version 0.9.3 (commit v0.9.3, branch HEAD)","ts":"2021-08-17T17:51:29.3907281Z","version":"0.9.3"}
+2021-08-17T17:51:29.5933521Z stdout F {"caller":"main.go:49","event":"startUpdate","msg":"start of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:29.5930379Z"}
+2021-08-17T17:51:29.5934533Z stdout F {"caller":"main.go:62","event":"noConfig","msg":"not processing, still waiting for config","service":"default/kubernetes","ts":"2021-08-17T17:51:29.5931094Z"}
+2021-08-17T17:51:29.5934754Z stdout F {"caller":"main.go:63","event":"endUpdate","msg":"end of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:29.5931385Z"}
+2021-08-17T17:51:29.5935393Z stdout F {"caller":"main.go:49","event":"startUpdate","msg":"start of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:29.5931713Z"}
+2021-08-17T17:51:29.5935601Z stdout F {"caller":"main.go:62","event":"noConfig","msg":"not processing, still waiting for config","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:29.5931975Z"}
+2021-08-17T17:51:29.5935777Z stdout F {"caller":"main.go:63","event":"endUpdate","msg":"end of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:29.5932213Z"}
+2021-08-17T17:51:29.5935954Z stdout F {"caller":"main.go:49","event":"startUpdate","msg":"start of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:29.5932452Z"}
+2021-08-17T17:51:29.5936099Z stdout F {"caller":"main.go:62","event":"noConfig","msg":"not processing, still waiting for config","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:29.5932598Z"}
+2021-08-17T17:51:29.5936286Z stdout F {"caller":"main.go:63","event":"endUpdate","msg":"end of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:29.5932839Z"}
+2021-08-17T17:51:29.5949931Z stdout F {"caller":"main.go:108","configmap":"metallb-system/config","event":"startUpdate","msg":"start of config update","ts":"2021-08-17T17:51:29.5937303Z"}
+2021-08-17T17:51:29.5950176Z stdout F {"caller":"main.go:121","configmap":"metallb-system/config","event":"endUpdate","msg":"end of config update","ts":"2021-08-17T17:51:29.5937844Z"}
+2021-08-17T17:51:29.59505Z stdout F {"caller":"k8s.go:402","configmap":"metallb-system/config","event":"configLoaded","msg":"config (re)loaded","ts":"2021-08-17T17:51:29.5938117Z"}
+2021-08-17T17:51:29.5950715Z stdout F {"caller":"main.go:126","event":"stateSynced","msg":"controller synced, can allocate IPs now","ts":"2021-08-17T17:51:29.5939703Z"}
+2021-08-17T17:51:29.5997761Z stdout F {"caller":"main.go:49","event":"startUpdate","msg":"start of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:29.5991186Z"}
+2021-08-17T17:51:29.5998069Z stdout F {"caller":"service.go:33","event":"clearAssignment","msg":"not a LoadBalancer","reason":"notLoadBalancer","service":"default/kubernetes","ts":"2021-08-17T17:51:29.5991881Z"}
+2021-08-17T17:51:29.5998275Z stdout F {"caller":"main.go:75","event":"noChange","msg":"service converged, no change","service":"default/kubernetes","ts":"2021-08-17T17:51:29.5992596Z"}
+2021-08-17T17:51:29.599841Z stdout F {"caller":"main.go:76","event":"endUpdate","msg":"end of service update","service":"default/kubernetes","ts":"2021-08-17T17:51:29.5992852Z"}
+2021-08-17T17:51:29.5998594Z stdout F {"caller":"main.go:49","event":"startUpdate","msg":"start of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:29.599305Z"}
+2021-08-17T17:51:29.5998714Z stdout F {"caller":"service.go:33","event":"clearAssignment","msg":"not a LoadBalancer","reason":"notLoadBalancer","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:29.59933Z"}
+2021-08-17T17:51:29.5998886Z stdout F {"caller":"main.go:75","event":"noChange","msg":"service converged, no change","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:29.5993822Z"}
+2021-08-17T17:51:29.5999067Z stdout F {"caller":"main.go:76","event":"endUpdate","msg":"end of service update","service":"kube-system/kube-dns","ts":"2021-08-17T17:51:29.5994103Z"}
+2021-08-17T17:51:29.5999931Z stdout F {"caller":"main.go:49","event":"startUpdate","msg":"start of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:29.5994369Z"}
+2021-08-17T17:51:29.6000129Z stdout F {"caller":"service.go:33","event":"clearAssignment","msg":"not a LoadBalancer","reason":"notLoadBalancer","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:29.599466Z"}
+2021-08-17T17:51:29.6000311Z stdout F {"caller":"main.go:75","event":"noChange","msg":"service converged, no change","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:29.5995635Z"}
+2021-08-17T17:51:29.6000444Z stdout F {"caller":"main.go:76","event":"endUpdate","msg":"end of service update","service":"kube-system/metrics-server","ts":"2021-08-17T17:51:29.5995912Z"}

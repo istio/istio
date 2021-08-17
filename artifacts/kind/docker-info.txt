@@ -1,0 +1,56 @@
+WARNING: Error loading config file: /home/.docker/config.json: Invalid auth configuration file
+Client:
+ Context:    default
+ Debug Mode: false
+ Plugins:
+  app: Docker App (Docker Inc., v0.9.1-beta3)
+  buildx: Build with BuildKit (Docker Inc., v0.5.1-docker)
+
+Server:
+ Containers: 4
+  Running: 4
+  Paused: 0
+  Stopped: 0
+ Images: 11
+ Server Version: 20.10.7
+ Storage Driver: overlay2
+  Backing Filesystem: extfs
+  Supports d_type: true
+  Native Overlay Diff: true
+  userxattr: false
+ Logging Driver: json-file
+ Cgroup Driver: cgroupfs
+ Cgroup Version: 1
+ Plugins:
+  Volume: local
+  Network: bridge host ipvlan macvlan null overlay
+  Log: awslogs fluentd gcplogs gelf journald json-file local logentries splunk syslog
+ Swarm: inactive
+ Runtimes: io.containerd.runtime.v1.linux runc io.containerd.runc.v2
+ Default Runtime: runc
+ Init Binary: docker-init
+ containerd version: d71fcd7d8303cbf684402823e425e9dd2e99285d
+ runc version: b9ee9c6314599f1b4a7f497e1f1f856fe433d3b7
+ init version: de40ad0
+ Security Options:
+  seccomp
+   Profile: default
+ Kernel Version: 5.10.25-linuxkit
+ Operating System: Docker Desktop
+ OSType: linux
+ Architecture: x86_64
+ CPUs: 8
+ Total Memory: 15.64GiB
+ Name: docker-desktop
+ ID: E3J3:ODV4:O55G:QIEV:PQCF:6RA4:Z6AW:VKOC:TKQV:PNNJ:ARNF:W5P5
+ Docker Root Dir: /var/lib/docker
+ Debug Mode: false
+ HTTP Proxy: http.docker.internal:3128
+ HTTPS Proxy: http.docker.internal:3128
+ Registry: https://index.docker.io/v1/
+ Labels:
+ Experimental: false
+ Insecure Registries:
+  127.0.0.0/8
+ Live Restore Enabled: false
+

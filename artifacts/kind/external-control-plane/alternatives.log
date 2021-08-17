@@ -1,0 +1,6 @@
+update-alternatives 2021-08-17 17:50:16: run with --set iptables /usr/sbin/iptables-legacy
+update-alternatives 2021-08-17 17:50:16: status of link group /usr/sbin/iptables set to manual
+update-alternatives 2021-08-17 17:50:16: link group iptables updated to point to /usr/sbin/iptables-legacy
+update-alternatives 2021-08-17 17:50:16: run with --set ip6tables /usr/sbin/ip6tables-legacy
+update-alternatives 2021-08-17 17:50:16: status of link group /usr/sbin/ip6tables set to manual
+update-alternatives 2021-08-17 17:50:16: link group ip6tables updated to point to /usr/sbin/ip6tables-legacy

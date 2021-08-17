@@ -1,0 +1,15 @@
+2021-08-17T17:51:04.0381901Z stderr F I0817 17:51:04.037726       1 main.go:316] probe TCP address external-control-plane:6443
+2021-08-17T17:51:04.1274092Z stderr F I0817 17:51:04.127150       1 main.go:102] connected to apiserver: https://external-control-plane:6443
+2021-08-17T17:51:04.1274492Z stderr F I0817 17:51:04.127188       1 main.go:107] hostIP = 172.18.0.4
+2021-08-17T17:51:04.1274696Z stderr F podIP = 172.18.0.4
+2021-08-17T17:51:04.1274965Z stderr F I0817 17:51:04.127348       1 main.go:116] setting mtu 1500 for CNI 
+2021-08-17T17:51:04.1275474Z stderr F I0817 17:51:04.127369       1 main.go:146] kindnetd IP family: "ipv4"
+2021-08-17T17:51:04.1276004Z stderr F I0817 17:51:04.127403       1 main.go:150] noMask IPv4 subnets: [10.10.0.0/16]
+2021-08-17T17:51:04.4314641Z stderr F I0817 17:51:04.430774       1 main.go:223] Handling node with IPs: map[172.18.0.4:{}]
+2021-08-17T17:51:04.4315015Z stderr F I0817 17:51:04.430843       1 main.go:227] handling current node
+2021-08-17T17:51:14.5042902Z stderr F I0817 17:51:14.504101       1 main.go:223] Handling node with IPs: map[172.18.0.4:{}]
+2021-08-17T17:51:14.5043459Z stderr F I0817 17:51:14.504235       1 main.go:227] handling current node
+2021-08-17T17:51:24.5226988Z stderr F I0817 17:51:24.522314       1 main.go:223] Handling node with IPs: map[172.18.0.4:{}]
+2021-08-17T17:51:24.5227483Z stderr F I0817 17:51:24.522375       1 main.go:227] handling current node
+2021-08-17T17:51:34.539947Z stderr F I0817 17:51:34.539566       1 main.go:223] Handling node with IPs: map[172.18.0.4:{}]
+2021-08-17T17:51:34.539992Z stderr F I0817 17:51:34.539610       1 main.go:227] handling current node

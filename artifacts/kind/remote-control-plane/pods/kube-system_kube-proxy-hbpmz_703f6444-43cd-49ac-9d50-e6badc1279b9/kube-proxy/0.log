@@ -1,0 +1,17 @@
+2021-08-17T17:51:03.9064188Z stderr F I0817 17:51:03.903987       1 node.go:172] Successfully retrieved node IP: 172.18.0.2
+2021-08-17T17:51:03.9064583Z stderr F I0817 17:51:03.904147       1 server_others.go:140] Detected node IP 172.18.0.2
+2021-08-17T17:51:04.0574751Z stderr F I0817 17:51:04.056569       1 server_others.go:206] kube-proxy running in dual-stack mode, IPv4-primary
+2021-08-17T17:51:04.0575051Z stderr F I0817 17:51:04.056626       1 server_others.go:212] Using iptables Proxier.
+2021-08-17T17:51:04.0577256Z stderr F I0817 17:51:04.056643       1 server_others.go:219] creating dualStackProxier for iptables.
+2021-08-17T17:51:04.0577436Z stderr F W0817 17:51:04.056662       1 server_others.go:512] detect-local-mode set to ClusterCIDR, but no IPv6 cluster CIDR defined, , defaulting to no-op detect-local for IPv6
+2021-08-17T17:51:04.0626676Z stderr F I0817 17:51:04.062114       1 server.go:643] Version: v1.21.1
+2021-08-17T17:51:04.0704651Z stderr F I0817 17:51:04.063861       1 conntrack.go:100] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_established' to 86400
+2021-08-17T17:51:04.0704968Z stderr F I0817 17:51:04.063927       1 conntrack.go:100] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_close_wait' to 3600
+2021-08-17T17:51:04.0705157Z stderr F I0817 17:51:04.064334       1 config.go:315] Starting service config controller
+2021-08-17T17:51:04.0705347Z stderr F I0817 17:51:04.064359       1 shared_informer.go:240] Waiting for caches to sync for service config
+2021-08-17T17:51:04.0706927Z stderr F I0817 17:51:04.065021       1 config.go:224] Starting endpoint slice config controller
+2021-08-17T17:51:04.0707171Z stderr F I0817 17:51:04.065039       1 shared_informer.go:240] Waiting for caches to sync for endpoint slice config
+2021-08-17T17:51:04.0707576Z stderr F W0817 17:51:04.068455       1 warnings.go:70] discovery.k8s.io/v1beta1 EndpointSlice is deprecated in v1.21+, unavailable in v1.25+; use discovery.k8s.io/v1 EndpointSlice
+2021-08-17T17:51:04.0743558Z stderr F W0817 17:51:04.073300       1 warnings.go:70] discovery.k8s.io/v1beta1 EndpointSlice is deprecated in v1.21+, unavailable in v1.25+; use discovery.k8s.io/v1 EndpointSlice
+2021-08-17T17:51:04.1656879Z stderr F I0817 17:51:04.165338       1 shared_informer.go:247] Caches are synced for service config 
+2021-08-17T17:51:04.1657639Z stderr F I0817 17:51:04.165458       1 shared_informer.go:247] Caches are synced for endpoint slice config 
