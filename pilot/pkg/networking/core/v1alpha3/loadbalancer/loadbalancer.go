@@ -75,13 +75,12 @@ func ApplyLocalityLBSetting(
 		// Failover needs outlier detection, otherwise Envoy will never drop down to a lower priority.
 		// Do not apply default failover when locality LB is disabled.
 	} else if enableFailover && (localityLB.Enabled == nil || localityLB.Enabled.Value) {
-		if localityLB.Failover != nil {
-			applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
-			return
-		}
 		if len(localityLB.FailoverPriority) > 0 {
 			applyPriorityFailover(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
+			return
 		}
+		// TODO: apply failover only when it is explicitly specified
+		applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 	}
 }
 
