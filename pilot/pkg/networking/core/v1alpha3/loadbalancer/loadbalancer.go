@@ -76,11 +76,11 @@ func ApplyLocalityLBSetting(
 		// Do not apply default failover when locality LB is disabled.
 	} else if enableFailover && (localityLB.Enabled == nil || localityLB.Enabled.Value) {
 		if localityLB.Failover != nil {
-			applyLocalityFailover(locality, loadAssignment, localityLB.GetFailover())
+			applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 			return
 		}
-		if len(localityLB.GetFailoverPriority()) > 0 {
-			applyPriorityFailover(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.GetFailoverPriority())
+		if len(localityLB.FailoverPriority) > 0 {
+			applyPriorityFailover(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
 		}
 	}
 }
@@ -239,9 +239,7 @@ func applyPriorityFailover(
 			}
 		}
 	}
-
 	loadAssignment.Endpoints = localityLbEndpoints
-	return
 }
 
 // set loadbalancing priority by failover priority label.
@@ -274,8 +272,7 @@ func applyPriorityFailoverPerLocality(
 
 	out := make([]*endpoint.LocalityLbEndpoints, len(priorityMap))
 	for i, priority := range priorities {
-		copiedLbEndpoints := *ep.LocalityLbEndpoints
-		out[i] = &copiedLbEndpoints
+		out[i] = util.CloneLocalityLbEndpoint(ep.LocalityLbEndpoints)
 		out[i].LbEndpoints = nil
 		out[i].Priority = uint32(priority)
 		var weight uint32
