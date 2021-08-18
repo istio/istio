@@ -97,6 +97,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
+	Metadata     *model.NodeMetadata `json:"metadata"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
 
@@ -169,11 +170,11 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	mux.HandleFunc("/debug", s.Debug)
 
 	if features.EnableUnsafeAdminEndpoints {
-		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.ForceDisconnect)
+		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.forceDisconnect)
 	}
 
-	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
-	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.Ndsz)
+	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
+	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.ndsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
@@ -191,15 +192,15 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 
-	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.Authorizationz)
+	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
 	s.addDebugHandler(mux, internalMux, "/debug/config_dump", "ConfigDump in the form of the Envoy admin config dump API for passed in proxyID", s.ConfigDump)
-	s.addDebugHandler(mux, internalMux, "/debug/push_status", "Last PushContext Details", s.PushStatusHandler)
-	s.addDebugHandler(mux, internalMux, "/debug/pushcontext", "Debug support for current push context", s.PushContextHandler)
-	s.addDebugHandler(mux, internalMux, "/debug/connections", "Info about the connected XDS clients", s.ConnectionsHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/push_status", "Last PushContext Details", s.pushStatusHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/pushcontext", "Debug support for current push context", s.pushContextHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/connections", "Info about the connected XDS clients", s.connectionsHandler)
 
-	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.InjectTemplateHandler(webhook))
-	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.MeshHandler)
+	s.addDebugHandler(mux, internalMux, "/debug/inject", "Active inject template", s.injectTemplateHandler(webhook))
+	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.meshHandler)
 	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
 	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
@@ -493,8 +494,8 @@ type AuthorizationDebug struct {
 	AuthorizationPolicies *model.AuthorizationPolicies `json:"authorization_policies"`
 }
 
-// Authorizationz dumps the internal authorization policies.
-func (s *DiscoveryServer) Authorizationz(w http.ResponseWriter, req *http.Request) {
+// authorizationz dumps the internal authorization policies.
+func (s *DiscoveryServer) authorizationz(w http.ResponseWriter, req *http.Request) {
 	info := AuthorizationDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 	}
@@ -505,9 +506,9 @@ func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, s.globalPushContext().Telemetry)
 }
 
-// ConnectionsHandler implements interface for displaying current connections.
+// connectionsHandler implements interface for displaying current connections.
 // It is mapped to /debug/connections.
-func (s *DiscoveryServer) ConnectionsHandler(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) connectionsHandler(w http.ResponseWriter, req *http.Request) {
 	adsClients := &AdsClients{}
 	connections := s.Clients()
 	adsClients.Total = len(connections)
@@ -529,15 +530,25 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
+	connections := s.Clients()
+	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
+		con := s.getProxyConnection(proxyID)
+		if con == nil {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
+			return
+		}
+		connections = []*Connection{con}
+	}
 
 	adsClients := &AdsClients{}
-	connections := s.Clients()
 	adsClients.Total = len(connections)
-	for _, c := range s.Clients() {
+	for _, c := range connections {
 		adsClient := AdsClient{
 			ConnectionID: c.ConID,
 			ConnectedAt:  c.Connect,
 			PeerAddress:  c.PeerAddr,
+			Metadata:     c.proxy.Metadata,
 			Watches:      map[string][]string{},
 		}
 		c.proxy.RLock()
@@ -661,9 +672,9 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	return configDump, nil
 }
 
-// InjectTemplateHandler dumps the injection template
+// injectTemplateHandler dumps the injection template
 // Replaces dumping the template at startup.
-func (s *DiscoveryServer) InjectTemplateHandler(webhook func() map[string]string) func(http.ResponseWriter, *http.Request) {
+func (s *DiscoveryServer) injectTemplateHandler(webhook func() map[string]string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
 		// TODO: we should split the inject template into smaller modules (separate one for dump core, etc),
 		// and allow pods to select which patches will be selected. When this happen, this should return
@@ -677,13 +688,13 @@ func (s *DiscoveryServer) InjectTemplateHandler(webhook func() map[string]string
 	}
 }
 
-// MeshHandler dumps the mesh config
-func (s *DiscoveryServer) MeshHandler(w http.ResponseWriter, r *http.Request) {
+// meshHandler dumps the mesh config
+func (s *DiscoveryServer) meshHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONProto(w, s.Env.Mesh())
 }
 
-// PushStatusHandler dumps the last PushContext
-func (s *DiscoveryServer) PushStatusHandler(w http.ResponseWriter, req *http.Request) {
+// pushStatusHandler dumps the last PushContext
+func (s *DiscoveryServer) pushStatusHandler(w http.ResponseWriter, req *http.Request) {
 	model.LastPushMutex.Lock()
 	defer model.LastPushMutex.Unlock()
 	if model.LastPushStatus == nil {
@@ -705,8 +716,8 @@ type PushContextDebug struct {
 	NetworkGateways       map[network.ID][]*model.NetworkGateway
 }
 
-// PushContextHandler dumps the current PushContext
-func (s *DiscoveryServer) PushContextHandler(w http.ResponseWriter, _ *http.Request) {
+// pushContextHandler dumps the current PushContext
+func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, _ *http.Request) {
 	push := PushContextDebug{
 		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
 		NetworkGateways:       s.globalPushContext().NetworkManager().GatewaysByNetwork(),
@@ -761,9 +772,9 @@ func (s *DiscoveryServer) List(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, cmdNames)
 }
 
-// Ndsz implements a status and debug interface for NDS.
-// It is mapped to /debug/Ndsz on the monitor port (15014).
-func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
+// ndsz implements a status and debug interface for NDS.
+// It is mapped to /debug/ndsz on the monitor port (15014).
+func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
@@ -782,9 +793,9 @@ func (s *DiscoveryServer) Ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Edsz implements a status and debug interface for EDS.
+// edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (15014).
-func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
@@ -802,7 +813,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, eps)
 }
 
-func (s *DiscoveryServer) ForceDisconnect(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Request) {
 	con := s.getDebugConnection(w, req)
 	if con == nil {
 		return
@@ -897,14 +908,13 @@ func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Req
 
 // getDebugConnection fetches the Connection requested
 func (s *DiscoveryServer) getDebugConnection(w http.ResponseWriter, req *http.Request) *Connection {
-	var con *Connection
 	if err := req.ParseForm(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("Failed to parse request\n"))
 		return nil
 	}
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		con = s.getProxyConnection(proxyID)
+		con := s.getProxyConnection(proxyID)
 		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
 		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
 		if con == nil {
@@ -912,12 +922,12 @@ func (s *DiscoveryServer) getDebugConnection(w http.ResponseWriter, req *http.Re
 			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
 			return nil
 		}
+		return con
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("You must provide a proxyID in the query string\n"))
 		return nil
 	}
-	return con
 }
 
 // jsonMarshalProto wraps a proto.Message so it can be marshaled with the standard encoding/json library
