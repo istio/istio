@@ -36,10 +36,10 @@ func SelectVirtualServices(virtualServices []config.Config, hosts map[string][]h
 
 	vsset := sets.NewSet()
 	addVirtualService := func(vs config.Config, hosts host.Names) {
-		vsname := vs.Name
+		vsname := vs.Name + "/" + vs.Namespace
 		rule := vs.Spec.(*networking.VirtualService)
 		for _, ih := range hosts {
-			// Check if the hostnames match per usual hostname matching rules
+			// Check if the virtual service is already processed.
 			if vsset.Contains(vsname) {
 				break
 			}
