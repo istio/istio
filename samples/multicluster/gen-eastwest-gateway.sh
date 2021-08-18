@@ -92,16 +92,12 @@ IOP=$(cat <<EOF
 $IOP
         enabled: true
         k8s:
-          env:
-            # sni-dnat adds the clusters required for AUTO_PASSTHROUGH mode
-            # This is not required in Istio 1.11+, but we add it just in case.
-            - name: ISTIO_META_ROUTER_MODE
-              value: "sni-dnat"
 EOF
 )
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
   IOP=$(cat <<EOF
 $IOP
+          env:
             # traffic through this gateway should be routed inside the network
             - name: ISTIO_META_REQUESTED_NETWORK_VIEW
               value: ${NETWORK}
