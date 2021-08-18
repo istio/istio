@@ -1911,7 +1911,7 @@ spec:
 			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
 			if len(aInCluster) == 0 {
 				// The cluster doesn't contain A, but connects to a cluster containing A
-				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))
+				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Config()))
 			}
 			address := aInCluster[0].Config().FQDN() + "?"
 			if tt.protocol != "" {

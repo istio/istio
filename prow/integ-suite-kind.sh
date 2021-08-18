@@ -91,6 +91,10 @@ while (( "$#" )); do
       CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/${2}"
       shift 2
     ;;
+    --istio.test.skipVM)
+      SKIP_VM_TESTS=true
+      shift
+    ;;
     -*)
       echo "Error: Unsupported flag $1" >&2
       exit 1
@@ -123,6 +127,8 @@ export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
 
 export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"
+
+export SKIP_VM_TESTS=${SKIP_VM_TESTS:-}
 
 # If we're not intending to pull from an actual remote registry, use the local kind registry
 if [[ -z "${SKIP_BUILD:-}" ]]; then
