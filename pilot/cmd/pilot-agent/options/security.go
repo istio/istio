@@ -46,6 +46,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		Pkcs8Keys:                      pkcs8KeysEnv,
 		ECCSigAlg:                      eccSigAlgEnv,
 		SecretTTL:                      secretTTLEnv,
+		FileDebounceDuration:           fileDebounceDuration,
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 	}
 
