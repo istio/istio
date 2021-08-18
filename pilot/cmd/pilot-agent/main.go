@@ -121,6 +121,10 @@ var (
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
+
+	fileDebounceDuration = env.RegisterDurationVar("FILE_DEBOUNCE_DURATION", 100*time.Millisecond,
+		"The duration for which the file read operation is delayed once file update is detected").Get()
+
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
 	pkcs8KeysEnv = env.RegisterBoolVar("PKCS8_KEY", false,
@@ -236,6 +240,7 @@ var (
 				Pkcs8Keys:                      pkcs8KeysEnv,
 				ECCSigAlg:                      eccSigAlgEnv,
 				SecretTTL:                      secretTTLEnv,
+				FileDebounceDuration:           fileDebounceDuration,
 				SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
 			}
 			secOpts, err := secopt.SetupSecurityOptions(proxyConfig, sop, jwtPolicy.Get(),
