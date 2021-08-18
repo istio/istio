@@ -950,16 +950,16 @@ func rootCACompareConfigCmd() *cobra.Command {
 	var podName1, podName2, podNamespace1, podNamespace2 string
 
 	rootCACompareConfigCmd := &cobra.Command{
-		Use:   "rootca-cmp [pod/]<name-1>[.<namespace-1>] [pod/]<name-2>[.<namespace-2>]",
+		Use:   "rootca-compare [pod/]<name-1>[.<namespace-1>] [pod/]<name-2>[.<namespace-2>]",
 		Short: "Compare ROOTCA values for the two given pods",
 		Long:  `Compare ROOTCA values for given 2 pods to check the connectivity between them.`,
 		Example: `  # Compare ROOTCA values for given 2 pods to check the connectivity between them.
-  istioctl proxy-config rootca-cmp <pod-name-1[.namespace]> <pod-name-2[.namespace]>`,
-		Aliases: []string{"rootca-cmp", "rc"},
+  istioctl proxy-config rootca-compare <pod-name-1[.namespace]> <pod-name-2[.namespace]>`,
+		Aliases: []string{"rootca-compare", "rc"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if (len(args) <= 2) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("rootca-cmp requires 2 pods as an argument")
+				return fmt.Errorf("rootca-compare requires 2 pods as an argument")
 			}
 			return nil
 		},
@@ -984,7 +984,7 @@ func rootCACompareConfigCmd() *cobra.Command {
 				}
 			} else {
 				c.Println(c.UsageString())
-				return fmt.Errorf("rootca-cmp requires 2 pods as an argument")
+				return fmt.Errorf("rootca-compare requires 2 pods as an argument")
 			}
 
 			rootCA1, err1 := configWriter1.PrintPodRootCAFromDynamicSecretDump()
@@ -1005,7 +1005,6 @@ func rootCACompareConfigCmd() *cobra.Command {
 			} else {
 				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
 					podName1, podNamespace1, podName2, podNamespace2)
-				c.Println(report)
 				returnErr = fmt.Errorf(report)
 			}
 			return returnErr
