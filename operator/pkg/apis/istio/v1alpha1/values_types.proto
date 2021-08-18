@@ -72,6 +72,8 @@ message CNIConfig {
   google.protobuf.BoolValue chained = 14;
 
   CNITaintConfig taint  = 15;
+
+  ResourceQuotas resource_quotas = 16;
 }
 
 
@@ -102,6 +104,13 @@ message CNIRepairConfig {
   string brokenPodLabelValue = 9;
 
   string initContainerName = 10;
+}
+
+message ResourceQuotas {
+  // Controls whether to create resource quotas or not for the CNI DaemonSet.
+  google.protobuf.BoolValue enabled = 1;
+
+  int64 pods = 2;
 }
 
 // Configuration for CPU target utilization for HorizontalPodAutoscaler target.
