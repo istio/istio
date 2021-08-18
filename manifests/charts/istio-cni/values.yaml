@@ -50,6 +50,10 @@ cni:
   # Experimental taint controller for further race condition mitigation
   taint:
     enabled: false
+  
+  resourceQuotas:
+    enabled: false
+    pods: 5000
 
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
