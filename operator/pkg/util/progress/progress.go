@@ -45,13 +45,24 @@ type Log struct {
 	template   string
 	mu         sync.Mutex
 	state      InstallState
+	fileWriter *io.Writer
 }
 
 func NewLog() *Log {
-	return &Log{
+	log := &Log{
 		components: map[string]*ManifestLog{},
-		bar:        createBar(),
 	}
+	log.bar = log.createBar()
+	return log
+}
+
+func NewFileLog(w *io.Writer) *Log {
+	log := &Log{
+		components: map[string]*ManifestLog{},
+		fileWriter: w,
+	}
+	log.bar = log.createBar()
+	return log
 }
 
 const inProgress = `{{ yellow (cycle . "-" "-" "-" " ") }} `
@@ -88,12 +99,14 @@ func (p *Log) createStatus(maxWidth int) string {
 // For testing only
 var testWriter *io.Writer
 
-func createBar() *pb.ProgressBar {
+func (p *Log) createBar() *pb.ProgressBar {
 	// Don't set a total and use Static so we can explicitly control when you write. This is needed
 	// for handling the multiline issues.
 	bar := pb.New(0)
 	bar.Set(pb.Static, true)
-	if testWriter != nil {
+	if p.fileWriter != nil {
+		bar.SetWriter(*p.fileWriter)
+	} else if testWriter != nil {
 		bar.SetWriter(*testWriter)
 	}
 	bar.Start()
@@ -130,7 +143,7 @@ func (p *Log) reportProgress(component string) func() {
 			delete(p.components, component)
 
 			// Now we create a new bar, which will have the remaining components
-			p.bar = createBar()
+			p.bar = p.createBar()
 			return
 		}
 		p.SetMessage(p.createStatus(p.bar.Width()), false)

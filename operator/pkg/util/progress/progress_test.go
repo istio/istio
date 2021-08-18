@@ -74,3 +74,56 @@ func TestProgressLog(t *testing.T) {
 	p.SetState(StateUninstallComplete)
 	expect(`✔ Uninstall complete`)
 }
+
+func TestProgressLogFile(t *testing.T) {
+	buf := bytes.NewBuffer(nil)
+	fileBuf := io.Writer(buf)
+	fileWriter := &fileBuf
+	expected := ""
+	expect := func(e string) {
+		t.Helper()
+		// In buffer mode we don't overwrite old data, so we are constantly appending to the expected
+		newExpected := expected + "\n" + e
+		if newExpected != buf.String() {
+			t.Fatalf("expected '%v', \ngot '%v'", newExpected, buf.String())
+		}
+		expected = newExpected
+	}
+
+	p := NewFileLog(fileWriter)
+	cnp := name.PilotComponentName
+	cnpo := name.UserFacingComponentName(cnp)
+	cnb := name.IstioBaseComponentName
+	cnbo := name.UserFacingComponentName(cnb)
+	foo := p.NewComponent(string(cnp))
+	foo.ReportProgress()
+	expect(`- Processing resources for ` + cnpo + `.`)
+
+	bar := p.NewComponent(string(cnb))
+	bar.ReportProgress()
+	// string buffer won't rewrite, so we append
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `.`)
+	bar.ReportProgress()
+	bar.ReportProgress()
+
+	bar.ReportWaiting([]string{"deployment"})
+	expect(`- Processing resources for ` + cnbo + `, ` + cnpo + `. Waiting for deployment`)
+
+	bar.ReportError("some error")
+	expect(`✘ ` + cnbo + ` encountered an error: some error`)
+
+	foo.ReportProgress()
+	expect(`- Processing resources for ` + cnpo + `.`)
+
+	foo.ReportFinished()
+	expect(`✔ ` + cnpo + ` installed`)
+
+	p.SetState(StatePruning)
+	expect(`- Pruning removed resources`)
+
+	p.SetState(StateComplete)
+	expect(`✔ Installation complete`)
+
+	p.SetState(StateUninstallComplete)
+	expect(`✔ Uninstall complete`)
+}
