@@ -302,7 +302,7 @@ func readSignedCertificate(client clientset.Interface, csrName string,
 	if len(certPEM) == 0 {
 		return []byte{}, []byte{}, nil
 	}
-	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
+	certsParsed, err := util.ParsePemEncodedCertificateChain(certPEM)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decoding certificate failed")
 	}
@@ -322,8 +322,15 @@ func readSignedCertificate(client clientset.Interface, csrName string,
 		if ok := roots.AppendCertsFromPEM(caCert); !ok {
 			return nil, nil, fmt.Errorf("failed to append CA certificate")
 		}
-		_, err = certParsed.Verify(x509.VerifyOptions{
-			Roots: roots,
+		intermediates := x509.NewCertPool()
+		if len(certsParsed) > 1 {
+			for _, cert := range certsParsed[1:] {
+				intermediates.AddCert(cert)
+			}
+		}
+		_, err = certsParsed[0].Verify(x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: intermediates,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
