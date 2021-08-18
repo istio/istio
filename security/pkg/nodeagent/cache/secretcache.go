@@ -26,8 +26,6 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
-
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
@@ -100,7 +98,7 @@ type SecretManagerClient struct {
 
 	// The paths for an existing certificate chain, key and root cert files. Istio agent will
 	// use them as the source of secrets if they exist.
-	existingCertificateFile model.SdsCertificateConfig
+	existingCertificateFile nodeagentutil.SdsCertificateConfig
 
 	// certWatcher watches the certificates for changes and triggers a notification to proxy.
 	certWatcher *fsnotify.Watcher
@@ -175,7 +173,7 @@ func NewSecretManagerClient(caClient security.Client, options *security.Options)
 		queue:         queue.NewDelayed(queue.DelayQueueBuffer(0)),
 		caClient:      caClient,
 		configOptions: options,
-		existingCertificateFile: model.SdsCertificateConfig{
+		existingCertificateFile: nodeagentutil.SdsCertificateConfig{
 			CertificatePath:   security.DefaultCertChainFilePath,
 			PrivateKeyPath:    security.DefaultKeyFilePath,
 			CaCertificatePath: security.DefaultRootCertFilePath,
