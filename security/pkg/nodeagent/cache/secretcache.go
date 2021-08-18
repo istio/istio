@@ -396,7 +396,7 @@ func (sc *SecretManagerClient) generateRootCertFromExistingFile(rootCertPath, re
 func (sc *SecretManagerClient) generateKeyCertFromExistingFiles(certChainPath, keyPath, resourceName string) (*security.SecretItem, error) {
 	// There is a remote possibility that key is written and cert is not written yet.
 	// To handle that case, we wait for some time here.
-	timer := time.After(100 * time.Millisecond) // TODO: Make this configurable if needed.
+	timer := time.After(sc.configOptions.FileDebounceDuration)
 	<-timer
 	return sc.keyCertSecretItem(certChainPath, keyPath, resourceName)
 }
