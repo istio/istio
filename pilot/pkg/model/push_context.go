@@ -1440,7 +1440,6 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
 	for _, sidecarConfig := range sidecarConfigs {
-		sidecarConfig := sidecarConfig
 		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
 			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
 	}
