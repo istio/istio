@@ -15,11 +15,14 @@
 package adsc
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -52,59 +55,130 @@ func (t *testAdscRunServer) DeltaAggregatedResources(xdsapi.AggregatedDiscoveryS
 }
 
 func TestADSC_Run(t *testing.T) {
-	tests := []struct {
+	type testCase struct {
 		desc                 string
 		inAdsc               *ADSC
 		streamHandler        func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error
 		expectedADSResources *ADSC
-	}{
+		validator            func(testCase) error
+	}
+	var tests []testCase
+
+	type testDesc struct {
+		desc             string
+		reqTypeUrls      []string
+		expectedTypeUrls []string // nil means equals to requested
+		validator        func(testCase) error
+	}
+
+	descs := []testDesc{
 		{
-			desc: "stream-no-resources",
+			desc:        "stream-no-resources",
+			reqTypeUrls: []string{},
+		},
+		{
+			desc:        "stream-2-unnamed-resources",
+			reqTypeUrls: []string{"foo", "bar"},
+		},
+		// todo tests for listeners, clusters, eds, and routes, not sure how to do this.
+	}
+
+	initTypeUrls := func() []string {
+		var ret []string
+		for _, req := range ConfigInitialRequests() {
+			ret = append(ret, req.TypeUrl)
+		}
+		return ret
+	}()
+	incompleteTypeUrls := func() []string {
+		var ret []string
+		for idx, item := range initTypeUrls {
+			if strings.Count(item, "/") == 3 {
+				ret = append(ret, initTypeUrls[:idx]...)
+				ret = append(ret, initTypeUrls[idx+1:]...)
+				break
+			}
+		}
+		if ret == nil {
+			ret = initTypeUrls
+		}
+		return ret
+	}()
+	descs = append(descs, testDesc{
+		desc:        "mcp-should-hasSynced",
+		reqTypeUrls: initTypeUrls,
+		validator: func(tc testCase) error {
+			if !tc.inAdsc.HasSynced() {
+				return fmt.Errorf("adsc not synced")
+			}
+			return nil
+		},
+	})
+	if len(incompleteTypeUrls) != len(initTypeUrls) {
+		descs = append(descs, testDesc{
+			desc:             "mcp-should-not-hasSynced",
+			reqTypeUrls:      initTypeUrls,
+			expectedTypeUrls: incompleteTypeUrls,
+			validator: func(tc testCase) error {
+				if tc.inAdsc.HasSynced() {
+					return fmt.Errorf("adsc synced but should not")
+				}
+				return nil
+			},
+		})
+	}
+
+	for _, item := range descs {
+		desc := item // avoid refer to on-stack-var
+		expected := map[string]*xdsapi.DiscoveryResponse{}
+		if desc.expectedTypeUrls == nil {
+			desc.expectedTypeUrls = desc.reqTypeUrls
+		}
+		var initReqs []*xdsapi.DiscoveryRequest
+		for _, typeURL := range desc.reqTypeUrls {
+			initReqs = append(initReqs, &xdsapi.DiscoveryRequest{TypeUrl: typeURL})
+		}
+		for _, typeURL := range desc.expectedTypeUrls {
+			expected[typeURL] = &xdsapi.DiscoveryResponse{TypeUrl: typeURL}
+		}
+
+		if desc.validator == nil {
+			desc.validator = func(tc testCase) error {
+				if !cmp.Equal(tc.inAdsc.Received, tc.expectedADSResources.Received, protocmp.Transform()) {
+					return fmt.Errorf("%s: expected recv %v got %v", tc.desc, tc.expectedADSResources.Received, tc.inAdsc.Received)
+				}
+				return nil
+			}
+		}
+
+		tc := testCase{
+			desc: desc.desc,
 			inAdsc: &ADSC{
 				Received:   make(map[string]*xdsapi.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *xdsapi.DiscoveryResponse),
 				RecvWg:     sync.WaitGroup{},
-				cfg:        &Config{},
-			},
-			streamHandler: func(server xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-				return nil
-			},
-			expectedADSResources: &ADSC{
-				Received: map[string]*xdsapi.DiscoveryResponse{},
-			},
-		},
-		{
-			desc: "stream-2-unnamed-resources",
-			inAdsc: &ADSC{
-				Received:    make(map[string]*xdsapi.DiscoveryResponse),
-				Updates:     make(chan string),
-				XDSUpdates:  make(chan *xdsapi.DiscoveryResponse),
-				RecvWg:      sync.WaitGroup{},
-				cfg:         &Config{},
+				cfg: &Config{
+					InitialDiscoveryRequests: initReqs,
+				},
 				VersionInfo: map[string]string{},
+				sync:        map[string]time.Time{},
 			},
 			streamHandler: func(stream xdsapi.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-				_ = stream.Send(&xdsapi.DiscoveryResponse{
-					TypeUrl: "foo",
-				})
-				_ = stream.Send(&xdsapi.DiscoveryResponse{
-					TypeUrl: "bar",
-				})
+				for _, typeURL := range desc.expectedTypeUrls {
+					_ = stream.Send(&xdsapi.DiscoveryResponse{
+						TypeUrl: typeURL,
+					})
+				}
 				return nil
 			},
 			expectedADSResources: &ADSC{
-				Received: map[string]*xdsapi.DiscoveryResponse{
-					"foo": {
-						TypeUrl: "foo",
-					},
-					"bar": {
-						TypeUrl: "bar",
-					},
-				},
+				Received: expected,
 			},
-		},
-		// todo tests for listeners, clusters, eds, and routes, not sure how to do this.
+			validator: desc.validator,
+		}
+
+		tests = append(tests, tc)
 	}
 
 	for _, tt := range tests {
@@ -139,8 +213,9 @@ func TestADSC_Run(t *testing.T) {
 				return
 			}
 			tt.inAdsc.RecvWg.Wait()
-			if !cmp.Equal(tt.inAdsc.Received, tt.expectedADSResources.Received, protocmp.Transform()) {
-				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedADSResources.Received, tt.inAdsc.Received)
+
+			if err := tt.validator(tt); err != nil {
+				t.Error(err)
 			}
 		})
 	}
