@@ -47,6 +47,7 @@ type tagWebhookConfig struct {
 	Tag            string
 	Revision       string
 	URL            string
+	Path           string
 	CABundle       string
 	IstioNamespace string
 }
@@ -242,6 +243,9 @@ istiodRemote:
 	decodedWh := whObject.(*admit_v1.MutatingWebhookConfiguration)
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
+		if decodedWh.Webhooks[i].ClientConfig.Service != nil {
+			decodedWh.Webhooks[i].ClientConfig.Service.Path = &config.Path
+		}
 	}
 	if webhookName != "" {
 		decodedWh.Name = webhookName
@@ -266,8 +270,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 		rev = ""
 	}
 
-	var injectionURL string
-	var caBundle string
+	var injectionURL, caBundle, path string
 	found := false
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
@@ -275,8 +278,11 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 			caBundle = string(w.ClientConfig.CABundle)
 			if w.ClientConfig.URL != nil {
 				injectionURL = *w.ClientConfig.URL
-			} else {
-				injectionURL = ""
+			}
+			if w.ClientConfig.Service != nil {
+				if w.ClientConfig.Service.Path != nil {
+					path = *w.ClientConfig.Service.Path
+				}
 			}
 			break
 		}
@@ -291,6 +297,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admit_v1.MutatingWebhookConfigurati
 		URL:            injectionURL,
 		CABundle:       caBundle,
 		IstioNamespace: "istio-system",
+		Path:           path,
 	}, nil
 }
 

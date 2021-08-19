@@ -57,6 +57,7 @@ var (
 			},
 		},
 	}
+	samplePath               = "/sample/path"
 	revisionCanonicalWebhook = admit_v1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "istio-sidecar-injector-revision",
@@ -69,6 +70,7 @@ var (
 					Service: &admit_v1.ServiceReference{
 						Namespace: "default",
 						Name:      "istiod-revision",
+						Path:      &samplePath,
 					},
 					CABundle: []byte("ca"),
 				},
