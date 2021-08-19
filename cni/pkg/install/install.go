@@ -163,7 +163,7 @@ func readServiceAccountToken() (string, error) {
 func sleepCheckInstall(ctx context.Context, cfg *config.InstallConfig, cniConfigFilepath string, isReady *atomic.Value) error {
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
-	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.MountedCNINetDir)
+	watcher, fileModified, errChan, err := util.CreateFileWatcher(append(cfg.CNIBinTargetDirs, cfg.MountedCNINetDir)...)
 	if err != nil {
 		return err
 	}
