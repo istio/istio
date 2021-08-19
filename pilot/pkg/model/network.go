@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -88,45 +89,52 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		nc := networkAndClusterForGateway(&gw)
 		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], &gw)
 	}
+	fmt.Println(byNetwork, byNetworkAndCluster)
 
+	gwNum := []int{}
 	// Sort the gateways in byNetwork, and also calculate the max number
 	// of gateways per network.
-	var maxGatewaysPerNetwork int
 	for k, gws := range byNetwork {
 		byNetwork[k] = SortGateways(gws)
-
-		if len(gws) > maxGatewaysPerNetwork {
-			maxGatewaysPerNetwork = len(gws)
-		}
+		gwNum = append(gwNum, len(gws))
 	}
 
 	// Sort the gateways in byNetworkAndCluster.
 	for k, gws := range byNetworkAndCluster {
 		byNetworkAndCluster[k] = SortGateways(gws)
+		gwNum = append(gwNum, len(gws))
+	}
+
+	fmt.Println(gwNum)
+
+	lcmVal := 1
+	// calculate lcm
+	for _, num := range gwNum {
+		lcmVal = lcm(lcmVal, num)
 	}
 
 	return &NetworkManager{
-		maxGatewaysPerNetwork: uint32(maxGatewaysPerNetwork),
-		byNetwork:             byNetwork,
-		byNetworkAndCluster:   byNetworkAndCluster,
+		lcm:                 uint32(lcmVal),
+		byNetwork:           byNetwork,
+		byNetworkAndCluster: byNetworkAndCluster,
 	}
 }
 
 // NetworkManager provides gateway details for accessing remote networks.
 type NetworkManager struct {
-	maxGatewaysPerNetwork uint32
-	byNetwork             map[network.ID][]*NetworkGateway
-	byNetworkAndCluster   map[networkAndCluster][]*NetworkGateway
+	// least common multiple of gateway number of {per network, per cluster}
+	lcm                 uint32
+	byNetwork           map[network.ID][]*NetworkGateway
+	byNetworkAndCluster map[networkAndCluster][]*NetworkGateway
 }
 
 func (mgr *NetworkManager) IsMultiNetworkEnabled() bool {
 	return len(mgr.byNetwork) > 0
 }
 
-// GetMaxGatewaysPerNetwork returns an upper bound on the number of gateways there
-// could be for any one network.
-func (mgr *NetworkManager) GetMaxGatewaysPerNetwork() uint32 {
-	return mgr.maxGatewaysPerNetwork
+// GetLCM returns the least common multiple of the number of gateways.
+func (mgr *NetworkManager) GetLCM() uint32 {
+	return mgr.lcm
 }
 
 func (mgr *NetworkManager) AllGateways() []*NetworkGateway {
@@ -179,4 +187,23 @@ func SortGateways(gws []*NetworkGateway) []*NetworkGateway {
 		return gws[i].Port < gws[j].Port
 	})
 	return gws
+}
+
+// greatest common divisor of x and y
+func gcd(x, y int) int {
+	var tmp int
+	for {
+		tmp = x % y
+		if tmp > 0 {
+			x = y
+			y = tmp
+		} else {
+			return y
+		}
+	}
+}
+
+// least common multiple of x and y
+func lcm(x, y int) int {
+	return x * y / gcd(x, y)
 }
