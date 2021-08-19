@@ -471,7 +471,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 // SidecarScope debugging
 func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
-	proxyID, con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
 		return
@@ -531,7 +531,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
-	proxyID, con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(req)
 	if proxyID != "" && con == nil {
 		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
 		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
@@ -574,7 +574,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 // The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
 // should look like according to Pilot vs what it currently does look like.
 func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
-	proxyID, con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
 		return
@@ -785,7 +785,7 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	proxyID, con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
 		return
@@ -807,7 +807,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	proxyID, con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
 		return
@@ -822,7 +822,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Request) {
-	proxyID, con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
 		s.errorHandler(w, proxyID, con)
 		return
@@ -916,7 +916,7 @@ func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Req
 }
 
 // getDebugConnection fetches the Connection requested by proxyID
-func (s *DiscoveryServer) getDebugConnection(w http.ResponseWriter, req *http.Request) (string, *Connection) {
+func (s *DiscoveryServer) getDebugConnection(req *http.Request) (string, *Connection) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
 		return proxyID, s.getProxyConnection(proxyID)
 	}
