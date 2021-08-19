@@ -41,13 +41,13 @@ func TestWasmCache(t *testing.T) {
 	// Setup http server.
 	tsNumRequest := 0
 	httpData := append(wasmHeader, []byte("data")...)
-	invalidHttpData := []byte("invalid binary")
+	invalidHTTPData := []byte("invalid binary")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tsNumRequest++
 		if r.URL.Path == "/different-url" {
 			w.Write(append(httpData, []byte("different data")...))
 		} else if r.URL.Path == "/invalid-wasm-header" {
-			w.Write(invalidHttpData)
+			w.Write(invalidHTTPData)
 		} else {
 			w.Write(httpData)
 		}
@@ -55,8 +55,8 @@ func TestWasmCache(t *testing.T) {
 	defer ts.Close()
 	httpDataSha := sha256.Sum256(httpData)
 	httpDataCheckSum := hex.EncodeToString(httpDataSha[:])
-	invalidHttpDataSha := sha256.Sum256(invalidHttpData)
-	invalidHttpDataCheckSum := hex.EncodeToString(invalidHttpDataSha[:])
+	invalidHTTPDataSha := sha256.Sum256(invalidHTTPData)
+	invalidHTTPDataCheckSum := hex.EncodeToString(invalidHTTPDataSha[:])
 
 	// Set up a fake registry for OCI images.
 	tos := httptest.NewServer(registry.New())
@@ -158,7 +158,7 @@ func TestWasmCache(t *testing.T) {
 			fetchURL:           ts.URL + "/invalid-wasm-header",
 			purgeInterval:      DefaultWasmModulePurgeInterval,
 			wasmModuleExpiry:   DefaultWasmModuleExpiry,
-			checksum:           invalidHttpDataCheckSum,
+			checksum:           invalidHTTPDataCheckSum,
 			wantErrorMsgPrefix: fmt.Sprintf("fetched Wasm binary from %s is invalid", ts.URL+"/invalid-wasm-header"),
 			wantServerReqNum:   1,
 		},
@@ -353,18 +353,20 @@ func TestWasmCacheMissChecksum(t *testing.T) {
 	defer close(cache.stopChan)
 
 	gotNumRequest := 0
+	binary1 := append(wasmHeader, 1)
+	binary2 := append(wasmHeader, 2)
 	// Create a test server which returns 0 for the first two calls, and returns 1 for the following calls.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if gotNumRequest <= 1 {
-			fmt.Fprintln(w, "0")
+			w.Write(binary1)
 		} else {
-			fmt.Fprintln(w, "1")
+			w.Write(binary2)
 		}
 		gotNumRequest++
 	}))
 	defer ts.Close()
-	wantFilePath1 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("0\n"))))
-	wantFilePath2 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte("1\n"))))
+	wantFilePath1 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte(binary1))))
+	wantFilePath2 := filepath.Join(tmpDir, fmt.Sprintf("%x.wasm", sha256.Sum256([]byte(binary2))))
 
 	// Get wasm module three times, since checksum is not specified, it will be fetched from module server every time.
 	// 1st time
