@@ -168,6 +168,7 @@ spec:
     metadata:
       labels:
         name: istio-operator
+      annotations:
     spec:
       serviceAccountName: istio-operator
       containers:
