@@ -15,6 +15,7 @@
 package wasm
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -159,9 +160,12 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
 	}
 
-	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
+	if !isValidWasmBinary(b) {
+		wasmRemoteFetchCount.With(resultTag.Value(fetchFailure)).Increment()
+		return "", fmt.Errorf("fetched Wasm binary from %s is invalid", downloadURL)
+	}
 
-	// TODO(bianpengyuan): Add sanity check on downloaded file to make sure it is a valid Wasm module.
+	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
 
 	key.checksum = dChecksum
 	f := filepath.Join(c.dir, fmt.Sprintf("%s.wasm", dChecksum))
@@ -249,4 +253,11 @@ func (c *LocalFileCache) purge() {
 func (ce *cacheEntry) expired(expiry time.Duration) bool {
 	now := time.Now()
 	return now.Sub(ce.last) > expiry
+}
+
+var wasmMagicNumber = []byte{0x00, 0x61, 0x73, 0x6d}
+
+func isValidWasmBinary(in []byte) bool {
+	// Wasm file header is 8 bytes (magic number + version).
+	return len(in) >= 8 && bytes.Equal(in[:4], wasmMagicNumber)
 }
