@@ -24,7 +24,7 @@ import (
 )
 
 // Creates a file watcher that watches for any changes to the directory
-func CreateFileWatcher(dir string) (watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error, err error) {
+func CreateFileWatcher(dirs ...string) (watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error, err error) {
 	watcher, err = fsnotify.NewWatcher()
 	if err != nil {
 		return
@@ -33,11 +33,13 @@ func CreateFileWatcher(dir string) (watcher *fsnotify.Watcher, fileModified chan
 	fileModified, errChan = make(chan bool), make(chan error)
 	go watchFiles(watcher, fileModified, errChan)
 
-	if err = watcher.Add(dir); err != nil {
-		if closeErr := watcher.Close(); closeErr != nil {
-			err = errors.Wrap(err, closeErr.Error())
+	for _, dir := range dirs {
+		if err = watcher.Add(dir); err != nil {
+			if closeErr := watcher.Close(); closeErr != nil {
+				err = errors.Wrap(err, closeErr.Error())
+			}
+			return nil, nil, nil, err
 		}
-		return nil, nil, nil, err
 	}
 
 	return
