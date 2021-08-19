@@ -15,6 +15,10 @@ spec:
         {{- range $key, $val := .Values.operatorLabels }}
         {{ $key }}: "{{ $val }}"
         {{- end }}
+      annotations:
+        {{- if .Values.podAnnotations }}
+{{ toYaml .Values.podAnnotations | indent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
       containers:
