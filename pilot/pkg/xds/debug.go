@@ -173,7 +173,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.forceDisconnect)
 	}
 
-	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.edsz)
+	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
 	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.ndsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
@@ -800,9 +800,9 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// edsz implements a status and debug interface for EDS.
+// Edsz implements a status and debug interface for EDS.
 // It is mapped to /debug/edsz on the monitor port (15014).
-func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
+func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
