@@ -21,6 +21,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
+
+	"istio.io/istio/pkg/file"
 )
 
 // Creates a file watcher that watches for any changes to the directory
@@ -34,6 +36,9 @@ func CreateFileWatcher(dirs ...string) (watcher *fsnotify.Watcher, fileModified 
 	go watchFiles(watcher, fileModified, errChan)
 
 	for _, dir := range dirs {
+		if file.IsDirWriteable(dir) != nil {
+			continue
+		}
 		if err = watcher.Add(dir); err != nil {
 			if closeErr := watcher.Close(); closeErr != nil {
 				err = errors.Wrap(err, closeErr.Error())
