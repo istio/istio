@@ -471,8 +471,9 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 
 // SidecarScope debugging
 func (s *DiscoveryServer) sidecarz(w http.ResponseWriter, req *http.Request) {
-	con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(w, req)
 	if con == nil {
+		s.errorHandler(w, proxyID, con)
 		return
 	}
 	writeJSON(w, con.proxy.SidecarScope)
@@ -530,15 +531,19 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	if s.handlePushRequest(w, req) {
 		return
 	}
-	connections := s.Clients()
-	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		con := s.getProxyConnection(proxyID)
-		if con == nil {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
-			return
-		}
+	proxyID, con := s.getDebugConnection(w, req)
+	if proxyID != "" && con == nil {
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
+		return
+	}
+	var connections []*Connection
+	if con != nil {
 		connections = []*Connection{con}
+	} else {
+		connections = s.Clients()
 	}
 
 	adsClients := &AdsClients{}
@@ -569,8 +574,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 // The dump will only contain dynamic listeners/clusters/routes and can be used to compare what an Envoy instance
 // should look like according to Pilot vs what it currently does look like.
 func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
-	con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(w, req)
 	if con == nil {
+		s.errorHandler(w, proxyID, con)
 		return
 	}
 	dump, err := s.configDump(con)
@@ -779,8 +785,9 @@ func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(w, req)
 	if con == nil {
+		s.errorHandler(w, proxyID, con)
 		return
 	}
 
@@ -800,8 +807,9 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(w, req)
 	if con == nil {
+		s.errorHandler(w, proxyID, con)
 		return
 	}
 
@@ -814,8 +822,9 @@ func (s *DiscoveryServer) edsz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Request) {
-	con := s.getDebugConnection(w, req)
+	proxyID, con := s.getDebugConnection(w, req)
 	if con == nil {
+		s.errorHandler(w, proxyID, con)
 		return
 	}
 	con.Stop()
@@ -906,27 +915,26 @@ func (s *DiscoveryServer) handlePushRequest(w http.ResponseWriter, req *http.Req
 	return false
 }
 
-// getDebugConnection fetches the Connection requested
-func (s *DiscoveryServer) getDebugConnection(w http.ResponseWriter, req *http.Request) *Connection {
-	if err := req.ParseForm(); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("Failed to parse request\n"))
-		return nil
-	}
+// getDebugConnection fetches the Connection requested by proxyID
+func (s *DiscoveryServer) getDebugConnection(w http.ResponseWriter, req *http.Request) (string, *Connection) {
 	if proxyID := req.URL.Query().Get("proxyID"); proxyID != "" {
-		con := s.getProxyConnection(proxyID)
-		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
-		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
-		if con == nil {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
-			return nil
-		}
-		return con
-	} else {
+		return proxyID, s.getProxyConnection(proxyID)
+	}
+	return "", nil
+}
+
+func (s *DiscoveryServer) errorHandler(w http.ResponseWriter, proxyID string, con *Connection) {
+	if proxyID == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("You must provide a proxyID in the query string\n"))
-		return nil
+		return
+	}
+	if con == nil {
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
+		return
 	}
 }
 
