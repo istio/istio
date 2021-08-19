@@ -32,7 +32,6 @@ func AugmentLabels(in labels.Instance, clusterID cluster.ID, locality string, ne
 		out[k] = v
 	}
 
-	// Don't need to add label.TopologyNetwork.Name, since that's already added by injection.
 	region, zone, subzone := model.SplitLocalityLabel(locality)
 	if len(region) > 0 {
 		out[v1.LabelTopologyRegion] = region
