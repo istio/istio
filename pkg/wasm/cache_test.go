@@ -34,16 +34,29 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 )
 
+// Wasm header = magic number (4 bytes) + Wasm spec version (4 bytes).
+var wasmHeader = append(wasmMagicNumber, []byte{0x1, 0x00, 0x00, 0x00}...)
+
 func TestWasmCache(t *testing.T) {
 	// Setup http server.
-	var tsNumRequest int
+	tsNumRequest := 0
+	httpData := append(wasmHeader, []byte("data")...)
+	invalidHttpData := []byte("invalid binary")
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tsNumRequest++
-		fmt.Fprintln(w, "data"+r.URL.Path)
+		if r.URL.Path == "/different-url" {
+			w.Write(append(httpData, []byte("different data")...))
+		} else if r.URL.Path == "/invalid-wasm-header" {
+			w.Write(invalidHttpData)
+		} else {
+			w.Write(httpData)
+		}
 	}))
 	defer ts.Close()
-	httpDataSha := sha256.Sum256([]byte("data/\n"))
+	httpDataSha := sha256.Sum256(httpData)
 	httpDataCheckSum := hex.EncodeToString(httpDataSha[:])
+	invalidHttpDataSha := sha256.Sum256(invalidHttpData)
+	invalidHttpDataCheckSum := hex.EncodeToString(invalidHttpDataSha[:])
 
 	// Set up a fake registry for OCI images.
 	tos := httptest.NewServer(registry.New())
@@ -55,7 +68,7 @@ func TestWasmCache(t *testing.T) {
 	wantOCIDockerBinaryChecksum, dockerImageDigest, invalidOCIImageDigest := setupOCIRegistry(t, ou.Host)
 
 	// Calculate cachehit sum.
-	cacheHitSha := sha256.Sum256([]byte("cachehit\n"))
+	cacheHitSha := sha256.Sum256([]byte("cachehit"))
 	cacheHitSum := hex.EncodeToString(cacheHitSha[:])
 
 	cases := []struct {
@@ -135,6 +148,18 @@ func TestWasmCache(t *testing.T) {
 			wasmModuleExpiry:   DefaultWasmModuleExpiry,
 			checksum:           httpDataCheckSum,
 			wantErrorMsgPrefix: fmt.Sprintf("module downloaded from %v/different-url has checksum", ts.URL),
+			wantServerReqNum:   1,
+		},
+		{
+			name: "invalid wasm header",
+			initialCachedModules: map[cacheKey]cacheEntry{
+				{downloadURL: ts.URL, checksum: httpDataCheckSum}: {modulePath: fmt.Sprintf("%s.wasm", httpDataCheckSum)},
+			},
+			fetchURL:           ts.URL + "/invalid-wasm-header",
+			purgeInterval:      DefaultWasmModulePurgeInterval,
+			wasmModuleExpiry:   DefaultWasmModuleExpiry,
+			checksum:           invalidHttpDataCheckSum,
+			wantErrorMsgPrefix: fmt.Sprintf("fetched Wasm binary from %s is invalid", ts.URL+"/invalid-wasm-header"),
 			wantServerReqNum:   1,
 		},
 		{
@@ -261,7 +286,7 @@ func TestWasmCache(t *testing.T) {
 func setupOCIRegistry(t *testing.T, host string) (wantBinaryCheckSum, dockerImageDigest, invalidOCIImageDigest string) {
 	// Push *compat* variant docker image (others are well tested in imagefetcher's test and the behavior is consistent).
 	ref := fmt.Sprintf("%s/test/valid/docker:v0.1.0", host)
-	binary := []byte("this is wasm plugin")
+	binary := append(wasmHeader, []byte("this is wasm plugin")...)
 
 	// Create docker layer.
 	l, err := newMockLayer(types.DockerLayer,
