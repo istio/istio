@@ -252,7 +252,7 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(installCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(installCmd)
 
-	profileCmd := mesh.ProfileCmd()
+	profileCmd := mesh.ProfileCmd(loggingOptions)
 	hideInheritedFlags(profileCmd, "namespace", "istioNamespace", "charts")
 	rootCmd.AddCommand(profileCmd)
 
