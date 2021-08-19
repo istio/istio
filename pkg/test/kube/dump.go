@@ -55,7 +55,7 @@ func outputPath(workDir string, cluster cluster.Cluster, prefix, suffix string) 
 
 func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 	errG := multierror.Group{}
-	for _, cluster := range ctx.Clusters().Kube() {
+	for _, cluster := range ctx.AllClusters().Kube() {
 		deps, err := cluster.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			scopes.Framework.Warnf("Error getting deployments: %v", err)
@@ -72,6 +72,44 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 			})
 		}
 	}
+	_ = errG.Wait()
+}
+
+func DumpWebhooks(ctx resource.Context, workDir string) {
+	errG := multierror.Group{}
+	for _, cluster := range ctx.AllClusters().Kube() {
+		mwhs, err := cluster.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			scopes.Framework.Warnf("Error getting mutating webhook configurations: %v", err)
+			return
+		}
+		for _, mwh := range mwhs.Items {
+			mwh := mwh
+			errG.Go(func() error {
+				out, err := yaml.Marshal(mwh)
+				if err != nil {
+					return err
+				}
+				return os.WriteFile(outputPath(workDir, cluster, mwh.Name, "mutatingwebhook.yaml"), out, os.ModePerm)
+			})
+		}
+		vwhs, err := cluster.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			scopes.Framework.Warnf("Error getting validating webhook configurations: %v", err)
+			return
+		}
+		for _, vwh := range vwhs.Items {
+			vwh := vwh
+			errG.Go(func() error {
+				out, err := yaml.Marshal(vwh)
+				if err != nil {
+					return err
+				}
+				return os.WriteFile(outputPath(workDir, cluster, vwh.Name, "validatingwebhook.yaml"), out, os.ModePerm)
+			})
+		}
+	}
+	_ = errG.Wait()
 }
 
 // DumpPods runs each dumper with the selected pods in the given namespace.
