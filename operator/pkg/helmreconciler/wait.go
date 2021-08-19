@@ -17,6 +17,7 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -66,26 +66,37 @@ func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kub
 	}
 
 	var notReady []string
+	var debugInfo map[string]string
 
 	// Check if we are ready immediately, to avoid the 2s delay below when we are already redy
-	if ready, _, err := waitForResources(objects, cs, l); err == nil && ready {
+	if ready, _, _, err := waitForResources(objects, cs, l); err == nil && ready {
 		return nil
 	}
 
 	errPoll := wait.Poll(2*time.Second, waitTimeout, func() (bool, error) {
-		isReady, notReadyObjects, err := waitForResources(objects, cs, l)
+		isReady, notReadyObjects, debugInfoObjects, err := waitForResources(objects, cs, l)
 		notReady = notReadyObjects
+		debugInfo = debugInfoObjects
 		return isReady, err
 	})
 
+	messages := []string{}
+	for _, id := range notReady {
+		debug, f := debugInfo[id]
+		if f {
+			messages = append(messages, fmt.Sprintf("  %s (%s)", id, debug))
+		} else {
+			messages = append(messages, fmt.Sprintf("  %s", debug))
+		}
+	}
 	if errPoll != nil {
-		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(notReady, "\n"))
+		msg := fmt.Sprintf("resources not ready after %v: %v\n%s", waitTimeout, errPoll, strings.Join(messages, "\n"))
 		return errors.New(msg)
 	}
 	return nil
 }
 
-func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *progress.ManifestLog) (bool, []string, error) {
+func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *progress.ManifestLog) (bool, []string, map[string]string, error) {
 	pods := []corev1.Pod{}
 	deployments := []deployment{}
 	daemonsets := []*appsv1.DaemonSet{}
@@ -98,33 +109,17 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 		case name.NamespaceStr:
 			namespace, err := cs.CoreV1().Namespaces().Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
-				return false, nil, err
+				return false, nil, nil, err
 			}
 			namespaces = append(namespaces, *namespace)
-		case name.PodStr:
-			pod, err := cs.CoreV1().Pods(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, nil, err
-			}
-			pods = append(pods, *pod)
-		case name.ReplicationControllerStr:
-			rc, err := cs.CoreV1().ReplicationControllers(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, nil, err
-			}
-			list, err := getPods(cs, rc.Namespace, rc.Spec.Selector)
-			if err != nil {
-				return false, nil, err
-			}
-			pods = append(pods, list...)
 		case name.DeploymentStr:
 			currentDeployment, err := cs.AppsV1().Deployments(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
-				return false, nil, err
+				return false, nil, nil, err
 			}
 			_, _, newReplicaSet, err := kctldeployment.GetAllReplicaSets(currentDeployment, cs.AppsV1())
 			if err != nil || newReplicaSet == nil {
-				return false, nil, err
+				return false, nil, nil, err
 			}
 			newDeployment := deployment{
 				newReplicaSet,
@@ -134,29 +129,21 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 		case name.DaemonSetStr:
 			ds, err := cs.AppsV1().DaemonSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
-				return false, nil, err
+				return false, nil, nil, err
 			}
 
 			daemonsets = append(daemonsets, ds)
 		case name.StatefulSetStr:
 			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
-				return false, nil, err
+				return false, nil, nil, err
 			}
 			statefulsets = append(statefulsets, sts)
-		case name.ReplicaSetStr:
-			rs, err := cs.AppsV1().ReplicaSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
-			if err != nil {
-				return false, nil, err
-			}
-			list, err := getPods(cs, rs.Namespace, rs.Spec.Selector.MatchLabels)
-			if err != nil {
-				return false, nil, err
-			}
-			pods = append(pods, list...)
 		}
 	}
-	dr, dnr := deploymentsReady(deployments)
+
+	resourceDebugInfo := map[string]string{}
+	dr, dnr := deploymentsReady(cs, deployments, resourceDebugInfo)
 	dsr, dsnr := daemonsetsReady(daemonsets)
 	stsr, stsnr := statefulsetsReady(statefulsets)
 	nsr, nnr := namespacesReady(namespaces)
@@ -166,7 +153,7 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 	if !isReady {
 		l.ReportWaiting(notReady)
 	}
-	return isReady, notReady, nil
+	return isReady, notReady, resourceDebugInfo, nil
 }
 
 func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
@@ -217,10 +204,9 @@ func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
 	return nil
 }
 
-func getPods(client kubernetes.Interface, namespace string, selector map[string]string) ([]corev1.Pod, error) {
+func getPods(client kubernetes.Interface, namespace string, selector labels.Selector) ([]corev1.Pod, error) {
 	list, err := client.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
-		FieldSelector: fields.Everything().String(),
-		LabelSelector: labels.Set(selector).AsSelector().String(),
+		LabelSelector: selector.String(),
 	})
 	return list.Items, err
 }
@@ -257,14 +243,55 @@ func isPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func deploymentsReady(deployments []deployment) (bool, []string) {
+func deploymentsReady(cs kubernetes.Interface, deployments []deployment, info map[string]string) (bool, []string) {
 	var notReady []string
 	for _, v := range deployments {
-		if v.replicaSets.Status.ReadyReplicas < *v.deployment.Spec.Replicas {
-			notReady = append(notReady, "Deployment/"+v.deployment.Namespace+"/"+v.deployment.Name)
+		if v.replicaSets.Status.ReadyReplicas >= *v.deployment.Spec.Replicas {
+			// Ready
+			continue
+		}
+		id := "Deployment/" + v.deployment.Namespace + "/" + v.deployment.Name
+		notReady = append(notReady, id)
+		failure := extractPodFailureReason(cs, v.deployment.Namespace, v.deployment.Spec.Selector)
+		if failure != "" {
+			info[id] = failure
 		}
 	}
 	return len(notReady) == 0, notReady
+}
+
+func extractPodFailureReason(client kubernetes.Interface, namespace string, selector *metav1.LabelSelector) string {
+	sel, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		return fmt.Sprintf("failed to get label selector: %v", err)
+	}
+	pods, err := getPods(client, namespace, sel)
+	if err != nil {
+		return fmt.Sprintf("failed to fetch pods: %v", err)
+	}
+	sort.Slice(pods, func(i, j int) bool {
+		return pods[i].CreationTimestamp.After(pods[j].CreationTimestamp.Time)
+	})
+	for _, pod := range pods {
+		for _, cs := range pod.Status.ContainerStatuses {
+			if cs.State.Waiting != nil {
+				return fmt.Sprintf("container failed to start: %v: %v", cs.State.Waiting.Reason, cs.State.Waiting.Message)
+			}
+		}
+		if c := getCondition(pod.Status.Conditions, corev1.PodReady); c != nil && c.Status == corev1.ConditionFalse {
+			return fmt.Sprintf(c.Message)
+		}
+	}
+	return ""
+}
+
+func getCondition(conditions []corev1.PodCondition, condition corev1.PodConditionType) *corev1.PodCondition {
+	for _, cond := range conditions {
+		if cond.Type == condition {
+			return &cond
+		}
+	}
+	return nil
 }
 
 func daemonsetsReady(daemonsets []*appsv1.DaemonSet) (bool, []string) {
