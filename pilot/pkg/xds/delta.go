@@ -472,7 +472,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 		resp.RemovedResources = cur.SortedList()
 	}
 	if len(resp.RemovedResources) > 0 {
-		log.Debugf("ADS:%v REMOVE %v", v3.GetShortType(w.TypeUrl), resp.RemovedResources)
+		log.Debugf("ADS:%v node:%s REMOVE %v", v3.GetShortType(w.TypeUrl), con.ConID, resp.RemovedResources)
 	}
 	if isWildcardTypeURL(w.TypeUrl) {
 		// this is probably a bad idea...
