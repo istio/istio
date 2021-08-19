@@ -161,6 +161,7 @@ func (c *LocalFileCache) Get(downloadURL, checksum string, timeout time.Duration
 	}
 
 	if !isValidWasmBinary(b) {
+		wasmRemoteFetchCount.With(resultTag.Value(fetchFailure)).Increment()
 		return "", fmt.Errorf("fetched Wasm binary from %s is invalid", downloadURL)
 	}
 
