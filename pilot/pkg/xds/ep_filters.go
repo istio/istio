@@ -188,12 +188,11 @@ func splitWeightAmongGateways(weight uint32, gateways []*model.NetworkGateway, g
 	// Spread the remaining weight across the gateways.
 	weightPerGateway := weight / uint32(len(gateways))
 	remain := weight % uint32(len(gateways))
-
 	for i, gateway := range gateways {
 		gatewayWeights[*gateway] += weightPerGateway
 		if uint32(i) < remain {
 			// This should not happen, just in case
-			gatewayWeights[*gateway] += 1
+			gatewayWeights[*gateway]++
 		}
 	}
 }
