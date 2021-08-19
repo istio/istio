@@ -372,16 +372,17 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext,
+	req *model.PushRequest, w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if !edsNeedsPush(req.ConfigsUpdated) {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	var edsUpdatedServices map[string]struct{}
 	if !req.Full {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	}
 	resources := make(model.Resources, 0)
+	removed := make([]string, 0)
 	empty := 0
 
 	cached := 0
@@ -403,6 +404,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 		} else {
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
+				removed = append(removed, clusterName)
 				continue
 			}
 			regenerated++
@@ -418,10 +420,16 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			eds.Server.Cache.Add(builder, req, resource)
 		}
 	}
-	return resources, model.XdsLogDetails{
+	return resources, removed, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
-	}, nil
+	}, !req.Full, nil
+}
+
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	res, _, log, _, err := eds.GenerateDeltas(proxy, push, req, w)
+	return res, log, err
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
