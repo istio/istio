@@ -74,28 +74,6 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 	}
 }
 
-func DumpWebhooks(ctx resource.Context, workDir string) {
-	scopes.Framework.Errorf("=== Dumping Webhooks...")
-	errG := multierror.Group{}
-	for _, cluster := range ctx.Clusters().Kube() {
-		mwhs, err := cluster.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			scopes.Framework.Warnf("Error getting mutating webhook configurations: %v", err)
-			return
-		}
-		for _, mwh := range mwhs.Items {
-			mwh := mwh
-			errG.Go(func() error {
-				out, err := yaml.Marshal(mwh)
-				if err != nil {
-					return err
-				}
-				return os.WriteFile(outputPath(workDir, cluster, mwh.Name, "mutating-webhook.yaml"), out, os.ModePerm)
-			})
-		}
-	}
-}
-
 // DumpPods runs each dumper with the selected pods in the given namespace.
 // If selectors is empty, all pods in the namespace will be dumpped.
 // If no dumpers are provided, their resource state, events, container logs and Envoy information will be dumped.
