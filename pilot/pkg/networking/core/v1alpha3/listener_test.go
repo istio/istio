@@ -1654,7 +1654,7 @@ func TestHttpProxyListenerPerWorkload(t *testing.T) {
 
 	proxy := getProxy()
 	proxy.ServiceInstances = nil
-	proxy.Metadata.HttpProxyPort = "15007"
+	proxy.Metadata.HTTPProxyPort = "15007"
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 	httpProxy := configgen.buildHTTPProxy(proxy, env.PushContext)
 	f := httpProxy.FilterChains[0].Filters[0]

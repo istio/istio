@@ -645,8 +645,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	push *model.PushContext) *listener.Listener {
 	httpProxyPort := push.Mesh.ProxyHttpPort // global
-	if node.Metadata.HttpProxyPort != "" {
-		port, err := strconv.Atoi(node.Metadata.HttpProxyPort)
+	if node.Metadata.HTTPProxyPort != "" {
+		port, err := strconv.Atoi(node.Metadata.HTTPProxyPort)
 		if err == nil {
 			httpProxyPort = int32(port)
 		}
