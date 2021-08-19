@@ -140,7 +140,7 @@ func TestAgent(t *testing.T) {
 		dir := mktemp()
 		copyCerts(t, dir)
 
-		cfg := model.SdsCertificateConfig{
+		cfg := security.SdsCertificateConfig{
 			CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
 			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
 			CaCertificatePath: filepath.Join(dir, "root-cert.pem"),
@@ -166,7 +166,7 @@ func TestAgent(t *testing.T) {
 		osRootPath := security.GetOSRootFilePath()
 		caRootCert := filepath.Base(osRootPath)
 
-		cfg := model.SdsCertificateConfig{
+		cfg := security.SdsCertificateConfig{
 			CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
 			PrivateKeyPath:    filepath.Join(dir, "key.pem"),
 			CaCertificatePath: filepath.Join(dir, caRootCert),

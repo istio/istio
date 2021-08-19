@@ -26,6 +26,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
+
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
@@ -66,7 +67,7 @@ const (
 // * File based certificates. If certs are mounted under well-known path /etc/certs/{key,cert,root-cert.pem},
 //   requests for `default` and `ROOTCA` will automatically read from these files. Additionally,
 //   certificates from Gateway/DestinationRule can also be served. This is done by parsing resource
-//   names in accordance with model.SdsCertificateConfig (file-cert: and file-root:).
+//   names in accordance with security.SdsCertificateConfig (file-cert: and file-root:).
 // * On demand CSRs. This is used only for the `default` certificate. When this resource is
 //   requested, a CSR will be sent to the configured caClient.
 //
@@ -98,7 +99,7 @@ type SecretManagerClient struct {
 
 	// The paths for an existing certificate chain, key and root cert files. Istio agent will
 	// use them as the source of secrets if they exist.
-	existingCertificateFile nodeagentutil.SdsCertificateConfig
+	existingCertificateFile security.SdsCertificateConfig
 
 	// certWatcher watches the certificates for changes and triggers a notification to proxy.
 	certWatcher *fsnotify.Watcher
@@ -173,7 +174,7 @@ func NewSecretManagerClient(caClient security.Client, options *security.Options)
 		queue:         queue.NewDelayed(queue.DelayQueueBuffer(0)),
 		caClient:      caClient,
 		configOptions: options,
-		existingCertificateFile: nodeagentutil.SdsCertificateConfig{
+		existingCertificateFile: security.SdsCertificateConfig{
 			CertificatePath:   security.DefaultCertChainFilePath,
 			PrivateKeyPath:    security.DefaultKeyFilePath,
 			CaCertificatePath: security.DefaultRootCertFilePath,
@@ -499,12 +500,12 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		// Check if the resource name refers to a file mounted certificate.
 		// Currently used in destination rules and server certs (via metadata).
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
-		cfg := nodeagentutil.SdsCertificateConfig{}
+		cfg := security.SdsCertificateConfig{}
 		ok := false
 		if resourceName == security.FileRootSystemCACert {
-			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
+			cfg, ok = security.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
 		} else {
-			cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(resourceName)
+			cfg, ok = security.SdsCertificateConfigFromResourceName(resourceName)
 		}
 		sdsFromFile = ok
 		switch {

@@ -16,6 +16,8 @@ package util
 
 import (
 	"testing"
+
+	"istio.io/istio/pkg/security"
 )
 
 func TestSdsCertificateConfigFromResourceName(t *testing.T) {
@@ -24,7 +26,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 		resource         string
 		root             bool
 		key              bool
-		output           SdsCertificateConfig
+		output           security.SdsCertificateConfig
 		rootResourceName string
 		resourceName     string
 	}{
@@ -33,7 +35,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file-cert:cert~key",
 			false,
 			true,
-			SdsCertificateConfig{"cert", "key", ""},
+			security.SdsCertificateConfig{"cert", "key", ""},
 			"",
 			"file-cert:cert~key",
 		},
@@ -42,7 +44,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file-root:root",
 			true,
 			false,
-			SdsCertificateConfig{"", "", "root"},
+			security.SdsCertificateConfig{"", "", "root"},
 			"file-root:root",
 			"",
 		},
@@ -51,7 +53,7 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file:root",
 			false,
 			false,
-			SdsCertificateConfig{"", "", ""},
+			security.SdsCertificateConfig{"", "", ""},
 			"",
 			"",
 		},
@@ -60,14 +62,14 @@ func TestSdsCertificateConfigFromResourceName(t *testing.T) {
 			"file-root:root~extra",
 			false,
 			false,
-			SdsCertificateConfig{"", "", ""},
+			security.SdsCertificateConfig{"", "", ""},
 			"",
 			"",
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _ := SdsCertificateConfigFromResourceName(tt.resource)
+			got, _ := security.SdsCertificateConfigFromResourceName(tt.resource)
 			if got != tt.output {
 				t.Fatalf("got %v, expected %v", got, tt.output)
 			}

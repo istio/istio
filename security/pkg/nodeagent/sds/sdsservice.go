@@ -36,7 +36,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
-	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/log"
 )
 
@@ -208,12 +207,12 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
-	cfg := nodeagentutil.SdsCertificateConfig{}
+	cfg := security.SdsCertificateConfig{}
 	ok := false
 	if s.ResourceName == security.FileRootSystemCACert {
-		cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(caRootPath)
+		cfg, ok = security.SdsCertificateConfigFromResourceName(caRootPath)
 	} else {
-		cfg, ok = nodeagentutil.SdsCertificateConfigFromResourceName(s.ResourceName)
+		cfg, ok = security.SdsCertificateConfigFromResourceName(s.ResourceName)
 	}
 	if s.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
 		secret.Type = &tls.Secret_ValidationContext{

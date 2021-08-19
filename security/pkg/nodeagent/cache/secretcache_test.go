@@ -25,13 +25,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
-	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/log"
 )
 
@@ -308,7 +306,7 @@ func setupTestDir(t *testing.T, sc *SecretManagerClient) {
 			t.Fatal(err)
 		}
 	}
-	sc.existingCertificateFile = model.SdsCertificateConfig{
+	sc.existingCertificateFile = security.SdsCertificateConfig{
 		CertificatePath:   filepath.Join(dir, "cert-chain.pem"),
 		PrivateKeyPath:    filepath.Join(dir, "key.pem"),
 		CaCertificatePath: filepath.Join(dir, "root-cert.pem"),
@@ -483,7 +481,7 @@ func verifySecret(t *testing.T, gotSecret *security.SecretItem, expectedSecret *
 		t.Fatalf("resource name:: expected %s but got %s", expectedSecret.ResourceName,
 			gotSecret.ResourceName)
 	}
-	cfg, ok := nodeagentutil.SdsCertificateConfigFromResourceName(expectedSecret.ResourceName)
+	cfg, ok := security.SdsCertificateConfigFromResourceName(expectedSecret.ResourceName)
 	if expectedSecret.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
 		if !bytes.Equal(expectedSecret.RootCert, gotSecret.RootCert) {
 			t.Fatalf("root cert: expected %v but got %v", expectedSecret.RootCert,
