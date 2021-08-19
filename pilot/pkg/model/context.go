@@ -537,6 +537,10 @@ type NodeMetadata struct {
 	// ServiceAccount specifies the service account which is running the workload.
 	ServiceAccount string `json:"SERVICE_ACCOUNT,omitempty"`
 
+	// HTTP_PROXY_PORT enables http proxy on the port. Replaces the global MeshConfig.HttpProxyPort, which has
+	// mesh scope.
+	HttpProxyPort string `json:"HTTP_PROXY_PORT,omitempty"`
+
 	// RouterMode indicates whether the proxy is functioning as a SNI-DNAT router
 	// processing the AUTO_PASSTHROUGH gateway servers
 	RouterMode string `json:"ROUTER_MODE,omitempty"`
