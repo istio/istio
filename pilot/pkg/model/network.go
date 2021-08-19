@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"net"
 	"sort"
 	"strings"
@@ -89,7 +88,6 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		nc := networkAndClusterForGateway(&gw)
 		byNetworkAndCluster[nc] = append(byNetworkAndCluster[nc], &gw)
 	}
-	fmt.Println(byNetwork, byNetworkAndCluster)
 
 	gwNum := []int{}
 	// Sort the gateways in byNetwork, and also calculate the max number
@@ -104,8 +102,6 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 		byNetworkAndCluster[k] = SortGateways(gws)
 		gwNum = append(gwNum, len(gws))
 	}
-
-	fmt.Println(gwNum)
 
 	lcmVal := 1
 	// calculate lcm
