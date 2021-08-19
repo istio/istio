@@ -44,11 +44,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// remote gateways (if any)
 	filtered := make([]*LocLbEndpointsAndOptions, 0)
 
-	// Scale all weights by the maximum number of gateways that might appear for a network.
+	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
 	// network gateways, increasing reliability of the endpoint.
-	scaleFactor := b.push.NetworkManager().GetMaxGatewaysPerNetwork()
-
+	scaleFactor := b.push.NetworkManager().GetLCM()
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
@@ -188,6 +187,7 @@ func splitWeightAmongGateways(weight uint32, gateways []*model.NetworkGateway, g
 	for i, gateway := range gateways {
 		gatewayWeights[*gateway] += weightPerGateway
 		if uint32(i) < remain {
+			// This should not happen, just in case
 			gatewayWeights[*gateway] += 1
 		}
 	}
