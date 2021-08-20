@@ -347,14 +347,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return i, err
 	}
 
-	if ctx.Clusters().IsMulticluster() {
-		// For multicluster, configure direct access so each control plane can get endpoints from all
-		// API servers.
-		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
-			return nil, err
-		}
-	}
-
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
 	for _, c := range ctx.Clusters().Kube().Remotes(ctx.Clusters().Configs()...) {
@@ -368,6 +360,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	if errs := errG.Wait(); errs != nil {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+	}
+
+	if ctx.Clusters().IsMulticluster() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all
+		// API servers.
+		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	// Configure discovery and gateways for remote clusters.
