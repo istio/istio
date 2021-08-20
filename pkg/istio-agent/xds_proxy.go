@@ -158,7 +158,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			var nt dnsProto.NameTable
 			// nolint: staticcheck
 			if err := ptypes.UnmarshalAny(resp, &nt); err != nil {
-				log.Errorf("failed to unmarshall name table: %v", err)
+				log.Errorf("failed to unmarshal name table: %v", err)
 				return err
 			}
 			ia.localDNSServer.UpdateLookupTable(&nt)
@@ -169,7 +169,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
 			var pc meshconfig.ProxyConfig
 			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp), &pc); err != nil {
-				log.Errorf("failed to unmarshall proxy config: %v", err)
+				log.Errorf("failed to unmarshal proxy config: %v", err)
 				return err
 			}
 			caCerts := pc.GetCaCertificatesPem()

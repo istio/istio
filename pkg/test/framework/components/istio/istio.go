@@ -30,7 +30,7 @@ import (
 type Instance interface {
 	resource.Resource
 
-	// Ingresses returns all ingresses for "istio-ingressgateay" in each cluster.
+	// Ingresses returns all ingresses for "istio-ingressgateway" in each cluster.
 	Ingresses() ingress.Instances
 	// IngressFor returns an ingress used for reaching workloads in the given cluster.
 	// The ingress's service name will be "istio-ingressgateway" and the istio label will be "ingressgateway".
