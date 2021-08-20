@@ -245,9 +245,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 							HttpUpstreamType: &core.HttpUri_Cluster{
 								Cluster: cluster,
 							},
-							Timeout: &duration.Duration{Seconds: 5}, // TODO: Make this configurable.
+							Timeout: &duration.Duration{Seconds: 5},
 						},
-						CacheDuration: &duration.Duration{Seconds: 5 * 60}, // TODO: Make this configurable if needed.
+						CacheDuration: &duration.Duration{Seconds: 5 * 60},
 					},
 				}
 			} else {

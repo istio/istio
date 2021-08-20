@@ -92,7 +92,7 @@ func (b builder) WithConfig(cfg echo.Config) echo.Builder {
 }
 
 // With adds a new Echo configuration to the Builder. When a cluster is provided in the Config, it will only be applied
-// to that cluster, otherwise the Config is applied to all WithClusters. Once built, if being built for a sngle cluster,
+// to that cluster, otherwise the Config is applied to all WithClusters. Once built, if being built for a single cluster,
 // the instance pointer will be updated to point at the new Instance.
 func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	if b.ctx.Settings().SkipVM && cfg.DeployAsVM {
@@ -203,7 +203,7 @@ func (b builder) injectionTemplates() (map[string]sets.Set, error) {
 					t.Insert(name)
 				}
 				// either intersection has not been set or we intersect these templates
-				// with the currenet set.
+				// with the current set.
 				if intersection.Empty() {
 					intersection = t
 				} else {
