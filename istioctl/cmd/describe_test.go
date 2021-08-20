@@ -59,7 +59,7 @@ func TestDescribe(t *testing.T) {
 			wantException:  true, // "istioctl experimental inspect pod" should fail
 		},
 		{ // case 3 unknown pod
-			args:           strings.Split("experimental describe pod not-a-pod", " "),
+			args:           strings.Split("experimental describe po not-a-pod", " "),
 			expectedString: "pods \"not-a-pod\" not found",
 			wantException:  true, // "istioctl experimental describe pod not-a-pod" should fail
 		},
