@@ -1209,3 +1209,85 @@ func defaultInstallPackageDir() string {
 	}
 	return filepath.Join(wd, "../../../manifests/")
 }
+
+func Test_createPatch(t *testing.T) {
+	hugeEnvs := func() []corev1.EnvVar {
+		envs := make([]corev1.EnvVar, 5000)
+		for i := range envs {
+			envs[i].Name = "x"
+			envs[i].Value = "y"
+		}
+		return envs
+	}()
+	cases := []struct {
+		name      string
+		pod       corev1.Pod
+		originPod corev1.Pod
+		res       []byte
+		wantErr   bool
+	}{
+		{
+			name: "normal inject",
+			pod: corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test",
+						},
+						{
+							Name: "istio-proxy",
+						},
+					},
+				},
+			},
+			originPod: corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test",
+						},
+					},
+				},
+			},
+			res: []byte(`[{"op":"add","path":"/spec/containers/1","value":{"name":"istio-proxy","resources":{}}}]`),
+		},
+		{
+			name: "huge pod",
+			pod: corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test",
+							Env:  hugeEnvs,
+						},
+						{
+							Name: "istio-proxy",
+						},
+					},
+				},
+			},
+			originPod: corev1.Pod{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test",
+							Env:  hugeEnvs,
+						},
+					},
+				},
+			},
+			res: []byte(`[{"op":"add","path":"/spec/containers/1","value":{"name":"istio-proxy","resources":{}}}]`),
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			bs, err := createPatch(&c.pod, &c.originPod)
+			if (err == nil) && c.wantErr {
+				t.Fatalf("unexpect err or not")
+			}
+			if !bytes.Equal(bs, c.res) {
+				t.Fatalf("unexpect patch: want %s, got %s", c.res, bs)
+			}
+		})
+	}
+}

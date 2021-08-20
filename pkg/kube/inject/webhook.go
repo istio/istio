@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -347,14 +348,9 @@ func getInjectionStatus(podSpec corev1.PodSpec, revision string) string {
 func injectPod(req InjectionParameters) ([]byte, error) {
 	checkPreconditions(req)
 
-	// The patch will be built relative to the initial pod, capture its current state
-	originalPodSpec, err := json.Marshal(req.pod)
-	if err != nil {
-		return nil, err
-	}
-
 	// Run the injection template, giving us a partial pod spec
 	mergedPod, injectedPodData, err := RunTemplate(req)
+	originalPod := req.pod.DeepCopy()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run injection template: %v", err)
 	}
@@ -369,7 +365,7 @@ func injectPod(req InjectionParameters) ([]byte, error) {
 		return nil, fmt.Errorf("failed to process pod: %v", err)
 	}
 
-	patch, err := createPatch(mergedPod, originalPodSpec)
+	patch, err := createPatch(mergedPod, originalPod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create patch: %v", err)
 	}
@@ -506,7 +502,24 @@ func reinsertOverrides(pod *corev1.Pod) (*corev1.Pod, error) {
 	return pod, nil
 }
 
-func createPatch(pod *corev1.Pod, original []byte) ([]byte, error) {
+func createPatch(pod *corev1.Pod, originalPod *corev1.Pod) ([]byte, error) {
+	for i, c1 := range pod.Spec.Containers {
+		for j, c2 := range originalPod.Spec.Containers {
+			if c1.Name == c2.Name {
+				if reflect.DeepEqual(c1, c2) {
+					// clear container's config
+					// we can not remove it, because which will make container index error
+					pod.Spec.Containers[i] = corev1.Container{}
+					originalPod.Spec.Containers[j] = corev1.Container{}
+				}
+				break
+			}
+		}
+	}
+	original, err := json.Marshal(originalPod)
+	if err != nil {
+		return nil, err
+	}
 	reinjected, err := json.Marshal(pod)
 	if err != nil {
 		return nil, err
