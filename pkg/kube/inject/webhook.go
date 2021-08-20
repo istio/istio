@@ -718,6 +718,9 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 			string(req.Object.Raw)))
 		return toAdmissionResponse(err)
 	}
+	// Managed fields is sometimes extremely large, leading to excessive CPU time on patch generation
+	// It does not impact the injection output at all, so we can just remove it.
+	pod.ManagedFields = nil
 
 	// Deal with potential empty fields, e.g., when the pod is created by a deployment
 	podName := potentialPodName(pod.ObjectMeta)
