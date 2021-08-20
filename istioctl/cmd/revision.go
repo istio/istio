@@ -34,6 +34,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -245,7 +246,7 @@ func revisionList(writer io.Writer, args *revisionArgs, logger clog.Logger) erro
 	}
 	for _, hook := range webhooks {
 		rev := renderWithDefault(hook.GetLabels()[label.IoIstioRev.Name], "default")
-		tag := hook.GetLabels()[istioTagLabel]
+		tag := hook.GetLabels()[tag.IstioTagLabel]
 		ri, revPresent := revisions[rev]
 		if revPresent {
 			if tag != "" {
@@ -708,7 +709,7 @@ func getBasicRevisionDescription(iopCRs []*iopv1alpha1.IstioOperator,
 		revDescription.Webhooks = append(revDescription.Webhooks, &MutatingWebhookConfigInfo{
 			Name:     mwh.Name,
 			Revision: renderWithDefault(mwh.Labels[label.IoIstioRev.Name], "default"),
-			Tag:      mwh.Labels[istioTagLabel],
+			Tag:      mwh.Labels[tag.IstioTagLabel],
 		})
 	}
 	return revDescription

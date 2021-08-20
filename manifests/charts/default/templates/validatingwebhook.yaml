@@ -1,19 +1,18 @@
-{{- if .Values.global.configValidation }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: istio-validator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+  name: istiod-default-validator
   labels:
     app: istiod
-    release: {{ .Release.Name }}
     istio: istiod
     istio.io/rev: {{ .Values.revision | default "default" }}
+    istio.io/tag: "default"
+    # Required to make sure this resource is removed
+    # when purging Istio resources
+    operator.istio.io/component: Pilot
 webhooks:
-  # Webhook handling per-revision validation. Mostly here so we can determine whether webhooks
-  # are rejecting invalid configs on a per-revision basis.
-  - name: rev.validation.istio.io
+  - name: validation.istio.io
     clientConfig:
-      # Should change from base but cannot for API compat
       {{- if .Values.base.validationURL }}
       url: {{ .Values.base.validationURL }}
       {{- else }}
@@ -35,21 +34,11 @@ webhooks:
           - "*"
         resources:
           - "*"
-    # Fail open until the validation webhook is ready. The webhook controller
-    # will update this to `Fail` and patch in the `caBundle` when the webhook
-    # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
     admissionReviewVersions: ["v1beta1", "v1"]
     objectSelector:
       matchExpressions:
         - key: istio.io/rev
-          operator: In
-          values:
-          {{- if (eq .Values.revision "") }}
-          - "default"
-          {{- else }}
-          - "{{ .Values.revision }}"
-          {{- end }}
+          operator: DoesNotExist
 ---
-{{- end }}

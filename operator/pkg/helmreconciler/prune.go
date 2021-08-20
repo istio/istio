@@ -73,6 +73,7 @@ var (
 	// ClusterCPResources lists cluster scope resources types which should be deleted during uninstall command.
 	ClusterCPResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.ValidatingWebhookConfigurationStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 	}

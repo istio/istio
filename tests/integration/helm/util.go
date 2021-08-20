@@ -27,6 +27,8 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -227,4 +229,24 @@ func VerifyMutatingWebhookConfigurations(ctx framework.TestContext, cs cluster.C
 		ctx.Fatalf("not all mutating webhook configurations were installed")
 	}
 	scopes.Framework.Infof("=== succeeded ===")
+}
+
+// VerifyValidation verifies that Istio resource validation is active on the cluster.
+func VerifyValidation(ctx framework.TestContext) {
+	ctx.Helper()
+	invalidGateway := &v1alpha3.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "invalid-istio-gateway",
+			Namespace: IstioNamespace,
+		},
+		Spec: networking.Gateway{},
+	}
+
+	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+	istioClient := ctx.Clusters().Default().Istio().NetworkingV1alpha3()
+	retry.UntilOrFail(ctx, func() bool {
+		_, err := istioClient.Gateways(IstioNamespace).Create(context.TODO(), invalidGateway, createOptions)
+		rejected := err != nil
+		return rejected
+	})
 }

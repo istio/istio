@@ -36,6 +36,7 @@ func TestDefaultInstall(t *testing.T) {
 global:
   hub: %s
   tag: %s
+defaultRevision: "default"
 `
 	framework.
 		NewTest(t).
@@ -52,6 +53,7 @@ global:
   hub: %s
   tag: %s
   jwtPolicy: first-party-jwt
+defaultRevision: "default"
 `
 
 	framework.
@@ -82,6 +84,7 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		InstallIstio(t, cs, h, "", overrideValuesFile, ManifestsChartPath, "", true)
 
 		VerifyInstallation(t, cs, true)
+		VerifyValidation(t)
 
 		sanitycheck.RunTrafficTest(t, t)
 		t.Cleanup(func() {
