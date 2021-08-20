@@ -27,10 +27,16 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/pkg/env"
 	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+var (
+	log = istiolog.RegisterScope("dns", "Istio DNS proxy", 0)
+
+	dnsRecordTTL = env.RegisterDurationVar("DNS_RECORD_TTL", 30*time.Second,
+		"DNS record TTL, in case the client decides to honor the TTL, keep it low so that we can always serve the latest IP for a host.").Get().Seconds()
+)
 
 // LocalDNSServer holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
@@ -72,13 +78,6 @@ type LookupTable struct {
 	// expanded by the search namespaces) pointing to the actual host.
 	cname map[string][]dns.RR
 }
-
-const (
-	// In case the client decides to honor the TTL, keep it low so that we can always serve
-	// the latest IP for a host.
-	// TODO: make it configurable
-	defaultTTLInSeconds = 30
-)
 
 func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalDNSServer, error) {
 	if addr == "" {
@@ -182,7 +181,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
 	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
 }
 
-// upstrem sends the requeset to the upstream server, with associated logs and metrics
+// upstream sends the request to the upstream server, with associated logs and metrics
 func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string) *dns.Msg {
 	upstreamRequests.Increment()
 	start := time.Now()
@@ -526,7 +525,12 @@ func a(host string, ips []net.IP) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.A)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
+		r.Hdr = dns.RR_Header{
+			Name:   host,
+			Rrtype: dns.TypeA,
+			Class:  dns.ClassINET,
+			Ttl:    uint32(dnsRecordTTL),
+		}
 		r.A = ip
 		answers[i] = r
 	}
@@ -538,7 +542,12 @@ func aaaa(host string, ips []net.IP) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.AAAA)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
+		r.Hdr = dns.RR_Header{
+			Name:   host,
+			Rrtype: dns.TypeAAAA,
+			Class:  dns.ClassINET,
+			Ttl:    uint32(dnsRecordTTL),
+		}
 		r.AAAA = ip
 		answers[i] = r
 	}
@@ -551,7 +560,7 @@ func cname(host string, targetHost string) []dns.RR {
 		Name:   host,
 		Rrtype: dns.TypeCNAME,
 		Class:  dns.ClassINET,
-		Ttl:    defaultTTLInSeconds,
+		Ttl:    uint32(dnsRecordTTL),
 	}
 	answer.Target = targetHost
 	return []dns.RR{answer}
