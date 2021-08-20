@@ -566,10 +566,10 @@ metadata:
   name: hello
 spec:
   containers:
-  - name: injected
-    image: "fake.docker.io/google-samples/hello-go-gke:1.1"
   - name: hello
     image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+  - name: injected
+    image: "fake.docker.io/google-samples/hello-go-gke:1.1"
 `)
 }
 

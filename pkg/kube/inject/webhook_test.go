@@ -1252,6 +1252,45 @@ func Test_createPatch(t *testing.T) {
 			res: []byte(`[{"op":"add","path":"/spec/containers/1","value":{"name":"istio-proxy","resources":{}}}]`),
 		},
 		{
+			name: "managed fileds",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					ManagedFields: []metav1.ManagedFieldsEntry{
+						{
+							Manager: "test2",
+						},
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test",
+						},
+						{
+							Name: "istio-proxy",
+						},
+					},
+				},
+			},
+			originPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					ManagedFields: []metav1.ManagedFieldsEntry{
+						{
+							Manager: "test",
+						},
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test",
+						},
+					},
+				},
+			},
+			res: []byte(`[{"op":"add","path":"/spec/containers/1","value":{"name":"istio-proxy","resources":{}}}]`),
+		},
+		{
 			name: "huge pod",
 			pod: corev1.Pod{
 				Spec: corev1.PodSpec{

@@ -348,9 +348,9 @@ func getInjectionStatus(podSpec corev1.PodSpec, revision string) string {
 func injectPod(req InjectionParameters) ([]byte, error) {
 	checkPreconditions(req)
 
+	originalPod := req.pod.DeepCopy()
 	// Run the injection template, giving us a partial pod spec
 	mergedPod, injectedPodData, err := RunTemplate(req)
-	originalPod := req.pod.DeepCopy()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run injection template: %v", err)
 	}
@@ -502,20 +502,55 @@ func reinsertOverrides(pod *corev1.Pod) (*corev1.Pod, error) {
 	return pod, nil
 }
 
-func createPatch(pod *corev1.Pod, originalPod *corev1.Pod) ([]byte, error) {
-	for i, c1 := range pod.Spec.Containers {
-		for j, c2 := range originalPod.Spec.Containers {
+// correctContainerIndex make sure injected container always at the end
+func correctContainerIndex(podContainers []corev1.Container, originalContainers []corev1.Container) error {
+	if len(podContainers) < len(originalContainers) {
+		return fmt.Errorf("container count error")
+	}
+	for i, oc := range originalContainers {
+		index := -1
+		for j, pc := range podContainers {
+			if pc.Name == oc.Name {
+				index = j
+				break
+			}
+		}
+		if i != index {
+			podContainers[index], podContainers[i] = podContainers[i], podContainers[index]
+		}
+	}
+	return nil
+}
+
+func cleanUnchangedContainers(podContainers, originContainers []corev1.Container) {
+	for i, c1 := range podContainers {
+		for j, c2 := range originContainers {
 			if c1.Name == c2.Name {
 				if reflect.DeepEqual(c1, c2) {
 					// clear container's config
-					// we can not remove it, because which will make container index error
-					pod.Spec.Containers[i] = corev1.Container{}
-					originalPod.Spec.Containers[j] = corev1.Container{}
+					// we can not remove it, because which will make container index error.
+					// If we only clean the containers, and the sidecars are injected at
+					// the first of containers, the created patches are incorrect.
+					podContainers[i] = corev1.Container{}
+					originContainers[j] = corev1.Container{}
 				}
 				break
 			}
 		}
 	}
+}
+
+func createPatch(pod *corev1.Pod, originalPod *corev1.Pod) ([]byte, error) {
+	pod.ManagedFields = nil
+	originalPod.ManagedFields = nil
+	if err := correctContainerIndex(pod.Spec.Containers, originalPod.Spec.Containers); err != nil {
+		return nil, err
+	}
+	cleanUnchangedContainers(pod.Spec.Containers, originalPod.Spec.Containers)
+	if err := correctContainerIndex(pod.Spec.InitContainers, originalPod.Spec.InitContainers); err != nil {
+		return nil, err
+	}
+	cleanUnchangedContainers(pod.Spec.InitContainers, originalPod.Spec.InitContainers)
 	original, err := json.Marshal(originalPod)
 	if err != nil {
 		return nil, err
