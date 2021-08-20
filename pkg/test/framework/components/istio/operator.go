@@ -221,6 +221,16 @@ func (i *operatorComponent) Close() error {
 					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 					err = multierror.Append(err, e)
 				}
+				// Delete validating and mutating webhook configurations. These can be created outside of generated manifests
+				// when installing with istioctl and must be deleted separately.
+				if e := c.AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
+				if e := c.AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
 				return
 			})
 		}

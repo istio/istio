@@ -47,6 +47,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -511,7 +512,7 @@ It's best to do kube-inject when the resource is initially created.
 			var meshConfig *meshconfig.MeshConfig
 			rev := opts.Revision
 			// if the revision is "default", render templates with an empty revision
-			if rev == defaultRevisionName {
+			if rev == tag.DefaultRevisionName {
 				rev = ""
 			}
 			injector, meshConfig, err := setupKubeInjectParameters(&sidecarTemplate, &valuesConfig, rev)
