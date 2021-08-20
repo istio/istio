@@ -999,6 +999,47 @@ spec:
 			viaIngress:       true,
 			workloadAgnostic: true,
 		},
+		{
+			// See https://github.com/istio/istio/issues/34609
+			name:             "http redirect when vs port specify",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+` + httpVirtualServiceTmpl,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Validator: echo.ExpectCode("301"),
+			},
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().FQDN(),
+					"Port":               443,
+				}
+			},
+		},
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
