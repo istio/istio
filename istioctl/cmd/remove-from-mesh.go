@@ -24,6 +24,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -101,7 +102,10 @@ func deploymentUnMeshifyCmd() *cobra.Command {
 			}
 			dep, err := client.AppsV1().Deployments(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
-				return fmt.Errorf("deployment %q does not exist", args[0])
+				if apierror.IsNotFound(err) {
+					return fmt.Errorf("deployment %q does not exist", args[0])
+				}
+				return err
 			}
 			writer := cmd.OutOrStdout()
 			deps := []appsv1.Deployment{}
@@ -142,7 +146,10 @@ func svcUnMeshifyCmd() *cobra.Command {
 			}
 			_, err = client.CoreV1().Services(ns).Get(context.TODO(), args[0], metav1.GetOptions{})
 			if err != nil {
-				return fmt.Errorf("service %q does not exist, skip", args[0])
+				if apierror.IsNotFound(err) {
+					return fmt.Errorf("service %q does not exist, skip", args[0])
+				}
+				return err
 			}
 			matchingDeployments, err := findDeploymentsForSvc(client, ns, args[0])
 			if err != nil {
@@ -194,7 +201,10 @@ The typical usage scenario is Mesh Expansion on VMs.`,
 			if err == nil {
 				return removeServiceOnVMFromMesh(seClient, client, ns, args[0], writer)
 			}
-			return fmt.Errorf("service %q does not exist, skip", args[0])
+			if apierror.IsNotFound(err) {
+				return fmt.Errorf("service %q does not exist, skip", args[0])
+			}
+			return err
 		},
 	}
 	cmd.Long += "\n\n" + ExperimentalMsg
