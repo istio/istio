@@ -149,7 +149,6 @@ func fromJSON(j string) interface{} {
 		return "{}"
 	}
 
-	log.Warnf("%v", m)
 	return m
 }
 
