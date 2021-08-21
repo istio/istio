@@ -84,6 +84,9 @@ const (
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
 	// handle secrets mounted from non-citadel CAs.
 	CitadelCACertPath = "./var/run/secrets/istio"
+
+	// Well-known path for cert provision.
+	DefaultProvisionPath = "/etc/ssl/certs/ca-certificates.crt"
 )
 
 const (
@@ -224,7 +227,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		// Envoy only supports load from file. If we want to use system certs, use best guess
 		// To be more correct this could lookup all the "well known" paths but this is extremely \
 		// unlikely to run on a non-debian based machine, and if it is it can be explicitly configured
-		provCert = "/etc/ssl/certs/ca-certificates.crt"
+		provCert = DefaultProvisionPath
 	}
 	var pilotSAN []string
 	if a.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
@@ -535,10 +538,7 @@ func (a *Agent) Close() {
 func (a *Agent) FindRootCAForXDS() (string, error) {
 	var rootCAPath string
 
-	if a.cfg.XDSRootCerts == security.SystemRootCerts {
-		// Special case input for root cert configuration to use system root certificates
-		return "", nil
-	} else if a.cfg.XDSRootCerts != "" {
+	if a.cfg.XDSRootCerts != "" {
 		// Using specific platform certs or custom roots
 		rootCAPath = a.cfg.XDSRootCerts
 	} else if fileExists(security.DefaultRootCertFilePath) {
@@ -585,9 +585,7 @@ func fileExists(path string) bool {
 func (a *Agent) FindRootCAForCA() (string, error) {
 	var rootCAPath string
 
-	if a.cfg.CARootCerts == security.SystemRootCerts {
-		return "", nil
-	} else if a.cfg.CARootCerts != "" {
+	if a.cfg.CARootCerts != "" {
 		rootCAPath = a.cfg.CARootCerts
 	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
 		// Using K8S - this is likely incorrect, may work by accident.
