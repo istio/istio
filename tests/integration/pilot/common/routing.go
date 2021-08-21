@@ -1043,7 +1043,7 @@ spec:
 		{
 			// See https://github.com/istio/istio/issues/27315
 			// See https://github.com/istio/istio/issues/34609
-			name:             "http ok with with x-forwarded-proto when vs port specify https",
+			name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
 			targetFilters:    singleTarget,
 			workloadAgnostic: true,
 			viaIngress:       true,
@@ -1099,7 +1099,7 @@ spec:
 					// In real world, this may be set by a downstream LB that terminates the TLS
 					"X-Forwarded-Proto": {"https"},
 				},
-				Validator: echo.ExpectOK(),
+				Validator: echo.ExpectCode("400"),
 			},
 			setupOpts: fqdnHostHeader,
 			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
