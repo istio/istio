@@ -214,6 +214,12 @@ func TestIptables(t *testing.T) {
 				cfg.ProxyUID = "3,4"
 			},
 		},
+		{
+			"exclude-nic",
+			func(cfg *config.Config) {
+				cfg.ExcludeInterfaces = "not-istio-nic"
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
