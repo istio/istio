@@ -15,8 +15,6 @@
 package xds
 
 import (
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -88,14 +86,5 @@ func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, updates, w)
-	log.Infof("CDS Delta Generation (used delta=%v) UPDATED: %v\nREMOVED: %v", usedDelta, names(updatedClusters), removedClusters)
 	return updatedClusters, removedClusters, logs, usedDelta, nil
-}
-
-func names(n []*discovery.Resource) []string {
-	ns := make([]string, 0)
-	for _, v := range n {
-		ns = append(ns, v.GetName())
-	}
-	return ns
 }
