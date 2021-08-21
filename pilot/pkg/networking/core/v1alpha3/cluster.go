@@ -169,7 +169,8 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	return resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
-func (configgen *ConfigGeneratorImpl) deltaServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
+func (configgen *ConfigGeneratorImpl) deltaServices(updatedService model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
+	watched []string) ([]*model.Service, []string) {
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	service := push.ServicesForHostname(proxy, host.Name(updatedService.Name))
@@ -188,7 +189,8 @@ func (configgen *ConfigGeneratorImpl) deltaServices(updatedService model.ConfigK
 	return services, deletedClusters
 }
 
-func (configgen *ConfigGeneratorImpl) deltaServicesFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy, push *model.PushContext, watched []string) ([]*model.Service, []string) {
+func (configgen *ConfigGeneratorImpl) deltaServicesFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
+	watched []string) ([]*model.Service, []string) {
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
 	cfg := push.DestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
@@ -260,9 +262,9 @@ func subsetClusters(resNames []string) []string {
 }
 
 // getDeletedSubsets detects deleted subsets and returns those names
-func getDeletedSubsets(orig []*networking.Subset, new []*networking.Subset) []string {
+func getDeletedSubsets(orig []*networking.Subset, after []*networking.Subset) []string {
 	origSub := sets.NewSet(getSubsetNames(orig)...)
-	newSub := sets.NewSet(getSubsetNames(new)...)
+	newSub := sets.NewSet(getSubsetNames(after)...)
 	return origSub.Difference(newSub).UnsortedList()
 }
 
