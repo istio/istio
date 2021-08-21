@@ -24,8 +24,8 @@ metadata:
     service: details
 spec:
   ports:
-    - port: 9080
-      name: http
+  - port: 9080
+    name: http
   selector:
     app: details
 ---
@@ -49,11 +49,11 @@ spec:
         version: v1
     spec:
       containers:
-        - name: details
-          image: docker.io/istio/examples-bookinfo-details-v1:1.16.2
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 9080
-          securityContext:
-            runAsUser: 1000
+      - name: details
+        image: docker.io/istio/examples-bookinfo-details-v1:1.16.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+        securityContext:
+          runAsUser: 1000
 ---
