@@ -23,7 +23,7 @@ metadata:
   name: httpbin
 spec:
   hosts:
-  - "*"
+  - "./*"
   gateways:
   - httpbin-gateway # Expected: no validation error since this gateway exists
 ---
@@ -33,7 +33,7 @@ metadata:
   name: httpbin-bogus
 spec:
   hosts:
-  - "*"
+  - "*/*"
   gateways:
   - httpbin-gateway-bogus # Expected: validation error since this gateway does not exist
 ---
