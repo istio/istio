@@ -183,6 +183,15 @@ func (configgen *ConfigGeneratorImpl) deltaServices(updatedService model.ConfigK
 		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>
 		// so, we can check if the cluster names contains the service name, and determine if it is deleted by that
 		deletedClusters = append(deletedClusters, getRemovedClusterNames(watched, nil, updatedService.Name)...)
+		// remove all subsets whenever a service is deleted
+		// there is usually only one service here
+		for _, s := range service {
+			cfg := push.DestinationRule(proxy, s)
+			dr := cfg.Spec.(*networking.DestinationRule)
+			for _, subset := range dr.GetSubsets() {
+				deletedClusters = append(deletedClusters, subset.GetName())
+			}
+		}
 	} else {
 		services = append(services, service...)
 	}
