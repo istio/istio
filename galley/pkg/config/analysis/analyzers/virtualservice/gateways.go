@@ -138,5 +138,4 @@ func sanitizeServerHostNamespace(server *v1alpha3.Server, namespace string) {
 			}
 		}
 	}
-	return
 }
