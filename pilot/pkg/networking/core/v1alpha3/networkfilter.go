@@ -43,7 +43,8 @@ func buildInboundNetworkFilters(push *model.PushContext, instance *model.Service
 	statPrefix := clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix = util.BuildStatPrefix(push.Mesh.InboundClusterStatName, string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
+		statPrefix = util.BuildStatPrefix(push.Mesh.InboundClusterStatName,
+			string(instance.Service.ClusterLocal.Hostname), "", instance.ServicePort, &instance.Service.Attributes)
 	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
@@ -164,7 +165,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 		// If stat name is configured, build the stat prefix from configured pattern.
 		if len(push.Mesh.OutboundClusterStatName) != 0 && service != nil {
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, routes[0].Destination.Host,
-				routes[0].Destination.Subset, port, service.Attributes)
+				routes[0].Destination.Subset, port, &service.Attributes)
 		}
 		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, port)
 	}

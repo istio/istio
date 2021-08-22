@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/test/xdstest"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -45,9 +44,10 @@ import (
 func TestBuildHTTPRoutes(t *testing.T) {
 	serviceRegistry := map[host.Name]*model.Service{
 		"*.example.org": {
-			Hostname:    "*.example.org",
-			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[cluster.ID]string),
+			ClusterLocal: model.HostVIPs{
+				Hostname: "*.example.org",
+			},
+			Address: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",

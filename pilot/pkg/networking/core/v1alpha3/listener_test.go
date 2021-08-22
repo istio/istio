@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -237,9 +236,10 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	}
 	service4 := &model.Service{
 		CreationTime: tnow.Add(1 * time.Second),
-		Hostname:     host.Name("test4.com"),
-		Address:      wildcardIP,
-		ClusterVIPs:  make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("test4.com"),
+		},
+		Address: wildcardIP,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "udp",
@@ -255,9 +255,10 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	services = append(services, service4)
 	service5 := &model.Service{
 		CreationTime: tnow.Add(1 * time.Second),
-		Hostname:     host.Name("test5.com"),
-		Address:      "8.8.8.8",
-		ClusterVIPs:  make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("test5.com"),
+		},
+		Address: "8.8.8.8",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "MySQL",
@@ -273,9 +274,10 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	services = append(services, service5)
 	service6 := &model.Service{
 		CreationTime: tnow.Add(1 * time.Second),
-		Hostname:     host.Name("test6.com"),
-		Address:      "2.2.2.2",
-		ClusterVIPs:  make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("test6.com"),
+		},
+		Address: "2.2.2.2",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "unknown",
@@ -335,7 +337,7 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 	}
 
 	// Validate that listener conflict preserves the listener of oldest service.
-	verifyOutboundTCPListenerHostname(t, listeners[0], oldestService.Hostname)
+	verifyOutboundTCPListenerHostname(t, listeners[0], oldestService.ClusterLocal.Hostname)
 }
 
 func TestOutboundListenerTCPWithVS(t *testing.T) {
@@ -526,9 +528,10 @@ func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 	}
 	service4 := &model.Service{
 		CreationTime: tnow.Add(1 * time.Second),
-		Hostname:     host.Name("test4.com"),
-		Address:      wildcardIP,
-		ClusterVIPs:  make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("test4.com"),
+		},
+		Address: wildcardIP,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -551,9 +554,10 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 	services := []*model.Service{
 		{
 			CreationTime: tnow,
-			Hostname:     host.Name("test.com"),
-			Address:      wildcardIP,
-			ClusterVIPs:  make(map[cluster.ID]string),
+			ClusterLocal: model.HostVIPs{
+				Hostname: host.Name("test.com"),
+			},
+			Address: wildcardIP,
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -568,9 +572,10 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 		},
 		{
 			CreationTime: tnow,
-			Hostname:     host.Name("test1.com"),
-			Address:      wildcardIP,
-			ClusterVIPs:  make(map[cluster.ID]string),
+			ClusterLocal: model.HostVIPs{
+				Hostname: host.Name("test1.com"),
+			},
+			Address: wildcardIP,
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "foo",
@@ -591,9 +596,10 @@ func TestOutboundTls(t *testing.T) {
 	services := []*model.Service{
 		{
 			CreationTime: tnow,
-			Hostname:     host.Name("test.com"),
-			Address:      wildcardIP,
-			ClusterVIPs:  make(map[cluster.ID]string),
+			ClusterLocal: model.HostVIPs{
+				Hostname: host.Name("test.com"),
+			},
+			Address: wildcardIP,
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -2474,9 +2480,10 @@ func findListenerByAddress(listeners []*listener.Listener, address string) *list
 func buildService(hostname string, ip string, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
-		Hostname:     host.Name(hostname),
-		Address:      ip,
-		ClusterVIPs:  make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name(hostname),
+		},
+		Address: ip,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -2494,9 +2501,10 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 func buildServiceWithPort(hostname string, port int, protocol protocol.Instance, creationTime time.Time) *model.Service {
 	return &model.Service{
 		CreationTime: creationTime,
-		Hostname:     host.Name(hostname),
-		Address:      wildcardIP,
-		ClusterVIPs:  make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name(hostname),
+		},
+		Address: wildcardIP,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -2539,7 +2547,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 			ServicePort: s.Ports[0],
 		}
 		instances = append(instances, i)
-		serviceDiscovery.AddInstance(s.Hostname, i)
+		serviceDiscovery.AddInstance(s.ClusterLocal.Hostname, i)
 	}
 	// TODO stop faking this. proxy ip must match the instance IP
 	serviceDiscovery.WantGetProxyServiceInstances = instances
@@ -2729,10 +2737,12 @@ func TestMergeTCPFilterChains(t *testing.T) {
 			servicePort: svcPort,
 			services: []*model.Service{{
 				CreationTime: tnow,
-				Hostname:     host.Name("foo.com"),
-				Address:      "192.168.1.1",
-				Ports:        []*model.Port{svcPort},
-				Resolution:   model.DNSLB,
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("foo.com"),
+				},
+				Address:    "192.168.1.1",
+				Ports:      []*model.Port{svcPort},
+				Resolution: model.DNSLB,
 			}},
 			listener: &l,
 		},
@@ -2748,7 +2758,9 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	svc := model.Service{
-		Hostname: "bar.com",
+		ClusterLocal: model.HostVIPs{
+			Hostname: "bar.com",
+		},
 	}
 
 	opts := buildListenerOpts{

@@ -52,7 +52,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	}
 
 	for _, svc := range cfg.Push.Services(cfg.Node) {
-		svcAddress := svc.GetServiceAddressForProxy(cfg.Node)
+		svcAddress := svc.GetClusterLocalAddressForProxy(cfg.Node)
 		var addressList []string
 
 		if svcAddress != constants.UnspecifiedIP {
@@ -74,7 +74,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					if instance.Endpoint.SubDomain != "" && sameNetwork {
 						// Follow k8s pods dns naming convention of "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>"
 						// i.e. "mysql-0.mysql.default.svc.cluster.local".
-						parts := strings.SplitN(string(svc.Hostname), ".", 2)
+						parts := strings.SplitN(string(svc.ClusterLocal.Hostname), ".", 2)
 						if len(parts) != 2 {
 							continue
 						}
@@ -134,7 +134,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 				nameInfo.AltHosts = append(nameInfo.AltHosts, fqdn)
 			}
 		}
-		out.Table[string(svc.Hostname)] = nameInfo
+		out.Table[string(svc.ClusterLocal.Hostname)] = nameInfo
 	}
 	return out
 }

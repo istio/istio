@@ -26,7 +26,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -1865,7 +1864,7 @@ func TestSelectVirtualService(t *testing.T) {
 
 	hostsByNamespace := make(map[string][]host.Name)
 	for _, svc := range services {
-		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
+		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.ClusterLocal.Hostname)
 	}
 
 	virtualServiceSpec1 := &networking.VirtualService{
@@ -2069,10 +2068,11 @@ func TestSelectVirtualService(t *testing.T) {
 func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *Service {
 	service := &Service{
 		CreationTime: time.Now(),
-		Hostname:     host.Name(hostname),
-		Address:      ip,
-		ClusterVIPs:  make(map[cluster.ID]string),
-		Resolution:   DNSLB,
+		ClusterLocal: HostVIPs{
+			Hostname: host.Name(hostname),
+		},
+		Address:    ip,
+		Resolution: DNSLB,
 		Attributes: ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,

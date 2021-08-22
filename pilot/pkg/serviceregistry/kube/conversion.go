@@ -91,14 +91,20 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	}
 
 	istioService := &model.Service{
-		Hostname:        ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
+		ClusterLocal: model.HostVIPs{
+			Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
+			ClusterVIPs: cluster.AddressMap{
+				Addresses: map[cluster.ID][]string{
+					clusterID: {addr},
+				},
+			},
+		},
 		Ports:           ports,
 		Address:         addr,
 		ServiceAccounts: serviceaccounts,
 		MeshExternal:    meshExternal,
 		Resolution:      resolution,
 		CreationTime:    svc.CreationTimestamp.Time,
-		ClusterVIPs:     map[cluster.ID]string{clusterID: addr},
 		ResourceVersion: svc.ResourceVersion,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
@@ -139,17 +145,12 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 				}
 			}
 			if len(lbAddrs) > 0 {
-				istioService.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{clusterID: lbAddrs}
+				istioService.Attributes.ClusterExternalAddresses.SetAddressesFor(clusterID, lbAddrs)
 			}
 		}
 	}
 
-	for _, extIP := range svc.Spec.ExternalIPs {
-		if istioService.Attributes.ClusterExternalAddresses == nil {
-			istioService.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{}
-		}
-		istioService.Attributes.ClusterExternalAddresses[clusterID] = append(istioService.Attributes.ClusterExternalAddresses[clusterID], extIP)
-	}
+	istioService.Attributes.ClusterExternalAddresses.AddAddressesFor(clusterID, svc.Spec.ExternalIPs)
 
 	return istioService
 }
