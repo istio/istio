@@ -7,9 +7,6 @@ metadata:
 spec:
   selector:
     istio: ingressgateway
-  servers:
-    - hosts:
-      - "*/*"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
