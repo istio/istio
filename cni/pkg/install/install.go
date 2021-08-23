@@ -51,34 +51,39 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 // Run starts the installation process, verifies the configuration, then sleeps.
 // If an invalid configuration is detected, the installation process will restart to restore a valid state.
 func (in *Installer) Run(ctx context.Context) (err error) {
-	for {
-		if err = copyBinaries(
-			in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
-			in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
-			cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
-			return
-		}
+install:
+	if err = copyBinaries(
+		in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
+		in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
+		cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
+		return
+	}
 
-		if in.saToken, err = readServiceAccountToken(); err != nil {
-			cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
-			return
-		}
+	if in.saToken, err = readServiceAccountToken(); err != nil {
+		cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
+		return
+	}
 
-		if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
-			cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
-			return
-		}
+	if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
+		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
+		return
+	}
 
-		if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
-			cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
-			return
-		}
+	if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
+		cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
+		return
+	}
 
+	if in.cfg.CNIFileWatchEnabled {
 		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath, in.isReady); err != nil {
 			return
 		}
 		// Invalid config; pod set to "NotReady"
 		installLog.Info("Restarting...")
+		goto install
+	} else {
+		<-ctx.Done()
+		return ctx.Err()
 	}
 }
 

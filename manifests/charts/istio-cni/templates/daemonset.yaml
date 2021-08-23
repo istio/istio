@@ -93,6 +93,8 @@ spec:
                   key: cni_network_config
             - name: CNI_NET_DIR
               value: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
+            - name: CNI_FILE_WATCH_ENABLED
+              value: "{{ default true .Values.cni.cniFileWatchEnabled }}"
             # Deploy as a standalone CNI plugin or as chained?
             - name: CHAINED_CNI_PLUGIN
               value: "{{ .Values.cni.chained }}"

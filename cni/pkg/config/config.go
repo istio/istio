@@ -39,6 +39,8 @@ type InstallConfig struct {
 	CNINetworkConfigFile string
 	// CNI config template string
 	CNINetworkConfig string
+	// Whether to watch and reinstall CNI configuration and binary files
+	CNIFileWatchEnabled bool
 
 	// Logging level
 	LogLevel string

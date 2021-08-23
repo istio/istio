@@ -236,6 +236,7 @@ type CNIConfig struct {
 	Chained              *protobuf.BoolValue     `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
 	Taint                *CNITaintConfig         `protobuf:"bytes,15,opt,name=taint,proto3" json:"taint,omitempty"`
 	ResourceQuotas       *ResourceQuotas         `protobuf:"bytes,16,opt,name=resource_quotas,json=resourceQuotas,proto3" json:"resource_quotas,omitempty"`
+	CniFileWatchEnabled  *protobuf.BoolValue     `protobuf:"bytes,17,opt,name=cniFileWatchEnabled,proto3" json:"cniFileWatchEnabled,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -374,6 +375,13 @@ func (m *CNIConfig) GetTaint() *CNITaintConfig {
 func (m *CNIConfig) GetResourceQuotas() *ResourceQuotas {
 	if m != nil {
 		return m.ResourceQuotas
+	}
+	return nil
+}
+
+func (m *CNIConfig) GetCniFileWatchEnabled() *protobuf.BoolValue {
+	if m != nil {
+		return m.CniFileWatchEnabled
 	}
 	return nil
 }
