@@ -15,16 +15,15 @@
 package extension
 
 import (
-	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
 )
@@ -37,7 +36,8 @@ var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
 	ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
 		Ads: &envoy_config_core_v3.AggregatedConfigSource{},
 	},
-	ResourceApiVersion: envoy_config_core_v3.ApiVersion_V3,
+	ResourceApiVersion:  envoy_config_core_v3.ApiVersion_V3,
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
 }
 
 // AddWasmPluginsToMutableObjects adds WasmPlugins to HTTP filterChains
@@ -113,7 +113,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 		ConfigType: &hcm_filter.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &envoy_config_core_v3.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
-				TypeUrls:     []string{wasmFilterType},
+				TypeUrls:     []string{"type.googleapis.com/" + wasmFilterType},
 			},
 		},
 	}
@@ -133,13 +133,10 @@ func InsertedExtensionConfigurations(
 	}
 	for _, list := range wasmPlugins {
 		for _, p := range list {
-			ws, _ := conversion.MessageToStruct(p.ExtensionConfiguration)
+			typedConfig, _ := anypb.New(p.ExtensionConfiguration)
 			ec := &envoy_config_core_v3.TypedExtensionConfig{
-				Name: p.Name,
-				TypedConfig: util.MessageToAny(&udpa.TypedStruct{
-					TypeUrl: "type.googleapis.com/" + wasmFilterType,
-					Value:   ws,
-				}),
+				Name:        p.Name,
+				TypedConfig: typedConfig,
 			}
 			if _, ok := hasName[ec.GetName()]; ok {
 				result = append(result, proto.Clone(ec).(*envoy_config_core_v3.TypedExtensionConfig))
