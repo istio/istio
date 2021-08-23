@@ -360,6 +360,8 @@ func ExtractRequestToken(req *http.Request) (string, error) {
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }
 
+// GetOSRootFilePath returns the first file path detected from a list of known CA certificate file paths.
+// If none of the known CA certificate files are found, a warning in printed and an empty string is returned.
 func GetOSRootFilePath() string {
 	// Get and store the OS CA certificate path for Linux systems
 	// Source of CA File Paths: https://golang.org/src/crypto/x509/root_linux.go

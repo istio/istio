@@ -745,6 +745,7 @@ func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
 	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
 }
 
+// GetCARootPath locks and returns the CARootPath
 func (sc *SecretManagerClient) GetCARootPath() string {
 	sc.caRootPathMutex.Lock()
 	defer sc.caRootPathMutex.Unlock()
@@ -752,6 +753,7 @@ func (sc *SecretManagerClient) GetCARootPath() string {
 	return caRootPath
 }
 
+// SetCARootPath locks and sets the CARootPath
 func (sc *SecretManagerClient) SetCARootPath(caRootPath string) {
 	sc.caRootPathMutex.Lock()
 	defer sc.caRootPathMutex.Unlock()
