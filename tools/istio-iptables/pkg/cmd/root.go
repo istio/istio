@@ -221,10 +221,10 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	}
 	viper.SetDefault(constants.LocalExcludePorts, "")
 
-	if err := viper.BindPFlag(constants.LocalExcludeNic, cmd.Flags().Lookup(constants.LocalExcludeNic)); err != nil {
+	if err := viper.BindPFlag(constants.ExcludeInterfaces, cmd.Flags().Lookup(constants.ExcludeInterfaces)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.LocalExcludeNic, "")
+	viper.SetDefault(constants.ExcludeInterfaces, "")
 
 	if err := viper.BindPFlag(constants.ServiceCidr, cmd.Flags().Lookup(constants.ServiceCidr)); err != nil {
 		handleError(err)
@@ -346,7 +346,7 @@ func init() {
 		"Comma separated list of inbound ports to be excluded from redirection to Envoy (optional). "+
 			"Only applies when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)")
 
-	rootCmd.Flags().StringP(constants.LocalExcludeNic, "", "",
+	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "", "",
 		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured. It")
 
 	rootCmd.Flags().StringP(constants.ServiceCidr, "i", "",
