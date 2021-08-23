@@ -15,6 +15,7 @@ package model
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -57,6 +58,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 		var sha256 string
 		u, err := url.Parse(wasmPlugin.Url)
 		if err != nil {
+			log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
 		if wasmPlugin.XSha256 == nil {
@@ -75,8 +77,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 				Specifier: &envoy_config_core_v3.AsyncDataSource_Local{
 					Local: &envoy_config_core_v3.DataSource{
 						Specifier: &envoy_config_core_v3.DataSource_Filename{
-							// remove 'file://' prefix
-							Filename: wasmPlugin.Url[7:],
+							Filename: strings.TrimPrefix(wasmPlugin.Url, "file://"),
 						},
 					},
 				},
