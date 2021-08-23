@@ -87,8 +87,9 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 	// append all remaining extensions at the end (router is not yet in the chain so this is correct)
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
-	// TODO: stats are currently injected using EnvoyFilter, we should migrate them to
-	// WasmPlugin (with phase: stats and priority: -maxInt) so this becomes effective
+	// TODO: stats are currently injected using EnvoyFilter, but they're about to be migrated to
+	// native code (see https://github.com/istio/istio/pull/33583). When that's done, we can properly
+	// implement the STATS phase here
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_STATS)
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	return newHTTPFilters
