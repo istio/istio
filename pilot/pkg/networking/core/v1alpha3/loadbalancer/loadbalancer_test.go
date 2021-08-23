@@ -326,7 +326,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 				},
 			},
 			{
-				name:             "match cluster label",
+				name:             "not match the first n label",
 				failoverPriority: []string{"topology.istio.io/network", "topology.istio.io/cluster"},
 				proxyLabels: map[string]string{
 					"topology.istio.io/network": "test",
@@ -387,8 +387,9 @@ func TestApplyLocalitySetting(t *testing.T) {
 			},
 			{
 				name:             "match all labels",
-				failoverPriority: []string{"topology.istio.io/network", "topology.istio.io/cluster"},
+				failoverPriority: []string{"key", "topology.istio.io/network", "topology.istio.io/cluster"},
 				proxyLabels: map[string]string{
+					"key":                       "value",
 					"topology.istio.io/network": "n2",
 					"topology.istio.io/cluster": "c2",
 				},
@@ -401,7 +402,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 						},
 						LbEndpoints: []*endpoint.LbEndpoint{
 							{
-								HostIdentifier: buildEndpoint("2.2.2.2"),
+								HostIdentifier: buildEndpoint("2.2.2.2"), // match [key, network, cluster]
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -420,7 +421,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 						},
 						LbEndpoints: []*endpoint.LbEndpoint{
 							{
-								HostIdentifier: buildEndpoint("1.1.1.1"),
+								HostIdentifier: buildEndpoint("1.1.1.1"), // match no label
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -429,7 +430,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 						LoadBalancingWeight: &wrappers.UInt32Value{
 							Value: 1,
 						},
-						Priority: 2,
+						Priority: 3,
 					},
 					{
 						Locality: &core.Locality{
@@ -439,7 +440,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 						},
 						LbEndpoints: []*endpoint.LbEndpoint{
 							{
-								HostIdentifier: buildEndpoint("4.4.4.4"),
+								HostIdentifier: buildEndpoint("4.4.4.4"), // match [key, network]
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -458,7 +459,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 						},
 						LbEndpoints: []*endpoint.LbEndpoint{
 							{
-								HostIdentifier: buildEndpoint("3.3.3.3"),
+								HostIdentifier: buildEndpoint("3.3.3.3"), // match [key]
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -937,6 +938,7 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 				},
 				{
 					Labels: map[string]string{
+						"key":                       "value",
 						"topology.istio.io/network": "n2",
 						"topology.istio.io/cluster": "c2",
 					},
@@ -949,6 +951,7 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 			IstioEndpoints: []*model.IstioEndpoint{
 				{
 					Labels: map[string]string{
+						"key":                       "value",
 						"topology.istio.io/network": "n1",
 						"topology.istio.io/cluster": "c3",
 					},
@@ -956,6 +959,7 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 				},
 				{
 					Labels: map[string]string{
+						"key":                       "value",
 						"topology.istio.io/network": "n2",
 						"topology.istio.io/cluster": "c4",
 					},
