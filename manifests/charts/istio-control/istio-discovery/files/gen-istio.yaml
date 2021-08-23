@@ -324,8 +324,8 @@ data:
                 {{ end }}
             {{- end }}
           {{- else }}
-            {{- if .Values.global.proxy.resources }}
-              {{ toYaml .Values.global.proxy.resources | indent 6 }}
+            {{- if .Values.global.proxy_init.resources }}
+              {{ toYaml .Values.global.proxy_init.resources | indent 6 }}
             {{- end }}
           {{- end }}
             securityContext:
