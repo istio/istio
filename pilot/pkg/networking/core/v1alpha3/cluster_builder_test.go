@@ -2730,7 +2730,9 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 }
 
 func TestApplyDestinationRuleOSCACert(t *testing.T) {
-	features.VerifyCertAtClient = true
+	defer func() {
+		features.VerifyCertAtClient = false
+	}()
 	servicePort := model.PortList{
 		&model.Port{
 			Name:     "default",
@@ -2764,9 +2766,10 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 		networkView               map[network.ID]bool
 		destRule                  *networking.DestinationRule
 		expectedCaCertificateName string
+		enableVerifyCertAtClient  bool
 	}{
 		{
-			name:        "destination rule with no CaCertificates",
+			name:        "VerifyCertAtClient set and destination rule with empty string CaCertificates",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
@@ -2788,9 +2791,10 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				},
 			},
 			expectedCaCertificateName: security.FileRootSystemCACert,
+			enableVerifyCertAtClient:  true,
 		},
 		{
-			name:        "destination rule with CaCertificates",
+			name:        "VerifyCertAtClient set and destination rule with CaCertificates",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
@@ -2812,11 +2816,86 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				},
 			},
 			expectedCaCertificateName: constants.DefaultRootCert,
+			enableVerifyCertAtClient:  true,
+		},
+		{
+			name:        "VerifyCertAtClient set and destination rule without CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: "file-root:system",
+			enableVerifyCertAtClient:  true,
+		},
+		{
+			name:        "VerifyCertAtClient false and destination rule without CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: "",
+			enableVerifyCertAtClient:  false,
+		},
+		{
+			name:        "VerifyCertAtClient false and destination rule with CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						CaCertificates: constants.DefaultRootCert,
+						Mode:           networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: constants.DefaultRootCert,
+			enableVerifyCertAtClient:  false,
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			features.VerifyCertAtClient = tt.enableVerifyCertAtClient
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,
