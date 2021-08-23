@@ -181,8 +181,8 @@ items:
               cpu: "2"
               memory: 1Gi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 10m
+              memory: 10Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

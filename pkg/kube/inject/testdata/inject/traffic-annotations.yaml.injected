@@ -122,8 +122,12 @@ spec:
           periodSeconds: 2
           timeoutSeconds: 3
         resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
           requests:
             cpu: "4"
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -174,8 +178,12 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init
         resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
           requests:
             cpu: "4"
+            memory: 10Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
