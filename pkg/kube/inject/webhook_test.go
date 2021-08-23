@@ -1045,11 +1045,12 @@ func BenchmarkInjectServe(b *testing.B) {
 	wh.Run(stop)
 
 	body := makeTestData(b, false, "v1beta1")
-	req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))
-	req.Header.Add("Content-Type", "application/json")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))
+		req.Header.Add("Content-Type", "application/json")
+
 		wh.serveInject(httptest.NewRecorder(), req)
 	}
 }
