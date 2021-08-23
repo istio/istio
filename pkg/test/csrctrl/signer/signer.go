@@ -70,7 +70,11 @@ func (s *Signer) Sign(x509cr *x509.CertificateRequest, usages []capi.KeyUsage, r
 		return nil, fmt.Errorf("error encoding certificate PEM: %s", err.Error())
 	}
 
-	rootCerts, err := util.AppendRootCerts(pemBytes.Bytes(), s.caProvider.caLoader.CertFile)
+	intermediateCerts, err := util.AppendRootCerts(pemBytes.Bytes(), s.caProvider.caIntermediate.CertFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to append intermediate certificates (%v)", err)
+	}
+	rootCerts, err := util.AppendRootCerts(intermediateCerts, s.caProvider.caLoader.CertFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 	}
