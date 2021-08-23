@@ -368,21 +368,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		// check all hostname in vHostDedupMap and if is not exist with HttpsRedirect set to true
 		// create VirtualHost to redirect
 		for _, hostname := range server.Hosts {
-			if vHost, exists := vHostDedupMap[host.Name(hostname)]; exists {
-				if server.Tls != nil && server.Tls.HttpsRedirect {
-					vHost.RequireTls = route.VirtualHost_ALL
-				}
+			if !server.GetTls().GetHttpsRedirect() {
 				continue
-			} else if server.Tls != nil && server.Tls.HttpsRedirect {
-				newVHost := &route.VirtualHost{
-					Name:                       domainName(hostname, port),
-					Domains:                    buildGatewayVirtualHostDomains(hostname, port),
-					IncludeRequestAttemptCount: true,
-					RequireTls:                 route.VirtualHost_ALL,
-				}
-				vHostDedupMap[host.Name(hostname)] = newVHost
 			}
+			if vHost, exists := vHostDedupMap[host.Name(hostname)]; exists {
+				vHost.RequireTls = route.VirtualHost_ALL
+				continue
+			}
+			newVHost := &route.VirtualHost{
+				Name:                       domainName(hostname, port),
+				Domains:                    buildGatewayVirtualHostDomains(hostname, port),
+				IncludeRequestAttemptCount: true,
+				RequireTls:                 route.VirtualHost_ALL,
+			}
+			vHostDedupMap[host.Name(hostname)] = newVHost
 		}
+	}
 	}
 
 	var virtualHosts []*route.VirtualHost
