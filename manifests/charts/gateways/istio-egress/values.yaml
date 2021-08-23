@@ -48,6 +48,11 @@ gateways:
 
     configVolumes: []
     additionalContainers: []
+
+    serviceAccount:
+      # Annotations to add to the service account
+      annotations: {}
+
     ### Advanced options ############
     # TODO: convert to real options, env should not be exposed
     env: {}
