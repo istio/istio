@@ -100,3 +100,28 @@ func PullSecretNameOrFail(t test.Failer) string {
 	}
 	return name
 }
+
+func PullImagePolicy(t test.Failer) string {
+	var (
+		Always       = "Always"
+		IfNotPresent = "IfNotPresent"
+		Never        = "Never"
+	)
+
+	s, err := SettingsFromCommandLine()
+	if err != nil || s == nil {
+		t.Logf("failed reading image settings: %v, set imagePullPolicy=Always", err)
+		return Always
+	}
+	switch s.PullPolicy {
+	case Always, "":
+		return Always
+	case IfNotPresent:
+		return IfNotPresent
+	case Never:
+		return Never
+	default:
+		t.Logf("invalid image pull policy: %s, set imagePullPolicy=Always", s.PullPolicy)
+		return Always
+	}
+}
