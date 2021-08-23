@@ -127,6 +127,11 @@ message Resources {
   map<string, string> requests = 2;
 }
 
+// Mirrors ServiceAccount for unmarshaling.
+message ServiceAccount {
+  TypeMapStringInterface annotations = 1;
+}
+
 // DefaultPodDisruptionBudgetConfig specifies the default pod disruption budget configuration.
 //
 // See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
@@ -245,7 +250,9 @@ message EgressGatewayConfig {
   // The injection template to use for the gateway. If not set, no injection will be performed.
   string injectionTemplate = 27;
 
-  // Next available 28.
+  ServiceAccount serviceAccount = 28;
+
+  // Next available 29.
 }
 
 // Configuration for gateways.
@@ -535,7 +542,9 @@ message IngressGatewayConfig {
   // The injection template to use for the gateway. If not set, no injection will be performed.
   string injectionTemplate = 46;
 
-  // Next available 47.
+  ServiceAccount serviceAccount = 47;
+
+  // Next available 48.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
