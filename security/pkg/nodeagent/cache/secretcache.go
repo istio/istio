@@ -242,9 +242,9 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 }
 
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
-func (sc *SecretManagerClient) GenerateSecret(resourceName string, caRootPath string) (secret *security.SecretItem, err error) {
+func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
 	cacheLog.Debugf("generate secret %q", resourceName)
-	sc.SetCARootPath(caRootPath)
+	sc.SetCARootPath(security.CACertFilePath)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -496,17 +496,20 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			// Adding cert is sufficient here as key can't change without changing the cert.
 			sc.addFileWatcher(cf.CertificatePath, resourceName)
 		}
+	case resourceName == security.FileRootSystemCACert:
+		cfg, ok := security.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
+		sdsFromFile = ok
+		if ok && cfg.IsRootCertificate() {
+			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, resourceName, false); err == nil {
+				sc.addFileWatcher(cfg.CaCertificatePath, resourceName)
+			}
+		}
 	default:
 		// Check if the resource name refers to a file mounted certificate.
 		// Currently used in destination rules and server certs (via metadata).
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
-		cfg := security.SdsCertificateConfig{}
-		ok := false
-		if resourceName == security.FileRootSystemCACert {
-			cfg, ok = security.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
-		} else {
-			cfg, ok = security.SdsCertificateConfigFromResourceName(resourceName)
-		}
+		cfg, ok := security.SdsCertificateConfigFromResourceName(resourceName)
+
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():

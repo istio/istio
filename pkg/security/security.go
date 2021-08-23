@@ -69,6 +69,13 @@ const (
 	FileRootSystemCACert = "file-root:system"
 )
 
+// CACertFilePath stores the OS CA File Path for future use
+var CACertFilePath = ""
+
+func init() {
+	CACertFilePath = GetOSRootFilePath()
+}
+
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
@@ -261,7 +268,7 @@ type SecretManager interface {
 	// near expiry. It will constructs the SAN based on the token's 'sub' claim, expected to be in
 	// the K8S format. No other JWTs are currently supported due to client logic. If JWT is
 	// missing/invalid, the resourceName is used.
-	GenerateSecret(resourceName string, caRootPath string) (*SecretItem, error)
+	GenerateSecret(resourceName string) (*SecretItem, error)
 }
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
