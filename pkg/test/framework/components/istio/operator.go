@@ -413,7 +413,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if env.IsMultinetwork() {
 		// enable cross network traffic
-		for _, c := range ctx.Clusters().Kube() {
+		for _, c := range ctx.Clusters().Kube().Configs() {
 			if err := i.exposeUserServices(c); err != nil {
 				return nil, err
 			}
