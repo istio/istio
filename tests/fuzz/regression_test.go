@@ -142,6 +142,7 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzYAMLManifestPatch", FuzzYAMLManifestPatch},
 		{"FuzzGalleyMeshFs", FuzzGalleyMeshFs},
 		{"FuzzGalleyDiag", FuzzGalleyDiag},
+		{"FuzzNewBootstrapServer", FuzzNewBootstrapServer},
 	}
 	for _, tt := range cases {
 		if testedFuzzers.Contains(tt.name) {
