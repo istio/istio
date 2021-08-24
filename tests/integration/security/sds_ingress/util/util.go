@@ -224,6 +224,16 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 			},
 		}
 	}
+	data := map[string][]byte{}
+	if ic.Certificate != "" {
+		data[tlsScrtCert] = []byte(ic.Certificate)
+	}
+	if ic.PrivateKey != "" {
+		data[tlsScrtKey] = []byte(ic.PrivateKey)
+	}
+	if ic.CaCert != "" {
+		data[tlsScrtCaCert] = []byte(ic.CaCert)
+	}
 	return &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -233,10 +243,7 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 			Name:      cn,
 			Namespace: ns,
 		},
-		Data: map[string][]byte{
-			tlsScrtCert: []byte(ic.Certificate),
-			tlsScrtKey:  []byte(ic.PrivateKey),
-		},
+		Data: data,
 	}
 }
 
