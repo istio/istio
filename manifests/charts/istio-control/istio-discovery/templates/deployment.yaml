@@ -44,7 +44,7 @@ spec:
         {{- else }}
         istio: pilot
         {{- end }}
-        {{- range $key, $val := .Values.pilot.pilotLabels }}
+        {{- range $key, $val := .Values.pilot.selectorLabels }}
         {{ $key }}: "{{ $val }}"
         {{- end }}
       annotations:
