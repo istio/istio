@@ -411,8 +411,9 @@ func TestReadSignedCertificate(t *testing.T) {
 		secretName      string
 		secretNameSpace string
 
-		invalidCert bool
-		expectFail  bool
+		invalidCert     bool
+		expectFail      bool
+		certificateData []byte
 	}{
 		"read signed cert should succeed": {
 			gracePeriodRatio:  0.6,
@@ -424,6 +425,7 @@ func TestReadSignedCertificate(t *testing.T) {
 			secretNameSpace:   "mock-secret-namespace",
 			invalidCert:       false,
 			expectFail:        false,
+			certificateData:   []byte(exampleIssuedCert),
 		},
 		"read invalid signed cert should fail": {
 			gracePeriodRatio:  0.6,
@@ -435,30 +437,31 @@ func TestReadSignedCertificate(t *testing.T) {
 			secretNameSpace:   "mock-secret-namespace",
 			invalidCert:       true,
 			expectFail:        true,
+			certificateData:   []byte("invalid-cert"),
+		},
+		"read empty signed cert should fail": {
+			gracePeriodRatio:  0.6,
+			k8sCaCertFile:     "./test-data/example-ca-cert.pem",
+			dnsNames:          []string{"foo"},
+			secretNames:       []string{"istio.webhook.foo"},
+			serviceNamespaces: []string{"foo.ns"},
+			secretName:        "mock-secret",
+			secretNameSpace:   "mock-secret-namespace",
+			invalidCert:       true,
+			expectFail:        true,
+			certificateData:   []byte(""),
 		},
 	}
 
 	for _, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		var csr *cert.CertificateSigningRequest
-		if tc.invalidCert {
-			csr = &cert.CertificateSigningRequest{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "domain-cluster.local-ns--secret-mock-secret",
-				},
-				Status: cert.CertificateSigningRequestStatus{
-					Certificate: []byte("invalid-cert"),
-				},
-			}
-		} else {
-			csr = &cert.CertificateSigningRequest{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "domain-cluster.local-ns--secret-mock-secret",
-				},
-				Status: cert.CertificateSigningRequestStatus{
-					Certificate: []byte(exampleIssuedCert),
-				},
-			}
+		csr := &cert.CertificateSigningRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "domain-cluster.local-ns--secret-mock-secret",
+			},
+			Status: cert.CertificateSigningRequestStatus{
+				Certificate: tc.certificateData,
+			},
 		}
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
