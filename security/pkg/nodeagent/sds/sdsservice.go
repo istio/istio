@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/cafile"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
@@ -44,9 +45,8 @@ var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
 type sdsservice struct {
 	st security.SecretManager
 
-	XdsServer  *xds.DiscoveryServer
-	stop       chan struct{}
-	rootCaPath string
+	XdsServer *xds.DiscoveryServer
+	stop      chan struct{}
 }
 
 // Assert we implement the generator interface
@@ -91,8 +91,6 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 		stop: make(chan struct{}),
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
-
-	ret.rootCaPath = options.CARootPath
 
 	if options.FileMountedCerts {
 		return ret
@@ -148,7 +146,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath))
+		res := util.MessageToAny(toEnvoySecret(secret, cafile.CACertFilePath))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,

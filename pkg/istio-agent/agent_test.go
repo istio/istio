@@ -181,7 +181,6 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, caRootCert)
 			a.Security.FileMountedCerts = true
-			a.Security.CARootPath = security.GetOSRootFilePath()
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
@@ -465,8 +464,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		ServiceAccount:    "sa",
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in
 		// our CI, causing flakes. We use ECC as the default to speed this up.
-		ECCSigAlg:  string(pkiutil.EcdsaSigAlg),
-		CARootPath: security.CACertFilePath,
+		ECCSigAlg: string(pkiutil.EcdsaSigAlg),
 	}
 	proxy := &model.Proxy{
 		ID:          "pod1.fake-namespace",

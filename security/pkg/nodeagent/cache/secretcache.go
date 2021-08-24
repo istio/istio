@@ -27,6 +27,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
 
+	"istio.io/istio/pkg/cafile"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
@@ -80,9 +81,6 @@ const (
 // would not be helpful, as all we can do is re-read the same file).
 type SecretManagerClient struct {
 	caClient security.Client
-
-	// Ensures CARootPath can change in configOptions without collision
-	caRootPathMutex sync.Mutex
 
 	// configOptions includes all configurable params for the cache.
 	configOptions *security.Options
@@ -244,7 +242,6 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
 	cacheLog.Debugf("generate secret %q", resourceName)
-	sc.SetCARootPath(security.CACertFilePath)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -497,7 +494,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			sc.addFileWatcher(cf.CertificatePath, resourceName)
 		}
 	case resourceName == security.FileRootSystemCACert:
-		cfg, ok := security.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
+		cfg, ok := security.SdsCertificateConfigFromResourceName(cafile.CACertFilePath)
 		sdsFromFile = ok
 		if ok && cfg.IsRootCertificate() {
 			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, resourceName, false); err == nil {
@@ -746,19 +743,4 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
 	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
-}
-
-// GetCARootPath locks and returns the CARootPath
-func (sc *SecretManagerClient) GetCARootPath() string {
-	sc.caRootPathMutex.Lock()
-	defer sc.caRootPathMutex.Unlock()
-	caRootPath := sc.configOptions.CARootPath
-	return caRootPath
-}
-
-// SetCARootPath locks and sets the CARootPath
-func (sc *SecretManagerClient) SetCARootPath(caRootPath string) {
-	sc.caRootPathMutex.Lock()
-	defer sc.caRootPathMutex.Unlock()
-	sc.configOptions.CARootPath = caRootPath
 }

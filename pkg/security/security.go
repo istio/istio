@@ -69,13 +69,6 @@ const (
 	FileRootSystemCACert = "file-root:system"
 )
 
-// CACertFilePath stores the OS CA File Path for future use
-var CACertFilePath = ""
-
-func init() {
-	CACertFilePath = GetOSRootFilePath()
-}
-
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
@@ -202,9 +195,6 @@ type Options struct {
 	// Delay in reading certificates from file after the change is detected. This is useful in cases
 	// where the write operation of key and cert take longer.
 	FileDebounceDuration time.Duration
-
-	// Root Cert generated
-	CARootPath string
 }
 
 // TokenManager contains methods for generating token.
