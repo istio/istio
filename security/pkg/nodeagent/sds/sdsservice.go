@@ -34,9 +34,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/cafile"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/pkg/log"
 )
 

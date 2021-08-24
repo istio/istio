@@ -27,12 +27,12 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/fsnotify/fsnotify"
 
-	"istio.io/istio/pkg/cafile"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/monitoring"
+	"istio.io/istio/security/pkg/nodeagent/cafile"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	istiolog "istio.io/pkg/log"
