@@ -19,7 +19,7 @@ spec:
       resource:
         name: cpu
         target:
-          averageUtilization: {{ .Values.cpu.targetAverageUtilization }}
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
           type: Utilization
     {{- end }}
 

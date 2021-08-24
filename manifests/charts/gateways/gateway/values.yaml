@@ -53,11 +53,16 @@ autoscaling:
   enabled: true
   minReplicas: 1
   maxReplicas: 5
-  cpu:
-    targetAverageUtilization: 80
+  targetCPUUtilizationPercentage: 80
 
 # Pod environment variables
 env: []
+
+# Labels to apply to all resources
+labels: {}
+
+# Annotations to apply to all resources
+annotations: {}
 
 nodeSelector: {}
 
