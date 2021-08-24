@@ -59,7 +59,7 @@ func TestZeroAttemptsShouldReturnNilPolicy(t *testing.T) {
 func TestRetryWithAllFieldsSet(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create a route with a retry policy with zero attempts configured.
+	// Create a route with a retry policy with all fields configured.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
 			Attempts:      2,
@@ -82,7 +82,7 @@ func TestRetryWithAllFieldsSet(t *testing.T) {
 func TestRetryOnWithEmptyParts(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create a route with a retry policy with zero attempts configured.
+	// Create a route with a retry policy with empty retry conditions configured.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
 			// Explicitly not retrying.
@@ -97,10 +97,28 @@ func TestRetryOnWithEmptyParts(t *testing.T) {
 	g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{}))
 }
 
+func TestRetryOnWithRetriableStatusCodes(t *testing.T) {
+	g := NewWithT(t)
+
+	// Create a route with a retry policy with retriable status code.
+	route := networking.HTTPRoute{
+		Retries: &networking.HTTPRetry{
+			// Explicitly not retrying.
+			Attempts: 2,
+			RetryOn:  "gateway-error,retriable-status-codes,503",
+		},
+	}
+
+	policy := retry.ConvertPolicy(route.Retries)
+	g.Expect(policy).To(Not(BeNil()))
+	g.Expect(policy.RetryOn).To(Equal("gateway-error,retriable-status-codes"))
+	g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{503}))
+}
+
 func TestRetryOnWithWhitespace(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create a route with a retry policy with zero attempts configured.
+	// Create a route with a retry policy with retryOn having white spaces.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
 			// Explicitly not retrying.
@@ -118,7 +136,7 @@ func TestRetryOnWithWhitespace(t *testing.T) {
 func TestRetryOnContainingStatusCodes(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create a route with a retry policy with zero attempts configured.
+	// Create a route with a retry policy with status codes.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
 			Attempts: 2,
@@ -128,14 +146,14 @@ func TestRetryOnContainingStatusCodes(t *testing.T) {
 
 	policy := retry.ConvertPolicy(route.Retries)
 	g.Expect(policy).To(Not(BeNil()))
-	g.Expect(policy.RetryOn).To(Equal("some,fake,5xx,conditions"))
+	g.Expect(policy.RetryOn).To(Equal("some,fake,5xx,conditions,retriable-status-codes"))
 	g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{404, 503}))
 }
 
 func TestRetryOnWithInvalidStatusCodesShouldAddToRetryOn(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create a route with a retry policy with zero attempts configured.
+	// Create a route with a retry policy with invalid status codes.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
 			Attempts: 2,
@@ -152,7 +170,7 @@ func TestRetryOnWithInvalidStatusCodesShouldAddToRetryOn(t *testing.T) {
 func TestMissingRetryOnShouldReturnDefaults(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create a route with a retry policy with zero attempts configured.
+	// Create a route with a retry policy with two attempts configured.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
 			Attempts: 2,
@@ -168,7 +186,7 @@ func TestMissingRetryOnShouldReturnDefaults(t *testing.T) {
 func TestMissingPerTryTimeoutShouldReturnNil(t *testing.T) {
 	g := NewWithT(t)
 
-	// Create a route with a retry policy with zero attempts configured.
+	// Create a route with a retry policy without per try timeout.
 	route := networking.HTTPRoute{
 		Retries: &networking.HTTPRetry{
 			Attempts: 2,
