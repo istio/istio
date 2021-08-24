@@ -14,13 +14,15 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{- define "gateway.labels" -}}
-{{.Values.labels | toYaml}}
 helm.sh/chart: {{ include "gateway.chart" . }}
 {{ include "gateway.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- range $key, $val := .Values.labels }}
+{{ $key }}: {{ $val | quote }}
+{{- end }}
 {{- end }}
 
 {{- define "gateway.selectorLabels" -}}
@@ -31,7 +33,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{- define "gateway.annotations" -}}
-{{.Values.annotations | toYaml}}
+{{- range $key, $val := .Values.annotations }}
+{{ $key }}: {{ $val | quote }}
+{{- end }}
 {{- end }}
 
 {{- define "gateway.serviceAccountName" -}}
