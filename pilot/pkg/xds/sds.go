@@ -222,9 +222,6 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			log.Warnf("unknown credential type %q", r.Type)
 			pilotSDSCertificateErrors.Increment()
 		}
-		if verified || (sameNamespace && isAuthorized()) {
-			allowedResources = append(allowedResources, r)
-		}
 	}
 
 	// If we filtered any out, report an error. We aggregate errors in one place here, rather than in the loop,

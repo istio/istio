@@ -94,6 +94,12 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 		}
 		namespace := split[0]
 		name := split[1]
+		if len(namespace) == 0 {
+			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected namespace", resourceName)
+		}
+		if len(name) == 0 {
+			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected name", resourceName)
+		}
 		return SecretResource{Type: KubernetesGatewaySecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster}, nil
 	}
 	return SecretResource{}, fmt.Errorf("unknown resource type: %v", resourceName)

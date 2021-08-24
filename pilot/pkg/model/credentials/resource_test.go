@@ -69,6 +69,18 @@ func TestParseResourceName(t *testing.T) {
 			err:              true,
 		},
 		{
+			name:             "kubernetes-gateway with empty namespace",
+			resource:         "kubernetes-gateway:///cert",
+			defaultNamespace: "default",
+			err:              true,
+		},
+		{
+			name:             "kubernetes-gateway with empty name",
+			resource:         "kubernetes-gateway://ns/",
+			defaultNamespace: "default",
+			err:              true,
+		},
+		{
 			name:             "plain",
 			resource:         "cert",
 			defaultNamespace: "default",
