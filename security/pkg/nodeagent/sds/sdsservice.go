@@ -146,7 +146,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret, cafile.CACertFilePath))
+		res := util.MessageToAny(toEnvoySecret(secret))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -201,14 +201,14 @@ func (s *sdsservice) Close() {
 }
 
 // toEnvoySecret converts a security.SecretItem to an Envoy tls.Secret
-func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
+func toEnvoySecret(s *security.SecretItem) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
 	cfg := security.SdsCertificateConfig{}
 	ok := false
 	if s.ResourceName == security.FileRootSystemCACert {
-		cfg, ok = security.SdsCertificateConfigFromResourceName(caRootPath)
+		cfg, ok = security.SdsCertificateConfigFromResourceName(cafile.CACertFilePath)
 	} else {
 		cfg, ok = security.SdsCertificateConfigFromResourceName(s.ResourceName)
 	}
