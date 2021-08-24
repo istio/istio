@@ -99,6 +99,11 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
+	profile := manifest.GetValueForSetFlag(mgArgs.set, "profile")
+	if len(mgArgs.inFilename) == 0 && profile == "" || profile == name.DefaultProfileName {
+		mgArgs.inFilename = []string{"./manifests/profiles/default.yaml"}
+	}
+
 	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
