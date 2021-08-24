@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bookinfo
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bookinfo2
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+# Deployment should not generate a warning: although two services using that deployment
+# using the same port, they are in different namespaces.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conflicting-ports
+  namespace: bookinfo
+  labels:
+    app: conflicting-ports
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: conflicting-ports
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: conflicting-ports
+        version: v1
+    spec:
+      serviceAccountName: bookinfo-details
+      containers:
+        - name: details
+          image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conflicting-ports-1
+  namespace: bookinfo
+  labels:
+    app: conflicting-ports
+spec:
+  ports:
+    - port: 9080
+      name: tcp
+      targetPort: 9080
+      protocol: TCP
+  selector:
+    app: conflicting-ports
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conflicting-ports-1
+  namespace: bookinfo2
+  labels:
+    app: conflicting-ports
+spec:
+  ports:
+    - port: 9090
+      name: http
+      targetPort: 9080
+      protocol: HTTP
+  selector:
+    app: conflicting-ports
