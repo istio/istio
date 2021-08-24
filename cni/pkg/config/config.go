@@ -121,6 +121,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
 	b.WriteString("CNINetworkConfigFile: " + c.CNINetworkConfigFile + "\n")
 	b.WriteString("CNINetworkConfig: " + c.CNINetworkConfig + "\n")
+	b.WriteString("CNIFileWatchEnabled: " + fmt.Sprint(c.CNIFileWatchEnabled) + "\n")
 
 	b.WriteString("LogLevel: " + c.LogLevel + "\n")
 	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")

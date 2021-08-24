@@ -16,7 +16,6 @@ cni:
   cniBinDir: /opt/cni/bin
   cniConfDir: /etc/cni/net.d
   cniConfFileName: ""
-  cniFileWatchEnabled: true
 
   excludeNamespaces:
     - istio-system
