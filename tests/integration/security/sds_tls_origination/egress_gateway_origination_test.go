@@ -43,19 +43,17 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				credNameMissing = "tls-credential-not-created-cacert"
 			)
 
-			credentialA := sdstlsutil.TLSCredential{
+			credentialA := ingressutil.IngressCredential{
 				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
-			CredentialB := sdstlsutil.TLSCredential{
+			CredentialB := ingressutil.IngressCredential{
 				CaCert: sdstlsutil.FakeRoot,
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, []string{credName}, "SIMPLE", credentialA, false)
-			defer ingressutil.DeleteKubeSecret(t, []string{credName})
+			ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.TLS, credentialA, false)
 
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, []string{fakeCredName}, "SIMPLE", CredentialB, false)
-			defer ingressutil.DeleteKubeSecret(t, []string{fakeCredName})
+			ingressutil.CreateIngressKubeSecret(t, fakeCredName, ingressutil.TLS, CredentialB, false)
 
 			apps := &sdstlsutil.EchoDeployments{}
 			sdstlsutil.SetupEcho(t, t, apps)
@@ -142,48 +140,37 @@ func TestMutualTlsOrigination(t *testing.T) {
 				simpleCredName     = "tls-credential-simple-cacert"
 			)
 
-			credentialASimple := sdstlsutil.TLSCredential{
-				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
-			}
-
-			credentialAGeneric := sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
-				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
-				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
-			}
-
-			credentialANonGeneric := sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
-				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
-				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
-			}
-			// Configured with an invalid ClientCert
-			credentialBCert := sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.FakeCert,
-				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
-				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
-			}
-			// Configured with an invalid ClientCert and PrivateKey
-			credentialBCertAndKey := sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.FakeCert,
-				PrivateKey: sdstlsutil.FakeKey,
-				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
-			}
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
-			defer ingressutil.DeleteKubeSecret(t, []string{credNameGeneric})
 
-			sdstlsutil.CreateKubeSecret(t, []string{credNameNotGeneric}, "MUTUAL", credentialANonGeneric, true)
-			defer ingressutil.DeleteKubeSecret(t, []string{credNameNotGeneric})
+			ingressutil.CreateIngressKubeSecret(t, credNameGeneric, ingressutil.Mtls, ingressutil.IngressCredential{
+				Certificate: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
+				PrivateKey:  sdstlsutil.MustReadCert(t, "key.pem"),
+				CaCert:      sdstlsutil.MustReadCert(t, "root-cert.pem"),
+			}, false)
 
-			sdstlsutil.CreateKubeSecret(t, []string{fakeCredNameA}, "MUTUAL", credentialBCert, false)
-			defer ingressutil.DeleteKubeSecret(t, []string{fakeCredNameA})
+			ingressutil.CreateIngressKubeSecret(t, credNameNotGeneric, ingressutil.Mtls, ingressutil.IngressCredential{
+				Certificate: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
+				PrivateKey:  sdstlsutil.MustReadCert(t, "key.pem"),
+				CaCert:      sdstlsutil.MustReadCert(t, "root-cert.pem"),
+			}, true)
 
-			sdstlsutil.CreateKubeSecret(t, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
-			defer ingressutil.DeleteKubeSecret(t, []string{fakeCredNameB})
+			// Configured with an invalid ClientCert
+			ingressutil.CreateIngressKubeSecret(t, fakeCredNameA, ingressutil.Mtls, ingressutil.IngressCredential{
+				Certificate: sdstlsutil.FakeCert,
+				PrivateKey:  sdstlsutil.MustReadCert(t, "key.pem"),
+				CaCert:      sdstlsutil.MustReadCert(t, "root-cert.pem"),
+			}, false)
 
-			sdstlsutil.CreateKubeSecret(t, []string{simpleCredName}, "SIMPLE", credentialASimple, false)
-			defer ingressutil.DeleteKubeSecret(t, []string{simpleCredName})
+			// Configured with an invalid ClientCert and PrivateKey
+			ingressutil.CreateIngressKubeSecret(t, fakeCredNameB, ingressutil.Mtls, ingressutil.IngressCredential{
+				Certificate: sdstlsutil.FakeCert,
+				PrivateKey:  sdstlsutil.FakeKey,
+				CaCert:      sdstlsutil.MustReadCert(t, "root-cert.pem"),
+			}, false)
+
+			ingressutil.CreateIngressKubeSecret(t, simpleCredName, ingressutil.TLS, ingressutil.IngressCredential{
+				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
+			}, false)
 
 			apps := &sdstlsutil.EchoDeployments{}
 			sdstlsutil.SetupEcho(t, t, apps)

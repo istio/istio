@@ -19,7 +19,6 @@ package sdstlsutil
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"html/template"
 	"os"
@@ -27,8 +26,6 @@ import (
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -36,10 +33,8 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -70,105 +65,6 @@ func MustReadCert(t test.Failer, f string) string {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
 	return string(b)
-}
-
-type TLSCredential struct {
-	PrivateKey string
-	ClientCert string
-	CaCert     string
-}
-
-const (
-	// The ID/name for the certificate chain in kubernetes tls secret.
-	tlsScrtCert = "tls.crt"
-	// The ID/name for the k8sKey in kubernetes tls secret.
-	tlsScrtKey = "tls.key"
-	// The ID/name for the CA certificate in kubernetes tls secret
-	tlsScrtCaCert = "ca.crt"
-	// The ID/name for the certificate chain in kubernetes generic secret.
-	genericScrtCert = "cert"
-	// The ID/name for the private key in kubernetes generic secret.
-	genericScrtKey = "key"
-	// The ID/name for the CA certificate in kubernetes generic secret.
-	genericScrtCaCert = "cacert"
-)
-
-// CreateKubeSecret reads credential names from credNames and key/cert from TLSCredential,
-// and creates K8s secrets for gateway.
-// nolint: interfacer
-func CreateKubeSecret(ctx framework.TestContext, credNames []string,
-	credentialType string, egressCred TLSCredential, isNotGeneric bool) {
-	ctx.Helper()
-	// Get namespace for gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(ctx, ctx)
-	systemNS := namespace.ClaimOrFail(ctx, ctx, istioCfg.SystemNamespace)
-
-	if len(credNames) == 0 {
-		ctx.Log("no credential names are specified, skip creating secret")
-		return
-	}
-	// Create Kubernetes secret for gateway
-	cluster := ctx.Clusters().Default()
-	for _, cn := range credNames {
-		secret := createSecret(credentialType, cn, systemNS.Name(), egressCred, isNotGeneric)
-		_, err := cluster.CoreV1().Secrets(systemNS.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-		if err != nil {
-			ctx.Fatalf("Failed to create secret (error: %s)", err)
-		}
-	}
-	// Check if Kubernetes secret is ready
-	retry.UntilSuccessOrFail(ctx, func() error {
-		for _, cn := range credNames {
-			_, err := cluster.CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("secret %v not found: %v", cn, err)
-			}
-		}
-		return nil
-	}, retry.Timeout(time.Second*5))
-}
-
-// createSecret creates a kubernetes secret which stores CA cert for SIMPLE TLS.
-// For mTLS gateway, createSecret adds client cert and key into the secret object.
-func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotGeneric bool) *v1.Secret {
-	if credentialType == "MUTUAL" {
-		if isNotGeneric {
-			return &v1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cn,
-					Namespace: ns,
-				},
-				Data: map[string][]byte{
-					tlsScrtCert:   []byte(ic.ClientCert),
-					tlsScrtKey:    []byte(ic.PrivateKey),
-					tlsScrtCaCert: []byte(ic.CaCert),
-				},
-			}
-		}
-		return &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cn,
-				Namespace: ns,
-			},
-			Data: map[string][]byte{
-				genericScrtCert:   []byte(ic.ClientCert),
-				genericScrtKey:    []byte(ic.PrivateKey),
-				genericScrtCaCert: []byte(ic.CaCert),
-			},
-		}
-	}
-	if isNotGeneric {
-		return &v1.Secret{}
-	}
-	return &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cn,
-			Namespace: ns,
-		},
-		Data: map[string][]byte{
-			genericScrtCaCert: []byte(ic.CaCert),
-		},
-	}
 }
 
 // SetupEcho creates two namespaces client and server. It also brings up echo instances server and
