@@ -28,71 +28,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
-	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 )
-
-func TestParseResourceName(t *testing.T) {
-	cases := []struct {
-		name             string
-		resource         string
-		defaultNamespace string
-		expected         SecretResource
-		err              bool
-	}{
-		{
-			name:             "simple",
-			resource:         "kubernetes://cert",
-			defaultNamespace: "default",
-			expected: SecretResource{
-				Type:         authnmodel.KubernetesSecretType,
-				Name:         "cert",
-				Namespace:    "default",
-				ResourceName: "kubernetes://cert",
-				Cluster:      "cluster",
-			},
-		},
-		{
-			name:             "with namespace",
-			resource:         "kubernetes://namespace/cert",
-			defaultNamespace: "default",
-			expected: SecretResource{
-				Type:         authnmodel.KubernetesSecretType,
-				Name:         "cert",
-				Namespace:    "namespace",
-				ResourceName: "kubernetes://namespace/cert",
-				Cluster:      "cluster",
-			},
-		},
-		{
-			name:             "plain",
-			resource:         "cert",
-			defaultNamespace: "default",
-			err:              true,
-		},
-		{
-			name:             "non kubernetes",
-			resource:         "vault://cert",
-			defaultNamespace: "default",
-			err:              true,
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseResourceName(tt.resource, tt.defaultNamespace, "cluster")
-			if tt.err != (err != nil) {
-				t.Fatalf("expected err=%v but got err=%v", tt.err, err)
-			}
-			if got != tt.expected {
-				t.Fatalf("want %+v, got %+v", tt.expected, got)
-			}
-		})
-	}
-}
 
 func makeSecret(name string, data map[string]string) *corev1.Secret {
 	bdata := map[string][]byte{}

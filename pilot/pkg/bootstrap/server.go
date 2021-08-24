@@ -535,7 +535,7 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 						Reason: []model.TriggerReason{model.SecretTrigger},
 					})
 				})
-				s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+				s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache, s.clusterID)
 				s.secretsController = sc
 				return nil
 			})

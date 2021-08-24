@@ -197,7 +197,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		kubesecrets.DisableAuthorizationForTest(defaultKubeClient.Kube().(*fake.Clientset))
 	}
 	sc := kubesecrets.NewMulticluster(defaultKubeClient, "", "", stop)
-	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache)
+	s.Generators[v3.SecretType] = NewSecretGen(sc, s.Cache, "")
 	defaultKubeClient.RunAndWait(stop)
 
 	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{

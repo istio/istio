@@ -22,10 +22,12 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/monitoring"
 )
 
@@ -119,7 +121,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // MergeGateways combines multiple gateways targeting the same workload into a single logical Gateway.
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
-func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy) *MergedGateway {
+func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
 	mergedServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
@@ -157,8 +159,17 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy) *MergedGateway
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
-			if cn := s.GetTls().GetCredentialName(); proxy.VerifiedIdentity != nil && gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && cn != "" {
-				verifiedCertificateReferences.Insert(cn)
+			cn := s.GetTls().GetCredentialName()
+			if cn != "" && proxy.VerifiedIdentity != nil {
+				rn := credentials.ToResourceName(cn)
+				parse, _ := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
+				if gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace && parse.Namespace == proxy.VerifiedIdentity.Namespace {
+					// Same namespace is always allowed
+					verifiedCertificateReferences.Insert(rn)
+				} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
+					// Explicitly allowed by some policy
+					verifiedCertificateReferences.Insert(rn)
+				}
 			}
 			for _, resolvedPort := range resolvePorts(s.Port.Number, gwAndInstance.instances, gwAndInstance.legacyGatewaySelector) {
 				routeName := gatewayRDSRouteName(s, resolvedPort, gatewayConfig)

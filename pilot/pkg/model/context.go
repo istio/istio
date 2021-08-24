@@ -1054,5 +1054,11 @@ func (node *Proxy) IsVM() bool {
 
 type GatewayController interface {
 	ConfigStoreCache
+	// Recompute updates the internal state of the gateway controller for a given input. This should be
+	// called before any List/Get calls if the state has changed
 	Recompute(GatewayContext) error
+	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
+	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
+	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
+	SecretAllowed(resourceName string, namespace string) bool
 }

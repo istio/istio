@@ -27,6 +27,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -280,7 +281,7 @@ func convertBackendPolicy(r *KubernetesResources, obj config.Config) []config.Co
 
 	var tlsSettings *istio.ClientTLSSettings
 	if bp.TLS != nil && bp.TLS.CertificateAuthorityRef != nil {
-		cred, err := buildSecretReference(*bp.TLS.CertificateAuthorityRef)
+		cred, err := buildSecretReference(*bp.TLS.CertificateAuthorityRef, "")
 		if err != nil {
 			backendConditions[BackendPolicyAdmitted].error = err
 			return result
@@ -1110,7 +1111,7 @@ func buildListener(obj config.Config, l k8s.Listener, listenerIndex int) (*istio
 		},
 	}
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
-	tls, err := buildTLS(l.TLS)
+	tls, err := buildTLS(l.TLS, obj.Namespace)
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionReady)].error = &ConfigError{
 			Reason:  string(k8s.ListenerReasonInvalid),
@@ -1162,7 +1163,7 @@ func (r *KubernetesResources) fetchMeshRoutes() []RouteKey {
 	return keys
 }
 
-func buildTLS(tls *k8s.GatewayTLSConfig) (*istio.ServerTLSSettings, *ConfigError) {
+func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -1185,7 +1186,7 @@ func buildTLS(tls *k8s.GatewayTLSConfig) (*istio.ServerTLSSettings, *ConfigError
 			// This is required in the API, should be rejected in validation
 			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "invalid nil tls certificate ref"}
 		}
-		cred, err := buildSecretReference(*tls.CertificateRef)
+		cred, err := buildSecretReference(*tls.CertificateRef, namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -1196,11 +1197,15 @@ func buildTLS(tls *k8s.GatewayTLSConfig) (*istio.ServerTLSSettings, *ConfigError
 	return out, nil
 }
 
-func buildSecretReference(ref k8s.LocalObjectReference) (string, *ConfigError) {
+func buildSecretReference(ref k8s.LocalObjectReference, namespace string) (string, *ConfigError) {
 	if !emptyOrEqual(ref.Group, gvk.Secret.CanonicalGroup()) || !emptyOrEqual(ref.Kind, gvk.Secret.Kind) {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", ref)}
 	}
-	return ref.Name, nil
+	if namespace == "" {
+		// Legacy reference, used only by BackendPolicy. BackendPolicy is removed in v1alpha2 so this is extremely short lived code.
+		return ref.Name, nil
+	}
+	return credentials.ToKubernetesGatewayResource(namespace, ref.Name), nil
 }
 
 func buildHostnameMatch(hostname *k8s.Hostname) []string {
