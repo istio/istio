@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 34758
+releaseNotes:
+  - |
+    **Fixed** `istioctl manifest generate` has the inconsistent behavior when using the default profile.
