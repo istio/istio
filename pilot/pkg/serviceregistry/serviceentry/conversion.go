@@ -53,7 +53,7 @@ type HostAddress struct {
 //
 // See convertServices() for the reverse conversion, used by Istio to handle ServiceEntry configs.
 // See kube.ConvertService for the conversion from K8S to internal Service.
-func ServiceToServiceEntry(svc *model.Service) *config.Config {
+func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Config {
 	gvk := gvk.ServiceEntry
 	se := &networking.ServiceEntry{
 		// Host is fully qualified: name, namespace, domainSuffix
@@ -63,7 +63,7 @@ func ServiceToServiceEntry(svc *model.Service) *config.Config {
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
 		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
 		//
-		Addresses: []string{svc.Address},
+		Addresses: []string{svc.GetServiceAddressForProxy(proxy)},
 
 		// Location:             0,
 
