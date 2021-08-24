@@ -63,6 +63,10 @@ Deploying a Gateway to be used as a [Multi-network Gateway](https://istio.io/lat
 ```yaml
 labels:
   topology.istio.io/network: network-1
+env:
+# traffic through this gateway should be routed inside the network
+- name: ISTIO_META_REQUESTED_NETWORK_VIEW
+  value: network-1
 service:
   ports:
   - name: status-port
