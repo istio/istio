@@ -79,7 +79,6 @@ func ApplyLocalityLBSetting(
 			applyPriorityFailover(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
 			return
 		}
-		// TODO: apply failover only when it is explicitly specified
 		applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 	}
 }
