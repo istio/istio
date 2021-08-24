@@ -74,6 +74,8 @@ message CNIConfig {
   CNITaintConfig taint  = 15;
 
   ResourceQuotas resource_quotas = 16;
+
+  Resources resources = 17;
 }
 
 
