@@ -641,7 +641,7 @@ message PilotConfig {
   // See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   TypeMapStringInterface deploymentLabels = 14;
 
-  TypeMapStringInterface pilotLabels = 36;
+  TypeMapStringInterface selectorLabels = 36;
 
   // Configuration settings passed to Pilot as a ConfigMap.
   //

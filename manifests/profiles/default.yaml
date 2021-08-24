@@ -133,7 +133,7 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
-      pilotLabels: {}
+      selectorLabels: {}
       configMap: true
 
     telemetry:
