@@ -44,10 +44,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 	// remote gateways (if any)
 	filtered := make([]*LocLbEndpointsAndOptions, 0)
 
-	// Scale all weights by the maximum number of gateways that might appear for a network.
+	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
 	// network gateways, increasing reliability of the endpoint.
-	scaleFactor := b.push.NetworkManager().GetMaxGatewaysPerNetwork()
+	scaleFactor := b.push.NetworkManager().GetLCM(b.network)
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -101,31 +101,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			}
 
 			// Apply the weight for this endpoint to the network gateways.
-			remainingWeight := weight
-			for remainingWeight > 0 {
-				// Spread the remaining weight across the gateways.
-				weightPerGateway := remainingWeight / uint32(len(gateways))
-				if weightPerGateway == 0 {
-					// There are more gateways than weight. Just apply 1 to each gateway until all the
-					// weight has been exhausted.
-					weightPerGateway = 1
-				}
-
-				for _, gateway := range gateways {
-					// Add the portion of weight to this gateway.
-					if weightPerGateway > remainingWeight {
-						weightPerGateway = remainingWeight
-					}
-					gatewayWeights[*gateway] += weightPerGateway
-
-					// Update the remaining weight.
-					remainingWeight -= weightPerGateway
-					if remainingWeight == 0 {
-						// The weight for this endpoint has been exhausted. We're done.
-						break
-					}
-				}
-			}
+			splitWeightAmongGateways(weight, gateways, gatewayWeights)
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
@@ -201,6 +177,20 @@ func (b *EndpointBuilder) scaleEndpointLBWeight(ep *endpoint.LbEndpoint, scaleFa
 		weight = ep.GetLoadBalancingWeight().Value * scaleFactor
 	}
 	return weight
+}
+
+// Apply the weight for this endpoint to the network gateways.
+func splitWeightAmongGateways(weight uint32, gateways []*model.NetworkGateway, gatewayWeights map[model.NetworkGateway]uint32) {
+	// Spread the remaining weight across the gateways.
+	weightPerGateway := weight / uint32(len(gateways))
+	remain := weight % uint32(len(gateways))
+	for i, gateway := range gateways {
+		gatewayWeights[*gateway] += weightPerGateway
+		if uint32(i) < remain {
+			// This should not happen, just in case
+			gatewayWeights[*gateway]++
+		}
+	}
 }
 
 // EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at
