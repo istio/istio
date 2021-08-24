@@ -78,6 +78,7 @@ func TestIptables(t *testing.T) {
 				cfg.EnableInboundIPv6 = false
 				cfg.ProxyGID = "1337"
 				cfg.ProxyUID = "1337"
+				cfg.ExcludeInterfaces = "not-istio-nic"
 			},
 		},
 		{
@@ -215,7 +216,7 @@ func TestIptables(t *testing.T) {
 			},
 		},
 		{
-			"exclude-nic",
+			"basic-exclude-nic",
 			func(cfg *config.Config) {
 				cfg.ExcludeInterfaces = "not-istio-nic"
 			},
