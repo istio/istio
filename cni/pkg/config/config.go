@@ -39,8 +39,8 @@ type InstallConfig struct {
 	CNINetworkConfigFile string
 	// CNI config template string
 	CNINetworkConfig string
-	// Whether to watch and reinstall CNI configuration and binary files
-	CNIFileWatchEnabled bool
+	// Whether to reinstall CNI configuration and binary files
+	CNIEnableReinstall bool
 
 	// Logging level
 	LogLevel string
@@ -121,7 +121,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
 	b.WriteString("CNINetworkConfigFile: " + c.CNINetworkConfigFile + "\n")
 	b.WriteString("CNINetworkConfig: " + c.CNINetworkConfig + "\n")
-	b.WriteString("CNIFileWatchEnabled: " + fmt.Sprint(c.CNIFileWatchEnabled) + "\n")
+	b.WriteString("CNIEnableReinstall: " + fmt.Sprint(c.CNIEnableReinstall) + "\n")
 
 	b.WriteString("LogLevel: " + c.LogLevel + "\n")
 	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")

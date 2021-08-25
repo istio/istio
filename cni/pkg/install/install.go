@@ -48,10 +48,7 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	}
 }
 
-// Run starts the installation process, verifies the configuration, then sleeps.
-// If an invalid configuration is detected, the installation process will restart to restore a valid state.
-func (in *Installer) Run(ctx context.Context) (err error) {
-install:
+func (in *Installer) install(ctx context.Context) (err error) {
 	if err = copyBinaries(
 		in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
 		in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
@@ -74,16 +71,29 @@ install:
 		return
 	}
 
-	if in.cfg.CNIFileWatchEnabled {
+	return
+}
+
+// Run starts the installation process, verifies the configuration, then sleeps.
+// If an invalid configuration is detected, the installation process will restart to restore a valid state.
+func (in *Installer) Run(ctx context.Context) (err error) {
+	if err = in.install(ctx); err != nil {
+		return
+	}
+
+	for {
 		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath, in.isReady); err != nil {
 			return
 		}
+
+		if in.cfg.CNIEnableReinstall {
+			if err = in.install(ctx); err != nil {
+				return
+			}
+		}
+
 		// Invalid config; pod set to "NotReady"
 		installLog.Info("Restarting...")
-		goto install
-	} else {
-		<-ctx.Done()
-		return ctx.Err()
 	}
 }
 
