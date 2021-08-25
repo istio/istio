@@ -151,10 +151,11 @@ func (s *ServiceAssociationAnalyzer) findMatchingServices(d *apps_v1.Deployment,
 
 	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
 		s := r.Message.(*core_v1.ServiceSpec)
+		ns := r.Metadata.FullName.Namespace.String()
 
 		sSelector := k8s_labels.SelectorFromSet(s.Selector)
 		pLabels := k8s_labels.Set(d.Spec.Template.Labels)
-		if sSelector.Matches(pLabels) {
+		if sSelector.Matches(pLabels) && d.Namespace == ns {
 			matchingSvcs = append(matchingSvcs, ServiceSpecWithName{r.Metadata.FullName.String(), s})
 		}
 
