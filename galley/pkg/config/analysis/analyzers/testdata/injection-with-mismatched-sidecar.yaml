@@ -76,3 +76,59 @@ spec:
   - image: docker.io/istio/proxyv2:1.3.0
     name: istio-proxy
 ---
+# Namespace 'revision-namespace' has istio injection enabled and label istio.io/rev=canary, so will be enforced.
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio.io/rev: canary
+  name: revision-namespace
+---
+# Revision-details-v1-pod-old is out of date and should get a warning.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: revision-details-v1-pod-old
+  namespace: revision-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0
+    name: istio-proxy
+---
+# Revision-details-v1-pod-new is up to date, and should be ignored.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  name: revision-details-v1-pod-new
+  namespace: revision-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v1:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.1
+    name: istio-proxy
+---
+# revision-details-v1-pod-overwritten-sidecar has a custom sidecar version injected and
+# therefore should not match the injector version.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: details
+  annotations:
+    sidecar.istio.io/proxyImage: docker.io/istio/proxyv2:1.3.0-prerelease
+  name: revision-details-v1-pod-overwritten-sidecar
+  namespace: revision-namespace
+spec:
+  containers:
+  - image: docker.io/istio/examples-bookinfo-details-v2:1.15.0
+    name: details
+  - image: docker.io/istio/proxyv2:1.3.0-prerelease
+    name: istio-proxy
+---
