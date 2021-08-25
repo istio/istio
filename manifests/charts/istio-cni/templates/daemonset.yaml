@@ -125,12 +125,11 @@ spec:
             - mountPath: /var/run/istio-cni
               name: cni-log-dir
           resources:
-            limits:
-              cpu: {{ default "200m" .Values.cni.resources.limits.cpu }}
-              memory: {{ default "128Mi" .Values.cni.resources.limits.memory }}
-            requests:
-              cpu: {{ default "100m" .Values.cni.resources.requests.cpu }}
-              memory: {{ default "64Mi" .Values.cni.resources.requests.memory }}
+{{- if .Values.cni.resources }}
+{{ toYaml .Values.cni.resources | trim | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{- end }}
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
 {{- if contains "/" .Values.cni.image }}

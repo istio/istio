@@ -48,12 +48,9 @@ cni:
     brokenPodLabelValue: "true"
 
   resources:
-    limits:
-      cpu: 200m
-      memory: 128Mi
     requests:
       cpu: 100m
-      memory: 64Mi
+      memory: 100Mi
 
   # Experimental taint controller for further race condition mitigation
   taint:
@@ -89,3 +86,9 @@ global:
   # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
   # - private-registry-key
+
+  # Default resources allocated
+  defaultResources:
+     requests:
+       cpu: 100m
+       memory: 100Mi
