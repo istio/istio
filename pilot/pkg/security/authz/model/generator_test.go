@@ -243,7 +243,9 @@ func TestGenerator(t *testing.T) {
 			value: "foo",
 			want: yamlPermission(t, `
          header:
-          exactMatch: foo
+          safeRegexMatch:
+            googleRe2: {}
+            regex: (?i)foo
           name: :authority`),
 		},
 		{

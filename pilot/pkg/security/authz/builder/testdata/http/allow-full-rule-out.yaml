@@ -10,14 +10,20 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: exact.com
                     name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)exact\.com
                 - header:
                     name: :authority
-                    suffixMatch: .suffix.com
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i).*\.suffix\.com
                 - header:
                     name: :authority
-                    prefixMatch: prefix.
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)prefix\..*
                 - header:
                     name: :authority
                     presentMatch: true
@@ -25,14 +31,20 @@ typedConfig:
                 orRules:
                   rules:
                   - header:
-                      exactMatch: not-exact.com
                       name: :authority
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i)not-exact\.com
                   - header:
                       name: :authority
-                      suffixMatch: .not-suffix.com
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i).*\.not-suffix\.com
                   - header:
                       name: :authority
-                      prefixMatch: not-prefix.
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i)not-prefix\..*
                   - header:
                       name: :authority
                       presentMatch: true
