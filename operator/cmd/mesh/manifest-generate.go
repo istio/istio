@@ -99,15 +99,6 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	inFileName := make([]string, 0)
-	for _, p := range mgArgs.inFilename {
-		if strings.Contains(p, fmt.Sprintf("%s.yaml", name.DefaultProfileName)) {
-			continue
-		}
-		inFileName = append(inFileName, p)
-	}
-	mgArgs.inFilename = inFileName
-
 	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err

@@ -56,6 +56,15 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if len(inFilename) == 0 {
+		t := translate.NewReverseTranslator()
+		mergedYAML, err = t.TranslateK8SfromValueToIOP(mergedYAML)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
+		}
+	}
+
 	mergedIOPS, err := unmarshalAndValidateIOP(mergedYAML, force, false, l)
 	if err != nil {
 		return nil, nil, err
