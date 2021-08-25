@@ -9,7 +9,7 @@ spec:
     istio: ingressgateway
   servers:
   - hosts:
-    - '*/testing-01.com'
+    - 'testing-01.com'
     port:
       name: http
       number: 80
