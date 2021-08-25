@@ -5,6 +5,10 @@ iptables -t mangle -N ISTIO_DIVERT
 iptables -t mangle -N ISTIO_TPROXY
 iptables -t mangle -N ISTIO_INBOUND
 iptables -t nat -N ISTIO_OUTPUT
+iptables -t nat -A PREROUTING -i not-istio-nic -j RETURN
+iptables -t nat -A OUTPUT -i not-istio-nic -j RETURN
+iptables -t mangle -A PREROUTING -i not-istio-nic -j RETURN
+iptables -t mangle -A OUTPUT -i not-istio-nic -j RETURN
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
 iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006

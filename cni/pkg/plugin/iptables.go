@@ -45,6 +45,7 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.ServiceCidr, rdrct.includeIPCidrs)
 	viper.Set(constants.InboundPorts, rdrct.includePorts)
 	viper.Set(constants.LocalExcludePorts, rdrct.excludeInboundPorts)
+	viper.Set(constants.ExcludeInterfaces, rdrct.excludeInterfaces)
 	viper.Set(constants.LocalOutboundPortsExclude, rdrct.excludeOutboundPorts)
 	viper.Set(constants.ServiceExcludeCidr, rdrct.excludeIPCidrs)
 	viper.Set(constants.KubeVirtInterfaces, rdrct.kubevirtInterfaces)
