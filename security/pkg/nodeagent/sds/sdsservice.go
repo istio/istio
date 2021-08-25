@@ -36,7 +36,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/pkg/log"
 )
 
@@ -45,8 +44,9 @@ var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
 type sdsservice struct {
 	st security.SecretManager
 
-	XdsServer *xds.DiscoveryServer
-	stop      chan struct{}
+	XdsServer  *xds.DiscoveryServer
+	stop       chan struct{}
+	rootCaPath string
 }
 
 // Assert we implement the generator interface
@@ -92,6 +92,8 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
 
+	ret.rootCaPath = options.CARootPath
+
 	if options.FileMountedCerts {
 		return ret
 	}
@@ -104,7 +106,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 		b := backoff.NewExponentialBackOff()
 		b.MaxElapsedTime = 0
 		for {
-			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
+			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName, ret.rootCaPath)
 			if err == nil {
 				break
 			}
@@ -116,7 +118,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 			}
 		}
 		for {
-			_, err := st.GenerateSecret(security.RootCertReqResourceName)
+			_, err := st.GenerateSecret(security.RootCertReqResourceName, ret.rootCaPath)
 			if err == nil {
 				break
 			}
@@ -135,7 +137,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 	resources := model.Resources{}
 	for _, resourceName := range resourceNames {
-		secret, err := s.st.GenerateSecret(resourceName)
+		secret, err := s.st.GenerateSecret(resourceName, s.rootCaPath)
 		if err != nil {
 			// Typically, in Istiod, we do not return an error for a failure to generate a resource
 			// However, here it makes sense, because we are generally streaming a single resource,
@@ -146,7 +148,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret))
+		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath))
 		resources = append(resources, &discovery.Resource{
 			Name:     resourceName,
 			Resource: res,
@@ -201,14 +203,14 @@ func (s *sdsservice) Close() {
 }
 
 // toEnvoySecret converts a security.SecretItem to an Envoy tls.Secret
-func toEnvoySecret(s *security.SecretItem) *tls.Secret {
+func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
 	cfg := security.SdsCertificateConfig{}
 	ok := false
 	if s.ResourceName == security.FileRootSystemCACert {
-		cfg, ok = security.SdsCertificateConfigFromResourceName(cafile.CACertFilePath)
+		cfg, ok = security.SdsCertificateConfigFromResourceName(caRootPath)
 	} else {
 		cfg, ok = security.SdsCertificateConfigFromResourceName(s.ResourceName)
 	}

@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	camock "istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
+	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/test/mock"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/tests/util/leak"
@@ -181,6 +182,7 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "key.pem")
 			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, caRootCert)
 			a.Security.FileMountedCerts = true
+			a.Security.CARootPath = cafile.CACertFilePath
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
@@ -464,7 +466,8 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		ServiceAccount:    "sa",
 		// Signing in 2048 bit RSA is extremely slow when running with -race enabled, sometimes taking 5s+ in
 		// our CI, causing flakes. We use ECC as the default to speed this up.
-		ECCSigAlg: string(pkiutil.EcdsaSigAlg),
+		ECCSigAlg:  string(pkiutil.EcdsaSigAlg),
+		CARootPath: cafile.CACertFilePath,
 	}
 	proxy := &model.Proxy{
 		ID:          "pod1.fake-namespace",

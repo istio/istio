@@ -195,6 +195,9 @@ type Options struct {
 	// Delay in reading certificates from file after the change is detected. This is useful in cases
 	// where the write operation of key and cert take longer.
 	FileDebounceDuration time.Duration
+
+	// Root Cert read from the OS
+	CARootPath string
 }
 
 // TokenManager contains methods for generating token.
@@ -258,7 +261,7 @@ type SecretManager interface {
 	// near expiry. It will constructs the SAN based on the token's 'sub' claim, expected to be in
 	// the K8S format. No other JWTs are currently supported due to client logic. If JWT is
 	// missing/invalid, the resourceName is used.
-	GenerateSecret(resourceName string) (*SecretItem, error)
+	GenerateSecret(resourceName string, caRootPath string) (*SecretItem, error)
 }
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.

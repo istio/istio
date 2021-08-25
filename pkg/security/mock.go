@@ -24,7 +24,6 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
-
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/pki/util"
@@ -44,14 +43,23 @@ func NewDirectSecretManager() *DirectSecretManager {
 	}
 }
 
-func (d *DirectSecretManager) GenerateSecret(resourceName string) (*SecretItem, error) {
+func (d *DirectSecretManager) GenerateSecret(resourceName string, caRootPath string) (*SecretItem, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	si, f := d.items[resourceName]
-	if !f {
-		return nil, fmt.Errorf("resource %v not found", resourceName)
+	if resourceName == FileRootSystemCACert {
+		si, f := d.items[caRootPath]
+		if !f {
+			return nil, fmt.Errorf("resource %v not found", resourceName)
+		}
+		return si, nil
+	} else {
+		si, f := d.items[resourceName]
+		if !f {
+			return nil, fmt.Errorf("resource %v not found", resourceName)
+		}
+		return si, nil
 	}
-	return si, nil
+
 }
 
 func (d *DirectSecretManager) Set(resourceName string, secret *SecretItem) {

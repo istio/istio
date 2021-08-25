@@ -23,7 +23,7 @@ import (
 func getClientCertFn(config *Config) func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	if config.SecretManager != nil {
 		return func(requestInfo *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			key, err := config.SecretManager.GenerateSecret(security.WorkloadKeyCertResourceName)
+			key, err := config.SecretManager.GenerateSecret(security.WorkloadKeyCertResourceName, "")
 			if err != nil {
 				return nil, err
 			}

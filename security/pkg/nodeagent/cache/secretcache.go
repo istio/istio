@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/monitoring"
-	"istio.io/istio/security/pkg/nodeagent/cafile"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	istiolog "istio.io/pkg/log"
@@ -81,6 +80,9 @@ const (
 // would not be helpful, as all we can do is re-read the same file).
 type SecretManagerClient struct {
 	caClient security.Client
+
+	// Ensures CARootPath can change in configOptions without collision
+	caRootPathMutex sync.Mutex
 
 	// configOptions includes all configurable params for the cache.
 	configOptions *security.Options
@@ -240,8 +242,9 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 }
 
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
-func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
+func (sc *SecretManagerClient) GenerateSecret(resourceName string, caRootPath string) (secret *security.SecretItem, err error) {
 	cacheLog.Debugf("generate secret %q", resourceName)
+	sc.SetCARootPath(caRootPath)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -494,7 +497,7 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			sc.addFileWatcher(cf.CertificatePath, resourceName)
 		}
 	case resourceName == security.FileRootSystemCACert:
-		cfg, ok := security.SdsCertificateConfigFromResourceName(cafile.CACertFilePath)
+		cfg, ok := security.SdsCertificateConfigFromResourceName(sc.GetCARootPath())
 		sdsFromFile = ok
 		if ok && cfg.IsRootCertificate() {
 			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, resourceName, false); err == nil {
@@ -506,7 +509,6 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 		// Currently used in destination rules and server certs (via metadata).
 		// Based on the resource name, we need to read the secret from a file encoded in the resource name.
 		cfg, ok := security.SdsCertificateConfigFromResourceName(resourceName)
-
 		sdsFromFile = ok
 		switch {
 		case ok && cfg.IsRootCertificate():
@@ -743,4 +745,19 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 
 func (sc *SecretManagerClient) mergeConfigTrustBundle(rootCert []byte) []byte {
 	return pkiutil.AppendCertByte(sc.getConfigTrustBundle(), rootCert)
+}
+
+// GetCARootPath locks and returns the CARootPath
+func (sc *SecretManagerClient) GetCARootPath() string {
+	sc.caRootPathMutex.Lock()
+	defer sc.caRootPathMutex.Unlock()
+	caRootPath := sc.configOptions.CARootPath
+	return caRootPath
+}
+
+// SetCARootPath locks and sets the CARootPath
+func (sc *SecretManagerClient) SetCARootPath(caRootPath string) {
+	sc.caRootPathMutex.Lock()
+	defer sc.caRootPathMutex.Unlock()
+	sc.configOptions.CARootPath = caRootPath
 }
