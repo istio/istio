@@ -52,12 +52,13 @@ var installerScope = log.RegisterScope("installer", "installer", 0)
 // supplied logger.
 func GenManifests(inFilename []string, setFlags []string, force bool,
 	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *iopv1alpha1.IstioOperator, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
+	mergedYAML, mergedIOPs, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if len(inFilename) == 0 {
+	profile := mergedIOPs.Spec.Profile
+	if len(inFilename) == 0 && profile == name.DefaultProfileName {
 		t := translate.NewReverseTranslator()
 		mergedYAML, err = t.TranslateK8SfromValueToIOP(mergedYAML)
 		if err != nil {
