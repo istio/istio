@@ -72,6 +72,7 @@ const (
 	InboundTProxyRouteTable   = "istio-inbound-tproxy-route-table"
 	InboundPorts              = "istio-inbound-ports"
 	LocalExcludePorts         = "istio-local-exclude-ports"
+	ExcludeInterfaces         = "istio-exclude-interfaces"
 	ServiceCidr               = "istio-service-cidr"
 	ServiceExcludeCidr        = "istio-service-exclude-cidr"
 	OutboundPorts             = "istio-outbound-ports"
