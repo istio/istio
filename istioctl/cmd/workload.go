@@ -38,6 +38,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -223,12 +224,10 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 
 			// extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 			if !validateFlagIsSetManuallyOrNot(cmd, "clusterID") {
-				fmt.Fprintf(cmd.OutOrStderr(),
-					"--clusterID not supplied, using the value in configmap of 'istio-sidecar-injector' located at 'values->global->multiCluster->clusterName'\n")
 				// extract the cluster ID from the injector config if it is not set by user
-				clusterName, err := extractClusterIDFromInjectionConfig(kubeClient, cmd.OutOrStderr())
+				clusterName, err := extractClusterIDFromInjectionConfig(kubeClient)
 				if err != nil {
-					return fmt.Errorf("error occours when retrieving clusterID from configmap, %v", err)
+					return fmt.Errorf("failed to automatically determine the --clusterID: %v", err)
 				}
 				if clusterName != "" {
 					clusterID = clusterName
@@ -238,7 +237,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			if err = createConfig(kubeClient, wg, clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
-			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
+			fmt.Printf("Configuration generation into directory %s was successful\n", outputDir)
 			return nil
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -605,7 +604,7 @@ func mapToString(m map[string]string) string {
 }
 
 // extractClusterIDFromInjectionConfig can extract clusterID from injection configmap
-func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient, out io.Writer) (string, error) {
+func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) (string, error) {
 	injectionConfigMap := "istio-sidecar-injector"
 	// Case with multiple control planes
 	revision := kubeClient.Revision()
@@ -613,34 +612,21 @@ func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient, out io.
 		injectionConfigMap = fmt.Sprintf("%s-%s", injectionConfigMap, revision)
 	}
 	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
-	// retuen empty if the requested configmap does not exist in the given namespace
 	if err != nil {
-		fmt.Fprintf(out, "Error: configmap [%q] was not found in namespace [%q]\n", istioInjectionCM, istioNamespace)
-		return "", err
+		return "", fmt.Errorf("fetch injection template: %v", err)
 	}
 
 	var injectedCMValues map[string]interface{}
 	if err := json.Unmarshal([]byte(istioInjectionCM.Data[valuesConfigMapKey]), &injectedCMValues); err != nil {
 		return "", err
 	}
-	var clusterName string
-	var reErr error
-	globalMap, gbok := injectedCMValues["global"].(map[string]interface{})
-	if gbok {
-		multiClusterMap, mcok := globalMap["multiCluster"].(map[string]interface{})
-		if mcok {
-			csName, csok := multiClusterMap["clusterName"].(string)
-			if csok {
-				clusterName = csName
-				fmt.Printf("INFO: Extracted clusterID is [%s]\n", clusterName)
-			} else {
-				reErr = fmt.Errorf("can not retrieve clusterName from configmap")
-			}
-		} else {
-			reErr = fmt.Errorf("can not retrieve multiCluster info from configmap")
-		}
-	} else {
-		reErr = fmt.Errorf("can not retrieve global info from configmap")
+	v, f, err := tpath.GetFromStructPath(injectedCMValues, "global.multiCluster.clusterName")
+	if err != nil {
+		return "", err
 	}
-	return clusterName, reErr
+	vs, ok := v.(string)
+	if !f || !ok {
+		return "", fmt.Errorf("could not retrieve global.multiCluster.clusterName from injection config")
+	}
+	return vs, nil
 }
