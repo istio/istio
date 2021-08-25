@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -90,6 +92,12 @@ failover:
 - from: region
   to: nearregion`
 
+const failoverPriority = `
+failoverPriority:
+- "topology.kubernetes.io/region"
+- "topology.kubernetes.io/zone"
+- "topology.istio.io/subzone"`
+
 const localityDistribute = `
 distribute:
 - from: region
@@ -149,6 +157,17 @@ func TestLocality(t *testing.T) {
 						Remote:          apps.PodB[0].Address(),
 					},
 					expectAllTrafficTo(common.PodCSvc),
+				},
+				{
+					"FailoverPriority/EDS",
+					LocalityInput{
+						LocalitySetting: failoverPriority,
+						Resolution:      "STATIC",
+						Local:           apps.PodB[0].Address(),
+						NearLocal:       apps.PodC[0].Address(),
+						Remote:          apps.VM[0].Address(),
+					},
+					expectAllTrafficTo(common.PodBSvc),
 				},
 				{
 					"Distribute/CDS",

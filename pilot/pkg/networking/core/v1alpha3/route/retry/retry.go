@@ -81,6 +81,10 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 		// Allow the incoming configuration to specify both Envoy RetryOn and RetriableStatusCodes. Any integers are
 		// assumed to be status codes.
 		out.RetryOn, out.RetriableStatusCodes = parseRetryOn(in.RetryOn)
+		// If user has just specified HTTP status codes in retryOn but have not specified "retriable-status-codes", let us add it.
+		if len(out.RetriableStatusCodes) > 0 && !strings.Contains(out.RetryOn, "retriable-status-codes") {
+			out.RetryOn += ",retriable-status-codes"
+		}
 	}
 
 	if in.PerTryTimeout != nil {
@@ -111,9 +115,9 @@ func parseRetryOn(retryOn string) (string, []uint32) {
 		}
 
 		// Try converting it to an integer to see if it's a valid HTTP status code.
-		i, _ := strconv.Atoi(part)
+		i, err := strconv.Atoi(part)
 
-		if http.StatusText(i) != "" {
+		if err == nil && http.StatusText(i) != "" {
 			codes = append(codes, uint32(i))
 		} else {
 			tojoin = append(tojoin, part)

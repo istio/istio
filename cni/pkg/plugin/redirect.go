@@ -76,6 +76,7 @@ type Redirect struct {
 	excludeInboundPorts  string
 	excludeOutboundPorts string
 	kubevirtInterfaces   string
+	excludeInterfaces    string
 	dnsRedirect          bool
 }
 

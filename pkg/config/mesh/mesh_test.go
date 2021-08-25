@@ -99,6 +99,27 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatalf("unexpected proxy metadata: %+v", mc.DefaultConfig.ProxyMetadata)
 		}
 	})
+	t.Run("apply should not modify", func(t *testing.T) {
+		config := mesh.DefaultMeshConfig()
+		config.DefaultConfig.ProxyMetadata = map[string]string{
+			"foo": "bar",
+		}
+		orig, err := protomarshal.ToYAML(&config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
+			t.Fatal(err)
+		}
+		after, err := protomarshal.ToYAML(&config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if orig != after {
+			t.Fatalf("Changed before and after. Expected %v, got %v", orig, after)
+		}
+	})
 }
 
 func TestDefaultProxyConfig(t *testing.T) {
@@ -141,6 +162,7 @@ serviceSettings:
       - "*.myns.svc.cluster.local"
 ingressClass: foo
 enableTracing: false
+trustDomainAliases: ["default", "both"]
 defaultServiceExportTo: 
 - "foo"
 outboundTrafficPolicy:
@@ -167,6 +189,9 @@ defaultConfig:
 	if len(got.ExtensionProviders) != 2 {
 		t.Errorf("extension providers deep merge failed")
 	}
+	if len(got.TrustDomainAliases) != 2 {
+		t.Errorf("trust domain aliases deep merge failed")
+	}
 
 	gotY, err := gogoprotomarshal.ToYAML(got)
 	t.Log("Result: \n", gotY, err)
@@ -192,6 +217,7 @@ extensionProviders:
 - name: stackdriver
   stackdriver:
     maxNumberOfAttributes: 3
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -206,6 +232,7 @@ extensionProviders:
 - name: stackdriver
   stackdriver:
     maxNumberOfAttributes: 3
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -222,6 +249,7 @@ extensionProviders:
 - name: stackdriver
   stackdriver:
     maxNumberOfAnnotations: 5
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -241,6 +269,7 @@ extensionProviders:
 - name: stackdriver-annotations
   stackdriver:
     maxNumberOfAnnotations: 5
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -258,6 +287,24 @@ extensionProviders:
     maxNumberOfAttributes: 3
 - name: prometheus
   prometheus: {}
+trustDomainAliases: ["both", "default"]
+`,
+		},
+		{
+			name: "add trust domain aliases",
+			in: `
+trustDomainAliases: ["added", "both"]`,
+			out: `defaultProviders:
+  metrics:
+  - stackdriver
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAttributes: 3
+trustDomainAliases:
+- added
+- both
+- default
 `,
 		},
 	}
@@ -275,6 +322,7 @@ extensionProviders:
 					},
 				},
 			}}
+			mc.TrustDomainAliases = []string{"default", "both"}
 			res, err := mesh.ApplyMeshConfig(tt.in, mc)
 			if err != nil {
 				t.Fatal(err)
@@ -283,6 +331,7 @@ extensionProviders:
 			minimal := &meshconfig.MeshConfig{}
 			minimal.DefaultProviders = res.DefaultProviders
 			minimal.ExtensionProviders = res.ExtensionProviders
+			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
 			protomarshal.ApplyYAML(tt.out, want)

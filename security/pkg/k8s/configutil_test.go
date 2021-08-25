@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
-	informerv1 "k8s.io/client-go/informers/core/v1"
+	informersv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -235,7 +235,7 @@ func checkActions(actual, expected []ktesting.Action) error {
 	return nil
 }
 
-func createFakeLister(kubeClient *fake.Clientset) informerv1.ConfigMapInformer {
+func createFakeLister(kubeClient *fake.Clientset) informersv1.ConfigMapInformer {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Second)

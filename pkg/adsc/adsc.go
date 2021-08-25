@@ -423,17 +423,25 @@ func (a *ADSC) Run() error {
 	return nil
 }
 
-// HasSyncedConfig returns true if MCP configs have synced
-func (a *ADSC) hasSynced() bool {
-	for _, s := range collections.Pilot.All() {
-		a.mutex.RLock()
-		t := a.sync[s.Resource().GroupVersionKind().String()]
-		a.mutex.RUnlock()
-		if t.IsZero() {
-			log.Warnf("Not synced: %v", s.Resource().GroupVersionKind().String())
+// HasSynced returns true if MCP configs have synced
+func (a *ADSC) HasSynced() bool {
+	if a.cfg == nil || len(a.cfg.InitialDiscoveryRequests) == 0 {
+		return true
+	}
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	for _, req := range a.cfg.InitialDiscoveryRequests {
+		if strings.Count(req.TypeUrl, "/") != 3 {
+			continue
+		}
+
+		if _, ok := a.sync[req.TypeUrl]; !ok {
 			return false
 		}
 	}
+
 	return true
 }
 

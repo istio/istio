@@ -1027,9 +1027,9 @@ func TestSidecarLocalityLB(t *testing.T) {
 	}
 
 	// Test failover
-	// Distribute locality loadbalancing setting
+	// failover locality loadbalancing setting
 	mesh = testMesh()
-	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
+	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{Failover: []*networking.LocalityLoadBalancerSetting_Failover{}}
 
 	c = xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{
@@ -1135,8 +1135,9 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 
 func TestGatewayLocalityLB(t *testing.T) {
 	g := NewWithT(t)
-	// Distribute locality loadbalancing setting
 
+	// Test distribute
+	// Distribute locality loadbalancing setting
 	mesh := testMesh()
 	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1195,7 +1196,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	// Test failover
 	mesh = testMesh()
-	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
+	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{Failover: []*networking.LocalityLoadBalancerSetting_Failover{}}
 
 	c = xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{
@@ -1717,6 +1718,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 	proxy := model.Proxy{
 		Type:         model.SidecarProxy,
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+		Metadata:     &model.NodeMetadata{},
 	}
 
 	for _, test := range testcases {
@@ -1735,7 +1737,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				defer func() { features.EnableRedisFilter = defaultValue }()
 			}
 
-			applyLoadBalancer(c, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
+			applyLoadBalancer(c, test.lbSettings, test.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
 
 			if c.LbPolicy != test.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, test.expectedLbPolicy)
@@ -2333,11 +2335,9 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				mutable: NewMutableCluster(tt.cluster),
-				port:    &model.Port{Port: 80},
-				proxy: &model.Proxy{
-					ServiceInstances: tt.svcInsts,
-				},
+				mutable:          NewMutableCluster(tt.cluster),
+				port:             &model.Port{Port: 80},
+				serviceInstances: tt.svcInsts,
 			}
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {

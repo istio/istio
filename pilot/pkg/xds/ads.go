@@ -33,6 +33,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -601,6 +602,9 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 		}
 	}
 
+	locality := util.LocalityToString(proxy.Locality)
+	// add topology labels to proxy metadata labels
+	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPVersions()
 
@@ -621,6 +625,9 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushReq
 		// So its enough to look at the first instance.
 		if len(proxy.ServiceInstances) > 0 {
 			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
+			locality := proxy.ServiceInstances[0].Endpoint.Locality.Label
+			// add topology labels to proxy metadata labels
+			proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 		}
 	}
 }

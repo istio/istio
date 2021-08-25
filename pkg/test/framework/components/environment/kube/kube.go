@@ -68,7 +68,7 @@ func (e *Environment) EnvironmentName() string {
 }
 
 func (e *Environment) IsMulticluster() bool {
-	return len(e.Clusters()) > 1
+	return len(e.clusters) > 1
 }
 
 // IsMultinetwork returns true if there is more than one network name in networkTopology.

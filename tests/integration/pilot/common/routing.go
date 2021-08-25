@@ -790,6 +790,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 						ServerName: sni,
 						Alpn:       al,
 						Validator:  echo.ExpectError(),
+						Timeout:    5 * time.Second,
 					},
 				},
 				)

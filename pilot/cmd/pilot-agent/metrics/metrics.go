@@ -60,7 +60,7 @@ var processStartTime = time.Now()
 func RecordStartupTime() {
 	delta := time.Since(processStartTime)
 	startupTime.Record(delta.Seconds())
-	log.Infof("Initialization took %v", delta)
+	log.Infof("Readiness succeeded in %v", delta)
 }
 
 func init() {

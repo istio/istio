@@ -222,6 +222,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			}
 			store := memory.MakeSkipValidation(collections.Pilot)
 			configController := memory.NewController(store)
+			configController.RegisterHasSyncedHandler(xdsMCP.HasSynced)
 			xdsMCP.Store = model.MakeIstioStore(configController)
 			err = xdsMCP.Run()
 			if err != nil {
