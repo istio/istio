@@ -42,6 +42,7 @@ type Config struct {
 	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
 	KubevirtInterfaces      string        `json:"KUBEVIRT_INTERFACES"`
+	ExcludeInterfaces       string        `json:"EXCLUDE_INTERFACES"`
 	IptablesProbePort       uint16        `json:"IPTABLES_PROBE_PORT"`
 	ProbeTimeout            time.Duration `json:"PROBE_TIMEOUT"`
 	DryRun                  bool          `json:"DRY_RUN"`
