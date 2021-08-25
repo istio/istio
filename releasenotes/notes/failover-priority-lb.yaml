@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** `failoverPriority` loadbalancing traffic policy, which allows users to set an ordered list of labels used to sort endpoints to do priority based load balancing.

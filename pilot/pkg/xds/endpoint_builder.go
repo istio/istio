@@ -248,11 +248,6 @@ func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.
 	e.tunnelMetadata = append(e.tunnelMetadata, MakeTunnelApplier(le, tunnelOpt))
 }
 
-func (e *LocLbEndpointsAndOptions) emplace(le *endpoint.LbEndpoint, tunnelMetadata EndpointTunnelApplier) {
-	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
-	e.tunnelMetadata = append(e.tunnelMetadata, tunnelMetadata)
-}
-
 func (e *LocLbEndpointsAndOptions) refreshWeight() {
 	var weight *wrappers.UInt32Value
 	if len(e.llbEndpoints.LbEndpoints) == 0 {
