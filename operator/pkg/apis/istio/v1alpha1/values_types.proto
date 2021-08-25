@@ -74,8 +74,6 @@ message CNIConfig {
   CNITaintConfig taint  = 15;
 
   ResourceQuotas resource_quotas = 16;
-
-  google.protobuf.BoolValue cniFileWatchEnabled = 17;
 }
 
 
