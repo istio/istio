@@ -358,9 +358,11 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return i, err
 	}
 
-	if ctx.Clusters().IsMulticluster() {
-		// For multicluster, configure direct access so each control plane can get endpoints from all
-		// API servers.
+	if ctx.Clusters().IsMulticluster() && !i.isExternalControlPlane() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all API servers.
+		// TODO: this should be done after installing the remote clusters, but needs to be done before for now,
+		// because in non-external control plane MC, remote clusters are not really istiodless and they install
+		// the gateways right away as part of default profile, which hangs if the control plane isn't responding.
 		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
 			return nil, err
 		}
@@ -379,6 +381,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	if errs := errG.Wait(); errs != nil {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+	}
+
+	if ctx.Clusters().IsMulticluster() && i.isExternalControlPlane() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all API servers.
+		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	// Configure discovery and gateways for remote clusters.
@@ -416,7 +425,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if env.IsMultinetwork() {
 		// enable cross network traffic
-		for _, c := range ctx.Clusters().Kube() {
+		for _, c := range ctx.Clusters().Kube().Configs() {
 			if err := i.exposeUserServices(c); err != nil {
 				return nil, err
 			}
