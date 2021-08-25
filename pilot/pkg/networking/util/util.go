@@ -345,19 +345,25 @@ func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) *endpo
 func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	out := make([]*endpoint.LocalityLbEndpoints, 0, len(endpoints))
 	for _, ep := range endpoints {
-		clone := &endpoint.LocalityLbEndpoints{}
-		clone.Locality = ep.Locality
-		clone.LbEndpoints = ep.LbEndpoints
-		clone.Proximity = ep.Proximity
-		clone.Priority = ep.Priority
-		if ep.LoadBalancingWeight != nil {
-			clone.LoadBalancingWeight = &wrappers.UInt32Value{
-				Value: ep.GetLoadBalancingWeight().GetValue(),
-			}
-		}
+		clone := CloneLocalityLbEndpoint(ep)
 		out = append(out, clone)
 	}
 	return out
+}
+
+// return a shallow copy of LocalityLbEndpoints
+func CloneLocalityLbEndpoint(ep *endpoint.LocalityLbEndpoints) *endpoint.LocalityLbEndpoints {
+	clone := &endpoint.LocalityLbEndpoints{}
+	clone.Locality = ep.Locality
+	clone.LbEndpoints = ep.LbEndpoints
+	clone.Proximity = ep.Proximity
+	clone.Priority = ep.Priority
+	if ep.LoadBalancingWeight != nil {
+		clone.LoadBalancingWeight = &wrappers.UInt32Value{
+			Value: ep.GetLoadBalancingWeight().GetValue(),
+		}
+	}
+	return clone
 }
 
 // BuildConfigInfoMetadata builds core.Metadata struct containing the

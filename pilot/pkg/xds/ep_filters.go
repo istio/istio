@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/network"
@@ -85,7 +86,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 			// directly from the local network.
 			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
-				lbEndpoints.emplace(lbEp, ep.tunnelMetadata[i])
+				lbEndpoints.append(ep.istioEndpoints[i], lbEp, ep.istioEndpoints[i].TunnelAbility)
 				continue
 			}
 
@@ -123,6 +124,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocLbEndpointsAn
 				Locality: model.Locality{
 					ClusterID: gw.Cluster,
 				},
+				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", gw.Network),
 			}
 
 			// Generate the EDS endpoint for this gateway.
@@ -216,7 +218,7 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAnd
 				// no mTLS, skip it
 				continue
 			}
-			lbEndpoints.emplace(lbEp, ep.tunnelMetadata[i])
+			lbEndpoints.append(ep.istioEndpoints[i], lbEp, ep.istioEndpoints[i].TunnelAbility)
 		}
 
 		filtered = append(filtered, lbEndpoints)

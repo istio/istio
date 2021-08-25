@@ -274,7 +274,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	if b.service == nil {
 		// Shouldn't happen here
 		log.Debugf("can not find the service for cluster %s", b.clusterName)
-		return make([]*LocLbEndpointsAndOptions, 0), nil
+		return nil, nil
 	}
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
@@ -293,7 +293,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	if !f {
 		// Shouldn't happen here
 		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
-		return make([]*LocLbEndpointsAndOptions, 0), nil
+		return nil, nil
 	}
 
 	s.mutex.RLock()
@@ -302,7 +302,7 @@ func (s *DiscoveryServer) llbEndpointAndOptionsForCluster(b EndpointBuilder) ([]
 	if !f {
 		// Shouldn't happen here
 		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
-		return make([]*LocLbEndpointsAndOptions, 0), nil
+		return nil, nil
 	}
 
 	return b.buildLocalityLbEndpointsFromShards(epShards, svcPort), nil
@@ -336,7 +336,14 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
-		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
+		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(llbOpts))
+		for i := range llbOpts {
+			wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
+				IstioEndpoints:      llbOpts[i].istioEndpoints,
+				LocalityLbEndpoints: l.Endpoints[i],
+			}
+		}
+		loadbalancer.ApplyLocalityLBSetting(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Metadata.Labels, lbSetting, enableFailover)
 	}
 	return l
 }
