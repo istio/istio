@@ -158,7 +158,7 @@ const goldenSuffix = ".golden"
 // Each subdirectory contains two input files: workloadgroup.yaml and meshconfig.yaml that are used
 // to generate golden outputs from the VM command.
 func TestWorkloadEntryConfigure(t *testing.T) {
-	noClusterID := "--clusterID not supplied"
+	noClusterID := "failed to automatically determine the --clusterID"
 	files, err := os.ReadDir("testdata/vmconfig")
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +235,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 // proxyMetadata is nil, no metadata would be generated at all.
 func TestWorkloadEntryConfigureNilProxyMetadata(t *testing.T) {
 	testdir := "testdata/vmconfig-nil-proxy-metadata"
-	noClusterID := "--clusterID not supplied"
+	noClusterID := "failed to automatically determine the --clusterID"
 
 	kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
 		return &kube.MockClient{
