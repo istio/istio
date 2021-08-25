@@ -248,6 +248,10 @@ func TestGenerate(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.proxy.Metadata == nil {
+				tt.proxy.Metadata = &model.NodeMetadata{}
+			}
+			tt.proxy.Metadata.ClusterID = "Kubernetes"
 			s := NewFakeDiscoveryServer(t, FakeOptions{
 				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
 			})
@@ -296,8 +300,18 @@ func TestCaching(t *testing.T) {
 	gen := s.Discovery.Generators[v3.SecretType]
 
 	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
-	istiosystem := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"}
-	otherNamespace := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"}, Type: model.Router, ConfigNamespace: "other-namespace"}
+	istiosystem := &model.Proxy{
+		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		ConfigNamespace:  "istio-system",
+	}
+	otherNamespace := &model.Proxy{
+		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"},
+		Type:             model.Router,
+		ConfigNamespace:  "other-namespace",
+	}
 
 	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
 		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
