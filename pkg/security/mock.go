@@ -32,30 +32,21 @@ import (
 )
 
 type DirectSecretManager struct {
-	items      map[string]*SecretItem
-	mu         sync.RWMutex
-	caRootPath string
+	items map[string]*SecretItem
+	mu    sync.RWMutex
 }
 
 var _ SecretManager = &DirectSecretManager{}
 
-func NewDirectSecretManager(caRootPath string) *DirectSecretManager {
+func NewDirectSecretManager() *DirectSecretManager {
 	return &DirectSecretManager{
-		items:      map[string]*SecretItem{},
-		caRootPath: caRootPath,
+		items: map[string]*SecretItem{},
 	}
 }
 
 func (d *DirectSecretManager) GenerateSecret(resourceName string) (*SecretItem, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	if resourceName == FileRootSystemCACert {
-		si, f := d.items[d.caRootPath]
-		if !f {
-			return nil, fmt.Errorf("resource %v not found", resourceName)
-		}
-		return si, nil
-	}
 	si, f := d.items[resourceName]
 	if !f {
 		return nil, fmt.Errorf("resource %v not found", resourceName)

@@ -2839,7 +2839,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 					},
 				},
 			},
-			expectedCaCertificateName: "file-root:system",
+			expectedCaCertificateName: security.FileRootSystemCACert,
 			enableVerifyCertAtClient:  true,
 		},
 		{
