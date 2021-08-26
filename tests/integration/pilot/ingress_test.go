@@ -622,6 +622,7 @@ func TestCustomGateway(t *testing.T) {
 				"imagePullSecret": image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
 				"host":            apps.PodA[0].Config().FQDN(),
+				"imagePullPolicy": image.PullImagePolicy(t),
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
@@ -662,6 +663,7 @@ spec:
       containers:
       - name: istio-proxy
         image: auto
+        imagePullPolicy: {{ .imagePullPolicy }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
