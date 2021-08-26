@@ -131,8 +131,10 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 			if err != nil {
 				return false, nil, nil, err
 			}
-
-			daemonsets = append(daemonsets, ds)
+			if ds.Status.ObservedGeneration == ds.Generation &&
+				ds.Status.NumberReady >= ds.Status.DesiredNumberScheduled {
+				daemonsets = append(daemonsets, ds)
+			}
 		case name.StatefulSetStr:
 			sts, err := cs.AppsV1().StatefulSets(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
 			if err != nil {
