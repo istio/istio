@@ -36,6 +36,8 @@ type Test interface {
 	// RequireIstioVersion ensures that all installed versions of Istio are at least the
 	// required version for the annotated test to pass
 	RequireIstioVersion(version string) Test
+	// RequireLocalControlPlane ensures that clusters are using locally-deployed control planes.
+	RequireLocalControlPlane() Test
 	// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
 	// Otherwise it stops test execution and skips the test.
 	RequiresMinClusters(minClusters int) Test
@@ -108,6 +110,7 @@ type testImpl struct {
 	s                   *suiteContext
 	requiredMinClusters int
 	requiredMaxClusters int
+	requireLocalIstiod  bool
 	minIstioVersion     string
 
 	ctx *testContext
@@ -183,6 +186,11 @@ func (t *testImpl) RequireIstioVersion(version string) Test {
 	return t
 }
 
+func (t *testImpl) RequireLocalControlPlane() Test {
+	t.requireLocalIstiod = true
+	return t
+}
+
 func (t *testImpl) Run(fn func(ctx TestContext)) {
 	t.runInternal(fn, false)
 }
@@ -242,6 +250,17 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 		t.goTest.Skipf("Skipping %q: number of clusters %d is above required max %d",
 			t.goTest.Name(), len(t.s.Environment().Clusters()), t.requiredMaxClusters)
 		return
+	}
+
+	if t.requireLocalIstiod {
+		for _, c := range ctx.Clusters() {
+			if !c.IsPrimary() {
+				ctx.Done()
+				t.goTest.Skipf(fmt.Sprintf("Skipping %q: cluster %s is not using a local control plane",
+					t.goTest.Name(), c.Name()))
+				return
+			}
+		}
 	}
 
 	if t.minIstioVersion != "" {

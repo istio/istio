@@ -99,7 +99,6 @@ func (s *suiteAnalyzer) RequireSingleCluster() Suite {
 }
 
 func (s *suiteAnalyzer) RequireLocalControlPlane() Suite {
-	scopes.Framework.Infof(">>>> suiteAnalyzer.RequireLocalControlPlane")
 	return s
 }
 
@@ -210,6 +209,10 @@ func (t *testAnalyzer) RequiresMaxClusters(maxClusters int) Test {
 
 func (t *testAnalyzer) RequireIstioVersion(version string) Test {
 	t.minIstioVersion = version
+	return t
+}
+
+func (t *testAnalyzer) RequireLocalControlPlane() Test {
 	return t
 }
 
