@@ -48,37 +48,53 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	}
 }
 
+func (in *Installer) install(ctx context.Context) (err error) {
+	if err = copyBinaries(
+		in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
+		in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
+		cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
+		return
+	}
+
+	if in.saToken, err = readServiceAccountToken(); err != nil {
+		cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
+		return
+	}
+
+	if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
+		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
+		return
+	}
+
+	if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
+		cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
+		return
+	}
+
+	return
+}
+
 // Run starts the installation process, verifies the configuration, then sleeps.
 // If an invalid configuration is detected, the installation process will restart to restore a valid state.
 func (in *Installer) Run(ctx context.Context) (err error) {
+	if err = in.install(ctx); err != nil {
+		return
+	}
+
 	for {
-		if err = copyBinaries(
-			in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
-			in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
-			cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
-			return
-		}
-
-		if in.saToken, err = readServiceAccountToken(); err != nil {
-			cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
-			return
-		}
-
-		if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
-			cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
-			return
-		}
-
-		if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
-			cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
-			return
-		}
-
 		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath, in.isReady); err != nil {
 			return
 		}
-		// Invalid config; pod set to "NotReady"
-		installLog.Info("Restarting...")
+
+		installLog.Info("Detect changes to the CNI configuration and binaries, attempt reinstalling...")
+		if in.cfg.CNIEnableReinstall {
+			if err = in.install(ctx); err != nil {
+				return
+			}
+			installLog.Info("CNI configuration and binaries reinstalled.")
+		} else {
+			installLog.Info("Skip reinstalling CNI configuration and binaries.")
+		}
 	}
 }
 
