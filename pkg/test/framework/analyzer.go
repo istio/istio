@@ -98,6 +98,11 @@ func (s *suiteAnalyzer) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
+func (s *suiteAnalyzer) RequireLocalControlPlane() Suite {
+	scopes.Framework.Infof(">>>> suiteAnalyzer.RequireLocalControlPlane")
+	return s
+}
+
 func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
 	return s
 }
