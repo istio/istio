@@ -106,7 +106,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 		b := backoff.NewExponentialBackOff()
 		b.MaxElapsedTime = 0
 		for {
-			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName, ret.rootCaPath)
+			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
 			if err == nil {
 				break
 			}
@@ -118,7 +118,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 			}
 		}
 		for {
-			_, err := st.GenerateSecret(security.RootCertReqResourceName, ret.rootCaPath)
+			_, err := st.GenerateSecret(security.RootCertReqResourceName)
 			if err == nil {
 				break
 			}
@@ -137,7 +137,7 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 	resources := model.Resources{}
 	for _, resourceName := range resourceNames {
-		secret, err := s.st.GenerateSecret(resourceName, s.rootCaPath)
+		secret, err := s.st.GenerateSecret(resourceName)
 		if err != nil {
 			// Typically, in Istiod, we do not return an error for a failure to generate a resource
 			// However, here it makes sense, because we are generally streaming a single resource,

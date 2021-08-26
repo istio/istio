@@ -261,7 +261,7 @@ type SecretManager interface {
 	// near expiry. It will constructs the SAN based on the token's 'sub' claim, expected to be in
 	// the K8S format. No other JWTs are currently supported due to client logic. If JWT is
 	// missing/invalid, the resourceName is used.
-	GenerateSecret(resourceName string, caRootPath string) (*SecretItem, error)
+	GenerateSecret(resourceName string) (*SecretItem, error)
 }
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
