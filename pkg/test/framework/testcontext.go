@@ -65,8 +65,6 @@ type TestContext interface {
 	Error(args ...interface{})
 	Errorf(format string, args ...interface{})
 	Failed() bool
-	Log(args ...interface{})
-	Logf(format string, args ...interface{})
 	Name() string
 	Skip(args ...interface{})
 	SkipNow()
