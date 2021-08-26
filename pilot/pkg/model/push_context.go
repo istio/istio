@@ -202,6 +202,9 @@ type PushContext struct {
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *JwksResolver
 
+	// GatewayAPIController holds a reference to the gateway API controller.
+	GatewayAPIController GatewayController
+
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
 	networkMgr *NetworkManager
@@ -1801,7 +1804,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
-	return MergeGateways(gatewayInstances, proxy)
+	return MergeGateways(gatewayInstances, proxy, ps)
 }
 
 // GatewayContext contains a minimal subset of push context functionality to be exposed to GatewayAPIControllers
@@ -1960,7 +1963,25 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 // initKubernetesGateways initializes Kubernetes gateway-api objects
 func (ps *PushContext) initKubernetesGateways(env *Environment) error {
 	if env.GatewayAPIController != nil {
+		ps.GatewayAPIController = env.GatewayAPIController
 		return env.GatewayAPIController.Recompute(GatewayContext{ps})
 	}
 	return nil
+}
+
+// ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be
+// accessed by `namespace`, based of specific reference policies.
+// Note: this function only determines if a reference is *explicitly* allowed; the reference may not require
+// explicitly authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
+// secret access.
+func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
+	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.
+	switch kind {
+	case gvk.Secret:
+		if ps.GatewayAPIController != nil {
+			return ps.GatewayAPIController.SecretAllowed(resourceName, namespace)
+		}
+	default:
+	}
+	return false
 }
