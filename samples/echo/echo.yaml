@@ -10,6 +10,15 @@ spec:
     app: echo
   type: ClusterIP
   ports:
+  - name: http
+    port: 80
+    targetPort: 18080
+  - name: grpc
+    port: 7070
+    targetPort: 17070
+  - name: tcp
+    port: 9090
+    targetPort: 19090
   - name: grpc
     port: 7070
     protocol: TCP
@@ -38,6 +47,10 @@ spec:
       containers:
         - args:
           - --metrics=15014
+          - --port
+          - "18080"
+          - --tcp
+          - "19090"
           - --xds-grpc-server=17070
           - --grpc
           - "17070"
@@ -123,6 +136,10 @@ spec:
         - args:
           - --metrics=15014
           - --xds-grpc-server=17070
+          - --port
+          - "18080"
+          - --tcp
+          - "19090"
           - --grpc
           - "17070"
           - --grpc
