@@ -89,6 +89,7 @@ type SidecarScope struct {
 	// Union of services imported across all egress listeners for use by CDS code.
 	services           []*Service
 	servicesByHostname map[host.Name]*Service
+	servicesByNames    map[ConfigKey]*Service
 
 	// Destination rules imported across all egress listeners. This
 	// contains the computed set based on public/private destination rules
@@ -192,6 +193,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		destinationRules:        make(map[host.Name]*config.Config),
 		destinationRulesByNames: make(map[ConfigKey]*config.Config),
 		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
+		servicesByNames: 		 make(map[ConfigKey]*config.Config, len(defaultEgressListener.services)),
 		configDependencies:      make(map[uint64]struct{}),
 		RootNamespace:           ps.Mesh.RootNamespace,
 		Version:                 ps.PushVersion,
@@ -212,6 +214,11 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			continue
 		}
 		out.servicesByHostname[s.Hostname] = s
+		out.servicesByNames[ConfigKey{
+			Kind: gvk.Service,
+			Name: s.Attributes.Name,
+			Namespace: s.Attributes.Namespace,
+		}] = s
 		if dr := ps.DestinationRule(&dummyNode, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 			out.destinationRulesByNames[ConfigKey{
@@ -413,6 +420,11 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.destinationRulesByNames = make(map[ConfigKey]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.Hostname] = s
+		out.servicesByNames[ConfigKey{
+			Kind: gvk.Service,
+			Name: s.Attributes.Name,
+			Namespace: s.Attributes.Namespace,
+		}] = s
 		dr := ps.DestinationRule(&dummyNode, s)
 		if dr != nil {
 			ckey := ConfigKey{

@@ -697,15 +697,23 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 
 // ServicesForHostname returns a list of services that fall under the hostname provided. This hostname
 // can be a wildcard.
-func (ps *PushContext) ServicesForHostname(proxy *Proxy, hostname host.Name) []*Service {
+func (ps *PushContext) ServicesForHostname(proxy *Proxy, hostname host.Name, namespace string) []*Service {
 	if proxy == nil || proxy.SidecarScope == nil {
 		return nil
 	}
 	services := make([]*Service, 0)
-	for _, svc := range proxy.SidecarScope.services {
-		if hostname.Matches(svc.Hostname) {
-			services = append(services, svc)
+	if hostname.IsWildCarded() {
+		for _, svc := range proxy.SidecarScope.services {
+			if hostname.Matches(svc.Hostname) {
+				services = append(services, svc)
+			}
 		}
+	} else {
+		services = append(services, proxy.SidecarScope.servicesByNames[ConfigKey{
+			Kind: gvk.Service,
+			Name: string(hostname),
+			Namespace: namespace,
+		}])
 	}
 	return services
 }

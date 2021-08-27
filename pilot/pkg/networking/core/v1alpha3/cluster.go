@@ -101,7 +101,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
-	// In delta, we only care about the services that have changed.
+	// In delta, we only care about the services and destinationrules that have changed.
 	for key := range updates.ConfigsUpdated {
 		var svcs []*model.Service
 		var deleted []string
@@ -173,7 +173,7 @@ func (configgen *ConfigGeneratorImpl) deltaServices(updatedService model.ConfigK
 	watched []string) ([]*model.Service, []string) {
 	deletedClusters := make([]string, 0)
 	services := make([]*model.Service, 0)
-	service := push.ServicesForHostname(proxy, host.Name(updatedService.Name))
+	service := push.ServicesForHostname(proxy, host.Name(updatedService.Name), updatedService.Namespace)
 	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
@@ -217,14 +217,14 @@ func (configgen *ConfigGeneratorImpl) deltaServicesFromDestinationRules(updatedD
 		deletedClusters = append(deletedClusters, getRemovedClusterNames(subsetClusters(watched), nil, dr.Host)...)
 
 		// for non-subset destinationrule deletion -- generate the cluster as it changed
-		matched := push.ServicesForHostname(proxy, host.Name(dr.Host))
+		matched := push.ServicesForHostname(proxy, host.Name(dr.Host), prevCfg.Namespace)
 		services = append(services, matched...)
 	} else {
 		// destination exists, was updated
 		// generate cluster based on service associated with destinationrule
 		// hostName can be a wildcard, and can match to multiple services
 		dr := cfg.Spec.(*networking.DestinationRule)
-		matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host))
+		matchedSvcs := push.ServicesForHostname(proxy, host.Name(dr.Host), cfg.Meta.Namespace)
 		services = append(services, matchedSvcs...)
 		// check for removed subsets
 		prevCfg := push.PrevDestinationRuleByName(proxy, updatedDr.Name, updatedDr.Namespace)
