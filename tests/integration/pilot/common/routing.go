@@ -1912,7 +1912,7 @@ spec:
 			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
 			if len(aInCluster) == 0 {
 				// The cluster doesn't contain A, but connects to a cluster containing A
-				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))
+				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Config()))
 			}
 			address := aInCluster[0].Config().FQDN() + "?"
 			if tt.protocol != "" {
@@ -1977,38 +1977,38 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Config())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 			vmCase{
 				name: "dns: VM to k8s statefulset service",
 				from: vm,
-				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 				host: apps.StatefulSet[0].Config().FQDN(),
 			},
 			// TODO(https://github.com/istio/istio/issues/32552) re-enable
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, StatefulSetSvc),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service.namespace",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s.%s", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service.namespace.svc",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s.%s.svc", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance FQDN",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().FQDN()),
 			//},
 		)

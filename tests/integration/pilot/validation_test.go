@@ -84,7 +84,7 @@ func TestValidation(t *testing.T) {
 				return strings.Contains(err.Error(), "denied the request")
 			}
 
-			for _, cluster := range t.Clusters().Primaries() {
+			for _, cluster := range t.Clusters().Configs() {
 				for i := range dataset {
 					d := dataset[i]
 					t.NewSubTest(string(d)).RunParallel(func(t framework.TestContext) {
