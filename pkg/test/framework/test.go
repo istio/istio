@@ -178,7 +178,7 @@ func (t *testImpl) RequiresMaxClusters(maxClusters int) Test {
 }
 
 func (t *testImpl) RequiresSingleCluster() Test {
-	return t.RequiresMaxClusters(1).RequiresMinClusters(1)
+	return t.RequiresMaxClusters(1).RequiresMinClusters(1).RequireLocalControlPlane()
 }
 
 func (t *testImpl) RequireIstioVersion(version string) Test {

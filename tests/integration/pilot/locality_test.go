@@ -110,7 +110,6 @@ func TestLocality(t *testing.T) {
 		NewTest(t).
 		Features("traffic.locality").
 		RequiresSingleCluster().
-		RequireLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			cases := []struct {
 				name     string
