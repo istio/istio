@@ -31,6 +31,7 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		RequireLocalControlPlane().
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:

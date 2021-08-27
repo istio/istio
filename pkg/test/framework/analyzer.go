@@ -98,6 +98,10 @@ func (s *suiteAnalyzer) RequireSingleCluster() Suite {
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 
+func (s *suiteAnalyzer) RequireLocalControlPlane() Suite {
+	return s
+}
+
 func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
 	return s
 }
@@ -205,6 +209,10 @@ func (t *testAnalyzer) RequiresMaxClusters(maxClusters int) Test {
 
 func (t *testAnalyzer) RequireIstioVersion(version string) Test {
 	t.minIstioVersion = version
+	return t
+}
+
+func (t *testAnalyzer) RequireLocalControlPlane() Test {
 	return t
 }
 
