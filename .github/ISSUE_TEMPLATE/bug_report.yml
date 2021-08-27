@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a bug to help us improve Istio
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: Tell us what issues you ran into
+      placeholder: Include information about what you tried, what you expected to happen, and what actually happened. The more details, the better!
+    validations:
+      required: true
+  - type: textarea
+    id: version
+    attributes:
+      label: Version
+      description: Include the output of `istioctl version`, `kubectl version --short`, and `helm version --short` (if you used Helm)
+      placeholder: |
+        $ istioctl version
+        client version: 1.0.0
+        control plane version: 1.0.0
+        data plane version: 1.0.0 (100 proxies)
+        $ kubectl version --short
+        Client Version: v1.0.0
+        Server Version: v1.0.0
+      render: prose
+    validations:
+      required: true
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional Information
+      description: |
+        Please include the output of [`istioctl bug-report`](http://istio.io/help/bugs/#generating-a-cluster-state-archive).
+        If you are unable to do so, please ensure you have collected the relevant debugging information manually and attached below;
+        issue without enough information will not be resolvable.
+  - type: checkboxes
+    id: area
+    attributes:
+      label: Affected product area
+      options:
+      - label: "Docs"
+      - label: "Installation"
+      - label: "Networking"
+      - label: "Performance and Scalability"
+      - label: "Extensions and Telemetry"
+      - label: "Security"
+      - label: "Test and Release"
+      - label: "User Experience"
+      - label: "Developer Infrastructure"
+      - label: "Upgrade"
+      - label: "Multi Cluster"
+      - label: "Virtual Machine"
+      - label: "Control Plane Revisions"
+  - type: checkboxes
+    id: security-check
+    attributes:
+      label: Is this the right place to submit this?
+      description: |-
+        This is used to report product bugs:
+        To report a security vulnerability, please visit <https://istio.io/about/security-vulnerabilities>
+        To ask questions about how to use Istio, please visit <https://discuss.istio.io>
+      options:
+        - label: "This is not a security vulnerability"
+          required: true
+        - label: "This is not a question about how to use Istio"
+          required: true
