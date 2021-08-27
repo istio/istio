@@ -32,10 +32,6 @@ ifneq ($(TAG),)
     _INTEGRATION_TEST_FLAGS += --istio.test.tag=$(TAG)
 endif
 
-ifneq ($(SKIP_VM_TESTS),)
-    _INTEGRATION_TEST_FLAGS += --istio.test.skipVM
-endif
-
 _INTEGRATION_TEST_SELECT_FLAGS ?= --istio.test.select=$(TEST_SELECT)
 ifeq ($(TEST_SELECT),)
     _INTEGRATION_TEST_SELECT_FLAGS = --istio.test.select=-postsubmit,-flaky
