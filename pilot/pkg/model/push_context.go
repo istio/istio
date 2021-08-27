@@ -62,10 +62,10 @@ type serviceIndex struct {
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
 
-	// instancesByPort contains a map of service and instances by port. It is stored here
+	// instancesByPort contains a map of service key and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	instancesByPort map[*Service]map[int][]*ServiceInstance
+	instancesByPort map[string]map[int][]*ServiceInstance
 }
 
 func newServiceIndex() serviceIndex {
@@ -74,7 +74,7 @@ func newServiceIndex() serviceIndex {
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		instancesByPort:      map[*Service]map[int][]*ServiceInstance{},
+		instancesByPort:      map[string]map[int][]*ServiceInstance{},
 	}
 }
 
@@ -566,11 +566,12 @@ func (ps *PushContext) AddPublicServices(services []*Service) {
 
 // AddServiceInstances adds instances to the context service instances - mainly used in tests.
 func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][]*ServiceInstance) {
+	svcKey := service.Key()
 	for port, inst := range instances {
-		if _, exists := ps.ServiceIndex.instancesByPort[service]; !exists {
-			ps.ServiceIndex.instancesByPort[service] = make(map[int][]*ServiceInstance)
+		if _, exists := ps.ServiceIndex.instancesByPort[svcKey]; !exists {
+			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
 		}
-		ps.ServiceIndex.instancesByPort[service][port] = append(ps.ServiceIndex.instancesByPort[service][port], inst...)
+		ps.ServiceIndex.instancesByPort[svcKey][port] = append(ps.ServiceIndex.instancesByPort[svcKey][port], inst...)
 	}
 }
 
@@ -1181,14 +1182,15 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
 	for _, s := range allServices {
+		svcKey := s.Key()
 		// Precache instances
 		for _, port := range s.Ports {
-			if _, ok := ps.ServiceIndex.instancesByPort[s]; !ok {
-				ps.ServiceIndex.instancesByPort[s] = make(map[int][]*ServiceInstance)
+			if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {
+				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
 			}
 			instances := make([]*ServiceInstance, 0)
 			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
-			ps.ServiceIndex.instancesByPort[s][port.Port] = instances
+			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
 		}
 
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
@@ -1848,8 +1850,9 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 			}
 			continue
 		}
+		svcKey := svc.Key()
 		for port := range ports {
-			instances := gc.ps.ServiceIndex.instancesByPort[svc][port]
+			instances := gc.ps.ServiceIndex.instancesByPort[svcKey][port]
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				// Fetch external IPs from all clusters
@@ -1857,11 +1860,11 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 					foundExternal.Insert(externalIPs...)
 				}
 			} else {
-				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svc]) {
+				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svcKey]) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
 					hintPort := sets.NewSet()
-					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svc] {
+					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svcKey] {
 						for _, i := range instances {
 							if i.Endpoint.EndpointPort == uint32(port) {
 								hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
@@ -1943,7 +1946,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 // ServiceInstancesByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
 	out := []*ServiceInstance{}
-	if instances, exists := ps.ServiceIndex.instancesByPort[svc][port]; exists {
+	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
 		if len(labels) == 0 {
 			return instances

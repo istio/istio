@@ -112,6 +112,14 @@ type Service struct {
 	ResourceVersion string
 }
 
+func (s *Service) Key() string {
+	if s == nil {
+		return ""
+	}
+
+	return s.Attributes.Namespace + "/" + string(s.Hostname)
+}
+
 // Resolution indicates how the service instances need to be resolved before routing traffic.
 type Resolution int
 
