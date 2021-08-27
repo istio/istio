@@ -459,3 +459,33 @@ func TestSourceMatchHTTP(t *testing.T) {
 		})
 	}
 }
+
+func TestSplitRedirectAuthority(t *testing.T) {
+	tests := []struct {
+		redirect   string
+		wantScheme string
+		wantHost   string
+		wantPort   uint32
+	}{
+		{"simple-host", "", "simple-host", 0},
+		{"https://everything:1234", "https", "everything", 1234},
+		{":1234", "", "", 1234},
+		{"https://", "https", "", 0},
+		{"https://:1234", "https", "", 1234},
+		{"host:1234", "", "host", 1234},
+	}
+	for _, tt := range tests {
+		t.Run(tt.redirect, func(t *testing.T) {
+			gotScheme, gotHost, gotPort := splitRedirectAuthority(tt.redirect)
+			if gotScheme != tt.wantScheme {
+				t.Errorf("splitRedirectAuthority() gotScheme = %v, want %v", gotScheme, tt.wantScheme)
+			}
+			if gotHost != tt.wantHost {
+				t.Errorf("splitRedirectAuthority() gotHost = %v, want %v", gotHost, tt.wantHost)
+			}
+			if gotPort != tt.wantPort {
+				t.Errorf("splitRedirectAuthority() gotPort = %v, want %v", gotPort, tt.wantPort)
+			}
+		})
+	}
+}

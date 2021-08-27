@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -410,13 +411,18 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	}
 
 	if redirect := in.Redirect; redirect != nil {
+		scheme, redirectHost, redirectPort := splitRedirectAuthority(redirect.Authority)
 		action := &route.Route_Redirect{
 			Redirect: &route.RedirectAction{
-				HostRedirect: redirect.Authority,
+				HostRedirect: redirectHost,
+				PortRedirect: redirectPort,
 				PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
 					PathRedirect: redirect.Uri,
 				},
 			},
+		}
+		if scheme != "" {
+			action.Redirect.SchemeRewriteSpecifier = &route.RedirectAction_SchemeRedirect{SchemeRedirect: scheme}
 		}
 
 		switch in.Redirect.RedirectCode {
@@ -537,6 +543,28 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	}
 
 	return out
+}
+
+// splitRedirectAuthority takes an authority redirect string and translates it into a scheme, host, and port.
+// This allows redirecting any combination of the three parts, rather than the whole thing.
+func splitRedirectAuthority(redirect string) (scheme string, host string, port uint32) {
+	// url.Parse is too strict here, we need to do our own parsing
+	for _, match := range []string{"https://", "http://"} {
+		if strings.HasPrefix(redirect, match) {
+			scheme = match[:len(match)-3]
+			redirect = strings.TrimPrefix(redirect, match)
+			break
+		}
+	}
+	h, p, err := net.SplitHostPort(redirect)
+	if err != nil {
+		host = redirect
+		return
+	}
+	host = h
+	portNum, _ := strconv.Atoi(p)
+	port = uint32(portNum)
+	return
 }
 
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption
