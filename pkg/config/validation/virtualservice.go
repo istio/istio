@@ -106,7 +106,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
 	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route))
 	if http.Timeout != nil {
-		errs = appendValidation(errs, ValidateDurationGogo(http.Timeout))
+		errs = appendValidation(errs, ValidateDuration(http.Timeout))
 	}
 
 	return
