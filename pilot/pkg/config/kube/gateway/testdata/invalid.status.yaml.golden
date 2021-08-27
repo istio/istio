@@ -289,6 +289,27 @@ status:
       namespace: istio-system
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-serviceName
+  namespace: default
+spec: null
+status:
+  gateways:
+  - conditions:
+    - lastTransitionTime: fake
+      message: serviceName invalid; the name of the Service must be used, not the
+        hostname.
+      reason: InvalidDestination
+      status: "False"
+      type: Admitted
+    gatewayRef:
+      controller: istio.io/gateway-controller
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: BackendPolicy
 metadata:
   creationTimestamp: null

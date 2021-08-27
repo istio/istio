@@ -701,6 +701,9 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns, domain string) (*istio.Dest
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
+		if strings.Contains(*to.ServiceName, ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this. Possible supported destinations are VirtualService (delegation), ServiceEntry or some other concept for external service
@@ -719,6 +722,9 @@ func buildGenericDestination(to k8s.RouteForwardTo, ns, domain string) (*istio.D
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
+		if strings.Contains(*to.ServiceName, ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this. Possible supported destinations are VirtualService (delegation), ServiceEntry or some other concept for external service
