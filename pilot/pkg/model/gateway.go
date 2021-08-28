@@ -328,10 +328,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy) *MergedGateway
 }
 
 func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
-	log.Debugf("udpSupportedPort:  -> checking for port %d", number)
 	for _, w := range instances {
-		log.Debugf("udpSupportedPort: ---> checking with instance: port=%d, protocol=%s",
-			w.ServicePort.Port, w.ServicePort.Protocol)
 		if int(number) == w.ServicePort.Port && w.ServicePort.Protocol == protocol.UDP {
 			return true
 		}

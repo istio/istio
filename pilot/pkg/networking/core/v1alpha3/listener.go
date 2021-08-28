@@ -1445,7 +1445,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	case istionetworking.TransportProtocolTCP:
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:             opts.bind + "_" + strconv.Itoa(opts.port.Port),
+			Name:             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
 			Address:          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
 			TrafficDirection: trafficDirection,
 			ListenerFilters:  listenerFilters,
@@ -1463,7 +1463,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
 		//       mature, refactor some of these to an interface so that they kick off the process
 		//       of building listener, filter chains, serializing etc based on transport protocol
-		listenerName := "udp_" + opts.bind + "_" + strconv.Itoa(opts.port.Port)
+		listenerName := getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolQUIC)
 		log.Debugf("buildListener: building UDP/QUIC listener %s", listenerName)
 		res = &listener.Listener{
 			Name:             listenerName,

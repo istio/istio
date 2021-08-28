@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"crypto/md5"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -147,84 +146,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				class:      ListenerClassGateway,
 				transport:  transport,
 			}
-			lname := configgen.getListenerName(bind, int(port.Number), transport)
+			lname := getListenerName(bind, int(port.Number), transport)
 			p := protocol.Parse(port.Protocol)
-			newFilterChains := make([]istionetworking.FilterChain, 0)
 			serversForPort := gwServers[port]
 			if serversForPort == nil {
 				continue
 			}
 
+			var newFilterChains []istionetworking.FilterChain
 			switch transport {
 			case istionetworking.TransportProtocolTCP:
-				if p.IsHTTP() {
-					// We have a list of HTTP servers on this port. Build a single listener for the server port.
-					// We only need to look at the first server in the list as the merge logic
-					// ensures that all servers are of same type.
-					port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
-					opts.filterChainOpts = []*filterChainOpts{
-						configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
-							proxyConfig, istionetworking.ListenerProtocolTCP),
-					}
-					newFilterChains = append(newFilterChains, istionetworking.FilterChain{
-						ListenerProtocol: istionetworking.ListenerProtocolHTTP,
-					})
-				} else {
-					// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
-					// build listener with tcp proxy, with or without TLS context, for TCP servers
-					//   or TLS servers using simple/mutual/passthrough TLS
-					//   or HTTPS servers using passthrough TLS
-					// This process typically yields multiple filter chain matches (with SNI) [if TLS is used]
-					tcpFilterChainOpts := make([]*filterChainOpts, 0)
-					for _, server := range serversForPort.Servers {
-						if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
-							routeName := mergedGateway.TLSServerInfo[server].RouteName
-							// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
-							tcpFilterChainOpts = append(tcpFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
-								routeName, proxyConfig, istionetworking.TransportProtocolTCP))
-							newFilterChains = append(newFilterChains, istionetworking.FilterChain{
-								ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-								IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
-							})
-						} else {
-							// This is the case of TCP or PASSTHROUGH.
-							tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
-								server, mergedGateway.GatewayNameForServer[server])
-							tcpFilterChainOpts = append(tcpFilterChainOpts, tcpChainOpts...)
-							for i := 0; i < len(tcpChainOpts); i++ {
-								newFilterChains = append(newFilterChains, istionetworking.FilterChain{
-									ListenerProtocol: istionetworking.ListenerProtocolTCP,
-								})
-							}
-						}
-					}
-
-					opts.filterChainOpts = tcpFilterChainOpts
-				}
+				newFilterChains = configgen.getTCPTransportBasedFilterChains(builder, p, port, opts, serversForPort, proxyConfig, mergedGateway)
 			case istionetworking.TransportProtocolQUIC:
 				// Currently, we just assume that QUIC is HTTP/3 although that does not
 				// have to be the case (it is just the most common case now, in the future
 				// we will support more cases)
-				quicFilterChainOpts := make([]*filterChainOpts, 0)
-				for _, server := range serversForPort.Servers {
-					log.Debugf("buildGatewayListeners: creating QUIC filter chain for port %d(%s:%s)",
-						server.GetPort().GetNumber(), server.GetPort().GetName(), server.GetPort().GetProtocol())
-
-					// Here it is assumed that this HTTP/3 server is a mirror of an existing HTTPS
-					// server. So the same route name would be reused instead of creating new one.
-					routeName := mergedGateway.TLSServerInfo[server].RouteName
-					quicFilterChainOpts = append(quicFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
-						routeName, proxyConfig, istionetworking.TransportProtocolQUIC))
-					newFilterChains = append(newFilterChains, istionetworking.FilterChain{
-						// Make sure that this is set to HTTP so that JWT and Authorization
-						// filters that are applied to HTTPS are also applied to this chain.
-						// Not doing so is a security hole as would allow bypassing auth.
-						ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-						TransportProtocol:  istionetworking.TransportProtocolQUIC,
-						IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
-					})
-				}
-				opts.filterChainOpts = quicFilterChainOpts
+				newFilterChains = configgen.getHTTP3FilterChains(builder, serversForPort, mergedGateway, proxyConfig, opts)
 			}
 			var mutable *MutableListener
 			if mopts, exists := mutableopts[lname]; !exists {
@@ -249,7 +186,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 			for _, p := range configgen.Plugins {
 				if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
-					log.Warn("buildGatewayListeners: failed to build listener for gateway: ", err.Error())
+					log.Warn("generateListenerAndFilterChains: failed to build listener for gateway: ", err.Error())
 				}
 			}
 		}
@@ -264,12 +201,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		if err := ml.mutable.build(*ml.opts); err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("gateway omitting listener %q due to: %v", ml.mutable.Listener.Name, err.Error()))
 			continue
-		}
-
-		if log.DebugEnabled() {
-			listenerJSON, _ := json.MarshalIndent(ml.mutable.Listener, "  ", "  ")
-			log.Debugf("buildGatewayListeners: constructed listener with %d filter chains:\n%s",
-				len(ml.mutable.Listener.FilterChains), string(listenerJSON))
 		}
 		listeners = append(listeners, ml.mutable.Listener)
 	}
@@ -289,7 +220,94 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	return builder
 }
 
-func (configgen *ConfigGeneratorImpl) getListenerName(bind string, port int, transport istionetworking.TransportProtocol) string {
+func (configgen *ConfigGeneratorImpl) getTCPTransportBasedFilterChains(
+	builder *ListenerBuilder,
+	p protocol.Instance, port model.ServerPort,
+	opts *buildListenerOpts,
+	serversForPort *model.MergedServers,
+	proxyConfig *meshconfig.ProxyConfig,
+	mergedGateway *model.MergedGateway,
+) []istionetworking.FilterChain {
+	newFilterChains := make([]istionetworking.FilterChain, 0)
+	if p.IsHTTP() {
+		// We have a list of HTTP servers on this port. Build a single listener for the server port.
+		// We only need to look at the first server in the list as the merge logic
+		// ensures that all servers are of same type.
+		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
+		opts.filterChainOpts = []*filterChainOpts{
+			configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
+				proxyConfig, istionetworking.ListenerProtocolTCP),
+		}
+		newFilterChains = append(newFilterChains, istionetworking.FilterChain{
+			ListenerProtocol: istionetworking.ListenerProtocolHTTP,
+		})
+	} else {
+		// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
+		// build listener with tcp proxy, with or without TLS context, for TCP servers
+		//   or TLS servers using simple/mutual/passthrough TLS
+		//   or HTTPS servers using passthrough TLS
+		// This process typically yields multiple filter chain matches (with SNI) [if TLS is used]
+		tcpFilterChainOpts := make([]*filterChainOpts, 0)
+		for _, server := range serversForPort.Servers {
+			if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
+				routeName := mergedGateway.TLSServerInfo[server].RouteName
+				// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
+				tcpFilterChainOpts = append(tcpFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
+					routeName, proxyConfig, istionetworking.TransportProtocolTCP))
+				newFilterChains = append(newFilterChains, istionetworking.FilterChain{
+					ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
+					IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
+				})
+			} else {
+				// This is the case of TCP or PASSTHROUGH.
+				tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
+					server, mergedGateway.GatewayNameForServer[server])
+				tcpFilterChainOpts = append(tcpFilterChainOpts, tcpChainOpts...)
+				for i := 0; i < len(tcpChainOpts); i++ {
+					newFilterChains = append(newFilterChains, istionetworking.FilterChain{
+						ListenerProtocol: istionetworking.ListenerProtocolTCP,
+					})
+				}
+			}
+		}
+
+		opts.filterChainOpts = tcpFilterChainOpts
+	}
+	return newFilterChains
+}
+
+func (configgen *ConfigGeneratorImpl) getHTTP3FilterChains(
+	builder *ListenerBuilder,
+	serversForPort *model.MergedServers,
+	mergedGateway *model.MergedGateway,
+	proxyConfig *meshconfig.ProxyConfig,
+	opts *buildListenerOpts,
+) []istionetworking.FilterChain {
+	newFilterChains := make([]istionetworking.FilterChain, 0)
+	quicFilterChainOpts := make([]*filterChainOpts, 0)
+	for _, server := range serversForPort.Servers {
+		log.Debugf("buildGatewayListeners: creating QUIC filter chain for port %d(%s:%s)",
+			server.GetPort().GetNumber(), server.GetPort().GetName(), server.GetPort().GetProtocol())
+
+		// Here it is assumed that this HTTP/3 server is a mirror of an existing HTTPS
+		// server. So the same route name would be reused instead of creating new one.
+		routeName := mergedGateway.TLSServerInfo[server].RouteName
+		quicFilterChainOpts = append(quicFilterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
+			routeName, proxyConfig, istionetworking.TransportProtocolQUIC))
+		newFilterChains = append(newFilterChains, istionetworking.FilterChain{
+			// Make sure that this is set to HTTP so that JWT and Authorization
+			// filters that are applied to HTTPS are also applied to this chain.
+			// Not doing so is a security hole as would allow bypassing auth.
+			ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
+			TransportProtocol:  istionetworking.TransportProtocolQUIC,
+			IstioMutualGateway: server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL,
+		})
+	}
+	opts.filterChainOpts = quicFilterChainOpts
+	return newFilterChains
+}
+
+func getListenerName(bind string, port int, transport istionetworking.TransportProtocol) string {
 	switch transport {
 	case istionetworking.TransportProtocolTCP:
 		return bind + "_" + strconv.Itoa(port)

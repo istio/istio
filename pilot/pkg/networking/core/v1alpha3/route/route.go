@@ -552,13 +552,15 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 }
 
 func buildH3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption {
-	headerName := "Alt-svc"
+	// For example, www.cloudflare.com returns the following
+	// alt-svc: h3-27=":443"; ma=86400, h3-28=":443"; ma=86400, h3-29=":443"; ma=86400, h3=":443"; ma=86400
+	headerName := "alt-svc"
 	valParts := make([]string, 0, len(h3Alpns))
 	for _, alpn := range h3Alpns {
 		// Max-age is hardcoded to 1 day for now.
 		valParts = append(valParts, fmt.Sprintf(`%s=":%d"; ma=86400`, alpn, port))
 	}
-	headerVal := strings.Join(valParts, "; ")
+	headerVal := strings.Join(valParts, ", ")
 	return &core.HeaderValueOption{
 		Append: proto.BoolTrue,
 		Header: &core.HeaderValue{
