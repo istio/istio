@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 34811
+releaseNotes:
+- |
+  **Fixed** Istioctl does not wait on CNI DaemonSet update
