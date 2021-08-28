@@ -62,7 +62,7 @@ func IncrementEnvoyFilterMetric(name string, pt PatchType, applied bool) {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	// Only set the Gauge when the filter it atleast applied once.
+	// Only set the Gauge when the filter is atleast applied once.
 	if applied {
 		envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(string(pt))).
 			With(resultType.Value(string(Applied))).Record(1)
