@@ -197,7 +197,7 @@ func newProtocol(cfg Config) (protocol, error) {
 			}
 		} else if cfg.Request.Http2 && scheme.Instance(urlScheme) == scheme.HTTPS {
 			if cfg.Request.Alpn == nil {
-				tlsConfig.NextProtos = []string{"h2"}
+				tlsConfig.NextProtos = []string{"h2", "http/1.1"}
 			}
 			proto.client.Transport = &http2.Transport{
 				TLSClientConfig: tlsConfig,
