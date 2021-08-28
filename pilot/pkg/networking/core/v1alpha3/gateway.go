@@ -384,7 +384,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			vHostDedupMap[host.Name(hostname)] = newVHost
 		}
 	}
-	}
 
 	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
