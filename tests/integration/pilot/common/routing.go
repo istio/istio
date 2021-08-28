@@ -1000,6 +1000,118 @@ spec:
 			viaIngress:       true,
 			workloadAgnostic: true,
 		},
+		{
+			// See https://github.com/istio/istio/issues/34609
+			name:             "http redirect when vs port specify https",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+` + httpVirtualServiceTmpl,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Validator: echo.ExpectCode("301"),
+			},
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().FQDN(),
+					"Port":               443,
+				}
+			},
+		},
+		{
+			// See https://github.com/istio/istio/issues/27315
+			// See https://github.com/istio/istio/issues/34609
+			name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ingressgateway-redirect-config
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          xff_num_trusted_hops: 1
+          normalize_path: true
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+---
+` + httpVirtualServiceTmpl,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					// In real world, this may be set by a downstream LB that terminates the TLS
+					"X-Forwarded-Proto": {"https"},
+				},
+				Validator: echo.ExpectCode("400"),
+			},
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().FQDN(),
+					"Port":               443,
+				}
+			},
+		},
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
