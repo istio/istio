@@ -22,7 +22,6 @@ type Result string
 
 const (
 	Error   Result = "error"
-	Skipped Result = "skipped"
 	Applied Result = "applied"
 )
 
@@ -45,16 +44,16 @@ var (
 	resultType = monitoring.MustCreateLabel("result")
 	nameType   = monitoring.MustCreateLabel("name")
 
-	totalEnvoyFilters = monitoring.NewSum(
-		"pilot_total_envoy_filter",
-		"Total number of Envoy filters that were applied, skipped and errored.",
+	envoyFilterStatus = monitoring.NewGauge(
+		"pilot_envoy_filter_status",
+		"Status of Envoy filters whether it was applied or errored.",
 		monitoring.WithLabels(nameType, patchType, resultType),
 	)
 )
 
 func init() {
 	if features.EnableEnvoyFilterMetrics {
-		monitoring.MustRegister(totalEnvoyFilters)
+		monitoring.MustRegister(envoyFilterStatus)
 	}
 }
 
@@ -63,12 +62,11 @@ func IncrementEnvoyFilterMetric(name string, pt PatchType, applied bool) {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	result := Applied
-	if !applied {
-		result = Skipped
+	// Only set the Gauge when the filter it atleast applied once.
+	if applied {
+		envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(string(pt))).
+			With(resultType.Value(string(Applied))).Record(1)
 	}
-	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).
-		With(resultType.Value(string(result))).Record(1)
 }
 
 // IncrementEnvoyFilterErrorMetric increments filter metric for errors.
@@ -76,17 +74,5 @@ func IncrementEnvoyFilterErrorMetric(pt PatchType) {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	totalEnvoyFilters.With(patchType.Value(string(pt))).With(resultType.Value(string(Error))).Record(1)
-}
-
-// RecordEnvoyFilterMetric increments the filter metric with the given value.
-func RecordEnvoyFilterMetric(name string, pt PatchType, success bool, value float64) {
-	if !features.EnableEnvoyFilterMetrics {
-		return
-	}
-	result := Applied
-	if !success {
-		result = Skipped
-	}
-	totalEnvoyFilters.With(nameType.Value(name)).With(patchType.Value(string(pt))).With(resultType.Value(string(result))).Record(value)
+	envoyFilterStatus.With(patchType.Value(string(pt))).With(resultType.Value(string(Error))).Record(1)
 }
