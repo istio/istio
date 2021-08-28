@@ -74,6 +74,12 @@ const (
 	matchPrefix = "prefix:"
 )
 
+const (
+	regionIndex int = iota
+	zoneIndex
+	subZoneIndex
+)
+
 var (
 	// envoy supported retry on header values
 	supportedRetryOnPolicies = map[string]bool{
@@ -3177,7 +3183,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		destLocalities := make([]string, 0)
 		for loc, weight := range locality.To {
 			destLocalities = append(destLocalities, loc)
-			if weight == 0 {
+			if weight <= 0 || weight > 100 {
 				return fmt.Errorf("locality weight must be in range [1, 100]")
 			}
 			totalWeight += weight
@@ -3208,64 +3214,81 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 
 func validateLocalities(localities []string) error {
 	regionZoneSubZoneMap := map[string]map[string]map[string]bool{}
-
 	for _, locality := range localities {
 		if n := strings.Count(locality, "*"); n > 0 {
 			if n > 1 || !strings.HasSuffix(locality, "*") {
 				return fmt.Errorf("locality %s wildcard '*' number can not exceed 1 and must be in the end", locality)
 			}
 		}
-
-		items := strings.SplitN(locality, "/", 3)
-		for _, item := range items {
-			if item == "" {
-				return fmt.Errorf("locality %s must not contain empty region/zone/subzone info", locality)
-			}
-		}
-		if _, ok := regionZoneSubZoneMap["*"]; ok {
+		if _, exist := regionZoneSubZoneMap["*"]; exist {
 			return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 		}
-		switch len(items) {
-		case 1:
-			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+
+		region, zone, subZone, localityIndex, err := getLocalityParam(locality)
+		if err != nil {
+			return fmt.Errorf("locality %s must not contain empty region/zone/subzone info", locality)
+		}
+
+		switch localityIndex {
+		case regionIndex:
+			if _, exist := regionZoneSubZoneMap[region]; exist {
 				return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 			}
-			regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{"*": {"*": true}}
-		case 2:
-			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
-				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+			regionZoneSubZoneMap[region] = map[string]map[string]bool{"*": {"*": true}}
+		case zoneIndex:
+			if _, exist := regionZoneSubZoneMap[region]; exist {
+				if _, exist := regionZoneSubZoneMap[region]["*"]; exist {
 					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 				}
-				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+				if _, exist := regionZoneSubZoneMap[region][zone]; exist {
 					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 				}
-				regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{"*": true}
+				regionZoneSubZoneMap[region][zone] = map[string]bool{"*": true}
 			} else {
-				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {"*": true}}
+				regionZoneSubZoneMap[region] = map[string]map[string]bool{zone: {"*": true}}
 			}
-		case 3:
-			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
-				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+		case subZoneIndex:
+			if _, exist := regionZoneSubZoneMap[region]; exist {
+				if _, exist := regionZoneSubZoneMap[region]["*"]; exist {
 					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 				}
-				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
-					if regionZoneSubZoneMap[items[0]][items[1]]["*"] {
+				if _, exist := regionZoneSubZoneMap[region][zone]; exist {
+					if regionZoneSubZoneMap[region][zone]["*"] {
 						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 					}
-					if regionZoneSubZoneMap[items[0]][items[1]][items[2]] {
+					if regionZoneSubZoneMap[region][zone][subZone] {
 						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 					}
-					regionZoneSubZoneMap[items[0]][items[1]][items[2]] = true
+					regionZoneSubZoneMap[region][zone][subZone] = true
 				} else {
-					regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{items[2]: true}
+					regionZoneSubZoneMap[region][zone] = map[string]bool{subZone: true}
 				}
 			} else {
-				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {items[2]: true}}
+				regionZoneSubZoneMap[region] = map[string]map[string]bool{zone: {subZone: true}}
 			}
 		}
 	}
 
 	return nil
+}
+
+func getLocalityParam(locality string) (string, string, string, int, error) {
+	var region, zone, subZone string
+	items := strings.SplitN(locality, "/", 3)
+	for i, item := range items {
+		if item == "" {
+			return "", "", "", -1, errors.New("item is nil")
+		}
+		switch i {
+		case regionIndex:
+			region = items[i]
+		case zoneIndex:
+			zone = items[i]
+		case subZoneIndex:
+			subZone = items[i]
+		}
+	}
+	return region, zone, subZone, len(items) - 1, nil
 }
 
 // ValidateMeshNetworks validates meshnetworks.
