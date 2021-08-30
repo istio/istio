@@ -16,6 +16,7 @@ package controller
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"sync"
 	"time"
@@ -190,8 +191,7 @@ type kubernetesNode struct {
 // controllerInterface is a simplified interface for the Controller used for testing.
 type controllerInterface interface {
 	getPodLocality(pod *v1.Pod) string
-	cidrRanger() cidranger.Ranger
-	defaultNetwork() network.ID
+	Network(endpointIP string, labels labels.Instance) network.ID
 	Cluster() cluster.ID
 }
 
@@ -375,19 +375,52 @@ func (c *Controller) ExportedServices() []string {
 	return c.exports.ExportedServices()
 }
 
-func (c *Controller) cidrRanger() cidranger.Ranger {
-	c.RLock()
-	defer c.RUnlock()
-	return c.ranger
-}
-
-func (c *Controller) defaultNetwork() network.ID {
+func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
 	c.RLock()
 	defer c.RUnlock()
 	if c.networkForRegistry != "" {
 		return c.networkForRegistry
 	}
+
+	if c.ranger != nil {
+		entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
+		if err != nil {
+			log.Error(err)
+			return ""
+		}
+		if len(entries) > 1 {
+			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
+		}
+		if len(entries) > 0 {
+			return (entries[0].(namedRangerEntry)).name
+		}
+	}
+	return ""
+}
+
+func (c *Controller) networkFromSystemNamespace() network.ID {
+	c.RLock()
+	defer c.RUnlock()
 	return c.network
+}
+
+func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
+	// 1. check the pod/workloadEntry label
+	if nw := labels[label.TopologyNetwork.Name]; nw != "" {
+		return network.ID(nw)
+	}
+
+	// 2. check the system namespace labels
+	if nw := c.networkFromSystemNamespace(); nw != "" {
+		return nw
+	}
+
+	// 3. check the meshNetworks config
+	if nw := c.networkFromMeshNetworks(endpointIP); nw != "" {
+		return nw
+	}
+
+	return ""
 }
 
 func (c *Controller) Cleanup() error {
@@ -397,7 +430,7 @@ func (c *Controller) Cleanup() error {
 	}
 	for _, s := range svcs {
 		name := kube.ServiceHostname(s.Name, s.Namespace, c.opts.DomainSuffix)
-		c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(name), s.Namespace, model.EventDelete)
+		c.opts.XDSUpdater.SvcUpdate(model.ShardKeyFromRegistry(c), string(name), s.Namespace, model.EventDelete)
 	}
 	return nil
 }
@@ -457,16 +490,17 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		}
 	}
 
+	shard := model.ShardKeyFromRegistry(c)
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	if event == model.EventAdd || event == model.EventUpdate {
 		endpoints := c.buildEndpointsForService(svcConv)
 		if len(endpoints) > 0 {
-			c.opts.XDSUpdater.EDSCacheUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), svc.Namespace, endpoints)
 		}
 	}
 
-	c.opts.XDSUpdater.SvcUpdate(string(c.Cluster()), string(svcConv.Hostname), svc.Namespace, event)
+	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), svc.Namespace, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -1028,6 +1062,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 		ObjectMeta: metav1.ObjectMeta{Namespace: si.Namespace, Labels: si.Endpoint.Labels},
 	}
 
+	shard := model.ShardKeyFromRegistry(c)
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
@@ -1056,7 +1091,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 			}
 			// fire off eds update
-			c.opts.XDSUpdater.EDSUpdate(string(c.Cluster()), string(service.Hostname), service.Attributes.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSUpdate(shard, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
 }
@@ -1078,8 +1113,8 @@ func (c *Controller) onSystemNamespaceEvent(obj interface{}, ev model.Event) err
 	oldDefaultNetwork := c.network
 	c.network = network.ID(nw)
 	c.Unlock()
-	// network changed, not using mesh networks, and controller has been initialized
-	if oldDefaultNetwork != c.network && c.network == c.defaultNetwork() {
+	// network changed, rarely happen
+	if oldDefaultNetwork != c.network {
 		// refresh pods/endpoints/services
 		c.onNetworkChanged()
 	}

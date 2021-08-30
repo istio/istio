@@ -158,7 +158,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			var nt dnsProto.NameTable
 			// nolint: staticcheck
 			if err := ptypes.UnmarshalAny(resp, &nt); err != nil {
-				log.Errorf("failed to unmarshall name table: %v", err)
+				log.Errorf("failed to unmarshal name table: %v", err)
 				return err
 			}
 			ia.localDNSServer.UpdateLookupTable(&nt)
@@ -169,7 +169,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		proxy.handlers[v3.ProxyConfigType] = func(resp *any.Any) error {
 			var pc meshconfig.ProxyConfig
 			if err := gogotypes.UnmarshalAny(gogo.ConvertAny(resp), &pc); err != nil {
-				log.Errorf("failed to unmarshall proxy config: %v", err)
+				log.Errorf("failed to unmarshal proxy config: %v", err)
 				return err
 			}
 			caCerts := pc.GetCaCertificatesPem()
@@ -823,10 +823,10 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 	}
 }
 
-// initDebugInterface() listens on localhost:15004 for path /debug/...
+// initDebugInterface() listens on localhost:${PORT} for path /debug/...
 // forwards the paths to Istiod as xDS requests
 // waits for response from Istiod, sends it as JSON
-func (p *XdsProxy) initDebugInterface() error {
+func (p *XdsProxy) initDebugInterface(port int) error {
 	p.tapResponseChannel = make(chan *discovery.DiscoveryResponse)
 
 	httpMux := http.NewServeMux()
@@ -835,8 +835,10 @@ func (p *XdsProxy) initDebugInterface() error {
 	httpMux.HandleFunc("/debug", handler) // For 1.10 Istiod which uses istio.io/debug
 
 	p.httpTapServer = &http.Server{
-		Addr:    "localhost:15004",
-		Handler: httpMux,
+		Addr:        fmt.Sprintf("localhost:%d", port),
+		Handler:     httpMux,
+		IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
+		ReadTimeout: 30 * time.Second,
 	}
 
 	// create HTTP listener

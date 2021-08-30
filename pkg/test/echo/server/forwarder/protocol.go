@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -37,6 +38,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/xds"
+	xdsresolver "google.golang.org/grpc/xds"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -179,6 +181,13 @@ func newProtocol(cfg Config) (protocol, error) {
 			},
 			do: cfg.Dialer.HTTP,
 		}
+		if len(cfg.Proxy) > 0 {
+			proxyURL, err := url.Parse(cfg.Proxy)
+			if err != nil {
+				return nil, err
+			}
+			proto.client.Transport.(*http.Transport).Proxy = http.ProxyURL(proxyURL)
+		}
 		if cfg.Request.Http3 && scheme.Instance(urlScheme) == scheme.HTTP {
 			return nil, fmt.Errorf("http3 requires HTTPS")
 		} else if cfg.Request.Http3 {
@@ -212,8 +221,8 @@ func newProtocol(cfg Config) (protocol, error) {
 	case scheme.GRPC, scheme.XDS:
 		// NOTE: XDS load-balancing happens per-ForwardEchoRequest since we create a new client each time
 
+		var opts []grpc.DialOption
 		// grpc-go sets incorrect authority header
-		authority := headers.Get(hostHeader)
 
 		// transport security
 		security := grpc.WithInsecure()
@@ -223,7 +232,15 @@ func newProtocol(cfg Config) (protocol, error) {
 				return nil, err
 			}
 			security = grpc.WithTransportCredentials(creds)
+			if len(cfg.XDSTestBootstrap) > 0 {
+				resolver, err := xdsresolver.NewXDSResolverWithConfigForTesting(cfg.XDSTestBootstrap)
+				if err != nil {
+					return nil, err
+				}
+				opts = append(opts, grpc.WithResolvers(resolver))
+			}
 		}
+
 		if getClientCertificate != nil {
 			security = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))
 		}
@@ -237,10 +254,8 @@ func newProtocol(cfg Config) (protocol, error) {
 		// Connect to the GRPC server.
 		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
 		defer cancel()
-		grpcConn, err := cfg.Dialer.GRPC(ctx,
-			address,
-			security,
-			grpc.WithAuthority(authority))
+		opts = append(opts, security, grpc.WithAuthority(headers.Get(hostHeader)))
+		grpcConn, err := cfg.Dialer.GRPC(ctx, address, opts...)
 		if err != nil {
 			return nil, err
 		}

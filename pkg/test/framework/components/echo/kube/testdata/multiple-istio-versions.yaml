@@ -42,6 +42,7 @@ spec:
       containers:
       - name: istio-proxy
         image: auto
+        imagePullPolicy: Always
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
       - name: app
@@ -65,7 +66,7 @@ spec:
           - --version
           - "bar"
           - --istio-version
-          - "1.8.2"
+          - "1.9.0"
           - --crt=/cert.crt
           - --key=/cert.key
         ports:
@@ -124,6 +125,7 @@ spec:
       containers:
       - name: istio-proxy
         image: auto
+        imagePullPolicy: Always
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
       - name: app
@@ -147,7 +149,7 @@ spec:
           - --version
           - "bar"
           - --istio-version
-          - "1.9.0"
+          - "1.10.0"
           - --crt=/cert.crt
           - --key=/cert.key
         ports:

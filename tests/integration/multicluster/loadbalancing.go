@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,12 +26,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
-	"istio.io/istio/pkg/test/framework/label"
 )
 
 func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Feature) {
 	framework.NewTest(t).
-		Label(label.Multicluster).
+		RequiresMinClusters(2).
 		Features(features...).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("loadbalancing").

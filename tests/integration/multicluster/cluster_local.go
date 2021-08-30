@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
-	"istio.io/istio/pkg/test/framework/label"
 )
 
 // ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
@@ -34,7 +35,7 @@ func ClusterLocalTest(t *testing.T, apps AppContext, features ...features.Featur
 				for _, c := range ctx.Clusters() {
 					c := c
 					ctx.NewSubTest(c.StableName()).
-						Label(label.Multicluster).
+						RequiresMinClusters(2).
 						Run(func(ctx framework.TestContext) {
 							local := apps.LocalEchos.GetOrFail(ctx, echo.InCluster(c))
 							callOrFail(ctx, local, local, echo.ExpectCluster(c.Name()))

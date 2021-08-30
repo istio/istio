@@ -239,6 +239,106 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
+		{
+			name:        "subset without labels in both",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes:  serviceAttribute,
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS},
+			}},
+		},
+		{
+			name:        "subset without labels in dest rule",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host:    "foo.example.com",
+				Subsets: []*networking.Subset{{Name: "v1"}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "bar"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS},
+			}},
+		},
+		{
+			name:        "subset with labels in both, not matching",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:    host.Name("foo.example.com"),
+				Address:     "1.1.1.1",
+				ClusterVIPs: make(map[cluster2.ID]string),
+				Ports:       servicePort,
+				Resolution:  model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"foo": "bar"},
+				},
+			},
+			port: servicePort[0],
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{{
+					Name:   "v1",
+					Labels: map[string]string{"foo": "not-match"},
+				}},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
 	}
 
 	for _, tt := range cases {
@@ -254,6 +354,7 @@ func TestApplyDestinationRule(t *testing.T) {
 							ClusterID: "",
 							Label:     "region1/zone1/subzone1",
 						},
+						Labels:  tt.service.Attributes.Labels,
 						TLSMode: model.IstioMutualTLSModeLabel,
 					},
 				},
@@ -271,17 +372,21 @@ func TestApplyDestinationRule(t *testing.T) {
 				}
 			}
 			cg := NewConfigGenTest(t, TestOptions{
+				Instances:      instances,
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
 			cg.MemRegistry.WantGetProxyServiceInstances = instances
-			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
+			proxy := cg.SetupProxy(nil)
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(cb.proxy, tt.service)
+			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
-				t.Errorf("Unexpected subset clusters want %v, got %v", len(tt.expectedSubsetClusters), len(subsetClusters))
+				t.Fatalf("Unexpected subset clusters want %v, got %v. keys=%v",
+					len(tt.expectedSubsetClusters), len(subsetClusters), xdstest.MapKeys(xdstest.ExtractClusters(subsetClusters)))
 			}
 			if len(tt.expectedSubsetClusters) > 0 {
 				compareClusters(t, tt.expectedSubsetClusters[0], subsetClusters[0])
@@ -814,7 +919,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			}
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
-				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxy.GetNetworkView(), nil)
+				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.networkView, nil)
 			}
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
@@ -1493,8 +1598,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				mutable: NewMutableCluster(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
 				}),
-				proxy: proxy,
-				mesh:  push.Mesh,
+				mesh: push.Mesh,
 			}
 			if test.h2 {
 				cb.setH2Options(opts.mutable)
@@ -1545,6 +1649,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		opts   *buildClusterOpts
 		tls    *networking.ClientTLSSettings
 		h2     bool
+		router bool
 		result expectedResult
 	}{
 		{
@@ -1563,9 +1668,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode ISTIO_MUTUAL",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
@@ -1635,9 +1737,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode ISTIO_MUTUAL and H2",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
@@ -1708,9 +1807,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, with no certs specified in tls",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -1731,9 +1827,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, with certs specified in tls",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -1779,9 +1872,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, with certs specified in tls with h2",
 			opts: &buildClusterOpts{
 				mutable: newH2TestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -1829,7 +1919,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, with certs specified in tls",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy:   &model.Proxy{},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -1875,7 +1964,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, with SANs specified in service entries",
 			opts: &buildClusterOpts{
 				mutable:         newTestCluster(),
-				proxy:           &model.Proxy{},
 				serviceAccounts: []string{"se-san.com"},
 				serviceRegistry: provider.External,
 			},
@@ -1952,9 +2040,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode MUTUAL, with node metadata sdsEnabled true no root CA specified",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1999,9 +2084,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode MUTUAL, with node metadata sdsEnabled true",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -2071,10 +2153,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, with CredentialName specified",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-					Type:     model.Router,
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -2082,41 +2160,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
 			},
-			result: expectedResult{
-				tlsContext: &tls.UpstreamTlsContext{
-					CommonTlsContext: &tls.CommonTlsContext{
-						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
-							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-								DefaultValidationContext: &tls.CertificateValidationContext{
-									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
-								},
-								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
-									SdsConfig: authn_model.SDSAdsConfig,
-								},
-							},
-						},
-					},
-					Sni: "some-sni.com",
-				},
-				err: nil,
-			},
-		},
-		{
-			name: "tls mode SIMPLE, with CredentialName specified",
-			opts: &buildClusterOpts{
-				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-					Type:     model.Router,
-				},
-			},
-			tls: &networking.ClientTLSSettings{
-				Mode:            networking.ClientTLSSettings_SIMPLE,
-				CredentialName:  credentialName,
-				SubjectAltNames: []string{"SAN"},
-				Sni:             "some-sni.com",
-			},
+			router: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2141,17 +2185,14 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, with CredentialName specified with h2 and no SAN",
 			opts: &buildClusterOpts{
 				mutable: newH2TestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-					Type:     model.Router,
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_SIMPLE,
 				CredentialName: credentialName,
 				Sni:            "some-sni.com",
 			},
-			h2: true,
+			h2:     true,
+			router: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2175,10 +2216,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode MUTUAL, with CredentialName specified",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-					Type:     model.Router,
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_MUTUAL,
@@ -2186,6 +2223,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
 			},
+			router: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2216,17 +2254,14 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode MUTUAL, with CredentialName specified with h2 and no SAN",
 			opts: &buildClusterOpts{
 				mutable: newH2TestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-					Type:     model.Router,
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_MUTUAL,
 				CredentialName: credentialName,
 				Sni:            "some-sni.com",
 			},
-			h2: true,
+			h2:     true,
+			router: true,
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2256,10 +2291,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode MUTUAL, credentialName is set with proxy type Sidecar",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-					Type:     model.SidecarProxy,
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_MUTUAL,
@@ -2274,10 +2305,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			name: "tls mode SIMPLE, credentialName is set with proxy type Sidecar",
 			opts: &buildClusterOpts{
 				mutable: newTestCluster(),
-				proxy: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-					Type:     model.SidecarProxy,
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_SIMPLE,
@@ -2291,7 +2318,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
+			var proxy *model.Proxy
+			if tc.router {
+				proxy = newGatewayProxy()
+			} else {
+				proxy = newSidecarProxy()
+			}
+			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
 			if tc.h2 {
 				cb.setH2Options(tc.opts.mutable)
 			}
@@ -2312,7 +2345,7 @@ func newTestCluster() *MutableCluster {
 }
 
 func newH2TestCluster() *MutableCluster {
-	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
@@ -2321,12 +2354,20 @@ func newH2TestCluster() *MutableCluster {
 }
 
 func newDownstreamTestCluster() *MutableCluster {
-	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
 	mc := NewMutableCluster(&cluster.Cluster{
 		Name: "test-cluster",
 	})
 	cb.setUseDownstreamProtocol(mc)
 	return mc
+}
+
+func newSidecarProxy() *model.Proxy {
+	return &model.Proxy{Type: model.SidecarProxy, Metadata: &model.NodeMetadata{}}
+}
+
+func newGatewayProxy() *model.Proxy {
+	return &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
 }
 
 // Helper function to extract TLS context from a cluster
@@ -2447,7 +2488,7 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2484,13 +2525,192 @@ func TestIsHttp2Cluster(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(nil, nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			isHttp2Cluster := cb.IsHttp2Cluster(test.cluster)
 			if isHttp2Cluster != test.isHttp2Cluster {
 				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
+			}
+		})
+	}
+}
+
+func TestBuildAutoMtlsSettings(t *testing.T) {
+	tlsSettings := &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
+	}
+	tests := []struct {
+		name            string
+		tls             *networking.ClientTLSSettings
+		sans            []string
+		sni             string
+		proxy           *model.Proxy
+		autoMTLSEnabled bool
+		meshExternal    bool
+		serviceMTLSMode model.MutualTLSMode
+		want            *networking.ClientTLSSettings
+		wantCtxType     mtlsContextType
+	}{
+		{
+			"Destination rule TLS sni and SAN override",
+			tlsSettings,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			false, false, model.MTLSUnknown,
+			tlsSettings,
+			userSupplied,
+		},
+		{
+			"Metadata cert path override ISTIO_MUTUAL",
+			tlsSettings,
+			[]string{"custom.foo.com"},
+			"custom.foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
+			}},
+			false, false, model.MTLSUnknown,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				PrivateKey:        "/custom/key.pem",
+				ClientCertificate: "/custom/chain.pem",
+				CaCertificates:    "/custom/root.pem",
+				SubjectAltNames:   []string{"custom.foo.com"},
+				Sni:               "custom.foo.com",
+			},
+			userSupplied,
+		},
+		{
+			"Auto fill nil settings when mTLS nil for internal service in strict mode",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			true, false, model.MTLSStrict,
+			&networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
+				Sni:             "foo.com",
+			},
+			autoDetected,
+		},
+		{
+			"Auto fill nil settings when mTLS nil for internal service in permissive mode",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			true, false, model.MTLSPermissive,
+			&networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
+				Sni:             "foo.com",
+			},
+			autoDetected,
+		},
+		{
+			"Auto fill nil settings when mTLS nil for internal service in plaintext mode",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			true, false, model.MTLSDisable,
+			nil,
+			userSupplied,
+		},
+		{
+			"Auto fill nil settings when mTLS nil for internal service in unknown mode",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			true, false, model.MTLSUnknown,
+			nil,
+			userSupplied,
+		},
+		{
+			"Do not auto fill nil settings for external",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			true, true, model.MTLSUnknown,
+			nil,
+			userSupplied,
+		},
+		{
+			"Do not auto fill nil settings if server mTLS is disabled",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			false, false, model.MTLSDisable,
+			nil,
+			userSupplied,
+		},
+		{
+			"TLS nil auto build tls with metadata cert path",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/chain.pem",
+				TLSClientKey:       "/custom/key.pem",
+				TLSClientRootCert:  "/custom/root.pem",
+			}},
+			true, false, model.MTLSPermissive,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "/custom/chain.pem",
+				PrivateKey:        "/custom/key.pem",
+				CaCertificates:    "/custom/root.pem",
+				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
+				Sni:               "foo.com",
+			},
+			autoDetected,
+		},
+		{
+			"Simple TLS",
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				PrivateKey:        "/custom/key.pem",
+				ClientCertificate: "/custom/chain.pem",
+				CaCertificates:    "/custom/root.pem",
+			},
+			[]string{"custom.foo.com"},
+			"custom.foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{
+				TLSClientCertChain: "/custom/meta/chain.pem",
+				TLSClientKey:       "/custom/meta/key.pem",
+				TLSClientRootCert:  "/custom/meta/root.pem",
+			}},
+			false, false, model.MTLSUnknown,
+			&networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				PrivateKey:        "/custom/key.pem",
+				ClientCertificate: "/custom/chain.pem",
+				CaCertificates:    "/custom/root.pem",
+			},
+			userSupplied,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := NewClusterBuilder(tt.proxy, nil, nil)
+			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni,
+				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
+			if !reflect.DeepEqual(gotTLS, tt.want) {
+				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
+			}
+			if gotCtxType != tt.wantCtxType {
+				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotCtxType)
 			}
 		})
 	}

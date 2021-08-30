@@ -39,6 +39,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
 	"go.opencensus.io/stats/view"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -135,8 +136,8 @@ type Server struct {
 func init() {
 	registry := prometheus.NewRegistry()
 	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", prometheus.Registerer(registry))
-	wrapped.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-	wrapped.MustRegister(prometheus.NewGoCollector())
+	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	wrapped.MustRegister(collectors.NewGoCollector())
 
 	promRegistry = registry
 	// go collector metrics collide with other metrics.

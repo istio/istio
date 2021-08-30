@@ -15,7 +15,10 @@
 package grpcgen
 
 import (
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/pkg/log"
@@ -63,8 +66,24 @@ func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushConte
 	return nil, model.DefaultXdsLogDetails, nil
 }
 
-func (g *GrpcConfigGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	res, logs, err := g.Generate(proxy, push, w, updates)
-	return res, nil, logs, false, err
+// buildCommonTLSContext creates a TLS context that assumes 'default' name, and credentials/tls/certprovider/pemfile
+// (see grpc/xds/internal/client/xds.go securityConfigFromCluster).
+func buildCommonTLSContext(sans []string) *tls.CommonTlsContext {
+	return &tls.CommonTlsContext{
+		TlsCertificateCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+			InstanceName:    "default",
+			CertificateName: "default",
+		},
+		ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+				ValidationContextCertificateProviderInstance: &tls.CommonTlsContext_CertificateProviderInstance{
+					InstanceName:    "default",
+					CertificateName: "ROOTCA",
+				},
+				DefaultValidationContext: &tls.CertificateValidationContext{
+					MatchSubjectAltNames: util.StringToExactMatch(sans),
+				},
+			},
+		},
+	}
 }

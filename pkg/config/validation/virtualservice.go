@@ -90,8 +90,12 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 	}
 
 	if http.MirrorPercentage != nil {
-		if value := http.MirrorPercentage.GetValue(); value > 100 {
+		value := http.MirrorPercentage.GetValue()
+		if value > 100 {
 			errs = appendValidation(errs, fmt.Errorf("mirror_percentage must have a max value of 100 (it has %f)", value))
+		}
+		if value < 0 {
+			errs = appendValidation(errs, fmt.Errorf("mirror_percentage must have a min value of 0 (it has %f)", value))
 		}
 	}
 
@@ -102,7 +106,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs Validati
 	errs = appendValidation(errs, validateAuthorityRewrite(http.Rewrite, http.Headers))
 	errs = appendValidation(errs, validateHTTPRouteDestinations(http.Route))
 	if http.Timeout != nil {
-		errs = appendValidation(errs, ValidateDurationGogo(http.Timeout))
+		errs = appendValidation(errs, ValidateDuration(http.Timeout))
 	}
 
 	return

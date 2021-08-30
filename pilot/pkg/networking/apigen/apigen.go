@@ -145,7 +145,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			if s.Attributes.ServiceRegistry == provider.External {
 				continue
 			}
-			c := serviceentry.ServiceToServiceEntry(s)
+			c := serviceentry.ServiceToServiceEntry(s, proxy)
 			b, err := configToResource(c)
 			if err != nil {
 				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
@@ -168,12 +168,6 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	}
 
 	return resp, model.DefaultXdsLogDetails, nil
-}
-
-func (g *APIGenerator) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, updates *model.PushRequest,
-	w *model.WatchedResource) (model.Resources, []string, model.XdsLogDetails, bool, error) {
-	res, logs, err := g.Generate(proxy, push, w, updates)
-	return res, nil, logs, false, err
 }
 
 // Convert from model.Config, which has no associated proto, to MCP Resource proto.

@@ -66,6 +66,10 @@ var (
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
+
+	fileDebounceDuration = env.RegisterDurationVar("FILE_DEBOUNCE_DURATION", 100*time.Millisecond,
+		"The duration for which the file read operation is delayed once file update is detected").Get()
+
 	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
 	pkcs8KeysEnv = env.RegisterBoolVar("PKCS8_KEY", false,
@@ -76,11 +80,10 @@ var (
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.RegisterStringVar("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
-	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
-		"If set to true, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
-			"will be removed once the feature is stabilized.").Get()
 	proxyXDSDebugViaAgent = env.RegisterBoolVar("PROXY_XDS_DEBUG_VIA_AGENT", true,
-		"If set to true, the agent will listen on 15004 and offer pilot's XDS istio.io/debug debug API there.").Get()
+		"If set to true, the agent will listen on tap port and offer pilot's XDS istio.io/debug debug API there.").Get()
+	proxyXDSDebugViaAgentPort = env.RegisterIntVar("PROXY_XDS_DEBUG_VIA_AGENT_PORT", 15004,
+		"Agent debugging port.").Get()
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")

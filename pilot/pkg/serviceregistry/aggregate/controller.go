@@ -139,7 +139,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 					services = append(services, sp)
 				} else {
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
-					mergeService(sp, s, r.Cluster())
+					mergeService(sp, s, r)
 				}
 			}
 		}
@@ -167,19 +167,22 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 			out = service.DeepCopy()
 		} else {
 			// If we are seeing the service for the second time, it means it is available in multiple clusters.
-			mergeService(out, service, r.Cluster())
+			mergeService(out, service, r)
 		}
 	}
 	return out, errs
 }
 
-func mergeService(dst, src *model.Service, srcCluster cluster.ID) {
+func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
 	dst.Mutex.Lock()
+	defer dst.Mutex.Unlock()
 	if dst.ClusterVIPs == nil {
 		dst.ClusterVIPs = make(map[cluster.ID]string)
 	}
-	dst.ClusterVIPs[srcCluster] = src.Address
-	dst.Mutex.Unlock()
+	// prefer the k8s VIP where possible
+	if srcRegistry.Provider() == provider.Kubernetes || dst.ClusterVIPs[srcRegistry.Cluster()] == "" {
+		dst.ClusterVIPs[srcRegistry.Cluster()] = src.Address
+	}
 }
 
 // NetworkGateways merges the service-based cross-network gateways from each registry.

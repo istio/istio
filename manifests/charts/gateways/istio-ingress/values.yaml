@@ -48,11 +48,6 @@ gateways:
     loadBalancerSourceRanges: []
     serviceAnnotations: {}
 
-    # Enable cross-cluster access using SNI matching
-    zvpn:
-      enabled: false
-      suffix: global
-
     # To generate an internal load balancer:
     # --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
     #serviceAnnotations:
@@ -77,13 +72,12 @@ gateways:
     additionalContainers: []
     configVolumes: []
 
-    ### Advanced options ############
-    env:
-      # A gateway with this mode ensures that pilot generates an additional
-      # set of clusters for internal services but without Istio mTLS, to
-      # enable cross cluster routing.
-      ISTIO_META_ROUTER_MODE: "standard"
+    serviceAccount:
+      # Annotations to add to the service account
+      annotations: {}
 
+    ### Advanced options ############
+    env: {}
     nodeSelector: {}
     tolerations: []
 

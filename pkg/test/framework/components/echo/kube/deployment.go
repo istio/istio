@@ -51,6 +51,9 @@ import (
 )
 
 const (
+	// for proxyless we add a special gRPC server that doesn't get configured with xDS for test-runner use
+	grpcMagicPort = 17171
+
 	serviceYAML = `
 {{- if .ServiceAccount }}
 apiVersion: v1
@@ -145,9 +148,11 @@ spec:
 {{- if and
   (ne ($subset.Annotations.GetByName "sidecar.istio.io/inject") "false")
   (ne ($subset.Annotations.GetByName "inject.istio.io/templates") "grpc")
+  ($.OverlayIstioProxy)
 }}
       - name: istio-proxy
         image: auto
+        imagePullPolicy: {{ $.PullPolicy }}
         securityContext: # to allow core dumps
           readOnlyRootFilesystem: false
 {{- end }}
@@ -171,6 +176,9 @@ spec:
           - "{{ $cluster }}"
 {{- range $i, $p := $.ContainerPorts }}
 {{- if eq .Protocol "GRPC" }}
+{{- if and $.ProxylessGRPC (ne $p.Port $.GRPCMagicPort) }}
+          - --xds-grpc-server={{ $p.Port }}
+{{- end }}
           - --grpc
 {{- else if eq .Protocol "TCP" }}
           - --tcp
@@ -231,10 +239,6 @@ spec:
 {{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
-        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
-          value: "99"
-        - name: GRPC_GO_LOG_SEVERITY_LEVEL
-          value: info
 {{- end }}
         readinessProbe:
 {{- if $.ReadinessTCPPort }}
@@ -481,8 +485,8 @@ type deployment struct {
 }
 
 func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
-	if !cfg.Cluster.IsPrimary() && cfg.DeployAsVM {
-		return nil, fmt.Errorf("cannot deploy %s/%s as VM on non-primary %s",
+	if !cfg.Cluster.IsConfig() && cfg.DeployAsVM {
+		return nil, fmt.Errorf("cannot deploy %s/%s as VM on non-config %s",
 			cfg.Namespace.Name(),
 			cfg.Service,
 			cfg.Cluster.Name())
@@ -672,11 +676,12 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"Headless":           cfg.Headless,
 		"StatefulSet":        cfg.StatefulSet,
 		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":      grpcMagicPort,
 		"Locality":           cfg.Locality,
 		"ServiceAccount":     cfg.ServiceAccount,
 		"Ports":              cfg.Ports,
 		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
-		"ContainerPorts":     getContainerPorts(cfg.Ports),
+		"ContainerPorts":     getContainerPorts(cfg),
 		"ServiceAnnotations": cfg.ServiceAnnotations,
 		"Subsets":            cfg.Subsets,
 		"TLSSettings":        cfg.TLSSettings,
@@ -687,11 +692,12 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},
-		"StartupProbe":    supportStartupProbe,
-		"IncludeExtAuthz": cfg.IncludeExtAuthz,
-		"Revisions":       settings.Revisions.TemplateMap(),
-		"Compatibility":   settings.Compatibility,
-		"Class":           getConfigClass(cfg),
+		"StartupProbe":      supportStartupProbe,
+		"IncludeExtAuthz":   cfg.IncludeExtAuthz,
+		"Revisions":         settings.Revisions.TemplateMap(),
+		"Compatibility":     settings.Compatibility,
+		"Class":             getConfigClass(cfg),
+		"OverlayIstioProxy": canCreateIstioProxy(settings.Revisions.Minimum()),
 	}
 	return params, nil
 }
@@ -797,7 +803,7 @@ spec:
 			cmd = append(cmd, "--autoregister")
 		}
 		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
-			// LoadBalancer may not be suppported and the command doesn't have NodePort fallback logic that the tests do
+			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
 		}
 		// make sure namespace controller has time to create root-cert ConfigMap
@@ -922,7 +928,8 @@ func createServiceAccount(client kubernetes.Interface, ns string, serviceAccount
 
 // getContainerPorts converts the ports to a port list of container ports.
 // Adds ports for health/readiness if necessary.
-func getContainerPorts(ports []echo.Port) echoCommon.PortList {
+func getContainerPorts(cfg echo.Config) echoCommon.PortList {
+	ports := cfg.Ports
 	containerPorts := make(echoCommon.PortList, 0, len(ports))
 	var healthPort *echoCommon.Port
 	var readyPort *echoCommon.Port
@@ -968,6 +975,14 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 			Port:     tcpHealthPort,
 		})
 	}
+	if cfg.IsProxylessGRPC() {
+		containerPorts = append(containerPorts, &echoCommon.Port{
+			Name:        "grpc-magic-port",
+			Protocol:    protocol.GRPC,
+			Port:        grpcMagicPort,
+			LocalhostIP: true,
+		})
+	}
 	return containerPorts
 }
 
@@ -997,4 +1012,15 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 		}
 	}
 	return
+}
+
+func canCreateIstioProxy(version resource.IstioVersion) bool {
+	// if no revision specified create the istio-proxy
+	if string(version) == "" {
+		return true
+	}
+	if minor := strings.Split(string(version), ".")[1]; minor > "8" || len(minor) > 1 {
+		return true
+	}
+	return false
 }

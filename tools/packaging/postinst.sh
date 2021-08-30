@@ -20,7 +20,7 @@ set -e
 umask 022
 
 if ! getent passwd istio-proxy >/dev/null; then
-    if  find /etc/*release | grep -Eiq 'centos|redhat'; then
+    if command -v useradd >/dev/null; then
         groupadd --system istio-proxy
         useradd --system --gid istio-proxy --home-dir /var/lib/istio istio-proxy
     else

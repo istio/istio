@@ -1,0 +1,59 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: default-gateways
+spec:
+  profile: empty
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 40Mi
+          service:
+            ports:
+              ## Default ports
+              - port: 15021
+                targetPort: 15021
+                name: status-port
+              - port: 80
+                targetPort: 8080
+                name: http2
+              - port: 443
+                targetPort: 8443
+                name: https
+                # This is the port where sni routing happens
+              - port: 15443
+                targetPort: 15443
+                name: tls
+              ## Extra ports for testing
+              - port: 15012
+                targetPort: 15012
+                name: tls-istiod
+              - port: 15017
+                targetPort: 15017
+                name: tls-webhook
+              - port: 31400
+                targetPort: 31400
+                name: tcp
+    # Enable the egressgateway for all tests by default.
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
+        k8s:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 40Mi
+  values:
+    gateways:
+      istio-ingressgateway:
+        injectionTemplate: gateway
+        autoscaleEnabled: false
+      istio-egressgateway:
+        injectionTemplate: gateway
+        autoscaleEnabled: false

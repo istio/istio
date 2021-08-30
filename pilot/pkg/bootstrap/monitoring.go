@@ -90,7 +90,10 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 	}
 	if addr != "" {
 		m.monitoringServer = &http.Server{
-			Handler: mux,
+			Addr:        listener.Addr().String(),
+			Handler:     mux,
+			IdleTimeout: 90 * time.Second, // matches http.DefaultTransport keep-alive timeout
+			ReadTimeout: 30 * time.Second,
 		}
 	}
 

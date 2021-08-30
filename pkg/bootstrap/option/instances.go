@@ -100,10 +100,6 @@ func DNSLookupFamily(value DNSLookupFamilyValue) Instance {
 	return newOption("dns_lookup_family", value)
 }
 
-func ProxyViaAgent(value bool) Instance {
-	return newOption("proxy_via_agent", value)
-}
-
 func OutlierLogPath(value string) Instance {
 	return newOptionOrSkipIfZero("outlier_log_path", value)
 }

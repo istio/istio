@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,7 +78,7 @@ func TestRevisionTags(t *testing.T) {
 			baseArgs := []string{"tag"}
 			for _, tc := range tcs {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					tagSetArgs := append(baseArgs, "set", tc.tag, "--revision", tc.revision, "--skip-confirmation")
+					tagSetArgs := append(baseArgs, "set", tc.tag, "--revision", tc.revision, "--skip-confirmation", "--overwrite")
 					tagSetArgs = append(tagSetArgs, "--manifests", filepath.Join(env.IstioSrc, "manifests"))
 					tagRemoveArgs := append(baseArgs, "remove", tc.tag, "-y")
 

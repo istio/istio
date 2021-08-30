@@ -19,7 +19,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	. "github.com/onsi/gomega"
-	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
@@ -74,10 +73,24 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			},
 		},
 		{
+			name: "network only ",
+			ctl: testController{
+				network: "mynetwork",
+			},
+			podLabels: labels.Instance{
+				"k1": "v1",
+			},
+			expected: labels.Instance{
+				"k1":                       "v1",
+				label.TopologyNetwork.Name: "mynetwork",
+			},
+		},
+		{
 			name: "all values",
 			ctl: testController{
 				locality: "myregion/myzone/mysubzone",
 				cluster:  "mycluster",
+				network:  "mynetwork",
 			},
 			podLabels: labels.Instance{
 				"k1":                       "v1",
@@ -213,18 +226,15 @@ var _ controllerInterface = testController{}
 type testController struct {
 	locality string
 	cluster  cluster2.ID
+	network  network.ID
 }
 
 func (c testController) getPodLocality(*v1.Pod) string {
 	return c.locality
 }
 
-func (c testController) cidrRanger() cidranger.Ranger {
-	return nil
-}
-
-func (c testController) defaultNetwork() network.ID {
-	return ""
+func (c testController) Network(ip string, instance labels.Instance) network.ID {
+	return c.network
 }
 
 func (c testController) Cluster() cluster2.ID {

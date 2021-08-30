@@ -119,11 +119,11 @@ spec:
         app.kubernetes.io/name: grafana
         app.kubernetes.io/instance: grafana
         app: grafana
+        sidecar.istio.io/inject: "false"
       annotations:
         checksum/config: af4530cc6e67e63b6285f3ceccaf0aaa2a20d322e35c9f0ae48721add3b58eb0
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
-        sidecar.istio.io/inject: "false"
     spec:
       
       serviceAccountName: grafana

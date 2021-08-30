@@ -33,6 +33,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -199,7 +200,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con, s.globalPushContext(), versionInfo(), &model.WatchedResource{
+		return s.pushXds(con, s.globalPushContext(), &model.WatchedResource{
 			TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames,
 		}, &model.PushRequest{Full: true})
 	}
@@ -234,7 +235,13 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 
 	request.Reason = append(request.Reason, model.ProxyRequest)
 	request.Start = time.Now()
-	return s.pushXds(con, push, versionInfo(), con.Watched(req.TypeUrl), request)
+	// SidecarScope for the proxy may not have been updated based on this pushContext.
+	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
+	// but before proxy's SidecarScope has been updated(s.updateProxy).
+	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != push.PushVersion {
+		s.computeProxyState(con.proxy, request)
+	}
+	return s.pushXds(con, push, con.Watched(req.TypeUrl), request)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -595,6 +602,9 @@ func (s *DiscoveryServer) initializeProxy(node *core.Node, con *Connection) erro
 		}
 	}
 
+	locality := util.LocalityToString(proxy.Locality)
+	// add topology labels to proxy metadata labels
+	proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 	// Discover supported IP Versions of proxy so that appropriate config can be delivered.
 	proxy.DiscoverIPVersions()
 
@@ -615,6 +625,9 @@ func (s *DiscoveryServer) updateProxy(proxy *model.Proxy, request *model.PushReq
 		// So its enough to look at the first instance.
 		if len(proxy.ServiceInstances) > 0 {
 			proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
+			locality := proxy.ServiceInstances[0].Endpoint.Locality.Label
+			// add topology labels to proxy metadata labels
+			proxy.Metadata.Labels = labelutil.AugmentLabels(proxy.Metadata.Labels, proxy.Metadata.ClusterID, locality, proxy.Metadata.Network)
 		}
 	}
 }
@@ -702,14 +715,12 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		return nil
 	}
 
-	currentVersion := versionInfo()
-
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range orderWatchedResources(con.proxy.WatchedResources) {
 		if !features.EnableFlowControl {
 			// Always send the push if flow control disabled
-			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
+			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
 				return err
 			}
 			continue
@@ -725,7 +736,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		}
 		if synced || timeout {
 			// Send the push now
-			if err := s.pushXds(con, pushRequest.Push, currentVersion, w, pushRequest); err != nil {
+			if err := s.pushXds(con, pushRequest.Push, w, pushRequest); err != nil {
 				return err
 			}
 		} else {

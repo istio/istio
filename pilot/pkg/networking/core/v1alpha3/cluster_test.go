@@ -129,7 +129,9 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(s.Http.Http1MaxPendingRequests)))
 					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
+					// nolint: staticcheck
 					g.Expect(cluster.MaxRequestsPerConnection).To(Not(BeNil()))
+					// nolint: staticcheck
 					g.Expect(cluster.MaxRequestsPerConnection.Value).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
@@ -792,184 +794,6 @@ func TestClusterMetadata(t *testing.T) {
 	g.Expect(foundSNISubset).To(Equal(true))
 }
 
-func TestBuildAutoMtlsSettings(t *testing.T) {
-	tlsSettings := &networking.ClientTLSSettings{
-		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-		SubjectAltNames: []string{"custom.foo.com"},
-		Sni:             "custom.foo.com",
-	}
-	tests := []struct {
-		name            string
-		tls             *networking.ClientTLSSettings
-		sans            []string
-		sni             string
-		proxy           *model.Proxy
-		autoMTLSEnabled bool
-		meshExternal    bool
-		serviceMTLSMode model.MutualTLSMode
-		want            *networking.ClientTLSSettings
-		wantCtxType     mtlsContextType
-	}{
-		{
-			"Destination rule TLS sni and SAN override",
-			tlsSettings,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown,
-			tlsSettings,
-			userSupplied,
-		},
-		{
-			"Metadata cert path override ISTIO_MUTUAL",
-			tlsSettings,
-			[]string{"custom.foo.com"},
-			"custom.foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
-				TLSClientCertChain: "/custom/chain.pem",
-				TLSClientKey:       "/custom/key.pem",
-				TLSClientRootCert:  "/custom/root.pem",
-			}},
-			false, false, model.MTLSUnknown,
-			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_MUTUAL,
-				PrivateKey:        "/custom/key.pem",
-				ClientCertificate: "/custom/chain.pem",
-				CaCertificates:    "/custom/root.pem",
-				SubjectAltNames:   []string{"custom.foo.com"},
-				Sni:               "custom.foo.com",
-			},
-			userSupplied,
-		},
-		{
-			"Auto fill nil settings when mTLS nil for internal service in strict mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSStrict,
-			&networking.ClientTLSSettings{
-				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
-				Sni:             "foo.com",
-			},
-			autoDetected,
-		},
-		{
-			"Auto fill nil settings when mTLS nil for internal service in permissive mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSPermissive,
-			&networking.ClientTLSSettings{
-				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
-				Sni:             "foo.com",
-			},
-			autoDetected,
-		},
-		{
-			"Auto fill nil settings when mTLS nil for internal service in plaintext mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSDisable,
-			nil,
-			userSupplied,
-		},
-		{
-			"Auto fill nil settings when mTLS nil for internal service in unknown mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSUnknown,
-			nil,
-			userSupplied,
-		},
-		{
-			"Do not auto fill nil settings for external",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, true, model.MTLSUnknown,
-			nil,
-			userSupplied,
-		},
-		{
-			"Do not auto fill nil settings if server mTLS is disabled",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSDisable,
-			nil,
-			userSupplied,
-		},
-		{
-			"TLS nil auto build tls with metadata cert path",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
-				TLSClientCertChain: "/custom/chain.pem",
-				TLSClientKey:       "/custom/key.pem",
-				TLSClientRootCert:  "/custom/root.pem",
-			}},
-			true, false, model.MTLSPermissive,
-			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_MUTUAL,
-				ClientCertificate: "/custom/chain.pem",
-				PrivateKey:        "/custom/key.pem",
-				CaCertificates:    "/custom/root.pem",
-				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
-				Sni:               "foo.com",
-			},
-			autoDetected,
-		},
-		{
-			"Simple TLS",
-			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_SIMPLE,
-				PrivateKey:        "/custom/key.pem",
-				ClientCertificate: "/custom/chain.pem",
-				CaCertificates:    "/custom/root.pem",
-			},
-			[]string{"custom.foo.com"},
-			"custom.foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
-				TLSClientCertChain: "/custom/meta/chain.pem",
-				TLSClientKey:       "/custom/meta/key.pem",
-				TLSClientRootCert:  "/custom/meta/root.pem",
-			}},
-			false, false, model.MTLSUnknown,
-			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_SIMPLE,
-				PrivateKey:        "/custom/key.pem",
-				ClientCertificate: "/custom/chain.pem",
-				CaCertificates:    "/custom/root.pem",
-			},
-			userSupplied,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotTLS, gotCtxType := buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
-				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
-			if !reflect.DeepEqual(gotTLS, tt.want) {
-				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
-			}
-			if gotCtxType != tt.wantCtxType {
-				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotCtxType)
-			}
-		})
-	}
-}
-
 func TestDisablePanicThresholdAsDefault(t *testing.T) {
 	g := NewWithT(t)
 
@@ -1203,9 +1027,9 @@ func TestSidecarLocalityLB(t *testing.T) {
 	}
 
 	// Test failover
-	// Distribute locality loadbalancing setting
+	// failover locality loadbalancing setting
 	mesh = testMesh()
-	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
+	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{Failover: []*networking.LocalityLoadBalancerSetting_Failover{}}
 
 	c = xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{
@@ -1311,8 +1135,9 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 
 func TestGatewayLocalityLB(t *testing.T) {
 	g := NewWithT(t)
-	// Distribute locality loadbalancing setting
 
+	// Test distribute
+	// Distribute locality loadbalancing setting
 	mesh := testMesh()
 	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1371,7 +1196,7 @@ func TestGatewayLocalityLB(t *testing.T) {
 
 	// Test failover
 	mesh = testMesh()
-	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
+	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{Failover: []*networking.LocalityLoadBalancerSetting_Failover{}}
 
 	c = xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{
@@ -1893,6 +1718,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 	proxy := model.Proxy{
 		Type:         model.SidecarProxy,
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
+		Metadata:     &model.NodeMetadata{},
 	}
 
 	for _, test := range testcases {
@@ -1911,7 +1737,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				defer func() { features.EnableRedisFilter = defaultValue }()
 			}
 
-			applyLoadBalancer(c, test.lbSettings, test.port, &proxy, &meshconfig.MeshConfig{})
+			applyLoadBalancer(c, test.lbSettings, test.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
 
 			if c.LbPolicy != test.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, test.expectedLbPolicy)
@@ -2509,11 +2335,9 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				mutable: NewMutableCluster(tt.cluster),
-				port:    &model.Port{Port: 80},
-				proxy: &model.Proxy{
-					ServiceInstances: tt.svcInsts,
-				},
+				mutable:          NewMutableCluster(tt.cluster),
+				port:             &model.Port{Port: 80},
+				serviceInstances: tt.svcInsts,
 			}
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {

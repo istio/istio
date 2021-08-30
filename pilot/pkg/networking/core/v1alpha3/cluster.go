@@ -136,7 +136,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	case model.SidecarProxy:
 		// Setup outbound clusters
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		ob, cs := configgen.buildOutboundClusters(cb, outboundPatcher, services)
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, services)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
@@ -145,13 +145,13 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildInboundClusters(cb, instances, inboundPatcher)...)
+		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
-		ob, cs := configgen.buildOutboundClusters(cb, patcher, services)
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
@@ -201,27 +201,28 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, efKeys []string) *clusterCache {
+func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	clusterKey := &clusterCache{
 		clusterName:     clusterName,
-		proxyVersion:    cb.proxy.Metadata.IstioVersion,
-		locality:        cb.proxy.Locality,
-		proxyClusterID:  string(cb.proxy.Metadata.ClusterID),
-		proxySidecar:    cb.proxy.Type == model.SidecarProxy,
-		networkView:     cb.proxy.GetNetworkView(),
+		proxyVersion:    cb.proxyVersion,
+		locality:        cb.locality,
+		proxyClusterID:  cb.clusterID,
+		proxySidecar:    cb.sidecarProxy(),
+		networkView:     cb.networkView,
 		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.proxy.Type == model.SidecarProxy && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
 		service:         service,
-		destinationRule: cb.req.Push.DestinationRule(cb.proxy, service),
+		destinationRule: cb.req.Push.DestinationRule(proxy, service),
 		envoyFilterKeys: efKeys,
 		pushVersion:     cb.req.Push.PushVersion,
+		metadataCerts:   cb.metadataCerts,
 	}
 	return clusterKey
 }
 
 // buildOutboundClusters generates all outbound (including subsets) clusters for a given proxy.
-func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, cp clusterPatcher,
+func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, proxy *model.Proxy, cp clusterPatcher,
 	services []*model.Service) ([]*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
 	efKeys := cp.efw.Keys()
@@ -231,7 +232,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			clusterKey := buildClusterKey(service, port, cb, efKeys)
+			clusterKey := buildClusterKey(service, port, cb, proxy, efKeys)
 			cached, allFound := cb.getAllCachedSubsetClusters(*clusterKey)
 			if allFound && !features.EnableUnsafeAssertions {
 				hit += len(cached)
@@ -246,7 +247,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(cb.proxy, service)
+			discoveryType := convertResolution(cb.proxyType, service)
 			defaultCluster := cb.buildDefaultCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
@@ -334,6 +335,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 		if service.MeshExternal {
 			continue
 		}
+		destRule := cb.req.Push.DestinationRule(proxy, service)
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -341,14 +343,13 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
-			discoveryType := convertResolution(proxy, service)
+			discoveryType := convertResolution(cb.proxyType, service)
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
-			destRule := cb.req.Push.DestinationRule(cb.proxy, service)
 			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
@@ -377,7 +378,8 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, instances []*model.ServiceInstance, cp clusterPatcher) []*cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance,
+	cp clusterPatcher) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 
 	// The inbound clusters for a node depends on whether the node has a SidecarScope with inbound listeners
@@ -385,10 +387,10 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 	// to those listeners i.e. clusters made out of the defaultEndpoint field.
 	// If the node has no sidecarScope and has interception mode set to NONE, then we should skip the inbound
 	// clusters, because there would be no corresponding inbound listeners
-	sidecarScope := cb.proxy.SidecarScope
-	noneMode := cb.proxy.GetInterceptionMode() == model.InterceptionNone
+	sidecarScope := proxy.SidecarScope
+	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
-	_, actualLocalHost := getActualWildcardAndLocalHost(cb.proxy)
+	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
 
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
@@ -416,7 +418,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		// For each workload port, we will construct a cluster
 		for epPort, instances := range clustersToBuild {
 			// The inbound cluster port equals to endpoint port.
-			localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, instances[0], instances)
+			localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, instances[0], instances)
 			// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 			hosts := make([]host.Name, 0, len(instances))
 			for _, si := range instances {
@@ -457,7 +459,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				continue
 			}
 			if parts[0] == model.PodIPAddressPrefix {
-				endpointAddress = cb.proxy.IPAddresses[0]
+				endpointAddress = cb.proxyIPAddresses[0]
 			} else if parts[0] == model.LocalhostAddressPrefix {
 				endpointAddress = actualLocalHost
 			}
@@ -472,7 +474,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 		instance.Endpoint.ServicePortName = listenPort.Name
 		instance.Endpoint.EndpointPort = uint32(port)
 
-		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, instance, nil)
+		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, proxy, instance, nil)
 		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster.build())
 	}
 
@@ -505,7 +507,7 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 	}
 }
 
-func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Cluster_DiscoveryType {
+func convertResolution(proxyType model.NodeType, service *model.Service) cluster.Cluster_DiscoveryType {
 	switch service.Resolution {
 	case model.ClientSideLB:
 		return cluster.Cluster_EDS
@@ -513,7 +515,7 @@ func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Clust
 		return cluster.Cluster_STRICT_DNS
 	case model.Passthrough:
 		// Gateways cannot use passthrough clusters. So fallback to EDS
-		if proxy.Type == model.SidecarProxy {
+		if proxyType == model.SidecarProxy {
 			if service.Attributes.ServiceRegistry == provider.Kubernetes && features.EnableEDSForHeadless {
 				return cluster.Cluster_EDS
 			}
@@ -523,91 +525,6 @@ func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Clust
 		return cluster.Cluster_EDS
 	default:
 		return cluster.Cluster_EDS
-	}
-}
-
-type mtlsContextType int
-
-const (
-	userSupplied mtlsContextType = iota
-	autoDetected
-)
-
-// buildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-// If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
-// creates and populates the config as if they are set as ISTIO_MUTUAL.
-func buildAutoMtlsSettings(
-	tls *networking.ClientTLSSettings,
-	serviceAccounts []string,
-	sni string,
-	proxy *model.Proxy,
-	autoMTLSEnabled bool,
-	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
-	if tls != nil {
-		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
-			return tls, userSupplied
-		}
-		// For backward compatibility, use metadata certs if provided.
-		if hasMetadataCerts(proxy.Metadata) {
-			// When building Mutual TLS settings, we should always user supplied SubjectAltNames and SNI
-			// in destination rule. The Service Accounts and auto computed SNI should only be used for
-			// ISTIO_MUTUAL.
-			return buildMutualTLS(tls.SubjectAltNames, tls.Sni, proxy), userSupplied
-		}
-		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return tls, userSupplied
-		}
-		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
-		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
-		// are useful when routing via gateways. Use Service Acccounts if Subject Alt names
-		// are not specified in TLS settings.
-		sniToUse := tls.Sni
-		if len(sniToUse) == 0 {
-			sniToUse = sni
-		}
-		subjectAltNamesToUse := tls.SubjectAltNames
-		if len(subjectAltNamesToUse) == 0 {
-			subjectAltNamesToUse = serviceAccounts
-		}
-		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
-	}
-
-	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
-		return nil, userSupplied
-	}
-
-	// For backward compatibility, use metadata certs if provided.
-	if hasMetadataCerts(proxy.Metadata) {
-		return buildMutualTLS(serviceAccounts, sni, proxy), autoDetected
-	}
-
-	// Build settings for auto MTLS.
-	return buildIstioMutualTLS(serviceAccounts, sni), autoDetected
-}
-
-func hasMetadataCerts(m *model.NodeMetadata) bool {
-	return m.TLSClientRootCert != "" || m.TLSServerRootCert != ""
-}
-
-// buildMutualTLS returns a `TLSSettings` for MUTUAL mode.
-func buildMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.ClientTLSSettings {
-	return &networking.ClientTLSSettings{
-		Mode:              networking.ClientTLSSettings_MUTUAL,
-		CaCertificates:    proxy.Metadata.TLSClientRootCert,
-		ClientCertificate: proxy.Metadata.TLSClientCertChain,
-		PrivateKey:        proxy.Metadata.TLSClientKey,
-		SubjectAltNames:   serviceAccounts,
-		Sni:               sni,
-	}
-}
-
-// buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func buildIstioMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
-	return &networking.ClientTLSSettings{
-		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-		SubjectAltNames: serviceAccounts,
-		Sni:             sni,
 	}
 }
 
@@ -636,11 +553,12 @@ const (
 )
 
 type buildClusterOpts struct {
-	mesh            *meshconfig.MeshConfig
-	mutable         *MutableCluster
-	policy          *networking.TrafficPolicy
-	port            *model.Port
-	serviceAccounts []string
+	mesh             *meshconfig.MeshConfig
+	mutable          *MutableCluster
+	policy           *networking.TrafficPolicy
+	port             *model.Port
+	serviceAccounts  []string
+	serviceInstances []*model.ServiceInstance
 	// Used for traffic across multiple Istio clusters
 	// the ingress gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
@@ -650,11 +568,9 @@ type buildClusterOpts struct {
 	// because usually in this case the traffic is going to a
 	// non-sidecar workload that can only understand the service's
 	// hostname in the SNI.
-	simpleTLSSni string
-	clusterMode  ClusterMode
-	direction    model.TrafficDirection
-	// TODO drop this, replace with all fields we use
-	proxy           *model.Proxy
+	simpleTLSSni    string
+	clusterMode     ClusterMode
+	direction       model.TrafficDirection
 	meshExternal    bool
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
@@ -768,9 +684,10 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 }
 
-func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port, proxy *model.Proxy, meshConfig *meshconfig.MeshConfig) {
+func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
+	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig) {
 	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if localityLbSetting != nil && (localityLbSetting.Distribute != nil || localityLbSetting.Failover != nil) {
+	if localityLbSetting != nil {
 		if c.CommonLbConfig == nil {
 			c.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 		}
@@ -780,7 +697,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(proxy.Locality, c, localityLbSetting)
+	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
 
 	// apply default round robin lb policy
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
@@ -834,15 +751,13 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	}
 }
 
-func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, localityLB *networking.LocalityLoadBalancerSetting) {
-	if locality == nil || localityLB == nil {
-		return
-	}
-
+func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
+	localityLB *networking.LocalityLoadBalancerSetting) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
 	enabledFailover := cluster.OutlierDetection != nil
 	if cluster.LoadAssignment != nil {
-		loadbalancer.ApplyLocalityLBSetting(locality, cluster.LoadAssignment, localityLB, enabledFailover)
+		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
+		loadbalancer.ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enabledFailover)
 	}
 }
 
@@ -850,8 +765,8 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	if opts.mutable.cluster == nil {
 		return
 	}
-	if direction == model.TrafficDirectionInbound && (opts.proxy == nil || opts.proxy.ServiceInstances == nil ||
-		len(opts.proxy.ServiceInstances) == 0 || opts.port == nil) {
+	if direction == model.TrafficDirectionInbound && (opts.serviceInstances == nil ||
+		len(opts.serviceInstances) == 0 || opts.port == nil) {
 		// At inbound, port and local service instance has to be provided
 		return
 	}

@@ -23,6 +23,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -58,10 +59,6 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
-
-	// KubernetesSecretType is the name of a SDS secret stored in Kubernetes
-	KubernetesSecretType    = "kubernetes"
-	KubernetesSecretTypeURI = KubernetesSecretType + "://"
 )
 
 var SDSAdsConfig = &core.ConfigSource{
@@ -84,7 +81,7 @@ func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
 	}
 
 	return &tls.SdsSecretConfig{
-		Name:      KubernetesSecretTypeURI + name,
+		Name:      credentials.ToResourceName(name),
 		SdsConfig: SDSAdsConfig,
 	}
 }

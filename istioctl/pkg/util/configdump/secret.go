@@ -15,7 +15,12 @@
 package configdump
 
 import (
+	"encoding/base64"
+	"fmt"
+
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	extapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	any "github.com/golang/protobuf/ptypes/any"
 )
 
 // GetSecretsConfigDump retrieves a secret dump from a config dump wrapper
@@ -30,4 +35,35 @@ func (w *Wrapper) GetSecretConfigDump() (*adminapi.SecretsConfigDump, error) {
 		return nil, err
 	}
 	return secretDump, nil
+}
+
+// GetRootCAFromSecretConfigDump retrieves root CA from a secret config dump wrapper
+func (w *Wrapper) GetRootCAFromSecretConfigDump(anySec *any.Any) (string, error) {
+	var secret extapi.Secret
+	if err := anySec.UnmarshalTo(&secret); err != nil {
+		return "", fmt.Errorf("failed to unmarshall ROOTCA secret: %v", err)
+	}
+	var returnStr string
+	var returnErr error
+	rCASecret := secret.GetValidationContext()
+	if rCASecret != nil {
+		trustCA := rCASecret.GetTrustedCa()
+		if trustCA != nil {
+			inlineBytes := trustCA.GetInlineBytes()
+			if inlineBytes != nil {
+				returnStr = base64.StdEncoding.EncodeToString(inlineBytes)
+				returnErr = nil
+			} else {
+				returnStr = ""
+				returnErr = fmt.Errorf("can not retrieve inlineBytes from trustCA section")
+			}
+		} else {
+			returnStr = ""
+			returnErr = fmt.Errorf("can not retrieve trustedCa from secret ROOTCA")
+		}
+	} else {
+		returnStr = ""
+		returnErr = fmt.Errorf("can not find ROOTCA from secret config dump")
+	}
+	return returnStr, returnErr
 }

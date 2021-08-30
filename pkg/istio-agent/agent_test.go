@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
@@ -385,12 +386,21 @@ func TestAgent(t *testing.T) {
 			a.envoyEnable = false
 			return a
 		})
-		got, err := os.ReadFile(bootstrapPath)
+		generated, err := grpcxds.LoadBootstrap(bootstrapPath)
 		if err != nil {
 			t.Fatalf("could not read bootstrap config: %v", err)
 		}
-		// make UDS path in file deterministic
+
+		// goldenfile determinism
+		for _, k := range []string{"PROV_CERT", "PROXY_CONFIG"} {
+			delete(generated.Node.Metadata.Fields, k)
+		}
+		got, err := json.MarshalIndent(generated, "", "  ")
+		if err != nil {
+			t.Fatalf("failed to marshal bootstrap: %v", err)
+		}
 		got = []byte(strings.ReplaceAll(string(got), a.agent.cfg.XdsUdsPath, "etc/istio/XDS"))
+
 		testutil.CompareContent(got, filepath.Join(env.IstioSrc, "pkg/istio-agent/testdata/grpc-bootstrap.json"), t)
 	})
 }
@@ -440,7 +450,6 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem())
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
 	resp.AgentConfig = AgentOptions{
-		ProxyXDSViaAgent:      true,
 		ProxyXDSDebugViaAgent: true,
 		CARootCerts:           rootCert,
 		XDSRootCerts:          rootCert,

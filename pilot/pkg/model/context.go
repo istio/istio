@@ -213,8 +213,12 @@ var DefaultXdsLogDetails = XdsLogDetails{}
 type XdsResourceGenerator interface {
 	// Generate generates the Sotw resources for Xds.
 	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) (Resources, XdsLogDetails, error)
+}
 
-	// GenerateDeltas returns the changed and removed resources, along with whether or not delta was actually used.
+// XdsDeltaResourceGenerator generates Sotw and delta resources.
+type XdsDeltaResourceGenerator interface {
+	XdsResourceGenerator
+	// Generate returns the changed and removed resources, along with whether or not delta was actually used.
 	GenerateDeltas(proxy *Proxy, push *PushContext, updates *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
@@ -483,9 +487,6 @@ type BootstrapNodeMetadata struct {
 	// of the workload instance (ex: k8s deployment for a k8s pod).
 	Owner string `json:"OWNER,omitempty"`
 
-	// ProxyViaAgent specifies whether xDS streams are proxied through the agent.
-	ProxyViaAgent bool `json:"PROXY_VIA_AGENT,omitempty"`
-
 	// PilotSAN is the list of subject alternate names for the xDS server.
 	PilotSubjectAltName []string `json:"PILOT_SAN,omitempty"`
 
@@ -631,7 +632,10 @@ func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshcon
 // endpoints corresponding to the networks that the proxy wants to see.
 // If not set, we assume that the proxy wants to see endpoints in any network.
 func (node *Proxy) GetNetworkView() map[network.ID]bool {
-	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+	if node == nil || node.Metadata == nil {
+		return nil
+	}
+	if len(node.Metadata.RequestedNetworkView) == 0 {
 		return nil
 	}
 
@@ -1050,5 +1054,11 @@ func (node *Proxy) IsVM() bool {
 
 type GatewayController interface {
 	ConfigStoreCache
+	// Recompute updates the internal state of the gateway controller for a given input. This should be
+	// called before any List/Get calls if the state has changed
 	Recompute(GatewayContext) error
+	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
+	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
+	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
+	SecretAllowed(resourceName string, namespace string) bool
 }

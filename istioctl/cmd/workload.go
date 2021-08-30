@@ -38,6 +38,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -179,7 +180,6 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-// TODO: extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 func configureCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
@@ -221,10 +221,23 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
+
+			// extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
+			if !validateFlagIsSetManuallyOrNot(cmd, "clusterID") {
+				// extract the cluster ID from the injector config if it is not set by user
+				clusterName, err := extractClusterIDFromInjectionConfig(kubeClient)
+				if err != nil {
+					return fmt.Errorf("failed to automatically determine the --clusterID: %v", err)
+				}
+				if clusterName != "" {
+					clusterID = clusterName
+				}
+			}
+
 			if err = createConfig(kubeClient, wg, clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
-			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
+			fmt.Printf("Configuration generation into directory %s was successful\n", outputDir)
 			return nil
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -238,7 +251,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
 	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
-	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "Kubernetes", "The ID used to identify the cluster")
+	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", multicluster.IstioEastWestGatewayServiceName, "Name of the Service to be"+
 		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
@@ -588,4 +601,32 @@ func mapToString(m map[string]string) string {
 	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// extractClusterIDFromInjectionConfig can extract clusterID from injection configmap
+func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) (string, error) {
+	injectionConfigMap := "istio-sidecar-injector"
+	// Case with multiple control planes
+	revision := kubeClient.Revision()
+	if revision != "" && revision != "default" {
+		injectionConfigMap = fmt.Sprintf("%s-%s", injectionConfigMap, revision)
+	}
+	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("fetch injection template: %v", err)
+	}
+
+	var injectedCMValues map[string]interface{}
+	if err := json.Unmarshal([]byte(istioInjectionCM.Data[valuesConfigMapKey]), &injectedCMValues); err != nil {
+		return "", err
+	}
+	v, f, err := tpath.GetFromStructPath(injectedCMValues, "global.multiCluster.clusterName")
+	if err != nil {
+		return "", err
+	}
+	vs, ok := v.(string)
+	if !f || !ok {
+		return "", fmt.Errorf("could not retrieve global.multiCluster.clusterName from injection config")
+	}
+	return vs, nil
 }

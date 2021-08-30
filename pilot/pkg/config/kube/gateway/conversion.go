@@ -27,6 +27,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -280,7 +281,7 @@ func convertBackendPolicy(r *KubernetesResources, obj config.Config) []config.Co
 
 	var tlsSettings *istio.ClientTLSSettings
 	if bp.TLS != nil && bp.TLS.CertificateAuthorityRef != nil {
-		cred, err := buildSecretReference(*bp.TLS.CertificateAuthorityRef)
+		cred, err := buildSecretReference(*bp.TLS.CertificateAuthorityRef, "")
 		if err != nil {
 			backendConditions[BackendPolicyAdmitted].error = err
 			return result
@@ -700,6 +701,9 @@ func buildDestination(to k8s.HTTPRouteForwardTo, ns, domain string) (*istio.Dest
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
+		if strings.Contains(*to.ServiceName, ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this. Possible supported destinations are VirtualService (delegation), ServiceEntry or some other concept for external service
@@ -718,6 +722,9 @@ func buildGenericDestination(to k8s.RouteForwardTo, ns, domain string) (*istio.D
 		res.Port = &istio.PortSelector{Number: uint32(*to.Port)}
 	}
 	if to.ServiceName != nil {
+		if strings.Contains(*to.ServiceName, ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
 		res.Host = fmt.Sprintf("%s.%s.svc.%s", *to.ServiceName, ns, domain)
 	} else if to.BackendRef != nil {
 		// TODO support this. Possible supported destinations are VirtualService (delegation), ServiceEntry or some other concept for external service
@@ -868,6 +875,12 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 	}
 	switch tp {
 	case k8s.PathMatchPrefix, k8s.PathMatchImplementationSpecific:
+		if dest == "/" {
+			// Optimize common case of / to not needed regex
+			return &istio.StringMatch{
+				MatchType: &istio.StringMatch_Prefix{Prefix: dest},
+			}, nil
+		}
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Regex{Regex: regexp.QuoteMeta(strings.TrimSuffix(dest, "/")) + prefixMatchRegex},
 		}, nil
@@ -1033,11 +1046,17 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[RouteKey][]ga
 		}
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			gs := s.(*k8s.GatewayStatus)
-			gs.Addresses = make([]k8s.GatewayAddress, 0, len(external))
-			for _, addr := range external {
-				ip := k8s.IPAddressType
+			addressesToReport := external
+			addrType := k8s.IPAddressType
+			if len(addressesToReport) == 0 {
+				addressesToReport = internal
+				// TODO should be hostname, in v1alpha2
+				addrType = k8s.NamedAddressType
+			}
+			gs.Addresses = make([]k8s.GatewayAddress, 0, len(addressesToReport))
+			for _, addr := range addressesToReport {
 				gs.Addresses = append(gs.Addresses, k8s.GatewayAddress{
-					Type:  &ip,
+					Type:  &addrType,
 					Value: addr,
 				})
 			}
@@ -1098,7 +1117,7 @@ func buildListener(obj config.Config, l k8s.Listener, listenerIndex int) (*istio
 		},
 	}
 	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
-	tls, err := buildTLS(l.TLS)
+	tls, err := buildTLS(l.TLS, obj.Namespace)
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionReady)].error = &ConfigError{
 			Reason:  string(k8s.ListenerReasonInvalid),
@@ -1150,7 +1169,7 @@ func (r *KubernetesResources) fetchMeshRoutes() []RouteKey {
 	return keys
 }
 
-func buildTLS(tls *k8s.GatewayTLSConfig) (*istio.ServerTLSSettings, *ConfigError) {
+func buildTLS(tls *k8s.GatewayTLSConfig, namespace string) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -1173,7 +1192,7 @@ func buildTLS(tls *k8s.GatewayTLSConfig) (*istio.ServerTLSSettings, *ConfigError
 			// This is required in the API, should be rejected in validation
 			return nil, &ConfigError{Reason: InvalidConfiguration, Message: "invalid nil tls certificate ref"}
 		}
-		cred, err := buildSecretReference(*tls.CertificateRef)
+		cred, err := buildSecretReference(*tls.CertificateRef, namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -1184,11 +1203,15 @@ func buildTLS(tls *k8s.GatewayTLSConfig) (*istio.ServerTLSSettings, *ConfigError
 	return out, nil
 }
 
-func buildSecretReference(ref k8s.LocalObjectReference) (string, *ConfigError) {
+func buildSecretReference(ref k8s.LocalObjectReference, namespace string) (string, *ConfigError) {
 	if !emptyOrEqual(ref.Group, gvk.Secret.CanonicalGroup()) || !emptyOrEqual(ref.Kind, gvk.Secret.Kind) {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", ref)}
 	}
-	return ref.Name, nil
+	if namespace == "" {
+		// Legacy reference, used only by BackendPolicy. BackendPolicy is removed in v1alpha2 so this is extremely short lived code.
+		return ref.Name, nil
+	}
+	return credentials.ToKubernetesGatewayResource(namespace, ref.Name), nil
 }
 
 func buildHostnameMatch(hostname *k8s.Hostname) []string {

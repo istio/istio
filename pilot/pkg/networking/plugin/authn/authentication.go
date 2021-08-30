@@ -88,7 +88,7 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 
 func (p Plugin) InboundMTLSConfiguration(in *plugin.InputParams, passthrough bool) []plugin.MTLSSettings {
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
-	trustDomains := trustDomainsForValidation(in.Push.Mesh)
+	trustDomains := TrustDomainsForValidation(in.Push.Mesh)
 
 	port := in.ServiceInstance.Endpoint.EndpointPort
 

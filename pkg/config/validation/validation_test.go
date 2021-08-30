@@ -2404,6 +2404,15 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
+		{name: "negative mirror percentage", route: &networking.HTTPRoute{
+			MirrorPercentage: &networking.Percent{
+				Value: -1,
+			},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -6084,7 +6093,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "empy value",
+			name:       "empty value",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
@@ -6103,7 +6112,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:       "bad selector - empy key",
+			name:       "bad selector - empty key",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{

@@ -102,7 +102,8 @@ func retMap(filename, text string, err error) (map[string]string, error) {
 // GetK8sResources returns all k8s cluster resources.
 func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := kubectlcmd.RunCmd("get --all-namespaces "+
-		"all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events "+
+		"all,namespaces,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events,"+
+		"mutatingwebhookconfigurations,validatingwebhookconfigurations "+
 		"-o yaml", "", p.DryRun)
 	return retMap("k8s-resources", out, err)
 }

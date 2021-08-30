@@ -446,25 +446,25 @@ func TestUpdateServiceAccount(t *testing.T) {
 
 	testCases := []struct {
 		name      string
-		clusterID string
+		shardKey  model.ShardKey
 		endpoints []*model.IstioEndpoint
 		expect    bool
 	}{
 		{
 			name:      "added new endpoint",
-			clusterID: "c1",
+			shardKey:  "c1",
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
-			clusterID: "c1",
+			shardKey:  "c1",
 			endpoints: append(cluster1Endppoints, &model.IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
-			name:      "updated endpoints address",
-			clusterID: "c1",
+			name:     "updated endpoints address",
+			shardKey: "c1",
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.5", ServiceAccount: "sa1"},
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
@@ -472,16 +472,16 @@ func TestUpdateServiceAccount(t *testing.T) {
 			expect: false,
 		},
 		{
-			name:      "deleted one endpoint with unique sa",
-			clusterID: "c1",
+			name:     "deleted one endpoint with unique sa",
+			shardKey: "c1",
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.1", ServiceAccount: "sa1"},
 			},
 			expect: true,
 		},
 		{
-			name:      "deleted one endpoint with duplicate sa",
-			clusterID: "c1",
+			name:     "deleted one endpoint with duplicate sa",
+			shardKey: "c1",
 			endpoints: []*model.IstioEndpoint{
 				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
 			},
@@ -489,7 +489,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		},
 		{
 			name:      "deleted endpoints",
-			clusterID: "c1",
+			shardKey:  "c1",
 			endpoints: nil,
 			expect:    true,
 		},
@@ -499,7 +499,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := new(xds.DiscoveryServer)
 			originalEndpointsShard := &xds.EndpointShards{
-				Shards: map[string][]*model.IstioEndpoint{
+				Shards: map[model.ShardKey][]*model.IstioEndpoint{
 					"c1": cluster1Endppoints,
 					"c2": {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
 				},
@@ -509,7 +509,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 					"sa-vm2": {},
 				},
 			}
-			originalEndpointsShard.Shards[tc.clusterID] = tc.endpoints
+			originalEndpointsShard.Shards[tc.shardKey] = tc.endpoints
 			ret := s.UpdateServiceAccount(originalEndpointsShard, "test-svc")
 			if ret != tc.expect {
 				t.Errorf("expect UpdateServiceAccount %v, but got %v", tc.expect, ret)

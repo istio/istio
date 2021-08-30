@@ -30,32 +30,29 @@ const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
 	o := &istioagent.AgentOptions{
-		XDSRootCerts:             xdsRootCA,
-		CARootCerts:              caRootCA,
-		XDSHeaders:               map[string]string{},
-		XdsUdsPath:               filepath.Join(cfg.ConfigPath, "XDS"),
-		IsIPv6:                   proxy.SupportsIPv6(),
-		ProxyType:                proxy.Type,
-		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
-		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
-		ProxyIPAddresses:         proxy.IPAddresses,
-		ServiceNode:              proxy.ServiceNode(),
-		EnvoyStatusPort:          envoyStatusPortEnv,
-		EnvoyPrometheusPort:      envoyPrometheusPortEnv,
-		Platform:                 platform.Discover(),
-		GRPCBootstrapPath:        grpcBootstrapEnv,
-		DisableEnvoy:             disableEnvoyEnv,
+		XDSRootCerts:              xdsRootCA,
+		CARootCerts:               caRootCA,
+		XDSHeaders:                map[string]string{},
+		XdsUdsPath:                filepath.Join(cfg.ConfigPath, "XDS"),
+		IsIPv6:                    proxy.SupportsIPv6(),
+		ProxyType:                 proxy.Type,
+		EnableDynamicProxyConfig:  enableProxyConfigXdsEnv,
+		EnableDynamicBootstrap:    enableBootstrapXdsEnv,
+		ProxyIPAddresses:          proxy.IPAddresses,
+		ServiceNode:               proxy.ServiceNode(),
+		EnvoyStatusPort:           envoyStatusPortEnv,
+		EnvoyPrometheusPort:       envoyPrometheusPortEnv,
+		Platform:                  platform.Discover(),
+		GRPCBootstrapPath:         grpcBootstrapEnv,
+		DisableEnvoy:              disableEnvoyEnv,
+		ProxyXDSDebugViaAgent:     proxyXDSDebugViaAgent,
+		ProxyXDSDebugViaAgentPort: proxyXDSDebugViaAgentPort,
+		DNSCapture:                DNSCaptureByAgent.Get(),
+		DNSAddr:                   DNSCaptureAddr.Get(),
+		ProxyNamespace:            PodNamespaceVar.Get(),
+		ProxyDomain:               proxy.DNSDomain,
 	}
 	extractXDSHeadersFromEnv(o)
-	if proxyXDSViaAgent {
-		o.ProxyXDSViaAgent = true
-		o.ProxyXDSDebugViaAgent = proxyXDSDebugViaAgent
-		o.DNSCapture = DNSCaptureByAgent.Get()
-		o.DNSAddr = DNSCaptureAddr.Get()
-		o.ProxyNamespace = PodNamespaceVar.Get()
-		o.ProxyDomain = proxy.DNSDomain
-	}
-
 	return o
 }
 

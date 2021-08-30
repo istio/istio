@@ -27,6 +27,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -168,6 +169,7 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 	prevProxyConfig := defaultConfig.DefaultConfig
 	prevDefaultProvider := defaultConfig.DefaultProviders
 	prevExtensionProviders := defaultConfig.ExtensionProviders
+	prevTrustDomainAliases := defaultConfig.TrustDomainAliases
 
 	defaultProxyConfig := DefaultProxyConfig()
 	defaultConfig.DefaultConfig = &defaultProxyConfig
@@ -219,6 +221,8 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 			defaultConfig.ExtensionProviders = append(defaultConfig.ExtensionProviders, p)
 		}
 	}
+
+	defaultConfig.TrustDomainAliases = sets.NewSet(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...).SortedList()
 
 	if err := validation.ValidateMeshConfig(&defaultConfig); err != nil {
 		return nil, err

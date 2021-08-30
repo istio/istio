@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,7 +61,11 @@ func TestGateway(t *testing.T) {
 			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
 				t.Fatal(err)
 			}
-			t.Config().ApplyYAMLOrFail(t, "", `
+			ingressutil.CreateIngressKubeSecret(t, "k8s-gateway-secret-same-namespace", ingressutil.TLS, ingressutil.IngressCredentialA,
+				false, t.Clusters().Configs()...)
+
+			retry.UntilSuccessOrFail(t, func() error {
+				err := t.Config().ApplyYAML("", `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -88,8 +94,23 @@ spec:
       namespaces:
         from: All
       kind: TCPRoute
+  - port: 443
+    protocol: HTTPS
+    routes:
+      namespaces:
+        from: All
+      kind: HTTPRoute
+    tls:
+      mode: Terminate
+      certificateRef:
+        name: k8s-gateway-secret-same-namespace
+        group: core
+        kind: Secret
 ---`)
-			t.Config().ApplyYAMLOrFail(t, apps.Namespace.Name(), `
+				return err
+			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
+			retry.UntilSuccessOrFail(t, func() error {
+				err := t.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
@@ -144,55 +165,60 @@ spec:
     - serviceName: b
       port: 80
 `)
-
-			t.NewSubTest("http").Run(func(t framework.TestContext) {
-				paths := []string{"/get", "/get/", "/get/prefix"}
-				for _, path := range paths {
-					_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
-						Port: &echo.Port{
-							Protocol: protocol.HTTP,
-						},
-						Path: path,
-						Headers: map[string][]string{
-							"Host": {"my.domain.example"},
-						},
+				return err
+			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
+			for _, ingr := range apps.Ingresses {
+				t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
+					t.NewSubTest("http").Run(func(t framework.TestContext) {
+						paths := []string{"/get", "/get/", "/get/prefix"}
+						for _, path := range paths {
+							_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
+								Port: &echo.Port{
+									Protocol: protocol.HTTP,
+								},
+								Path: path,
+								Headers: map[string][]string{
+									"Host": {"my.domain.example"},
+								},
+							})
+						}
 					})
-				}
-			})
-			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-				host, port := apps.Ingress.TCPAddress()
-				_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
-					Port: &echo.Port{
-						Protocol:    protocol.HTTP,
-						ServicePort: port,
-					},
-					Address: host,
-					Path:    "/",
-					Headers: map[string][]string{
-						"Host": {"my.domain.example"},
-					},
+					t.NewSubTest("tcp").Run(func(t framework.TestContext) {
+						host, port := apps.Ingress.TCPAddress()
+						_ = apps.Ingress.CallWithRetryOrFail(t, echo.CallOptions{
+							Port: &echo.Port{
+								Protocol:    protocol.HTTP,
+								ServicePort: port,
+							},
+							Address: host,
+							Path:    "/",
+							Headers: map[string][]string{
+								"Host": {"my.domain.example"},
+							},
+						})
+					})
+					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
+						_ = apps.PodA[0].CallWithRetryOrFail(t, echo.CallOptions{
+							Target:    apps.PodB[0],
+							PortName:  "http",
+							Path:      "/path",
+							Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("My-Added-Header", "added-value")),
+						})
+					})
+					t.NewSubTest("status").Run(func(t framework.TestContext) {
+						retry.UntilSuccessOrFail(t, func() error {
+							gwc, err := t.Clusters().Kube().Default().GatewayAPI().NetworkingV1alpha1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+							if err != nil {
+								return err
+							}
+							if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAdmitted)).Status; s != metav1.ConditionTrue {
+								return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
+							}
+							return nil
+						})
+					})
 				})
-			})
-			t.NewSubTest("mesh").Run(func(t framework.TestContext) {
-				_ = apps.PodA[0].CallWithRetryOrFail(t, echo.CallOptions{
-					Target:    apps.PodB[0],
-					PortName:  "http",
-					Path:      "/path",
-					Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("My-Added-Header", "added-value")),
-				})
-			})
-			t.NewSubTest("status").Run(func(t framework.TestContext) {
-				retry.UntilSuccessOrFail(t, func() error {
-					gwc, err := t.Clusters().Kube().Default().GatewayAPI().NetworkingV1alpha1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAdmitted)).Status; s != metav1.ConditionTrue {
-						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
-					}
-					return nil
-				})
-			})
+			}
 		})
 }
 
@@ -210,16 +236,8 @@ func TestIngress(t *testing.T) {
 			skipIfIngressClassUnsupported(t)
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
-			credName := "k8s-ingress-secret-foo"
-			ingressutil.CreateIngressKubeSecret(t, []string{credName}, ingressutil.TLS, ingressutil.IngressCredentialA, false, t.Clusters().Kube()...)
-			t.ConditionalCleanup(func() {
-				ingressutil.DeleteKubeSecret(t, []string{credName})
-			})
-			credName2 := "k8s-ingress-secret-bar"
-			ingressutil.CreateIngressKubeSecret(t, []string{credName2}, ingressutil.TLS, ingressutil.IngressCredentialB, false, t.Clusters().Kube()...)
-			t.ConditionalCleanup(func() {
-				ingressutil.DeleteKubeSecret(t, []string{credName2})
-			})
+			ingressutil.CreateIngressKubeSecret(t, "k8s-ingress-secret-foo", ingressutil.TLS, ingressutil.IngressCredentialA, false, t.Clusters().Kube()...)
+			ingressutil.CreateIngressKubeSecret(t, "k8s-ingress-secret-bar", ingressutil.TLS, ingressutil.IngressCredentialB, false, t.Clusters().Kube()...)
 
 			apiVersion := "v1beta1"
 			if t.Clusters().Default().MinKubeVersion(19) {
@@ -623,6 +641,7 @@ func TestCustomGateway(t *testing.T) {
 				"imagePullSecret": image.PullSecretNameOrFail(t),
 				"injectLabel":     injectLabel,
 				"host":            apps.PodA[0].Config().FQDN(),
+				"imagePullPolicy": image.PullImagePolicy(t),
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
@@ -663,6 +682,7 @@ spec:
       containers:
       - name: istio-proxy
         image: auto
+        imagePullPolicy: {{ .imagePullPolicy }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway

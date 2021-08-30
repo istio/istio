@@ -30,13 +30,23 @@ import (
 	"istio.io/istio/pkg/file"
 )
 
+const (
+	ServerListenerNamePrefix = "xds.istio.io/grpc/lds/inbound/"
+	// ServerListenerNameTemplate for the name of the Listener resource to subscribe to for a gRPC
+	// server. If the token `%s` is present in the string, all instances of the
+	// token will be replaced with the server's listening "IP:port" (e.g.,
+	// "0.0.0.0:8080", "[::]:8080").
+	ServerListenerNameTemplate = ServerListenerNamePrefix + "%s"
+)
+
 // Bootstrap contains the general structure of what's expected by GRPC's XDS implementation.
 // See https://github.com/grpc/grpc-go/blob/master/xds/internal/xdsclient/bootstrap/bootstrap.go
 // TODO use structs from gRPC lib if created/exported
 type Bootstrap struct {
-	XDSServers    []XdsServer                    `json:"xds_servers,omitempty"`
-	Node          *corev3.Node                   `json:"node,omitempty"`
-	CertProviders map[string]CertificateProvider `json:"certificate_providers,omitempty"`
+	XDSServers                 []XdsServer                    `json:"xds_servers,omitempty"`
+	Node                       *corev3.Node                   `json:"node,omitempty"`
+	CertProviders              map[string]CertificateProvider `json:"certificate_providers,omitempty"`
+	ServerListenerNameTemplate string                         `json:"server_listener_resource_name_template,omitempty"`
 }
 
 type ChannelCreds struct {
@@ -100,7 +110,6 @@ func LoadBootstrap(file string) (*Bootstrap, error) {
 
 type GenerateBootstrapOptions struct {
 	Node             *model.Node
-	ProxyXDSViaAgent bool
 	XdsUdsPath       string
 	DiscoveryAddress string
 	CertDir          string
@@ -108,14 +117,14 @@ type GenerateBootstrapOptions struct {
 
 // GenerateBootstrap generates the bootstrap structure for gRPC XDS integration.
 func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
-	xdsMeta, err := structpb.NewStruct(opts.Node.RawMetadata)
+	xdsMeta, err := extractMeta(opts.Node)
 	if err != nil {
-		return nil, fmt.Errorf("failed converting to xds metadata: %v", err)
+		return nil, fmt.Errorf("failed extracting xds metadata: %v", err)
 	}
 
 	// TODO direct to CP should use secure channel (most likely JWT + TLS, but possibly allow mTLS)
 	serverURI := opts.DiscoveryAddress
-	if opts.ProxyXDSViaAgent && opts.XdsUdsPath != "" {
+	if opts.XdsUdsPath != "" {
 		serverURI = fmt.Sprintf("unix:///%s", opts.XdsUdsPath)
 	}
 
@@ -131,6 +140,7 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 			Locality: opts.Node.Locality,
 			Metadata: xdsMeta,
 		},
+		ServerListenerNameTemplate: ServerListenerNameTemplate,
 	}
 
 	if opts.CertDir != "" {
@@ -154,6 +164,22 @@ func GenerateBootstrap(opts GenerateBootstrapOptions) (*Bootstrap, error) {
 	}
 
 	return &bootstrap, err
+}
+
+func extractMeta(node *model.Node) (*structpb.Struct, error) {
+	bytes, err := json.Marshal(node.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	rawMeta := map[string]interface{}{}
+	if err := json.Unmarshal(bytes, &rawMeta); err != nil {
+		return nil, err
+	}
+	xdsMeta, err := structpb.NewStruct(rawMeta)
+	if err != nil {
+		return nil, err
+	}
+	return xdsMeta, nil
 }
 
 // GenerateBootstrapFile generates and writes atomically as JSON to the given file path.

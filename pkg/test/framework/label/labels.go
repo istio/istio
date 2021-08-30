@@ -25,16 +25,12 @@ const (
 	// of presubmit or postsubmit. When a test is determined to be Flaky, a github
 	// issue should be created to fix the test.
 	Flaky Instance = "flaky"
-
-	// Multicluster indicates that the test requires a multicluster configuration.
-	Multicluster Instance = "multicluster"
 )
 
 var all = NewSet(
 	Postsubmit,
 	CustomSetup,
-	Flaky,
-	Multicluster)
+	Flaky)
 
 // Find the label with the given name
 func Find(name string) (Instance, bool) {

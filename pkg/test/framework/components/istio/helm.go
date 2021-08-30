@@ -113,7 +113,7 @@ func (h *helmComponent) Close() error {
 		return fmt.Errorf("failed to delete istio namespace: %v", err)
 	}
 	if err := kube2.WaitForNamespaceDeletion(h.cs, h.settings.IstioNamespace, retry.Timeout(retryTimeOut)); err != nil {
-		return fmt.Errorf("wating for istio namespace to be deleted: %v", err)
+		return fmt.Errorf("waiting for istio namespace to be deleted: %v", err)
 	}
 
 	return nil

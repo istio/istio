@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -51,6 +53,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
+		RequireLocalControlPlane().
 		RequireMinVersion(17).
 		Setup(func(ctx resource.Context) error {
 			crd, err := os.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")

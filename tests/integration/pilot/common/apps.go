@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -224,7 +226,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		})
 
-	skipDelta := t.Settings().SkipDelta || !t.Settings().Revisions.AtLeast("1.10")
+	skipDelta := t.Settings().SkipDelta || !t.Settings().Revisions.AtLeast("1.11")
 	if !skipDelta {
 		builder = builder.
 			WithConfig(echo.Config{
@@ -280,7 +282,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 
-	if err := t.Config().ApplyYAMLNoCleanup(apps.Namespace.Name(), `
+	if err := t.Config(t.Clusters().Configs()...).ApplyYAMLNoCleanup(apps.Namespace.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Sidecar
 metadata:
@@ -323,7 +325,7 @@ spec:
 	if err != nil {
 		return err
 	}
-	if err := t.Config().ApplyYAML(apps.Namespace.Name(), se); err != nil {
+	if err := t.Config(t.Clusters().Configs()...).ApplyYAML(apps.Namespace.Name(), se); err != nil {
 		return err
 	}
 	return nil

@@ -107,10 +107,20 @@ type Service struct {
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
+
+	// ResourceVersion represents the internal version of this object.
+	ResourceVersion string
 }
 
-// Resolution indicates how the service instances need to be resolved before routing
-// traffic.
+func (s *Service) Key() string {
+	if s == nil {
+		return ""
+	}
+
+	return s.Attributes.Namespace + "/" + string(s.Hostname)
+}
+
+// Resolution indicates how the service instances need to be resolved before routing traffic.
 type Resolution int
 
 const (

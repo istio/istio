@@ -1,4 +1,6 @@
+//go:build integ
 // +build integ
+
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +22,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/multicluster"
 )
@@ -33,8 +34,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Multicluster).
-		RequireMinClusters(3).
+		RequireMinClusters(2).
 		Setup(multicluster.Setup(&appCtx)).
 		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = appCtx.ControlPlaneValues

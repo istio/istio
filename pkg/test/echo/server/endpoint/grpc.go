@@ -17,6 +17,7 @@ package endpoint
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -28,11 +29,15 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/admin"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	xdscreds "google.golang.org/grpc/credentials/xds"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/xds"
 	"k8s.io/utils/env"
 
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -42,9 +47,17 @@ import (
 
 var _ Instance = &grpcInstance{}
 
+// grpcServer is the intersection of used methods for grpc.Server and xds.GRPCServer
+type grpcServer interface {
+	reflection.GRPCServer
+	Serve(listener net.Listener) error
+	RegisterService(sd *grpc.ServiceDesc, ss interface{})
+	Stop()
+}
+
 type grpcInstance struct {
 	Config
-	server   *grpc.Server
+	server   grpcServer
 	cleanups []func()
 }
 
@@ -58,6 +71,17 @@ func (s *grpcInstance) GetConfig() Config {
 	return s.Config
 }
 
+func (s *grpcInstance) newServer(opts ...grpc.ServerOption) grpcServer {
+	if s.Port.XDSServer {
+		if len(s.Port.XDSTestBootstrap) > 0 {
+			opts = append(opts, xds.BootstrapContentsForTesting(s.Port.XDSTestBootstrap))
+		}
+		epLog.Infof("Using xDS for serverside gRPC on %d", s.Port.Port)
+		return xds.NewGRPCServer(opts...)
+	}
+	return grpc.NewServer(opts...)
+}
+
 func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	// Listen on the given port and update the port if it changed from what was passed in.
 	listener, p, err := listenOnAddress(s.ListenerIP, s.Port.Port)
@@ -67,18 +91,29 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	// Store the actual listening port back to the argument.
 	s.Port.Port = p
 
+	var opts []grpc.ServerOption
 	if s.Port.TLS {
-		fmt.Printf("Listening GRPC (over TLS) on %v\n", p)
+		epLog.Infof("Listening GRPC (over TLS) on %v", p)
 		// Create the TLS credentials
 		creds, errCreds := credentials.NewServerTLSFromFile(s.TLSCert, s.TLSKey)
 		if errCreds != nil {
 			epLog.Errorf("could not load TLS keys: %s", errCreds)
 		}
-		s.server = grpc.NewServer(grpc.Creds(creds))
+		opts = append(opts, grpc.Creds(creds))
+	} else if s.Port.XDSServer {
+		epLog.Infof("Listening GRPC (over xDS-configured mTLS) on %v", p)
+		creds, err := xdscreds.NewServerCredentials(xdscreds.ServerOptions{
+			FallbackCreds: insecure.NewCredentials(),
+		})
+		if err != nil {
+			return err
+		}
+		opts = append(opts, grpc.Creds(creds))
 	} else {
-		fmt.Printf("Listening GRPC on %v\n", p)
-		s.server = grpc.NewServer()
+		epLog.Infof("Listening GRPC on %v", p)
 	}
+	s.server = s.newServer(opts...)
+
 	proto.RegisterEchoTestServiceServer(s.server, &grpcHandler{
 		Config: s.Config,
 	})
@@ -106,11 +141,19 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 	defer onReady()
 
 	err := retry.UntilSuccess(func() error {
+		cert, key, ca, err := s.certsFromBootstrapForReady()
+		if err != nil {
+			return err
+		}
 		f, err := forwarder.New(forwarder.Config{
+			XDSTestBootstrap: s.Port.XDSTestBootstrap,
 			Request: &proto.ForwardEchoRequest{
 				Url:           "grpc://" + listener.Addr().String(),
 				Message:       "hello",
 				TimeoutMicros: common.DurationToMicros(readyInterval),
+				CertFile:      cert,
+				KeyFile:       key,
+				CaCertFile:    ca,
 			},
 		})
 		defer func() {
@@ -130,6 +173,37 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 	}
 }
 
+// TODO (hack) we have to send certs OR use xds:///fqdn. We don't know our own fqdn, and even if we did
+// we could send traffic to another instance. Instead we look into gRPC internals to authenticate with ourself.
+func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca string, err error) {
+	if !s.Port.XDSServer {
+		return
+	}
+
+	var bootstrapData []byte
+	if data := s.Port.XDSTestBootstrap; len(data) > 0 {
+		bootstrapData = data
+	} else if path := os.Getenv("GRPC_XDS_BOOTSTRAP"); len(path) > 0 {
+		bootstrapData, err = os.ReadFile(path)
+	} else if data := os.Getenv("GRPC_XDS_BOOTSTRAP_CONFIG"); len(data) > 0 {
+		bootstrapData = []byte(data)
+	}
+	var bootstrap grpcxds.Bootstrap
+	if uerr := json.Unmarshal(bootstrapData, &bootstrap); uerr != nil {
+		err = uerr
+		return
+	}
+	certs := bootstrap.FileWatcherProvider()
+	if certs == nil {
+		err = fmt.Errorf("no certs found in bootstrap")
+		return
+	}
+	cert = certs.CertificateFile
+	key = certs.PrivateKeyFile
+	ca = certs.CACertificateFile
+	return
+}
+
 func (s *grpcInstance) Close() error {
 	if s.server != nil {
 		s.server.Stop()
@@ -141,6 +215,7 @@ func (s *grpcInstance) Close() error {
 }
 
 type grpcHandler struct {
+	proto.UnimplementedEchoTestServiceServer
 	Config
 }
 

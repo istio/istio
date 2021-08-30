@@ -293,13 +293,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		}
 	}
 
-	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
+	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
 	}
 
 	return httpOpts
+}
+
+// if enableFlag is "1" indicates that AcceptHttp_10 is enabled.
+func enableHTTP10(enableFlag string) bool {
+	return enableFlag == "1"
 }
 
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
@@ -650,7 +655,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
 	}
-	if features.HTTP10 || node.Metadata.HTTP10 == "1" {
+	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
 		httpOpts.AcceptHttp_10 = true
 	}
 
@@ -770,7 +775,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rds:              rdsName,
 	}
 
-	if features.HTTP10 || listenerOpts.proxy.Metadata.HTTP10 == "1" {
+	if features.HTTP10 || enableHTTP10(listenerOpts.proxy.Metadata.HTTP10) {
 		httpOpts.connectionManager = &hcm.HttpConnectionManager{
 			HttpProtocolOptions: &core.Http1ProtocolOptions{
 				AcceptHttp_10: true,
@@ -1476,7 +1481,7 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 
 // build adds the provided TCP and HTTP filters to the provided Listener and serializes them.
 // TODO: given how tightly tied listener.FilterChains, opts.filterChainOpts, and mutable.FilterChains
-// are to eachother we should encapsulate them some way to ensure they remain consistent (mainly that
+// are to each other we should encapsulate them some way to ensure they remain consistent (mainly that
 // in each an index refers to the same chain).
 func (ml *MutableListener) build(opts buildListenerOpts) error {
 	if len(opts.filterChainOpts) == 0 {
@@ -1508,7 +1513,7 @@ func (ml *MutableListener) build(opts buildListenerOpts) error {
 			}
 			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), ml.Listener.Name, i)
 		} else {
-			// Add the TCP filters first.. and then the HTTP connection manager
+			// Add the TCP filters first and then the HTTP connection manager
 			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, chain.TCP...)
 
 			// If statPrefix has been set before calling this method, respect that.
@@ -1714,13 +1719,11 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 	}
 
 	if !hasTLSInspector {
-		filters =
-			append(filters, xdsfilters.TLSInspector)
+		filters = append(filters, xdsfilters.TLSInspector)
 	}
 
 	if !hasHTTPInspector {
-		filters =
-			append(filters, xdsfilters.HTTPInspector)
+		filters = append(filters, xdsfilters.HTTPInspector)
 	}
 
 	return filters

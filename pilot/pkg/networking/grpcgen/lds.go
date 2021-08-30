@@ -15,6 +15,7 @@
 package grpcgen
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -22,78 +23,309 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/istio/pilot/pkg/model"
+	authnplugin "istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
+	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/istio-agent/grpcxds"
 )
 
 // BuildListeners handles a LDS request, returning listeners of ApiListener type.
 // The request may include a list of resource names, using the full_hostname[:port] format to select only
 // specific services.
 func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
-	resp := model.Resources{}
+	filter := newListenerNameFilter(names, node)
 
-	// TODO filter by port as well, this only filters by a host and includes every port on matching service
-	filter := map[string]struct{}{}
-	for _, name := range names {
-		if strings.Contains(name, ":") {
-			n, _, err := net.SplitHostPort(name)
-			if err == nil {
-				name = n
-			}
-		}
-		filter[name] = struct{}{}
+	log.Debugf("building lds for %s with filter:\n%v", node.ID, filter)
+
+	resp := make(model.Resources, 0, len(filter))
+	resp = append(resp, buildOutboundListeners(node, filter)...)
+	resp = append(resp, buildInboundListeners(node, push, filter.inboundNames())...)
+
+	return resp
+}
+
+func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []string) model.Resources {
+	if len(names) == 0 {
+		return nil
+	}
+	var out model.Resources
+	policyApplier := factory.NewPolicyApplier(push, node.Metadata.Namespace, labels.Collection{node.Metadata.Labels})
+	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
+	for _, si := range node.ServiceInstances {
+		serviceInstancesByPort[si.Endpoint.EndpointPort] = si
 	}
 
+	for _, name := range names {
+		listenAddress := strings.TrimPrefix(name, grpcxds.ServerListenerNamePrefix)
+		listenHost, listenPortStr, err := net.SplitHostPort(listenAddress)
+		if err != nil {
+			log.Errorf("failed parsing address from gRPC listener name %s: %v", name, err)
+			continue
+		}
+		listenPort, err := strconv.Atoi(listenPortStr)
+		if err != nil {
+			log.Errorf("failed parsing port from gRPC listener name %s: %v", name, err)
+			continue
+		}
+		si, ok := serviceInstancesByPort[uint32(listenPort)]
+		if !ok {
+			log.Warnf("%s has no service instance for port %s", node.ID, listenPortStr)
+			continue
+		}
+
+		ll := &listener.Listener{
+			Name: name,
+			Address: &core.Address{Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{
+					Address: listenHost,
+					PortSpecifier: &core.SocketAddress_PortValue{
+						PortValue: uint32(listenPort),
+					},
+				},
+			}},
+			FilterChains: buildFilterChains(node, push, si, policyApplier),
+			// the following must not be set or the client will NACK
+			ListenerFilters: nil,
+			UseOriginalDst:  nil,
+		}
+		out = append(out, &discovery.Resource{
+			Name:     ll.Name,
+			Resource: util.MessageToAny(ll),
+		})
+	}
+	return out
+}
+
+func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, applier authn.PolicyApplier) []*listener.FilterChain {
+	mode := applier.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
+
+	var tlsContext *tls.DownstreamTlsContext
+	if mode != model.MTLSDisable && mode != model.MTLSUnknown {
+		tlsContext = &tls.DownstreamTlsContext{
+			CommonTlsContext: buildCommonTLSContext(authnplugin.TrustDomainsForValidation(push.Mesh)),
+			// TODO plain TLS support
+			RequireClientCertificate: &wrappers.BoolValue{Value: true},
+		}
+	}
+
+	if mode == model.MTLSUnknown {
+		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		mode = model.MTLSDisable
+	}
+	if mode == model.MTLSPermissive {
+		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
+		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
+		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		mode = model.MTLSDisable
+	}
+
+	var out []*listener.FilterChain
+	switch mode {
+	case model.MTLSDisable:
+		out = append(out, buildFilterChain("plaintext", nil))
+	case model.MTLSStrict:
+		out = append(out, buildFilterChain("mtls", tlsContext))
+		// TODO permissive builts both plaintext and mtls; when tlsContext is present add a match for protocol
+	}
+
+	return out
+}
+
+func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *listener.FilterChain {
+	out := &listener.FilterChain{
+		Name:             "inbound-" + nameSuffix,
+		FilterChainMatch: nil,
+		Filters: []*listener.Filter{{
+			Name: "inbound-hcm" + nameSuffix,
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: util.MessageToAny(&hcm.HttpConnectionManager{
+					// TODO gRPC doesn't support httpfilter yet; sending won't cause a NACK but they don't do anything
+				}),
+			},
+		}},
+	}
+	if tlsContext != nil {
+		out.TransportSocket = &core.TransportSocket{
+			Name:       transportSocketName,
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+		}
+	}
+	return out
+}
+
+func buildOutboundListeners(node *model.Proxy, filter listenerNames) model.Resources {
+	out := make(model.Resources, 0, len(filter))
 	for _, el := range node.SidecarScope.EgressListeners {
 		for _, sv := range el.Services() {
-			shost := string(sv.Hostname)
-			if len(filter) > 0 {
-				// DiscReq has a filter - only return services that match
-				if _, ok := filter[shost]; !ok {
-					continue
-				}
+			serviceHost := string(sv.Hostname)
+			match, ok := filter.includes(serviceHost)
+			if !ok {
+				continue
 			}
-			for _, p := range sv.Ports {
-				hp := net.JoinHostPort(shost, strconv.Itoa(p.Port))
-				ll := &listener.Listener{
-					Name: hp,
-					Address: &core.Address{
-						Address: &core.Address_SocketAddress{
-							SocketAddress: &core.SocketAddress{
-								Address: sv.Address,
-								PortSpecifier: &core.SocketAddress_PortValue{
-									PortValue: uint32(p.Port),
+			// we must duplicate the listener for every requested host - grpc may have watches for both foo and foo.ns
+			for _, matchedHost := range match.RequestedNames.SortedList() {
+				for _, p := range sv.Ports {
+					sPort := strconv.Itoa(p.Port)
+					if !match.includesPort(sPort) {
+						continue
+					}
+					ll := &listener.Listener{
+						Name: net.JoinHostPort(matchedHost, sPort),
+						Address: &core.Address{
+							Address: &core.Address_SocketAddress{
+								SocketAddress: &core.SocketAddress{
+									Address: sv.GetServiceAddressForProxy(node),
+									PortSpecifier: &core.SocketAddress_PortValue{
+										PortValue: uint32(p.Port),
+									},
 								},
 							},
 						},
-					},
-					ApiListener: &listener.ApiListener{
-						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
-							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
-								Rds: &hcm.Rds{
-									ConfigSource: &core.ConfigSource{
-										ConfigSourceSpecifier: &core.ConfigSource_Ads{
-											Ads: &core.AggregatedConfigSource{},
+						ApiListener: &listener.ApiListener{
+							ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+								RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+									// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
+									Rds: &hcm.Rds{
+										ConfigSource: &core.ConfigSource{
+											ConfigSourceSpecifier: &core.ConfigSource_Ads{
+												Ads: &core.AggregatedConfigSource{},
+											},
 										},
+										RouteConfigName: clusterKey(serviceHost, p.Port),
 									},
-									RouteConfigName: clusterKey(shost, p.Port),
 								},
-							},
-						}),
-					},
-					// TODO server-side listeners + mTLS
+							}),
+						},
+					}
+					out = append(out, &discovery.Resource{
+						Name:     ll.Name,
+						Resource: util.MessageToAny(ll),
+					})
 				}
-
-				resp = append(resp, &discovery.Resource{
-					Name:     ll.Name,
-					Resource: util.MessageToAny(ll),
-				})
 			}
 		}
 	}
+	return out
+}
 
-	return resp
+//
+//func filterableHostnames(node *model.Proxy, hostname host.Name) []string {
+//	shost := string(hostname)
+//	out := []string{shost}
+//	for _, suffix := range []string{
+//		"." + node.DNSDomain,
+//		".svc" + "." + node.DNSDomain,
+//		"." + node.Metadata.Namespace + ".svc" + "." + node.DNSDomain ,
+//	} {
+//		if trimmed := strings.TrimSuffix(shost, suffix); trimmed != shost {
+//			out = append(out, trimmed)
+//		}
+//	}
+//	return out
+//}
+
+// map[host] -> map[port] -> exists
+// if the map[port] is empty, an exact listener name was provided (non-hostport)
+type listenerNames map[string]listenerName
+
+type listenerName struct {
+	RequestedNames sets.Set
+	Ports          sets.Set
+}
+
+func (ln *listenerName) includesPort(port string) bool {
+	if len(ln.Ports) == 0 {
+		return true
+	}
+	_, ok := ln.Ports[port]
+	return ok
+}
+
+func (f listenerNames) includes(s string) (listenerName, bool) {
+	if len(f) == 0 {
+		// filter is empty, include everything
+		return listenerName{RequestedNames: sets.NewSet(s)}, true
+	}
+	n, ok := f[s]
+	return n, ok
+}
+
+func (f listenerNames) inboundNames() []string {
+	var out []string
+	for key := range f {
+		if strings.HasPrefix(key, grpcxds.ServerListenerNamePrefix) {
+			out = append(out, key)
+		}
+	}
+	return out
+}
+
+func newListenerNameFilter(names []string, node *model.Proxy) listenerNames {
+	filter := make(listenerNames, len(names))
+	for _, name := range names {
+		// inbound, create a simple entry and move on
+		if strings.HasPrefix(name, grpcxds.ServerListenerNamePrefix) {
+			filter[name] = listenerName{RequestedNames: sets.NewSet(name)}
+			continue
+		}
+
+		host, port, err := net.SplitHostPort(name)
+		hasPort := err == nil
+
+		// attempt to expand shortname to FQDN
+		requestedName := name
+		if hasPort {
+			requestedName = host
+		}
+		allNames := []string{requestedName}
+		if fqdn := tryFindFQDN(requestedName, node); fqdn != "" {
+			allNames = append(allNames, fqdn)
+		}
+
+		for _, name := range allNames {
+			ln, ok := filter[name]
+			if !ok {
+				ln = listenerName{RequestedNames: sets.NewSet()}
+			}
+			ln.RequestedNames.Insert(requestedName)
+
+			// only build the portmap if we aren't filtering this name yet, or if the existing filter is non-empty
+			if hasPort && (!ok || len(ln.Ports) != 0) {
+				if ln.Ports == nil {
+					ln.Ports = map[string]struct{}{}
+				}
+				ln.Ports.Insert(port)
+			} else if !hasPort {
+				// if we didn't have a port, we should clear the portmap
+				ln.Ports = nil
+			}
+			filter[name] = ln
+		}
+	}
+	return filter
+}
+
+func tryFindFQDN(name string, node *model.Proxy) string {
+	// no "." - assuming this is a shortname "foo" -> "foo.ns.svc.cluster.local"
+	if !strings.Contains(name, ".") {
+		return fmt.Sprintf("%s.%s", name, node.DNSDomain)
+	}
+	for _, suffix := range []string{
+		node.Metadata.Namespace,
+		node.Metadata.Namespace + ".svc",
+	} {
+		shortname := strings.TrimSuffix(name, "."+suffix)
+		if shortname != name && strings.HasPrefix(node.DNSDomain, suffix) {
+			return fmt.Sprintf("%s.%s", shortname, node.DNSDomain)
+		}
+	}
+	return ""
 }

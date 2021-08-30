@@ -287,3 +287,8 @@ func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err e
 func (c *Controller) HasSynced() bool {
 	return c.cache.HasSynced()
 }
+
+func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
+	// TODO: Implement ReferencePolicy.
+	return false
+}

@@ -790,6 +790,7 @@ func autoPassthroughCases(apps *EchoDeployments) []TrafficTestCase {
 						ServerName: sni,
 						Alpn:       al,
 						Validator:  echo.ExpectError(),
+						Timeout:    5 * time.Second,
 					},
 				},
 				)
@@ -998,6 +999,118 @@ spec:
 			},
 			viaIngress:       true,
 			workloadAgnostic: true,
+		},
+		{
+			// See https://github.com/istio/istio/issues/34609
+			name:             "http redirect when vs port specify https",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+` + httpVirtualServiceTmpl,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Validator: echo.ExpectCode("301"),
+			},
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().FQDN(),
+					"Port":               443,
+				}
+			},
+		},
+		{
+			// See https://github.com/istio/istio/issues/27315
+			// See https://github.com/istio/istio/issues/34609
+			name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
+			targetFilters:    singleTarget,
+			workloadAgnostic: true,
+			viaIngress:       true,
+			config: `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ingressgateway-redirect-config
+  namespace: istio-system
+spec:
+  configPatches:
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: MERGE
+      value:
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          xff_num_trusted_hops: 1
+          normalize_path: true
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+---
+` + httpVirtualServiceTmpl,
+			opts: echo.CallOptions{
+				Count: 1,
+				Port: &echo.Port{
+					Protocol: protocol.HTTP,
+				},
+				Headers: map[string][]string{
+					// In real world, this may be set by a downstream LB that terminates the TLS
+					"X-Forwarded-Proto": {"https"},
+				},
+				Validator: echo.ExpectCode("400"),
+			},
+			setupOpts: fqdnHostHeader,
+			templateVars: func(_ echo.Callers, dests echo.Instances) map[string]interface{} {
+				dest := dests[0]
+				return map[string]interface{}{
+					"Gateway":            "gateway",
+					"VirtualServiceHost": dest.Config().FQDN(),
+					"Port":               443,
+				}
+			},
 		},
 	}
 
@@ -1911,7 +2024,7 @@ spec:
 			aInCluster := apps.PodA.Match(echo.InCluster(client.Config().Cluster))
 			if len(aInCluster) == 0 {
 				// The cluster doesn't contain A, but connects to a cluster containing A
-				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Primary()))
+				aInCluster = apps.PodA.Match(echo.InCluster(client.Config().Cluster.Config()))
 			}
 			address := aInCluster[0].Config().FQDN() + "?"
 			if tt.protocol != "" {
@@ -1976,38 +2089,38 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 			vmCase{
 				name: "dns: VM to k8s headless service",
 				from: vm,
-				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				to:   apps.Headless.Match(echo.InCluster(vm.Config().Cluster.Config())),
 				host: apps.Headless[0].Config().FQDN(),
 			},
 			vmCase{
 				name: "dns: VM to k8s statefulset service",
 				from: vm,
-				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+				to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 				host: apps.StatefulSet[0].Config().FQDN(),
 			},
 			// TODO(https://github.com/istio/istio/issues/32552) re-enable
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, StatefulSetSvc),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service.namespace",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s.%s", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance.service.namespace.svc",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s.%s.svc", StatefulSetSvc, StatefulSetSvc, apps.Namespace.Name()),
 			//},
 			//vmCase{
 			//	name: "dns: VM to k8s statefulset instance FQDN",
 			//	from: vm,
-			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Primary())),
+			//	to:   apps.StatefulSet.Match(echo.InCluster(vm.Config().Cluster.Config())),
 			//	host: fmt.Sprintf("%s-v1-0.%s", StatefulSetSvc, apps.StatefulSet[0].Config().FQDN()),
 			//},
 		)

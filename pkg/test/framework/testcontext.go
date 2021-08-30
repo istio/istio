@@ -65,8 +65,6 @@ type TestContext interface {
 	Error(args ...interface{})
 	Errorf(format string, args ...interface{})
 	Failed() bool
-	Log(args ...interface{})
-	Logf(format string, args ...interface{})
 	Name() string
 	Skip(args ...interface{})
 	SkipNow()
@@ -203,14 +201,17 @@ func (c *testContext) Environment() resource.Environment {
 }
 
 func (c *testContext) Clusters() cluster.Clusters {
-	return c.AllClusters().MeshClusters()
+	if c == nil || c.Environment() == nil {
+		return nil
+	}
+	return c.Environment().Clusters()
 }
 
 func (c *testContext) AllClusters() cluster.Clusters {
 	if c == nil || c.Environment() == nil {
 		return nil
 	}
-	return c.Environment().Clusters()
+	return c.Environment().AllClusters()
 }
 
 func (c *testContext) CreateDirectory(name string) (string, error) {

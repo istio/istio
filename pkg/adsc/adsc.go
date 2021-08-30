@@ -196,7 +196,6 @@ type ADSC struct {
 	sendNodeMeta bool
 
 	sync     map[string]time.Time
-	syncCh   chan string
 	Locality *core.Locality
 }
 
@@ -265,7 +264,6 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 		Received:    map[string]*discovery.DiscoveryResponse{},
 		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
-		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
 		errChan:     make(chan error, 10),
 	}
@@ -425,17 +423,25 @@ func (a *ADSC) Run() error {
 	return nil
 }
 
-// HasSyncedConfig returns true if MCP configs have synced
-func (a *ADSC) hasSynced() bool {
-	for _, s := range collections.Pilot.All() {
-		a.mutex.RLock()
-		t := a.sync[s.Resource().GroupVersionKind().String()]
-		a.mutex.RUnlock()
-		if t.IsZero() {
-			log.Warnf("Not synced: %v", s.Resource().GroupVersionKind().String())
+// HasSynced returns true if MCP configs have synced
+func (a *ADSC) HasSynced() bool {
+	if a.cfg == nil || len(a.cfg.InitialDiscoveryRequests) == 0 {
+		return true
+	}
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	for _, req := range a.cfg.InitialDiscoveryRequests {
+		if strings.Count(req.TypeUrl, "/") != 3 {
+			continue
+		}
+
+		if _, ok := a.sync[req.TypeUrl]; !ok {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -561,7 +567,6 @@ func (a *ADSC) handleRecv() {
 			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			if _, exist := a.sync[gt.String()]; !exist {
 				a.sync[gt.String()] = time.Now()
-				a.syncCh <- gt.String()
 			}
 		}
 		a.Received[msg.TypeUrl] = msg
@@ -1113,26 +1118,6 @@ func (a *ADSC) WatchConfig() {
 			Node:          a.node(),
 			TypeUrl:       sch.Resource().GroupVersionKind().String(),
 		})
-	}
-}
-
-// WaitConfigSync will wait for the memory controller to sync.
-func (a *ADSC) WaitConfigSync(max time.Duration) bool {
-	// TODO: when adding support for multiple config controllers (matching MCP), make sure the
-	// new stores support reporting sync events on the syncCh, to avoid the sleep loop from MCP.
-	if a.hasSynced() {
-		return true
-	}
-	maxCh := time.After(max)
-	for {
-		select {
-		case <-a.syncCh:
-			if a.hasSynced() {
-				return true
-			}
-		case <-maxCh:
-			return a.hasSynced()
-		}
 	}
 }
 
