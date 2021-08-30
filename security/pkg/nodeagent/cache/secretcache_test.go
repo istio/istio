@@ -614,7 +614,7 @@ func TestOSCACertGenerateSecret(t *testing.T) {
 	fakePlugin := mock.NewMockTokenExchangeServer(nil)
 	opt.TokenExchanger = fakePlugin
 
-	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{CARootPath: "file-root:" + cafile.CACertFilePath})
+	sc := createCache(t, fakeCACli, func(resourceName string) {}, security.Options{CARootPath: cafile.CACertFilePath})
 	certPath := security.GetOSRootFilePath()
 	expected, err := sc.GenerateSecret("file-root:" + certPath)
 	if err != nil {

@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/identifier"
 )
 
@@ -2790,7 +2789,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 					},
 				},
 			},
-			expectedCaCertificateName: security.FileRootSystemCACert,
+			expectedCaCertificateName: "system",
 			enableVerifyCertAtClient:  true,
 		},
 		{
@@ -2839,7 +2838,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 					},
 				},
 			},
-			expectedCaCertificateName: security.FileRootSystemCACert,
+			expectedCaCertificateName: "system",
 			enableVerifyCertAtClient:  true,
 		},
 		{

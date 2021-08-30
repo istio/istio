@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/security"
 )
 
 type ConfigType int
@@ -2397,7 +2396,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 				},
 			},
 			verifyCertAtClient: true,
-			expectedCARootPath: security.FileRootSystemCACert,
+			expectedCARootPath: "system",
 		},
 		{
 			name: "VERIFY_CERTIFICATE_AT_CLIENT does not override CaCertificates",
