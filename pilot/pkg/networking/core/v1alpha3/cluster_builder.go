@@ -402,21 +402,13 @@ type clusterCache struct {
 	service         *model.Service
 	destinationRule *config.Config
 	envoyFilterKeys []string
-
-	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
-	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
-	// Hypothetically we could get smarter and determine the exact set of all configs we use and their versions,
-	// which we probably will need for proper delta XDS, but for now this is sufficient.
-	pushVersion string
 }
 
 func (t *clusterCache) Key() string {
 	params := []string{
 		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
-
 		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
 		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
-		t.pushVersion,
 	}
 	if t.networkView != nil {
 		nv := make([]string, 0, len(t.networkView))
