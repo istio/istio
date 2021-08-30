@@ -58,7 +58,7 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 	}
 
 	switch p {
-	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
+	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
 		return ListenerProtocolHTTP
 	case protocol.TCP, protocol.HTTPS, protocol.TLS,
 		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
