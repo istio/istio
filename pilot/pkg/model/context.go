@@ -790,7 +790,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
-		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
+		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
 	node.PrevSidecarScope = sidecarScope
 }
