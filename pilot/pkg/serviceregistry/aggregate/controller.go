@@ -180,7 +180,7 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 		dst.ClusterVIPs = make(map[cluster.ID]string)
 	}
 	// prefer the k8s VIP where possible
-	if srcRegistry.Provider() == provider.Kubernetes {
+	if srcRegistry.Provider() == provider.Kubernetes || dst.ClusterVIPs[srcRegistry.Cluster()] == "" {
 		dst.ClusterVIPs[srcRegistry.Cluster()] = src.Address
 	}
 }
