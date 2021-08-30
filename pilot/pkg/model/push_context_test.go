@@ -743,6 +743,7 @@ func TestSidecarScope(t *testing.T) {
 	ps.Mesh = env.Mesh()
 	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
 	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
+	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc3.istio-system.cluster.local")] = map[string]*Service{"istio-system": nil}
 
 	configStore := NewFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
@@ -813,12 +814,11 @@ func TestSidecarScope(t *testing.T) {
 			sidecar:    "nosidecar/global",
 			describe:   "no sidecar",
 		},
-
 		{
-			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "nosidecar"},
-			collection: labels.Collection{map[string]string{"app": "bar"}},
-			sidecar:    "nosidecar/global",
-			describe:   "no sidecar",
+			proxy:      &Proxy{Type: Router, ConfigNamespace: "istio-system"},
+			collection: labels.Collection{map[string]string{"app": "istio-gateway"}},
+			sidecar:    "istio-system/default-sidecar",
+			describe:   "gateway sidecar scope",
 		},
 	}
 	for _, c := range cases {
