@@ -182,7 +182,7 @@ func buildOutboundListeners(node *model.Proxy, filter listenerNames) model.Resou
 						Address: &core.Address{
 							Address: &core.Address_SocketAddress{
 								SocketAddress: &core.SocketAddress{
-									Address: sv.Address,
+									Address: sv.GetServiceAddressForProxy(node),
 									PortSpecifier: &core.SocketAddress_PortValue{
 										PortValue: uint32(p.Port),
 									},
