@@ -497,12 +497,9 @@ func (sc *SecretManagerClient) generateFileSecret(resourceName string) (bool, *s
 			sc.addFileWatcher(cf.CertificatePath, resourceName)
 		}
 	case resourceName == security.FileRootSystemCACert:
-		cfg, ok := security.SdsCertificateConfigFromResourceName(sc.caRootPath)
-		sdsFromFile = ok
-		if ok && cfg.IsRootCertificate() {
-			if sitem, err = sc.generateRootCertFromExistingFile(cfg.CaCertificatePath, resourceName, false); err == nil {
-				sc.addFileWatcher(cfg.CaCertificatePath, resourceName)
-			}
+		sdsFromFile = true
+		if sitem, err = sc.generateRootCertFromExistingFile(sc.caRootPath, resourceName, false); err == nil {
+			sc.addFileWatcher(sc.caRootPath, resourceName)
 		}
 	default:
 		// Check if the resource name refers to a file mounted certificate.

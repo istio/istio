@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogo"
 )
 
@@ -546,7 +545,7 @@ func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 
 	// Check if CA Certificate should be System CA Certificate
 	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
-		tls.CaCertificates = security.FileRootSystemCACert
+		tls.CaCertificates = "system"
 	}
 
 	return connectionPool, outlierDetection, loadBalancer, tls

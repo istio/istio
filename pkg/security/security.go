@@ -377,6 +377,7 @@ func GetOSRootFilePath() string {
 
 	for _, cert := range certFiles {
 		if _, err := os.Stat(cert); err == nil {
+			istiolog.Debugf("Using OS CA certificate for proxy: %s", cert)
 			return cert
 		}
 	}
@@ -441,4 +442,9 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 	} else {
 		return SdsCertificateConfig{}, false
 	}
+}
+
+// SdsCertificateConfigFromResourceNameForOSCACert converts the OS resource name into a SdsCertificateConfig
+func SdsCertificateConfigFromResourceNameForOSCACert(resource string) (SdsCertificateConfig, bool) {
+	return SdsCertificateConfig{"", "", resource}, true
 }

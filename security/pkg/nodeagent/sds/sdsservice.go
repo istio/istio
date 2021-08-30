@@ -210,7 +210,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 	cfg := security.SdsCertificateConfig{}
 	ok := false
 	if s.ResourceName == security.FileRootSystemCACert {
-		cfg, ok = security.SdsCertificateConfigFromResourceName(caRootPath)
+		cfg, ok = security.SdsCertificateConfigFromResourceNameForOSCACert(caRootPath)
 	} else {
 		cfg, ok = security.SdsCertificateConfigFromResourceName(s.ResourceName)
 	}
