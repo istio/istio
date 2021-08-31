@@ -31,7 +31,6 @@ var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
 var skippedLdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.DestinationRule: {},
 	gvk.WorkloadGroup:   {},
 	gvk.Secret:          {},
 }
