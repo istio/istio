@@ -84,7 +84,7 @@ var passthroughHttpProtocolOptions = util.MessageToAny(&http.HttpProtocolOptions
 // MutableCluster wraps Cluster object along with options.
 type MutableCluster struct {
 	cluster *cluster.Cluster
-	// httpProtocolOptions stores the HttpProtocolOptions which will marshaled when build is called.
+	// httpProtocolOptions stores the HttpProtocolOptions which will be marshaled when build is called.
 	httpProtocolOptions *http.HttpProtocolOptions
 }
 
@@ -243,8 +243,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		port:             port,
 		clusterMode:      clusterMode,
 		direction:        model.TrafficDirectionOutbound,
-		//	proxy:       cb.proxy,
-		cache: cb.cache,
+		cache:            cb.cache,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -1242,12 +1241,10 @@ func CastDestinationRule(config *config.Config) *networking.DestinationRule {
 
 // maybeApplyEdsConfig applies EdsClusterConfig on the passed in cluster if it is an EDS type of cluster.
 func maybeApplyEdsConfig(c *cluster.Cluster) {
-	switch v := c.ClusterDiscoveryType.(type) {
-	case *cluster.Cluster_Type:
-		if v.Type != cluster.Cluster_EDS {
-			return
-		}
+	if c.GetType() != cluster.Cluster_EDS {
+		return
 	}
+
 	c.EdsClusterConfig = &cluster.Cluster_EdsClusterConfig{
 		ServiceName: c.Name,
 		EdsConfig: &core.ConfigSource{
