@@ -186,3 +186,22 @@ func (rb *IptablesBuilder) BuildV4Restore() string {
 func (rb *IptablesBuilder) BuildV6Restore() string {
 	return rb.buildRestore(rb.rules.rulesv6)
 }
+
+// AppendVersionedRule takes is a wrapper around AppendRule that substitutes an ipv4/ipv6 specific value
+// in place in the params. This allows appending a dual-stack rule that has an IP value in it.
+func (rb *IptablesBuilder) AppendVersionedRule(ipv4 string, ipv6 string, chain string, table string, params ...string) {
+	rb.AppendRuleV4(chain, table, replaceVersionSpecific(ipv4, params...)...)
+	rb.AppendRuleV6(chain, table, replaceVersionSpecific(ipv6, params...)...)
+}
+
+func replaceVersionSpecific(contents string, inputs ...string) []string {
+	res := make([]string, 0, len(inputs))
+	for _, i := range inputs {
+		if i == constants.IPVersionSpecific {
+			res = append(res, contents)
+		} else {
+			res = append(res, i)
+		}
+	}
+	return res
+}
