@@ -157,9 +157,6 @@ func (c *Controller) reloadNetworkGateways() {
 // extractGatewaysInner performs the logic for extractGatewaysFromService without locking the controller.
 // Returns true if any gateways changed.
 func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
-	svc.Mutex.RLock()
-	defer svc.Mutex.RUnlock()
-
 	gwPort, nw := c.getGatewayDetails(svc)
 	if gwPort == 0 || nw == "" {
 		// TODO detect if this previously had the gateway label so we can cleanup the old value
@@ -167,19 +164,19 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		return false
 	}
 
-	if c.networkGateways[svc.Hostname] == nil {
-		c.networkGateways[svc.Hostname] = make(map[network.ID]gatewaySet)
+	if c.networkGateways[svc.ClusterLocal.Hostname] == nil {
+		c.networkGateways[svc.ClusterLocal.Hostname] = make(map[network.ID]gatewaySet)
 	}
 	// Create the entry for this network, if doesn't exist.
-	if c.networkGateways[svc.Hostname][nw] == nil {
-		c.networkGateways[svc.Hostname][nw] = make(gatewaySet)
+	if c.networkGateways[svc.ClusterLocal.Hostname][nw] == nil {
+		c.networkGateways[svc.ClusterLocal.Hostname][nw] = make(gatewaySet)
 	}
 
 	newGateways := make(gatewaySet)
 
 	// TODO(landow) ClusterExternalAddresses doesn't need to get used outside of the kube controller, and spreads
 	// TODO(cont)   logic between ConvertService, extractGatewaysInner, and updateServiceNodePortAddresses.
-	if svc.Attributes.ClusterExternalAddresses != nil {
+	if !svc.Attributes.ClusterExternalAddresses.IsEmpty() {
 		// check if we have node port mappings
 		if svc.Attributes.ClusterExternalPorts != nil {
 			if nodePortMap, exists := svc.Attributes.ClusterExternalPorts[c.Cluster()]; exists {
@@ -190,7 +187,7 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 				}
 			}
 		}
-		ips := svc.Attributes.ClusterExternalAddresses[c.Cluster()]
+		ips := svc.Attributes.ClusterExternalAddresses.GetAddressesFor(c.Cluster())
 		for _, ip := range ips {
 			newGateways.add(model.NetworkGateway{
 				Cluster: c.Cluster(),
@@ -201,9 +198,9 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 	}
 
-	previousGateways := c.networkGateways[svc.Hostname][nw]
+	previousGateways := c.networkGateways[svc.ClusterLocal.Hostname][nw]
 	gatewaysChanged := !newGateways.equals(previousGateways)
-	c.networkGateways[svc.Hostname][nw] = newGateways
+	c.networkGateways[svc.ClusterLocal.Hostname][nw] = newGateways
 
 	return gatewaysChanged
 }
@@ -224,7 +221,7 @@ func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, network.ID) 
 	}
 
 	// meshNetworks registryServiceName+fromRegistry
-	if port, ok := c.registryServiceNameGateways[svc.Hostname]; ok {
+	if port, ok := c.registryServiceNameGateways[svc.ClusterLocal.Hostname]; ok {
 		return port, c.networkForRegistry
 	}
 
@@ -243,18 +240,16 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 	}
 	for _, svc := range svcs {
 		c.RLock()
-		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
+		nodeSelector := c.nodeSelectorsForServices[svc.ClusterLocal.Hostname]
 		c.RUnlock()
 		// update external address
-		svc.Mutex.Lock()
 		var nodeAddresses []string
 		for _, n := range c.nodeInfoMap {
 			if nodeSelector.SubsetOf(n.labels) {
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
 		}
-		svc.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{c.Cluster(): nodeAddresses}
-		svc.Mutex.Unlock()
+		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
 		// update gateways that use the service
 		c.extractGatewaysFromService(svc)
 	}

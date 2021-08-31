@@ -693,7 +693,9 @@ func TestJwtFilter(t *testing.T) {
 
 	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
 	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
-		Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local"),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local"),
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

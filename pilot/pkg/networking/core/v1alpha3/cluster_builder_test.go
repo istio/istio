@@ -40,7 +40,6 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
-	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -64,16 +63,16 @@ func TestApplyDestinationRule(t *testing.T) {
 			Protocol: protocol.Unsupported,
 		},
 	}
-	serviceAttribute := model.ServiceAttributes{
-		Namespace: TestServiceNamespace,
-	}
 	service := &model.Service{
-		Hostname:    host.Name("foo.default.svc.cluster.local"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[cluster2.ID]string),
-		Ports:       servicePort,
-		Resolution:  model.ClientSideLB,
-		Attributes:  serviceAttribute,
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("foo.default.svc.cluster.local"),
+		},
+		Address:    "1.1.1.1",
+		Ports:      servicePort,
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
 	}
 
 	cases := []struct {
@@ -244,12 +243,15 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				Hostname:    host.Name("foo.example.com"),
-				Address:     "1.1.1.1",
-				ClusterVIPs: make(map[cluster2.ID]string),
-				Ports:       servicePort,
-				Resolution:  model.DNSLB,
-				Attributes:  serviceAttribute,
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("foo.example.com"),
+				},
+				Address:    "1.1.1.1",
+				Ports:      servicePort,
+				Resolution: model.DNSLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+				},
 			},
 			port: servicePort[0],
 			destRule: &networking.DestinationRule{
@@ -266,11 +268,12 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				Hostname:    host.Name("foo.example.com"),
-				Address:     "1.1.1.1",
-				ClusterVIPs: make(map[cluster2.ID]string),
-				Ports:       servicePort,
-				Resolution:  model.DNSLB,
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("foo.example.com"),
+				},
+				Address:    "1.1.1.1",
+				Ports:      servicePort,
+				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
 					Namespace: TestServiceNamespace,
 					Labels:    map[string]string{"foo": "bar"},
@@ -291,11 +294,12 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				Hostname:    host.Name("foo.example.com"),
-				Address:     "1.1.1.1",
-				ClusterVIPs: make(map[cluster2.ID]string),
-				Ports:       servicePort,
-				Resolution:  model.DNSLB,
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("foo.example.com"),
+				},
+				Address:    "1.1.1.1",
+				Ports:      servicePort,
+				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
 					Namespace: TestServiceNamespace,
 					Labels:    map[string]string{"foo": "bar"},
@@ -319,11 +323,12 @@ func TestApplyDestinationRule(t *testing.T) {
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
 			service: &model.Service{
-				Hostname:    host.Name("foo.example.com"),
-				Address:     "1.1.1.1",
-				ClusterVIPs: make(map[cluster2.ID]string),
-				Ports:       servicePort,
-				Resolution:  model.DNSLB,
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("foo.example.com"),
+				},
+				Address:    "1.1.1.1",
+				Ports:      servicePort,
+				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
 					Namespace: TestServiceNamespace,
 					Labels:    map[string]string{"foo": "bar"},
@@ -915,7 +920,11 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Ports: model.PortList{
 					servicePort,
 				},
-				Hostname: "host", MeshExternal: false, Attributes: model.ServiceAttributes{Name: "svc", Namespace: "default"},
+				ClusterLocal: model.HostVIPs{
+					Hostname: "host",
+				},
+				MeshExternal: false,
+				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
@@ -941,11 +950,12 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		Hostname:    host.Name("*.example.org"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[cluster2.ID]string),
-		Ports:       model.PortList{servicePort},
-		Resolution:  model.DNSLB,
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("*.example.org"),
+		},
+		Address:    "1.1.1.1",
+		Ports:      model.PortList{servicePort},
+		Resolution: model.DNSLB,
 		Attributes: model.ServiceAttributes{
 			Name:      "TestService",
 			Namespace: "test-ns",

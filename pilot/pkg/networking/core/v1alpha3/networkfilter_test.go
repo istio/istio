@@ -83,7 +83,9 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			instance := &model.ServiceInstance{
 
 				Service: &model.Service{
-					Hostname:     "v0.default.example.org",
+					ClusterLocal: model.HostVIPs{
+						Hostname: "v0.default.example.org",
+					},
 					Address:      "9.9.9.9",
 					CreationTime: tnow,
 					Attributes: model.ServiceAttributes{

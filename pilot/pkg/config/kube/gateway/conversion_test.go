@@ -76,19 +76,25 @@ func TestConvertResources(t *testing.T) {
 				Attributes: model.ServiceAttributes{
 					Name:      "istio-ingressgateway",
 					Namespace: "istio-system",
-					ClusterExternalAddresses: map[cluster.ID][]string{
-						"Kubernetes": {"1.2.3.4"},
+					ClusterExternalAddresses: cluster.AddressMap{
+						Addresses: map[cluster.ID][]string{
+							"Kubernetes": {"1.2.3.4"},
+						},
 					},
 				},
-				Ports:    ports,
-				Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
+				Ports: ports,
+				ClusterLocal: model.HostVIPs{
+					Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
+				},
 			}
 			altIngressSvc := &model.Service{
 				Attributes: model.ServiceAttributes{
 					Namespace: "istio-system",
 				},
-				Ports:    ports,
-				Hostname: "example.com",
+				Ports: ports,
+				ClusterLocal: model.HostVIPs{
+					Hostname: "example.com",
+				},
 			}
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services: []*model.Service{ingressSvc, altIngressSvc},

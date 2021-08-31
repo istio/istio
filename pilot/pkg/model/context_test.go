@@ -541,19 +541,25 @@ func TestSetServiceInstances(t *testing.T) {
 		{
 			Service: &model.Service{
 				CreationTime: tnow.Add(1 * time.Second),
-				Hostname:     host.Name("test1.com"),
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("test1.com"),
+				},
 			},
 		},
 		{
 			Service: &model.Service{
 				CreationTime: tnow,
-				Hostname:     host.Name("test3.com"),
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("test3.com"),
+				},
 			},
 		},
 		{
 			Service: &model.Service{
 				CreationTime: tnow,
-				Hostname:     host.Name("test2.com"),
+				ClusterLocal: model.HostVIPs{
+					Hostname: host.Name("test2.com"),
+				},
 			},
 		},
 	}
@@ -569,9 +575,9 @@ func TestSetServiceInstances(t *testing.T) {
 	proxy.SetServiceInstances(env)
 
 	assert.Equal(t, len(proxy.ServiceInstances), 3)
-	assert.Equal(t, proxy.ServiceInstances[0].Service.Hostname, host.Name("test2.com"))
-	assert.Equal(t, proxy.ServiceInstances[1].Service.Hostname, host.Name("test3.com"))
-	assert.Equal(t, proxy.ServiceInstances[2].Service.Hostname, host.Name("test1.com"))
+	assert.Equal(t, proxy.ServiceInstances[0].Service.ClusterLocal.Hostname, host.Name("test2.com"))
+	assert.Equal(t, proxy.ServiceInstances[1].Service.ClusterLocal.Hostname, host.Name("test3.com"))
+	assert.Equal(t, proxy.ServiceInstances[2].Service.ClusterLocal.Hostname, host.Name("test1.com"))
 }
 
 func TestGlobalUnicastIP(t *testing.T) {
