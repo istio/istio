@@ -14,6 +14,8 @@
 package envoyfilter
 
 import (
+	"sync"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/monitoring"
 )
@@ -23,6 +25,7 @@ type Result string
 const (
 	Error   Result = "error"
 	Applied Result = "applied"
+	Skipped Result = "skipped"
 )
 
 type PatchType string
@@ -51,9 +54,16 @@ var (
 	)
 )
 
+var (
+	envoyFilterStatusMap map[string]map[string]bool // Map of Envoy filter name, patch and status.
+	envoyFilterMutex     sync.RWMutex
+)
+
 func init() {
 	if features.EnableEnvoyFilterMetrics {
 		monitoring.MustRegister(envoyFilterStatus)
+		envoyFilterStatusMap = make(map[string]map[string]bool)
+		envoyFilterMutex = sync.RWMutex{}
 	}
 }
 
@@ -62,10 +72,13 @@ func IncrementEnvoyFilterMetric(name string, pt PatchType, applied bool) {
 	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
-	// Only set the Gauge when the filter is atleast applied once.
+	envoyFilterMutex.Lock()
+	defer envoyFilterMutex.Unlock()
+	if _, exists := envoyFilterStatusMap[name]; !exists {
+		envoyFilterStatusMap[name] = make(map[string]bool)
+	}
 	if applied {
-		envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(string(pt))).
-			With(resultType.Value(string(Applied))).Record(1)
+		envoyFilterStatusMap[name][string(pt)] = true
 	}
 }
 
@@ -75,4 +88,23 @@ func IncrementEnvoyFilterErrorMetric(pt PatchType) {
 		return
 	}
 	envoyFilterStatus.With(patchType.Value(string(pt))).With(resultType.Value(string(Error))).Record(1)
+}
+
+func RecordMetrics() {
+	if features.EnableEnvoyFilterMetrics {
+		return
+	}
+	envoyFilterMutex.RLock()
+	defer envoyFilterMutex.RUnlock()
+	for name, pmap := range envoyFilterStatusMap {
+		for pt, applied := range pmap {
+			result := Applied
+			if !applied {
+				result = Skipped
+			}
+			envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(string(pt))).
+				With(resultType.Value(string(result))).Record(1)
+		}
+	}
+	envoyFilterStatusMap = make(map[string]map[string]bool)
 }
