@@ -2744,16 +2744,16 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			Protocol: protocol.Unsupported,
 		},
 	}
-	serviceAttribute := model.ServiceAttributes{
-		Namespace: TestServiceNamespace,
-	}
 	service := &model.Service{
-		Hostname:    host.Name("foo.default.svc.cluster.local"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[cluster2.ID]string),
-		Ports:       servicePort,
-		Resolution:  model.ClientSideLB,
-		Attributes:  serviceAttribute,
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("foo.default.svc.cluster.local"),
+		},
+		Address:    "1.1.1.1",
+		Ports:      servicePort,
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
 	}
 
 	cases := []struct {
