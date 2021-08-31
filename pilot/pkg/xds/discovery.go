@@ -295,7 +295,6 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 				}
 			}
 			model.LastPushMutex.Unlock()
-			envoyfilter.RecordMetrics()
 		case <-stopCh:
 			return
 		}
