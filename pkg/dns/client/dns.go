@@ -141,15 +141,18 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalD
 	if addr == "" {
 		addr = "localhost:15053"
 	}
-	v4, v6 := separateIPtypes(h.resolvConfServers)
+	v4, v6 := separateIPtypes(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)
 	addresses := []string{addr}
-	if host == "localhost" && len(v4) > 0 && len(v6) > 0 {
-		// When binding to "localhost", go will pick v4 OR v6. In dual stake, we may need v4 AND v6.
-		// If we are in this situation, explicitly listen to both v4 and v6
-		addresses = []string{
-			net.JoinHostPort("127.0.0.1", port),
-			net.JoinHostPort("::1", port),
+	if host == "localhost" && len(v4)+len(v6) > 0 {
+		addresses = []string{}
+		// When binding to "localhost", go will pick v4 OR v6. In dual stack, we may need v4 AND v6.
+		// If we are in this situation, explicitly listen to v4, v6, or both.
+		if len(v4) > 0 {
+			addresses = append(addresses, net.JoinHostPort("127.0.0.1", port))
+		}
+		if len(v6) > 0 {
+			addresses = append(addresses, net.JoinHostPort("::1", port))
 		}
 	}
 	for _, ipAddr := range addresses {
@@ -387,6 +390,7 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 
 func separateIPtypes(ips []string) (ipv4, ipv6 []net.IP) {
 	for _, ip := range ips {
+
 		addr := net.ParseIP(ip)
 		if addr == nil {
 			log.Debugf("ignoring un-parsable IP address: %v", ip)
