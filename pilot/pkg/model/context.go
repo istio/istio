@@ -582,6 +582,10 @@ type NodeMetadata struct {
 	// Alpha in 1.1, based on feedback may be turned into an API or change. Set to "1" to enable.
 	HTTP10 string `json:"HTTP10,omitempty"`
 
+	// DefaultHTTP10Host indicates the default host to be be used when HTTP/1.0 is enabled and request does
+	// not have host header as host header is not mandatory for HTTP/1.0.
+	DefaultHTTP10Host string `json:"DEFAULT_HTTP10_HOST,omitempty"`
+
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 

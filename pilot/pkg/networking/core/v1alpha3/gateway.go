@@ -543,8 +543,9 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 
 func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy) *hcm.HttpConnectionManager {
 	httpProtoOpts := &core.Http1ProtocolOptions{}
-	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
+	if enableHTTP10(node.Metadata.HTTP10) {
 		httpProtoOpts.AcceptHttp_10 = true
+		httpProtoOpts.DefaultHostForHttp_10 = node.Metadata.DefaultHTTP10Host
 	}
 	xffNumTrustedHops := uint32(0)
 	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.Topology_SANITIZE_SET)

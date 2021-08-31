@@ -293,9 +293,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 		}
 	}
 
-	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
+	if enableHTTP10(node.Metadata.HTTP10) {
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
-			AcceptHttp_10: true,
+			AcceptHttp_10:         true,
+			DefaultHostForHttp_10: node.Metadata.DefaultHTTP10Host,
 		}
 	}
 
@@ -304,7 +305,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPort
 
 // if enableFlag is "1" indicates that AcceptHttp_10 is enabled.
 func enableHTTP10(enableFlag string) bool {
-	return enableFlag == "1"
+	return features.HTTP10 || enableFlag == "1"
 }
 
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
@@ -655,7 +656,7 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	httpOpts := &core.Http1ProtocolOptions{
 		AllowAbsoluteUrl: proto.BoolTrue,
 	}
-	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
+	if enableHTTP10(node.Metadata.HTTP10) {
 		httpOpts.AcceptHttp_10 = true
 	}
 
@@ -775,10 +776,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 		rds:              rdsName,
 	}
 
-	if features.HTTP10 || enableHTTP10(listenerOpts.proxy.Metadata.HTTP10) {
+	if enableHTTP10(listenerOpts.proxy.Metadata.HTTP10) {
 		httpOpts.connectionManager = &hcm.HttpConnectionManager{
 			HttpProtocolOptions: &core.Http1ProtocolOptions{
-				AcceptHttp_10: true,
+				AcceptHttp_10:         true,
+				DefaultHostForHttp_10: listenerOpts.proxy.Metadata.DefaultHTTP10Host,
 			},
 		}
 	}

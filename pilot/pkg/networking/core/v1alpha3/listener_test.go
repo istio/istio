@@ -93,6 +93,18 @@ var (
 		},
 		ConfigNamespace: "not-default",
 	}
+	proxyHTTP10WithDefaultHost = model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: &model.NodeMetadata{
+			Namespace:         "not-default",
+			HTTP10:            "1",
+			DefaultHTTP10Host: "defaulthttp10host.com",
+		},
+		ConfigNamespace: "not-default",
+	}
 	proxyGateway = model.Proxy{
 		Type:            model.Router,
 		IPAddresses:     []string{"1.1.1.1"},
@@ -502,7 +514,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 }
 
 func TestInboundListenerConfig_HTTP10(t *testing.T) {
-	for _, p := range []*model.Proxy{getProxy(), &proxyHTTP10} {
+	for _, p := range []*model.Proxy{getProxy(), &proxyHTTP10, &proxyHTTP10WithDefaultHost} {
 		// Add a service and verify it's config
 		testInboundListenerConfigWithHTTP10Proxy(t, p,
 			buildService("test.com", wildcardIP, protocol.HTTP, tnow))
@@ -1261,7 +1273,7 @@ func testInboundListenerConfigWithHTTP10Proxy(t *testing.T, proxy *model.Proxy, 
 		verifyInboundHTTPListenerNormalizePath(t, listeners[0])
 	}
 	for _, l := range listeners {
-		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), l)
+		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), proxy.Metadata.DefaultHTTP10Host, l)
 	}
 
 	verifyInboundEnvoyListenerNumber(t, listeners[0])
@@ -1307,7 +1319,7 @@ func testInboundListenerConfigWithSidecarWithHTTP10Proxy(t *testing.T, proxy *mo
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	for _, l := range listeners {
-		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), l)
+		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), proxy.Metadata.DefaultHTTP10Host, l)
 	}
 }
 
@@ -1341,7 +1353,7 @@ func testInboundListenerConfigWithSidecarWithoutServicesWithHTTP10Proxy(t *testi
 		t.Fatal("expected HTTP listener, found TCP")
 	}
 	for _, l := range listeners {
-		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), l)
+		verifyInboundHTTP10(t, enableHTTP10(proxy.Metadata.HTTP10), proxy.Metadata.DefaultHTTP10Host, l)
 	}
 }
 
@@ -2271,7 +2283,7 @@ func verifyInboundHTTPListenerNormalizePath(t *testing.T, l *listener.Listener) 
 	}
 }
 
-func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *listener.Listener) {
+func verifyInboundHTTP10(t *testing.T, http10Expected bool, http10DefaultHost string, l *listener.Listener) {
 	t.Helper()
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
@@ -2293,6 +2305,10 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *listener.Listener
 				}
 				if http10Expected && acceptHTTP10Field.GetBoolValue() != http10Expected {
 					t.Errorf("expected accepting HTTP 1.0: %v, found: %v", http10Expected, acceptHTTP10Field.GetBoolValue())
+				}
+				defaultHTTP10HostField := httpProtocolOptions.Fields["default_host_for_http_10"]
+				if len(http10DefaultHost) > 0 && defaultHTTP10HostField.GetStringValue() != http10DefaultHost {
+					t.Errorf("expected default host for HTTP 1.0: %v, found: %v", http10DefaultHost, defaultHTTP10HostField.GetStringValue())
 				}
 			}
 		}
