@@ -99,7 +99,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 					Value: `h3=":8080"; ma=86400`,
 				},
 				Append: &wrappers.BoolValue{Value: true},
-			}}))
+			},
+		}))
 	})
 
 	t.Run("for virtual service with changed default timeout", func(t *testing.T) {

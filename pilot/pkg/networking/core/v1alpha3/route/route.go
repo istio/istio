@@ -311,7 +311,7 @@ func BuildHTTPRoutesForVirtualService(
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	listenPort int,
 	gatewayNames map[string]bool,
-	isHttp3AltSvcHeaderNeeded bool) ([]*route.Route, error) {
+	isHTTP3AltSvcHeaderNeeded bool) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -322,13 +322,14 @@ func BuildHTTPRoutesForVirtualService(
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry, hashByDestination, gatewayNames, isHttp3AltSvcHeaderNeeded); r != nil {
+			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry, hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry, hashByDestination, gatewayNames, isHttp3AltSvcHeaderNeeded); r != nil {
+				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
+					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
@@ -378,7 +379,7 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	gatewayNames map[string]bool,
-	isHttp3AltSvcHeaderNeeded bool) *route.Route {
+	isHTTP3AltSvcHeaderNeeded bool) *route.Route {
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
@@ -540,8 +541,8 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
-	if isHttp3AltSvcHeaderNeeded {
-		http3AltSvcHeader := buildHttp3AltSvcHeader(port, util.ALPNHttp3OverQUIC)
+	if isHTTP3AltSvcHeaderNeeded {
+		http3AltSvcHeader := buildHTTP3AltSvcHeader(port, util.ALPNHttp3OverQUIC)
 		if out.ResponseHeadersToAdd == nil {
 			out.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
 		}
@@ -551,7 +552,7 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	return out
 }
 
-func buildHttp3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption {
+func buildHTTP3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption {
 	// For example, www.cloudflare.com returns the following
 	// alt-svc: h3-27=":443"; ma=86400, h3-28=":443"; ma=86400, h3-29=":443"; ma=86400, h3=":443"; ma=86400
 	valParts := make([]string, 0, len(h3Alpns))
