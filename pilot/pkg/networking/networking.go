@@ -41,8 +41,16 @@ const (
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(p protocol.Instance,
 	trafficDirection core.TrafficDirection) ListenerProtocol {
-	// If protocol sniffing is not enabled, the default value is TCP
-	if p == protocol.Unsupported {
+	switch p {
+	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
+		return ListenerProtocolHTTP
+	case protocol.TCP, protocol.HTTPS, protocol.TLS,
+		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
+		return ListenerProtocolTCP
+	case protocol.UDP:
+		return ListenerProtocolUnknown
+	case protocol.Unsupported:
+		// If protocol sniffing is not enabled, the default value is TCP
 		switch trafficDirection {
 		case core.TrafficDirection_INBOUND:
 			if !features.EnableProtocolSniffingForInbound {
@@ -55,17 +63,6 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 		default:
 			// Should not reach here.
 		}
-	}
-
-	switch p {
-	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
-		return ListenerProtocolHTTP
-	case protocol.TCP, protocol.HTTPS, protocol.TLS,
-		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
-		return ListenerProtocolTCP
-	case protocol.UDP:
-		return ListenerProtocolUnknown
-	case protocol.Unsupported:
 		return ListenerProtocolAuto
 	default:
 		// Should not reach here.
