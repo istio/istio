@@ -817,7 +817,7 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 				return instances[i].Service.CreationTime.Before(instances[j].Service.CreationTime)
 			}
 			// Additionally, sort by hostname just in case services created automatically at the same second.
-			return instances[i].Service.Hostname < instances[j].Service.Hostname
+			return instances[i].Service.ClusterLocal.Hostname < instances[j].Service.ClusterLocal.Hostname
 		}
 		return true
 	})

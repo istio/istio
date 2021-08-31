@@ -585,7 +585,7 @@ func IsAllowAnyOutbound(node *model.Proxy) bool {
 }
 
 // BuildStatPrefix builds a stat prefix based on the stat pattern.
-func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, attributes model.ServiceAttributes) string {
+func BuildStatPrefix(statPattern string, host string, subset string, port *model.Port, attributes *model.ServiceAttributes) string {
 	prefix := strings.ReplaceAll(statPattern, serviceStatPattern, shortHostName(host, attributes))
 	prefix = strings.ReplaceAll(prefix, serviceFQDNStatPattern, host)
 	prefix = strings.ReplaceAll(prefix, subsetNameStatPattern, subset)
@@ -596,7 +596,7 @@ func BuildStatPrefix(statPattern string, host string, subset string, port *model
 
 // shortHostName constructs the name from kubernetes hosts based on attributes (name and namespace).
 // For other hosts like VMs, this method does not do any thing - just returns the passed in host as is.
-func shortHostName(host string, attributes model.ServiceAttributes) string {
+func shortHostName(host string, attributes *model.ServiceAttributes) string {
 	if attributes.ServiceRegistry == provider.Kubernetes {
 		return attributes.Name + "." + attributes.Namespace
 	}

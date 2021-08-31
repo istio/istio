@@ -1591,7 +1591,9 @@ func TestBuildGatewayListeners(t *testing.T) {
 				ServiceInstances: []*pilot_model.ServiceInstance{
 					{
 						Service: &pilot_model.Service{
-							Hostname: "test",
+							ClusterLocal: pilot_model.HostVIPs{
+								Hostname: "test",
+							},
 						},
 						ServicePort: &pilot_model.Port{
 							Port: 80,
@@ -1955,7 +1957,9 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	fooHostName := host.Name("foo.example.org")
 	fooServiceInTestNamespace := &pilot_model.Service{
-		Hostname: fooHostName,
+		ClusterLocal: pilot_model.HostVIPs{
+			Hostname: fooHostName,
+		},
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",
@@ -1971,7 +1975,9 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	barHostName := host.Name("bar.example.org")
 	barServiceInDefaultNamespace := &pilot_model.Service{
-		Hostname: barHostName,
+		ClusterLocal: pilot_model.HostVIPs{
+			Hostname: barHostName,
+		},
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",
@@ -1987,7 +1993,9 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	bazHostName := host.Name("baz.example.org")
 	bazServiceInDefaultNamespace := &pilot_model.Service{
-		Hostname: bazHostName,
+		ClusterLocal: pilot_model.HostVIPs{
+			Hostname: bazHostName,
+		},
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",

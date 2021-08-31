@@ -874,7 +874,7 @@ func (s *Server) initRegistryEventHandlers() {
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.Hostname),
+				Name:      string(svc.ClusterLocal.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},

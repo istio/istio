@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -569,9 +568,10 @@ func TestGetLocalityLbSetting(t *testing.T) {
 func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
-			Hostname:    "test.example.org",
-			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[cluster2.ID]string),
+			ClusterLocal: model.HostVIPs{
+				Hostname: "test.example.org",
+			},
+			Address: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -624,9 +624,10 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 func buildEnvForClustersWithFailover() *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
-			Hostname:    "test.example.org",
-			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[cluster2.ID]string),
+			ClusterLocal: model.HostVIPs{
+				Hostname: "test.example.org",
+			},
+			Address: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -684,9 +685,10 @@ func buildEnvForClustersWithFailover() *model.Environment {
 func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{
 		{
-			Hostname:    "test.example.org",
-			Address:     "1.1.1.1",
-			ClusterVIPs: make(map[cluster2.ID]string),
+			ClusterLocal: model.HostVIPs{
+				Hostname: "test.example.org",
+			},
+			Address: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",

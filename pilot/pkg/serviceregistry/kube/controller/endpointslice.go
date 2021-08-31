@@ -238,7 +238,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
+				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.ClusterLocal.Hostname)
 				if pod == nil && expectedPod {
 					continue
 				}

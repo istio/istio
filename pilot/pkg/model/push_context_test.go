@@ -432,39 +432,49 @@ func TestServiceIndex(t *testing.T) {
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
-				Hostname: "svc-unset",
-				Ports:    allPorts,
+				ClusterLocal: HostVIPs{
+					Hostname: "svc-unset",
+				},
+				Ports: allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 				},
 			},
 			{
-				Hostname: "svc-public",
-				Ports:    allPorts,
+				ClusterLocal: HostVIPs{
+					Hostname: "svc-public",
+				},
+				Ports: allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 				},
 			},
 			{
-				Hostname: "svc-private",
-				Ports:    allPorts,
+				ClusterLocal: HostVIPs{
+					Hostname: "svc-private",
+				},
+				Ports: allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
 				},
 			},
 			{
-				Hostname: "svc-none",
-				Ports:    allPorts,
+				ClusterLocal: HostVIPs{
+					Hostname: "svc-none",
+				},
+				Ports: allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
 				},
 			},
 			{
-				Hostname: "svc-namespace",
-				Ports:    allPorts,
+				ClusterLocal: HostVIPs{
+					Hostname: "svc-namespace",
+				},
+				Ports: allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{"namespace": true},
@@ -641,7 +651,7 @@ func TestIsServiceVisible(t *testing.T) {
 func serviceNames(svcs []*Service) []string {
 	s := []string{}
 	for _, ss := range svcs {
-		s = append(s, string(ss.Hostname))
+		s = append(s, string(ss.ClusterLocal.Hostname))
 	}
 	sort.Strings(s)
 	return s
@@ -677,15 +687,19 @@ func TestInitPushContext(t *testing.T) {
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
-				Hostname: "svc1",
-				Ports:    allPorts,
+				ClusterLocal: HostVIPs{
+					Hostname: "svc1",
+				},
+				Ports: allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 				},
 			},
 			{
-				Hostname: "svc2",
-				Ports:    allPorts,
+				ClusterLocal: HostVIPs{
+					Hostname: "svc2",
+				},
+				Ports: allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
@@ -900,14 +914,18 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			service := &Service{
-				Hostname:   host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
+				ClusterLocal: HostVIPs{
+					Hostname: host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
+				},
 				Resolution: tc.serviceResolution,
 				Attributes: ServiceAttributes{Namespace: tc.serviceNamespace},
 			}
 			// Intentionally use the externalService with the same name and namespace for test, though
 			// these attributes don't matter.
 			externalService := &Service{
-				Hostname:     host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
+				ClusterLocal: HostVIPs{
+					Hostname: host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
+				},
 				Resolution:   tc.serviceResolution,
 				Attributes:   ServiceAttributes{Namespace: tc.serviceNamespace},
 				MeshExternal: true,
@@ -1124,7 +1142,14 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 
 	for _, tt := range testCases {
 		mergedConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
-			&Service{Hostname: host.Name(tt.serviceHostname), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
+			&Service{
+				ClusterLocal: HostVIPs{
+					Hostname: host.Name(tt.serviceHostname),
+				},
+				Attributes: ServiceAttributes{
+					Namespace: tt.serviceNs,
+				},
+			})
 		if mergedConfig.Name != tt.expectedConfig {
 			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
 		}
@@ -1398,7 +1423,14 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
 			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
-				&Service{Hostname: host.Name(tt.host), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
+				&Service{
+					ClusterLocal: HostVIPs{
+						Hostname: host.Name(tt.host),
+					},
+					Attributes: ServiceAttributes{
+						Namespace: tt.serviceNs,
+					},
+				})
 			if destRuleConfig == nil {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
@@ -1667,14 +1699,18 @@ func TestServiceWithExportTo(t *testing.T) {
 	ps.Mesh = env.Mesh()
 
 	svc1 := &Service{
-		Hostname: "svc1",
+		ClusterLocal: HostVIPs{
+			Hostname: "svc1",
+		},
 		Attributes: ServiceAttributes{
 			Namespace: "test1",
 			ExportTo:  map[visibility.Instance]bool{visibility.Private: true, visibility.Instance("ns1"): true},
 		},
 	}
 	svc2 := &Service{
-		Hostname: "svc2",
+		ClusterLocal: HostVIPs{
+			Hostname: "svc2",
+		},
 		Attributes: ServiceAttributes{
 			Namespace: "test2",
 			ExportTo: map[visibility.Instance]bool{
@@ -1685,7 +1721,9 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	svc3 := &Service{
-		Hostname: "svc3",
+		ClusterLocal: HostVIPs{
+			Hostname: "svc3",
+		},
 		Attributes: ServiceAttributes{
 			Namespace: "test3",
 			ExportTo: map[visibility.Instance]bool{
@@ -1696,7 +1734,9 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	svc4 := &Service{
-		Hostname: "svc4",
+		ClusterLocal: HostVIPs{
+			Hostname: "svc4",
+		},
 		Attributes: ServiceAttributes{
 			Namespace: "test4",
 		},
@@ -1734,7 +1774,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		services := ps.Services(&Proxy{ConfigNamespace: tt.proxyNs})
 		gotHosts := make([]string, 0)
 		for _, r := range services {
-			gotHosts = append(gotHosts, string(r.Hostname))
+			gotHosts = append(gotHosts, string(r.ClusterLocal.Hostname))
 		}
 		if !reflect.DeepEqual(gotHosts, tt.wantHosts) {
 			t.Errorf("proxy in %s namespace: want %+v, got %+v", tt.proxyNs, tt.wantHosts, gotHosts)

@@ -320,19 +320,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	listenerOpts.class = ListenerClassSidecarInbound
 
 	if old, exists := listenerMap[listenerOpts.port.Port]; exists {
-		if old.protocol != listenerOpts.port.Protocol && old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+		if old.protocol != listenerOpts.port.Protocol && old.instanceHostname != pluginParams.ServiceInstance.Service.ClusterLocal.Hostname {
 			// For sidecar specified listeners, the caller is expected to supply a dummy service instance
 			// with the right port and a hostname constructed from the sidecar config's name+namespace
 			pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node.ID,
 				fmt.Sprintf("Conflicting inbound listener:%d. existing: %s, incoming: %s", listenerOpts.port.Port,
-					old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
+					old.instanceHostname, pluginParams.ServiceInstance.Service.ClusterLocal.Hostname))
 			return nil
 		}
 		// This can happen if two services select the same pod with same port and protocol - we should skip building listener again.
-		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+		if old.instanceHostname != pluginParams.ServiceInstance.Service.ClusterLocal.Hostname {
 			log.Debugf("skipping inbound listener:%d as we have already build it for existing host: %s, new host: %s",
 				listenerOpts.port.Port,
-				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname)
+				old.instanceHostname, pluginParams.ServiceInstance.Service.ClusterLocal.Hostname)
 		}
 		// Skip building listener for the same port
 		return nil
@@ -366,7 +366,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	}
 
 	listenerMap[listenerOpts.port.Port] = &inboundListenerEntry{
-		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
+		instanceHostname: pluginParams.ServiceInstance.Service.ClusterLocal.Hostname,
 		protocol:         listenerOpts.port.Protocol,
 	}
 	return mutable.Listener
@@ -410,7 +410,7 @@ type outboundListenerConflict struct {
 func (c outboundListenerConflict) addMetric(metrics model.Metrics) {
 	currentHostnames := make([]string, len(c.currentServices))
 	for i, s := range c.currentServices {
-		currentHostnames[i] = string(s.Hostname)
+		currentHostnames[i] = string(s.ClusterLocal.Hostname)
 	}
 	concatHostnames := strings.Join(currentHostnames, ",")
 	metrics.AddMetric(c.metric,
@@ -571,7 +571,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			}
 
 			for _, service := range services {
-				saddress := service.GetServiceAddressForProxy(node)
+				saddress := service.GetClusterLocalAddressForProxy(node)
 				for _, servicePort := range service.Ports {
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
@@ -741,7 +741,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 						listenerName:    *listenerMapKey,
 						currentServices: (*currentListenerEntry).services,
 						currentProtocol: (*currentListenerEntry).servicePort.Protocol,
-						newHostname:     listenerOpts.service.Hostname,
+						newHostname:     listenerOpts.service.ClusterLocal.Hostname,
 						newProtocol:     listenerOpts.port.Protocol,
 					}.addMetric(listenerOpts.push)
 				}
@@ -762,7 +762,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	} else {
 		if listenerProtocol == istionetworking.ListenerProtocolAuto &&
 			sniffingEnabled && listenerOpts.bind != actualWildcard && listenerOpts.service != nil {
-			rdsName = string(listenerOpts.service.Hostname) + ":" + strconv.Itoa(listenerOpts.port.Port)
+			rdsName = string(listenerOpts.service.ClusterLocal.Hostname) + ":" + strconv.Itoa(listenerOpts.port.Port)
 		} else {
 			rdsName = strconv.Itoa(listenerOpts.port.Port)
 		}
@@ -803,7 +803,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// ip:port. This will reduce the impact of a listener reload
 
 	if len(listenerOpts.bind) == 0 {
-		svcListenAddress := listenerOpts.service.GetServiceAddressForProxy(listenerOpts.proxy)
+		svcListenAddress := listenerOpts.service.GetClusterLocalAddressForProxy(listenerOpts.proxy)
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly
@@ -860,7 +860,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 				// User is also not allowed to add duplicate ports in the egress listener
 				var newHostname host.Name
 				if listenerOpts.service != nil {
-					newHostname = listenerOpts.service.Hostname
+					newHostname = listenerOpts.service.ClusterLocal.Hostname
 				} else {
 					// user defined outbound listener via sidecar API
 					newHostname = "sidecar-config-egress-http-listener"
@@ -1564,7 +1564,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, listenerOpts buildLi
 				// User is also not allowed to add duplicate ports in the egress listener
 				var newHostname host.Name
 				if listenerOpts.service != nil {
-					newHostname = listenerOpts.service.Hostname
+					newHostname = listenerOpts.service.ClusterLocal.Hostname
 				} else {
 					// user defined outbound listener via sidecar API
 					newHostname = "sidecar-config-egress-tcp-listener"
