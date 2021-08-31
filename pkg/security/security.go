@@ -446,5 +446,8 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 
 // SdsCertificateConfigFromResourceNameForOSCACert converts the OS resource name into a SdsCertificateConfig
 func SdsCertificateConfigFromResourceNameForOSCACert(resource string) (SdsCertificateConfig, bool) {
+	if resource == "" {
+		return SdsCertificateConfig{}, false
+	}
 	return SdsCertificateConfig{"", "", resource}, true
 }
