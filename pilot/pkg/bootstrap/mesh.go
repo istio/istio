@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
@@ -49,8 +48,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	log.Info("initializing mesh configuration ", args.MeshConfigFile)
 	defer func() {
 		if s.environment.Watcher != nil {
-			meshdump, _ := gogoprotomarshal.ToJSONWithIndent(s.environment.Mesh(), "    ")
-			log.Infof("mesh configuration: %s", meshdump)
+			log.Infof("mesh configuration: %s", mesh.PrettyFormatOfMeshConfig(s.environment.Mesh()))
 			log.Infof("version: %s", version.Info.String())
 			argsdump, _ := json.MarshalIndent(args, "", "   ")
 			log.Infof("flags: %s", argsdump)
