@@ -161,6 +161,13 @@ func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, clusterStopCh
 	// the aggregate registry's HasSynced will use the k8s controller's HasSynced, so we reference the same timeout
 	options.SyncTimeout = cluster.SyncTimeout
 
+	// different clusters may have different k8s version, re-apply conditional default
+	if features.EnableEndpointSliceController(client) {
+		options.EndpointMode = EndpointSliceOnly
+	} else {
+		options.EndpointMode = EndpointsOnly
+	}
+
 	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubeRegistry := NewController(client, options)
 	m.remoteKubeControllers[cluster.ID] = &kubeController{

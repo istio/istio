@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -224,13 +225,13 @@ var (
 		"If enabled, Pilot will keep track of old versions of distributed config for this duration.",
 	).Get()
 
-	EnableEndpointSliceController = env.RegisterBoolVar(
+	enableEndpointSliceController, endpointSliceControllerSpecified = env.RegisterBoolVar(
 		"PILOT_USE_ENDPOINT_SLICE",
 		false,
 		"If enabled, Pilot will use EndpointSlices as the source of endpoints for Kubernetes services. "+
 			"By default, this is false, and Endpoints will be used. This requires the Kubernetes EndpointSlice controller to be enabled. "+
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
-	).Get()
+	).Lookup()
 
 	EnableMCSAutoExport = env.RegisterBoolVar(
 		"ENABLE_MCS_AUTO_EXPORT",
@@ -563,6 +564,15 @@ var (
 	PrioritizedLeaderElection = env.RegisterBoolVar("PRIORITIZED_LEADER_ELECTION", true,
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 )
+
+// EnableEndpointSliceController gets the status of the feature flag.
+// The default behavior is conditional on the Kubernetes version.
+func EnableEndpointSliceController(kubeClient kube.Client) bool {
+	if endpointSliceControllerSpecified {
+		return enableEndpointSliceController
+	}
+	return kube.IsAtLeastVersion(kubeClient, 21)
+}
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
