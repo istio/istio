@@ -3,6 +3,7 @@ cni:
   tag: ""
   image: install-cni
   pullPolicy: ""
+  priorityClassName: system-node-critical
 
   logLevel: info
 
