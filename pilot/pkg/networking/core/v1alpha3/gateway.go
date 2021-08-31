@@ -156,12 +156,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			var newFilterChains []istionetworking.FilterChain
 			switch transport {
 			case istionetworking.TransportProtocolTCP:
-				newFilterChains = configgen.getTCPTransportBasedFilterChains(builder, p, port, opts, serversForPort, proxyConfig, mergedGateway)
+				newFilterChains = configgen.buildGatewayTCPBasedFilterChains(builder, p, port, opts, serversForPort, proxyConfig, mergedGateway)
 			case istionetworking.TransportProtocolQUIC:
 				// Currently, we just assume that QUIC is HTTP/3 although that does not
 				// have to be the case (it is just the most common case now, in the future
 				// we will support more cases)
-				newFilterChains = configgen.getHTTP3FilterChains(builder, serversForPort, mergedGateway, proxyConfig, opts)
+				newFilterChains = configgen.buildGatewayHTTP3FilterChains(builder, serversForPort, mergedGateway, proxyConfig, opts)
 			}
 			var mutable *MutableListener
 			if mopts, exists := mutableopts[lname]; !exists {
@@ -220,7 +220,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	return builder
 }
 
-func (configgen *ConfigGeneratorImpl) getTCPTransportBasedFilterChains(
+func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	builder *ListenerBuilder,
 	p protocol.Instance, port model.ServerPort,
 	opts *buildListenerOpts,
@@ -276,7 +276,7 @@ func (configgen *ConfigGeneratorImpl) getTCPTransportBasedFilterChains(
 	return newFilterChains
 }
 
-func (configgen *ConfigGeneratorImpl) getHTTP3FilterChains(
+func (configgen *ConfigGeneratorImpl) buildGatewayHTTP3FilterChains(
 	builder *ListenerBuilder,
 	serversForPort *model.MergedServers,
 	mergedGateway *model.MergedGateway,
@@ -635,7 +635,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			connectionManager: buildGatewayConnectionManager(proxyConfig, node, http3Enabled),
 			addGRPCWebFilter:  serverProto == protocol.GRPCWeb,
 			statPrefix:        server.Name,
-			supportHTTP3:      http3Enabled,
+			http3Only:         http3Enabled,
 		},
 	}
 }

@@ -1186,7 +1186,9 @@ type httpListenerOpts struct {
 	addGRPCWebFilter bool
 	useRemoteAddress bool
 
-	supportHTTP3 bool
+	// http3Only indicates that the HTTP codec used
+	// is HTTP/3 over QUIC transport (uses UDP)
+	http3Only bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1237,7 +1239,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	connectionManager := httpOpts.connectionManager
-	if httpOpts.supportHTTP3 {
+	if httpOpts.http3Only {
 		connectionManager.CodecType = hcm.HttpConnectionManager_HTTP3
 		connectionManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
 	} else {

@@ -273,7 +273,7 @@ type TLSContext struct {
 
 // SendRequestOrFail makes HTTPS request to ingress gateway to visit product page
 func SendRequestOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
-	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse) {
+	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse, useHTTP3 bool) {
 	ctx.Helper()
 	opts := echo.CallOptions{
 		Timeout: time.Second,
@@ -284,52 +284,7 @@ func SendRequestOrFail(ctx framework.TestContext, ing ingress.Instance, host str
 		Headers: map[string][]string{
 			"Host": {host},
 		},
-		CaCert: tlsCtx.CaCert,
-		Validator: echo.And(
-			echo.ValidatorFunc(
-				func(resp client.ParsedResponses, err error) error {
-					// Check that the error message is expected.
-					if err != nil {
-						// If expected error message is empty, but we got some error
-						// message then it should be treated as error when error message
-						// verification is not skipped. Error message verification is skipped
-						// when the error message is non-deterministic.
-						if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
-							return fmt.Errorf("unexpected error: %w", err)
-						}
-						if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
-							return fmt.Errorf("expected response error message %s but got %w",
-								exRsp.ErrorMessage, err)
-						}
-						return nil
-					}
-
-					return resp.CheckCode(strconv.Itoa(exRsp.ResponseCode))
-				})),
-	}
-
-	if callType == Mtls {
-		opts.Key = tlsCtx.PrivateKey
-		opts.Cert = tlsCtx.Cert
-	}
-
-	// Certs occasionally take quite a while to become active in Envoy, so retry for a long time (2min)
-	ing.CallWithRetryOrFail(ctx, opts, retry.Timeout(time.Minute*2))
-}
-
-func SendQUICRequestOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
-	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse) {
-	ctx.Helper()
-	opts := echo.CallOptions{
-		Timeout: time.Second,
-		Port: &echo.Port{
-			Protocol: protocol.HTTPS,
-		},
-		Path: fmt.Sprintf("/%s", path),
-		Headers: map[string][]string{
-			"Host": {host},
-		},
-		HTTP3:  true,
+		HTTP3:  useHTTP3,
 		CaCert: tlsCtx.CaCert,
 		Validator: echo.And(
 			echo.ValidatorFunc(
@@ -559,7 +514,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, false /* useHTTP3 */)
 				})
 			}
 		})
@@ -604,7 +559,7 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, app
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, false /* useHTTP3 */)
 				})
 			}
 		})
@@ -658,8 +613,8 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
-					SendQUICRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
+					SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, true /* useHTTP3 */)
 				})
 			}
 		})

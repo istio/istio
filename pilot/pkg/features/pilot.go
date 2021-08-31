@@ -531,7 +531,8 @@ var (
 	).Get()
 
 	EnableQUICListeners = env.RegisterBoolVar("PILOT_ENABLE_QUIC_LISTENERS", false,
-		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways").Get()
+		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
+			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

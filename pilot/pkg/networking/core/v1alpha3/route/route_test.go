@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -83,6 +84,22 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().Timeout.Seconds).To(gomega.Equal(int64(0)))
 		// nolint: staticcheck
 		g.Expect(routes[0].GetRoute().MaxGrpcTimeout.Seconds).To(gomega.Equal(int64(0)))
+	})
+
+	t.Run("for virtual service with HTTP/3 discovery enabled", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, virtualServicePlain, serviceRegistry, nil, 8080, gatewayNames, true)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(routes[0].GetResponseHeadersToAdd()).To(gomega.Equal([]*core.HeaderValueOption{
+			{
+				Header: &core.HeaderValue{
+					Key:   util.AltSvcHeader,
+					Value: `h3=":8080"; ma=86400`,
+				},
+				Append: &wrappers.BoolValue{Value: true},
+			}}))
 	})
 
 	t.Run("for virtual service with changed default timeout", func(t *testing.T) {

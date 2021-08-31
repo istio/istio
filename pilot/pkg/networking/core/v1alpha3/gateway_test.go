@@ -1144,8 +1144,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 					},
 				},
 				httpOpts: &httpListenerOpts{
-					rds:          "some-route",
-					supportHTTP3: true,
+					rds:       "some-route",
+					http3Only: true,
 					connectionManager: &hcm.HttpConnectionManager{
 						XffNumTrustedHops:        3,
 						ForwardClientCertDetails: hcm.HttpConnectionManager_FORWARD_ONLY,

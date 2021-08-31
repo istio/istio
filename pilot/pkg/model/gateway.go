@@ -274,12 +274,11 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy) *MergedGateway
 							log.Debugf("Server at port %d eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number)
 							if mergedQUICServers[serverPort] == nil {
 								mergedQUICServers[serverPort] = &MergedServers{
-									Servers:   []*networking.Server{s},
+									Servers:   []*networking.Server{},
 									RouteName: routeName,
 								}
-							} else {
-								mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
 							}
+							mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
 							http3AdvertisingRoutes[routeName] = struct{}{}
 						}
 					}
