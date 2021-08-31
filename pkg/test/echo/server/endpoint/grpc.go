@@ -51,7 +51,6 @@ var _ Instance = &grpcInstance{}
 type grpcServer interface {
 	reflection.GRPCServer
 	Serve(listener net.Listener) error
-	RegisterService(sd *grpc.ServiceDesc, ss interface{})
 	Stop()
 }
 
