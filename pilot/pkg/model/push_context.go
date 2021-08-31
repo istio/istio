@@ -1440,27 +1440,21 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarNum := len(sidecarConfigs)
 	sidecarConfigs = make([]config.Config, 0, sidecarNum)
+	// sidecars with selector take preference
 	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithSelector...)
 	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithoutSelector...)
-
-	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
-	for _, sidecarConfig := range sidecarConfigs {
-		sidecarConfig := sidecarConfig
-		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
-	}
 
 	// Hold reference root namespace's sidecar config
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	if ps.Mesh.RootNamespace != "" {
-		for i, sidecarConfig := range sidecarConfigs {
-			if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
-				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
-				rootNSConfig = &sidecarConfigs[i]
-				break
-			}
+	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+	for i, sidecarConfig := range sidecarConfigs {
+		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
+			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
+		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
+			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
+			rootNSConfig = &sidecarConfigs[i]
 		}
 	}
 
