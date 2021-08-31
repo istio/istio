@@ -132,6 +132,8 @@ spec:
           value: ratelimit
         - name: RUNTIME_WATCH_ROOT
           value: "false"
+        - name: RUNTIME_IGNOREDOTFILES
+          value: "true"
         ports:
         - containerPort: 8080
         - containerPort: 8081
