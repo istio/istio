@@ -377,6 +377,7 @@ global:
 
   # configure remote pilot and istiod service and endpoint
   remotePilotAddress: ""
+  remotePilotPort: 0
 
   ##############################################################################################
   # The following values are found in other charts. To effectively modify these values, make   #

@@ -9,7 +9,7 @@ subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
-  - port: 15012
+  - port: {{ .Values.global.remotePilotPort | default 15012 }}
     name: tcp-istiod
     protocol: TCP
   {{- else if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
@@ -22,7 +22,7 @@ subsets:
 - addresses:
   - ip: {{ .Values.global.remotePilotAddress }}
   ports:
-  - port: 15012
+  - port: {{ .Values.global.remotePilotPort | default 15012 }}
     name: tcp-istiod
     protocol: TCP
   {{- end }}
