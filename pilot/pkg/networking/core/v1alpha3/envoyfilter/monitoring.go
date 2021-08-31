@@ -102,7 +102,7 @@ func RecordMetrics() {
 			if !applied {
 				result = Skipped
 			}
-			envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(string(pt))).
+			envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(pt)).
 				With(resultType.Value(string(result))).Record(1)
 		}
 	}
