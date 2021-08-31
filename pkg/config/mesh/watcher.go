@@ -21,9 +21,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/davecgh/go-spew/spew"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 )
@@ -152,7 +151,7 @@ func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
 			log.Errorf("user config invalid, ignoring it %v %s", err, w.userMeshConfig)
 		} else {
 			mc = *mc1
-			log.Infoa("Applied user config: ", spew.Sdump(mc))
+			log.Infof("Applied user config: %s", PrettyFormatOfMeshConfig(&mc))
 		}
 	}
 	if w.revMeshConfig != "" {
@@ -161,7 +160,7 @@ func (w *InternalWatcher) merged() *meshconfig.MeshConfig {
 			log.Errorf("revision config invalid, ignoring it %v %s", err, w.userMeshConfig)
 		} else {
 			mc = *mc1
-			log.Infoa("Applied revision mesh config: ", spew.Sdump(mc))
+			log.Infof("Applied revision mesh config: %s", PrettyFormatOfMeshConfig(&mc))
 		}
 	}
 	return &mc
@@ -180,7 +179,7 @@ func (w *InternalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshCo
 	var handlers []func()
 
 	if !reflect.DeepEqual(meshConfig, w.MeshConfig) {
-		log.Infof("mesh configuration updated to: %s", spew.Sdump(meshConfig))
+		log.Infof("mesh configuration updated to: %s", PrettyFormatOfMeshConfig(meshConfig))
 		if !reflect.DeepEqual(meshConfig.ConfigSources, w.MeshConfig.ConfigSources) {
 			log.Info("mesh configuration sources have changed")
 			// TODO Need to recreate or reload initConfigController()
@@ -217,4 +216,9 @@ func addFileWatcher(fileWatcher filewatcher.FileWatcher, file string, callback f
 			}
 		}
 	}()
+}
+
+func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
+	meshConfigDump, _ := gogoprotomarshal.ToJSONWithIndent(meshConfig, "    ")
+	return meshConfigDump
 }
