@@ -818,7 +818,7 @@ func (cb *ClusterBuilder) buildAutoMtlsSettings(
 		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
 	}
 
-	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
+	if meshExternal || !autoMTLSEnabled {
 		return nil, userSupplied
 	}
 
