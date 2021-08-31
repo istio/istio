@@ -86,15 +86,14 @@ func (s *SecretGen) parseResources(names []string, proxy *model.Proxy) []SecretR
 	}
 	return res
 }
-
-func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
-	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (s *SecretGen) GenerateDeltas(proxy *model.Proxy, push *model.PushContext, req *model.PushRequest,
+	w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %v is not authorized to receive secrets. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	if req == nil || !needsUpdate(proxy, req.ConfigsUpdated) {
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	var updatedSecrets map[model.ConfigKey]struct{}
 	if !req.Full {
@@ -106,13 +105,13 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	if err != nil {
 		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		pilotSDSCertificateErrors.Increment()
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	configClusterSecrets, err := s.secrets.ForCluster(s.configCluster)
 	if err != nil {
 		log.Warnf("proxy %v is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
 		pilotSDSCertificateErrors.Increment()
-		return nil, model.DefaultXdsLogDetails, nil
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 
 	// Filter down to resources we can access. We do not return an error if they attempt to access a Secret
@@ -121,6 +120,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames, proxy), proxy, proxyClusterSecrets)
 
 	results := model.Resources{}
+	removed := make([]string, 0)
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
@@ -158,6 +158,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				s.cache.Add(sr, req, res)
 			} else {
 				pilotSDSCertificateErrors.Increment()
+				removed = append(removed, sr.Name)
 				log.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
 			}
 		} else {
@@ -168,11 +169,18 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 				s.cache.Add(sr, req, res)
 			} else {
 				pilotSDSCertificateErrors.Increment()
+				removed = append(removed, sr.Name)
 				log.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)
 			}
 		}
 	}
-	return results, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, nil
+	return results, removed, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cached, cached+regenerated)}, !req.Full, nil
+}
+
+func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
+	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	res, _, log, _, err := s.GenerateDeltas(proxy, push, req, w)
+	return res, log, err
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
