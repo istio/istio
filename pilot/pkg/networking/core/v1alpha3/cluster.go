@@ -243,7 +243,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
-
 			lbEndpoints := cb.buildLocalityLbEndpoints(clusterKey.networkView, service, port.Port, nil)
 
 			// create default cluster
@@ -705,10 +704,6 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		return
 	}
-
-	// The following order is important. If cluster type has been identified as Original DST since Resolution is PassThrough,
-	// and port is named as redis-xxx we end up creating a cluster with type Original DST and LbPolicy as MAGLEV which would be
-	// rejected by Envoy.
 
 	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
 	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.Redis {
