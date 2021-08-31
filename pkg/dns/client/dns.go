@@ -15,6 +15,7 @@
 package client
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -143,6 +144,9 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string) (*LocalD
 	}
 	v4, v6 := separateIPtypes(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("dns address must be a valid host:port")
+	}
 	addresses := []string{addr}
 	if host == "localhost" && len(v4)+len(v6) > 0 {
 		addresses = []string{}

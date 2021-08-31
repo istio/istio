@@ -319,8 +319,20 @@ function install_metallb() {
   kubectl apply --kubeconfig="$KUBECONFIG" -f "${COMMON_SCRIPTS}/metallb.yaml"
   kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
 
-  cat <<EOF | kubectl apply -f - --kubeconfig="$KUBECONFIG"
-apiVersion: v1
+  if [ -z "${METALLB_IPS[*]}" ]; then
+    # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
+    DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[0].Subnet' -r)"
+    METALLB_IPS=()
+    while read -r ip; do
+      METALLB_IPS+=("$ip")
+    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
+  fi
+
+  # Give this cluster of those IPs
+  RANGE="${METALLB_IPS[0]}-${METALLB_IPS[9]}"
+  METALLB_IPS=("${METALLB_IPS[@]:10}")
+
+  echo 'apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: metallb-system
@@ -330,8 +342,8 @@ data:
     address-pools:
     - name: default
       protocol: layer2
-      addresses: $(docker inspect kind | jq '[.[0].IPAM.Config[].Subnet]' -c)
-EOF
+      addresses:
+      - '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
 }
 
 function connect_metallb() {
