@@ -77,6 +77,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
         readinessProbe:
           httpGet:
             path: /

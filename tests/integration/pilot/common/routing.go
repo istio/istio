@@ -147,7 +147,7 @@ spec:
       request:
         add:
           istio-custom-header: user-defined-value`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
 				Validator: echo.And(
@@ -179,7 +179,7 @@ spec:
       request:
         set:
           x-custom: some-value`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
 				Validator: echo.And(
@@ -211,7 +211,7 @@ spec:
       request:
         set:
           :authority: my-custom-authority`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
 				Validator: echo.And(
@@ -244,7 +244,7 @@ spec:
         request:
           set:
             Host: my-custom-authority`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
 				Validator: echo.And(
@@ -281,7 +281,7 @@ spec:
     route:
     - destination:
         host: {{ .dstSvc }}`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName:        "http",
 				Path:            "/foo?key=value",
 				FollowRedirects: true,
@@ -316,7 +316,7 @@ spec:
     route:
     - destination:
         host: {{ .dstSvc }}`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo?key=value#hash",
 				Count:    1,
@@ -350,7 +350,7 @@ spec:
     route:
     - destination:
         host: {{ .dstSvc }}`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Path:     "/foo",
 				Count:    1,
@@ -489,7 +489,7 @@ spec:
       perTryTimeout: 2s
       retryOn: gateway-error,connect-failure,refused-stream
       retryRemoteLocalities: true`,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName:  "http",
 				Count:     1,
 				Validator: echo.ExpectOK(),
@@ -591,7 +591,7 @@ spec:
 					opts.PortName = "grpc"
 				}
 			},
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Count:    100,
 			},
@@ -664,7 +664,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			name:   "use client protocol with h2",
 			config: useClientProtocolDestinationRule("use-client-protocol-h2", destination.Config().Service),
 			call:   client[0].CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Target:   destination,
 				PortName: "http",
 				Count:    1,
@@ -680,7 +680,7 @@ func useClientProtocolCases(apps *EchoDeployments) []TrafficTestCase {
 			name:   "use client protocol with h1",
 			config: useClientProtocolDestinationRule("use-client-protocol-h1", destination.Config().Service),
 			call:   client[0].CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Count:    1,
 				Target:   destination,
@@ -706,7 +706,7 @@ func destinationRuleCases(apps *EchoDeployments) []TrafficTestCase {
 			name:   "only idletimeout specified in DR",
 			config: idletimeoutDestinationRule("idletimeout-dr", destination.Config().Service),
 			call:   client[0].CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Target:    destination,
 				PortName:  "http",
 				Count:     1,
@@ -867,7 +867,7 @@ func gatewayCases() []TrafficTestCase {
 			workloadAgnostic: true,
 			viaIngress:       true,
 			config:           httpGateway("*"),
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
@@ -902,7 +902,7 @@ spec:
       httpsRedirect: true
 ---
 `,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
@@ -960,7 +960,7 @@ spec:
       istio: ingressgateway
 ---
 ` + httpVirtualServiceTmpl,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
@@ -991,7 +991,7 @@ spec:
 				return templateParams(protocol.HTTPS, src, dests, append(security.ValidCipherSuites.SortedList(), "fake"))
 			},
 			setupOpts: fqdnHostHeader,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTPS,
@@ -1024,7 +1024,7 @@ spec:
       httpsRedirect: true
 ---
 ` + httpVirtualServiceTmpl,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
@@ -1091,7 +1091,7 @@ spec:
       istio: ingressgateway
 ---
 ` + httpVirtualServiceTmpl,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count: 1,
 				Port: &echo.Port{
 					Protocol: protocol.HTTP,
@@ -1128,7 +1128,7 @@ spec:
 					return templateParams(proto, src, dests, nil)
 				},
 				setupOpts: fqdnHostHeader,
-				opts: echo.CallOptions{
+				Opts: echo.CallOptions{
 					Count: 1,
 					Port: &echo.Port{
 						Protocol: proto,
@@ -1146,7 +1146,7 @@ spec:
 					return params
 				},
 				setupOpts: fqdnHostHeader,
-				opts: echo.CallOptions{
+				Opts: echo.CallOptions{
 					Count: 1,
 					Port: &echo.Port{
 						Protocol: proto,
@@ -1190,7 +1190,7 @@ func XFFGatewayCase(apps *EchoDeployments, gateway string) []TrafficTestCase {
 			config: httpGateway("*") + httpVirtualService("gateway", fqdn, d[0].Config().PortByName("http").ServicePort),
 			skip:   false,
 			call:   apps.Naked[0].CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:   1,
 				Port:    &echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
@@ -1330,7 +1330,7 @@ spec:
 		cases = append(cases, TrafficTestCase{
 			config: cfg,
 			call:   c.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				PortName: "http",
 				Target:   apps.PodB[0],
 				Validator: echo.And(
@@ -1382,7 +1382,7 @@ spec:
 			name:   fmt.Sprintf("case 1 both match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:     1,
 				Address:   "b-alt-1",
 				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
@@ -1411,7 +1411,7 @@ spec:
 			name:   fmt.Sprintf("case 2 service port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:     1,
 				Address:   "b-alt-2",
 				Port:      &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.TCP},
@@ -1440,7 +1440,7 @@ spec:
 			name:   fmt.Sprintf("case 3 target port match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:     1,
 				Address:   "b-alt-3",
 				Port:      &echo.Port{ServicePort: 12345, Protocol: protocol.HTTP},
@@ -1468,7 +1468,7 @@ spec:
 			name:   fmt.Sprintf("case 4 no match in cluster %v", c.Config().Cluster.StableName()),
 			config: svc,
 			call:   c.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:     1,
 				Address:   "b-alt-4",
 				Port:      &echo.Port{ServicePort: 12346, Protocol: protocol.HTTP},
@@ -1532,7 +1532,7 @@ spec:
 			name:   "no consistent",
 			config: svc,
 			call:   c.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:   10,
 				Address: svcName,
 				Port:    &echo.Port{ServicePort: FindPortByName("http").ServicePort, Protocol: protocol.HTTP},
@@ -1568,17 +1568,17 @@ spec:
 			name:   "source ip",
 			config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
 			call:   c.CallWithRetryOrFail,
-			opts:   callOpts,
+			Opts:   callOpts,
 		}, TrafficTestCase{
 			name:   "query param",
 			config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
 			call:   c.CallWithRetryOrFail,
-			opts:   callOpts,
+			Opts:   callOpts,
 		}, TrafficTestCase{
 			name:   "http header",
 			config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
 			call:   c.CallWithRetryOrFail,
-			opts:   callOpts,
+			Opts:   callOpts,
 		})
 	}
 
@@ -1614,7 +1614,7 @@ func selfCallsCases() []TrafficTestCase {
 		{
 			name:             "to service",
 			workloadAgnostic: true,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:     1,
 				PortName:  "http",
 				Validator: echo.And(echo.ExpectOK(), echo.ExpectKey("X-Envoy-Attempt-Count", "1")),
@@ -1628,7 +1628,7 @@ func selfCallsCases() []TrafficTestCase {
 				// the framework will try to set this when enumerating test cases
 				opts.Target = nil
 			},
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:     1,
 				Address:   "localhost",
 				Port:      &echo.Port{ServicePort: 8080},
@@ -1647,7 +1647,7 @@ func selfCallsCases() []TrafficTestCase {
 				// the framework will try to set this when enumerating test cases
 				opts.Target = nil
 			},
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:     1,
 				Scheme:    scheme.HTTP,
 				Port:      &echo.Port{ServicePort: 8080},
@@ -1698,13 +1698,13 @@ func protocolSniffingCases() []TrafficTestCase {
 			// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tcp
 			skip: call.scheme == scheme.TCP,
 			name: call.port,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				Count:    1,
 				PortName: call.port,
 				Scheme:   call.scheme,
 				Timeout:  time.Second * 5,
 			},
-			validate: func(src echo.Caller, dst echo.Instances) echo.Validator {
+			Validate: func(src echo.Caller, dst echo.Instances) echo.Validator {
 				if call.scheme == scheme.TCP || src.(echo.Instance).Config().IsProxylessGRPC() {
 					// no host header for TCP
 					// TODO understand why proxyless adds the port to :authority md
@@ -1855,7 +1855,7 @@ spec:
 					name:   ipCase.name,
 					call:   client.CallWithRetryOrFail,
 					config: config,
-					opts: echo.CallOptions{
+					Opts: echo.CallOptions{
 						Count:     1,
 						Target:    destination,
 						PortName:  ipCase.port,
@@ -1982,7 +1982,7 @@ spec:
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
 				config: makeSE(tt.ips),
 				call:   client.CallWithRetryOrFail,
-				opts: echo.CallOptions{
+				Opts: echo.CallOptions{
 					Scheme:  scheme.DNS,
 					Count:   1,
 					Address: address,
@@ -2037,7 +2037,7 @@ spec:
 			tcases = append(tcases, TrafficTestCase{
 				name: fmt.Sprintf("svc/%s/%s", client.Config().Service, tt.name),
 				call: client.CallWithRetryOrFail,
-				opts: echo.CallOptions{
+				Opts: echo.CallOptions{
 					Count:   1,
 					Scheme:  scheme.DNS,
 					Address: address,
@@ -2143,7 +2143,7 @@ func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 		cases = append(cases, TrafficTestCase{
 			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.StableName()),
 			call: c.from.CallWithRetryOrFail,
-			opts: echo.CallOptions{
+			Opts: echo.CallOptions{
 				// assume that all echos in `to` only differ in which cluster they're deployed in
 				Target:    c.to[0],
 				PortName:  "http",
@@ -2277,7 +2277,7 @@ func serverFirstTestCases(apps *EchoDeployments) []TrafficTestCase {
 				skip:   apps.IsMulticluster(), // TODO stabilize tcp connection breaks
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
 				call:   client.CallWithRetryOrFail,
-				opts: echo.CallOptions{
+				Opts: echo.CallOptions{
 					Target:   destination,
 					PortName: c.port,
 					Scheme:   scheme.TCP,

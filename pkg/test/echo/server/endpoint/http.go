@@ -315,7 +315,7 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, "Proto", r.Proto)
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	writeField(body, response.IPField, ip)
-
+	writeField(body, response.NodeNameField, h.NodeName)
 	// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
 	// not supported by the server (ie one of h2,http/1.1,http/1.0)
 	var alpn string

@@ -154,6 +154,8 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 	if err != nil {
 		return nil, err
 	}
+	nodeName, _ := os.LookupEnv("NODE_NAME")
+
 	return endpoint.New(endpoint.Config{
 		Port:          port,
 		UDSServer:     udsServer,
@@ -165,6 +167,7 @@ func (s *Instance) newEndpoint(port *common.Port, udsServer string) (endpoint.In
 		Dialer:        s.Dialer,
 		ListenerIP:    ip,
 		IstioVersion:  s.IstioVersion,
+		NodeName:      nodeName,
 	})
 }
 

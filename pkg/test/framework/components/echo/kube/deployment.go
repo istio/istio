@@ -75,6 +75,9 @@ metadata:
 {{- end }}
 {{- end }}
 spec:
+{{- if .InternalTrafficPolicy }}
+  internalTrafficPolicy: {{ .InternalTrafficPolicy }}
+{{- end }}
 {{- if .Headless }}
   clusterIP: None
 {{- end }}
@@ -236,6 +239,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
 {{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"
@@ -424,6 +432,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: {{ $.Service }}-istio-token
@@ -668,27 +681,28 @@ func templateParams(cfg echo.Config, imgSettings *image.Settings, settings *reso
 		return nil, err
 	}
 	params := map[string]interface{}{
-		"Hub":                imgSettings.Hub,
-		"Tag":                strings.TrimSuffix(imgSettings.Tag, "-distroless"),
-		"PullPolicy":         imgSettings.PullPolicy,
-		"Service":            cfg.Service,
-		"Version":            cfg.Version,
-		"Headless":           cfg.Headless,
-		"StatefulSet":        cfg.StatefulSet,
-		"ProxylessGRPC":      cfg.IsProxylessGRPC(),
-		"GRPCMagicPort":      grpcMagicPort,
-		"Locality":           cfg.Locality,
-		"ServiceAccount":     cfg.ServiceAccount,
-		"Ports":              cfg.Ports,
-		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
-		"ContainerPorts":     getContainerPorts(cfg),
-		"ServiceAnnotations": cfg.ServiceAnnotations,
-		"Subsets":            cfg.Subsets,
-		"TLSSettings":        cfg.TLSSettings,
-		"Cluster":            cfg.Cluster.Name(),
-		"Namespace":          namespace,
-		"ImagePullSecret":    imagePullSecret,
-		"ReadinessTCPPort":   cfg.ReadinessTCPPort,
+		"Hub":                   imgSettings.Hub,
+		"Tag":                   strings.TrimSuffix(imgSettings.Tag, "-distroless"),
+		"PullPolicy":            imgSettings.PullPolicy,
+		"InternalTrafficPolicy": cfg.InternalTrafficPolicy,
+		"Service":               cfg.Service,
+		"Version":               cfg.Version,
+		"Headless":              cfg.Headless,
+		"StatefulSet":           cfg.StatefulSet,
+		"ProxylessGRPC":         cfg.IsProxylessGRPC(),
+		"GRPCMagicPort":         grpcMagicPort,
+		"Locality":              cfg.Locality,
+		"ServiceAccount":        cfg.ServiceAccount,
+		"Ports":                 cfg.Ports,
+		"WorkloadOnlyPorts":     cfg.WorkloadOnlyPorts,
+		"ContainerPorts":        getContainerPorts(cfg),
+		"ServiceAnnotations":    cfg.ServiceAnnotations,
+		"Subsets":               cfg.Subsets,
+		"TLSSettings":           cfg.TLSSettings,
+		"Cluster":               cfg.Cluster.Name(),
+		"Namespace":             namespace,
+		"ImagePullSecret":       imagePullSecret,
+		"ReadinessTCPPort":      cfg.ReadinessTCPPort,
 		"VM": map[string]interface{}{
 			"Image": vmImage,
 		},

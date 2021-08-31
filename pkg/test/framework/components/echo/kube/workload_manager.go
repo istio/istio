@@ -190,6 +190,7 @@ func (m *workloadManager) onPodAddOrUpdate(pod *kubeCore.Pod) error {
 		pod:        *pod,
 		hasSidecar: workloadHasSidecar(m.cfg, pod.Name),
 		cluster:    m.cfg.Cluster,
+		NodeName:   pod.Spec.NodeName,
 		grpcPort:   m.grpcPort,
 		tls:        m.tls,
 	}, m.ctx)

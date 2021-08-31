@@ -44,4 +44,5 @@ const (
 	ClusterField        Field = "Cluster"
 	IstioVersionField   Field = "IstioVersion"
 	IPField             Field = "IP" // The Requester’s IP Address.
+	NodeNameField       Field = "NodeName"
 )

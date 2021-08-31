@@ -41,6 +41,7 @@ var (
 	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
 	IstioVersionFieldRegex   = regexp.MustCompile(string(response.IstioVersionField) + "=(.*)")
 	IPFieldRegex             = regexp.MustCompile(string(response.IPField) + "=(.*)")
+	NodeNameFieldRegex       = regexp.MustCompile(string(response.NodeNameField) + "=(.*)")
 )
 
 // ParsedResponse represents a response to a single echo request.
@@ -72,6 +73,8 @@ type ParsedResponse struct {
 	IP string
 	// RawResponse gives a map of all values returned in the response (headers, etc)
 	RawResponse map[string]string
+	// NodeName is the node where the server is deployed.
+	NodeName string
 }
 
 // IsOK indicates whether or not the code indicates a successful request.
@@ -97,6 +100,7 @@ func (r *ParsedResponse) String() string {
 	out += fmt.Sprintf("Cluster:      %s\n", r.Cluster)
 	out += fmt.Sprintf("IstioVersion: %s\n", r.IstioVersion)
 	out += fmt.Sprintf("IP:           %s\n", r.IP)
+	out += fmt.Sprintf("NodeName:           %s\n", r.NodeName)
 
 	return out
 }
@@ -162,6 +166,15 @@ func (r ParsedResponses) CheckCodeOrFail(t test.Failer, expected string) ParsedR
 		t.Fatal(err)
 	}
 	return r
+}
+
+func (r ParsedResponses) CheckNodeName(expected string) error {
+	return r.Check(func(i int, response *ParsedResponse) error {
+		if response.NodeName != expected {
+			return fmt.Errorf("expected response node name %s, got %q", expected, response.Code)
+		}
+		return nil
+	})
 }
 
 func (r ParsedResponses) CheckHost(expected string) error {
@@ -403,6 +416,11 @@ func parseResponse(output string) *ParsedResponse {
 	match = IPFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.IP = match[1]
+	}
+
+	match = NodeNameFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.NodeName = match[1]
 	}
 
 	out.RawResponse = map[string]string{}

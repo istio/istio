@@ -3,7 +3,9 @@ kind: feature
 area: traffic-management
 issue:
   - 33849
+docs:
+  - '[reference] https://kubernetes.io/docs/concepts/services-networking/service-traffic-policy/'
 releaseNotes:
 - |
   **Added** when Kubernetes version >= 1.21, if user set pilot env `PILOT_ENABLE_KUBERNETES_INTERNAL_TRAFFIC_POLICY=true`
-    and set k8s service `InternalNodeLocalTrafficPolicy=Local`, only same node instance can access this service instance.
+    and set k8s service `internalTrafficPolicy=Local`, only same node instance can access this service instance.

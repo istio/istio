@@ -57,11 +57,11 @@ type TrafficTestCase struct {
 	// Single call. Cannot be used with children or workloadAgnostic tests.
 	call func(t test.Failer, options echo.CallOptions, retryOptions ...retry.Option) echoclient.ParsedResponses
 	// opts specifies the echo call options. When using RunForApps, the Target will be set dynamically.
-	opts echo.CallOptions
+	Opts echo.CallOptions
 	// setupOpts allows modifying options based on sources/destinations
 	setupOpts func(src echo.Caller, dest echo.Instances, opts *echo.CallOptions)
 	// validate is used to build validators dynamically when using RunForApps based on the active/src dest pair
-	validate     func(src echo.Caller, dst echo.Instances) echo.Validator
+	Validate     func(src echo.Caller, dst echo.Instances) echo.Validator
 	validateForN func(src echo.Caller, dst echo.Services) echo.Validator
 
 	// setting cases to skipped is better than not adding them - gives visibility to what needs to be fixed
@@ -92,18 +92,17 @@ type TrafficTestCase struct {
 var noProxyless = echotest.Not(echotest.FilterMatch(echo.IsProxylessGRPC()))
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
-	if c.opts.Target != nil {
+	if c.Opts.Target != nil {
 		t.Fatal("TrafficTestCase.RunForApps: opts.Target must not be specified")
 	}
 	if c.call != nil {
 		t.Fatal("TrafficTestCase.RunForApps: call must not be specified")
 	}
 	// just check if any of the required fields are set
-	optsSpecified := c.opts.Port != nil || c.opts.PortName != "" || c.opts.Scheme != ""
+	optsSpecified := c.Opts.Port != nil || c.Opts.PortName != "" || c.Opts.Scheme != ""
 	if optsSpecified && len(c.children) > 0 {
 		t.Fatal("TrafficTestCase: must not specify both opts and children")
 	}
-
 	job := func(t framework.TestContext) {
 		echoT := echotest.New(t, apps).
 			SetupForServicePair(func(t framework.TestContext, src echo.Callers, dsts echo.Services) error {
@@ -148,8 +147,8 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 			buildOpts := func(options echo.CallOptions) echo.CallOptions {
 				opts := options
 				opts.Target = dsts[0][0]
-				if c.validate != nil {
-					opts.Validator = c.validate(src, dsts[0])
+				if c.Validate != nil {
+					opts.Validator = c.Validate(src, dsts[0])
 				}
 				if c.validateForN != nil {
 					opts.Validator = c.validateForN(src, dsts)
@@ -163,7 +162,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				return opts
 			}
 			if optsSpecified {
-				src.CallWithRetryOrFail(t, buildOpts(c.opts), retryOptions...)
+				src.CallWithRetryOrFail(t, buildOpts(c.Opts), retryOptions...)
 			}
 			for _, child := range c.children {
 				t.NewSubTest(child.name).Run(func(t framework.TestContext) {
@@ -216,7 +215,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 
 		if c.call != nil {
 			// Call the function with a few custom retry options.
-			c.call(t, c.opts, retryOptions...)
+			c.call(t, c.Opts, retryOptions...)
 		}
 
 		for _, child := range c.children {

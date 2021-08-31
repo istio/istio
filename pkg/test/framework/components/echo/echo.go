@@ -161,6 +161,9 @@ type Workload interface {
 	// Address returns the network address of the endpoint.
 	Address() string
 
+	// NodeName returns the node name where the workload is deployed.
+	NodeName() string
+
 	// Sidecar if one was specified.
 	Sidecar() Sidecar
 

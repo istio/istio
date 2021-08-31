@@ -47,6 +47,7 @@ type workloadConfig struct {
 	grpcPort   uint16
 	cluster    cluster.Cluster
 	tls        *common.TLSSettings
+	NodeName   string
 }
 
 type workload struct {
@@ -124,6 +125,13 @@ func (w *workload) Close() (err error) {
 func (w *workload) PodName() string {
 	w.mutex.Lock()
 	n := w.pod.Name
+	w.mutex.Unlock()
+	return n
+}
+
+func (w *workload) NodeName() string {
+	w.mutex.Lock()
+	n := w.pod.Spec.NodeName
 	w.mutex.Unlock()
 	return n
 }

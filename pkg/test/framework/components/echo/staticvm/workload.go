@@ -74,6 +74,10 @@ func (w *workload) PodName() string {
 	return ""
 }
 
+func (w *workload) NodeName() string {
+	return ""
+}
+
 func (w *workload) Address() string {
 	return w.address
 }

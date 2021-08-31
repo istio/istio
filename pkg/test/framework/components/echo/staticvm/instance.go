@@ -43,6 +43,7 @@ type instance struct {
 	id        resource.ID
 	config    echo.Config
 	address   string
+	nodeName  string
 	workloads []echo.Workload
 }
 
@@ -115,6 +116,10 @@ func (i *instance) Config() echo.Config {
 
 func (i *instance) Address() string {
 	return i.address
+}
+
+func (i *instance) NodeName() string {
+	return i.nodeName
 }
 
 func (i *instance) Workloads() ([]echo.Workload, error) {
