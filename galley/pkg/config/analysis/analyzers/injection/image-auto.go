@@ -81,7 +81,7 @@ func (a *ImageAutoAnalyzer) Analyze(c analysis.Context) {
 		if !hasAutoImage(&d.Spec.Template.Spec) {
 			return true
 		}
-		nsLabels := getNamespaceLabels(c, d.Spec.Template.Namespace)
+		nsLabels := getNamespaceLabels(c, d.Namespace)
 		if !matchesWebhooks(nsLabels, d.Spec.Template.Labels, istioWebhooks) {
 			m := msg.NewImageAutoWithoutInjectionWarning(resource, "Deployment", d.Name)
 			c.Report(collections.K8SAppsV1Deployments.Name(), m)
