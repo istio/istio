@@ -135,7 +135,7 @@ func (b EndpointBuilder) Key() string {
 		b.tunnelType.ToString(),
 	}
 	if b.push != nil && b.push.AuthnPolicies != nil {
-		params = append(params, b.push.AuthnPolicies.AggregateVersion)
+		params = append(params, b.push.AuthnPolicies.GetVersion())
 	}
 	if b.destinationRule != nil {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)

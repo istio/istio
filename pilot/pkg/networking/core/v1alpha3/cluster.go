@@ -216,6 +216,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		destinationRule: cb.req.Push.DestinationRule(proxy, service),
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
+		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
 	}
 	return clusterKey
 }

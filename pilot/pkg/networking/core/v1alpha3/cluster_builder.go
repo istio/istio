@@ -402,6 +402,7 @@ type clusterCache struct {
 	service         *model.Service
 	destinationRule *config.Config
 	envoyFilterKeys []string
+	peerAuthVersion string // identifies the versions of all peer authentications
 }
 
 func (t *clusterCache) Key() string {
@@ -428,6 +429,7 @@ func (t *clusterCache) Key() string {
 		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
 	}
 	params = append(params, t.envoyFilterKeys...)
+	params = append(params, t.peerAuthVersion)
 
 	hash := md5.New()
 	for _, param := range params {
