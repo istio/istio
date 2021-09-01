@@ -568,7 +568,7 @@ var (
 // EnableEndpointSliceController gets the status of the feature flag.
 // The default behavior is conditional on the Kubernetes version.
 func EnableEndpointSliceController(kubeClient kube.Client) bool {
-	if endpointSliceControllerSpecified {
+	if kubeClient == nil || endpointSliceControllerSpecified {
 		return enableEndpointSliceController
 	}
 	return kube.IsAtLeastVersion(kubeClient, 21)
