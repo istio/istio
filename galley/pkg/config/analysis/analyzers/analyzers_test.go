@@ -578,7 +578,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAutoAnalyzer{},
 		expected: []message{
-			{msg.ImageAutoWithoutInjectionWarning, "Deployment non-injected-gateway-deployment"},
+			{msg.ImageAutoWithoutInjectionWarning, "Deployment non-injected-gateway-deployment.not-injected"},
 			{msg.ImageAutoWithoutInjectionError, "Pod injected-pod.default"},
 		},
 	},

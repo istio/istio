@@ -54,6 +54,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: non-injected-gateway-deployment
+  namespace: not-injected
 spec:
   selector:
     matchLabels:
@@ -64,7 +65,6 @@ spec:
         inject.istio.io/templates: gateway
       labels:
         istio: ingressgateway
-        istio.io/rev: non-existent-rev
     spec:
       containers:
         - name: istio-proxy
