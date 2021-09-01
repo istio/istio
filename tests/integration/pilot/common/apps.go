@@ -87,6 +87,46 @@ const (
 	externalHostname = "fake.external.com"
 )
 
+var sidecarTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-to-namespace
+spec:
+  egress:
+  - hosts:
+    - "./*"
+    - "istio-system/*"
+`
+
+var serviceEntryTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-service
+spec:
+  hosts:
+  - {{ .Hostname }}
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{ .Namespace }}.svc.cluster.local
+  ports:
+  - name: http-tls-origination
+    number: 8888
+    protocol: http
+    targetPort: 443
+  - name: http2-tls-origination
+    number: 8882
+    protocol: http2
+    targetPort: 443
+{{- range $i, $p := .Ports }}
+  - name: {{ $p.Name }}
+    number: {{ $p.ServicePort }}
+    protocol: "{{ $p.Protocol }}"
+{{- end }}
+`
+
 func FindPortByName(name string) echo.Port {
 	for _, p := range common.EchoPorts {
 		if p.Name == name {
@@ -274,7 +314,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.StatefulSet = echos.Match(echo.Service(StatefulSetSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
-	apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
+	if !t.Clusters().IsMulticluster() {
+		apps.ProxylessGRPC = echos.Match(echo.Service(ProxylessGRPCSvc))
+	}
 	if !t.Settings().SkipVM {
 		apps.VM = echos.Match(echo.Service(VMSvc))
 	}
@@ -282,50 +324,20 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		apps.DeltaXDS = echos.Match(echo.Service(DeltaSvc))
 	}
 
-	if err := t.Config(t.Clusters().Configs()...).ApplyYAMLNoCleanup(apps.Namespace.Name(), `
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: restrict-to-namespace
-spec:
-  egress:
-  - hosts:
-    - "./*"
-    - "istio-system/*"
-`); err != nil {
+	if err := t.Config(t.Clusters().Configs()...).ApplyYAMLNoCleanup(apps.Namespace.Name(), sidecarTemplate); err != nil {
 		return err
 	}
 
-	se, err := tmpl.Evaluate(`apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: external-service
-spec:
-  hosts:
-  - {{.Hostname}}
-  location: MESH_EXTERNAL
-  resolution: DNS
-  endpoints:
-  - address: external.{{.Namespace}}.svc.cluster.local
-  ports:
-  - name: http-tls-origination
-    number: 8888
-    protocol: http
-    targetPort: 443
-  - name: http2-tls-origination
-    number: 8882
-    protocol: http2
-    targetPort: 443
-{{- range $i, $p := .Ports }}
-  - name: {{$p.Name}}
-    number: {{$p.ServicePort}}
-    protocol: "{{$p.Protocol}}"
-{{- end }}
-`, map[string]interface{}{"Namespace": apps.ExternalNamespace.Name(), "Hostname": externalHostname, "Ports": serviceEntryPorts()})
+	serviceEntryTemplateParams := map[string]interface{}{
+		"Namespace": apps.ExternalNamespace.Name(),
+		"Hostname":  externalHostname,
+		"Ports":     serviceEntryPorts(),
+	}
+	seYaml, err := tmpl.Evaluate(serviceEntryTemplate, serviceEntryTemplateParams)
 	if err != nil {
 		return err
 	}
-	if err := t.Config(t.Clusters().Configs()...).ApplyYAML(apps.Namespace.Name(), se); err != nil {
+	if err := t.Config(t.Clusters().Configs()...).ApplyYAML(apps.Namespace.Name(), seYaml); err != nil {
 		return err
 	}
 	return nil
