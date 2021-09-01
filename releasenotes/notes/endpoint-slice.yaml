@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Updated** the control plane to read `EndpointSlice` insead of `Endpoints`
+  for service discovery for Kubernetes 1.21 or later. To switch back to the old
+  `Endpoints` based behavior set `PILOT_USE_ENDPOINT_SLICE=false` in istiod.
