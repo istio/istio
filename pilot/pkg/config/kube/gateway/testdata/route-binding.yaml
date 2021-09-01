@@ -1,0 +1,195 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: foobar
+    hostname: "*.foobar.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: same-namespace
+    hostname: "*.same-namespace.example"
+    port: 80
+    protocol: HTTP
+  - name: scope-route
+    hostname: "*.scope-route.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+      - kind: TCPRoute
+  - name: namespace-selector
+    hostname: "*.namespace-selector.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            istio.io/test-name-part: group
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: section-name-cross-namespace
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: foobar
+  hostnames: ["alpha.foobar.example"]
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: same-namespace-valid
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: foobar
+  - name: gateway
+    namespace: istio-system
+    sectionName: same-namespace
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 81
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: same-namespace-invalid
+  namespace: default
+spec:
+  parentRefs:
+  - kind: Gateway
+    name: gateway
+    namespace: istio-system
+    sectionName: same-namespace
+  hostnames: ["foo.same.example"]
+  rules:
+  - backendRefs:
+    - name: echo
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  # Should not generate anything, the protocol is HTTP
+  name: wrong-protocol
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: foobar
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 82
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: host-mismatch
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: foobar
+  hostnames: ["no.match.example"]
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 84
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: bind-all
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 85
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: bind-cross-namespace
+  namespace: group-namespace1
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: namespace-selector
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 86
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: bind-cross-namespace
+  namespace: group-namespace2
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: namespace-selector
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 87
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: invalid-bind-cross-namespace
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: namespace-selector
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 87
+

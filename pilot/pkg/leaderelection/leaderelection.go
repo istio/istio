@@ -34,7 +34,10 @@ const (
 	// This holds the legacy name to not conflict with older control plane deployments which are just
 	// doing the ingress syncing.
 	IngressController = "istio-leader"
-	GatewayController = "istio-gateway-leader"
+	// GatewayController Controller for status of gateway.networking.k8s.io objects. For the v1alpha1
+	// this was formally "istio-gateway-leader"; because they are a different API group we need a different
+	// election to ensure we do not only handle one or the other.
+	GatewayController = "istio-gateway-status-leader"
 	StatusController  = "istio-status-leader"
 	AnalyzeController = "istio-analyze-leader"
 )

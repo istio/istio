@@ -1,4 +1,4 @@
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   creationTimestamp: null
@@ -13,7 +13,7 @@ status:
     status: "True"
     type: Admitted
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -37,7 +37,8 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - conditions:
+  - attachedRoutes: 1
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -58,10 +59,12 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    hostname: '*.domain.example'
-    port: 80
-    protocol: HTTP
-  - conditions:
+    name: http
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+  - attachedRoutes: 1
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -82,10 +85,12 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    port: 34000
-    protocol: TCP
+    name: tcp
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TCPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -93,19 +98,19 @@ metadata:
   namespace: default
 spec: null
 status:
-  gateways:
+  parents:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
       type: Admitted
-    gatewayRef:
-      controller: istio.io/gateway-controller
+    controller: istio.io/gateway-controller
+    parentRef:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
   creationTimestamp: null
@@ -113,15 +118,15 @@ metadata:
   namespace: default
 spec: null
 status:
-  gateways:
+  parents:
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
       reason: RouteAdmitted
       status: "True"
       type: Admitted
-    gatewayRef:
-      controller: istio.io/gateway-controller
+    controller: istio.io/gateway-controller
+    parentRef:
       name: gateway
       namespace: istio-system
 ---

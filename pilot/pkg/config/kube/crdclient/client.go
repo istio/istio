@@ -48,7 +48,7 @@ import (
 	//  import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/cache"
-	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 
 	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -105,8 +105,8 @@ var _ model.ConfigStoreCache = &Client{}
 
 func New(client kube.Client, revision, domainSuffix string) (model.ConfigStoreCache, error) {
 	schemas := collections.Pilot
-	if features.EnableServiceApis {
-		schemas = collections.PilotServiceApi
+	if features.EnableGatewayAPI {
+		schemas = collections.PilotGatewayAPI
 	}
 	return NewForSchemas(context.Background(), client, revision, domainSuffix, schemas)
 }
@@ -479,7 +479,7 @@ func handleCRDAdd(cl *Client, name string, stop <-chan struct{}) {
 	var i informers.GenericInformer
 	var ifactory starter
 	var err error
-	if s.Resource().Group() == gvk.ServiceApisGateway.Group {
+	if s.Resource().Group() == gvk.KubernetesGateway.Group {
 		ifactory = cl.client.GatewayAPIInformer()
 		i, err = cl.client.GatewayAPIInformer().ForResource(gvr)
 	} else {

@@ -36,6 +36,32 @@ status:
     status: "True"
     type: Scheduled
   listeners:
+  - attachedRoutes: 1
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "False"
+      type: Detached
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: Ready
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ListenerReady
+      status: "True"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
   - attachedRoutes: 3
     conditions:
     - lastTransitionTime: fake
@@ -58,33 +84,11 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    name: default
+    name: foobar
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: invalid-service
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: hostname "fake-service.com"
-      not found'
-    reason: AddressNotAssigned
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
-  listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -106,35 +110,11 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    name: default
+    name: same-namespace
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: target-port-reference
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: port 8080 not found for
-      hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
-      port should be specified, not the workload port. Did you mean one of these ports:
-      [80]?)'
-    reason: AddressNotAssigned
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
-  listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -156,33 +136,9 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: invalid-gateway-address
-  namespace: invalid-gateway-address
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: Only Hostname is supported,
-      ignoring [1.2.3.4]'
-    reason: AddressNotAssigned
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
-  listeners:
-  - attachedRoutes: 0
+    name: scope-route
+    supportedKinds: []
+  - attachedRoutes: 2
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -204,56 +160,7 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: invalid-tls
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: 'Invalid listeners: [default]'
-    reason: ListenersNotValid
-    status: "False"
-    type: Ready
-  - lastTransitionTime: fake
-    message: Resources available
-    reason: ResourcesAvailable
-    status: "True"
-    type: Scheduled
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ListenerReady
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ListenerReady
-      status: "False"
-      type: Detached
-    - lastTransitionTime: fake
-      message: invalid certificate reference core/unknown/my-cert-http., only secret
-        is allowed
-      reason: Invalid
-      status: "False"
-      type: Ready
-    - lastTransitionTime: fake
-      message: invalid certificate reference core/unknown/my-cert-http., only secret
-        is allowed
-      reason: InvalidCertificateRef
-      status: "False"
-      type: ResolvedRefs
-    name: default
+    name: namespace-selector
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -262,16 +169,112 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: invalid-filter
+  name: section-name-cross-namespace
   namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: unsupported filter type "ExtensionRef"
-      reason: InvalidFilter
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Admitted
+    controller: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: foobar
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: same-namespace-valid
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Admitted
+    controller: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: same-namespace
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Admitted
+    controller: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: foobar
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: same-namespace-invalid
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: no hostnames matched parent hostname "*.same-namespace.example"
+      reason: InvalidParentReference
       status: "False"
+      type: Admitted
+    controller: istio.io/gateway-controller
+    parentRef:
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+      sectionName: same-namespace
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: host-mismatch
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: no hostnames matched parent hostname "*.foobar.example"
+      reason: InvalidParentReference
+      status: "False"
+      type: Admitted
+    controller: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: foobar
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: bind-all
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
       type: Admitted
     controller: istio.io/gateway-controller
     parentRef:
@@ -282,39 +285,84 @@ apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: invalid-backendRef
-  namespace: default
+  name: bind-cross-namespace
+  namespace: group-namespace1
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'referencing unsupported backendRef: kind "GcsBucket"'
-      reason: InvalidDestination
-      status: "False"
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
       type: Admitted
     controller: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
+      sectionName: namespace-selector
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: invalid-mirror
+  name: bind-cross-namespace
+  namespace: group-namespace2
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: RouteAdmitted
+      status: "True"
+      type: Admitted
+    controller: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: namespace-selector
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: invalid-bind-cross-namespace
   namespace: default
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'referencing unsupported backendRef: kind "no-support"'
-      reason: InvalidDestination
+      message: hostnames matched parent hostname "*.namespace-selector.example", but
+        namespace "default" is not allowed by the parent
+      reason: InvalidParentReference
       status: "False"
       type: Admitted
     controller: istio.io/gateway-controller
     parentRef:
       name: gateway
       namespace: istio-system
+      sectionName: namespace-selector
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  creationTimestamp: null
+  name: wrong-protocol
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
+      reason: InvalidParentReference
+      status: "False"
+      type: Admitted
+    controller: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: foobar
 ---
