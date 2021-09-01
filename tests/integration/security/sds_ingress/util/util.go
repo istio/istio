@@ -282,7 +282,8 @@ func SendQUICRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, hos
 	doSendRequestsOrFail(ctx, ing, host, path, callType, tlsCtx, exRsp, true /* useHTTP3 */)
 }
 
-func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string, callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse, useHTTP3 bool) {
+func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
+	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse, useHTTP3 bool) {
 	ctx.Helper()
 	opts := echo.CallOptions{
 		Timeout: time.Second,
