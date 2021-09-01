@@ -273,7 +273,16 @@ type TLSContext struct {
 
 // SendRequestOrFail makes HTTPS request to ingress gateway to visit product page
 func SendRequestOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
-	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse, useHTTP3 bool) {
+	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse) {
+	doSendRequestsOrFail(ctx, ing, host, path, callType, tlsCtx, exRsp, false /* useHTTP3 */)
+}
+
+func SendQUICRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string,
+	callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse) {
+	doSendRequestsOrFail(ctx, ing, host, path, callType, tlsCtx, exRsp, true /* useHTTP3 */)
+}
+
+func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host string, path string, callType CallType, tlsCtx TLSContext, exRsp ExpectedResponse, useHTTP3 bool) {
 	ctx.Helper()
 	opts := echo.CallOptions{
 		Timeout: time.Second,
@@ -514,7 +523,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ap
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(t, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, false /* useHTTP3 */)
+						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 				})
 			}
 		})
@@ -559,7 +568,7 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance, app
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
 					SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, false /* useHTTP3 */)
+						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 				})
 			}
 		})
@@ -613,8 +622,8 @@ func RunTestMultiQUICGateways(ctx framework.TestContext, inst istio.Instance, ca
 
 			for _, h := range tests {
 				ctx.NewSubTest(h.Host).Run(func(t framework.TestContext) {
-					SendRequestOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
-						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""}, true /* useHTTP3 */)
+					SendQUICRequestsOrFail(ctx, ing, h.Host, h.CredentialName, callType, tlsContext,
+						ExpectedResponse{ResponseCode: 200, ErrorMessage: ""})
 				})
 			}
 		})
