@@ -35,7 +35,7 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/validation/validate"
-	serviceapis "sigs.k8s.io/gateway-api/apis/v1alpha1"
+	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
@@ -215,7 +215,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 	if err := scheme.AddToScheme(v.Scheme); err != nil {
 		return nil, err
 	}
-	if err := serviceapis.AddToScheme(v.Scheme); err != nil {
+	if err := gatewayapi.AddToScheme(v.Scheme); err != nil {
 		return nil, err
 	}
 
@@ -224,7 +224,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 
 func NewIstioValidator(t test.Failer) *Validator {
 	v, err := NewValidatorFromFiles(
-		filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/service-apis-crd.yaml"),
+		filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-crd.yaml"),
 		filepath.Join(env.IstioSrc, "manifests/charts/base/crds/crd-all.gen.yaml"))
 	if err != nil {
 		t.Fatal(err)

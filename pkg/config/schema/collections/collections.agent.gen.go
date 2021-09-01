@@ -341,8 +341,8 @@ var (
 		MustAdd(IstioTelemetryV1Alpha1Telemetries).
 		Build()
 
-	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
-	PilotServiceApi = collection.NewSchemasBuilder().
+	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
+	PilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(IstioNetworkingV1Alpha3Destinationrules).
 			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
 			MustAdd(IstioNetworkingV1Alpha3Gateways).

@@ -13,52 +13,47 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - name: apple
-    hostname: "apple.example"
-    port: 80
-    protocol: HTTP
+  - name: cross
+    hostname: "cert.domain.example"
+    port: 443
+    protocol: HTTPS
     allowedRoutes:
       namespaces:
         from: Selector
         selector:
           matchLabels:
-            kubernetes.io/metadata.name: apple
-  - name: banana
-    hostname: "banana.example"
-    port: 80
-    protocol: HTTP
-    allowedRoutes:
-      namespaces:
-        from: Selector
-        selector:
-          matchLabels:
-            kubernetes.io/metadata.name: banana
+            kubernetes.io/metadata.name: "cert"
+    tls:
+      mode: Terminate
+      certificateRef:
+        name: cert
+        namespace: cert
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: ReferencePolicy
+metadata:
+  name: alllow-cert
+  namespace: cert
+spec:
+  from:
+  - group: networking.gateway.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+    - group: ""
+      kind: Secret
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: http
-  namespace: apple
+  namespace: cert
 spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
+  hostnames: ["cert.domain.example"]
   rules:
   - backendRefs:
-    - name: httpbin-apple
+    - name: httpbin
       port: 80
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: HTTPRoute
-metadata:
-  name: http
-  namespace: banana
-spec:
-  parentRefs:
-  - name: gateway
-    namespace: istio-system
-  rules:
-  - backendRefs:
-    - name: httpbin-banana
-      port: 80
----
