@@ -328,21 +328,21 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
-			if features.EnableAutomTLSCheckPolicies {
-				tlsMode := ep.TLSMode
-				if b.mtlsChecker != nil && b.mtlsChecker.mtlsDisabledByPeerAuthentication(ep) {
-					tlsMode = ""
-				}
-				if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
-					ep.EnvoyEndpoint = nep
-				}
-			}
 			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
 			if b.mtlsChecker != nil {
 				b.mtlsChecker.computeForEndpoint(ep)
+				if features.EnableAutomTLSCheckPolicies {
+					tlsMode := ep.TLSMode
+					if b.mtlsChecker != nil && b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
+						tlsMode = ""
+					}
+					if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
+						ep.EnvoyEndpoint = nep
+					}
+				}
 			}
 		}
 	}
