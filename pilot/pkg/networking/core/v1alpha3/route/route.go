@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
@@ -203,7 +204,8 @@ func buildSidecarVirtualHostsForVirtualService(
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	listenPort int) []VirtualHostWrapper {
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
-	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, meshGateway)
+	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, hashByDestination,
+		listenPort, meshGateway, false /* isH3DiscoveryNeeded */)
 	if err != nil || len(routes) == 0 {
 		return nil
 	}
@@ -308,7 +310,8 @@ func BuildHTTPRoutesForVirtualService(
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
 	listenPort int,
-	gatewayNames map[string]bool) ([]*route.Route, error) {
+	gatewayNames map[string]bool,
+	isHTTP3AltSvcHeaderNeeded bool) ([]*route.Route, error) {
 	vs, ok := virtualService.Spec.(*networking.VirtualService)
 	if !ok { // should never happen
 		return nil, fmt.Errorf("in not a virtual service: %#v", virtualService)
@@ -319,13 +322,14 @@ func BuildHTTPRoutesForVirtualService(
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry, hashByDestination, gatewayNames); r != nil {
+			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry, hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry, hashByDestination, gatewayNames); r != nil {
+				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
+					hashByDestination, gatewayNames, isHTTP3AltSvcHeaderNeeded); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
@@ -374,7 +378,8 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	hashByDestination map[*networking.HTTPRouteDestination]*networking.LoadBalancerSettings_ConsistentHashLB,
-	gatewayNames map[string]bool) *route.Route {
+	gatewayNames map[string]bool,
+	isHTTP3AltSvcHeaderNeeded bool) *route.Route {
 	// When building routes, its okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
@@ -536,7 +541,33 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 		out.TypedPerFilterConfig[wellknown.Fault] = util.MessageToAny(translateFault(in.Fault))
 	}
 
+	if isHTTP3AltSvcHeaderNeeded {
+		http3AltSvcHeader := buildHTTP3AltSvcHeader(port, util.ALPNHttp3OverQUIC)
+		if out.ResponseHeadersToAdd == nil {
+			out.ResponseHeadersToAdd = make([]*core.HeaderValueOption, 0)
+		}
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, http3AltSvcHeader)
+	}
+
 	return out
+}
+
+func buildHTTP3AltSvcHeader(port int, h3Alpns []string) *core.HeaderValueOption {
+	// For example, www.cloudflare.com returns the following
+	// alt-svc: h3-27=":443"; ma=86400, h3-28=":443"; ma=86400, h3-29=":443"; ma=86400, h3=":443"; ma=86400
+	valParts := make([]string, 0, len(h3Alpns))
+	for _, alpn := range h3Alpns {
+		// Max-age is hardcoded to 1 day for now.
+		valParts = append(valParts, fmt.Sprintf(`%s=":%d"; ma=86400`, alpn, port))
+	}
+	headerVal := strings.Join(valParts, ", ")
+	return &core.HeaderValueOption{
+		Append: proto.BoolTrue,
+		Header: &core.HeaderValue{
+			Key:   util.AltSvcHeader,
+			Value: headerVal,
+		},
+	}
 }
 
 // SortHeaderValueOption type and the functions below (Len, Less and Swap) are for sort.Stable for type HeaderValueOption

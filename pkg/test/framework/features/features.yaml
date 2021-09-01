@@ -96,6 +96,13 @@ features:
           invalid-secret:
           K8sca:
           valid-secret:
+      quic:
+        sds:
+          tls:
+          mtls:
+        sds-k8sca:
+          tls:
+          mtls:
     egress:
       mtls:
         sds:

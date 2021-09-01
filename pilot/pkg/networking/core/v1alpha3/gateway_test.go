@@ -33,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
@@ -46,9 +47,10 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name   string
-		server *networking.Server
-		result *auth.DownstreamTlsContext
+		name              string
+		server            *networking.Server
+		result            *auth.DownstreamTlsContext
+		transportProtocol istionetworking.TransportProtocol
 	}{
 		{
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
@@ -497,13 +499,36 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: nil,
 		},
+		{
+			name: "Downstream TLS settings for QUIC transport",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com"},
+				Tls: &networking.ServerTLSSettings{
+					Mode:           networking.ServerTLSSettings_SIMPLE,
+					CredentialName: "httpbin-cred",
+				},
+			},
+			transportProtocol: istionetworking.TransportProtocolQUIC,
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp3OverQUIC,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name:      "kubernetes://httpbin-cred",
+							SdsConfig: model.SDSAdsConfig,
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolFalse,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
-			})
+			}, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
@@ -514,12 +539,13 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
 	testCases := []struct {
-		name        string
-		node        *pilot_model.Proxy
-		server      *networking.Server
-		routeName   string
-		proxyConfig *meshconfig.ProxyConfig
-		result      *filterChainOpts
+		name              string
+		node              *pilot_model.Proxy
+		server            *networking.Server
+		routeName         string
+		proxyConfig       *meshconfig.ProxyConfig
+		result            *filterChainOpts
+		transportProtocol istionetworking.TransportProtocol
 	}{
 		{
 			name: "HTTP1.0 mode enabled",
@@ -1059,6 +1085,88 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:              "QUIC protocol with server name",
+			node:              &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
+			transportProtocol: istionetworking.TransportProtocolQUIC,
+			server: &networking.Server{
+				Name: "server1",
+				Port: &networking.Port{
+					Name:       "https-app",
+					Number:     443,
+					TargetPort: 8443,
+					Protocol:   "HTTPS",
+				},
+				Hosts: []string{"example.org"},
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_SIMPLE,
+					ServerCertificate: "/etc/cert/example.crt",
+					PrivateKey:        "/etc/cert/example.key",
+				},
+			},
+			routeName: "some-route",
+			proxyConfig: &meshconfig.ProxyConfig{
+				GatewayTopology: &meshconfig.Topology{
+					NumTrustedProxies:        3,
+					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+				},
+			},
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: proto.BoolFalse,
+					CommonTlsContext: &auth.CommonTlsContext{
+						AlpnProtocols: util.ALPNHttp3OverQUIC,
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "file-cert:/etc/cert/example.crt~/etc/cert/example.key",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType: core.ApiConfigSource_GRPC,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+															ClusterName: "sds-grpc",
+														},
+													},
+												},
+											},
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:       "some-route",
+					http3Only: true,
+					connectionManager: &hcm.HttpConnectionManager{
+						XffNumTrustedHops:        3,
+						ForwardClientCertDetails: hcm.HttpConnectionManager_FORWARD_ONLY,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:           EnvoyServerName,
+						HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+						Http3ProtocolOptions: &core.Http3ProtocolOptions{},
+						CodecType:            hcm.HttpConnectionManager_HTTP3,
+						StripPortMode:        stripPortMode,
+						DelayedCloseTimeout:  features.DelayedCloseTimeout,
+					},
+					useRemoteAddress: true,
+					statPrefix:       "server1",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1067,12 +1175,13 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			tc.node.MergedGateway = &pilot_model.MergedGateway{TLSServerInfo: map[*networking.Server]*pilot_model.TLSServerInfo{
 				tc.server: {SNIHosts: pilot_model.GetSNIHostsForServer(tc.server)},
 			}}
-			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server.Port, tc.server, tc.routeName, tc.proxyConfig)
+			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server.Port, tc.server,
+				tc.routeName, tc.proxyConfig, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff in tls context: %v", diff)
 			}
 			if !reflect.DeepEqual(tc.result.httpOpts, ret.httpOpts) {
-				t.Errorf("expecting httpopts %+v but got %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+				t.Errorf("expecting httpopts:\n %+v \nbut got:\n %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
 			}
 			if !reflect.DeepEqual(tc.result.sniHosts, ret.sniHosts) {
 				t.Errorf("expecting snihosts %+v but got %+v", tc.result.sniHosts, ret.sniHosts)
