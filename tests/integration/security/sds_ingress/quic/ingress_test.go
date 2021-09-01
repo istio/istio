@@ -33,6 +33,8 @@ func TestMain(m *testing.M) {
 	// Integration test for the ingress SDS Gateway flow.
 	framework.
 		NewSuite(m).
+		// Need support for MixedProtocolLBService
+		RequireMinVersion(20).
 		Setup(istio.Setup(&inst, func(_ resource.Context, cfg *istio.Config) {
 			cfg.PrimaryClusterIOPFile = istio.IntegrationTestDefaultsIOPWithQUIC
 		})).
@@ -51,11 +53,6 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.tls").
 		Run(func(t framework.TestContext) {
-			for _, cl := range t.Clusters() {
-				if !cl.MinKubeVersion(20) {
-					t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.20")
-				}
-			}
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, apps)
 			})
@@ -74,11 +71,6 @@ func TestMtlsGatewaysWithQUIC(t *testing.T) {
 		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.mtls").
 		Run(func(t framework.TestContext) {
-			for _, cl := range t.Clusters() {
-				if !cl.MinKubeVersion(20) {
-					t.Skipf("k8s version not supported for %s (<%s)", t.Name(), "1.20")
-				}
-			}
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, apps)
 			})
