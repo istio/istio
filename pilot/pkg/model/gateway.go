@@ -273,10 +273,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy) *MergedGateway
 							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
 							log.Debugf("Server at port %d eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number)
 							if mergedQUICServers[serverPort] == nil {
-								mergedQUICServers[serverPort] = &MergedServers{
-									Servers:   []*networking.Server{},
-									RouteName: routeName,
-								}
+								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
 							}
 							mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
 							http3AdvertisingRoutes[routeName] = struct{}{}
@@ -297,10 +294,11 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy) *MergedGateway
 							http3AdvertisingRoutes[routeName] = struct{}{}
 
 							if mergedQUICServers[serverPort] == nil {
-								mergedQUICServers[serverPort] = &MergedServers{
-									Servers:   []*networking.Server{s},
-									RouteName: routeName,
-								}
+								// This should be treated like non-passthrough HTTPS case. There will be multiple filter
+								// chains, multiple routes per server port. So just like in TLS server case we do not
+								// track route name here. Instead, TLS server info is used (it is fine for now because
+								// this would be a mirror of an existing non-passthrough HTTPS server)
+								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
 							}
 						}
 					}
