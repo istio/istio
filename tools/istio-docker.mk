@@ -214,7 +214,8 @@ docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
 .PHONY: dockerx dockerx.save
 
 # Can also be linux/arm64, or both with linux/amd64,linux/arm64
-DOCKER_ARCHITECTURES ?= linux/amd64
+DOCKER_ARCHITECTURES ?= $(TARGET_OS)/$(TARGET_ARCH)
+
 
 # Docker has an experimental new build engine, https://github.com/docker/buildx
 # This brings substantial (10x) performance improvements when building Istio
