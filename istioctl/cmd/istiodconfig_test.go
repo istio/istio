@@ -26,7 +26,7 @@ import (
 
 func TestCtlPlaneConfig(t *testing.T) {
 	istiodConfigMap := map[string][]byte{
-		"istiod-7b69ff6f8c-fvjvw": []byte("active_scopes:\n  ads:info"),
+		"istiod-7b69ff6f8c-fvjvw": []byte("Active scopes:\n  ads:info"),
 	}
 
 	cases := []execTestCase{
