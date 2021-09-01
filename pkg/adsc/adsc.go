@@ -313,9 +313,12 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 func (a *ADSC) Dial() error {
 	opts := a.cfg
 
-	var err error
-	grpcDialOptions := DefaultGrpcDialOptions()
+	defaultGrpcDialOptions := DefaultGrpcDialOptions()
+	var grpcDialOptions []grpc.DialOption
+	grpcDialOptions = append(grpcDialOptions, defaultGrpcDialOptions...)
 	grpcDialOptions = append(grpcDialOptions, opts.GrpcOpts...)
+
+	var err error
 	// If we need MTLS - CertDir or Secrets provider is set.
 	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
 		tlsCfg, err := a.tlsConfig()
@@ -326,7 +329,7 @@ func (a *ADSC) Dial() error {
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
 	}
 
-	if len(grpcDialOptions) == 0 {
+	if len(grpcDialOptions) == len(defaultGrpcDialOptions) {
 		// Only disable transport security if the user didn't supply custom dial options
 		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
 	}
