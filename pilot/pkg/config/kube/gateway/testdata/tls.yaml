@@ -1,11 +1,11 @@
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -13,84 +13,67 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  # Passthrough
-  - port: 34000
+  - name: passthrough
+    port: 34000
     protocol: TLS
-    routes:
+    allowedRoutes:
       namespaces:
         from: All
-      selector:
-        matchLabels:
-          selected: "yes"
-      kind: TLSRoute
     tls:
       mode: Passthrough
-      certificateRef:
-        name: my-cert-tls
-        group: core
-        kind: Secret
-  # Termination
-  - hostname: "domain.example"
+  - name: terminate
+    hostname: "domain.example"
     port: 34000
     protocol: HTTPS
-    routes:
+    allowedRoutes:
       namespaces:
         from: All
-      selector:
-        matchLabels:
-          selected: "yes"
-      kind: HTTPRoute
     tls:
       mode: Terminate
       certificateRef:
         name: my-cert-http
-        group: core
-        kind: Secret
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: tls
   namespace: default
-  labels:
-    selected: "yes"
 spec:
-  gateways:
-    allow: All
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
   rules:
-  - forwardTo:
-    - serviceName: httpbin
+  - backendRefs:
+    - name: httpbin
       port: 443
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: tls-match
   namespace: default
-  labels:
-    selected: "yes"
 spec:
-  gateways:
-    allow: All
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames:
+  - "foo.com"
   rules:
-  - matches:
-    - snis: ["foo.com"]
-    forwardTo:
-    - serviceName: httpbin
+  - backendRefs:
+    - name: httpbin-foo
       port: 443
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: http
   namespace: default
-  labels:
-    selected: "yes"
 spec:
-  gateways:
-    allow: All
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
   hostnames: ["domain.example"]
   rules:
-  - forwardTo:
-    - serviceName: httpbin
+  - backendRefs:
+    - name: httpbin
       port: 80

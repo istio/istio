@@ -241,8 +241,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.ConfigUpdate(pushReq)
 	}
 	schemas := collections.Pilot.All()
-	if features.EnableServiceApis {
-		schemas = collections.PilotServiceApi.All()
+	if features.EnableGatewayAPI {
+		schemas = collections.PilotGatewayAPI.All()
 	}
 	for _, schema := range schemas {
 		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.

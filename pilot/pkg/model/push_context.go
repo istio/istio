@@ -346,8 +346,10 @@ const (
 	SecretTrigger TriggerReason = "secret"
 	// NetworksTrigger describes a push triggered for Networks change
 	NetworksTrigger TriggerReason = "networks"
-	// ProxyRequest desribes a push triggered based on proxy request
+	// ProxyRequest describes a push triggered based on proxy request
 	ProxyRequest TriggerReason = "proxyrequest"
+	// NamespaceUpdate describes a push triggered by a Namespace change
+	NamespaceUpdate TriggerReason = "namespace"
 )
 
 // Merge two update requests together
@@ -1078,7 +1080,7 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
+		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true

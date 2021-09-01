@@ -27,7 +27,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1alpha1"
+	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
@@ -54,26 +54,28 @@ func TestGateway(t *testing.T) {
 			if !supportsCRDv1(t) {
 				t.Skip("Not supported; requires CRDv1 support.")
 			}
-			crd, err := os.ReadFile("testdata/service-apis-crd.yaml")
+			crd, err := os.ReadFile("testdata/gateway-api-crd.yaml")
 			if err != nil {
 				t.Fatal(err)
 			}
 			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
 				t.Fatal(err)
 			}
-			ingressutil.CreateIngressKubeSecret(t, "k8s-gateway-secret-same-namespace", ingressutil.TLS, ingressutil.IngressCredentialA,
+			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
+				false, t.Clusters().Configs()...)
+			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
 				false, t.Clusters().Configs()...)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				err := t.Config().ApplyYAML("", `
-apiVersion: networking.x-k8s.io/v1alpha1
+				err := t.Config().ApplyYAML("", fmt.Sprintf(`
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -81,75 +83,90 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname: "*.domain.example"
+  - name: http
+    hostname: "*.domain.example"
     port: 80
     protocol: HTTP
-    routes:
+    allowedRoutes:
       namespaces:
         from: All
-      kind: HTTPRoute
-  - port: 31400
+  - name: tcp
+    port: 31400
     protocol: TCP
-    routes:
+    allowedRoutes:
       namespaces:
         from: All
-      kind: TCPRoute
-  - port: 443
+  - name: tls-cross
+    hostname: cross-namespace.domain.example
+    port: 443
     protocol: HTTPS
-    routes:
+    allowedRoutes:
       namespaces:
         from: All
-      kind: HTTPRoute
     tls:
       mode: Terminate
       certificateRef:
-        name: k8s-gateway-secret-same-namespace
-        group: core
         kind: Secret
----`)
+        name: test-gateway-cert-cross
+        namespace: "%s"
+  - name: tls-same
+    hostname: same-namespace.domain.example
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRef:
+        kind: Secret
+        name: test-gateway-cert-same
+---`, apps.Namespace.Name()))
 				return err
 			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
 			retry.UntilSuccessOrFail(t, func() error {
 				err := t.Config().ApplyYAML(apps.Namespace.Name(), `
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: http
 spec:
   hostnames: ["my.domain.example"]
-  gateways:
-    allow: All
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
   rules:
   - matches:
     - path:
         type: Prefix
         value: /get/
-    forwardTo:
-    - serviceName: b
+    backendRefs:
+    - name: b
       port: 80
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
   name: tcp
 spec:
-  gateways:
-    allow: All
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
   rules:
-  - forwardTo:
-     - serviceName: b
-       port: 80
+  - backendRefs:
+    - name: b
+      port: 80
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: b
 spec:
-  gateways:
-    allow: FromList
-    gatewayRefs:
-      - name: mesh
-        namespace: istio-system
+  parentRefs:
+  - kind: Mesh
+    name: istio
+  - name: gateway
+    namespace: istio-system
   hostnames: ["b"]
   rules:
   - matches:
@@ -160,9 +177,10 @@ spec:
     - type: RequestHeaderModifier
       requestHeaderModifier:
         add:
-          my-added-header: added-value
-    forwardTo:
-    - serviceName: b
+        - name: my-added-header
+          value: added-value
+    backendRefs:
+    - name: b
       port: 80
 `)
 				return err
@@ -207,7 +225,7 @@ spec:
 					})
 					t.NewSubTest("status").Run(func(t framework.TestContext) {
 						retry.UntilSuccessOrFail(t, func() error {
-							gwc, err := t.Clusters().Kube().Default().GatewayAPI().NetworkingV1alpha1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+							gwc, err := t.Clusters().Kube().Default().GatewayAPI().GatewayV1alpha2().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 							if err != nil {
 								return err
 							}
