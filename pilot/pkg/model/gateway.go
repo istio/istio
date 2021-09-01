@@ -58,8 +58,18 @@ type MergedGateway struct {
 	// ServerPorts maintains a list of unique server ports, used for stable ordering.
 	ServerPorts []ServerPort
 
-	// MergedServers maps from physical port to virtual servers.
+	// MergedServers map from physical port to virtual servers
+	// using TCP protocols (like HTTP1.1, H2, mysql, redis etc)
 	MergedServers map[ServerPort]*MergedServers
+
+	// MergedQUICTransportServers map from physical port to servers listening
+	// on QUIC (like HTTP3). Currently the support is experimental and
+	// is limited to HTTP3 only
+	MergedQUICTransportServers map[ServerPort]*MergedServers
+
+	// HTTP3AdvertisingRoutes represents the set of HTTP routes which advertise HTTP/3.
+	// This mapping is used to generate alt-svc header that is needed for HTTP/3 server discovery.
+	HTTP3AdvertisingRoutes map[string]struct{}
 
 	// GatewayNameForServer maps from server to the owning gateway name.
 	// Used for select the set of virtual services that apply to a port.
@@ -124,12 +134,14 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
 	mergedServers := make(map[ServerPort]*MergedServers)
+	mergedQUICServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
 	plainTextServers := make(map[uint32]ServerPort)
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
 	verifiedCertificateReferences := sets.NewSet()
+	http3AdvertisingRoutes := make(map[string]struct{})
 	tlsHostsByPort := map[uint32]sets.Set{} // port -> host set
 	autoPassthrough := false
 
@@ -264,6 +276,19 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						} else {
 							mergedServers[serverPort].Servers = append(mergedServers[serverPort].Servers, s)
 						}
+
+						// We have TLS settings defined and we have already taken care of unique route names
+						// if it is HTTPS. So we can construct a QUIC server on the same port. It is okay as
+						// QUIC listens on UDP port, not TCP
+						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
+							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
+							log.Debugf("Server at port %d eligible for HTTP3 upgrade. Add UDP listener for QUIC", serverPort.Number)
+							if mergedQUICServers[serverPort] == nil {
+								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
+							}
+							mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
+							http3AdvertisingRoutes[routeName] = struct{}{}
+						}
 					}
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
@@ -273,6 +298,20 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					}
 					if gateway.IsHTTPServer(s) {
 						serversByRouteName[routeName] = []*networking.Server{s}
+
+						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
+							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
+							log.Debugf("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
+							http3AdvertisingRoutes[routeName] = struct{}{}
+
+							if mergedQUICServers[serverPort] == nil {
+								// This should be treated like non-passthrough HTTPS case. There will be multiple filter
+								// chains, multiple routes per server port. So just like in TLS server case we do not
+								// track route name here. Instead, TLS server info is used (it is fine for now because
+								// this would be a mirror of an existing non-passthrough HTTPS server)
+								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+							}
+						}
 					}
 					mergedServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}, RouteName: routeName}
 					serverPorts = append(serverPorts, serverPort)
@@ -284,14 +323,25 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
+		MergedQUICTransportServers:      mergedQUICServers,
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
 		TLSServerInfo:                   tlsServerInfo,
 		ServersByRouteName:              serversByRouteName,
+		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,
 		ContainsAutoPassthroughGateways: autoPassthrough,
 		PortMap:                         getTargetPortMap(serversByRouteName),
 		VerifiedCertificateReferences:   verifiedCertificateReferences,
 	}
+}
+
+func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
+	for _, w := range instances {
+		if int(number) == w.ServicePort.Port && w.ServicePort.Protocol == protocol.UDP {
+			return true
+		}
+	}
+	return false
 }
 
 // resolvePorts takes a Gateway port, and resolves it to the port that will actually be listened on.

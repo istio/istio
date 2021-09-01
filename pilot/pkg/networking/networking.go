@@ -70,6 +70,32 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 	}
 }
 
+type TransportProtocol uint8
+
+const (
+	// TransportProtocolTCP is a TCP listener
+	TransportProtocolTCP = iota
+	// TransportProtocolQUIC is a QUIC listener
+	TransportProtocolQUIC
+)
+
+func (tp TransportProtocol) String() string {
+	switch tp {
+	case TransportProtocolTCP:
+		return "tcp"
+	case TransportProtocolQUIC:
+		return "quic"
+	}
+	return "unknown"
+}
+
+func (tp TransportProtocol) ToEnvoySocketProtocol() core.SocketAddress_Protocol {
+	if tp == TransportProtocolQUIC {
+		return core.SocketAddress_UDP
+	}
+	return core.SocketAddress_TCP
+}
+
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
 type FilterChain struct {
 	// FilterChainMatch is the match used to select the filter chain.
@@ -82,6 +108,9 @@ type FilterChain struct {
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
+	// TransportProtocol indicates the type of transport used - TCP, UDP, QUIC
+	// This would be TCP by default
+	TransportProtocol TransportProtocol
 	// IstioMutualGateway is set only when this filter chain is part of a Gateway, and
 	// the Server corresponding to this filter chain is doing TLS termination with ISTIO_MUTUAL as the TLS mode.
 	// This allows the authN plugin to add the istio_authn filter to gateways in addition to sidecars.
