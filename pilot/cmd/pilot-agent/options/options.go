@@ -115,4 +115,7 @@ var (
 	// certSigner is cert signer for workload cert
 	certSigner = env.RegisterStringVar("ISTIO_META_CERT_SIGNER", "",
 		"The cert signer info for workload cert")
+
+	istiodAddrOverride = env.RegisterStringVar("ISTIOD_ADDR", "",
+		"Override the IP address of istiod. Use as an alternative to /etc/hosts, if setting up without root permissions")
 )

@@ -118,6 +118,7 @@ type XdsProxy struct {
 	ecdsLastAckVersion    atomic.String
 	ecdsLastNonce         atomic.String
 	downstreamGrpcOptions []grpc.ServerOption
+	istiodAddressOverride string
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -142,6 +143,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
+		istiodAddressOverride: ia.cfg.IstiodAddrOverride,
 		clusterID:             ia.secOpts.ClusterID,
 		handlers:              map[string]ResponseHandler{},
 		stopChan:              make(chan struct{}),
@@ -367,7 +369,11 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
+	upstreamAddr := p.istiodAddress
+	if p.istiodAddressOverride != "" {
+		upstreamAddr = p.istiodAddressOverride
+	}
+	upstreamConn, err := grpc.DialContext(ctx, upstreamAddr, p.istiodDialOptions...)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
