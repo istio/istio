@@ -19,9 +19,9 @@ package pilot
 
 import (
 	"fmt"
-	kubelib "istio.io/istio/pkg/kube"
 	"testing"
 
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -48,7 +48,7 @@ values:
   pilot:
     env:
       PILOT_USE_ENDPOINT_SLICE: "%v"`,
-      			// for k8s 1.21+, this suite should test disabling EndpointSlice mode
+				// for k8s 1.21+, this suite should test disabling EndpointSlice mode
 				kubelib.IsLessThanVersion(t.Clusters().Kube().Default(), 21))
 		})).
 		Setup(func(t resource.Context) error {
