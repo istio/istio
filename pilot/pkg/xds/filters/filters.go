@@ -27,6 +27,7 @@ import (
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
+	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/proxy_protocol/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
@@ -114,6 +115,12 @@ var (
 			TypedConfig: util.MessageToAny(&originalsrc.OriginalSrc{
 				Mark: 1337,
 			}),
+		},
+	}
+	ProxyProtocol = &listener.ListenerFilter{
+		Name: "envoy.filters.listener.proxy_protocol",
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: util.MessageToAny(&proxyprotocol.ProxyProtocol{}),
 		},
 	}
 	Alpn = &hcm.HttpFilter{

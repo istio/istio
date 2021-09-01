@@ -56,6 +56,8 @@ var blackholeFilters = []*listener.Filter{{
 	})},
 }}
 
+const remoteSidecarAnnotation = "sidecar.istio.io/isRemote"
+
 // A stateful listener builder
 // Support the below intentions
 // 1. Use separate inbound capture listener(:15006) and outbound capture listener(:15001)
@@ -166,6 +168,12 @@ func mergeInspectors(a, b map[int]enabledInspector) map[int]enabledInspector {
 		result[p] = i
 	}
 	return result
+}
+
+// hack instead of using plugin for now
+func (lb *ListenerBuilder) isRemoteProxy() bool {
+	_, ok := lb.node.Metadata.Annotations[remoteSidecarAnnotation]
+	return ok
 }
 
 func (lb *ListenerBuilder) aggregateVirtualInboundListener(passthroughInspectors map[int]enabledInspector) *ListenerBuilder {
@@ -372,7 +380,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push)
+	filterChains := buildOutboundCatchAllNetworkFilterChains(configgen, lb.node, lb.push, lb.isRemoteProxy())
 
 	actualWildcard, _ := getActualWildcardAndLocalHost(lb.node)
 
@@ -387,6 +395,11 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
+	if lb.isRemoteProxy() {
+		lb.virtualOutboundListener.ListenerFilters = append(lb.virtualOutboundListener.ListenerFilters,
+			xdsfilters.ProxyProtocol,
+		)
+	}
 	return lb
 }
 
@@ -697,10 +710,13 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 // evaluate the left over unmatched TLS traffic using allow_any or registry_only.
 // See https://github.com/istio/istio/issues/21170
 func buildOutboundCatchAllNetworkFilterChains(_ *ConfigGeneratorImpl,
-	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+	node *model.Proxy, push *model.PushContext, isRemote bool) []*listener.FilterChain {
 	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
 	chains := make([]*listener.FilterChain, 0, 2)
-	chains = append(chains, blackholeFilterChain(push.Mesh.ProxyListenPort), &listener.FilterChain{
+	if !isRemote {
+		chains = append(chains, blackholeFilterChain(push.Mesh.ProxyListenPort))
+	}
+	chains = append(chains, &listener.FilterChain{
 		Name:    model.VirtualOutboundCatchAllTCPFilterChainName,
 		Filters: filterStack,
 	})

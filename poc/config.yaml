@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: client
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: client-l7
+spec:
+  selector:
+    app: client-l7
+  ports:
+  - name: http
+    port: 80
+    targetPort: 15001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+spec:
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+spec:
+  selector:
+    app: server
+  ports:
+  - name: http
+    port: 80
