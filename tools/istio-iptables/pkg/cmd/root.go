@@ -96,6 +96,7 @@ func constructConfig() *config.Config {
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
 		KubevirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
+		ExcludeInterfaces:       viper.GetString(constants.ExcludeInterfaces),
 		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
 		ProbeTimeout:            viper.GetDuration(constants.ProbeTimeout),
 		SkipRuleApply:           viper.GetBool(constants.SkipRuleApply),
@@ -347,7 +348,7 @@ func init() {
 			"Only applies when all inbound traffic (i.e. \"*\") is being redirected (default to $ISTIO_LOCAL_EXCLUDE_PORTS)")
 
 	rootCmd.Flags().StringP(constants.ExcludeInterfaces, "", "",
-		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured. It")
+		"Comma separated list of NIC (optional). Neither inbound nor outbound traffic will be captured")
 
 	rootCmd.Flags().StringP(constants.ServiceCidr, "i", "",
 		"Comma separated list of IP ranges in CIDR form to redirect to envoy (optional). "+
