@@ -115,4 +115,8 @@ var (
 	// certSigner is cert signer for workload cert
 	certSigner = env.RegisterStringVar("ISTIO_META_CERT_SIGNER", "",
 		"The cert signer info for workload cert")
+
+	istiodSAN = env.RegisterStringVar("ISTIOD_SAN", "",
+		"Override the ServerName used to validate Istiod certificate. "+
+			"Can be used as an alternative to setting /etc/hosts for VMs - discovery address will be an IP:port")
 )

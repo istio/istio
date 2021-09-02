@@ -91,6 +91,7 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	// If not set explicitly, default to the discovery address.
 	if o.CAEndpoint == "" {
 		o.CAEndpoint = proxyConfig.DiscoveryAddress
+		o.CAEndpointSAN = istiodSAN.Get()
 	}
 
 	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
