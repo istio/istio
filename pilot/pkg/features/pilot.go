@@ -400,7 +400,7 @@ var (
 			"Setting the timeout to 0 disables this behavior.",
 	).Get()
 
-	EnableTelemetry = env.RegisterBoolVar("PILOT_ENABLE_TELEMETRY", true,
+	EnableTelemetry = env.RegisterBoolVar("PILOT_ENABLE_TELEMETRY_LABEL", true,
 		"If true, pilot will add telemetry related metadata to cluster and endpoint resources, which will be consumed by telemetry filter.",
 	).Get()
 
