@@ -567,6 +567,9 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
+	sort.Slice(adsClients.Connected, func(i, j int) bool {
+		return adsClients.Connected[i].ConnectionID < adsClients.Connected[j].ConnectionID
+	})
 	writeJSON(w, adsClients)
 }
 
