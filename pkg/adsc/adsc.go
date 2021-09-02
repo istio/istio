@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"sort"
@@ -55,6 +56,12 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
+)
+
+const (
+	defaultClientMaxReceiveMessageSize = math.MaxInt32
+	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
 // Config for the ADS connection.
@@ -115,6 +122,15 @@ type Config struct {
 	ResponseHandler ResponseHandler
 
 	GrpcOpts []grpc.DialOption
+}
+
+func DefaultGrpcDialOptions() []grpc.DialOption {
+	return []grpc.DialOption{
+		// TODO(SpecialYang) maybe need to make it configurable.
+		grpc.WithInitialWindowSize(int32(defaultInitialWindowSize)),
+		grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize)),
+	}
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -297,8 +313,12 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 func (a *ADSC) Dial() error {
 	opts := a.cfg
 
+	defaultGrpcDialOptions := DefaultGrpcDialOptions()
+	var grpcDialOptions []grpc.DialOption
+	grpcDialOptions = append(grpcDialOptions, defaultGrpcDialOptions...)
+	grpcDialOptions = append(grpcDialOptions, opts.GrpcOpts...)
+
 	var err error
-	grpcDialOptions := opts.GrpcOpts
 	// If we need MTLS - CertDir or Secrets provider is set.
 	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
 		tlsCfg, err := a.tlsConfig()
@@ -309,7 +329,7 @@ func (a *ADSC) Dial() error {
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
 	}
 
-	if len(grpcDialOptions) == 0 {
+	if len(grpcDialOptions) == len(defaultGrpcDialOptions) {
 		// Only disable transport security if the user didn't supply custom dial options
 		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
 	}
