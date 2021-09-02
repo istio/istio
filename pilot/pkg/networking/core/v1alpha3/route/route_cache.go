@@ -48,11 +48,6 @@ type Cache struct {
 	VirtualServices  []config.Config
 	DestinationRules []*config.Config
 	EnvoyFilterKeys  []string
-	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
-	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
-	// Hypothetically we could get smarter and determine the exact set of all configs we use and their versions,
-	// which we probably will need for proper delta XDS, but for now this is sufficient.
-	PushVersion string
 }
 
 func (r *Cache) Cacheable() bool {
@@ -105,7 +100,6 @@ func (r *Cache) Key() string {
 	params := []string{
 		r.RouteName, r.ProxyVersion, r.ClusterID, r.DNSDomain,
 		strconv.FormatBool(r.DNSCapture), strconv.FormatBool(r.DNSAutoAllocate),
-		r.PushVersion,
 	}
 	for _, svc := range r.Services {
 		params = append(params, string(svc.ClusterLocal.Hostname)+"/"+svc.Attributes.Namespace)
