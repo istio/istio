@@ -69,42 +69,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	mutableopts := make(map[string]mutableListenerOpts)
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	for _, port := range mergedGateway.ServerPorts {
-		var si *model.ServiceInstance
-
-		// Legacy behavior; for new cases we will do this translation in the MergeGateway (which also applies to routes)
-		// TODO(Istio 1.12) remove this
-		if !features.UseTargetPortForGatewayRoutes {
-			services := make(map[host.Name]struct{}, len(builder.node.ServiceInstances))
-			foundDirectPortTranslation := false
-			for _, w := range builder.node.ServiceInstances {
-				_, directPortTranslation := w.Service.Attributes.Labels[model.DisableGatewayPortTranslationLabel]
-				if directPortTranslation {
-					if w.Endpoint.EndpointPort == port.Number {
-						foundDirectPortTranslation = true
-					}
-					continue
-				}
-				if w.ServicePort.Port == int(port.Number) {
-					if si == nil {
-						si = w
-					}
-					services[w.Service.ClusterLocal.Hostname] = struct{}{}
-				}
-			}
-			if len(services) == 0 && foundDirectPortTranslation {
-				log.Debugf("buildGatewayListeners: using direct port mapping due to disable label for %v",
-					port.Number)
-			} else if len(services) != 1 {
-				log.Warnf("buildGatewayListeners: found %d services on port %d: %v",
-					len(services), port.Number, services)
-			}
-
-			// if we found a ServiceInstance with matching ServicePort, listen on TargetPort
-			if si != nil && si.Endpoint != nil {
-				port.Number = si.Endpoint.EndpointPort
-			}
-		}
-
 		// Skip ports we cannot bind to. Note that MergeGateways will already translate Service port to
 		// targetPort, which handles the common case of exposing ports like 80 and 443 but listening on
 		// higher numbered ports.
@@ -180,9 +144,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 
 			pluginParams := &plugin.InputParams{
-				Node:            builder.node,
-				Push:            builder.push,
-				ServiceInstance: si,
+				Node: builder.node,
+				Push: builder.push,
 			}
 			for _, p := range configgen.Plugins {
 				if err := p.OnOutboundListener(pluginParams, &mutable.MutableObjects); err != nil {
