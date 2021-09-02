@@ -351,12 +351,9 @@ func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
 // port and translating to the targetPort in addition to just directly referencing a port. In this
 // case, we just make a best effort guess by picking the first match.
 func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySelector bool) []uint32 {
-	if !features.UseTargetPortForGatewayRoutes {
-		return []uint32{number}
-	}
 	ports := map[uint32]struct{}{}
 	for _, w := range instances {
-		if _, directPortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; directPortTranslation && legacyGatewaySelector {
+		if _, disablePortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; disablePortTranslation && legacyGatewaySelector {
 			// Skip this Service, they opted out of port translation
 			// This is only done for legacyGatewaySelector, as the new gateway selection mechanism *only* allows
 			// referencing the Service port, and references are un-ambiguous.
