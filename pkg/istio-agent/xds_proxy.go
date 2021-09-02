@@ -118,7 +118,7 @@ type XdsProxy struct {
 	ecdsLastAckVersion    atomic.String
 	ecdsLastNonce         atomic.String
 	downstreamGrpcOptions []grpc.ServerOption
-	istiodAddressOverride string
+	istiodSAN             string
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -143,7 +143,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 	proxy := &XdsProxy{
 		istiodAddress:         ia.proxyConfig.DiscoveryAddress,
-		istiodAddressOverride: ia.cfg.IstiodAddrOverride,
+		istiodSAN:             ia.cfg.IstiodSAN,
 		clusterID:             ia.secOpts.ClusterID,
 		handlers:              map[string]ResponseHandler{},
 		stopChan:              make(chan struct{}),
@@ -369,11 +369,7 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	upstreamAddr := p.istiodAddress
-	if p.istiodAddressOverride != "" {
-		upstreamAddr = p.istiodAddressOverride
-	}
-	upstreamConn, err := grpc.DialContext(ctx, upstreamAddr, p.istiodDialOptions...)
+	upstreamConn, err := grpc.DialContext(ctx, p.istiodAddress, p.istiodDialOptions...)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		metrics.IstiodConnectionFailures.Increment()
@@ -692,11 +688,18 @@ func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	// strip the port from the address
 	parts := strings.Split(agent.proxyConfig.DiscoveryAddress, ":")
 	config.ServerName = parts[0]
+
 	// For debugging on localhost (with port forward)
 	// This matches the logic for the CA; this code should eventually be shared
 	if strings.Contains(config.ServerName, "localhost") {
 		config.ServerName = "istiod.istio-system.svc"
 	}
+
+	if p.istiodSAN != "" {
+		config.ServerName = p.istiodSAN
+	}
+	// TODO: if istiodSAN starts with spiffe://, use custom validation.
+
 	config.MinVersion = tls.VersionTLS12
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil

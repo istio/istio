@@ -51,7 +51,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		DNSAddr:                   DNSCaptureAddr.Get(),
 		ProxyNamespace:            PodNamespaceVar.Get(),
 		ProxyDomain:               proxy.DNSDomain,
-		IstiodAddrOverride:        istiodAddrOverride.Get(),
+		IstiodSAN:                 istiodSAN.Get(),
 	}
 	extractXDSHeadersFromEnv(o)
 	return o
