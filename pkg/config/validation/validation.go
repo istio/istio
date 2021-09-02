@@ -1544,7 +1544,7 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	}
 
 	if err := validateExtensionProvider(mesh); err != nil {
-		scope.Warnf("found invalid extension provider (can be ignored if the given extension provider is not used): %v", err)
+		errs = multierror.Append(errs, err)
 	}
 
 	return
