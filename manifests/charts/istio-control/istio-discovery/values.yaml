@@ -64,7 +64,7 @@ pilot:
   configMap: true
 
   # Additional labels to apply on the pod level for monitoring and logging configuration.
-  selectorLabels: {}
+  podLabels: {}
 
 
 sidecarInjectorWebhook:

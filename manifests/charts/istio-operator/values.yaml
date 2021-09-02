@@ -26,5 +26,5 @@ operator:
       memory: 128Mi
 
 # Additional labels and annotations to apply on the pod level for monitoring and logging configuration.
-selectorLabels: {}
+podLabels: {}
 podAnnotations: {}
