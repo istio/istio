@@ -489,7 +489,7 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 func BuildLbEndpointMetadata(networkID network.ID, tlsMode, workloadname, namespace string,
 	clusterID cluster.ID, labels labels.Instance) *core.Metadata {
 	if networkID == "" && (tlsMode == "" || tlsMode == model.DisabledTLSModeLabel) &&
-		(!features.EndpointTelemetryLabel || !features.EnableTelemetry) {
+		(!features.EndpointTelemetryLabel || !features.EnableTelemetryLabel) {
 		return nil
 	}
 

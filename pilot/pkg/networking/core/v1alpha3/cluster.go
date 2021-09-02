@@ -762,7 +762,7 @@ func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]stri
 }
 
 func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
-	if !features.EnableTelemetry {
+	if !features.EnableTelemetryLabel {
 		return
 	}
 	if opts.mutable.cluster == nil {
