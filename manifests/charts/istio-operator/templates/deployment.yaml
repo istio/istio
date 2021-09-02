@@ -12,7 +12,7 @@ spec:
     metadata:
       labels:
         name: istio-operator
-        {{- range $key, $val := .Values.operatorLabels }}
+        {{- range $key, $val := .Values.selectorLabels }}
         {{ $key }}: "{{ $val }}"
         {{- end }}
     {{- if .Values.podAnnotations }}
