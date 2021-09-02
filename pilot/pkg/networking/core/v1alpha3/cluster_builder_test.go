@@ -388,7 +388,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			ec := NewMutableCluster(tt.cluster)
 			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
 
-			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
+			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Fatalf("Unexpected subset clusters want %v, got %v. keys=%v",
 					len(tt.expectedSubsetClusters), len(subsetClusters), xdstest.MapKeys(xdstest.ExtractClusters(subsetClusters)))
@@ -928,7 +928,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			}
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
-				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.networkView, nil)
+				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.networkView, nil, nil)
 			}
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {

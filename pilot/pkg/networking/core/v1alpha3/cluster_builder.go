@@ -231,7 +231,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config) []*cluster.Cluster {
+	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
@@ -247,7 +247,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 	}
 
 	if clusterMode == DefaultClusterMode {
-		opts.serviceAccounts = cb.req.Push.ServiceAccounts[service.ClusterLocal.Hostname][port.Port]
+		opts.serviceAccounts = serviceAccounts
 		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port.Port)
 		opts.simpleTLSSni = string(service.ClusterLocal.Hostname)
 		opts.meshExternal = service.MeshExternal
@@ -402,7 +402,8 @@ type clusterCache struct {
 	service         *model.Service
 	destinationRule *config.Config
 	envoyFilterKeys []string
-	peerAuthVersion string // identifies the versions of all peer authentications
+	peerAuthVersion string   // identifies the versions of all peer authentications
+	serviceAccounts []string // contains all the service accounts associated with the service
 }
 
 func (t *clusterCache) Key() string {
@@ -430,6 +431,7 @@ func (t *clusterCache) Key() string {
 	}
 	params = append(params, t.envoyFilterKeys...)
 	params = append(params, t.peerAuthVersion)
+	params = append(params, t.serviceAccounts...)
 
 	hash := md5.New()
 	for _, param := range params {
