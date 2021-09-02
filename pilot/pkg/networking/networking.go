@@ -41,8 +41,16 @@ const (
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
 func ModelProtocolToListenerProtocol(p protocol.Instance,
 	trafficDirection core.TrafficDirection) ListenerProtocol {
-	// If protocol sniffing is not enabled, the default value is TCP
-	if p == protocol.Unsupported {
+	switch p {
+	case protocol.HTTP, protocol.HTTP2, protocol.HTTP_PROXY, protocol.GRPC, protocol.GRPCWeb:
+		return ListenerProtocolHTTP
+	case protocol.TCP, protocol.HTTPS, protocol.TLS,
+		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
+		return ListenerProtocolTCP
+	case protocol.UDP:
+		return ListenerProtocolUnknown
+	case protocol.Unsupported:
+		// If protocol sniffing is not enabled, the default value is TCP
 		switch trafficDirection {
 		case core.TrafficDirection_INBOUND:
 			if !features.EnableProtocolSniffingForInbound {
@@ -55,22 +63,37 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 		default:
 			// Should not reach here.
 		}
-	}
-
-	switch p {
-	case protocol.HTTP, protocol.HTTP2, protocol.GRPC, protocol.GRPCWeb:
-		return ListenerProtocolHTTP
-	case protocol.TCP, protocol.HTTPS, protocol.TLS,
-		protocol.Mongo, protocol.Redis, protocol.MySQL, protocol.Thrift:
-		return ListenerProtocolTCP
-	case protocol.UDP:
-		return ListenerProtocolUnknown
-	case protocol.Unsupported:
 		return ListenerProtocolAuto
 	default:
 		// Should not reach here.
 		return ListenerProtocolAuto
 	}
+}
+
+type TransportProtocol uint8
+
+const (
+	// TransportProtocolTCP is a TCP listener
+	TransportProtocolTCP = iota
+	// TransportProtocolQUIC is a QUIC listener
+	TransportProtocolQUIC
+)
+
+func (tp TransportProtocol) String() string {
+	switch tp {
+	case TransportProtocolTCP:
+		return "tcp"
+	case TransportProtocolQUIC:
+		return "quic"
+	}
+	return "unknown"
+}
+
+func (tp TransportProtocol) ToEnvoySocketProtocol() core.SocketAddress_Protocol {
+	if tp == TransportProtocolQUIC {
+		return core.SocketAddress_UDP
+	}
+	return core.SocketAddress_TCP
 }
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
@@ -85,6 +108,9 @@ type FilterChain struct {
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
+	// TransportProtocol indicates the type of transport used - TCP, UDP, QUIC
+	// This would be TCP by default
+	TransportProtocol TransportProtocol
 	// IstioMutualGateway is set only when this filter chain is part of a Gateway, and
 	// the Server corresponding to this filter chain is doing TLS termination with ISTIO_MUTUAL as the TLS mode.
 	// This allows the authN plugin to add the istio_authn filter to gateways in addition to sidecars.

@@ -75,9 +75,10 @@ func TestIptables(t *testing.T) {
 				cfg.DryRun = true
 				cfg.RedirectDNS = true
 				cfg.DNSServersV4 = []string{"127.0.0.53"}
-				cfg.EnableInboundIPv6 = false
 				cfg.ProxyGID = "1337"
 				cfg.ProxyUID = "1337"
+				cfg.ExcludeInterfaces = "not-istio-nic"
+				cfg.EnableInboundIPv6 = true
 			},
 		},
 		{
@@ -182,9 +183,10 @@ func TestIptables(t *testing.T) {
 			func(cfg *config.Config) {
 				cfg.RedirectDNS = true
 				cfg.DNSServersV4 = []string{"127.0.0.53"}
-				cfg.EnableInboundIPv6 = false
+				cfg.DNSServersV6 = []string{"::127.0.0.53"}
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
+				cfg.EnableInboundIPv6 = true
 			},
 		},
 		{
@@ -212,6 +214,12 @@ func TestIptables(t *testing.T) {
 				cfg.EnableInboundIPv6 = false
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
+			},
+		},
+		{
+			"basic-exclude-nic",
+			func(cfg *config.Config) {
+				cfg.ExcludeInterfaces = "not-istio-nic"
 			},
 		},
 	}

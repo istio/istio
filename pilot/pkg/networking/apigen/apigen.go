@@ -145,7 +145,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			if s.Attributes.ServiceRegistry == provider.External {
 				continue
 			}
-			c := serviceentry.ServiceToServiceEntry(s)
+			c := serviceentry.ServiceToServiceEntry(s, proxy)
 			b, err := configToResource(c)
 			if err != nil {
 				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)

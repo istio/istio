@@ -535,7 +535,7 @@ func (s *Server) initSDSServer(args *PilotArgs) {
 						Reason: []model.TriggerReason{model.SecretTrigger},
 					})
 				})
-				s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+				s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache, s.clusterID)
 				s.secretsController = sc
 				return nil
 			})
@@ -874,7 +874,7 @@ func (s *Server) initRegistryEventHandlers() {
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.Hostname),
+				Name:      string(svc.ClusterLocal.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
@@ -909,8 +909,8 @@ func (s *Server) initRegistryEventHandlers() {
 			s.XDSServer.ConfigUpdate(pushReq)
 		}
 		schemas := collections.Pilot.All()
-		if features.EnableServiceApis {
-			schemas = collections.PilotServiceApi.All()
+		if features.EnableGatewayAPI {
+			schemas = collections.PilotGatewayAPI.All()
 		}
 		for _, schema := range schemas {
 			// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
@@ -928,6 +928,14 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 
 			s.configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+		}
+		if s.environment.GatewayAPIController != nil {
+			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Namespace, func(config.Config, config.Config, model.Event) {
+				s.XDSServer.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: []model.TriggerReason{model.NamespaceUpdate},
+				})
+			})
 		}
 	}
 }

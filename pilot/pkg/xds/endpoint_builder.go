@@ -141,7 +141,7 @@ func (b EndpointBuilder) Key() string {
 		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
 	}
 	if b.service != nil {
-		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
+		params = append(params, string(b.service.ClusterLocal.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
 	if b.networkView != nil {
 		nv := make([]string, 0, len(b.networkView))
@@ -172,7 +172,7 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
 	}
 	if b.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.ClusterLocal.Hostname), Namespace: b.service.Attributes.Namespace})
 	}
 	return configs
 }
@@ -246,11 +246,6 @@ func (e *LocLbEndpointsAndOptions) append(ep *model.IstioEndpoint, le *endpoint.
 	e.istioEndpoints = append(e.istioEndpoints, ep)
 	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
 	e.tunnelMetadata = append(e.tunnelMetadata, MakeTunnelApplier(le, tunnelOpt))
-}
-
-func (e *LocLbEndpointsAndOptions) emplace(le *endpoint.LbEndpoint, tunnelMetadata EndpointTunnelApplier) {
-	e.llbEndpoints.LbEndpoints = append(e.llbEndpoints.LbEndpoints, le)
-	e.tunnelMetadata = append(e.tunnelMetadata, tunnelMetadata)
 }
 
 func (e *LocLbEndpointsAndOptions) refreshWeight() {

@@ -33,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
@@ -46,9 +47,10 @@ import (
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	testCases := []struct {
-		name   string
-		server *networking.Server
-		result *auth.DownstreamTlsContext
+		name              string
+		server            *networking.Server
+		result            *auth.DownstreamTlsContext
+		transportProtocol istionetworking.TransportProtocol
 	}{
 		{
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
@@ -497,13 +499,36 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: nil,
 		},
+		{
+			name: "Downstream TLS settings for QUIC transport",
+			server: &networking.Server{
+				Hosts: []string{"httpbin.example.com"},
+				Tls: &networking.ServerTLSSettings{
+					Mode:           networking.ServerTLSSettings_SIMPLE,
+					CredentialName: "httpbin-cred",
+				},
+			},
+			transportProtocol: istionetworking.TransportProtocolQUIC,
+			result: &auth.DownstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{
+					AlpnProtocols: util.ALPNHttp3OverQUIC,
+					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+						{
+							Name:      "kubernetes://httpbin-cred",
+							SdsConfig: model.SDSAdsConfig,
+						},
+					},
+				},
+				RequireClientCertificate: proto.BoolFalse,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ret := buildGatewayListenerTLSContext(tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
-			})
+			}, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
@@ -514,12 +539,13 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	var stripPortMode *hcm.HttpConnectionManager_StripAnyHostPort
 	testCases := []struct {
-		name        string
-		node        *pilot_model.Proxy
-		server      *networking.Server
-		routeName   string
-		proxyConfig *meshconfig.ProxyConfig
-		result      *filterChainOpts
+		name              string
+		node              *pilot_model.Proxy
+		server            *networking.Server
+		routeName         string
+		proxyConfig       *meshconfig.ProxyConfig
+		result            *filterChainOpts
+		transportProtocol istionetworking.TransportProtocol
 	}{
 		{
 			name: "HTTP1.0 mode enabled",
@@ -1059,6 +1085,88 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:              "QUIC protocol with server name",
+			node:              &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
+			transportProtocol: istionetworking.TransportProtocolQUIC,
+			server: &networking.Server{
+				Name: "server1",
+				Port: &networking.Port{
+					Name:       "https-app",
+					Number:     443,
+					TargetPort: 8443,
+					Protocol:   "HTTPS",
+				},
+				Hosts: []string{"example.org"},
+				Tls: &networking.ServerTLSSettings{
+					Mode:              networking.ServerTLSSettings_SIMPLE,
+					ServerCertificate: "/etc/cert/example.crt",
+					PrivateKey:        "/etc/cert/example.key",
+				},
+			},
+			routeName: "some-route",
+			proxyConfig: &meshconfig.ProxyConfig{
+				GatewayTopology: &meshconfig.Topology{
+					NumTrustedProxies:        3,
+					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+				},
+			},
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: proto.BoolFalse,
+					CommonTlsContext: &auth.CommonTlsContext{
+						AlpnProtocols: util.ALPNHttp3OverQUIC,
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "file-cert:/etc/cert/example.crt~/etc/cert/example.key",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion: core.ApiVersion_V3,
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType: core.ApiConfigSource_GRPC,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+															ClusterName: "sds-grpc",
+														},
+													},
+												},
+											},
+											SetNodeOnFirstMessageOnly: true,
+											TransportApiVersion:       core.ApiVersion_V3,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:       "some-route",
+					http3Only: true,
+					connectionManager: &hcm.HttpConnectionManager{
+						XffNumTrustedHops:        3,
+						ForwardClientCertDetails: hcm.HttpConnectionManager_FORWARD_ONLY,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:           EnvoyServerName,
+						HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+						Http3ProtocolOptions: &core.Http3ProtocolOptions{},
+						CodecType:            hcm.HttpConnectionManager_HTTP3,
+						StripPortMode:        stripPortMode,
+						DelayedCloseTimeout:  features.DelayedCloseTimeout,
+					},
+					useRemoteAddress: true,
+					statPrefix:       "server1",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1067,12 +1175,13 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			tc.node.MergedGateway = &pilot_model.MergedGateway{TLSServerInfo: map[*networking.Server]*pilot_model.TLSServerInfo{
 				tc.server: {SNIHosts: pilot_model.GetSNIHostsForServer(tc.server)},
 			}}
-			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server.Port, tc.server, tc.routeName, tc.proxyConfig)
+			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server.Port, tc.server,
+				tc.routeName, tc.proxyConfig, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff in tls context: %v", diff)
 			}
 			if !reflect.DeepEqual(tc.result.httpOpts, ret.httpOpts) {
-				t.Errorf("expecting httpopts %+v but got %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+				t.Errorf("expecting httpopts:\n %+v \nbut got:\n %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
 			}
 			if !reflect.DeepEqual(tc.result.sniHosts, ret.sniHosts) {
 				t.Errorf("expecting snihosts %+v but got %+v", tc.result.sniHosts, ret.sniHosts)
@@ -1082,7 +1191,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 }
 
 func TestGatewayHTTPRouteConfig(t *testing.T) {
-	httpsRedirectGateway := config.Config{
+	httpRedirectGateway := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway-redirect",
 			Namespace:        "default",
@@ -1099,7 +1208,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	httpsRedirectGatewayWithoutVS := config.Config{
+	httpRedirectGatewayWithoutVS := config.Config{
 		Meta: config.Meta{
 			Name:             "gateway-redirect-noroutes",
 			Namespace:        "default",
@@ -1128,6 +1237,50 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				{
 					Hosts: []string{"example.org"},
 					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
+	httpsGateway := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway-https",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+				},
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+					Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_TLSmode(networking.ClientTLSSettings_SIMPLE)},
+				},
+			},
+		},
+	}
+	httpsGatewayRedirect := config.Config{
+		Meta: config.Meta{
+			Name:             "gateway-https",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
+				},
+				{
+					Hosts: []string{"example.org"},
+					Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true, Mode: networking.ServerTLSSettings_TLSmode(networking.ClientTLSSettings_SIMPLE)},
 				},
 			},
 		},
@@ -1166,6 +1319,29 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceHTTPSMatchSpec := &networking.VirtualService{
+		Hosts:    []string{"example.org"},
+		Gateways: []string{"gateway-https"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Port: 443,
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "example.default.svc.cluster.local",
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	virtualService := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
@@ -1173,6 +1349,14 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec,
+	}
+	virtualServiceHTTPS := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-https",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceHTTPSMatchSpec,
 	}
 	virtualServiceCopy := config.Config{
 		Meta: config.Meta{
@@ -1238,7 +1422,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"tls redirect without virtual services",
 			[]config.Config{virtualService},
-			[]config.Config{httpsRedirectGatewayWithoutVS},
+			[]config.Config{httpRedirectGatewayWithoutVS},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1255,7 +1439,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"virtual services with tls redirect",
 			[]config.Config{virtualService},
-			[]config.Config{httpsRedirectGateway},
+			[]config.Config{httpRedirectGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1271,7 +1455,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"merging of virtual services when tls redirect is set",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpsRedirectGateway, httpGateway},
+			[]config.Config{httpRedirectGateway, httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1287,7 +1471,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"reverse merging of virtual services when tls redirect is set",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpGateway, httpsRedirectGateway},
+			[]config.Config{httpGateway, httpRedirectGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1303,7 +1487,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"merging of virtual services when tls redirect is set without VS",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpGateway, httpsRedirectGatewayWithoutVS},
+			[]config.Config{httpGateway, httpRedirectGatewayWithoutVS},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1319,7 +1503,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		{
 			"reverse merging of virtual services when tls redirect is set without VS",
 			[]config.Config{virtualService, virtualServiceCopy},
-			[]config.Config{httpsRedirectGatewayWithoutVS, httpGateway},
+			[]config.Config{httpRedirectGatewayWithoutVS, httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1394,6 +1578,64 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			map[string]int{"*.org:80": 1},
 			false,
 		},
+		{
+			"http redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGateway},
+			"https.443.https.gateway-https.default",
+			map[string][]string{
+				"example.org:443": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:443": {"example.org"},
+			},
+			map[string]int{"example.org:443": 1},
+			false,
+		},
+		{
+			"http redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGateway},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			// We will setup a VHost which just redirects; no routes
+			map[string]int{"example.org:80": 0},
+			true,
+		},
+		{
+			"http & https redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGatewayRedirect},
+			"https.443.https.gateway-https.default",
+			map[string][]string{
+				"example.org:443": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:443": {"example.org"},
+			},
+			map[string]int{"example.org:443": 1},
+			true,
+		},
+		{
+			"http & https redirection not working when virtualservice not match http port",
+			[]config.Config{virtualServiceHTTPS},
+			[]config.Config{httpsGatewayRedirect},
+			"http.80",
+			map[string][]string{
+				"example.org:80": {"example.org", "example.org:*"},
+			},
+			map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			// We will setup a VHost which just redirects; no routes
+			map[string]int{"example.org:80": 0},
+			true,
+		},
 	}
 
 	StripHostPort := []bool{false, true}
@@ -1458,7 +1700,9 @@ func TestBuildGatewayListeners(t *testing.T) {
 				ServiceInstances: []*pilot_model.ServiceInstance{
 					{
 						Service: &pilot_model.Service{
-							Hostname: "test",
+							ClusterLocal: pilot_model.HostVIPs{
+								Hostname: "test",
+							},
 						},
 						ServicePort: &pilot_model.Port{
 							Port: 80,
@@ -1822,7 +2066,9 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	fooHostName := host.Name("foo.example.org")
 	fooServiceInTestNamespace := &pilot_model.Service{
-		Hostname: fooHostName,
+		ClusterLocal: pilot_model.HostVIPs{
+			Hostname: fooHostName,
+		},
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",
@@ -1838,7 +2084,9 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	barHostName := host.Name("bar.example.org")
 	barServiceInDefaultNamespace := &pilot_model.Service{
-		Hostname: barHostName,
+		ClusterLocal: pilot_model.HostVIPs{
+			Hostname: barHostName,
+		},
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",
@@ -1854,7 +2102,9 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	bazHostName := host.Name("baz.example.org")
 	bazServiceInDefaultNamespace := &pilot_model.Service{
-		Hostname: bazHostName,
+		ClusterLocal: pilot_model.HostVIPs{
+			Hostname: bazHostName,
+		},
 		Ports: []*pilot_model.Port{{
 			Name:     "http",
 			Protocol: "HTTP",

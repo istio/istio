@@ -49,6 +49,14 @@ func TestModelProtocolToListenerProtocol(t *testing.T) {
 			ListenerProtocolHTTP,
 		},
 		{
+			"HTTP to HTTP",
+			protocol.HTTP_PROXY,
+			core.TrafficDirection_OUTBOUND,
+			true,
+			true,
+			ListenerProtocolHTTP,
+		},
+		{
 			"MySQL to TCP",
 			protocol.MySQL,
 			core.TrafficDirection_INBOUND,

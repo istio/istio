@@ -128,14 +128,14 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			services = append(services, svcs...)
 		} else {
 			for _, s := range svcs {
-				sp, ok := smap[s.Hostname]
+				sp, ok := smap[s.ClusterLocal.Hostname]
 				if !ok {
 					// First time we see a service. The result will have a single service per hostname
 					// The first cluster will be listed first, so the services in the primary cluster
 					// will be used for default settings. If a service appears in multiple clusters,
 					// the order is less clear.
 					sp = s
-					smap[s.Hostname] = sp
+					smap[s.ClusterLocal.Hostname] = sp
 					services = append(services, sp)
 				} else {
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
@@ -174,14 +174,10 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 }
 
 func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
-	dst.Mutex.Lock()
-	defer dst.Mutex.Unlock()
-	if dst.ClusterVIPs == nil {
-		dst.ClusterVIPs = make(map[cluster.ID]string)
-	}
 	// prefer the k8s VIP where possible
-	if srcRegistry.Provider() == provider.Kubernetes || dst.ClusterVIPs[srcRegistry.Cluster()] == "" {
-		dst.ClusterVIPs[srcRegistry.Cluster()] = src.Address
+	clusterID := srcRegistry.Cluster()
+	if srcRegistry.Provider() == provider.Kubernetes || len(dst.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
+		dst.ClusterLocal.ClusterVIPs.SetAddressesFor(clusterID, []string{src.Address})
 	}
 }
 

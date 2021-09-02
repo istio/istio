@@ -55,6 +55,12 @@ const (
 	CT       = "CT"
 )
 
+const (
+	// IPVersionSpecific is used as an input to rules that will be replaced with an ip version (v4/v6)
+	// specific value
+	IPVersionSpecific = "PLACEHOLDER_IP_VERSION_SPECIFIC"
+)
+
 // iptables chains
 const (
 	ISTIOOUTPUT     = "ISTIO_OUTPUT"
@@ -72,6 +78,7 @@ const (
 	InboundTProxyRouteTable   = "istio-inbound-tproxy-route-table"
 	InboundPorts              = "istio-inbound-ports"
 	LocalExcludePorts         = "istio-local-exclude-ports"
+	ExcludeInterfaces         = "istio-exclude-interfaces"
 	ServiceCidr               = "istio-service-cidr"
 	ServiceExcludeCidr        = "istio-service-exclude-cidr"
 	OutboundPorts             = "istio-outbound-ports"

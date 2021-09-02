@@ -300,7 +300,7 @@ var (
 		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 
-	EnableServiceApis = env.RegisterBoolVar("PILOT_ENABLED_SERVICE_APIS", true,
+	EnableGatewayAPI = env.RegisterBoolVar("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
 
@@ -509,13 +509,6 @@ var (
 	MulticlusterHeadlessEnabled = env.RegisterBoolVar("ENABLE_MULTICLUSTER_HEADLESS", false,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
-	// UseTargetPortForGatewayRoutes determines which port to use for the routes. This flag is for safety only, and can be removed in future versions.
-	// Example setup: we have a Service on port 80, targetPort 8080
-	// Old behavior (false): we create listener 0.0.0.0_8080 and route http.80. This has potential for conflicts if there are other port 80s
-	// New behavior (true): we create listener 0.0.0.0_8080 and route http.8080. This has no conflicts; routes are 1:1 with listener.
-	UseTargetPortForGatewayRoutes = env.RegisterBoolVar("PILOT_USE_TARGET_PORT_FOR_GATEWAY_ROUTES", true,
-		"If true, routes will use the target port of the gateway service in the route name, not the service port.").Get()
-
 	CertSignerDomain = env.RegisterStringVar("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	AutoReloadPluginCerts = env.RegisterBoolVar(
@@ -529,6 +522,10 @@ var (
 		true,
 		"If false, TCP probes will not be rewritten and therefor always succeed when a sidecar is used.",
 	).Get()
+
+	EnableQUICListeners = env.RegisterBoolVar("PILOT_ENABLE_QUIC_LISTENERS", false,
+		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
+			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

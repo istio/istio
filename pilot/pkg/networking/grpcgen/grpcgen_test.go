@@ -180,7 +180,7 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("gRPC-cdslb", func(t *testing.T) {
-		rb := balancer.Get("eds_experimental")
+		rb := balancer.Get("cluster_resolver_experimental")
 		b := rb.Build(&testLBClientConn{}, balancer.BuildOptions{})
 		defer b.Close()
 	})

@@ -27,6 +27,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -320,19 +321,19 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	listenerOpts.class = ListenerClassSidecarInbound
 
 	if old, exists := listenerMap[listenerOpts.port.Port]; exists {
-		if old.protocol != listenerOpts.port.Protocol && old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+		if old.protocol != listenerOpts.port.Protocol && old.instanceHostname != pluginParams.ServiceInstance.Service.ClusterLocal.Hostname {
 			// For sidecar specified listeners, the caller is expected to supply a dummy service instance
 			// with the right port and a hostname constructed from the sidecar config's name+namespace
 			pluginParams.Push.AddMetric(model.ProxyStatusConflictInboundListener, pluginParams.Node.ID, pluginParams.Node.ID,
 				fmt.Sprintf("Conflicting inbound listener:%d. existing: %s, incoming: %s", listenerOpts.port.Port,
-					old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname))
+					old.instanceHostname, pluginParams.ServiceInstance.Service.ClusterLocal.Hostname))
 			return nil
 		}
 		// This can happen if two services select the same pod with same port and protocol - we should skip building listener again.
-		if old.instanceHostname != pluginParams.ServiceInstance.Service.Hostname {
+		if old.instanceHostname != pluginParams.ServiceInstance.Service.ClusterLocal.Hostname {
 			log.Debugf("skipping inbound listener:%d as we have already build it for existing host: %s, new host: %s",
 				listenerOpts.port.Port,
-				old.instanceHostname, pluginParams.ServiceInstance.Service.Hostname)
+				old.instanceHostname, pluginParams.ServiceInstance.Service.ClusterLocal.Hostname)
 		}
 		// Skip building listener for the same port
 		return nil
@@ -366,7 +367,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	}
 
 	listenerMap[listenerOpts.port.Port] = &inboundListenerEntry{
-		instanceHostname: pluginParams.ServiceInstance.Service.Hostname,
+		instanceHostname: pluginParams.ServiceInstance.Service.ClusterLocal.Hostname,
 		protocol:         listenerOpts.port.Protocol,
 	}
 	return mutable.Listener
@@ -410,7 +411,7 @@ type outboundListenerConflict struct {
 func (c outboundListenerConflict) addMetric(metrics model.Metrics) {
 	currentHostnames := make([]string, len(c.currentServices))
 	for i, s := range c.currentServices {
-		currentHostnames[i] = string(s.Hostname)
+		currentHostnames[i] = string(s.ClusterLocal.Hostname)
 	}
 	concatHostnames := strings.Join(currentHostnames, ",")
 	metrics.AddMetric(c.metric,
@@ -571,7 +572,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			}
 
 			for _, service := range services {
-				saddress := service.GetServiceAddressForProxy(node)
+				saddress := service.GetClusterLocalAddressForProxy(node)
 				for _, servicePort := range service.Ports {
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
@@ -747,7 +748,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 						listenerName:    *listenerMapKey,
 						currentServices: (*currentListenerEntry).services,
 						currentProtocol: (*currentListenerEntry).servicePort.Protocol,
-						newHostname:     listenerOpts.service.Hostname,
+						newHostname:     listenerOpts.service.ClusterLocal.Hostname,
 						newProtocol:     listenerOpts.port.Protocol,
 					}.addMetric(listenerOpts.push)
 				}
@@ -768,7 +769,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 	} else {
 		if listenerProtocol == istionetworking.ListenerProtocolAuto &&
 			sniffingEnabled && listenerOpts.bind != actualWildcard && listenerOpts.service != nil {
-			rdsName = string(listenerOpts.service.Hostname) + ":" + strconv.Itoa(listenerOpts.port.Port)
+			rdsName = string(listenerOpts.service.ClusterLocal.Hostname) + ":" + strconv.Itoa(listenerOpts.port.Port)
 		} else {
 			rdsName = strconv.Itoa(listenerOpts.port.Port)
 		}
@@ -809,7 +810,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// ip:port. This will reduce the impact of a listener reload
 
 	if len(listenerOpts.bind) == 0 {
-		svcListenAddress := listenerOpts.service.GetServiceAddressForProxy(listenerOpts.proxy)
+		svcListenAddress := listenerOpts.service.GetClusterLocalAddressForProxy(listenerOpts.proxy)
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly
@@ -866,7 +867,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 				// User is also not allowed to add duplicate ports in the egress listener
 				var newHostname host.Name
 				if listenerOpts.service != nil {
-					newHostname = listenerOpts.service.Hostname
+					newHostname = listenerOpts.service.ClusterLocal.Hostname
 				} else {
 					// user defined outbound listener via sidecar API
 					newHostname = "sidecar-config-egress-http-listener"
@@ -1190,6 +1191,10 @@ type httpListenerOpts struct {
 	// should be added.
 	addGRPCWebFilter bool
 	useRemoteAddress bool
+
+	// http3Only indicates that the HTTP codec used
+	// is HTTP/3 over QUIC transport (uses UDP)
+	http3Only bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1230,6 +1235,7 @@ type buildListenerOpts struct {
 	class             ListenerClass
 	service           *model.Service
 	protocol          istionetworking.ListenerProtocol
+	transport         istionetworking.TransportProtocol
 }
 
 func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpListenerOpts,
@@ -1239,7 +1245,12 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	connectionManager := httpOpts.connectionManager
-	connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
+	if httpOpts.http3Only {
+		connectionManager.CodecType = hcm.HttpConnectionManager_HTTP3
+		connectionManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
+	} else {
+		connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
+	}
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.DelayedCloseTimeout = features.DelayedCloseTimeout
@@ -1326,18 +1337,23 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 }
 
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
+// Optionally for HTTP filters with TLS enabled, HTTP/3 can be supported by generating QUIC Mirror filters for the
+// same port (it is fine as QUIC uses UDP)
 func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirection) *listener.Listener {
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
 	listenerFiltersMap := make(map[string]bool)
 	var listenerFilters []*listener.ListenerFilter
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
+	// (this is not applicable for QUIC listeners)
 	needTLSInspector := false
-	for _, chain := range opts.filterChainOpts {
-		needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
-		if len(chain.sniHosts) > 0 || needsALPN {
-			needTLSInspector = true
-			break
+	if opts.transport == istionetworking.TransportProtocolTCP {
+		for _, chain := range opts.filterChainOpts {
+			needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
+			if len(chain.sniHosts) > 0 || needsALPN {
+				needTLSInspector = true
+				break
+			}
 		}
 	}
 
@@ -1354,12 +1370,14 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	// needed, since we are explicitly setting transport protocol in every single
 	// match. We can do this for outbound as well, at which point this could be
 	// removed, but have not yet
-	if needTLSInspector || (opts.class == ListenerClassSidecarOutbound && opts.needHTTPInspector) {
+	if opts.transport == istionetworking.TransportProtocolTCP &&
+		(needTLSInspector || (opts.class == ListenerClassSidecarOutbound && opts.needHTTPInspector)) {
 		listenerFiltersMap[wellknown.TlsInspector] = true
 		listenerFilters = append(listenerFilters, xdsfilters.TLSInspector)
 	}
 
-	if opts.needHTTPInspector {
+	// TODO: For now we assume that only HTTP/3 is used over QUIC. Revisit this in the future
+	if opts.needHTTPInspector && opts.transport == istionetworking.TransportProtocolTCP {
 		listenerFiltersMap[wellknown.HttpInspector] = true
 		listenerFilters = append(listenerFilters, xdsfilters.HTTPInspector)
 	}
@@ -1410,9 +1428,16 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		if !needMatch && filterChainMatchEmpty(match) {
 			match = nil
 		}
+		var transportSocket *core.TransportSocket
+		switch opts.transport {
+		case istionetworking.TransportProtocolTCP:
+			transportSocket = buildDownstreamTLSTransportSocket(chain.tlsContext)
+		case istionetworking.TransportProtocolQUIC:
+			transportSocket = buildDownstreamQUICTransportSocket(chain.tlsContext)
+		}
 		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
-			TransportSocket:  buildDownstreamTLSTransportSocket(chain.tlsContext),
+			TransportSocket:  transportSocket,
 		})
 	}
 
@@ -1423,27 +1448,50 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		}
 	}
 
-	listener := &listener.Listener{
-		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
-		// doesn't like
-		Name:             opts.bind + "_" + strconv.Itoa(opts.port.Port),
-		Address:          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-		TrafficDirection: trafficDirection,
-		ListenerFilters:  listenerFilters,
-		FilterChains:     filterChains,
-		DeprecatedV1:     deprecatedV1,
-	}
+	var res *listener.Listener
+	switch opts.transport {
+	case istionetworking.TransportProtocolTCP:
+		res = &listener.Listener{
+			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
+			Name:             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection: trafficDirection,
+			ListenerFilters:  listenerFilters,
+			FilterChains:     filterChains,
+			DeprecatedV1:     deprecatedV1,
+		}
 
-	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, listener)
-
-	if opts.proxy.Type != model.Router {
-		listener.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
-		if listener.ListenerFiltersTimeout != nil {
-			listener.ContinueOnListenerFiltersTimeout = true
+		if opts.proxy.Type != model.Router {
+			res.ListenerFiltersTimeout = gogo.DurationToProtoDuration(opts.push.Mesh.ProtocolDetectionTimeout)
+			if res.ListenerFiltersTimeout != nil {
+				res.ContinueOnListenerFiltersTimeout = true
+			}
+		}
+	case istionetworking.TransportProtocolQUIC:
+		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
+		//       mature, refactor some of these to an interface so that they kick off the process
+		//       of building listener, filter chains, serializing etc based on transport protocol
+		listenerName := getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolQUIC)
+		log.Debugf("buildListener: building UDP/QUIC listener %s", listenerName)
+		res = &listener.Listener{
+			Name:             listenerName,
+			Address:          util.BuildNetworkAddress(opts.bind, uint32(opts.port.Port), istionetworking.TransportProtocolQUIC),
+			TrafficDirection: trafficDirection,
+			FilterChains:     filterChains,
+			UdpListenerConfig: &listener.UdpListenerConfig{
+				// TODO: Maybe we should add options in MeshConfig to
+				//       configure QUIC options - it should look similar
+				//       to the H2 protocol options.
+				QuicOptions:            &listener.QuicProtocolOptions{},
+				DownstreamSocketConfig: &core.UdpSocketConfig{},
+			},
+			ReusePort: true,
 		}
 	}
 
-	return listener
+	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res)
+
+	return res
 }
 
 func getMatchAllFilterChain(l *listener.Listener) (int, *listener.FilterChain) {
@@ -1504,6 +1552,9 @@ func (ml *MutableListener) build(opts buildListenerOpts) error {
 			// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
 			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
 			// codec is used by RBAC later.
+			//
+			// Currently, when transport is QUIC we assume HTTP3. So it should not come here.
+			// When other protocols are used over QUIC, we have to revisit this assumption.
 
 			if len(opt.networkFilters) > 0 {
 				// this is the terminating filter
@@ -1519,8 +1570,11 @@ func (ml *MutableListener) build(opts buildListenerOpts) error {
 			}
 			log.Debugf("attached %d network filters to listener %q filter chain %d", len(chain.TCP)+len(opt.networkFilters), ml.Listener.Name, i)
 		} else {
-			// Add the TCP filters first and then the HTTP connection manager
-			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, chain.TCP...)
+			// Add the TCP filters first.. and then the HTTP connection manager.
+			// Skip adding this if transport is not TCP (could be QUIC)
+			if chain.TransportProtocol == istionetworking.TransportProtocolTCP {
+				ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, chain.TCP...)
+			}
 
 			// If statPrefix has been set before calling this method, respect that.
 			if len(opt.httpOpts.statPrefix) == 0 {
@@ -1570,7 +1624,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, listenerOpts buildLi
 				// User is also not allowed to add duplicate ports in the egress listener
 				var newHostname host.Name
 				if listenerOpts.service != nil {
-					newHostname = listenerOpts.service.Hostname
+					newHostname = listenerOpts.service.ClusterLocal.Hostname
 				} else {
 					// user defined outbound listener via sidecar API
 					newHostname = "sidecar-config-egress-tcp-listener"
@@ -1740,7 +1794,24 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 	if tlsContext == nil {
 		return nil
 	}
-	return &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)}}
+	return &core.TransportSocket{
+		Name:       util.EnvoyTLSSocketName,
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)},
+	}
+}
+
+func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *core.TransportSocket {
+	if tlsContext == nil {
+		return nil
+	}
+	return &core.TransportSocket{
+		Name: util.EnvoyQUICSocketName,
+		ConfigType: &core.TransportSocket_TypedConfig{
+			TypedConfig: util.MessageToAny(&envoyquicv3.QuicDownstreamTransport{
+				DownstreamTlsContext: tlsContext,
+			}),
+		},
+	}
 }
 
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {

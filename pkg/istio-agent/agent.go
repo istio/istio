@@ -467,7 +467,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 }
 
 func (a *Agent) initLocalDNSServer() (err error) {
-	// we dont need dns server on gateways
+	// we don't need dns server on gateways
 	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
 		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr); err != nil {
 			return err

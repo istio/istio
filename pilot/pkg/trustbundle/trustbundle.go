@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package trustbundle
 
 import (
@@ -27,7 +28,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-// source is all possible sources of MeshConfig
+// Source is all possible sources of MeshConfig
 type Source int
 
 type TrustAnchorConfig struct {
@@ -76,7 +77,7 @@ func isEqSliceStr(certs1 []string, certs2 []string) bool {
 	return true
 }
 
-// NewTrustBundle: Returns a new trustbundle
+// NewTrustBundle returns a new trustbundle
 func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
 	var err error
 	tb := &TrustBundle{
@@ -150,12 +151,14 @@ func (tb *TrustBundle) mergeInternal() {
 	sort.Strings(tb.mergedCerts)
 }
 
-// UpdateTrustAnchor: External Function to merge a TrustAnchor config with the existing TrustBundle
+// UpdateTrustAnchor : External Function to merge a TrustAnchor config with the existing TrustBundle
 func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error {
 	var ok bool
 	var err error
 
+	tb.mutex.RLock()
 	cachedConfig, ok := tb.sourceConfig[anchorConfig.Source]
+	tb.mutex.RUnlock()
 	if !ok {
 		return fmt.Errorf("invalid source of TrustBundle configuration %v", anchorConfig.Source)
 	}
@@ -172,7 +175,9 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 			return err
 		}
 	}
+	tb.mutex.Lock()
 	tb.sourceConfig[anchorConfig.Source] = anchorConfig.TrustAnchorConfig
+	tb.mutex.Unlock()
 	tb.mergeInternal()
 
 	trustBundleLog.Infof("updating Source %v with certs %v",

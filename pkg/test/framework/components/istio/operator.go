@@ -221,6 +221,16 @@ func (i *operatorComponent) Close() error {
 					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
 					err = multierror.Append(err, e)
 				}
+				// Delete validating and mutating webhook configurations. These can be created outside of generated manifests
+				// when installing with istioctl and must be deleted separately.
+				if e := c.AdmissionregistrationV1().ValidatingWebhookConfigurations().DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
+				if e := c.AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
+					context.Background(), kubeApiMeta.DeleteOptions{}, kubeApiMeta.ListOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
 				return
 			})
 		}
@@ -259,6 +269,7 @@ func (i *operatorComponent) Dump(ctx resource.Context) {
 		return
 	}
 	kube2.DumpPods(ctx, d, ns, []string{})
+	kube2.DumpWebhooks(ctx, d)
 	for _, c := range ctx.Clusters().Kube() {
 		kube2.DumpDebug(ctx, c, d, "configz")
 	}
@@ -347,9 +358,11 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return i, err
 	}
 
-	if ctx.Clusters().IsMulticluster() {
-		// For multicluster, configure direct access so each control plane can get endpoints from all
-		// API servers.
+	if ctx.Clusters().IsMulticluster() && !i.isExternalControlPlane() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all API servers.
+		// TODO: this should be done after installing the remote clusters, but needs to be done before for now,
+		// because in non-external control plane MC, remote clusters are not really istiodless and they install
+		// the gateways right away as part of default profile, which hangs if the control plane isn't responding.
 		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
 			return nil, err
 		}
@@ -368,6 +381,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 	if errs := errG.Wait(); errs != nil {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+	}
+
+	if ctx.Clusters().IsMulticluster() && i.isExternalControlPlane() {
+		// For multicluster, configure direct access so each control plane can get endpoints from all API servers.
+		if err := i.configureDirectAPIServerAccess(ctx, cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	// Configure discovery and gateways for remote clusters.
@@ -405,7 +425,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	if env.IsMultinetwork() {
 		// enable cross network traffic
-		for _, c := range ctx.Clusters().Kube() {
+		for _, c := range ctx.Clusters().Kube().Configs() {
 			if err := i.exposeUserServices(c); err != nil {
 				return nil, err
 			}

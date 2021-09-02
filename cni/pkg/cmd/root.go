@@ -120,6 +120,7 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
+	registerBooleanParameter(constants.CNIEnableReinstall, true, "Whether to reinstall CNI configuration and binary files")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
@@ -213,6 +214,7 @@ func constructConfig() (*config.Config, error) {
 
 		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
 		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
+		CNIEnableReinstall:   viper.GetBool(constants.CNIEnableReinstall),
 
 		LogLevel:           viper.GetString(constants.LogLevel),
 		KubeconfigFilename: viper.GetString(constants.KubeconfigFilename),

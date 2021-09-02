@@ -16,8 +16,6 @@ package client
 
 import (
 	"net"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/miekg/dns"
@@ -32,10 +30,9 @@ type dnsProxy struct {
 	upstreamClient *dns.Client
 	protocol       string
 	resolver       *LocalDNSServer
-	addr           string
 }
 
-func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
+func newDNSProxy(protocol, addr string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	p := &dnsProxy{
 		serveMux: dns.NewServeMux(),
 		server:   &dns.Server{},
@@ -48,15 +45,6 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 		protocol: protocol,
 		resolver: resolver,
 	}
-	addr := resolver.addr
-	if addr == "" {
-		addr = "localhost:15053"
-	}
-	if strings.HasSuffix(addr, ":53") && os.Getuid() != 0 {
-		log.Error("DNS address :53 and not running as root, use default")
-		addr = "localhost:15053"
-	}
-	p.addr = addr
 
 	var err error
 	p.serveMux.Handle(".", p)
@@ -66,6 +54,7 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 	} else {
 		p.server.Listener, err = net.Listen("tcp", addr)
 	}
+	log.Infof("Starting local %s DNS server on %v", p.protocol, addr)
 	if err != nil {
 		log.Errorf("Failed to listen on %s port %s: %v", protocol, addr, err)
 		return nil, err
@@ -74,7 +63,6 @@ func newDNSProxy(protocol string, resolver *LocalDNSServer) (*dnsProxy, error) {
 }
 
 func (p *dnsProxy) start() {
-	log.Infof("Starting local %s DNS server at %s", p.protocol, p.addr)
 	err := p.server.ActivateAndServe()
 	if err != nil {
 		log.Errorf("Local %s DNS server terminated: %v", p.protocol, err)

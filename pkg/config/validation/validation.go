@@ -74,6 +74,12 @@ const (
 	matchPrefix = "prefix:"
 )
 
+const (
+	regionIndex int = iota
+	zoneIndex
+	subZoneIndex
+)
+
 var (
 	// envoy supported retry on header values
 	supportedRetryOnPolicies = map[string]bool{
@@ -1203,7 +1209,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 	}
 
 	if outlier.BaseEjectionTime != nil {
-		errs = appendValidation(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
+		errs = appendValidation(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
 	if outlier.ConsecutiveErrors != 0 {
 		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
@@ -1215,7 +1221,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 		errs = appendValidation(errs, errors.New(err))
 	}
 	if outlier.Interval != nil {
-		errs = appendValidation(errs, ValidateDurationGogo(outlier.Interval))
+		errs = appendValidation(errs, ValidateDuration(outlier.Interval))
 	}
 	errs = appendValidation(errs, ValidatePercent(outlier.MaxEjectionPercent), ValidatePercent(outlier.MinHealthPercent))
 
@@ -1244,7 +1250,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 			errs = appendErrors(errs, fmt.Errorf("max retries must be non-negative"))
 		}
 		if httpSettings.IdleTimeout != nil {
-			errs = appendErrors(errs, ValidateDurationGogo(httpSettings.IdleTimeout))
+			errs = appendErrors(errs, ValidateDuration(httpSettings.IdleTimeout))
 		}
 		if httpSettings.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && httpSettings.UseClientProtocol {
 			errs = appendErrors(errs, fmt.Errorf("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
@@ -1256,7 +1262,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 			errs = appendErrors(errs, fmt.Errorf("max connections must be non-negative"))
 		}
 		if tcp.ConnectTimeout != nil {
-			errs = appendErrors(errs, ValidateDurationGogo(tcp.ConnectTimeout))
+			errs = appendErrors(errs, ValidateDuration(tcp.ConnectTimeout))
 		}
 	}
 
@@ -1365,21 +1371,6 @@ func ValidateProxyAddress(hostAddr string) error {
 		}
 	}
 
-	return nil
-}
-
-// ValidateDurationGogo checks that a gogo proto duration is well-formed
-func ValidateDurationGogo(pd *types.Duration) error {
-	dur, err := types.DurationFromProto(pd)
-	if err != nil {
-		return err
-	}
-	if dur < time.Millisecond {
-		return errors.New("duration must be greater than 1ms")
-	}
-	if dur%time.Millisecond != 0 {
-		return errors.New("only durations to ms precision are supported")
-	}
 	return nil
 }
 
@@ -2621,7 +2612,7 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	if policy.MaxAge != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(policy.MaxAge))
+		errs = appendErrors(errs, ValidateDuration(policy.MaxAge))
 		if policy.MaxAge.Nanos > 0 {
 			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
 		}
@@ -2705,9 +2696,9 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 
 	switch v := delay.HttpDelayType.(type) {
 	case *networking.HTTPFaultInjection_Delay_FixedDelay:
-		errs = appendErrors(errs, ValidateDurationGogo(v.FixedDelay))
+		errs = appendErrors(errs, ValidateDuration(v.FixedDelay))
 	case *networking.HTTPFaultInjection_Delay_ExponentialDelay:
-		errs = appendErrors(errs, ValidateDurationGogo(v.ExponentialDelay))
+		errs = appendErrors(errs, ValidateDuration(v.ExponentialDelay))
 		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
 	}
 
@@ -2770,7 +2761,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	}
 
 	if retries.PerTryTimeout != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
+		errs = appendErrors(errs, ValidateDuration(retries.PerTryTimeout))
 	}
 	if retries.RetryOn != "" {
 		retryOnPolicies := strings.Split(retries.RetryOn, ",")
@@ -3192,7 +3183,7 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 		destLocalities := make([]string, 0)
 		for loc, weight := range locality.To {
 			destLocalities = append(destLocalities, loc)
-			if weight == 0 {
+			if weight <= 0 || weight > 100 {
 				return fmt.Errorf("locality weight must be in range [1, 100]")
 			}
 			totalWeight += weight
@@ -3223,64 +3214,81 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting) error
 
 func validateLocalities(localities []string) error {
 	regionZoneSubZoneMap := map[string]map[string]map[string]bool{}
-
 	for _, locality := range localities {
 		if n := strings.Count(locality, "*"); n > 0 {
 			if n > 1 || !strings.HasSuffix(locality, "*") {
 				return fmt.Errorf("locality %s wildcard '*' number can not exceed 1 and must be in the end", locality)
 			}
 		}
-
-		items := strings.SplitN(locality, "/", 3)
-		for _, item := range items {
-			if item == "" {
-				return fmt.Errorf("locality %s must not contain empty region/zone/subzone info", locality)
-			}
-		}
-		if _, ok := regionZoneSubZoneMap["*"]; ok {
+		if _, exist := regionZoneSubZoneMap["*"]; exist {
 			return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 		}
-		switch len(items) {
-		case 1:
-			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
+
+		region, zone, subZone, localityIndex, err := getLocalityParam(locality)
+		if err != nil {
+			return fmt.Errorf("locality %s must not contain empty region/zone/subzone info", locality)
+		}
+
+		switch localityIndex {
+		case regionIndex:
+			if _, exist := regionZoneSubZoneMap[region]; exist {
 				return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 			}
-			regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{"*": {"*": true}}
-		case 2:
-			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
-				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+			regionZoneSubZoneMap[region] = map[string]map[string]bool{"*": {"*": true}}
+		case zoneIndex:
+			if _, exist := regionZoneSubZoneMap[region]; exist {
+				if _, exist := regionZoneSubZoneMap[region]["*"]; exist {
 					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 				}
-				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
+				if _, exist := regionZoneSubZoneMap[region][zone]; exist {
 					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 				}
-				regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{"*": true}
+				regionZoneSubZoneMap[region][zone] = map[string]bool{"*": true}
 			} else {
-				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {"*": true}}
+				regionZoneSubZoneMap[region] = map[string]map[string]bool{zone: {"*": true}}
 			}
-		case 3:
-			if _, ok := regionZoneSubZoneMap[items[0]]; ok {
-				if _, ok := regionZoneSubZoneMap[items[0]]["*"]; ok {
+		case subZoneIndex:
+			if _, exist := regionZoneSubZoneMap[region]; exist {
+				if _, exist := regionZoneSubZoneMap[region]["*"]; exist {
 					return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 				}
-				if _, ok := regionZoneSubZoneMap[items[0]][items[1]]; ok {
-					if regionZoneSubZoneMap[items[0]][items[1]]["*"] {
+				if _, exist := regionZoneSubZoneMap[region][zone]; exist {
+					if regionZoneSubZoneMap[region][zone]["*"] {
 						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 					}
-					if regionZoneSubZoneMap[items[0]][items[1]][items[2]] {
+					if regionZoneSubZoneMap[region][zone][subZone] {
 						return fmt.Errorf("locality %s overlap with previous specified ones", locality)
 					}
-					regionZoneSubZoneMap[items[0]][items[1]][items[2]] = true
+					regionZoneSubZoneMap[region][zone][subZone] = true
 				} else {
-					regionZoneSubZoneMap[items[0]][items[1]] = map[string]bool{items[2]: true}
+					regionZoneSubZoneMap[region][zone] = map[string]bool{subZone: true}
 				}
 			} else {
-				regionZoneSubZoneMap[items[0]] = map[string]map[string]bool{items[1]: {items[2]: true}}
+				regionZoneSubZoneMap[region] = map[string]map[string]bool{zone: {subZone: true}}
 			}
 		}
 	}
 
 	return nil
+}
+
+func getLocalityParam(locality string) (string, string, string, int, error) {
+	var region, zone, subZone string
+	items := strings.SplitN(locality, "/", 3)
+	for i, item := range items {
+		if item == "" {
+			return "", "", "", -1, errors.New("item is nil")
+		}
+		switch i {
+		case regionIndex:
+			region = items[i]
+		case zoneIndex:
+			zone = items[i]
+		case subZoneIndex:
+			subZone = items[i]
+		}
+	}
+	return region, zone, subZone, len(items) - 1, nil
 }
 
 // ValidateMeshNetworks validates meshnetworks.

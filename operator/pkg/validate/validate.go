@@ -96,6 +96,9 @@ func Validate(validations map[string]ValidatorFunc, structPtr interface{}, path 
 	for i := 0; i < structElems.NumField(); i++ {
 		fieldName := structElems.Type().Field(i).Name
 		fieldValue := structElems.Field(i)
+		if !fieldValue.CanInterface() {
+			continue
+		}
 		kind := structElems.Type().Field(i).Type.Kind()
 		if a, ok := structElems.Type().Field(i).Tag.Lookup("json"); ok && a == "-" {
 			continue

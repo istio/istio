@@ -162,6 +162,7 @@ serviceSettings:
       - "*.myns.svc.cluster.local"
 ingressClass: foo
 enableTracing: false
+trustDomainAliases: ["default", "both"]
 defaultServiceExportTo: 
 - "foo"
 outboundTrafficPolicy:
@@ -188,6 +189,9 @@ defaultConfig:
 	if len(got.ExtensionProviders) != 2 {
 		t.Errorf("extension providers deep merge failed")
 	}
+	if len(got.TrustDomainAliases) != 2 {
+		t.Errorf("trust domain aliases deep merge failed")
+	}
 
 	gotY, err := gogoprotomarshal.ToYAML(got)
 	t.Log("Result: \n", gotY, err)
@@ -213,6 +217,7 @@ extensionProviders:
 - name: stackdriver
   stackdriver:
     maxNumberOfAttributes: 3
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -227,6 +232,7 @@ extensionProviders:
 - name: stackdriver
   stackdriver:
     maxNumberOfAttributes: 3
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -243,6 +249,7 @@ extensionProviders:
 - name: stackdriver
   stackdriver:
     maxNumberOfAnnotations: 5
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -262,6 +269,7 @@ extensionProviders:
 - name: stackdriver-annotations
   stackdriver:
     maxNumberOfAnnotations: 5
+trustDomainAliases: ["both", "default"]
 `,
 		},
 		{
@@ -279,6 +287,24 @@ extensionProviders:
     maxNumberOfAttributes: 3
 - name: prometheus
   prometheus: {}
+trustDomainAliases: ["both", "default"]
+`,
+		},
+		{
+			name: "add trust domain aliases",
+			in: `
+trustDomainAliases: ["added", "both"]`,
+			out: `defaultProviders:
+  metrics:
+  - stackdriver
+extensionProviders:
+- name: stackdriver
+  stackdriver:
+    maxNumberOfAttributes: 3
+trustDomainAliases:
+- added
+- both
+- default
 `,
 		},
 	}
@@ -296,6 +322,7 @@ extensionProviders:
 					},
 				},
 			}}
+			mc.TrustDomainAliases = []string{"default", "both"}
 			res, err := mesh.ApplyMeshConfig(tt.in, mc)
 			if err != nil {
 				t.Fatal(err)
@@ -304,6 +331,7 @@ extensionProviders:
 			minimal := &meshconfig.MeshConfig{}
 			minimal.DefaultProviders = res.DefaultProviders
 			minimal.ExtensionProviders = res.ExtensionProviders
+			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
 			protomarshal.ApplyYAML(tt.out, want)

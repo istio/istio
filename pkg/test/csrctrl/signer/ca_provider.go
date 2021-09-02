@@ -47,9 +47,18 @@ func newCAProvider(signerRoot, signerName string) (*caProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading CA cert file %s: %v", strRoot, err)
 	}
-
+	// Create the new extensions config for the CA
+	caConfig, err := ca.NewIstioConfig("istio-system")
+	if err != nil {
+		return nil, err
+	}
+	intermediateCA, err := ca.NewIntermediate(strRoot, caConfig, caLoader)
+	if err != nil {
+		return nil, err
+	}
 	ret := &caProvider{
-		caLoader: caLoader,
+		caLoader:       caLoader,
+		caIntermediate: intermediateCA,
 	}
 	if err := ret.setCA(); err != nil {
 		return nil, err
@@ -59,13 +68,14 @@ func newCAProvider(signerRoot, signerName string) (*caProvider, error) {
 }
 
 type caProvider struct {
-	caValue  atomic.Value
-	caLoader ca.Root
+	caValue        atomic.Value
+	caLoader       ca.Root
+	caIntermediate ca.Intermediate
 }
 
 // currentCertContent retrieve current certificate content from cert file
 func (p *caProvider) currentCertContent() ([]byte, error) {
-	certBytes, err := ioutil.ReadFile(p.caLoader.CertFile)
+	certBytes, err := ioutil.ReadFile(p.caIntermediate.CertFile)
 	if err != nil {
 		return []byte(""), fmt.Errorf("error reading CA from cert file %s: %v", p.caLoader.CertFile, err)
 	}
@@ -74,7 +84,7 @@ func (p *caProvider) currentCertContent() ([]byte, error) {
 
 // currentKeyContent retrieve current private key content from key file
 func (p *caProvider) currentKeyContent() ([]byte, error) {
-	keyBytes, err := ioutil.ReadFile(p.caLoader.KeyFile)
+	keyBytes, err := ioutil.ReadFile(p.caIntermediate.KeyFile)
 	if err != nil {
 		return []byte(""), fmt.Errorf("error reading private key from key file %s: %v", p.caLoader.KeyFile, err)
 	}

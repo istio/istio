@@ -28,71 +28,12 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
-	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 )
-
-func TestParseResourceName(t *testing.T) {
-	cases := []struct {
-		name             string
-		resource         string
-		defaultNamespace string
-		expected         SecretResource
-		err              bool
-	}{
-		{
-			name:             "simple",
-			resource:         "kubernetes://cert",
-			defaultNamespace: "default",
-			expected: SecretResource{
-				Type:         authnmodel.KubernetesSecretType,
-				Name:         "cert",
-				Namespace:    "default",
-				ResourceName: "kubernetes://cert",
-				Cluster:      "cluster",
-			},
-		},
-		{
-			name:             "with namespace",
-			resource:         "kubernetes://namespace/cert",
-			defaultNamespace: "default",
-			expected: SecretResource{
-				Type:         authnmodel.KubernetesSecretType,
-				Name:         "cert",
-				Namespace:    "namespace",
-				ResourceName: "kubernetes://namespace/cert",
-				Cluster:      "cluster",
-			},
-		},
-		{
-			name:             "plain",
-			resource:         "cert",
-			defaultNamespace: "default",
-			err:              true,
-		},
-		{
-			name:             "non kubernetes",
-			resource:         "vault://cert",
-			defaultNamespace: "default",
-			err:              true,
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseResourceName(tt.resource, tt.defaultNamespace, "cluster")
-			if tt.err != (err != nil) {
-				t.Fatalf("expected err=%v but got err=%v", tt.err, err)
-			}
-			if got != tt.expected {
-				t.Fatalf("want %+v, got %+v", tt.expected, got)
-			}
-		})
-	}
-}
 
 func makeSecret(name string, data map[string]string) *corev1.Secret {
 	bdata := map[string][]byte{}
@@ -307,6 +248,10 @@ func TestGenerate(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.proxy.Metadata == nil {
+				tt.proxy.Metadata = &model.NodeMetadata{}
+			}
+			tt.proxy.Metadata.ClusterID = "Kubernetes"
 			s := NewFakeDiscoveryServer(t, FakeOptions{
 				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertSplit, genericMtlsCertSplitCa},
 			})
@@ -355,8 +300,18 @@ func TestCaching(t *testing.T) {
 	gen := s.Discovery.Generators[v3.SecretType]
 
 	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
-	istiosystem := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router, ConfigNamespace: "istio-system"}
-	otherNamespace := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"}, Type: model.Router, ConfigNamespace: "other-namespace"}
+	istiosystem := &model.Proxy{
+		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
+		Type:             model.Router,
+		ConfigNamespace:  "istio-system",
+	}
+	otherNamespace := &model.Proxy{
+		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
+		VerifiedIdentity: &spiffe.Identity{Namespace: "other-namespace"},
+		Type:             model.Router,
+		ConfigNamespace:  "other-namespace",
+	}
 
 	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), s.PushContext(),
 		&model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)

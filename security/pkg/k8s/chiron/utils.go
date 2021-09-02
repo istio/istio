@@ -193,7 +193,7 @@ func submitCSR(clientset clientset.Interface,
 	csrData []byte, signerName string,
 	usages []certv1.KeyUsage, numRetries int, requestedLifetime time.Duration) (string, *certv1.CertificateSigningRequest,
 	*certv1beta1.CertificateSigningRequest, error) {
-	var err error = fmt.Errorf("unable to submit csr")
+	var lastErr error
 	var useV1 bool = true
 	var csrName string = ""
 	for i := 0; i < numRetries; i++ {
@@ -220,7 +220,9 @@ func submitCSR(clientset clientset.Interface,
 			v1req, err := clientset.CertificatesV1().CertificateSigningRequests().Create(context.TODO(), csr, metav1.CreateOptions{})
 			if err == nil {
 				return csrName, v1req, nil, nil
-			} else if apierrors.IsAlreadyExists(err) {
+			}
+			lastErr = err
+			if apierrors.IsAlreadyExists(err) {
 				csrName = ""
 				continue
 			} else if apierrors.IsNotFound(err) {
@@ -252,12 +254,14 @@ func submitCSR(clientset clientset.Interface,
 		v1beta1req, err := clientset.CertificatesV1beta1().CertificateSigningRequests().Create(context.TODO(), v1beta1csr, metav1.CreateOptions{})
 		if err == nil {
 			return csrName, nil, v1beta1req, nil
-		} else if apierrors.IsAlreadyExists(err) {
+		}
+		lastErr = err
+		if apierrors.IsAlreadyExists(err) {
 			csrName = ""
 		}
 	}
-	log.Errorf("retry attempts exceeded when creating csr request %v: %v", csrName, err)
-	return "", nil, nil, err
+	log.Errorf("retry attempts exceeded when creating csr request %v", csrName)
+	return "", nil, nil, lastErr
 }
 
 func approveCSR(csrName string, csrMsg string, client clientset.Interface,
@@ -300,9 +304,9 @@ func readSignedCertificate(client clientset.Interface, csrName string,
 	certPEM := readSignedCsr(client, csrName, watchTimeout, readInterval, maxNumRead, usev1)
 
 	if len(certPEM) == 0 {
-		return []byte{}, []byte{}, nil
+		return []byte{}, []byte{}, fmt.Errorf("no certificate returned for the CSR: %q", csrName)
 	}
-	certParsed, err := util.ParsePemEncodedCertificate(certPEM)
+	certsParsed, err := util.ParsePemEncodedCertificateChain(certPEM)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decoding certificate failed")
 	}
@@ -322,8 +326,15 @@ func readSignedCertificate(client clientset.Interface, csrName string,
 		if ok := roots.AppendCertsFromPEM(caCert); !ok {
 			return nil, nil, fmt.Errorf("failed to append CA certificate")
 		}
-		_, err = certParsed.Verify(x509.VerifyOptions{
-			Roots: roots,
+		intermediates := x509.NewCertPool()
+		if len(certsParsed) > 1 {
+			for _, cert := range certsParsed[1:] {
+				intermediates.AddCert(cert)
+			}
+		}
+		_, err = certsParsed[0].Verify(x509.VerifyOptions{
+			Roots:         roots,
+			Intermediates: intermediates,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to verify the certificate chain: %v", err)
