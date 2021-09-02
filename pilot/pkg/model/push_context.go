@@ -787,26 +787,36 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
-		for _, wrapper := range sidecars {
-			if wrapper.Sidecar != nil {
-				sidecar := wrapper.Sidecar
-				// if there is no workload selector, the config applies to all workloads
-				// if there is a workload selector, check for matching workload labels
-				if sidecar.GetWorkloadSelector() != nil {
-					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
-					// exclude workload selector that not match
-					if !workloadLabels.IsSupersetOf(workloadSelector) {
-						continue
-					}
+		if proxy.Type == Router {
+			for _, wrapper := range sidecars {
+				// Gateways should just have a default scope with egress: */*
+				if wrapper.Sidecar == nil {
+					return wrapper
 				}
+			}
+		}
+		if proxy.Type == SidecarProxy {
+			for _, wrapper := range sidecars {
+				if wrapper.Sidecar != nil {
+					sidecar := wrapper.Sidecar
+					// if there is no workload selector, the config applies to all workloads
+					// if there is a workload selector, check for matching workload labels
+					if sidecar.GetWorkloadSelector() != nil {
+						workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
+						// exclude workload selector that not match
+						if !workloadLabels.IsSupersetOf(workloadSelector) {
+							continue
+						}
+					}
 
-				// it is guaranteed sidecars with selectors are put in front
-				// and the sidecars are sorted by creation timestamp,
-				// return exact/wildcard matching one directly
+					// it is guaranteed sidecars with selectors are put in front
+					// and the sidecars are sorted by creation timestamp,
+					// return exact/wildcard matching one directly
+					return wrapper
+				}
+				// this happens at last, it is the default sidecar scope
 				return wrapper
 			}
-			// this happens at last, it is the default sidecar scope
-			return wrapper
 		}
 	}
 
