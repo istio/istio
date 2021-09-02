@@ -71,6 +71,7 @@ func TestMain(m *testing.M) {
 func TestClusterLocal(t *testing.T) {
 	framework.NewTest(t).
 		Features("traffic.mcs.servicediscovery").
+		RequireIstioVersion("1.11").
 		Run(func(t framework.TestContext) {
 			// Don't export service B in any cluster. All requests should stay in-cluster.
 
