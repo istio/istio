@@ -369,25 +369,25 @@ func (iptConfigurator *IptablesConfigurator) shortCircuitExcludeInterfaces() {
 	for _, excludeInterface := range split(iptConfigurator.cfg.ExcludeInterfaces) {
 		iptConfigurator.iptables.AppendRuleV4(
 			constants.PREROUTING, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
-		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-o", excludeInterface, "-j", constants.RETURN)
 		if iptConfigurator.cfg.EnableInboundIPv6 {
 			iptConfigurator.iptables.AppendRuleV6(
 				constants.PREROUTING, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
-			iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-o", excludeInterface, "-j", constants.RETURN)
 		}
+
 	}
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 		for _, excludeInterface := range split(iptConfigurator.cfg.ExcludeInterfaces) {
 			iptConfigurator.iptables.AppendRuleV4(
 				constants.PREROUTING, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
-			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE, "-o", excludeInterface, "-j", constants.RETURN)
 
 			if iptConfigurator.cfg.EnableInboundIPv6 {
 				iptConfigurator.iptables.AppendRuleV6(
 					constants.PREROUTING, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
-				iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
+				iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.MANGLE, "-o", excludeInterface, "-j", constants.RETURN)
 			}
-
 		}
 	}
 }
