@@ -20,7 +20,9 @@
     ```
 
     -   All proxies without `REQUESTED_NETWORK_VIEW` set will see all networks. Proxies with `REQUESTED_NETWORK_VIEW` configured will only see the local network plus the ones explicitly defined.
-3. Create separate connectionManager for different filter chains [upstream patch](https://github.com/istio/istio/pull/13955)
+
+3. In some cases, Envoy of ingress gateways doesn't startup as Listeners are not pushed by Pilot. The root cause lies somewhere in `SetServiceInstances` function. We were not able to tell exactly in which conditions and a hack was introduced to return an error on the first request from Envoy, forcing a re-discovery of listeners. We expect this is fixed in newer versions of Istio. See the [Post Mortem](https://docs.google.com/document/d/1x-QcBpl0tGv8IgRwOxstLA6M5hUcGBB0VZsbje8aslM/edit#) for more details.
+4. Create separate connectionManager for different filter chains [upstream patch](https://github.com/istio/istio/pull/13955)
 
 ```shell
 docker build -t 130607246975.dkr.ecr.eu-central-1.amazonaws.com/sre/istio-pilot:1.1.8-patched -f getyourguide/pilot.dockerfile .

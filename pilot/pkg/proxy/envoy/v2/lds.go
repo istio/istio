@@ -26,7 +26,6 @@ import (
 
 func (s *DiscoveryServer) pushLds(con *XdsConnection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
-
 	rawListeners, err := s.generateRawListeners(con, push)
 	if err != nil {
 		return err

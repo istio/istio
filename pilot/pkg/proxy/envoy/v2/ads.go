@@ -17,6 +17,7 @@ package v2
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"sort"
@@ -628,6 +629,26 @@ func (s *DiscoveryServer) initConnectionNode(discReq *xdsapi.DiscoveryRequest, c
 	}
 	if err := nt.SetWorkloadLabels(s.Env); err != nil {
 		return err
+	}
+
+	// In some cases, Envoy of ingress gateways doesn't startup as Listeners are not pushed by Pilot.
+	// The root cause lies somewhere in SetServiceInstances function. We were not able to tell exactly in which
+	// conditions and this hack was introduced to return an error on the first request from Envoy, forcing a
+	// re-discovery of listeners. We expect this is fixed in newer versions of Istio.
+	if nt.Type == model.Router && len(nt.ServiceInstances) > 0 {
+		s.ingressGatewaysMu.Lock()
+		var podID string
+		if con.modelNode != nil {
+			podID = con.modelNode.ID
+		}
+		gwKey := fmt.Sprintf("%s:%s", podID, con.PeerAddr)
+		if !s.ingressGateways[gwKey] {
+			s.ingressGateways[gwKey] = true
+			s.ingressGatewaysMu.Unlock()
+
+			return errors.New("first request requires a hacky re-discovery")
+		}
+		s.ingressGatewaysMu.Unlock()
 	}
 	// If the proxy has no service instances and its a gateway, kill the XDS connection as we cannot
 	// serve any gateway config if we dont know the proxy's service instances
