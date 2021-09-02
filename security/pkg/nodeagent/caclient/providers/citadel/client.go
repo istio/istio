@@ -169,6 +169,9 @@ func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	if strings.Contains(c.opts.CAEndpoint, "localhost") {
 		config.ServerName = "istiod.istio-system.svc"
 	}
+	if c.opts.CAEndpointSAN != "" {
+		config.ServerName = c.opts.CAEndpointSAN
+	}
 
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil

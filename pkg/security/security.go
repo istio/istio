@@ -101,6 +101,9 @@ type Options struct {
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	CAEndpoint string
 
+	// CAEndpointSAN overrides the ServerName extracted from CAEndpoint.
+	CAEndpointSAN string
+
 	// The CA provider name.
 	CAProviderName string
 
