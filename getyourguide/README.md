@@ -20,6 +20,7 @@
     ```
 
     -   All proxies without `REQUESTED_NETWORK_VIEW` set will see all networks. Proxies with `REQUESTED_NETWORK_VIEW` configured will only see the local network plus the ones explicitly defined.
+3. Create separate connectionManager for different filter chains [upstream patch](https://github.com/istio/istio/pull/13955)
 
 ```shell
 docker build -t 130607246975.dkr.ecr.eu-central-1.amazonaws.com/sre/istio-pilot:1.1.8-patched -f getyourguide/pilot.dockerfile .
