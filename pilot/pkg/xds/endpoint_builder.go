@@ -477,8 +477,9 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 		}
 	}
 
-	if envoytransportSocketMetadata(ep.EnvoyEndpoint, model.TLSModeLabelShortname) != model.IstioMutualTLSModeLabel ||
-		c.mtlsDisabledByPeerAuthentication(ep) {
+	// if endpoint has no sidecar or explicitly tls disabled by "security.istio.io/tlsMode" label.
+	if ep.TLSMode != model.IstioMutualTLSModeLabel ||
+		c.mtlsDisabledByPeerAuthentication(ep) { // or tls disabled by PeerAuthentication
 		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
 	}
 }
