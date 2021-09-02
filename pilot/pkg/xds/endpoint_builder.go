@@ -322,8 +322,6 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if ep.EnvoyEndpoint == nil {
 				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep)
 			}
-			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
-
 			// detect if mTLS is possible for this endpoint, used later during ep filtering
 			// this must be done while converting IstioEndpoints because we still have workload labels
 			if b.mtlsChecker != nil {
@@ -338,6 +336,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 					}
 				}
 			}
+			locLbEps.append(ep, ep.EnvoyEndpoint, ep.TunnelAbility)
 		}
 	}
 	shards.mutex.Unlock()
