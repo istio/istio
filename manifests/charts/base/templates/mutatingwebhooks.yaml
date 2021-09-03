@@ -1,16 +1,13 @@
-# Adapted from istio-discovery/templates/mutatingwebhook.yaml
-# Removed paths for legacy and default selectors since a revision tag
-# is inherently created from a specific revision
 {{- define "core" }}
 - name: {{.Prefix}}sidecar-injector.istio.io
   clientConfig:
-    {{- if .Values.istiodRemote.injectionURL }}
-    url: {{ .Values.istiodRemote.injectionURL }}
+    {{- if .injectionURL }}
+    url: "{{ .injectionURL }}"
     {{- else }}
     service:
-      name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+      name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
       namespace: {{ .Release.Namespace }}
-      path: "/inject"
+      path: "{{ .injectionPath }}"
     {{- end }}
     caBundle: ""
   sideEffects: None
@@ -23,25 +20,30 @@
   admissionReviewVersions: ["v1beta1", "v1"]
 {{- end }}
 
+{{- range $tagName, $tag := $.Values.base.tags }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-revision-tag-default
+{{- if eq $.Release.Namespace "istio-system"}}
+  name: istio-revision-tag-{{ $tagName }}
+{{- else }}
+  name: istio-revision-tag-{{ $tagName }}-{{ $.Release.Namespace }}
+{{- end }}
   labels:
-    istio.io/tag: "default"
-    istio.io/rev: {{ .Values.revision | default "default" }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    istio.io/tag: {{ $tagName }}
+    istio.io/rev: {{ $tag.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
     app: sidecar-injector
-    release: {{ .Release.Name }}
+    release: {{ $.Release.Name }}
 webhooks:
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "rev.namespace.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
       operator: In
       values:
-      - "default"
+      - "{{ $tagName }}"
     - key: istio-injection
       operator: DoesNotExist
   objectSelector:
@@ -50,7 +52,7 @@ webhooks:
       operator: NotIn
       values:
       - "false"
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "rev.object.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "rev.object.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio.io/rev
@@ -66,10 +68,14 @@ webhooks:
     - key: istio.io/rev
       operator: In
       values:
-      - "default"
+      - "{{ $tagName }}"
+
+{{- /* When the tag is "default" we want to create webhooks for the default revision */}}
+{{- /* These webhooks should be kept in sync with istio-discovery/templates/mutatingwebhook.yaml */}}
+{{- if (eq $tagName "default") }}
 
 {{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "namespace.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "namespace.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection
@@ -84,7 +90,7 @@ webhooks:
       - "false"
 
 {{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
-{{- include "core" (mergeOverwrite (deepCopy .) (dict "Prefix" "object.") ) }}
+{{- include "core" (mergeOverwrite (deepCopy $) (deepCopy $tag) (dict "Prefix" "object.") ) }}
   namespaceSelector:
     matchExpressions:
     - key: istio-injection
@@ -99,3 +105,6 @@ webhooks:
       - "true"
     - key: istio.io/rev
       operator: DoesNotExist
+{{- end }}
+---
+{{- end }}

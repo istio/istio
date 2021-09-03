@@ -423,7 +423,7 @@ message GlobalConfig {
 
   // Controls whether one external istiod is enabled.
   google.protobuf.BoolValue externalIstiod = 62;
-  
+
   // Controls whether a remote cluster is the config cluster for an external istiod
   google.protobuf.BoolValue configCluster = 64;
 
@@ -1094,7 +1094,13 @@ message BaseConfig {
   string validationURL = 2;
 
   // For istioctl usage to disable istio config crds in base
+  //
+  // Comprised of (1) revision, (2) namespace, (3) validationURL, (4) injectionURL,
+  // and (5) injectionPath.
   google.protobuf.BoolValue enableIstioConfigCRDs = 3;
+
+  // Mapping from revision tags to their corresponding revisions.
+  TypeMapStringInterface tags = 4;
 
 }
 

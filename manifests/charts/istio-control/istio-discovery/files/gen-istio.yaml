@@ -1601,11 +1601,6 @@ spec:
       name: cpu
       targetAverageUtilization: 80
 ---
-# Source: istio-discovery/templates/revision-tags.yaml
-# Adapted from istio-discovery/templates/mutatingwebhook.yaml
-# Removed paths for legacy and default selectors since a revision tag
-# is inherently created from a specific revision
----
 # Source: istio-discovery/templates/telemetryv2_1.10.yaml
 # Note: metadata exchange filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3

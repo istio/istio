@@ -34,10 +34,9 @@ const (
 	IstioTagLabel       = "istio.io/tag"
 	DefaultRevisionName = "default"
 
-	defaultChart            = "default"
-	pilotDiscoveryChart     = "istio-control/istio-discovery"
-	revisionTagTemplateName = "revision-tags.yaml"
-	vwhTemplateName         = "validatingwebhook.yaml"
+	baseChart       = "base"
+	mwhTemplateName = "mutatingwebhooks.yaml"
+	vwhTemplateName = "validatingwebhook.yaml"
 
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 )
@@ -150,17 +149,25 @@ func Create(client kube.ExtendedClient, manifests string) error {
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
 func generateValidatingWebhook(config *tagWebhookConfig, chartPath string) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace)
+	r := helm.NewHelmRenderer(chartPath, baseChart, "Base", config.IstioNamespace)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 
 	values := fmt.Sprintf(`
-revision: %q
 base:
-  validationURL: %s
-`, config.Revision, config.URL)
+  tags:
+    %s:
+      revision: %q
+      validationURL: %q
+      injectionURL: %q
+
+sidecarInjectorWebhook:
+  objectSelector:
+    enabled: true
+    autoInject: true
+`, config.Tag, config.Revision, config.URL, config.URL)
 
 	validatingWebhookYAML, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, vwhTemplateName)
@@ -198,28 +205,28 @@ base:
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
 func generateMutatingWebhook(config *tagWebhookConfig, webhookName, chartPath string) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, pilotDiscoveryChart, "Pilot", config.IstioNamespace)
+	r := helm.NewHelmRenderer(chartPath, baseChart, "Base", config.IstioNamespace)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 
 	values := fmt.Sprintf(`
-revision: %q
-revisionTags:
-  - %s
+base:
+  tags:
+    %s:
+      revision: %q
+      validationURL: %q
+      injectionURL: %q
 
 sidecarInjectorWebhook:
   objectSelector:
     enabled: true
     autoInject: true
-
-istiodRemote:
-  injectionURL: %s
-`, config.Revision, config.Tag, config.URL)
+`, config.Tag, config.Revision, config.URL, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
-		return strings.Contains(tmplName, revisionTagTemplateName)
+		return strings.Contains(tmplName, mwhTemplateName)
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed rendering istio-control manifest: %v", err)
