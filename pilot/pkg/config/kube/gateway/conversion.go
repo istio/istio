@@ -887,7 +887,7 @@ func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
 
 			obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gcs := s.(*k8s.GatewayClassStatus)
-				gcs.Conditions = kstatus.ConditionallyUpdateCondition(gcs.Conditions, metav1.Condition{
+				gcs.Conditions = kstatus.UpdateConditionIfChanged(gcs.Conditions, metav1.Condition{
 					Type:               string(k8s.GatewayClassConditionStatusAdmitted),
 					Status:             kstatus.StatusTrue,
 					ObservedGeneration: obj.Generation,
@@ -992,38 +992,25 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 				reason:  "ListenersValid",
 				message: "Listeners valid",
 			},
-			string(k8s.GatewayConditionScheduled): {
+		}
+		if isManaged(kgw) {
+			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
+				error: &ConfigError{
+					Reason:  "ResourcesPending",
+					Message: "Resources not yet deployed to the cluster",
+				},
+				setOnce: true,
+			}
+		} else {
+			gatewayConditions[string(k8s.GatewayConditionScheduled)] = &condition{
 				reason:  "ResourcesAvailable",
 				message: "Resources available",
-			},
+			}
 		}
 		servers := []*istio.Server{}
 
 		// Extract the addresses. A gateway will bind to a specific Service
-		gatewayServices := []string{}
-		skippedAddresses := []string{}
-		for _, addr := range kgw.Addresses {
-			if addr.Type != nil && *addr.Type != k8s.HostnameAddressType {
-				// We only support HostnameAddressType. Keep track of invalid ones so we can report in status.
-				skippedAddresses = append(skippedAddresses, addr.Value)
-				continue
-			}
-			// TODO: For now we are using Addresses. There has been some discussion of allowing inline
-			// parameters on the class field like a URL, in which case we will probably just use that. See
-			// https://github.com/kubernetes-sigs/gateway-api/pull/614
-			fqdn := addr.Value
-			if !strings.Contains(fqdn, ".") {
-				// Short name, expand it
-				fqdn = fmt.Sprintf("%s.%s.svc.%s", fqdn, obj.Namespace, r.Domain)
-			}
-			gatewayServices = append(gatewayServices, fqdn)
-		}
-		if len(kgw.Addresses) == 0 {
-			// If nothing is defined, setup a default
-			// TODO: set default in GatewayClass instead?
-			// TODO: maybe we only have a default when obj.Namespace == SystemNamespace?
-			gatewayServices = []string{fmt.Sprintf("istio-ingressgateway.%s.svc.%s", obj.Namespace, r.Domain)}
-		}
+		gatewayServices, skippedAddresses := extractGatewayServices(r, kgw, obj)
 		invalidListeners := []k8s.SectionName{}
 		for i, l := range kgw.Listeners {
 			i := i
@@ -1127,6 +1114,35 @@ func convertGateways(r *KubernetesResources) ([]config.Config, map[parentKey]map
 		},
 	}
 	return result, gwMap, namespaceLabelReferences
+}
+
+func isManaged(gw *k8s.GatewaySpec) bool {
+	return len(gw.Addresses) == 0
+}
+
+func extractGatewayServices(r *KubernetesResources, kgw *k8s.GatewaySpec, obj config.Config) ([]string, []string) {
+	if isManaged(kgw) {
+		return []string{fmt.Sprintf("%s.%s.svc.%v", obj.Name, obj.Namespace, r.Domain)}, nil
+	}
+	gatewayServices := []string{}
+	skippedAddresses := []string{}
+	for _, addr := range kgw.Addresses {
+		if addr.Type != nil && *addr.Type != k8s.HostnameAddressType {
+			// We only support HostnameAddressType. Keep track of invalid ones so we can report in status.
+			skippedAddresses = append(skippedAddresses, addr.Value)
+			continue
+		}
+		// TODO: For now we are using Addresses. There has been some discussion of allowing inline
+		// parameters on the class field like a URL, in which case we will probably just use that. See
+		// https://github.com/kubernetes-sigs/gateway-api/pull/614
+		fqdn := addr.Value
+		if !strings.Contains(fqdn, ".") {
+			// Short name, expand it
+			fqdn = fmt.Sprintf("%s.%s.svc.%s", fqdn, obj.Namespace, r.Domain)
+		}
+		gatewayServices = append(gatewayServices, fqdn)
+	}
+	return gatewayServices, skippedAddresses
 }
 
 // getNamespaceLabelReferences fetches all label keys used in namespace selectors. Return order may not be stable.

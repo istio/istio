@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
 
@@ -163,10 +164,11 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayController, s.kubeClient.Kube()).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayStatusController, s.kubeClient.Kube()).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting gateway status writer")
 					gwc.SetStatusWrite(true)
+
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
 						Full:   true,
@@ -179,6 +181,27 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 				Run(stop)
 			return nil
 		})
+		if features.EnableGatewayAPIDeploymentController {
+			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+				leaderelection.
+					NewLeaderElection(args.Namespace, args.PodName, leaderelection.GatewayDeploymentController, s.kubeClient.Kube()).
+					AddRunFunction(func(leaderStop <-chan struct{}) {
+						// We can only run this if the Gateway CRD is created
+						if crdclient.WaitForCRD(gvk.KubernetesGateway, leaderStop) {
+							controller := gateway.NewDeploymentController(s.kubeClient)
+							// Start informers again. This fixes the case where informers for namespace do not start,
+							// as we create them only after acquiring the leader lock
+							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+							// basically lazy loading the informer, if we stop it when we lose the lock we will never
+							// recreate it again.
+							s.kubeClient.RunAndWait(stop)
+							controller.Run(leaderStop)
+						}
+					}).
+					Run(stop)
+				return nil
+			})
+		}
 	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {

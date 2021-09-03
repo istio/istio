@@ -36,6 +36,19 @@ rules:
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "workloadentries/status" ]
 
+  # gateway controller
+{{- if not (eq (toString .Values.pilot.env.PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER) "false") }}
+  - apiGroups: ["apps"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "deployments" ]
+  - apiGroups: [""]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "services" ]
+  - apiGroups: ["multicluster.x-k8s.io"]
+    resources: ["serviceexports"]
+    verbs: ["get", "watch", "list", "update", "patch", "create", "delete"]
+{{- end }}
+
   # auto-detect installed CRD definitions
   - apiGroups: ["apiextensions.k8s.io"]
     resources: ["customresourcedefinitions"]
@@ -100,7 +113,7 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
     resources: ["*"] # TODO: should be on just */status but wildcard is not supported
-    verbs: ["update"]
+    verbs: ["update", "patch"]
 
   # Needed for multicluster secret reading, possibly ingress certs in the future
   - apiGroups: [""]
@@ -110,7 +123,7 @@ rules:
   # Used for MCS serviceexport management
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceexports"]
-    verbs: ["get", "watch", "list", "create", "delete"]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
 
   # Used for MCS serviceimport management
   - apiGroups: ["multicluster.x-k8s.io"]
