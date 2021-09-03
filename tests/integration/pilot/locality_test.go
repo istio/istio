@@ -111,6 +111,14 @@ func TestLocality(t *testing.T) {
 		Features("traffic.locality").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			destA := apps.PodB[0]
+			destB := apps.PodC[0]
+			destC := apps.Naked[0]
+			if !t.Settings().SkipVM {
+				// TODO do we even need this to be a VM
+				destC = apps.VM[0]
+			}
+
 			cases := []struct {
 				name     string
 				input    LocalityInput
@@ -121,20 +129,20 @@ func TestLocality(t *testing.T) {
 					LocalityInput{
 						LocalitySetting: localityFailover,
 						Resolution:      "DNS",
-						Local:           common.PodBSvc,
-						Remote:          common.PodCSvc,
+						Local:           destA.Config().Service,
+						Remote:          destB.Config().Service,
 					},
-					expectAllTrafficTo(common.PodBSvc),
+					expectAllTrafficTo(destA.Config().Service),
 				},
 				{
 					"Prioritized/EDS",
 					LocalityInput{
 						LocalitySetting: localityFailover,
 						Resolution:      "STATIC",
-						Local:           apps.PodC[0].Address(),
-						Remote:          apps.PodB[0].Address(),
+						Local:           destB.Address(),
+						Remote:          destA.Address(),
 					},
-					expectAllTrafficTo(common.PodCSvc),
+					expectAllTrafficTo(destB.Config().Service),
 				},
 				{
 					"Failover/CDS",
@@ -142,10 +150,10 @@ func TestLocality(t *testing.T) {
 						LocalitySetting: localityFailover,
 						Resolution:      "DNS",
 						Local:           "fake-should-fail.example.com",
-						NearLocal:       common.PodBSvc,
-						Remote:          common.PodCSvc,
+						NearLocal:       destA.Config().Service,
+						Remote:          destB.Config().Service,
 					},
-					expectAllTrafficTo(common.PodBSvc),
+					expectAllTrafficTo(destA.Config().Service),
 				},
 				{
 					"Failover/EDS",
@@ -153,34 +161,34 @@ func TestLocality(t *testing.T) {
 						LocalitySetting: localityFailover,
 						Resolution:      "STATIC",
 						Local:           "10.10.10.10",
-						NearLocal:       apps.PodC[0].Address(),
-						Remote:          apps.PodB[0].Address(),
+						NearLocal:       destB.Address(),
+						Remote:          destA.Address(),
 					},
-					expectAllTrafficTo(common.PodCSvc),
+					expectAllTrafficTo(destB.Config().Service),
 				},
 				{
 					"FailoverPriority/EDS",
 					LocalityInput{
 						LocalitySetting: failoverPriority,
 						Resolution:      "STATIC",
-						Local:           apps.PodB[0].Address(),
-						NearLocal:       apps.PodC[0].Address(),
-						Remote:          apps.VM[0].Address(),
+						Local:           destA.Address(),
+						NearLocal:       destB.Address(),
+						Remote:          destC.Address(),
 					},
-					expectAllTrafficTo(common.PodBSvc),
+					expectAllTrafficTo(destA.Config().Service),
 				},
 				{
 					"Distribute/CDS",
 					LocalityInput{
 						LocalitySetting: localityDistribute,
 						Resolution:      "DNS",
-						Local:           common.PodCSvc,
-						NearLocal:       common.PodBSvc,
+						Local:           destB.Config().Service,
+						NearLocal:       destA.Config().Service,
 						Remote:          "fake-should-fail.example.com",
 					},
 					map[string]int{
-						common.PodBSvc: sendCount * .8,
-						common.PodCSvc: sendCount * .2,
+						destA.Config().Service: sendCount * .8,
+						destB.Config().Service: sendCount * .2,
 					},
 				},
 				{
@@ -188,13 +196,13 @@ func TestLocality(t *testing.T) {
 					LocalityInput{
 						LocalitySetting: localityDistribute,
 						Resolution:      "STATIC",
-						Local:           apps.PodB[0].Address(),
-						NearLocal:       apps.PodC[0].Address(),
+						Local:           destA.Address(),
+						NearLocal:       destB.Address(),
 						Remote:          "10.10.10.10",
 					},
 					map[string]int{
-						common.PodCSvc: sendCount * .8,
-						common.PodBSvc: sendCount * .2,
+						destB.Config().Service: sendCount * .8,
+						destA.Config().Service: sendCount * .2,
 					},
 				},
 			}
