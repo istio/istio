@@ -60,6 +60,14 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
+var blackholeCluster = &cluster.Cluster{
+	Name:                 util.BlackHoleCluster,
+	ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+	// We can just hard code this as it is not relevant for traffic.
+	ConnectTimeout: gogo.DurationToProtoDuration(&types.Duration{Seconds: 1}),
+	LbPolicy:       cluster.Cluster_ROUND_ROBIN,
+}
+
 // h2UpgradeMap specifies the truth table when upgrade takes place.
 var h2UpgradeMap = map[upgradeTuple]bool{
 	{meshconfig.MeshConfig_DO_NOT_UPGRADE, networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}:        true,
@@ -662,13 +670,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 // generates a cluster that sends traffic to dummy localport 0
 // This cluster is used to catch all traffic to unresolved destinations in virtual service
 func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
-	c := &cluster.Cluster{
-		Name:                 util.BlackHoleCluster,
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       gogo.DurationToProtoDuration(cb.req.Push.Mesh.ConnectTimeout),
-		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
-	}
-	return c
+	return blackholeCluster
 }
 
 // generates a cluster that sends traffic to the original destination.
