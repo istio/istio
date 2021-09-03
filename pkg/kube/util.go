@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 
 	//  allow out of cluster authentication
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -143,12 +142,6 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 	}
 	if len(config.ContentType) == 0 {
 		config.ContentType = runtime.ContentTypeJSON
-	}
-	if config.NegotiatedSerializer == nil {
-		// This codec factory ensures the resources are not converted. Therefore, resources
-		// will not be round-tripped through internal versions. Defaulting does not happen
-		// on the client.
-		config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 	}
 	if len(config.UserAgent) == 0 {
 		config.UserAgent = IstioUserAgent()
