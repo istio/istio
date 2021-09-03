@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** a bug using Service's pointer address to get its instances in case that a sidecar's egress listener has por.
