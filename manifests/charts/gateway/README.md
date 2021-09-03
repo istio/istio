@@ -76,6 +76,7 @@ istio: gateway # the release name with leading istio- prefix stripped
 
 If your existing installation doesn't follow these names, you can override them. For example, if you have resources named `my-custom-gateway` with `selector` labels
 `foo=bar,istio=ingressgateway`:
+
 ```yaml
 name: my-custom-gateway # Override the name to match existing resources
 labels:
