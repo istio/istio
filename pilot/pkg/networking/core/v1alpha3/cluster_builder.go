@@ -64,7 +64,7 @@ var blackholeCluster = &cluster.Cluster{
 	Name:                 util.BlackHoleCluster,
 	ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 	// We can just hard code this as it is not relevant for traffic.
-	ConnectTimeout: gogo.DurationToProtoDuration(&types.Duration{Seconds: 1}),
+	ConnectTimeout: gogo.DurationToProtoDuration(&types.Duration{Seconds: 10}),
 	LbPolicy:       cluster.Cluster_ROUND_ROBIN,
 }
 
