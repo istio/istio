@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 34929
+
+releaseNotes:
+  - |
+    **Fixed** a bug in "image: auto" analyzer causing it to fail to take into account Deployment namespace.
