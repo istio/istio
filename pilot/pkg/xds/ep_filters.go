@@ -226,13 +226,3 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocLbEndpointsAnd
 
 	return filtered
 }
-
-func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {
-	if ep.Metadata != nil &&
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] != nil &&
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields != nil &&
-		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] != nil {
-		return ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key].GetStringValue()
-	}
-	return ""
-}

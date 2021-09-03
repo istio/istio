@@ -328,7 +328,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 				b.mtlsChecker.computeForEndpoint(ep)
 				if features.EnableAutomTLSCheckPolicies {
 					tlsMode := ep.TLSMode
-					if b.mtlsChecker != nil && b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
+					if b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
 						tlsMode = ""
 					}
 					if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
@@ -463,8 +463,7 @@ func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
 	return ok
 }
 
-// computeForEndpoint checks destination rule, peer authentication and metadata to determine if mTLS was turned off.
-// This must be done during conversion from IstioEndpoint since we still have workload metadata.
+// computeForEndpoint checks destination rule, peer authentication and tls mode labels to determine if mTLS was turned off.
 func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	if drMode := c.mtlsModeForDestinationRule(ep); drMode != nil {
 		switch *drMode {
@@ -478,23 +477,28 @@ func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
 	}
 
 	// if endpoint has no sidecar or explicitly tls disabled by "security.istio.io/tlsMode" label.
-	if ep.TLSMode != model.IstioMutualTLSModeLabel ||
-		c.mtlsDisabledByPeerAuthentication(ep) { // or tls disabled by PeerAuthentication
+	if ep.TLSMode != model.IstioMutualTLSModeLabel {
+		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
+		return
+	}
+
+	mtlsDisabledByPeerAuthentication := func(ep *model.IstioEndpoint) bool {
+		// apply any matching peer authentications
+		peerAuthnKey := ep.Labels.String() + ":" + strconv.Itoa(int(ep.EndpointPort))
+		if value, ok := c.peerAuthDisabledMTLS[peerAuthnKey]; ok {
+			// avoid recomputing since most EPs will have the same labels/port
+			return value
+		}
+		c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
+			NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
+			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
+		return c.peerAuthDisabledMTLS[peerAuthnKey]
+	}
+
+	//  mtls disabled by PeerAuthentication
+	if mtlsDisabledByPeerAuthentication(ep) {
 		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
 	}
-}
-
-func (c *mtlsChecker) mtlsDisabledByPeerAuthentication(ep *model.IstioEndpoint) bool {
-	// apply any matching peer authentications
-	peerAuthnKey := ep.Labels.String() + ":" + strconv.Itoa(int(ep.EndpointPort))
-	if value, ok := c.peerAuthDisabledMTLS[peerAuthnKey]; ok {
-		// avoid recomputing since most EPs will have the same labels/port
-		return value
-	}
-	c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
-		NewPolicyApplier(c.push, ep.Namespace, labels.Collection{ep.Labels}).
-		GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
-	return c.peerAuthDisabledMTLS[peerAuthnKey]
 }
 
 func (c *mtlsChecker) mtlsModeForDestinationRule(ep *model.IstioEndpoint) *networkingapi.ClientTLSSettings_TLSmode {
