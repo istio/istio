@@ -273,7 +273,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 	}, env.PushContext, &model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
 	tcp := &tcp.TcpProxy{}
 	listeners[0].GetTypedConfig().UnmarshalTo(tcp)
-	if tcp.HashPolicy == nil || tcp.HashPolicy[0].GetSourceIp() == nil {
+	if len(tcp.HashPolicy) != 1 || tcp.HashPolicy[0].GetSourceIp() == nil {
 		t.Fatalf("Expected SourceIp hash policy, but could not find")
 	}
 }
