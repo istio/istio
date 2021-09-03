@@ -17,6 +17,7 @@ podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/path: "/stats/prometheus"
   inject.istio.io/templates: "gateway"
+  sidecar.istio.io/inject: "true"
 
 # Whether to run the gateway in a privileged container
 runAsRoot: false

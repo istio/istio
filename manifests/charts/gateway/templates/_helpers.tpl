@@ -27,8 +27,20 @@ app.kubernetes.io/name: {{ include "gateway.name" . }}
 {{- end }}
 
 {{- define "gateway.selectorLabels" -}}
-app: {{ .Values.labels.app | default (include "gateway.name" .) }}
-istio: {{ .Values.labels.istio | default (include "gateway.name" . | trimPrefix "istio-") }}
+{{- if hasKey .Values.labels "app" }}
+{{- with .Values.labels.app }}
+app: {{.|quote}}
+{{- end}}
+{{- else }}
+app: {{ include "gateway.name" . }}
+{{- end }}
+{{- if hasKey .Values.labels "istio" }}
+{{- with .Values.labels.istio }}
+istio: {{.|quote}}
+{{- end}}
+{{- else }}
+istio: {{ include "gateway.name" . | trimPrefix "istio-" }}
+{{- end }}
 {{- end }}
 
 {{- define "gateway.serviceAccountName" -}}
