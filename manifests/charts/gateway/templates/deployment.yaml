@@ -4,9 +4,9 @@ metadata:
   name: {{ include "gateway.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "gateway.labels" . | nindent 4 }}
+    {{- include "gateway.labels" . | nindent 4}}
   annotations:
-    {{- include "gateway.annotations" . | nindent 4 }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}

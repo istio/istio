@@ -20,22 +20,15 @@ helm.sh/chart: {{ include "gateway.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/name: {{ include "gateway.name" . }}
 {{- range $key, $val := .Values.labels }}
 {{ $key }}: {{ $val | quote }}
 {{- end }}
 {{- end }}
 
 {{- define "gateway.selectorLabels" -}}
-app: {{ include "gateway.name" . }}
-istio: {{ (include "gateway.name" .) | trimPrefix "istio-" }}
-app.kubernetes.io/name: {{ include "gateway.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{- define "gateway.annotations" -}}
-{{- range $key, $val := .Values.annotations }}
-{{ $key }}: {{ $val | quote }}
-{{- end }}
+app: {{ .Values.labels.app | default (include "gateway.name" .) }}
+istio: {{ .Values.labels.istio | default (include "gateway.name" . | trimPrefix "istio-") }}
 {{- end }}
 
 {{- define "gateway.serviceAccountName" -}}
