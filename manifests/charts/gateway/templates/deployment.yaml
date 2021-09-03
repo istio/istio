@@ -56,6 +56,10 @@ spec:
           - name: ISTIO_META_UNPRIVILEGED_POD
             value: "true"
           {{- end }}
+          {{- with .Values.networkGateway }}
+          - name: ISTIO_META_REQUESTED_NETWORK_VIEW
+            value: "{{.}}"
+          {{- end }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
             value: {{ $val }}
