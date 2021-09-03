@@ -1292,7 +1292,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
-	env := buildListenerEnvWithVirtualServices(services, virtualServices)
+	env := buildListenerEnvWithAdditionalConfig(services, virtualServices, nil)
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("failed to initialize push context")

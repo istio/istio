@@ -22,6 +22,7 @@ import (
 	mysql "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mysql_proxy/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	hashpolicy "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -69,16 +70,23 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy
 // buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
 // and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, node *model.Proxy,
-	statPrefix, clusterName string, port *model.Port) []*listener.Filter {
+	statPrefix, clusterName string, port *model.Port, destinationRule *networking.DestinationRule) []*listener.Filter {
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-		// TODO: Need to set other fields such as Idle timeouts
 	}
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
 	if err == nil {
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+	}
+
+	// If destinationrule has consistent hash source ip set, use it for tcp proxy.
+	if destinationRule != nil && destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() != nil &&
+		destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash().GetUseSourceIp() {
+		tcpProxy.HashPolicy = []*hashpolicy.HashPolicy{{PolicySpecifier: &hashpolicy.HashPolicy_SourceIp_{
+			SourceIp: &hashpolicy.HashPolicy_SourceIp{},
+		}}}
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
@@ -97,7 +105,6 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	proxyConfig := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: clusterSpecifier,
-		// TODO: Need to set other fields such as Idle timeouts
 	}
 
 	idleTimeout, err := time.ParseDuration(node.Metadata.IdleTimeout)
@@ -167,7 +174,9 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, routes[0].Destination.Host,
 				routes[0].Destination.Subset, port, &service.Attributes)
 		}
-		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, port)
+		destRule := push.DestinationRule(node, service)
+		destinationRule := CastDestinationRule(destRule)
+		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, port, destinationRule)
 	}
 	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta)
 }
@@ -195,7 +204,7 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 func buildOutboundAutoPassthroughFilterStack(push *model.PushContext, node *model.Proxy, port *model.Port) []*listener.Filter {
 	// First build tcp with access logs
 	// then add sni_cluster to the front
-	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster, port)
+	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster, port, nil)
 	filterstack := make([]*listener.Filter, 0)
 	filterstack = append(filterstack, &listener.Filter{
 		Name: util.SniClusterFilter,

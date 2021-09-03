@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 )
 
 func TestBuildRedisFilter(t *testing.T) {
@@ -221,5 +222,58 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
 			}
 		})
+	}
+}
+
+func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
+	services := []*model.Service{
+		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+	}
+
+	destinationRuleSpec := &networking.DestinationRule{
+		Host: "test.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp{UseSourceIp: true},
+					},
+				},
+			},
+		},
+	}
+
+	destinationRule := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme-v3",
+			Namespace:        "not-default",
+		},
+		Spec: destinationRuleSpec,
+	}
+
+	destinationRules := []*config.Config{&destinationRule}
+
+	env := buildListenerEnvWithAdditionalConfig(services, nil, destinationRules)
+	env.PushContext.InitContext(env, nil, nil)
+
+	proxy := getProxy()
+	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+
+	listeners := buildOutboundNetworkFilters(proxy, []*networking.RouteDestination{
+		{
+			Destination: &networking.Destination{
+				Host: "test.com",
+				Port: &networking.PortSelector{
+					Number: 9999,
+				},
+			},
+		},
+	}, env.PushContext, &model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
+	tcp := &tcp.TcpProxy{}
+	listeners[0].GetTypedConfig().UnmarshalTo(tcp)
+	if tcp.HashPolicy == nil || tcp.HashPolicy[0].GetSourceIp() == nil {
+		t.Fatalf("Expected SourceIp hash policy, but could not find")
 	}
 }
