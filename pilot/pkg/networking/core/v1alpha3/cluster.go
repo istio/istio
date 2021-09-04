@@ -215,8 +215,9 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		service:         service,
 		destinationRule: cb.req.Push.DestinationRule(proxy, service),
 		envoyFilterKeys: efKeys,
-		pushVersion:     cb.req.Push.PushVersion,
 		metadataCerts:   cb.metadataCerts,
+		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
+		serviceAccounts: cb.req.Push.ServiceAccounts[service.ClusterLocal.Hostname][port.Port],
 	}
 	return clusterKey
 }
@@ -257,7 +258,8 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 					string(service.ClusterLocal.Hostname), "", port, &service.Attributes)
 			}
 
-			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, clusterKey.networkView, clusterKey.destinationRule)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
+				clusterKey.networkView, clusterKey.destinationRule, clusterKey.serviceAccounts)
 
 			if patched := cp.applyResource(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
@@ -351,7 +353,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			if defaultCluster == nil {
 				continue
 			}
-			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule)
+			subsetClusters := cb.applyDestinationRule(defaultCluster, SniDnatClusterMode, service, port, networkView, destRule, nil)
 			clusters = cp.conditionallyAppend(clusters, nil, defaultCluster.build())
 			clusters = cp.conditionallyAppend(clusters, nil, subsetClusters...)
 		}
