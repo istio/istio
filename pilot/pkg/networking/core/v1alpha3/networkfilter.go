@@ -70,7 +70,7 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy
 // buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
 // and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, node *model.Proxy,
-	statPrefix, clusterName string, port *model.Port, destinationRule *networking.DestinationRule) []*listener.Filter {
+	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule) []*listener.Filter {
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
@@ -81,12 +81,31 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
 	}
 
-	// If destinationrule has consistent hash source ip set, use it for tcp proxy.
-	if destinationRule != nil && destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() != nil &&
-		destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash().GetUseSourceIp() {
-		tcpProxy.HashPolicy = []*hashpolicy.HashPolicy{{PolicySpecifier: &hashpolicy.HashPolicy_SourceIp_{
-			SourceIp: &hashpolicy.HashPolicy_SourceIp{},
-		}}}
+	if destinationRule != nil {
+		useSourceIp := destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() != nil &&
+			destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash().GetUseSourceIp()
+
+		for _, subset := range destinationRule.Subsets {
+			if subset.Name != subsetName {
+				continue
+			}
+			// If subset has load balancer - see if it is also consistent hash source IP
+			if subset.TrafficPolicy != nil && subset.TrafficPolicy.LoadBalancer != nil {
+				if subset.TrafficPolicy.LoadBalancer.GetConsistentHash() != nil {
+					useSourceIp = subset.TrafficPolicy.LoadBalancer.GetConsistentHash().GetUseSourceIp()
+				} else {
+					// This means that subset has defined non sourceIP consistent hash load balancer.
+					useSourceIp = false
+				}
+			}
+			break
+		}
+		// If destinationrule has consistent hash source ip set, use it for tcp proxy.
+		if useSourceIp {
+			tcpProxy.HashPolicy = []*hashpolicy.HashPolicy{{PolicySpecifier: &hashpolicy.HashPolicy_SourceIp_{
+				SourceIp: &hashpolicy.HashPolicy_SourceIp{},
+			}}}
+		}
 	}
 
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
@@ -176,7 +195,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 		}
 		destRule := push.DestinationRule(node, service)
 		destinationRule := CastDestinationRule(destRule)
-		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, port, destinationRule)
+		return buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule)
 	}
 	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta)
 }
@@ -204,7 +223,7 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 func buildOutboundAutoPassthroughFilterStack(push *model.PushContext, node *model.Proxy, port *model.Port) []*listener.Filter {
 	// First build tcp with access logs
 	// then add sni_cluster to the front
-	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster, port, nil)
+	tcpProxy := buildOutboundNetworkFiltersWithSingleDestination(push, node, util.BlackHoleCluster, util.BlackHoleCluster, "", port, nil)
 	filterstack := make([]*listener.Filter, 0)
 	filterstack = append(filterstack, &listener.Filter{
 		Name: util.SniClusterFilter,

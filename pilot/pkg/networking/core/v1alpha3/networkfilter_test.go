@@ -228,6 +228,27 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 	services := []*model.Service{
 		buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+		buildService("testsimple.com", "10.10.0.0/24", protocol.TCP, tnow),
+		buildService("subsettest.com", "10.10.0.0/24", protocol.TCP, tnow),
+		buildService("subsettestdifferent.com", "10.10.0.0/24", protocol.TCP, tnow),
+	}
+
+	simpleDestinationRuleSpec := &networking.DestinationRule{
+		Host: "testsimple.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_Simple{},
+			},
+		},
+	}
+
+	simpleDestinationRule := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme-v3-0",
+			Namespace:        "not-default",
+		},
+		Spec: simpleDestinationRuleSpec,
 	}
 
 	destinationRuleSpec := &networking.DestinationRule{
@@ -246,13 +267,69 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 	destinationRule := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
-			Name:             "acme-v3",
+			Name:             "acme-v3-1",
 			Namespace:        "not-default",
 		},
 		Spec: destinationRuleSpec,
 	}
 
-	destinationRules := []*config.Config{&destinationRule}
+	subsetdestinationRuleSpec := &networking.DestinationRule{
+		Host: "subsettest.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp{UseSourceIp: true},
+					},
+				},
+			},
+		},
+		Subsets: []*networking.Subset{{Name: "v1", Labels: map[string]string{"version": "v1"}}},
+	}
+
+	subsetdestinationRule := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme-v3-2",
+			Namespace:        "not-default",
+		},
+		Spec: subsetdestinationRuleSpec,
+	}
+
+	subsetdestinationRuleDifferentSpec := &networking.DestinationRule{
+		Host: "subsettestdifferent.com",
+		TrafficPolicy: &networking.TrafficPolicy{
+			LoadBalancer: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_UseSourceIp{UseSourceIp: true},
+					},
+				},
+			},
+		},
+		Subsets: []*networking.Subset{
+			{
+				Name:   "v1",
+				Labels: map[string]string{"version": "v1"},
+				TrafficPolicy: &networking.TrafficPolicy{
+					LoadBalancer: &networking.LoadBalancerSettings{
+						LbPolicy: &networking.LoadBalancerSettings_Simple{},
+					},
+				},
+			},
+		},
+	}
+
+	subsetDifferentdestinationRule := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+			Name:             "acme-v3-3",
+			Namespace:        "not-default",
+		},
+		Spec: subsetdestinationRuleDifferentSpec,
+	}
+
+	destinationRules := []*config.Config{&destinationRule, &simpleDestinationRule, &subsetdestinationRule, &subsetDifferentdestinationRule}
 
 	env := buildListenerEnvWithAdditionalConfig(services, nil, destinationRules)
 	env.PushContext.InitContext(env, nil, nil)
@@ -260,20 +337,85 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 	proxy := getProxy()
 	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-
-	listeners := buildOutboundNetworkFilters(proxy, []*networking.RouteDestination{
+	cases := []struct {
+		name        string
+		routes      []*networking.RouteDestination
+		configMeta  config.Meta
+		useSourceIp bool
+	}{
 		{
-			Destination: &networking.Destination{
-				Host: "test.com",
-				Port: &networking.PortSelector{
-					Number: 9999,
+			"destination rule without sourceip",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "testsimple.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+					},
 				},
 			},
+			config.Meta{Name: "testsimple.com", Namespace: "ns"},
+			false,
 		},
-	}, env.PushContext, &model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
-	tcp := &tcp.TcpProxy{}
-	listeners[0].GetTypedConfig().UnmarshalTo(tcp)
-	if len(tcp.HashPolicy) != 1 || tcp.HashPolicy[0].GetSourceIp() == nil {
-		t.Fatalf("Expected SourceIp hash policy, but could not find")
+		{
+			"destination rule has sourceip",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "test.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+					},
+				},
+			},
+			config.Meta{Name: "test.com", Namespace: "ns"},
+			true,
+		},
+		{
+			"subset destination rule does not have traffic policy",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "subsettest.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+						Subset: "v1",
+					},
+				},
+			},
+			config.Meta{Name: "subsettest.com", Namespace: "ns"},
+			true,
+		},
+		{
+			"subset destination rule overrides traffic policy",
+			[]*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host: "subsettestdifferent.com",
+						Port: &networking.PortSelector{
+							Number: 9999,
+						},
+						Subset: "v1",
+					},
+				},
+			},
+			config.Meta{Name: "subsettestdifferent.com", Namespace: "ns"},
+			false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, tt.configMeta)
+			tcp := &tcp.TcpProxy{}
+			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
+			hasSourceIp := tcp.HashPolicy != nil && len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil
+			if hasSourceIp != tt.useSourceIp {
+				t.Fatalf("Unexpected SourceIp hash policy. expected: %v, got: %v", tt.useSourceIp, hasSourceIp)
+			}
+		})
 	}
 }
