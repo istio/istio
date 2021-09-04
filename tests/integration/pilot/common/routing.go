@@ -1491,7 +1491,6 @@ func consistentHashCases(apps *EchoDeployments) []TrafficTestCase {
 		svcName := "consistent-hash"
 		if nw := c.Config().Cluster.NetworkName(); nw != "" {
 			svcName += "-" + nw
-			tcpSvcName += "-" + nw
 		}
 		svc := tmpl.MustEvaluate(`apiVersion: v1
 kind: Service
