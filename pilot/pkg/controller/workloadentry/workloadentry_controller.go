@@ -25,6 +25,8 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/time/rate"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -298,7 +300,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
 		autoRegistrationErrors.Increment()
-		return fmt.Errorf("auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
+		return grpcstatus.Errorf(codes.NotFound, "auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
