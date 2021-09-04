@@ -96,8 +96,8 @@ type AuthenticationPolicies struct {
 
 	rootNamespace string
 
-	// AggregateVersion contains the versions of all peer authentications.
-	AggregateVersion string
+	// aggregateVersion contains the versions of all peer authentications.
+	aggregateVersion string
 }
 
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
@@ -180,7 +180,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 			append(policy.peerAuthentications[config.Namespace], config)
 	}
 
-	policy.AggregateVersion = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(versions, ";"))))
+	policy.aggregateVersion = fmt.Sprintf("%x", md5.Sum([]byte(strings.Join(versions, ";"))))
 
 	// Process found namespace-level policy.
 	policy.namespaceMutualTLSMode = make(map[string]MutualTLSMode, len(foundNamespaceMTLS))
@@ -224,6 +224,11 @@ func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespac
 // GetRootNamespace return root namespace that is tracked by the policy object.
 func (policy *AuthenticationPolicies) GetRootNamespace() string {
 	return policy.rootNamespace
+}
+
+// GetVersion return versions of all peer authentications..
+func (policy *AuthenticationPolicies) GetVersion() string {
+	return policy.aggregateVersion
 }
 
 func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
