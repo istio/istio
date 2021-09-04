@@ -25,7 +25,6 @@ type Result string
 const (
 	Error   Result = "error"
 	Applied Result = "applied"
-	Skipped Result = "skipped"
 )
 
 type PatchType string
@@ -63,7 +62,6 @@ func init() {
 	if features.EnableEnvoyFilterMetrics {
 		monitoring.MustRegister(envoyFilterStatus)
 		envoyFilterStatusMap = make(map[string]map[string]bool)
-		envoyFilterMutex = sync.RWMutex{}
 	}
 }
 
@@ -91,19 +89,20 @@ func IncrementEnvoyFilterErrorMetric(pt PatchType) {
 }
 
 func RecordMetrics() {
-	if features.EnableEnvoyFilterMetrics {
+	if !features.EnableEnvoyFilterMetrics {
 		return
 	}
 	envoyFilterMutex.RLock()
 	defer envoyFilterMutex.RUnlock()
 	for name, pmap := range envoyFilterStatusMap {
 		for pt, applied := range pmap {
-			result := Applied
-			if !applied {
-				result = Skipped
+			if applied {
+				envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(pt)).
+					With(resultType.Value(string(Applied))).Record(1)
+			} else {
+				envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(pt)).
+					With(resultType.Value(string(Applied))).Record(0)
 			}
-			envoyFilterStatus.With(nameType.Value(name)).With(patchType.Value(pt)).
-				With(resultType.Value(string(result))).Record(1)
 		}
 	}
 	envoyFilterStatusMap = make(map[string]map[string]bool)
