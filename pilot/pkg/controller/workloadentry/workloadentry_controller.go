@@ -300,7 +300,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 	groupCfg := c.store.Get(gvk.WorkloadGroup, proxy.Metadata.AutoRegisterGroup, proxy.Metadata.Namespace)
 	if groupCfg == nil {
 		autoRegistrationErrors.Increment()
-		return grpcstatus.Errorf(codes.NotFound, "auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
+		return grpcstatus.Errorf(codes.FailedPrecondition, "auto-registration WorkloadEntry of %v failed: cannot find WorkloadGroup %s/%s",
 			proxy.ID, proxy.Metadata.Namespace, proxy.Metadata.AutoRegisterGroup)
 	}
 	entry := workloadEntryFromGroup(entryName, proxy, groupCfg)
