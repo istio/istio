@@ -341,7 +341,7 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 		name        string
 		routes      []*networking.RouteDestination
 		configMeta  config.Meta
-		useSourceIp bool
+		useSourceIP bool
 	}{
 		{
 			"destination rule without sourceip",
@@ -412,9 +412,9 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, tt.configMeta)
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
-			hasSourceIp := tcp.HashPolicy != nil && len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil
-			if hasSourceIp != tt.useSourceIp {
-				t.Fatalf("Unexpected SourceIp hash policy. expected: %v, got: %v", tt.useSourceIp, hasSourceIp)
+			hasSourceIP := tcp.HashPolicy != nil && len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil
+			if hasSourceIP != tt.useSourceIP {
+				t.Fatalf("Unexpected SourceIp hash policy. expected: %v, got: %v", tt.useSourceIP, hasSourceIP)
 			}
 		})
 	}

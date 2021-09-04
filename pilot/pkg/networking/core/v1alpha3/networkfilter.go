@@ -82,7 +82,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 
 	if destinationRule != nil {
-		useSourceIp := destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() != nil &&
+		useSourceIP := destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash() != nil &&
 			destinationRule.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash().GetUseSourceIp()
 
 		for _, subset := range destinationRule.Subsets {
@@ -92,16 +92,16 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 			// If subset has load balancer - see if it is also consistent hash source IP
 			if subset.TrafficPolicy != nil && subset.TrafficPolicy.LoadBalancer != nil {
 				if subset.TrafficPolicy.LoadBalancer.GetConsistentHash() != nil {
-					useSourceIp = subset.TrafficPolicy.LoadBalancer.GetConsistentHash().GetUseSourceIp()
+					useSourceIP = subset.TrafficPolicy.LoadBalancer.GetConsistentHash().GetUseSourceIp()
 				} else {
 					// This means that subset has defined non sourceIP consistent hash load balancer.
-					useSourceIp = false
+					useSourceIP = false
 				}
 			}
 			break
 		}
 		// If destinationrule has consistent hash source ip set, use it for tcp proxy.
-		if useSourceIp {
+		if useSourceIP {
 			tcpProxy.HashPolicy = []*hashpolicy.HashPolicy{{PolicySpecifier: &hashpolicy.HashPolicy_SourceIp_{
 				SourceIp: &hashpolicy.HashPolicy_SourceIp{},
 			}}}
