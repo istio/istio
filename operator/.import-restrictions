@@ -1,0 +1,7 @@
+rules:
+  - selectorRegexp: istio[.]io/istio
+    allowedPrefixes:
+      - ''
+    forbiddenPrefixes:
+      - istio.io/istio/pilot
+
