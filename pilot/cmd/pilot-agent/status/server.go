@@ -15,6 +15,7 @@
 package status
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -448,15 +449,19 @@ type PrometheusScrapeConfiguration struct {
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	metrics.ScrapeTotals.Increment()
-	var envoy, application, agent []byte
+	var envoy, application io.ReadCloser
+	var agent []byte
 	var err error
 	// Gather all the metrics we will merge
 	if envoy, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
 		log.Errorf("failed scraping envoy metrics: %v", err)
 		metrics.EnvoyScrapeErrors.Increment()
 	}
-	// Process envoy's metrics to make them compatible with FmtOpenMetrics
-	envoy = processMetrics(envoy)
+	if envoy != nil {
+		defer envoy.Close()
+		// Process envoy's metrics to make them compatible with FmtOpenMetrics
+		envoy = NewMetricReader(envoy)
+	}
 
 	// Scrape app metrics if defined and capture their format
 	var format expfmt.Format
@@ -466,6 +471,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		if application, contentType, err = s.scrape(url, r.Header); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
+		}
+		if application != nil {
+			defer application.Close()
 		}
 		format = negotiateMetricsFormat(contentType)
 	}
@@ -482,15 +490,19 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("failed to write agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
-	if _, err := w.Write(envoy); err != nil {
-		log.Errorf("failed to write envoy metrics: %v", err)
-		metrics.EnvoyScrapeErrors.Increment()
+	if envoy != nil {
+		if _, err := io.Copy(w, envoy); err != nil {
+			log.Errorf("failed to write envoy metrics: %v", err)
+			metrics.EnvoyScrapeErrors.Increment()
+		}
 	}
 	// App metrics must go last because if they are FmtOpenMetrics,
 	// they will have a trailing "# EOF" which terminates the full exposition
-	if _, err := w.Write(application); err != nil {
-		log.Errorf("failed to write application metrics: %v", err)
-		metrics.AppScrapeErrors.Increment()
+	if application != nil {
+		if _, err := io.Copy(w, application); err != nil {
+			log.Errorf("failed to write application metrics: %v", err)
+			metrics.AppScrapeErrors.Increment()
+		}
 	}
 }
 
@@ -502,8 +514,56 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	return expfmt.FmtText
 }
 
-func processMetrics(metrics []byte) []byte {
-	return bytes.ReplaceAll(metrics, []byte("\n\n"), []byte("\n"))
+// metricReader used to replace "\n\n" to '\n'
+type metricReader struct {
+	buf *bufio.Reader
+}
+
+func NewMetricReader(reader io.Reader) *metricReader {
+	return &metricReader{buf: bufio.NewReader(reader)}
+}
+
+func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
+	var length int
+	var line []byte
+	newLine := []byte{'\n'}
+
+	for ; err == nil; line, _, err = r.buf.ReadLine() {
+		if len(line) == 0 {
+			continue
+		}
+		length, err = w.Write(line)
+		n += int64(length)
+		if err != nil {
+			return
+		}
+		length, err = w.Write(newLine)
+		n += int64(length)
+	}
+	return
+}
+
+func (r *metricReader) Read(p []byte) (n int, err error) {
+	var line []byte
+	for ; err == nil; line, _, err = r.buf.ReadLine() {
+		if len(line) == 0 {
+			continue
+		}
+		if n+len(line)+1 > cap(p) {
+			for range line {
+				_ = r.buf.UnreadByte()
+			}
+			return
+		}
+		copy(p[n:], line)
+		p[n+len(line)] = '\n'
+		n += len(line) + 1
+	}
+	return
+}
+
+func (r *metricReader) Close() (err error) {
+	return
 }
 
 func scrapeAgentMetrics() ([]byte, error) {
@@ -545,7 +605,7 @@ func getHeaderTimeout(timeout string) (time.Duration, error) {
 // This will attempt to mimic some of Prometheus functionality by passing some of the headers through
 // such as accept, timeout, and user agent
 // Returns the scraped metrics as well as the response's "Content-Type" header to determine the metrics format
-func (s *Server) scrape(url string, header http.Header) ([]byte, string, error) {
+func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, string, error) {
 	ctx := context.Background()
 	if timeoutString := header.Get("X-Prometheus-Scrape-Timeout-Seconds"); timeoutString != "" {
 		timeout, err := getHeaderTimeout(timeoutString)
@@ -570,17 +630,12 @@ func (s *Server) scrape(url string, header http.Header) ([]byte, string, error) 
 	if err != nil {
 		return nil, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
-	metrics, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, "", fmt.Errorf("error reading %s: %v", url, err)
-	}
 
 	format := resp.Header.Get("Content-Type")
-	return metrics, format, nil
+	return resp.Body, format, nil
 }
 
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
