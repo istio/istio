@@ -250,14 +250,14 @@ func (iptConfigurator *IptablesConfigurator) shortCircuitExcludeInterfaces() {
 	for _, excludeInterface := range split(iptConfigurator.cfg.ExcludeInterfaces) {
 		iptConfigurator.iptables.AppendRule(
 			constants.PREROUTING, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
-		iptConfigurator.iptables.AppendRule(constants.OUTPUT, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRule(constants.OUTPUT, constants.NAT, "-o", excludeInterface, "-j", constants.RETURN)
 	}
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 		for _, excludeInterface := range split(iptConfigurator.cfg.ExcludeInterfaces) {
 
 			iptConfigurator.iptables.AppendRule(
 				constants.PREROUTING, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
-			iptConfigurator.iptables.AppendRule(constants.OUTPUT, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRule(constants.OUTPUT, constants.MANGLE, "-o", excludeInterface, "-j", constants.RETURN)
 		}
 	}
 }

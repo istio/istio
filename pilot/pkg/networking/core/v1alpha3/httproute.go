@@ -320,7 +320,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			Services:        services,
 			VirtualServices: virtualServices,
 			EnvoyFilterKeys: efKeys,
-			PushVersion:     push.PushVersion,
 		}
 	}
 

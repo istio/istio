@@ -3,7 +3,7 @@ iptables -t nat -N ISTIO_REDIRECT
 iptables -t nat -N ISTIO_IN_REDIRECT
 iptables -t nat -N ISTIO_OUTPUT
 iptables -t nat -A PREROUTING -i not-istio-nic -j RETURN
-iptables -t nat -A OUTPUT -i not-istio-nic -j RETURN
+iptables -t nat -A OUTPUT -o not-istio-nic -j RETURN
 iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
 iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006

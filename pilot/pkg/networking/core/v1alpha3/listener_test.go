@@ -1649,6 +1649,32 @@ func TestHttpProxyListener(t *testing.T) {
 	}
 }
 
+func TestHttpProxyListenerPerWorkload(t *testing.T) {
+	p := &fakePlugin{}
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
+
+	env := buildListenerEnv(nil)
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
+		t.Fatalf("error in initializing push context: %s", err)
+	}
+
+	proxy := getProxy()
+	proxy.ServiceInstances = nil
+	proxy.Metadata.HTTPProxyPort = "15007"
+	proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
+	httpProxy := configgen.buildHTTPProxy(proxy, env.PushContext)
+	f := httpProxy.FilterChains[0].Filters[0]
+	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+
+	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
+		t.Fatalf("expected http proxy is not listening on %d, but on port %d", env.Mesh().ProxyHttpPort,
+			httpProxy.Address.GetSocketAddress().GetPortValue())
+	}
+	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+		t.Fatalf("expected http proxy stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
+	}
+}
+
 func TestHttpProxyListener_Tracing(t *testing.T) {
 	customTagsTest := []struct {
 		name             string
