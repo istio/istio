@@ -117,7 +117,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 			// where it can update the node port addresses of the passed service. If it is updated,
 			// then "addressUpdated" would be true and we have to trigger Service Update [XDS]
 			if addressesUpdated := c.updateServiceNodePortAddresses(svc); addressesUpdated {
-				c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
+				c.opts.XDSUpdater.SvcUpdate(shard, string(svc.ClusterLocal.Hostname), svc.Attributes.Namespace, event)
 			}
 		}
 	}

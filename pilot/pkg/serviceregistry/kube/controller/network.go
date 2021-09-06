@@ -242,15 +242,15 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 	}
 	for _, svc := range svcs {
 		c.RLock()
-		_, found := c.nodeSelectorsForServices[svc.Hostname]
-		isNodePortGateway := found && c.servicesMap[svc.Hostname] != nil
+		_, found := c.nodeSelectorsForServices[svc.ClusterLocal.Hostname]
+		isNodePortGateway := found && c.servicesMap[svc.ClusterLocal.Hostname] != nil
 		c.RUnlock()
 
 		if isNodePortGateway && svc.Attributes.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
 			endpoints := c.buildEndpointsForService(svc)
 			nodesWithEndpoints := getWorkloadNodeLocations(endpoints)
 			c.Lock()
-			c.nodePortGwLocalServiceToWorkloadNodesMap[svc.Hostname] = nodesWithEndpoints
+			c.nodePortGwLocalServiceToWorkloadNodesMap[svc.ClusterLocal.Hostname] = nodesWithEndpoints
 			c.Unlock()
 		}
 
@@ -280,8 +280,6 @@ func getWorkloadNodeLocations(endpoints []*model.IstioEndpoint) map[string]struc
 }
 
 func (c *Controller) updateClusterExternalAddressesForNodePortServices(nodeSelector labels.Instance, svc *model.Service) {
-	svc.Mutex.Lock()
-	defer svc.Mutex.Unlock()
 	var nodeAddresses []string
 	for nodeName, n := range c.nodeInfoMap {
 		if nodeSelector.SubsetOf(n.labels) {
@@ -290,14 +288,16 @@ func (c *Controller) updateClusterExternalAddressesForNodePortServices(nodeSelec
 			// a node not hosting a workload would drop traffic leading to intermittent
 			// traffic drops, latency due to retries
 			if svc.Attributes.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
-				if _, f := c.nodePortGwLocalServiceToWorkloadNodesMap[svc.Hostname][nodeName]; !f {
+				if _, f := c.nodePortGwLocalServiceToWorkloadNodesMap[svc.ClusterLocal.Hostname][nodeName]; !f {
 					continue
 				}
 			}
 			nodeAddresses = append(nodeAddresses, n.address)
 		}
 	}
-	svc.Attributes.ClusterExternalAddresses = map[cluster.ID][]string{c.opts.ClusterID: nodeAddresses}
+	svc.Attributes.ClusterExternalAddresses = cluster.AddressMap{
+		Addresses: map[cluster.ID][]string{c.opts.ClusterID: nodeAddresses},
+	}
 }
 
 // getNodePortServices returns nodePort type gateway service

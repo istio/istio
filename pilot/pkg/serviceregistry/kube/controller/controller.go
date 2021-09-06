@@ -459,7 +459,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.externalNameSvcInstanceMap, svcConv.ClusterLocal.Hostname)
 		_, isNetworkGateway := c.networkGateways[svcConv.ClusterLocal.Hostname]
 		delete(c.networkGateways, svcConv.ClusterLocal.Hostname)
-		delete(c.nodePortGwLocalServiceToWorkloadNodesMap, svcConv.Hostname)
+		delete(c.nodePortGwLocalServiceToWorkloadNodesMap, svcConv.ClusterLocal.Hostname)
 		c.Unlock()
 		if isNetworkGateway {
 			// networks are different, we need to update all eds endpoints
