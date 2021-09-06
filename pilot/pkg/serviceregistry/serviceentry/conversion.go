@@ -195,13 +195,24 @@ func convertServices(cfg config.Config) []*model.Service {
 		}
 	}
 
+	allocateAddress := true
+	// donot allocate address for DNS type serviceentry without endpoints specified.
+	if resolution == model.DNSLB && len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil {
+		allocateAddress = false
+	}
+
 	return buildServices(hostAddresses, cfg.Namespace, svcPorts, serviceEntry.Location, resolution,
-		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels)
+		exportTo, labelSelectors, serviceEntry.SubjectAltNames, creationTime, cfg.Labels, allocateAddress)
 }
 
 func buildServices(hostAddresses []*HostAddress, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
 	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
-	ctime time.Time, labels map[string]string) []*model.Service {
+	ctime time.Time, labels map[string]string, autoAllocateAddr bool) []*model.Service {
+	autoAllocatedAddress := ""
+	if !autoAllocateAddr {
+		// set to "0.0.0.0" here to prevent allocate a E class address later for it.
+		autoAllocatedAddress = constants.UnspecifiedIP
+	}
 	out := make([]*model.Service, 0, len(hostAddresses))
 	for _, ha := range hostAddresses {
 		out = append(out, &model.Service{
@@ -210,9 +221,10 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 			ClusterLocal: model.HostVIPs{
 				Hostname: host.Name(ha.host),
 			},
-			Address:    ha.address,
-			Ports:      ports,
-			Resolution: resolution,
+			Address:              ha.address,
+			AutoAllocatedAddress: autoAllocatedAddress,
+			Ports:                ports,
+			Resolution:           resolution,
 			Attributes: model.ServiceAttributes{
 				ServiceRegistry: provider.External,
 				Name:            ha.host,
