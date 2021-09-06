@@ -80,13 +80,13 @@ func TestExtractNodeNameFromEndpoints(t *testing.T) {
 
 func TestUpdateClusterExternalAddressesForNodePortServices(t *testing.T) {
 	clusterNodePortSvc := &model.Service{
-		Hostname: host.Name("cluster-svc.ingress.svc.cluster.local"),
+		ClusterLocal: model.HostVIPs{Hostname: host.Name("cluster-svc.ingress.svc.cluster.local")},
 		Attributes: model.ServiceAttributes{
 			ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyTypeCluster,
 		},
 	}
 	localNodePortSvc := &model.Service{
-		Hostname: host.Name("local-svc.ingress.svc.cluster.local"),
+		ClusterLocal: model.HostVIPs{Hostname: host.Name("local-svc.ingress.svc.cluster.local")},
 		Attributes: model.ServiceAttributes{
 			ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyTypeLocal,
 		},
@@ -156,13 +156,13 @@ func TestUpdateClusterExternalAddressesForNodePortServices(t *testing.T) {
 			}
 			// Copy because the function mutates
 			svcCopied := tt.service.DeepCopy()
-			c.nodePortGwLocalServiceToWorkloadNodesMap[svcCopied.Hostname] = map[string]struct{}{}
+			c.nodePortGwLocalServiceToWorkloadNodesMap[svcCopied.ClusterLocal.Hostname] = map[string]struct{}{}
 			for _, h := range tt.workloadHostingNodes {
-				c.nodePortGwLocalServiceToWorkloadNodesMap[svcCopied.Hostname][h] = struct{}{}
+				c.nodePortGwLocalServiceToWorkloadNodesMap[svcCopied.ClusterLocal.Hostname][h] = struct{}{}
 			}
 
 			c.updateClusterExternalAddressesForNodePortServices(tt.nodeLabelSelector, svcCopied)
-			actualAddresses := svcCopied.Attributes.ClusterExternalAddresses[clusterID]
+			actualAddresses := svcCopied.Attributes.ClusterExternalAddresses.Addresses[clusterID]
 			sort.Strings(tt.expectedAddresses)
 			sort.Strings(actualAddresses)
 			if diff := cmp.Diff(actualAddresses, tt.expectedAddresses); diff != "" {

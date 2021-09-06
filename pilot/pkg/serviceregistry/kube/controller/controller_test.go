@@ -455,7 +455,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			}
 			// Remove the discoverability function so that it's ignored by DeepEqual.
 			clearDiscoverabilityPolicy(metaServices[0].Endpoint)
-			if diff := cmp.Diff(expected, metaServices[0], cmpopts.IgnoreFields(model.Service{}, "Mutex")); diff != "" {
+			if diff := cmp.Diff(expected, metaServices[0], cmpopts.IgnoreUnexported(cluster.AddressMap{})); diff != "" {
 				t.Fatalf("expected instance %v, got %v.\nDiff=%s", expected, metaServices[0], diff)
 			}
 
@@ -532,7 +532,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
 			clearDiscoverabilityPolicy(podServices[0].Endpoint)
-			if diff := cmp.Diff(expected, podServices[0], cmpopts.IgnoreFields(model.Service{}, "Mutex")); diff != "" {
+			if diff := cmp.Diff(expected, podServices[0], cmpopts.IgnoreUnexported(cluster.AddressMap{})); diff != "" {
 				t.Fatalf("expected instance %v, got %v\nDiff=%s", expected, podServices[0], diff)
 			}
 
@@ -604,7 +604,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				t.Fatalf("expected 1 instance, got %v", len(podServices))
 			}
 			clearDiscoverabilityPolicy(podServices[0].Endpoint)
-			if diff := cmp.Diff(expected, podServices[0], cmpopts.IgnoreFields(model.Service{}, "Mutex")); diff != "" {
+			if diff := cmp.Diff(expected, podServices[0], cmpopts.IgnoreUnexported(cluster.AddressMap{})); diff != "" {
 				t.Fatalf("expected instance %v, got %v\nDiff=%s", expected, podServices[0], diff)
 			}
 		})
