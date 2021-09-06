@@ -1295,8 +1295,8 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 				continue
 			}
 			if a.LocalCacheDir != "" {
-				err = os.Remove(a.LocalCacheDir+"_res."+
-					config.GroupVersionKind.Kind+"."+config.Namespace+"."+config.Name+".json")
+				err = os.Remove(a.LocalCacheDir + "_res." +
+					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
 				if err != nil {
 					adscLog.Warnf("Error deleting received MCP config to local file %v", err)
 				}
