@@ -514,7 +514,7 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	return expfmt.FmtText
 }
 
-// metricReader used to replace "\n\n" to '\n'
+// metricReader used to replace "\n\n" in stream with '\n'.
 type metricReader struct {
 	buf *bufio.Reader
 }
@@ -523,13 +523,18 @@ func NewMetricReader(reader io.Reader) *metricReader {
 	return &metricReader{buf: bufio.NewReader(reader)}
 }
 
+// WriteTo io.copy will call this function first
 func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 	var length int
 	var line []byte
+	var isPrefix, isLastLineFinished, isEmptyLine bool
 	newLine := []byte{'\n'}
 
-	for ; err == nil; line, _, err = r.buf.ReadLine() {
-		if len(line) == 0 {
+	for ; err == nil; line, isPrefix, err = r.buf.ReadLine() {
+		// if line length equal reader buffer size, need to add new line
+		isEmptyLine = len(line) == 0 && !isPrefix && !isLastLineFinished
+		isLastLineFinished = isPrefix
+		if isEmptyLine {
 			continue
 		}
 		length, err = w.Write(line)
@@ -537,29 +542,19 @@ func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 		if err != nil {
 			return
 		}
-		length, err = w.Write(newLine)
-		n += int64(length)
+		if !isPrefix {
+			length, err = w.Write(newLine)
+			n += int64(length)
+		}
 	}
 	return
 }
 
 func (r *metricReader) Read(p []byte) (n int, err error) {
-	var line []byte
-	for ; err == nil; line, _, err = r.buf.ReadLine() {
-		if len(line) == 0 {
-			continue
-		}
-		if n+len(line)+1 > cap(p) {
-			for range line {
-				_ = r.buf.UnreadByte()
-			}
-			return
-		}
-		copy(p[n:], line)
-		p[n+len(line)] = '\n'
-		n += len(line) + 1
-	}
-	return
+	buf := bytes.NewBuffer(p)
+	buf.Reset()
+	wl, err := r.WriteTo(buf)
+	return int(wl), err
 }
 
 func (r *metricReader) Close() (err error) {

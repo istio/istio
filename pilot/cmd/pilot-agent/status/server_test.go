@@ -15,6 +15,8 @@
 package status
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1119,4 +1121,328 @@ type unreadyProbe struct{}
 
 func (u unreadyProbe) Check() error {
 	return errors.New("not ready")
+}
+
+func TestMetricReaderWriteTo(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		wantW   string
+	}{
+		{
+			name: "should write everything",
+			content: `test
+test`,
+			wantW: `test
+test
+`,
+		},
+		{
+			name: "should get compact content",
+			content: `test
+
+test
+test
+
+test
+
+`,
+			wantW: `test
+test
+test
+test
+`,
+		},
+		{
+			name: "should remove tail /n/n",
+			content: `test
+`,
+			wantW: `test
+`,
+		},
+		{
+			name: "should remove head /n",
+			content: `
+
+test`,
+			wantW: `test
+`,
+		},
+		{
+			name: "should remove all /n/n",
+			content: `test
+
+
+
+test
+
+`,
+			wantW: `test
+test
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &metricReader{
+				buf: bufio.NewReader(bytes.NewReader([]byte(tt.content))),
+			}
+			w := &bytes.Buffer{}
+			_, _ = r.WriteTo(w)
+			if gotW := w.String(); gotW != tt.wantW {
+				t.Errorf("WriteTo() gotW = %v, want %v", gotW, tt.wantW)
+			}
+		})
+	}
+}
+
+func TestMetricReaderWriteToLongLine(t *testing.T) {
+	tests := []struct {
+		name        string
+		blockLength int
+		blockNums   int
+		insertBytes []byte
+		wantLength  int
+	}{
+		{name: "nothing left",
+			blockLength: 0,
+			blockNums:   4 * 4096,
+			insertBytes: []byte("\n"),
+			wantLength:  0,
+		},
+		{name: "normal",
+			blockLength: 1022,
+			blockNums:   4 * 2,
+			insertBytes: []byte("\n\n"),
+			wantLength:  2 * 4 * (1024 - 1),
+		},
+		// bufio reader default buffer size is 4096
+		{name: "line length less than buffer size",
+			blockLength: 4094,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4095,
+		},
+		{name: "line length equal buffer size",
+			blockLength: 4096,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4097,
+		},
+		{name: "line length greater than buffer size",
+			blockLength: 4097,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4098,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pipeR, pipeW := io.Pipe()
+			go func() {
+				block := make([]byte, tt.blockLength)
+				for i := 0; i < tt.blockNums; i++ {
+					_, _ = pipeW.Write(block)
+					_, _ = pipeW.Write(tt.insertBytes)
+				}
+				_ = pipeW.Close()
+			}()
+			r := &metricReader{
+				buf: bufio.NewReader(pipeR),
+			}
+			w := &bytes.Buffer{}
+			_, _ = r.WriteTo(w)
+			if w.Len() != tt.wantLength {
+				t.Errorf("WriteTo() gotL = %v, want %v", w.Len(), tt.wantLength)
+			}
+		})
+	}
+}
+
+func Test_metricReader_Read(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		wantW   string
+	}{
+		{
+			name: "should write everything",
+			content: `test
+test`,
+			wantW: `test
+test
+`,
+		},
+		{
+			name: "should get compact content",
+			content: `test
+
+test
+test
+
+test
+
+`,
+			wantW: `test
+test
+test
+test
+`,
+		},
+		{
+			name: "should remove tail /n/n",
+			content: `test
+`,
+			wantW: `test
+`,
+		},
+		{
+			name: "should remove head /n",
+			content: `
+
+test`,
+			wantW: `test
+`,
+		},
+		{
+			name: "should remove all /n/n",
+			content: `test
+
+
+
+test
+
+`,
+			wantW: `test
+test
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &metricReader{
+				buf: bufio.NewReader(bytes.NewReader([]byte(tt.content))),
+			}
+			b := make([]byte, len(tt.wantW))
+			l, _ := r.Read(b)
+			if gotW := string(b[:l]); gotW != tt.wantW {
+				t.Errorf("Read() gotW = %v, want %v", gotW, tt.wantW)
+			}
+		})
+	}
+}
+
+func Benchmark_metricReader_WriteTo(b *testing.B) {
+	block := make([]byte, 1024)
+	doubleNewline := []byte("\n\n")
+	data := &bytes.Buffer{}
+	for i := 0; i < 100*1024; i++ {
+		_, _ = data.Write(block)
+		_, _ = data.Write(doubleNewline)
+	}
+	for i := 0; i < b.N; i++ {
+		buf := bytes.NewBuffer(data.Bytes())
+		r := &metricReader{
+			buf: bufio.NewReader(buf),
+		}
+		w := &bytes.Buffer{}
+		_, _ = r.WriteTo(w)
+	}
+}
+
+func Benchmark_not_metricReader(b *testing.B) {
+	block := make([]byte, 1024)
+	doubleNewline := []byte("\n\n")
+	data := &bytes.Buffer{}
+	for i := 0; i < 100*1024; i++ {
+		_, _ = data.Write(block)
+		_, _ = data.Write(doubleNewline)
+	}
+	for i := 0; i < b.N; i++ {
+		buf := bytes.NewBuffer(data.Bytes())
+		raw, _ := io.ReadAll(buf)
+		bytes.ReplaceAll(raw, []byte("\n\n"), []byte("\n"))
+	}
+}
+
+func TestMetricReaderReadLongLine(t *testing.T) {
+	tests := []struct {
+		name        string
+		blockLength int
+		blockNums   int
+		insertBytes []byte
+		wantLength  int
+	}{
+		{name: "nothing left",
+			blockLength: 0,
+			blockNums:   4 * 4096,
+			insertBytes: []byte("\n"),
+			wantLength:  0,
+		},
+		{name: "normal",
+			blockLength: 1022,
+			blockNums:   4 * 2,
+			insertBytes: []byte("\n\n"),
+			wantLength:  2 * 4 * (1024 - 1),
+		},
+		// bufio reader default buffer size is 4096
+		{name: "line length less than buffer size",
+			blockLength: 4094,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4095,
+		},
+		{name: "line length equal buffer size",
+			blockLength: 4096,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4097,
+		},
+		{name: "line length greater than buffer size",
+			blockLength: 4097,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4098,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pipeR, pipeW := io.Pipe()
+			go func() {
+				block := make([]byte, tt.blockLength)
+				for i := 0; i < tt.blockNums; i++ {
+					_, _ = pipeW.Write(block)
+					_, _ = pipeW.Write(tt.insertBytes)
+				}
+				_ = pipeW.Close()
+			}()
+			r := &metricReader{
+				buf: bufio.NewReader(pipeR),
+			}
+			b := make([]byte, tt.blockNums*(tt.blockLength+len(tt.insertBytes))+10)
+			length, _ := r.Read(b)
+			if length != tt.wantLength {
+				t.Errorf("%s\n", b[:length])
+				t.Errorf("Read() gotL = %v, want %v", length, tt.wantLength)
+			}
+		})
+	}
+}
+
+func Benchmark_metricReader_Read(b *testing.B) {
+	block := make([]byte, 1024)
+	doubleNewline := []byte("\n\n")
+	data := &bytes.Buffer{}
+	for i := 0; i < 100*1024; i++ {
+		_, _ = data.Write(block)
+		_, _ = data.Write(doubleNewline)
+	}
+	for i := 0; i < b.N; i++ {
+		bs := data.Bytes()
+		r := &metricReader{
+			buf: bufio.NewReader(bytes.NewReader(bs)),
+		}
+		res := make([]byte, len(bs))
+		_, _ = r.Read(res)
+	}
 }
