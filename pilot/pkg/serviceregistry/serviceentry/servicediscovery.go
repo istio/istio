@@ -929,7 +929,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 2. the address is not set (0.0.0.0)
 		// 3. the hostname is not a wildcard
 		if svc.Address == constants.UnspecifiedIP && !svc.ClusterLocal.Hostname.IsWildCarded() &&
-			svc.Resolution != model.Passthrough {
+			svc.Resolution != model.Passthrough && svc.AutoAllocatedAddress == "" {
 			x++
 			if x%255 == 0 {
 				x++
