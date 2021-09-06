@@ -1351,6 +1351,29 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "don't allocate IP for dns lb with endpoints",
+			inServices: []*model.Service{
+				{
+					ClusterLocal: model.HostVIPs{
+						Hostname: "foo.com",
+					},
+					Resolution:           model.DNSLB,
+					Address:              "0.0.0.0",
+					AutoAllocatedAddress: "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					ClusterLocal: model.HostVIPs{
+						Hostname: "foo.com",
+					},
+					Resolution:           model.DNSLB,
+					Address:              "0.0.0.0",
+					AutoAllocatedAddress: "0.0.0.0",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
