@@ -60,6 +60,8 @@ cni:
     enabled: false
     pods: 5000
 
+  runAsPrivileged: false
+
 # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
 revision: ""
 

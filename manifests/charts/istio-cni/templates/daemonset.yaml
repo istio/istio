@@ -130,6 +130,10 @@ spec:
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
+{{- if .Values.cni.runAsPrivileged }}
+          securityContext:
+            privileged: true
+{{- end }}
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
 {{- if contains "/" .Values.cni.image }}
