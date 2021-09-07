@@ -63,6 +63,9 @@ pilot:
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
 
+  # Additional labels to apply on the pod level for monitoring and logging configuration.
+  podLabels: {}
+
 
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
