@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 34024
+releaseNotes:
+- |
+  **Fixed** Unable to add an item to a list using overlays in IstioOperator
