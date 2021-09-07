@@ -49,8 +49,7 @@ func NewAgent(proxy Proxy, terminationDrainDuration time.Duration, localhost str
 	return &Agent{
 		proxy:                    proxy,
 		statusCh:                 make(chan exitStatus, 1), // context might stop drainage
-		drainCh:                  make(chan struct{}),
-		stopCh:                   make(chan struct{}),
+		drainCh:                  make(chan bool),
 		abortCh:                  make(chan error, 1),
 		terminationDrainDuration: terminationDrainDuration,
 		adminPort:                adminPort,
@@ -81,8 +80,7 @@ type Agent struct {
 	// channel for proxy exit notifications
 	statusCh chan exitStatus
 
-	drainCh chan struct{}
-	stopCh  chan struct{}
+	drainCh chan bool
 
 	abortCh chan error
 
@@ -137,37 +135,29 @@ func (a *Agent) terminate() {
 	log.Infof("Termination drain duration period is %v, checking for active connections...", a.terminationDrainDuration)
 	go a.waitForDrain()
 	select {
-	case <-a.drainCh:
-		log.Info("There are no more active connections. terminating proxy...")
-		a.abortCh <- errAbort
+	case ac := <-a.drainCh:
+		if ac {
+			log.Info("There are no more active connections. terminating proxy...")
+			a.abortCh <- errAbort
+		}
 	// TODO: remove terminationDrainDuration and rely on "terminationGracefulPeriodSeconds" of pod?
 	case <-time.After(a.terminationDrainDuration):
 		log.Info("Termination period complete, terminating proxy...")
 		a.abortCh <- errAbort
-		a.stopCh <- struct{}{}
+		a.drainCh <- false
 	}
 	log.Warnf("Aborted all epochs")
 }
 
 func (a *Agent) waitForDrain() {
-	activeConnectionDelay := time.NewTimer(activeConnectionCheckDelay)
 	for {
 		select {
-		case <-activeConnectionDelay.C:
+		case <-time.After(activeConnectionCheckDelay):
 			if a.activeProxyConnections() == 0 {
-				a.drainCh <- struct{}{}
+				a.drainCh <- true
 				return
-			} else {
-				log.Info("active connections are still not zero")
 			}
-		case <-a.stopCh:
-			log.Info("stop channel in waitForDuration")
-			stopped := activeConnectionDelay.Stop()
-			log.Infof("Stopped timer %v", stopped)
-			if !stopped {
-				// if the timer has been stopped then read from the channel.
-				<-activeConnectionDelay.C
-			}
+		case <-a.drainCh:
 			return
 		}
 	}
