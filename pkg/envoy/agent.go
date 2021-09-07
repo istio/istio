@@ -50,6 +50,7 @@ func NewAgent(proxy Proxy, terminationDrainDuration time.Duration, localhost str
 		proxy:                    proxy,
 		statusCh:                 make(chan exitStatus, 1), // context might stop drainage
 		drainCh:                  make(chan struct{}),
+		stopCh:                   make(chan struct{}),
 		abortCh:                  make(chan error, 1),
 		terminationDrainDuration: terminationDrainDuration,
 		adminPort:                adminPort,
@@ -81,6 +82,7 @@ type Agent struct {
 	statusCh chan exitStatus
 
 	drainCh chan struct{}
+	stopCh  chan struct{}
 
 	abortCh chan error
 
@@ -142,6 +144,7 @@ func (a *Agent) terminate() {
 	case <-time.After(a.terminationDrainDuration):
 		log.Info("Termination period complete, terminating proxy...")
 		a.abortCh <- errAbort
+		a.stopCh <- struct{}{}
 	}
 	log.Warnf("Aborted all epochs")
 }
@@ -157,8 +160,8 @@ func (a *Agent) waitForDrain() {
 			} else {
 				log.Info("active connections are still not zero")
 			}
-		case <-a.abortCh:
-			log.Info("Abort channel in waitForDuration")
+		case <-a.stopCh:
+			log.Info("stop channel in waitForDuration")
 			stopped := activeConnectionDelay.Stop()
 			log.Infof("Stopped timer %v", stopped)
 			if !activeConnectionDelay.Stop() {
