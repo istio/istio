@@ -134,6 +134,15 @@ func (a *Agent) terminate() {
 	time.Sleep(minDrainDuration)
 	log.Infof("Termination drain duration period is %v, checking for active connections...", a.terminationDrainDuration)
 	go a.waitForDrain()
+	select {
+	case <-a.drainCh:
+		log.Info("There are no more active connections. terminating proxy...")
+		a.abortCh <- errAbort
+	// TODO: remove terminationDrainDuration and rely on "terminationGracefulPeriodSeconds" of pod?
+	case <-time.After(a.terminationDrainDuration):
+		log.Info("Termination period complete, terminating proxy...")
+		a.abortCh <- errAbort
+	}
 	log.Warnf("Aborted all epochs")
 }
 
@@ -143,19 +152,19 @@ func (a *Agent) waitForDrain() {
 		select {
 		case <-activeConnectionDelay.C:
 			if a.activeProxyConnections() == 0 {
-				log.Info("There are no active connections, terminating proxy...")
-				a.abortCh <- errAbort
+				a.drainCh <- struct{}{}
 				return
+			} else {
+				log.Info("active connections are still not zero")
 			}
-		case <-time.After(a.terminationDrainDuration):
-			log.Info("Termination period complete, terminating proxy...")
+		case <-a.abortCh:
+			log.Info("Abort channel in waitForDuration")
 			stopped := activeConnectionDelay.Stop()
-			log.Infof("Stopped timer for %v", stopped)
+			log.Infof("Stopped timer %v", stopped)
 			if !activeConnectionDelay.Stop() {
 				// if the timer has been stopped then read from the channel.
 				<-activeConnectionDelay.C
 			}
-			a.abortCh <- errAbort
 			return
 		}
 	}
