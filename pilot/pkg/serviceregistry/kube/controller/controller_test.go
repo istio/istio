@@ -415,6 +415,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 						},
 					},
+					ClusterSetLocal: model.HostVIPs{
+						Hostname: "svc1.nsa.svc.clusterset.local",
+					},
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
@@ -491,6 +494,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 						},
 					},
+					ClusterSetLocal: model.HostVIPs{
+						Hostname: "svc1.nsa.svc.clusterset.local",
+					},
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
@@ -561,6 +567,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						ClusterVIPs: cluster.AddressMap{
 							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 						},
+					},
+					ClusterSetLocal: model.HostVIPs{
+						Hostname: "svc1.nsa.svc.clusterset.local",
 					},
 					Address:         "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},

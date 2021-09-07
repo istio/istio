@@ -17,6 +17,7 @@ package controller
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -25,14 +26,13 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config/host"
 )
 
 // serviceExportCache provides export state for all services in the cluster.
 type serviceExportCache interface {
 	isExported(name types.NamespacedName) bool
 	HasSynced() bool
-	ExportedServices() []string
+	ExportedServices() []model.ClusterServiceInfo
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
@@ -45,7 +45,7 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 			lister:     mcsLister.NewServiceExportLister(informer.GetIndexer()),
 		}
 
-		// Register callbacks for ServiceImport events.
+		// Register callbacks for events.
 		c.registerHandlers(informer, "ServiceExports", sec.onEvent, nil)
 		return sec
 	}
@@ -83,8 +83,8 @@ func (ec *serviceExportCacheImpl) onEvent(obj interface{}, event model.Event) er
 	return nil
 }
 
-func (ec *serviceExportCacheImpl) updateXDS(se *mcsCore.ServiceExport) {
-	hostname := ec.getHostname(se)
+func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
+	hostname := kubesr.ServiceHostnameForKR(se, ec.opts.DomainSuffix)
 	svc, err := ec.GetService(hostname)
 	if err != nil {
 		// The service doesn't exist - nothing to update.
@@ -95,7 +95,7 @@ func (ec *serviceExportCacheImpl) updateXDS(se *mcsCore.ServiceExport) {
 	endpoints := ec.buildEndpointsForService(svc)
 	if len(endpoints) > 0 {
 		shard := model.ShardKeyFromRegistry(ec)
-		ec.opts.XDSUpdater.EDSUpdate(shard, string(hostname), se.Namespace, endpoints)
+		ec.opts.XDSUpdater.EDSUpdate(shard, string(hostname), se.GetNamespace(), endpoints)
 	}
 }
 
@@ -104,17 +104,21 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 	return err == nil
 }
 
-func (ec *serviceExportCacheImpl) ExportedServices() []string {
+func (ec *serviceExportCacheImpl) ExportedServices() []model.ClusterServiceInfo {
 	// List all exports in this cluster.
 	exports, err := ec.lister.List(klabels.NewSelector())
 	if err != nil {
-		return make([]string, 0)
+		return make([]model.ClusterServiceInfo, 0)
 	}
 
 	// Convert to ExportedService
-	out := make([]string, 0, len(exports))
+	out := make([]model.ClusterServiceInfo, 0, len(exports))
 	for _, export := range exports {
-		out = append(out, fmt.Sprintf("%s:%s/%s", ec.Cluster(), export.Namespace, export.Name))
+		out = append(out, model.ClusterServiceInfo{
+			Name:      export.Name,
+			Namespace: export.Namespace,
+			Cluster:   ec.Cluster(),
+		})
 	}
 
 	return out
@@ -122,10 +126,6 @@ func (ec *serviceExportCacheImpl) ExportedServices() []string {
 
 func (ec *serviceExportCacheImpl) HasSynced() bool {
 	return ec.informer.HasSynced()
-}
-
-func (ec *serviceExportCacheImpl) getHostname(se *mcsCore.ServiceExport) host.Name {
-	return kubesr.ServiceHostname(se.Name, se.Namespace, ec.opts.DomainSuffix)
 }
 
 type disabledServiceExportCache struct{}
@@ -141,7 +141,7 @@ func (c disabledServiceExportCache) HasSynced() bool {
 	return true
 }
 
-func (c disabledServiceExportCache) ExportedServices() []string {
+func (c disabledServiceExportCache) ExportedServices() []model.ClusterServiceInfo {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
 }

@@ -848,6 +848,14 @@ func (s *ServiceEntryStore) NetworkGateways() []*model.NetworkGateway {
 	return nil
 }
 
+func (s *ServiceEntryStore) ExportedServices() []model.ClusterServiceInfo {
+	return nil
+}
+
+func (s *ServiceEntryStore) ImportedServices() []model.ClusterServiceInfo {
+	return nil
+}
+
 func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
 	var added, deleted, updated, unchanged []*model.Service
 

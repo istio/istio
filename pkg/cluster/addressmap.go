@@ -62,6 +62,17 @@ func (m *AddressMap) GetAddresses() map[ID][]string {
 	return out
 }
 
+// SetAddresses sets the addresses per cluster.
+func (m *AddressMap) SetAddresses(addrs map[ID][]string) {
+	if len(addrs) == 0 {
+		addrs = nil
+	}
+
+	m.mutex.Lock()
+	m.Addresses = addrs
+	m.mutex.Unlock()
+}
+
 func (m *AddressMap) GetAddressesFor(c ID) []string {
 	if m == nil {
 		return nil
@@ -82,14 +93,21 @@ func (m *AddressMap) SetAddressesFor(c ID, addresses []string) *AddressMap {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	// Create the map if nil
-	if m.Addresses == nil {
-		m.Addresses = make(map[ID][]string)
-	}
-
 	if len(addresses) == 0 {
-		delete(m.Addresses, c)
+		// Setting an empty array for the cluster. Remove the entry for the cluster if it exists.
+		if m.Addresses != nil {
+			delete(m.Addresses, c)
+
+			// Delete the map if there's nothing left.
+			if len(m.Addresses) == 0 {
+				m.Addresses = nil
+			}
+		}
 	} else {
+		// Create the map if if doesn't already exist.
+		if m.Addresses == nil {
+			m.Addresses = make(map[ID][]string)
+		}
 		m.Addresses[c] = addresses
 	}
 	return m
