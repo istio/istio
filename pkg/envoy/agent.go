@@ -34,9 +34,9 @@ const errOutOfMemory = "signal: killed"
 // minDrainDuration is the minimum duration for which agent waits before it actively checks
 // for outstanding connections. After this period, agent terminates proxy whenever active
 // connections become zero.
-var minDrainDuration = time.Duration(5 * time.Second)
+var minDrainDuration = 5 * time.Second
 
-var activeConnectionCheckDelay = time.Duration(1 * time.Second)
+var activeConnectionCheckDelay = 1 * time.Second
 
 var knownIstioListeners = sets.NewSet(
 	"listener.0.0.0.0_15006.downstream_cx_active", "listener.0.0.0.0_15021.downstream_cx_active",
@@ -147,10 +147,20 @@ func (a *Agent) terminate() {
 }
 
 func (a *Agent) waitForDrain() {
+	exit := false
 	for {
-		<-time.After(activeConnectionCheckDelay)
-		if a.activeProxyConnections() == 0 {
-			a.drainCh <- struct{}{}
+		select {
+		case <-time.After(activeConnectionCheckDelay):
+			if a.activeProxyConnections() == 0 {
+				a.drainCh <- struct{}{}
+				exit = true
+				return
+			}
+		case <-a.abortCh:
+			exit = true
+			return
+		}
+		if exit {
 			break
 		}
 	}
