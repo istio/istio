@@ -80,7 +80,6 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 				}
 
 				service := rSvc.Message.(*v1.ServiceSpec)
-				// TODO I want to match service.Namespace to pod.ObjectMeta.Namespace
 				svcSelector := k8s_labels.SelectorFromSet(service.Selector)
 				if svcSelector.Matches(podLabels) {
 					for _, port := range service.Ports {
