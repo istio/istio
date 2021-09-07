@@ -154,14 +154,20 @@ func (a *Agent) waitForDrain() {
 			if a.activeProxyConnections() == 0 {
 				a.drainCh <- struct{}{}
 				return
+			} else {
+				log.Info("active connections are still not zero")
 			}
 		case <-a.abortCh:
+			log.Info("Abort channel in waitForDuration")
+			stopped := delay.Stop()
+			log.Infof("Stopped timer %v", stopped)
 			if !delay.Stop() {
 				// if the timer has been stopped then read from the channel.
 				<-delay.C
 			}
 			return
 		}
+		log.Info("returning from go routine")
 	}
 }
 
