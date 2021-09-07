@@ -217,6 +217,8 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			s.ConfigStores = append(s.ConfigStores, configController)
 		case XDS:
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
+				Namespace: args.Namespace,
+				Workload:  args.PodName,
 				Meta: model.NodeMetadata{
 					Generator: "api",
 				}.ToStruct(),
