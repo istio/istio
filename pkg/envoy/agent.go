@@ -164,7 +164,7 @@ func (a *Agent) waitForDrain() {
 			log.Info("stop channel in waitForDuration")
 			stopped := activeConnectionDelay.Stop()
 			log.Infof("Stopped timer %v", stopped)
-			if !activeConnectionDelay.Stop() {
+			if !stopped {
 				// if the timer has been stopped then read from the channel.
 				<-activeConnectionDelay.C
 			}
