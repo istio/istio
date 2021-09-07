@@ -33,13 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/kube-openapi/pkg/validation/validate"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
-	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/yml"
@@ -52,11 +48,10 @@ type Validator struct {
 	structural map[schema.GroupVersionKind]*structuralschema.Structural
 	// If enabled, resources without a validator will be ignored. Otherwise, they will fail.
 	SkipMissing bool
-	Scheme      *runtime.Scheme
 }
 
 func (v *Validator) ValidateCustomResourceYAML(data string) error {
-	decoder := serializer.NewCodecFactory(v.Scheme, serializer.EnableStrict).UniversalDeserializer()
+	decoder := serializer.NewCodecFactory(kube.IstioScheme, serializer.EnableStrict).UniversalDeserializer()
 
 	var errs *multierror.Error
 	for _, item := range yml.SplitString(data) {
@@ -199,24 +194,6 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 			v.byGvk[gvk] = schemaValidator
 			v.structural[gvk] = structural
 		}
-	}
-
-	// Set up default scheme
-	v.Scheme = runtime.NewScheme()
-	if err := clientnetworkingalpha.AddToScheme(v.Scheme); err != nil {
-		return nil, err
-	}
-	if err := clientnetworkingbeta.AddToScheme(v.Scheme); err != nil {
-		return nil, err
-	}
-	if err := clientsecurity.AddToScheme(v.Scheme); err != nil {
-		return nil, err
-	}
-	if err := scheme.AddToScheme(v.Scheme); err != nil {
-		return nil, err
-	}
-	if err := gatewayapi.AddToScheme(v.Scheme); err != nil {
-		return nil, err
 	}
 
 	return v, nil
