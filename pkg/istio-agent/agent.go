@@ -290,7 +290,11 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
 	drainDuration, _ := types.DurationFromProto(a.proxyConfig.TerminationDrainDuration)
-	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration)
+	localHostAddr := localHostIPv4
+	if a.cfg.IsIPv6 {
+		localHostAddr = localHostIPv6
+	}
+	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration, localHostAddr, uint16(a.proxyConfig.ProxyAdminPort))
 	a.envoyWaitCh = make(chan error, 1)
 	if a.cfg.EnableDynamicBootstrap {
 		// Simulate an xDS request for a bootstrap
