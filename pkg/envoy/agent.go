@@ -150,7 +150,7 @@ func (a *Agent) waitForDrain() {
 		case <-time.After(a.terminationDrainDuration):
 			log.Info("Termination period complete, terminating proxy...")
 			stopped := activeConnectionDelay.Stop()
-			log.Infof("Stopped timer %v", stopped)
+			log.Infof("Stopped timer for %v", stopped)
 			if !activeConnectionDelay.Stop() {
 				// if the timer has been stopped then read from the channel.
 				<-activeConnectionDelay.C
