@@ -134,40 +134,30 @@ func (a *Agent) terminate() {
 	time.Sleep(minDrainDuration)
 	log.Infof("Termination drain duration period is %v, checking for active connections...", a.terminationDrainDuration)
 	go a.waitForDrain()
-	select {
-	case <-a.drainCh:
-		log.Info("There are no more active connections. terminating proxy...")
-		a.abortCh <- errAbort
-	// TODO: remove terminationDrainDuration and rely on "terminationGracefulPeriodSeconds" of pod?
-	case <-time.After(a.terminationDrainDuration):
-		log.Info("Termination period complete, terminating proxy...")
-		a.abortCh <- errAbort
-	}
 	log.Warnf("Aborted all epochs")
 }
 
 func (a *Agent) waitForDrain() {
-	delay := time.NewTimer(activeConnectionCheckDelay)
+	activeConnectionDelay := time.NewTimer(activeConnectionCheckDelay)
 	for {
 		select {
-		case <-delay.C:
+		case <-activeConnectionDelay.C:
 			if a.activeProxyConnections() == 0 {
-				a.drainCh <- struct{}{}
+				log.Info("There are no active connections, terminating proxy...")
+				a.abortCh <- errAbort
 				return
-			} else {
-				log.Info("active connections are still not zero")
 			}
-		case <-a.abortCh:
-			log.Info("Abort channel in waitForDuration")
-			stopped := delay.Stop()
+		case <-time.After(a.terminationDrainDuration):
+			log.Info("Termination period complete, terminating proxy...")
+			stopped := activeConnectionDelay.Stop()
 			log.Infof("Stopped timer %v", stopped)
-			if !delay.Stop() {
+			if !activeConnectionDelay.Stop() {
 				// if the timer has been stopped then read from the channel.
-				<-delay.C
+				<-activeConnectionDelay.C
 			}
+			a.abortCh <- errAbort
 			return
 		}
-		log.Info("returning from go routine")
 	}
 }
 
