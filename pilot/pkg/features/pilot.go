@@ -64,6 +64,12 @@ var (
 		"Limits the number of concurrent pushes allowed. On larger machines this can be increased for faster pushes",
 	).Get()
 
+	RequestLimit = env.RegisterFloatVar(
+		"PILOT_MAX_REQUESTS_PER_SECOND",
+		100.0,
+		"Limits the number of incoming XDS requests per second. On larger machines this can be increased to handle more proxies concurrently.",
+	).Get()
+
 	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
 	MaxRecvMsgSize = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXRECVMSGSIZE",
