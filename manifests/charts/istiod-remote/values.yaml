@@ -48,6 +48,8 @@ pilot:
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: false
+  # Additional labels to apply on the pod level for monitoring and logging configuration.
+  podLabels: {}
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
