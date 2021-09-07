@@ -147,21 +147,20 @@ func (a *Agent) terminate() {
 }
 
 func (a *Agent) waitForDrain() {
-	exit := false
+	delay := time.NewTimer(activeConnectionCheckDelay)
 	for {
 		select {
-		case <-time.After(activeConnectionCheckDelay):
+		case <-delay.C:
 			if a.activeProxyConnections() == 0 {
 				a.drainCh <- struct{}{}
-				exit = true
 				return
 			}
 		case <-a.abortCh:
-			exit = true
+			if !delay.Stop() {
+				// if the timer has been stopped then read from the channel.
+				<-delay.C
+			}
 			return
-		}
-		if exit {
-			break
 		}
 	}
 }
