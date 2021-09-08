@@ -31,29 +31,30 @@ var errAbort = errors.New("epoch aborted")
 
 const errOutOfMemory = "signal: killed"
 
-// minDrainDuration is the minimum duration for which agent waits before it actively checks
-// for outstanding connections. After this period, agent terminates proxy whenever active
-// connections become zero.
-var minDrainDuration = 5 * time.Second
-
-var activeConnectionCheckDelay = 1 * time.Second
-
-var knownIstioListeners = sets.NewSet(
-	"listener.0.0.0.0_15006.downstream_cx_active", "listener.0.0.0.0_15021.downstream_cx_active",
-	"listener.0.0.0.0_15090.downstream_cx_active", "listener.admin.downstream_cx_active",
-	"listener.admin.main_thread.downstream_cx_active",
-)
+var activeConnectionCheckDelay = time.Duration(1 * time.Second)
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
-func NewAgent(proxy Proxy, terminationDrainDuration time.Duration, localhost string, adminPort uint16) *Agent {
+func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Duration, localhost string,
+	adminPort, statusPort, prometheusPort int) *Agent {
+
+	knownIstioListeners := sets.NewSet(
+		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", statusPort),
+		fmt.Sprintf("listener.0.0.0.0_%d.downstream_cx_active", prometheusPort),
+		"listener.admin.downstream_cx_active",
+		"listener.admin.main_thread.downstream_cx_active",
+	)
 	return &Agent{
 		proxy:                    proxy,
 		statusCh:                 make(chan exitStatus, 1), // context might stop drainage
-		drainCh:                  make(chan bool),
+		drainCh:                  make(chan struct{}),
 		abortCh:                  make(chan error, 1),
 		terminationDrainDuration: terminationDrainDuration,
+		minDrainDuration:         minDrainDuration,
 		adminPort:                adminPort,
+		statusPort:               int(statusPort),
+		prometheusPort:           int(prometheusPort),
 		localhost:                localhost,
+		knownIstioListeners:      knownIstioListeners,
 	}
 }
 
@@ -80,15 +81,21 @@ type Agent struct {
 	// channel for proxy exit notifications
 	statusCh chan exitStatus
 
-	drainCh chan bool
+	drainCh chan struct{}
 
 	abortCh chan error
 
 	// time to allow for the proxy to drain before terminating all remaining proxy processes
 	terminationDrainDuration time.Duration
+	minDrainDuration         time.Duration
 
-	adminPort uint16
+	adminPort int
 	localhost string
+
+	statusPort     int
+	prometheusPort int
+
+	knownIstioListeners sets.Set
 }
 
 type exitStatus struct {
@@ -131,20 +138,19 @@ func (a *Agent) terminate() {
 	if e != nil {
 		log.Warnf("Error in invoking drain listeners endpoint %v", e)
 	}
-	time.Sleep(minDrainDuration)
+	log.Info("Agent draining proxy for %v, then waiting for active connections to terminate...", a.minDrainDuration)
+	time.Sleep(a.minDrainDuration)
 	log.Infof("Termination drain duration period is %v, checking for active connections...", a.terminationDrainDuration)
 	go a.waitForDrain()
 	select {
-	case ac := <-a.drainCh:
-		if ac {
-			log.Info("There are no more active connections. terminating proxy...")
-			a.abortCh <- errAbort
-		}
+	case <-a.drainCh:
+		log.Info("There are no more active connections. terminating proxy...")
+		a.abortCh <- errAbort
 	// TODO: remove terminationDrainDuration and rely on "terminationGracefulPeriodSeconds" of pod?
 	case <-time.After(a.terminationDrainDuration):
 		log.Info("Termination period complete, terminating proxy...")
 		a.abortCh <- errAbort
-		a.drainCh <- false
+		close(a.drainCh)
 	}
 	log.Warnf("Aborted all epochs")
 }
@@ -154,7 +160,7 @@ func (a *Agent) waitForDrain() {
 		select {
 		case <-time.After(activeConnectionCheckDelay):
 			if a.activeProxyConnections() == 0 {
-				a.drainCh <- true
+				close(a.drainCh)
 				return
 			}
 		case <-a.drainCh:
@@ -184,7 +190,7 @@ func (a *Agent) activeProxyConnections() int {
 			continue
 		}
 		// If the stat is for a known Istio listener skip it.
-		if knownIstioListeners.Contains(parts[0]) {
+		if a.knownIstioListeners.Contains(parts[0]) {
 			continue
 		}
 		val, err := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)

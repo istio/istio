@@ -119,4 +119,9 @@ var (
 	istiodSAN = env.RegisterStringVar("ISTIOD_SAN", "",
 		"Override the ServerName used to validate Istiod certificate. "+
 			"Can be used as an alternative to setting /etc/hosts for VMs - discovery address will be an IP:port")
+
+	minimumDrainDurationEnv = env.RegisterDurationVar("MINIMUM_DRAIN_DURATION",
+		5*time.Second,
+		"The minimum duration for which agent waits before it checks for active connections and terminates proxy"+
+			"when number of active connections become zero").Get()
 )
