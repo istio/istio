@@ -841,7 +841,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// in the map.
 	//
 	// Check if this TCP listener conflicts with an existing HTTP listener
-	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; exists {
+	*currentListenerEntry, exists = listenerMap[*listenerMapKey]
+
+	if !exists {
+		*currentListenerEntry, exists = listenerMap[listenerKey(actualWildcard, listenerOpts.port.Port)]
+	}
+	if exists {
 		// NOTE: This is not a conflict. This is simply filtering the
 		// services for a given listener explicitly.
 		// When the user declares their own ports in Sidecar.egress
