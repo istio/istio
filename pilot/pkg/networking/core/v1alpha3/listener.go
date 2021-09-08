@@ -841,17 +841,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// in the map.
 	//
 	// Check if this TCP listener conflicts with an existing HTTP listener
-	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; !exists {
-		*listenerMapKey = listenerKey(actualWildcard, listenerOpts.port.Port)
-	}
+	*currentListenerEntry, exists = listenerMap[*listenerMapKey]
 
 	// If there is no listener with serviceListenAddress, check if a wildcard bind exists.
 	// This can happen if user specified a restricted service set on this port with wildcard
 	// bind and also adds a catchall('*/*' with no ports) listener. We should not create
 	// listener with serviceListenAddress in that case.
-	// TODO: Should we check if a listener on this port with any bind exists exists instead of
-	// just wildcard bind?
-	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; exists {
+	if !exists {
+		listenerEntry, wcexists := listenerMap[listenerKey(actualWildcard, listenerOpts.port.Port)]
+		if wcexists && listenerEntry.protocol == listenerOpts.port.Protocol {
+			exists = true
+			*currentListenerEntry = listenerEntry
+		}
+	}
+	if exists {
 		// NOTE: This is not a conflict. This is simply filtering the
 		// services for a given listener explicitly.
 		// When the user declares their own ports in Sidecar.egress
