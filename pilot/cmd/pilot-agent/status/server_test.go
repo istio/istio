@@ -1365,6 +1365,16 @@ func Benchmark_not_metricReader(b *testing.B) {
 	}
 }
 
+// metricReadTestReader used to test Read in io.Copy
+type metricReadTestReader struct {
+	reader io.Reader
+}
+
+func (r *metricReadTestReader) Read(p []byte) (n int, err error) {
+	n, err = r.reader.Read(p)
+	return
+}
+
 func TestMetricReaderReadLongLine(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1381,9 +1391,9 @@ func TestMetricReaderReadLongLine(t *testing.T) {
 		},
 		{name: "normal",
 			blockLength: 1022,
-			blockNums:   4 * 2,
+			blockNums:   5,
 			insertBytes: []byte("\n\n"),
-			wantLength:  2 * 4 * (1024 - 1),
+			wantLength:  5 * (1024 - 1),
 		},
 		// bufio reader default buffer size is 4096
 		{name: "line length less than buffer size",
@@ -1416,13 +1426,13 @@ func TestMetricReaderReadLongLine(t *testing.T) {
 				}
 				_ = pipeW.Close()
 			}()
-			r := &metricReader{
+			r := &metricReadTestReader{&metricReader{
 				buf: bufio.NewReader(pipeR),
-			}
-			b := make([]byte, tt.blockNums*(tt.blockLength+len(tt.insertBytes))+10)
-			length, _ := r.Read(b)
-			if length != tt.wantLength {
-				t.Errorf("%s\n", b[:length])
+			}}
+
+			buffer := bytes.NewBuffer(make([]byte, 0))
+			length, _ := io.CopyBuffer(buffer, r, make([]byte, 4096))
+			if int(length) != tt.wantLength {
 				t.Errorf("Read() gotL = %v, want %v", length, tt.wantLength)
 			}
 		})

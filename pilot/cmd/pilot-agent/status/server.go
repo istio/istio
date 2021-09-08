@@ -514,9 +514,11 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	return expfmt.FmtText
 }
 
-// metricReader used to replace "\n\n" in stream with '\n'.
+// metricReader used to remove all the blank lines in envoy metrics.
+// It makes the envoy metric compatible with FmtOpenMetrics (https://github.com/istio/istio/pull/33550)
 type metricReader struct {
-	buf *bufio.Reader
+	buf     *bufio.Reader
+	readBuf *bytes.Buffer
 }
 
 func NewMetricReader(reader io.Reader) *metricReader {
@@ -527,7 +529,7 @@ func NewMetricReader(reader io.Reader) *metricReader {
 func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 	var length int
 	var line []byte
-	var isPrefix, isLastLineFinished, isEmptyLine bool
+	var isEmptyLine, isPrefix, isLastLineFinished bool
 	newLine := []byte{'\n'}
 
 	for ; err == nil; line, isPrefix, err = r.buf.ReadLine() {
@@ -550,11 +552,14 @@ func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 	return
 }
 
+// Read will not be used often, so WriteTo is reused
 func (r *metricReader) Read(p []byte) (n int, err error) {
-	buf := bytes.NewBuffer(p)
-	buf.Reset()
-	wl, err := r.WriteTo(buf)
-	return int(wl), err
+	if r.readBuf == nil {
+		r.readBuf = bytes.NewBuffer(make([]byte, 0, 4*1024))
+		_, _ = r.WriteTo(r.readBuf)
+	}
+	n, err = r.readBuf.Read(p)
+	return
 }
 
 func (r *metricReader) Close() (err error) {
