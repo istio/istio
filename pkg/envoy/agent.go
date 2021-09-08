@@ -138,7 +138,7 @@ func (a *Agent) terminate() {
 	if e != nil {
 		log.Warnf("Error in invoking drain listeners endpoint %v", e)
 	}
-	log.Info("Agent draining proxy for %v, then waiting for active connections to terminate...", a.minDrainDuration)
+	log.Infof("Agent draining proxy for %v, then waiting for active connections to terminate...", a.minDrainDuration)
 	time.Sleep(a.minDrainDuration)
 	log.Infof("Termination drain duration period is %v, checking for active connections...", a.terminationDrainDuration)
 	go a.waitForDrain()
