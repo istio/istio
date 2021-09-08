@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
@@ -52,7 +53,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/kubernetes/scheme"
+	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/metadata"
 	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/metadata/metadatainformer"
@@ -65,14 +66,20 @@ import (
 	"k8s.io/kubectl/pkg/cmd/apply"
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
+	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/gateway/versioned/fake"
 	gatewayapiinformer "sigs.k8s.io/gateway-api/pkg/client/informers/gateway/externalversions"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsapisClient "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsapisfake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 	mcsapisInformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"istio.io/api/label"
+	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
+	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
+	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
@@ -591,7 +598,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 			Stdout:    true,
 			Stderr:    true,
 			TTY:       false,
-		}, scheme.ParameterCodec)
+		}, kubescheme.ParameterCodec)
 
 	wrapper, upgrader, err := roundTripperFor(c.config)
 	if err != nil {
@@ -1034,3 +1041,16 @@ func isEmptyFile(f string) bool {
 	}
 	return false
 }
+
+// IstioScheme returns a scheme will all known Istio-related types added
+var IstioScheme = func() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	utilruntime.Must(kubescheme.AddToScheme(scheme))
+	utilruntime.Must(clientnetworkingalpha.AddToScheme(scheme))
+	utilruntime.Must(clientnetworkingbeta.AddToScheme(scheme))
+	utilruntime.Must(clientsecurity.AddToScheme(scheme))
+	utilruntime.Must(clienttelemetry.AddToScheme(scheme))
+	utilruntime.Must(gatewayapi.AddToScheme(scheme))
+	utilruntime.Must(mcsapi.AddToScheme(scheme))
+	return scheme
+}()
