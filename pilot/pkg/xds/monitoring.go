@@ -216,9 +216,10 @@ func isUnexpectedError(err error) bool {
 	return !ok || isError
 }
 
-func recordSendError(xdsType string, conID string, err error) {
+// recordSendError records a metric indicating that a push failed. It returns true if this was an unexpected
+// error
+func recordSendError(xdsType string, err error) bool {
 	if isUnexpectedError(err) {
-		log.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
 		// TODO use a single metric with a type tag
 		switch xdsType {
 		case v3.ListenerType:
@@ -230,7 +231,9 @@ func recordSendError(xdsType string, conID string, err error) {
 		case v3.RouteType:
 			rdsSendErrPushes.Increment()
 		}
+		return true
 	}
+	return false
 }
 
 func incrementXDSRejects(xdsType string, node, errCode string) {
