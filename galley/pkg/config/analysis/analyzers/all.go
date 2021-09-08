@@ -48,6 +48,7 @@ func All() []analysis.Analyzer {
 		&injection.Analyzer{},
 		&injection.ImageAnalyzer{},
 		&injection.ImageAutoAnalyzer{},
+		&injection.ProxyConfigEnvAnalyzer{},
 		&multicluster.MeshNetworksAnalyzer{},
 		&service.PortNameAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},

@@ -26,6 +26,7 @@ const (
 	ExportToAllNamespaces      = "*"
 	IstioProxyName             = "istio-proxy"
 	IstioOperator              = "istio-operator"
+	MeshConfig                 = "mesh"
 	MeshGateway                = "mesh"
 	Wildcard                   = "*"
 	MeshConfigName             = "istio"
@@ -35,6 +36,7 @@ const (
 	InjectionConfigMapValue    = "values"
 	InjectorWebhookConfigKey   = "sidecarInjectorWebhook"
 	InjectorWebhookConfigValue = "enableNamespacesByDefault"
+	ProxyConfigEnv             = "PROXY_CONFIG"
 )
 
 var fqdnPattern = regexp.MustCompile(`^(.+)\.(.+)\.svc\.cluster\.local$`)

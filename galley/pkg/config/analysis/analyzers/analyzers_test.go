@@ -220,6 +220,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "istioProxyConfigEnvironmentMismatch",
+		inputFiles: []string{
+			"testdata/common/mesh.yaml",
+			"testdata/injection-proxyconfig.yaml",
+		},
+		analyzer: &injection.ProxyConfigEnvAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyConfigMismatch, "Pod details-v2-pod.foo"},
+		},
+	},
+	{
 		name:       "portNameNotFollowConvention",
 		inputFiles: []string{"testdata/service-no-port-name.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},

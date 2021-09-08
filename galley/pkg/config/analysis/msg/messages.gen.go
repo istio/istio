@@ -188,6 +188,10 @@ var (
 	// NamespaceInjectionEnabledByDefault defines a diag.MessageType for message "NamespaceInjectionEnabledByDefault".
 	// Description: user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set.
 	NamespaceInjectionEnabledByDefault = diag.NewMessageType(diag.Info, "IST0148", "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true.")
+
+	// IstioProxyConfigMismatch defines a diag.MessageType for message "IstioProxyConfigMismatch".
+	// Description: The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap.
+	IstioProxyConfigMismatch = diag.NewMessageType(diag.Warning, "IST0149", "The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap (dismatch environment variable in pod is %s and in mesh configmap is %s). This often happens when re-installing Istio control-plane and updating the mesh configmap.")
 )
 
 // All returns a list of all known message types.
@@ -238,6 +242,7 @@ func All() []*diag.MessageType {
 		ImageAutoWithoutInjectionWarning,
 		ImageAutoWithoutInjectionError,
 		NamespaceInjectionEnabledByDefault,
+		IstioProxyConfigMismatch,
 	}
 }
 
@@ -688,5 +693,15 @@ func NewNamespaceInjectionEnabledByDefault(r *resource.Instance) diag.Message {
 	return diag.NewMessage(
 		NamespaceInjectionEnabledByDefault,
 		r,
+	)
+}
+
+// NewIstioProxyConfigMismatch returns a new diag.Message based on IstioProxyConfigMismatch.
+func NewIstioProxyConfigMismatch(r *resource.Instance, containerEnvV string, meshEnvV string) diag.Message {
+	return diag.NewMessage(
+		IstioProxyConfigMismatch,
+		r,
+		containerEnvV,
+		meshEnvV,
 	)
 }

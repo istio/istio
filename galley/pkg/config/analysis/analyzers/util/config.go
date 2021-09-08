@@ -68,3 +68,11 @@ func GetInjectorConfigMapName(revision string) string {
 	}
 	return name + "-" + revision
 }
+
+func GetMeshConfigMapName(revision string) string {
+	name := MeshConfigName
+	if revision == "" || revision == "default" {
+		return name
+	}
+	return name + "-" + revision
+}

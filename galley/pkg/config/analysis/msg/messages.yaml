@@ -535,3 +535,15 @@ messages:
     description: "user namespace should be injectable if Istio is installed with enableNamespacesByDefault enabled and neither injection label is set."
     template: "is enabled for Istio injection, as Istio is installed with enableNamespacesByDefault as true."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0148/"
+
+  - name: "IstioProxyConfigMismatch"
+    code: IST0149
+    level: Warning
+    description: "The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap."
+    template: "The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap (dismatch environment variable in pod is %s and in mesh configmap is %s). This often happens when re-installing Istio control-plane and updating the mesh configmap."
+    url: "https://istio.io/latest/docs/reference/config/analysis/ist0149/"
+    args:
+      - name: containerEnvV
+        type: string
+      - name: meshEnvV
+        type: string
