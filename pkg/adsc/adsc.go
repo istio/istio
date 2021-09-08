@@ -327,10 +327,8 @@ func (a *ADSC) Dial() error {
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
-	}
-
-	if len(grpcDialOptions) == len(defaultGrpcDialOptions) {
-		// Only disable transport security if the user didn't supply custom dial options
+	} else {
+		// Only disable transport security if the user didn't supply CertDir or SecretManager options
 		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
 	}
 
