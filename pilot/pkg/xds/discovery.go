@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -330,6 +331,8 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	oldPushContext := s.globalPushContext()
 	if oldPushContext != nil {
 		oldPushContext.OnConfigChange()
+		// Push the previous push Envoy metrics.
+		envoyfilter.RecordMetrics()
 	}
 	// PushContext is reset after a config change. Previous status is
 	// saved.
