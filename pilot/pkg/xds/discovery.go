@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
+	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pilot/pkg/controller/workloadentry"
@@ -92,7 +94,10 @@ type DiscoveryServer struct {
 	// may also choose to not send any updates.
 	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
 
+	// concurrentPushLimit is a semaphore that limits the amount of concurrent XDS pushes.
 	concurrentPushLimit chan struct{}
+	// requestRateLimit limits the number of new XDS requests allowed. This helps prevent thundering hurd of incoming requests.
+	requestRateLimit *rate.Limiter
 
 	// InboundUpdates describes the number of configuration updates the discovery server has received
 	InboundUpdates *atomic.Int64
@@ -180,6 +185,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string, instanceID str
 		ProxyNeedsPush:          DefaultProxyNeedsPush,
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
+		requestRateLimit:        rate.NewLimiter(rate.Limit(features.RequestLimit), 1),
 		InboundUpdates:          atomic.NewInt64(0),
 		CommittedUpdates:        atomic.NewInt64(0),
 		pushChannel:             make(chan *model.PushRequest, 10),
@@ -648,4 +654,16 @@ func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
 	}
 
 	return pending
+}
+
+func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
+	if s.requestRateLimit.Limit() == 0 {
+		// Allow opt out when rate limiting is set to 0qps
+		return nil
+	}
+	// Give a bit of time for queue to clear out, but if not fail fast. Client will connect to another
+	// instance in best case, or retry with backoff.
+	wait, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	return s.requestRateLimit.Wait(wait)
 }
