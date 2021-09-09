@@ -185,11 +185,14 @@ func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configC
 	cmd := version.CobraCommand()
 	var out bytes.Buffer
 	cmd.SetOutput(&out)
-	cmd.Execute()
-	output := out.String()
-
 	text := ""
-	text += fmt.Sprintf("CLI version: %s\n", output)
+	if err := cmd.Execute(); err != nil {
+		text += "failed to load CLI version.\n"
+	}
+	cliVersion := out.String()
+
+	text += fmt.Sprintf("CLI version: %s\n", cliVersion)
+
 	revisions := getIstioRevisions(resources)
 	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
 	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
