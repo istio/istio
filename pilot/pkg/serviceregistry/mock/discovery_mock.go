@@ -22,25 +22,53 @@ import (
 var (
 	// HelloService is a mock service with `hello.default.svc.cluster.local` as
 	// a hostname and `10.1.0.0` for ip
-	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0", []string{}, "cluster-1")
+	HelloService = MakeService(ServiceArgs{
+		Hostname:           "hello.default.svc.cluster.local",
+		Address:            "10.1.0.0",
+		ClusterSetHostname: "hello.default.svc.clusterset.local",
+		ClusterSetIPs:      []string{"100.1.0.0"},
+		ServiceAccounts:    []string{},
+		ClusterID:          "cluster-1",
+	})
 
 	// ReplicatedFooServiceName is a service replicated in all clusters.
 	ReplicatedFooServiceName = host.Name("foo.default.svc.cluster.local")
-	ReplicatedFooServiceV1   = MakeService(ReplicatedFooServiceName, "10.3.0.0", []string{
-		"spiffe://cluster.local/ns/default/sa/foo1",
-		"spiffe://cluster.local/ns/default/sa/foo-share",
-	}, "")
-	ReplicatedFooServiceV2 = MakeService(ReplicatedFooServiceName, "10.3.0.1", []string{
-		"spiffe://cluster.local/ns/default/sa/foo2",
-		"spiffe://cluster.local/ns/default/sa/foo-share",
-	}, "")
+	ReplicatedFooServiceV1   = MakeService(ServiceArgs{
+		Hostname:           ReplicatedFooServiceName,
+		Address:            "10.3.0.0",
+		ClusterSetHostname: "foo.default.svc.clusterset.local",
+		ClusterSetIPs:      []string{"100.3.0.0"},
+		ServiceAccounts: []string{
+			"spiffe://cluster.local/ns/default/sa/foo1",
+			"spiffe://cluster.local/ns/default/sa/foo-share",
+		},
+		ClusterID: "",
+	})
+	ReplicatedFooServiceV2 = MakeService(ServiceArgs{
+		Hostname:           ReplicatedFooServiceName,
+		Address:            "10.3.0.1",
+		ClusterSetHostname: "foo.default.svc.clusterset.local",
+		ClusterSetIPs:      []string{"100.3.0.1"},
+		ServiceAccounts: []string{
+			"spiffe://cluster.local/ns/default/sa/foo2",
+			"spiffe://cluster.local/ns/default/sa/foo-share",
+		},
+		ClusterID: "",
+	})
 
 	// WorldService is a mock service with `world.default.svc.cluster.local` as
 	// a hostname and `10.2.0.0` for ip
-	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0", []string{
-		"spiffe://cluster.local/ns/default/sa/world1",
-		"spiffe://cluster.local/ns/default/sa/world2",
-	}, "cluster-2")
+	WorldService = MakeService(ServiceArgs{
+		Hostname:           "world.default.svc.cluster.local",
+		Address:            "10.2.0.0",
+		ClusterSetHostname: "world.default.svc.clusterset.local",
+		ClusterSetIPs:      []string{"100.2.0.0"},
+		ServiceAccounts: []string{
+			"spiffe://cluster.local/ns/default/sa/world1",
+			"spiffe://cluster.local/ns/default/sa/world2",
+		},
+		ClusterID: "cluster-2",
+	})
 
 	// ExtHTTPService is a mock external HTTP service
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",

@@ -221,6 +221,7 @@ type Controller struct {
 	nodeLister   listerv1.NodeLister
 
 	exports serviceExportCache
+	imports serviceImportCache
 	pods    *PodCache
 
 	serviceHandlers  []func(*model.Service, model.Event)
@@ -352,6 +353,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
 
 	c.exports = newServiceExportCache(c)
+	c.imports = newServiceImportCache(c)
 
 	return c
 }
@@ -371,8 +373,12 @@ func (c *Controller) discoverabilityPolicyForService(name types.NamespacedName) 
 	return model.DiscoverableFromSameCluster
 }
 
-func (c *Controller) ExportedServices() []string {
+func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
 	return c.exports.ExportedServices()
+}
+
+func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
+	return c.imports.ImportedServices()
 }
 
 func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
@@ -444,7 +450,8 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 
 	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
-	svcConv := kube.ConvertService(*svc, c.opts.DomainSuffix, c.Cluster())
+	svcConv := kube.ConvertService(*svc, c.opts.DomainSuffix, c.Cluster(),
+		c.imports.GetClusterSetIPs(kube.NamespacedNameForK8sObject(svc)))
 	switch event {
 	case model.EventDelete:
 		c.Lock()
@@ -656,7 +663,8 @@ func (c *Controller) informersSynced() bool {
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodeInformer.HasSynced() ||
-		!c.exports.HasSynced() {
+		!c.exports.HasSynced() ||
+		!c.imports.HasSynced() {
 		return false
 	}
 	return true

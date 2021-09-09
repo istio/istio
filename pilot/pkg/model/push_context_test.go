@@ -1827,3 +1827,11 @@ func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
 	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
 }
+
+func (l *localServiceDiscovery) ExportedServices() []ClusterServiceInfo {
+	return nil
+}
+
+func (l *localServiceDiscovery) ImportedServices() []ClusterServiceInfo {
+	return nil
+}
