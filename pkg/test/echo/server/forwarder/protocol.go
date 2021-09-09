@@ -136,9 +136,6 @@ func newProtocol(cfg Config) (protocol, error) {
 		NextProtos:           cfg.Request.GetAlpn().GetValue(),
 		ServerName:           cfg.Request.ServerName,
 	}
-	if !strSliceContains(tlsConfig.NextProtos, "http/1.1") {
-		tlsConfig.NextProtos = append(tlsConfig.NextProtos, "http/1.1")
-	}
 	if cfg.Request.CaCertFile != "" {
 		certData, err := os.ReadFile(cfg.Request.CaCertFile)
 		if err != nil {
@@ -166,7 +163,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	switch s := scheme.Instance(urlScheme); s {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
-			tlsConfig.NextProtos = []string{"h2", "http/1.1"}
+			tlsConfig.NextProtos = []string{"h2"}
 		}
 		proto := &httpProtocol{
 			client: &http.Client{
@@ -200,7 +197,7 @@ func newProtocol(cfg Config) (protocol, error) {
 			}
 		} else if cfg.Request.Http2 && scheme.Instance(urlScheme) == scheme.HTTPS {
 			if cfg.Request.Alpn == nil {
-				tlsConfig.NextProtos = []string{"h2", "http/1.1"}
+				tlsConfig.NextProtos = []string{"http/1.1"}
 			}
 			proto.client.Transport = &http2.Transport{
 				TLSClientConfig: tlsConfig,
@@ -297,13 +294,4 @@ func newProtocol(cfg Config) (protocol, error) {
 	}
 
 	return nil, fmt.Errorf("unrecognized protocol %q", urlScheme)
-}
-
-func strSliceContains(ss []string, s string) bool {
-	for _, v := range ss {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
