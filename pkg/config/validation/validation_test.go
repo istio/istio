@@ -435,12 +435,6 @@ func TestValidateMeshConfig(t *testing.T) {
 					},
 				},
 			},
-			{
-				Name: "nil-config",
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
-					EnvoyExtAuthzHttp: nil,
-				},
-			},
 		},
 	}
 
@@ -464,9 +458,6 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
-			"invalid extension provider default: port number 999999 must be in the range 1..65535",
-			"invalid extension provider default: short names (non FQDN) are not allowed",
-			"invalid extension provider nil-config: nil EnvoyExternalAuthorizationHttpProvider",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:
