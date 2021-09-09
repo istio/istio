@@ -842,22 +842,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	//
 	// Check if this TCP listener conflicts with an existing HTTP listener
 	*currentListenerEntry, exists = listenerMap[*listenerMapKey]
-	log.Infof("listener map key %s, exists: %v", *listenerMapKey, exists)
 
 	// If there is no listener with serviceListenAddress, check if a wildcard bind exists.
 	// This can happen if user specified a restricted service set on this port with wildcard
 	// bind and also adds a catchall('*/*' with no ports) listener. We should not create
 	// listener with serviceListenAddress in that case.
 	if !exists {
-		log.Infof("checking wildcard for listener map key %s, exists: %v", *listenerMapKey, exists)
 		wilcardListenerMapKey := listenerKey(actualWildcard, listenerOpts.port.Port)
 		listenerEntry, wcexists := listenerMap[listenerKey(actualWildcard, listenerOpts.port.Port)]
-		if wcexists {
-			log.Infof("listener entry protocol %v listeneropts protocol", listenerEntry.protocol, listenerOpts.port.Protocol)
-		}
 		if wcexists && listenerEntry.protocol == listenerOpts.port.Protocol {
 			exists = true
-			log.Infof("wildcard exists for %s", *listenerMapKey)
 			*currentListenerEntry = listenerEntry
 			*listenerMapKey = wilcardListenerMapKey
 		}
