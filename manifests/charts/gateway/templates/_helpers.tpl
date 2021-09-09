@@ -22,17 +22,17 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ include "gateway.name" . }}
 {{- range $key, $val := .Values.labels }}
-{{ $key }}: {{ $val | quote }}
+{{- if not (or (eq $key "app") (eq $key "istio")) }}
+{{ $key | quote }}: {{ $val | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
 
 {{- define "gateway.selectorLabels" -}}
 {{- if hasKey .Values.labels "app" }}
-{{- with .Values.labels.app }}
-app: {{.|quote}}
+{{- with .Values.labels.app }}app: {{.|quote}}
 {{- end}}
-{{- else }}
-app: {{ include "gateway.name" . }}
+{{- else }}app: {{ include "gateway.name" . }}
 {{- end }}
 {{- if hasKey .Values.labels "istio" }}
 {{- with .Values.labels.istio }}
@@ -44,5 +44,9 @@ istio: {{ include "gateway.name" . | trimPrefix "istio-" }}
 {{- end }}
 
 {{- define "gateway.serviceAccountName" -}}
-{{- default .Values.serviceAccount.name (include "gateway.name" .)  }}
+{{- if .Values.serviceAccount.create }}
+{{- .Values.serviceAccount.name | default (include "gateway.name" .)    }}
+{{- else }}
+{{- .Values.serviceAccount.name | default "default" }}
+{{- end }}
 {{- end }}

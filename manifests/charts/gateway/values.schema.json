@@ -145,6 +145,17 @@
         },
         "name": {
           "type": "string"
+        },
+        "create": {
+          "type": "boolean"
+        }
+      }
+    },
+    "rbac": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       }
     },

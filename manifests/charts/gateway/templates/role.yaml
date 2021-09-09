@@ -1,4 +1,5 @@
-{{/*Set up roles for Istio Gateway. Note required for gateway-api*/}}
+{{/*Set up roles for Istio Gateway. Not required for gateway-api*/}}
+{{- if .Values.rbac.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -21,3 +22,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ include "gateway.serviceAccountName" . }}
+{{- end }}

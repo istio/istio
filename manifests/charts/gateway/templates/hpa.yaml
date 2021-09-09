@@ -5,7 +5,7 @@ metadata:
   name: {{ include "gateway.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "gateway.labels" . | nindent 4}}
+    {{- include "gateway.labels" . | nindent 4 }}
   annotations:
     {{- .Values.annotations | toYaml | nindent 4 }}
 spec:

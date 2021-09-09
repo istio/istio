@@ -5,7 +5,14 @@ revision: ""
 
 replicaCount: 1
 
+rbac:
+  # If enabled, roles will be created to enable accessing certificates from Gateways. This is not needed
+  # when using http://gateway-api.org/.
+  enabled: true
+
 serviceAccount:
+  # If set, a service account will be created. Otherwise, the default is used
+  create: true
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
@@ -23,6 +30,7 @@ podAnnotations:
 runAsRoot: false
 
 service:
+  # Type of service. Set to "None" to disable the service entirely
   type: LoadBalancer
   ports:
   - name: status-port
