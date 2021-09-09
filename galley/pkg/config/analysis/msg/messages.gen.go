@@ -191,7 +191,7 @@ var (
 
 	// IstioProxyConfigMismatch defines a diag.MessageType for message "IstioProxyConfigMismatch".
 	// Description: The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap.
-	IstioProxyConfigMismatch = diag.NewMessageType(diag.Warning, "IST0149", "The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap (dismatch environment variable in pod is %s and in mesh configmap is %s). This often happens when re-installing Istio control-plane and updating the mesh configmap.")
+	IstioProxyConfigMismatch = diag.NewMessageType(diag.Warning, "IST0149", "The environment variable %q configured with the running proxies on pods does not match the environment variable %q defined in the mesh configmap. This often happens when re-installing the Istio control plane and updating the mesh configmap.")
 )
 
 // All returns a list of all known message types.

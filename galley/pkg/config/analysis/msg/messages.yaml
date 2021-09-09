@@ -540,7 +540,7 @@ messages:
     code: IST0149
     level: Warning
     description: "The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap."
-    template: "The environment variable configured with the running proxies on pods does not match the environment variable defined in the mesh configmap (dismatch environment variable in pod is %s and in mesh configmap is %s). This often happens when re-installing Istio control-plane and updating the mesh configmap."
+    template: "The environment variable %q configured with the running proxies on pods does not match the environment variable %q defined in the mesh configmap. This often happens when re-installing the Istio control plane and updating the mesh configmap."
     url: "https://istio.io/latest/docs/reference/config/analysis/ist0149/"
     args:
       - name: containerEnvV
