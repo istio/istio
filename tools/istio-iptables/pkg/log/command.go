@@ -32,12 +32,12 @@ var (
 )
 
 var IDToCommand = map[string]Command{
-	"JumpInbound": JumpInbound,
-	"JumpOutbound": JumpOutbound,
-	"ExcludeInboundPort": ExcludeInboundPort,
-	"IncludeInboundPort": IncludeInboundPort,
-	"InboundCapture": InboundCapture,
-	"KubevirtCommand": KubevirtCommand,
+	"JumpInbound":             JumpInbound,
+	"JumpOutbound":            JumpOutbound,
+	"ExcludeInboundPort":      ExcludeInboundPort,
+	"IncludeInboundPort":      IncludeInboundPort,
+	"InboundCapture":          InboundCapture,
+	"KubevirtCommand":         KubevirtCommand,
 	"ExcludeInterfaceCommand": ExcludeInterfaceCommand,
-	"UndefinedCommand": UndefinedCommand,
+	"UndefinedCommand":        UndefinedCommand,
 }
