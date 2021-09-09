@@ -15,6 +15,7 @@
 package bugreport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
