@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -257,23 +258,23 @@ func initProxy(args []string) (*model.Proxy, error) {
 		}
 	}
 
+	// prevent duplicate ips, the first one must be the pod ip
+	// as we pick the first ip as pod ip in istiod
+	ipSet := sets.NewSet()
 	podIP := net.ParseIP(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
 	if podIP != nil {
 		proxy.IPAddresses = []string{podIP.String()}
+		ipSet.Insert(podIP.String())
 	}
 
 	// Obtain all the IPs from the node
 	if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
-		if len(proxy.IPAddresses) == 1 {
-			for _, ip := range ipAddrs {
-				// prevent duplicate ips, the first one must be the pod ip
-				// as we pick the first ip as pod ip in istiod
-				if proxy.IPAddresses[0] != ip {
-					proxy.IPAddresses = append(proxy.IPAddresses, ip)
-				}
+		for _, ip := range ipAddrs {
+			if ipSet.Contains(ip) {
+				continue
 			}
-		} else {
-			proxy.IPAddresses = append(proxy.IPAddresses, ipAddrs...)
+			ipSet.Insert(ip)
+			proxy.IPAddresses = append(proxy.IPAddresses, ip)
 		}
 	}
 
