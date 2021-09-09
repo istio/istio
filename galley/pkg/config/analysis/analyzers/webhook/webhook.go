@@ -37,7 +37,8 @@ var (
 )
 
 type Analyzer struct {
-	SkipServiceCheck bool
+	SkipServiceCheck         bool
+	SkipWebhookSelectorCheck bool
 }
 
 var _ analysis.Analyzer = &Analyzer{}
@@ -105,21 +106,23 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	}
 
 	// For each permutation, we check which webhooks it matches. It must match exactly 0 or 1!
-	for _, nl := range namespaceLabels {
-		for _, ol := range objectLabels {
-			matches := sets.NewSet()
-			for name, whs := range webhooks {
-				for _, wh := range whs {
-					if selectorMatches(wh.NamespaceSelector, nl) && selectorMatches(wh.ObjectSelector, ol) {
-						matches.Insert(fmt.Sprintf("%v/%v", name, wh.Name))
+	if !a.SkipWebhookSelectorCheck {
+		for _, nl := range namespaceLabels {
+			for _, ol := range objectLabels {
+				matches := sets.NewSet()
+				for name, whs := range webhooks {
+					for _, wh := range whs {
+						if selectorMatches(wh.NamespaceSelector, nl) && selectorMatches(wh.ObjectSelector, ol) {
+							matches.Insert(fmt.Sprintf("%v/%v", name, wh.Name))
+						}
 					}
 				}
-			}
-			if len(matches) > 1 {
-				for match := range matches {
-					others := matches.Difference(sets.NewSet(match))
-					context.Report(webhookCol, msg.NewInvalidWebhook(resources[match],
-						fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
+				if len(matches) > 1 {
+					for match := range matches {
+						others := matches.Difference(sets.NewSet(match))
+						context.Report(webhookCol, msg.NewInvalidWebhook(resources[match],
+							fmt.Sprintf("Webhook overlaps with others: %v. This may cause injection to occur twice.", others.UnsortedList())))
+					}
 				}
 			}
 		}
