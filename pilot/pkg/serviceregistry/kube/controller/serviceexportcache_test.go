@@ -28,6 +28,8 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -107,17 +109,24 @@ func newTestServiceExportCache(t *testing.T, stopCh chan struct{}) *serviceExpor
 	// Create the test service and endpoints.
 	createService(c, serviceExportName, serviceExportNamespace, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-	createEndpoints(c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{"128.0.0.2"}, nil, t)
+	createEndpoints(c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, t)
 
 	ec := c.exports.(*serviceExportCacheImpl)
 
 	// Wait for the resources to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
+		if svc, _ := ec.GetService(ec.serviceHostname()); svc == nil {
+			return false
+		}
 		inst := ec.getProxyServiceInstances()
 		return len(inst) == 1 && inst[0].Service != nil && inst[0].Endpoint != nil
 	}, retry.Timeout(2*time.Second))
 
 	return ec
+}
+
+func (ec *serviceExportCacheImpl) serviceHostname() host.Name {
+	return kube.ServiceHostname(serviceExportName, serviceExportNamespace, ec.opts.DomainSuffix)
 }
 
 func (ec *serviceExportCacheImpl) export(t *testing.T) {

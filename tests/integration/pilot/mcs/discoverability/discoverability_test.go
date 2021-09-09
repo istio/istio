@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireMinVersion(17).
 		RequireMinClusters(2).
-		Setup(installServiceExportCRD).
+		Setup(installMCSCRDs).
 		Setup(istio.Setup(&i, enableMCSServiceDiscovery)).
 		Setup(deployEchos).
 		Run()
@@ -130,12 +130,17 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 		})
 }
 
-func installServiceExportCRD(t resource.Context) error {
-	crd, err := os.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")
-	if err != nil {
-		return err
+func installMCSCRDs(t resource.Context) error {
+	for _, f := range []string{"mcs-serviceexport-crd.yaml", "mcs-serviceimport-crd.yaml"} {
+		crd, err := os.ReadFile("../../testdata/" + f)
+		if err != nil {
+			return err
+		}
+		if err := t.Config().ApplyYAML("", string(crd)); err != nil {
+			return err
+		}
 	}
-	return t.Config().ApplyYAMLNoCleanup("", string(crd))
+	return nil
 }
 
 func enableMCSServiceDiscovery(_ resource.Context, cfg *istio.Config) {

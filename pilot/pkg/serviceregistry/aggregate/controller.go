@@ -174,10 +174,19 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 }
 
 func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
-	// prefer the k8s VIP where possible
+	mergeHostVIPs(&dst.ClusterLocal, &src.ClusterLocal, srcRegistry)
+	mergeHostVIPs(&dst.ClusterSetLocal, &src.ClusterSetLocal, srcRegistry)
+}
+
+func mergeHostVIPs(dst, src *model.HostVIPs, srcRegistry serviceregistry.Instance) {
+	// Prefer the k8s HostVIPs where possible
+	if srcRegistry.Provider() == provider.Kubernetes || len(dst.Hostname) == 0 {
+		dst.Hostname = src.Hostname
+	}
 	clusterID := srcRegistry.Cluster()
-	if srcRegistry.Provider() == provider.Kubernetes || len(dst.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
-		dst.ClusterLocal.ClusterVIPs.SetAddressesFor(clusterID, []string{src.Address})
+	if srcRegistry.Provider() == provider.Kubernetes || len(dst.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
+		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
+		dst.ClusterVIPs.SetAddressesFor(clusterID, newAddresses)
 	}
 }
 
@@ -188,6 +197,22 @@ func (c *Controller) NetworkGateways() []*model.NetworkGateway {
 		gws = append(gws, r.NetworkGateways()...)
 	}
 	return gws
+}
+
+func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
+	var out []model.ClusterServiceInfo
+	for _, r := range c.GetRegistries() {
+		out = append(out, r.ExportedServices()...)
+	}
+	return out
+}
+
+func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
+	var out []model.ClusterServiceInfo
+	for _, r := range c.GetRegistries() {
+		out = append(out, r.ImportedServices()...)
+	}
+	return out
 }
 
 // InstancesByPort retrieves instances for a service on a given port that match
@@ -326,11 +351,11 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	for k := range out {
 		result = append(result, k)
 	}
-	tds := []string{}
+	tds := make([]string, 0)
 	if c.meshHolder != nil {
-		mesh := c.meshHolder.Mesh()
-		if mesh != nil {
-			tds = mesh.TrustDomainAliases
+		m := c.meshHolder.Mesh()
+		if m != nil {
+			tds = m.TrustDomainAliases
 		}
 	}
 	expanded := spiffe.ExpandWithTrustDomains(result, tds)
