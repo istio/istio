@@ -147,8 +147,8 @@ func TestFormatter_PrintEmpty(t *testing.T) {
 	g.Expect(logOutput).To(Equal(""))
 
 	jsonOutput, _ := Print(msgs, JSONFormat, false)
-	g.Expect(jsonOutput).To(Equal("[]"))
+	g.Expect(jsonOutput).To(Equal(""))
 
 	yamlOutput, _ := Print(msgs, YAMLFormat, false)
-	g.Expect(yamlOutput).To(Equal("[]\n"))
+	g.Expect(yamlOutput).To(Equal(""))
 }

@@ -3,4 +3,5 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Fixed** istioctl analyze having the extra brackets when the output is in the JSON format.
+    **Fixed** istioctl analyze having the extra brackets when the output is in the JSON format or YAML format,
+    to make all output formats consistent.

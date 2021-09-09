@@ -49,6 +49,9 @@ func init() {
 
 // Print output messages in the specified format with color options
 func Print(ms diag.Messages, format string, colorize bool) (string, error) {
+	if len(ms) == 0 {
+		return "", nil
+	}
 	switch format {
 	case LogFormat:
 		return printLog(ms, colorize), nil
@@ -70,9 +73,6 @@ func printLog(ms diag.Messages, colorize bool) string {
 }
 
 func printJSON(ms diag.Messages) (string, error) {
-	if len(ms) == 0 {
-		return "", nil
-	}
 	jsonOutput, err := json.MarshalIndent(ms, "", "\t")
 	return string(jsonOutput), err
 }
