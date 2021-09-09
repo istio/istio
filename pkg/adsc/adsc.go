@@ -490,15 +490,18 @@ func (a *ADSC) handleRecv() {
 			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			// if 'reconnect' enabled - schedule a new Run
-			if a.cfg.BackoffPolicy != nil {
-				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
-			} else {
-				a.errChan <- err
-				a.Close()
-				a.WaitClear()
-				a.Updates <- ""
-				a.XDSUpdates <- nil
-				close(a.errChan)
+			select {
+			case a.errChan <- err:
+			default:
+				if a.cfg.BackoffPolicy != nil {
+					time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
+				} else {
+					a.Close()
+					a.WaitClear()
+					a.Updates <- ""
+					a.XDSUpdates <- nil
+					close(a.errChan)
+				}
 			}
 			return
 		}
