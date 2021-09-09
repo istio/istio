@@ -15,6 +15,7 @@
 package bugreport
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -181,7 +182,17 @@ func runBugReportCommand(_ *cobra.Command, logOpts *log.Options) error {
 }
 
 func dumpRevisionsAndVersions(resources *cluster2.Resources, kubeconfig, configContext, istioNamespace string) {
+	cmd := version.CobraCommand()
+	var out bytes.Buffer
+	cmd.SetOutput(&out)
 	text := ""
+	if err := cmd.Execute(); err != nil {
+		text += "failed to load CLI version.\n"
+	}
+	cliVersion := out.String()
+
+	text += fmt.Sprintf("CLI version: %s\n", cliVersion)
+
 	revisions := getIstioRevisions(resources)
 	istioVersions, proxyVersions := getIstioVersions(kubeconfig, configContext, istioNamespace, revisions)
 	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
