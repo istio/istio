@@ -87,6 +87,8 @@ type Options struct {
 	ProgressLog *progress.Log
 	// Force ignores validation errors
 	Force bool
+	// Skips check for duplicate webhook configurations based on label selector.
+	SkipWebhookSelectorCheck bool
 }
 
 var defaultOptions = &Options{
@@ -561,7 +563,8 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	}
 
 	sa := local.NewSourceAnalyzer(istioConfigSchema.MustGet(), analysis.Combine("webhook", &webhook.Analyzer{
-		SkipServiceCheck: true,
+		SkipServiceCheck:         true,
+		SkipWebhookSelectorCheck: h.opts.SkipWebhookSelectorCheck,
 	}),
 		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
 	var localWebhookYAMLReaders []local.ReaderSource
