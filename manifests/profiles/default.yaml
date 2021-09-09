@@ -133,6 +133,7 @@ spec:
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
+      podLabels: {}
       configMap: true
 
     telemetry:

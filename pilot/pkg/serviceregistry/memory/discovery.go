@@ -338,3 +338,11 @@ func (sd *ServiceDiscovery) AddGateways(gws ...*model.NetworkGateway) {
 func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	return sd.networkGateways
 }
+
+func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
+	return nil
+}
+
+func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
+	return nil
+}

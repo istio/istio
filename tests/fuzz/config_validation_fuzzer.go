@@ -18,26 +18,13 @@ package fuzz
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
-	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
-	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 )
-
-var scheme = runtime.NewScheme()
-
-func init() {
-	clientnetworkingalpha.AddToScheme(scheme)
-	clientnetworkingbeta.AddToScheme(scheme)
-	clientsecurity.AddToScheme(scheme)
-	clienttelemetry.AddToScheme(scheme)
-}
 
 func FuzzConfigValidation(data []byte) int {
 	f := fuzz.NewConsumer(data)
@@ -54,7 +41,7 @@ func FuzzConfigValidation(data []byte) int {
 		Version: gvk.Version,
 		Kind:    gvk.Kind,
 	}
-	object, err := scheme.New(kgvk)
+	object, err := kube.IstioScheme.New(kgvk)
 	if err != nil {
 		return 0
 	}

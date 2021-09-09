@@ -47,18 +47,33 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 	}
 }
 
+type ServiceArgs struct {
+	Hostname           host.Name
+	Address            string
+	ClusterSetHostname host.Name
+	ClusterSetIPs      []string
+	ServiceAccounts    []string
+	ClusterID          cluster.ID
+}
+
 // MakeService creates a memory service
-func MakeService(hostname host.Name, address string, serviceAccounts []string, clusterID cluster.ID) *model.Service {
+func MakeService(args ServiceArgs) *model.Service {
 	return &model.Service{
 		CreationTime: time.Now(),
 		ClusterLocal: model.HostVIPs{
-			Hostname: hostname,
+			Hostname: args.Hostname,
 			ClusterVIPs: cluster.AddressMap{
-				Addresses: map[cluster.ID][]string{clusterID: {address}},
+				Addresses: map[cluster.ID][]string{args.ClusterID: {args.Address}},
 			},
 		},
-		Address:         address,
-		ServiceAccounts: serviceAccounts,
+		ClusterSetLocal: model.HostVIPs{
+			Hostname: args.ClusterSetHostname,
+			ClusterVIPs: cluster.AddressMap{
+				Addresses: map[cluster.ID][]string{args.ClusterID: args.ClusterSetIPs},
+			},
+		},
+		Address:         args.Address,
+		ServiceAccounts: args.ServiceAccounts,
 		Ports: []*model.Port{
 			{
 				Name:     PortHTTPName,
@@ -234,7 +249,7 @@ func (sd *ServiceDiscovery) GetProxyServiceInstances(node *model.Proxy) []*model
 	return out
 }
 
-func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
+func (sd *ServiceDiscovery) GetProxyWorkloadLabels(*model.Proxy) labels.Collection {
 	if sd.GetProxyServiceInstancesError != nil {
 		return nil
 	}
@@ -243,7 +258,7 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Co
 }
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
-func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, _ []int) []string {
 	for h, s := range sd.services {
 		if h == svc.ClusterLocal.Hostname {
 			return s.ServiceAccounts
@@ -257,11 +272,19 @@ func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	return []*model.NetworkGateway{}
 }
 
+func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
+	return []model.ClusterServiceInfo{}
+}
+
+func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
+	return []model.ClusterServiceInfo{}
+}
+
 type Controller struct{}
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {}
+func (c *Controller) AppendServiceHandler(func(*model.Service, model.Event)) {}
 
-func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) {}
+func (c *Controller) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
 
 func (c *Controller) Run(<-chan struct{}) {}
 

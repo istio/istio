@@ -203,7 +203,8 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/mesh", "Active mesh config", s.meshHandler)
 	s.addDebugHandler(mux, internalMux, "/debug/clusterz", "List remote clusters where istiod reads endpoints", s.clusterz)
 	s.addDebugHandler(mux, internalMux, "/debug/networkz", "List cross-network gateways", s.networkz)
-	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that been exported via MCS", s.exportz)
+	s.addDebugHandler(mux, internalMux, "/debug/exportz", "List endpoints that have been exported via MCS", s.exportz)
+	s.addDebugHandler(mux, internalMux, "/debug/importz", "List services that have been imported via MCS", s.importz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/list", "List all supported debug commands in json", s.List)
 }
@@ -863,35 +864,40 @@ func (s *DiscoveryServer) networkz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *DiscoveryServer) exportz(w http.ResponseWriter, _ *http.Request) {
-	aggregateController, ok := s.Env.ServiceDiscovery.(*aggregate.Controller)
-	if !ok {
-		writeJSON(w, nil)
-		return
-	}
-
-	type ServiceExporter interface {
-		ExportedServices() []string
-	}
-
 	jsonMap := make(map[cluster.ID][]string)
-	for _, registry := range aggregateController.GetRegistries() {
-		if ctrl, ok := registry.(ServiceExporter); ok {
-			for _, export := range ctrl.ExportedServices() {
-				parts := strings.Split(export, ":")
-				if len(parts) == 2 {
-					clusterID := cluster.ID(parts[0])
-					namespacedName := parts[1]
-
-					// Append the export and keep the array sorted.
-					svcs := append(jsonMap[clusterID], namespacedName)
-					sort.Strings(svcs)
-					jsonMap[clusterID] = svcs
-				}
-			}
-		}
+	svcs := sortClusterServices(s.Env.ExportedServices())
+	for _, svc := range svcs {
+		clusterSvcs := append(jsonMap[svc.Cluster], fmt.Sprintf("%s/%s", svc.Namespace, svc.Name))
+		sort.Strings(clusterSvcs)
+		jsonMap[svc.Cluster] = clusterSvcs
 	}
 
 	writeJSON(w, jsonMap)
+}
+
+func (s *DiscoveryServer) importz(w http.ResponseWriter, _ *http.Request) {
+	jsonMap := make(map[cluster.ID][]string)
+	svcs := sortClusterServices(s.Env.ImportedServices())
+	for _, svc := range svcs {
+		clusterSvcs := append(jsonMap[svc.Cluster], fmt.Sprintf("%s/%s", svc.Namespace, svc.Name))
+		sort.Strings(clusterSvcs)
+		jsonMap[svc.Cluster] = clusterSvcs
+	}
+
+	writeJSON(w, jsonMap)
+}
+
+func sortClusterServices(svcs []model.ClusterServiceInfo) []model.ClusterServiceInfo {
+	sort.Slice(svcs, func(i, j int) bool {
+		if strings.Compare(svcs[i].Cluster.String(), svcs[j].Cluster.String()) < 0 {
+			return true
+		}
+		if strings.Compare(svcs[i].Namespace, svcs[j].Namespace) < 0 {
+			return true
+		}
+		return strings.Compare(svcs[i].Name, svcs[j].Name) < 0
+	})
+	return svcs
 }
 
 func (s *DiscoveryServer) clusterz(w http.ResponseWriter, _ *http.Request) {

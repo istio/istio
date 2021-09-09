@@ -636,10 +636,12 @@ message PilotConfig {
   // Examples: 300s, 30m, 1h
   google.protobuf.Duration keepaliveMaxServerConnectionAge = 13;
 
-  // Labels that are added to Pilot pods.
+  // Labels that are added to Pilot deployment and pods.
   //
   // See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   TypeMapStringInterface deploymentLabels = 14;
+
+  TypeMapStringInterface podLabels = 36;
 
   // Configuration settings passed to Pilot as a ConfigMap.
   //
