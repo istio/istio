@@ -87,7 +87,7 @@ type Options struct {
 	ProgressLog *progress.Log
 	// Force ignores validation errors
 	Force bool
-	// Skips check for duplicate webhook configurations based on label selector
+	// Skips check for duplicate webhook configurations based on label selector.
 	SkipWebhookSelectorCheck bool
 }
 
