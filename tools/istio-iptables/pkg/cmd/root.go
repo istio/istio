@@ -96,7 +96,7 @@ func constructConfig() *config.Config {
 		OutboundPortsExclude:    viper.GetString(constants.LocalOutboundPortsExclude),
 		OutboundIPRangesInclude: viper.GetString(constants.ServiceCidr),
 		OutboundIPRangesExclude: viper.GetString(constants.ServiceExcludeCidr),
-		KubevirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
+		KubeVirtInterfaces:      viper.GetString(constants.KubeVirtInterfaces),
 		ExcludeInterfaces:       viper.GetString(constants.ExcludeInterfaces),
 		IptablesProbePort:       uint16(viper.GetUint(constants.IptablesProbePort)),
 		ProbeTimeout:            viper.GetDuration(constants.ProbeTimeout),
