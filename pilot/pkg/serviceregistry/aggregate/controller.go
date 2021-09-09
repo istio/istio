@@ -180,9 +180,6 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 
 func mergeHostVIPs(dst, src *model.HostVIPs, srcRegistry serviceregistry.Instance) {
 	// Prefer the k8s HostVIPs where possible
-	if srcRegistry.Provider() == provider.Kubernetes || len(dst.Hostname) == 0 {
-		dst.Hostname = src.Hostname
-	}
 	clusterID := srcRegistry.Cluster()
 	if srcRegistry.Provider() == provider.Kubernetes || len(dst.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
 		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
