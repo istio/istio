@@ -126,7 +126,7 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 			// - helm was used
 			// - user did `istioctl manifest generate | kubectl apply ...`
 			// nolint: golint,stylecheck
-			return fmt.Errorf("Istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>")
+			return fmt.Errorf("istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>")
 		}
 		return fmt.Errorf("could not load IstioOperator from cluster: %v. Use --filename", err)
 	}
@@ -410,7 +410,7 @@ func (v *StatusVerifier) injectorFromCluster(revision string) (*admit_v1.Mutatin
 		return hookmatch, nil
 	}
 
-	return nil, fmt.Errorf("Istio injector revision %q not found", revision) // nolint: golint,stylecheck
+	return nil, fmt.Errorf("istio injector revision %q not found", revision) // nolint: golint,stylecheck
 }
 
 // Find an IstioOperator matching revision in the cluster.  The IstioOperators
@@ -451,7 +451,7 @@ func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount int, err er
 	}
 	if err != nil {
 		// Don't return full error; it is usually an unwieldy aggregate
-		return fmt.Errorf("Istio installation failed") // nolint
+		return fmt.Errorf("istio installation failed") // nolint
 	}
 	v.logger.LogAndPrintf("%s Istio is installed and verified successfully", v.successMarker)
 	return nil
@@ -488,7 +488,7 @@ func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 }
 
 func istioVerificationFailureError(filename string, reason error) error {
-	return fmt.Errorf("Istio installation failed, incomplete or does not match \"%s\": %v", filename, reason) // nolint
+	return fmt.Errorf("istio installation failed, incomplete or does not match \"%s\": %v", filename, reason) // nolint
 }
 
 func (v *StatusVerifier) k8sConfig() *genericclioptions.ConfigFlags {

@@ -58,8 +58,8 @@ func HandlerForDebugErrors(kubeClient kube.ExtendedClient,
 		for _, resource := range response.Resources {
 			eString := string(resource.Value)
 			switch {
-			case strings.Contains(eString, "You must provide a proxyID in the query string"):
-				return nil, fmt.Errorf(" You must provide a proxyID in the query string, e.g. [%s]",
+			case strings.Contains(eString, "you must provide a proxyID in the query string"):
+				return nil, fmt.Errorf("you must provide a proxyID in the query string, e.g. [%s]",
 					"edsz?proxyID=istio-ingressgateway")
 
 			case strings.Contains(eString, "404 page not found"):
