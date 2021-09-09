@@ -852,7 +852,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 		log.Infof("checking wildcard for listener map key %s, exists: %v", *listenerMapKey, exists)
 		*listenerMapKey = listenerKey(actualWildcard, listenerOpts.port.Port)
 		listenerEntry, wcexists := listenerMap[listenerKey(actualWildcard, listenerOpts.port.Port)]
-		log.Infof("listener entry protocol %v listeneropts protocol", listenerEntry.protocol, listenerOpts.port.Protocol)
+		if wcexists {
+			log.Infof("listener entry protocol %v listeneropts protocol", listenerEntry.protocol, listenerOpts.port.Protocol)
+		}
 		if wcexists && listenerEntry.protocol == listenerOpts.port.Protocol {
 			exists = true
 			log.Infof("wildcard exists for %s", *listenerMapKey)
