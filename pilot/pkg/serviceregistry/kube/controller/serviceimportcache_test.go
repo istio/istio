@@ -100,7 +100,7 @@ func newTestServiceImportCache(t *testing.T, stopCh chan struct{}) *serviceImpor
 	// Create the test service and endpoints.
 	createService(c, serviceImportName, serviceImportNamespace, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-	createEndpoints(c, serviceImportName, serviceImportNamespace, []string{"tcp-port"}, []string{serviceImportPodIP}, nil, t)
+	createEndpoints(t, c, serviceImportName, serviceImportNamespace, []string{"tcp-port"}, []string{serviceImportPodIP}, nil, nil)
 
 	ic := c.imports.(*serviceImportCacheImpl)
 
