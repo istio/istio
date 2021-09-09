@@ -406,16 +406,20 @@ func expectNoMessages(t test.Failer, g *GomegaWithT, output []string) {
 func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected ...*diag.MessageType) {
 	t.Helper()
 
-	var j []map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &j); err != nil {
-		t.Fatal(err)
-	}
+	if len(expected) == 0 {
+		g.Expect(output).To(Equal(""))
+	} else {
+		var j []map[string]interface{}
+		if err := json.Unmarshal([]byte(output), &j); err != nil {
+			t.Fatal(err)
+		}
 
-	g.Expect(j).To(HaveLen(len(expected)))
+		g.Expect(j).To(HaveLen(len(expected)))
 
-	for i, m := range j {
-		g.Expect(m["level"]).To(Equal(expected[i].Level().String()))
-		g.Expect(m["code"]).To(Equal(expected[i].Code()))
+		for i, m := range j {
+			g.Expect(m["level"]).To(Equal(expected[i].Level().String()))
+			g.Expect(m["code"]).To(Equal(expected[i].Code()))
+		}
 	}
 }
 
