@@ -70,6 +70,9 @@ func printLog(ms diag.Messages, colorize bool) string {
 }
 
 func printJSON(ms diag.Messages) (string, error) {
+	if len(ms) == 0 {
+		return "", nil
+	}
 	jsonOutput, err := json.MarshalIndent(ms, "", "\t")
 	return string(jsonOutput), err
 }

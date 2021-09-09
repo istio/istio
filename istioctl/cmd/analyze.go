@@ -245,7 +245,9 @@ func Analyze() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), output)
+			if output != "" {
+				fmt.Fprintln(cmd.OutOrStdout(), output)
+			}
 
 			// An extra message on success
 			if len(outputMessages) == 0 {
