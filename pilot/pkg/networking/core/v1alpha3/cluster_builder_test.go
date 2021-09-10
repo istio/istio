@@ -2934,7 +2934,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
 
 			// ACT
-			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule)
+			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
 
 			byteArray, err := config.ToJSON(destRule.Spec)
 			if err != nil {
