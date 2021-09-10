@@ -836,10 +836,12 @@ func TestSidecarScope(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		scope := ps.getSidecarScope(c.proxy, c.collection)
-		if c.sidecar != scopeToSidecar(scope) {
-			t.Errorf("case with %s should get sidecar %s but got %s", c.describe, c.sidecar, scopeToSidecar(scope))
-		}
+		t.Run(c.describe, func(t *testing.T) {
+			scope := ps.getSidecarScope(c.proxy, c.collection)
+			if c.sidecar != scopeToSidecar(scope) {
+				t.Errorf("should get sidecar %s but got %s", c.sidecar, scopeToSidecar(scope))
+			}
+		})
 	}
 }
 

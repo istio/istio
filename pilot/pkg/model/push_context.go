@@ -130,17 +130,24 @@ type sidecarIndex struct {
 	sidecarsByNamespace map[string][]*SidecarScope
 	// the Sidecar for the root namespace (if present). This applies to any namespace without its own Sidecar.
 	rootConfig *config.Config
-	// defaultSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar.
+	// computedSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar.
+	// These may be DefaultSidecarScopeForNamespace if rootConfig is empty or ConvertToSidecarScope if not.
 	// These are lazy-loaded. Access protected by defaultSidecarMu
-	defaultSidecarsByNamespace map[string]*SidecarScope
-	defaultSidecarMu           *sync.Mutex
+	computedSidecarsByNamespace map[string]*SidecarScope
+	// computedSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar,
+	// for gateways.
+	// Unlike computedSidecarsByNamespace, this is *always* the output of DefaultSidecarScopeForNamespace.
+	// These are lazy-loaded. Access protected by defaultSidecarMu
+	gatewayDefaultSidecarsByNamespace map[string]*SidecarScope
+	defaultSidecarMu                  *sync.Mutex
 }
 
 func newSidecarIndex() sidecarIndex {
 	return sidecarIndex{
-		sidecarsByNamespace:        map[string][]*SidecarScope{},
-		defaultSidecarsByNamespace: map[string]*SidecarScope{},
-		defaultSidecarMu:           &sync.Mutex{},
+		sidecarsByNamespace:               map[string][]*SidecarScope{},
+		computedSidecarsByNamespace:       map[string]*SidecarScope{},
+		gatewayDefaultSidecarsByNamespace: map[string]*SidecarScope{},
+		defaultSidecarMu:                  &sync.Mutex{},
 	}
 }
 
@@ -844,7 +851,17 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	// default selecting everything, or pulling from the namespace.
 	ps.sidecarIndex.defaultSidecarMu.Lock()
 	defer ps.sidecarIndex.defaultSidecarMu.Unlock()
-	sc, f := ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace]
+	if proxy.Type == Router {
+		sc, f := ps.sidecarIndex.gatewayDefaultSidecarsByNamespace[proxy.ConfigNamespace]
+		if f {
+			// We have already computed the scope for this namespace, just fetch it
+			return sc
+		}
+		computed := DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+		ps.sidecarIndex.gatewayDefaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
+		return computed
+	}
+	sc, f := ps.sidecarIndex.computedSidecarsByNamespace[proxy.ConfigNamespace]
 	if f {
 		// We have already computed the scope for this namespace, just fetch it
 		return sc
@@ -855,8 +872,10 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		computed = ConvertToSidecarScope(ps, ps.sidecarIndex.rootConfig, proxy.ConfigNamespace)
 	} else {
 		computed = DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+		// Even though we were a gateway, we can store this as a gateway one since it could be used by a gateway
+		ps.sidecarIndex.gatewayDefaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
 	}
-	ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
+	ps.sidecarIndex.computedSidecarsByNamespace[proxy.ConfigNamespace] = computed
 	return computed
 }
 
