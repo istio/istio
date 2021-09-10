@@ -245,12 +245,10 @@ func Analyze() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if output != "" {
-				fmt.Fprintln(cmd.OutOrStdout(), output)
-			}
 
-			// An extra message on success
-			if len(outputMessages) == 0 {
+			if len(outputMessages) > 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), output)
+			} else if len(outputMessages) == 0 {
 				if parseErrors == 0 {
 					if len(readers) > 0 {
 						var files []string
