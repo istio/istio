@@ -1,6 +1,6 @@
 # Istio base Helm Chart
 
-This chart installs the Istio base configurations. This includes Istio CRDs.
+This chart installs resources shared by all Istio revisions. This includes Istio CRDs.
 
 ## Setup Repo Info
 
