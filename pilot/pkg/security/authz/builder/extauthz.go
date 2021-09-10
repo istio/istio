@@ -85,17 +85,11 @@ func processExtensionProvider(in *plugin.InputParams) map[string]*builtExtAuthz 
 		// TODO(yangminzhu): Refactor and cache the ext_authz config.
 		switch p := config.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			errValidation := validation.ValidateExtensionProviderEnvoyExtAuthzHTTP(p.EnvoyExtAuthzHttp)
-			if errValidation != nil {
-				errs = multierror.Append(errs, errValidation)
-			} else {
+			if err = validation.ValidateExtensionProviderEnvoyExtAuthzHTTP(p.EnvoyExtAuthzHttp); err == nil {
 				parsed, err = buildExtAuthzHTTP(in, p.EnvoyExtAuthzHttp)
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			errValidation := validation.ValidateExtensionProviderEnvoyExtAuthzGRPC(p.EnvoyExtAuthzGrpc)
-			if errValidation != nil {
-				errs = multierror.Append(errs, errValidation)
-			} else {
+			if err = validation.ValidateExtensionProviderEnvoyExtAuthzGRPC(p.EnvoyExtAuthzGrpc); err == nil {
 				parsed, err = buildExtAuthzGRPC(in, p.EnvoyExtAuthzGrpc)
 			}
 		default:
