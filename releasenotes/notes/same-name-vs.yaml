@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 35127
+
+releaseNotes:
+- |
+  **Fixed** an issues occuring when multiple VirtualServices with the same name exist in different namespaces.
