@@ -21,6 +21,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -586,10 +587,10 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 // sidecarScope object. Selection is based on labels at the moment.
 func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []config.Config, hosts map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
-	vsMap := map[string]struct{}{}
+	vsset := sets.NewSet()
 	for _, c := range virtualServices {
 		configNamespace := c.Namespace
-		vsName := c.Name
+		vsName := c.Name + "/" + c.Namespace
 		rule := c.Spec.(*networking.VirtualService)
 
 		// Selection algorithm:
@@ -605,7 +606,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
 			for _, importedHost := range importedHosts {
 				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
+				if _, ok := vsset[vsName]; ok {
 					break
 				}
 				for _, h := range rule.Hosts {
@@ -613,7 +614,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 					// duplicated virtualservices to slice importedVirtualServices
 					if importedHost.Matches(host.Name(h)) {
 						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
+						vsset[vsName] = struct{}{}
 						break
 					}
 				}
@@ -624,7 +625,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 		if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
 			for _, importedHost := range importedHosts {
 				// Check if the hostnames match per usual hostname matching rules
-				if _, ok := vsMap[vsName]; ok {
+				if _, ok := vsset[vsName]; ok {
 					break
 				}
 				for _, h := range rule.Hosts {
@@ -632,7 +633,7 @@ func (ilw *IstioEgressListenerWrapper) selectVirtualServices(virtualServices []c
 					// duplicated virtualservices to slice importedVirtualServices
 					if importedHost.Matches(host.Name(h)) {
 						importedVirtualServices = append(importedVirtualServices, c)
-						vsMap[vsName] = struct{}{}
+						vsset[vsName] = struct{}{}
 						break
 					}
 				}
