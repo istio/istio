@@ -193,7 +193,7 @@ func (s *SecretsController) GetCaCert(name, namespace string) (cert []byte, err 
 		// Could not fetch cert, look for secret without -cacert suffix
 		k8sSecret, caCertErr := s.secrets.Lister().Secrets(namespace).Get(strippedName)
 		if caCertErr != nil {
-			return nil, nil
+			return nil, fmt.Errorf("secret %v/%v not found", namespace, strippedName)
 		}
 		return extractRoot(k8sSecret)
 	}
@@ -221,7 +221,7 @@ func hasValue(d map[string][]byte, keys ...string) bool {
 }
 
 // extractKeyAndCert extracts server key, certificate
-func extractKeyAndCert(scrt *v1.Secret) (key, cert []byte, error error) {
+func extractKeyAndCert(scrt *v1.Secret) (key, cert []byte, err error) {
 	if hasValue(scrt.Data, GenericScrtCert, GenericScrtKey) {
 		return scrt.Data[GenericScrtKey], scrt.Data[GenericScrtCert], nil
 	}

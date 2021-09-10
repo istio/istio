@@ -399,9 +399,9 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 			if tt.cert != string(cert) {
 				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
 			}
-			caCert, _ := con.GetCaCert(tt.name, tt.namespace)
+			caCert, err := con.GetCaCert(tt.name, tt.namespace)
 			if tt.caCert != string(caCert) {
-				t.Errorf("got caCert %q, wanted %q", string(caCert), tt.caCert)
+				t.Errorf("got caCert %q, wanted %q with err %v", string(caCert), tt.caCert, err)
 			}
 		})
 	}
