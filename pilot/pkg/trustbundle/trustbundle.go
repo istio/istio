@@ -275,7 +275,7 @@ func (tb *TrustBundle) ProcessRemoteTrustAnchors(stop <-chan struct{}, pollInter
 			trustBundleLog.Infof("waking up to perform periodic checks")
 			tb.fetchRemoteTrustAnchors()
 		case <-stop:
-			trustBundleLog.Infof("stop processing endpoint trustAnchor pdates")
+			trustBundleLog.Infof("stop processing endpoint trustAnchor updates")
 			return
 		case <-tb.endpointUpdateChan:
 			tb.fetchRemoteTrustAnchors()
