@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
@@ -1038,7 +1039,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
 		} else {
 			// If CredentialName is not set fallback to files specified in DR.
-			res := model.SdsCertificateConfig{
+			res := security.SdsCertificateConfig{
 				CaCertificatePath: tls.CaCertificates,
 			}
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
@@ -1082,7 +1083,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			// These are certs being mounted from within the pod and specified in Destination Rules.
 			// Rather than reading directly in Envoy, which does not support rotation, we will
 			// serve them over SDS by reading the files.
-			res := model.SdsCertificateConfig{
+			res := security.SdsCertificateConfig{
 				CertificatePath:   tls.ClientCertificate,
 				PrivateKeyPath:    tls.PrivateKey,
 				CaCertificatePath: tls.CaCertificates,
