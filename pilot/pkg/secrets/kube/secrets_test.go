@@ -176,9 +176,10 @@ func TestSecretsController(t *testing.T) {
 			expectedError: "found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: ca.crt",
 		},
 		{
-			name:          "generic",
-			namespace:     "wrong-namespace",
-			expectedError: `secret wrong-namespace/generic not found`,
+			name:            "generic",
+			namespace:       "wrong-namespace",
+			expectedError:   `secret wrong-namespace/generic not found`,
+			expectedCAError: `secret wrong-namespace/generic not found`,
 		},
 		{
 			name:            "empty-cert",
