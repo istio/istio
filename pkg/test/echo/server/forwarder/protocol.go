@@ -136,7 +136,6 @@ func newProtocol(cfg Config) (protocol, error) {
 		NextProtos:           cfg.Request.GetAlpn().GetValue(),
 		ServerName:           cfg.Request.ServerName,
 	}
-	tlsConfig.NextProtos = append(tlsConfig.NextProtos, "http/1.1", "istio-peer-exchange")
 	if cfg.Request.CaCertFile != "" {
 		certData, err := os.ReadFile(cfg.Request.CaCertFile)
 		if err != nil {
@@ -164,7 +163,7 @@ func newProtocol(cfg Config) (protocol, error) {
 	switch s := scheme.Instance(urlScheme); s {
 	case scheme.HTTP, scheme.HTTPS:
 		if cfg.Request.Alpn == nil {
-			tlsConfig.NextProtos = []string{"http/1.1", "istio-peer-exchange"}
+			tlsConfig.NextProtos = []string{"http/1.1"}
 		}
 		proto := &httpProtocol{
 			client: &http.Client{
@@ -198,12 +197,11 @@ func newProtocol(cfg Config) (protocol, error) {
 			}
 		} else if cfg.Request.Http2 && scheme.Instance(urlScheme) == scheme.HTTPS {
 			if cfg.Request.Alpn == nil {
-				tlsConfig.NextProtos = []string{"http/1.1", "istio-peer-exchange"}
+				tlsConfig.NextProtos = []string{"h2"}
 			}
 			proto.client.Transport = &http2.Transport{
 				TLSClientConfig: tlsConfig,
 				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
-					cfg.NextProtos = append(cfg.NextProtos, "http/1.1", "istio-peer-exchange")
 					return tls.Dial(network, addr, cfg)
 				},
 			}
@@ -215,7 +213,6 @@ func newProtocol(cfg Config) (protocol, error) {
 				AllowHTTP: true,
 				// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
 				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
-					cfg.NextProtos = append(cfg.NextProtos, "http/1.1", "istio-peer-exchange")
 					return net.Dial(network, addr)
 				},
 			}
