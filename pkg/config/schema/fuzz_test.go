@@ -126,6 +126,12 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		func(t *networking.HTTPFaultInjection_Delay, c fuzz.Continue) {
 			*t = networking.HTTPFaultInjection_Delay{}
 		},
+		func(t *networking.HTTPRedirect, c fuzz.Continue) {
+			*t = networking.HTTPRedirect{}
+		},
+		func(t *networking.HTTPRedirect_DerivePort, c fuzz.Continue) {
+			*t = networking.HTTPRedirect_DerivePort{}
+		},
 		func(t *networking.LoadBalancerSettings, c fuzz.Continue) {
 			*t = networking.LoadBalancerSettings{}
 		},
