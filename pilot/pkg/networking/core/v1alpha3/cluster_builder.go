@@ -39,6 +39,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
@@ -742,7 +743,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 
 		// buildIstioMutualTLS would have populated the TLSSettings with proxy metadata.
 		// Use it if it exists otherwise fallback to default SDS locations.
-		metadataSDS := model.SdsCertificateConfig{
+		metadataSDS := security.SdsCertificateConfig{
 			CertificatePath:   tls.ClientCertificate,
 			PrivateKeyPath:    tls.PrivateKey,
 			CaCertificatePath: tls.CaCertificates,
@@ -798,8 +799,8 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
 		} else {
 			// If CredentialName is not set fallback to files specified in DR.
-			res := model.SdsCertificateConfig{
-				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+			res := security.SdsCertificateConfig{
+				CaCertificatePath: tls.CaCertificates,
 			}
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
@@ -837,12 +838,12 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				return nil, err
 			}
 
-			var res model.SdsCertificateConfig
+			var res security.SdsCertificateConfig
 			if features.AllowMetadataCertsInMutualTLS {
 				// These are certs being mounted from within the pod and specified in Metadata.
 				// Rather than reading directly in Envoy, which does not support rotation, we will
 				// serve them over SDS by reading the files. This is only enabled for temporary migration.
-				res = model.SdsCertificateConfig{
+				res = security.SdsCertificateConfig{
 					CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
 					PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
 					CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
@@ -851,7 +852,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				// These are certs being mounted from within the pod and specified in Destination Rules.
 				// Rather than reading directly in Envoy, which does not support rotation, we will
 				// serve them over SDS by reading the files.
-				res = model.SdsCertificateConfig{
+				res = security.SdsCertificateConfig{
 					CertificatePath:   tls.ClientCertificate,
 					PrivateKeyPath:    tls.PrivateKey,
 					CaCertificatePath: tls.CaCertificates,

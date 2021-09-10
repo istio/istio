@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
+	"istio.io/istio/security/pkg/nodeagent/cafile"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	"istio.io/pkg/log"
@@ -48,6 +49,7 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		SecretTTL:                      secretTTLEnv,
 		FileDebounceDuration:           fileDebounceDuration,
 		SecretRotationGracePeriodRatio: secretRotationGracePeriodRatioEnv,
+		CARootPath:                     cafile.CACertFilePath,
 	}
 
 	o, err := SetupSecurityOptions(proxyConfig, o, jwtPolicy.Get(),

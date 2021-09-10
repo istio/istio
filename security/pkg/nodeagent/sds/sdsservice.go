@@ -44,8 +44,9 @@ var sdsServiceLog = log.RegisterScope("sds", "SDS service debugging", 0)
 type sdsservice struct {
 	st security.SecretManager
 
-	XdsServer *xds.DiscoveryServer
-	stop      chan struct{}
+	XdsServer  *xds.DiscoveryServer
+	stop       chan struct{}
+	rootCaPath string
 }
 
 // Assert we implement the generator interface
@@ -93,6 +94,8 @@ func newSDSService(st security.SecretManager, options *security.Options) *sdsser
 		stop: make(chan struct{}),
 	}
 	ret.XdsServer = NewXdsServer(ret.stop, ret)
+
+	ret.rootCaPath = options.CARootPath
 
 	if options.FileMountedCerts {
 		return ret
@@ -148,7 +151,7 @@ func (s *sdsservice) generate(resourceNames []string) (model.Resources, error) {
 			return nil, fmt.Errorf("failed to generate secret for %v: %v", resourceName, err)
 		}
 
-		res := util.MessageToAny(toEnvoySecret(secret))
+		res := util.MessageToAny(toEnvoySecret(secret, s.rootCaPath))
 		resources = append(resources, res)
 	}
 	return resources, nil
@@ -201,12 +204,17 @@ func (s *sdsservice) Close() {
 }
 
 // toEnvoySecret converts a security.SecretItem to an Envoy tls.Secret
-func toEnvoySecret(s *security.SecretItem) *tls.Secret {
+func toEnvoySecret(s *security.SecretItem, caRootPath string) *tls.Secret {
 	secret := &tls.Secret{
 		Name: s.ResourceName,
 	}
-
-	cfg, ok := model.SdsCertificateConfigFromResourceName(s.ResourceName)
+	cfg := security.SdsCertificateConfig{}
+	ok := false
+	if s.ResourceName == security.FileRootSystemCACert {
+		cfg, ok = security.SdsCertificateConfigFromResourceNameForOSCACert(caRootPath)
+	} else {
+		cfg, ok = security.SdsCertificateConfigFromResourceName(s.ResourceName)
+	}
 	if s.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
 		secret.Type = &tls.Secret_ValidationContext{
 			ValidationContext: &tls.CertificateValidationContext{

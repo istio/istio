@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 33472
+releaseNotes:
+  - |
+    **Added** `VERTIFY_CERT_AT_CLIENT` environmental variable to istiod. Setting `VERTIFY_CERT_AT_CLIENT` to `true` will verify server certificates using the OS CA certificates when not using a `DestinationRule` `caCertificates` field [Issue #33472](github.com/istio/istio/issues/33472).
