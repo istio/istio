@@ -215,15 +215,19 @@ func (requestClaimGenerator) principal(key, value string, forTCP bool) (*rbacpb.
 	return principalMetadata(m), nil
 }
 
-type hostGenerator struct{}
+type hostGenerator struct {
+	isIstioVersionGE111 bool
+}
 
-func (hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
+func (hg hostGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	m := matcher.HeaderMatcher(hostHeader, value)
-	return permissionHeader(m), nil
+	if hg.isIstioVersionGE111 {
+		return permissionHeader(matcher.HostMatcher(hostHeader, value)), nil
+	}
+	return permissionHeader(matcher.HostMatcherWithRegex(hostHeader, value)), nil
 }
 
 func (hostGenerator) principal(key, value string, forTCP bool) (*rbacpb.Principal, error) {

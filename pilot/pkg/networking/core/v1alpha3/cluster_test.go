@@ -129,8 +129,10 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
 					// nolint: staticcheck
+					// Update to not use the deprecated fields later.
 					g.Expect(cluster.MaxRequestsPerConnection).To(Not(BeNil()))
 					// nolint: staticcheck
+					// Update to not use the deprecated fields later.
 					g.Expect(cluster.MaxRequestsPerConnection.Value).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))

@@ -271,6 +271,12 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
+// IsIstioVersionGE111 checks whether the given Istio version is greater than or equals 1.11.
+func IsIstioVersionGE111(node *model.Proxy) bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 11, Patch: -1}) >= 0
+}
+
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }

@@ -1,0 +1,55 @@
+name: envoy.filters.http.rbac
+typedConfig:
+  '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+  rules:
+    policies:
+      ns[foo]-policy[httpbin-1]-rule[0]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - header:
+                    name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)example\.com
+                - header:
+                    name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i)prefix\.example\..*
+                - header:
+                    name: :authority
+                    safeRegexMatch:
+                      googleRe2: {}
+                      regex: (?i).*\.example\.com
+                - header:
+                    name: :authority
+                    presentMatch: true
+            - notRule:
+                orRules:
+                  rules:
+                  - header:
+                      name: :authority
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i)not-example\.com
+                  - header:
+                      name: :authority
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i)prefix\.not-example\..*
+                  - header:
+                      name: :authority
+                      safeRegexMatch:
+                        googleRe2: {}
+                        regex: (?i).*\.not-example\.com
+                  - header:
+                      name: :authority
+                      presentMatch: true
+        principals:
+        - andIds:
+            ids:
+            - any: true
+  shadowRulesStatPrefix: istio_dry_run_allow_
