@@ -88,7 +88,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		}
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			NextProtos:   []string{"h2", "http/1.1", "http/1.0"},
+			NextProtos:   []string{"h2", "http/1.1", "http/1.0", "istio-peer-exchange"},
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
 				// HTTP server to return in the response. However, for debugging, we can at least log
@@ -152,7 +152,7 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, address string) {
 		}
 	} else if s.Port.TLS {
 		url = fmt.Sprintf("https://%s", address)
-		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"http/1.1", "istio-peer-exchange"}}}
 	} else {
 		url = fmt.Sprintf("http://%s", address)
 	}

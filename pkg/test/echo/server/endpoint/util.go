@@ -38,6 +38,7 @@ func listenOnAddress(ip string, port int) (net.Listener, int, error) {
 }
 
 func listenOnAddressTLS(ip string, port int, cfg *tls.Config) (net.Listener, int, error) {
+	cfg.NextProtos = append(cfg.NextProtos, "http/1.1", "istio-peer-exchange")
 	ln, err := tls.Listen("tcp", net.JoinHostPort(ip, strconv.Itoa(port)), cfg)
 	if err != nil {
 		return nil, 0, err
