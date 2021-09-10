@@ -17,7 +17,6 @@ package memory
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 )
 
 var (
+	errUnknownType   = errors.New("unknown type")
 	errNotFound      = errors.New("item not found")
 	errAlreadyExists = errors.New("item already exists")
 	// TODO: can we make this compatible with kerror.IsConflict without imports the library?
@@ -125,7 +125,7 @@ func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string, re
 	defer cr.mutex.Unlock()
 	data, ok := cr.data[kind]
 	if !ok {
-		return errors.New("unknown type")
+		return errUnknownType
 	}
 	ns, exists := data[namespace]
 	if !exists {
@@ -147,7 +147,7 @@ func (cr *store) Create(cfg config.Config) (string, error) {
 	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
-		return "", fmt.Errorf("unknown type %v", kind)
+		return "", errUnknownType
 	}
 	if !cr.skipValidation {
 		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
@@ -184,7 +184,7 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
-		return "", errors.New("unknown type")
+		return "", errUnknownType
 	}
 	if !cr.skipValidation {
 		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
@@ -193,11 +193,6 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 	}
 
 	ns, exists := cr.data[kind][cfg.Namespace]
-	if !exists {
-		return "", errNotFound
-	}
-
-	_, exists = ns.Load(cfg.Name)
 	if !exists {
 		return "", errNotFound
 	}
@@ -231,7 +226,7 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 	gvk := orig.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(gvk)
 	if !ok {
-		return "", errors.New("unknown type")
+		return "", errUnknownType
 	}
 
 	cfg, _ := patchFn(orig)
