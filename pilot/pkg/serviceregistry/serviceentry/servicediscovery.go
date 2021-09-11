@@ -451,7 +451,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 			// Not a match, skip this one
 			continue
 		}
-		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, se.services, se.entry)
+		instance := convertWorkloadInstanceToServiceInstance(wi, se.services, se.entry)
 		instances = append(instances, instance...)
 		if addressToDelete != "" {
 			for _, i := range instance {
@@ -705,7 +705,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 				// Not a match, skip this one
 				continue
 			}
-			instance := convertWorkloadInstanceToServiceInstance(workloadInstance.Endpoint, se.services, se.entry)
+			instance := convertWorkloadInstanceToServiceInstance(workloadInstance, se.services, se.entry)
 			instances = append(instances, instance...)
 		}
 		updateInstances(key, instances, instanceMap, ip2instances)

@@ -866,6 +866,29 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
+
+	t.Run("workload instance with port map", func(t *testing.T) {
+		// Delete the instance
+		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventDelete, t)
+		instances := make([]*model.ServiceInstance, 0)
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+
+		// Add a workload instance, and use port map
+		fi1.PortMap = map[string]uint32 {"tcp-444": 4444, "http-445": 4445}
+		defer func() { fi1.PortMap = nil }()
+		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
+		instances = []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 4444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 4445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+		expectProxyInstances(t, sd, instances, "2.2.2.2")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+	})
 }
 
 func expectProxyInstances(t *testing.T, sd *ServiceEntryStore, expected []*model.ServiceInstance, ip string) {

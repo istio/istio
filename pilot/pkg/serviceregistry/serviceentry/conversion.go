@@ -343,16 +343,21 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
+func convertWorkloadInstanceToServiceInstance(workloadInstance *model.WorkloadInstance, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
+	if workloadInstance.Endpoint == nil {
+		return out
+	}
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			ep := *workloadInstance
+			ep := *workloadInstance.Endpoint
 			ep.ServicePortName = serviceEntryPort.Name
-			// if target port is set, use the target port else fallback to the service port
-			// TODO: we need a way to get the container port map from k8s
-			if serviceEntryPort.TargetPort > 0 {
+			// if port is defined in portMap, use the port
+			portMap := workloadInstance.PortMap
+			if len(portMap) > 0 && portMap[ep.ServicePortName] > 0 {
+				ep.EndpointPort = portMap[ep.ServicePortName]
+			} else if serviceEntryPort.TargetPort > 0 { // if target port is set, use the target port else fallback to the service port
 				ep.EndpointPort = serviceEntryPort.TargetPort
 			} else {
 				ep.EndpointPort = serviceEntryPort.Number
