@@ -170,10 +170,13 @@ func (a *Agent) waitForDrain() {
 }
 
 func (a *Agent) activeProxyConnections() int {
-	activeConnectionsURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=downstream_cx_active", a.localhost, a.adminPort)
+	activeConnectionsURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=downstream_cx_active$", a.localhost, a.adminPort)
 	stats, err := http.DoHTTPGet(activeConnectionsURL)
 	if err != nil {
 		log.Warnf("Unable to get listener stats from Envoy : %v", err)
+		return -1
+	}
+	if stats.Len() == 0 {
 		return -1
 	}
 	activeConnections := 0
