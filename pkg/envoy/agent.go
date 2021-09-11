@@ -31,7 +31,7 @@ var errAbort = errors.New("epoch aborted")
 
 const errOutOfMemory = "signal: killed"
 
-var activeConnectionCheckDelay = time.Duration(1 * time.Second)
+var activeConnectionCheckDelay = 1 * time.Second
 
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Duration, localhost string,
@@ -51,8 +51,8 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 		terminationDrainDuration: terminationDrainDuration,
 		minDrainDuration:         minDrainDuration,
 		adminPort:                adminPort,
-		statusPort:               int(statusPort),
-		prometheusPort:           int(prometheusPort),
+		statusPort:               statusPort,
+		prometheusPort:           prometheusPort,
 		localhost:                localhost,
 		knownIstioListeners:      knownIstioListeners,
 	}
