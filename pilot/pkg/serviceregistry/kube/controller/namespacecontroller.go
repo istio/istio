@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -168,6 +169,15 @@ func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) error {
 // When a config map is changed, merge the data into the configmap
 func (nc *NamespaceController) configMapChange(cm *v1.ConfigMap) error {
 	if err := k8s.UpdateDataInConfigMap(nc.client, cm.DeepCopy(), nc.getData()); err != nil {
+		// configMap may be already deleted
+		if apierrors.IsNotFound(err) {
+			 return nil
+		}
+		// namespace may be already deleted
+		if _, checkErr := nc.client.ConfigMaps(cm.Namespace).Get(context.TODO(), cm.Name, metav1.GetOptions{}); checkErr != nil &&
+			apierrors.IsNotFound(checkErr) {
+			return nil
+		}
 		return fmt.Errorf("error when inserting CA cert to configmap %v: %v", cm.Name, err)
 	}
 	return nil
