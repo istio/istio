@@ -30,9 +30,8 @@ func getPodsNameInDefaultNamespace(toComplete string) ([]string, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
 	ns := handlers.HandleNamespace(namespace, defaultNamespace)
-	podList, err := kubeClient.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	podList, err := kubeClient.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +64,8 @@ func getServicesName(toComplete string) ([]string, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
 	ns := handlers.HandleNamespace(namespace, defaultNamespace)
-	serviceList, err := kubeClient.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
+	serviceList, err := kubeClient.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +98,7 @@ func getNamespacesName(toComplete string) ([]string, error) {
 		return nil, err
 	}
 
-	ctx := context.Background()
-	nsList, err := getNamespaces(ctx, kubeClient)
+	nsList, err := getNamespaces(context.TODO(), kubeClient)
 	if err != nil {
 		return nil, err
 	}

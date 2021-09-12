@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/istioctl/pkg/authz"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -114,7 +113,7 @@ func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
 }
 
 func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, error) {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+	kubeClient, err := kubeClient(kubeconfig, configContext)
 	if err != nil {
 		return nil, err
 	}
