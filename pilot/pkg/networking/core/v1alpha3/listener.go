@@ -30,6 +30,7 @@ import (
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1485,7 +1486,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
-			ReusePort: true,
+			EnableReusePort: &wrappers.BoolValue{Value: true},
 		}
 	}
 
