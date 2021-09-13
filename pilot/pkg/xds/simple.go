@@ -104,12 +104,7 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	serviceControllers := aggregate.NewController(aggregate.Options{})
 
 	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
-	serviceEntryRegistry := serviceregistry.Simple{
-		ProviderID:       "External",
-		Controller:       serviceEntryStore,
-		ServiceDiscovery: serviceEntryStore,
-	}
-	serviceControllers.AddRegistry(serviceEntryRegistry)
+	serviceControllers.AddRegistry(serviceEntryStore)
 
 	sd := controllermemory.NewServiceDiscovery(nil)
 	sd.EDSUpdater = ds

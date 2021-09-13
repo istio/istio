@@ -911,6 +911,9 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
 				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), "", port, &service.Attributes)
 			}
+			destRule := push.DestinationRule(proxy, service)
+			destinationRule := CastDestinationRule(destRule)
+
 			// First, we build the standard cluster. We match on the SNI matching the cluster name
 			// (per the spec of AUTO_PASSTHROUGH), as well as all possible Istio mTLS ALPNs. This,
 			// along with filtering out plaintext destinations in EDS, ensures that our requests will
@@ -921,11 +924,9 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 				sniHosts:       []string{clusterName},
 				match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
 				tlsContext:     nil, // NO TLS context because this is passthrough
-				networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, statPrefix, clusterName, port),
+				networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, statPrefix, clusterName, "", port, destinationRule),
 			})
 
-			destRule := push.DestinationRule(proxy, service)
-			destinationRule := CastDestinationRule(destRule)
 			// Do the same, but for each subset
 			for _, subset := range destinationRule.GetSubsets() {
 				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, port.Port)
@@ -938,7 +939,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 					sniHosts:       []string{subsetClusterName},
 					match:          &listener.FilterChainMatch{ApplicationProtocols: allIstioMtlsALPNs},
 					tlsContext:     nil, // NO TLS context because this is passthrough
-					networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, subsetStatPrefix, subsetClusterName, port),
+					networkFilters: buildOutboundNetworkFiltersWithSingleDestination(push, proxy, subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule),
 				})
 			}
 		}

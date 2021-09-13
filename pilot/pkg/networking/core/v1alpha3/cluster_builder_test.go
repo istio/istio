@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -35,6 +36,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -2721,6 +2723,231 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 			}
 			if gotCtxType != tt.wantCtxType {
 				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotCtxType)
+			}
+		})
+	}
+}
+
+func TestApplyDestinationRuleOSCACert(t *testing.T) {
+	defer func() {
+		features.VerifyCertAtClient = false
+	}()
+	servicePort := model.PortList{
+		&model.Port{
+			Name:     "default",
+			Port:     8080,
+			Protocol: protocol.HTTP,
+		},
+		&model.Port{
+			Name:     "auto",
+			Port:     9090,
+			Protocol: protocol.Unsupported,
+		},
+	}
+	service := &model.Service{
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("foo.default.svc.cluster.local"),
+		},
+		Address:    "1.1.1.1",
+		Ports:      servicePort,
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+
+	cases := []struct {
+		name                      string
+		cluster                   *cluster.Cluster
+		clusterMode               ClusterMode
+		service                   *model.Service
+		port                      *model.Port
+		networkView               map[network.ID]bool
+		destRule                  *networking.DestinationRule
+		expectedCaCertificateName string
+		enableVerifyCertAtClient  bool
+	}{
+		{
+			name:        "VerifyCertAtClient set and destination rule with empty string CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						CaCertificates: "",
+						Mode:           networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: "system",
+			enableVerifyCertAtClient:  true,
+		},
+		{
+			name:        "VerifyCertAtClient set and destination rule with CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						CaCertificates: constants.DefaultRootCert,
+						Mode:           networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: constants.DefaultRootCert,
+			enableVerifyCertAtClient:  true,
+		},
+		{
+			name:        "VerifyCertAtClient set and destination rule without CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: "system",
+			enableVerifyCertAtClient:  true,
+		},
+		{
+			name:        "VerifyCertAtClient false and destination rule without CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						Mode: networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: "",
+			enableVerifyCertAtClient:  false,
+		},
+		{
+			name:        "VerifyCertAtClient false and destination rule with CaCertificates",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:        10,
+							UseClientProtocol: true,
+						},
+					},
+					Tls: &networking.ClientTLSSettings{
+						CaCertificates: constants.DefaultRootCert,
+						Mode:           networking.ClientTLSSettings_SIMPLE,
+					},
+				},
+			},
+			expectedCaCertificateName: constants.DefaultRootCert,
+			enableVerifyCertAtClient:  false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			features.VerifyCertAtClient = tt.enableVerifyCertAtClient
+			instances := []*model.ServiceInstance{
+				{
+					Service:     tt.service,
+					ServicePort: tt.port,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.1",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "",
+							Label:     "region1/zone1/subzone1",
+						},
+						TLSMode: model.IstioMutualTLSModeLabel,
+					},
+				},
+			}
+
+			var cfg *config.Config
+			if tt.destRule != nil {
+				cfg = &config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "default",
+					},
+					Spec: tt.destRule,
+				}
+			}
+			cg := NewConfigGenTest(t, TestOptions{
+				ConfigPointers: []*config.Config{cfg},
+				Services:       []*model.Service{tt.service},
+			})
+			cg.MemRegistry.WantGetProxyServiceInstances = instances
+			proxy := cg.SetupProxy(nil)
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+
+			ec := NewMutableCluster(tt.cluster)
+			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+
+			// ACT
+			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
+
+			byteArray, err := config.ToJSON(destRule.Spec)
+			if err != nil {
+				t.Errorf("Could not parse destination rule: %v", err)
+			}
+			dr := &networking.DestinationRule{}
+			err = json.Unmarshal(byteArray, &dr)
+			if err != nil {
+				t.Errorf("Could not unmarshal destination rule: %v", err)
+			}
+			ca := dr.TrafficPolicy.Tls.CaCertificates
+			if ca != tt.expectedCaCertificateName {
+				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedCaCertificateName, ca)
 			}
 		})
 	}

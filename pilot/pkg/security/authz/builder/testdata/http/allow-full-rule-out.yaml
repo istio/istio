@@ -10,14 +10,20 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: exact.com
                     name: :authority
+                    stringMatch:
+                      exact: exact.com
+                      ignoreCase: true
                 - header:
                     name: :authority
-                    suffixMatch: .suffix.com
+                    stringMatch:
+                      ignoreCase: true
+                      suffix: .suffix.com
                 - header:
                     name: :authority
-                    prefixMatch: prefix.
+                    stringMatch:
+                      ignoreCase: true
+                      prefix: prefix.
                 - header:
                     name: :authority
                     presentMatch: true
@@ -25,14 +31,20 @@ typedConfig:
                 orRules:
                   rules:
                   - header:
-                      exactMatch: not-exact.com
                       name: :authority
+                      stringMatch:
+                        exact: not-exact.com
+                        ignoreCase: true
                   - header:
                       name: :authority
-                      suffixMatch: .not-suffix.com
+                      stringMatch:
+                        ignoreCase: true
+                        suffix: .not-suffix.com
                   - header:
                       name: :authority
-                      prefixMatch: not-prefix.
+                      stringMatch:
+                        ignoreCase: true
+                        prefix: not-prefix.
                   - header:
                       name: :authority
                       presentMatch: true
