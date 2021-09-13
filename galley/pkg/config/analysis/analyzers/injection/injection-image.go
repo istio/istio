@@ -17,6 +17,7 @@ package injection
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -64,39 +65,51 @@ func (a *ImageAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer.
 func (a *ImageAnalyzer) Analyze(c analysis.Context) {
-	var proxyImage string
+	proxyImageMap := make(map[string]string)
 
-	// TODO: when multiple injector configmaps exist, we may need to assess them respectively.
+	// when multiple injector configmaps exist, we may need to assess them respectively.
 	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.FullName.Name.String() == util.InjectionConfigMap {
+		cmName := r.Metadata.FullName.Name.String()
+		match, _ := regexp.MatchString(`^istio-sidecar-injector`, cmName)
+		if match {
 			cm := r.Message.(*v1.ConfigMap)
+			proxyImageMap[cmName] = GetIstioProxyImage(cm)
 
-			proxyImage = GetIstioProxyImage(cm)
-
-			return false
+			return true
 		}
 		return true
 	})
 
-	if proxyImage == "" {
+	if len(proxyImageMap) == 0 {
 		return
 	}
 
-	injectedNamespaces := make(map[string]struct{})
+	injectedNamespaces := make(map[string]string)
 
 	// Collect the list of namespaces that have istio injection enabled.
 	c.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		if r.Metadata.Labels[util.InjectionLabelName] == util.InjectionLabelEnableValue {
-			injectedNamespaces[r.Metadata.FullName.String()] = struct{}{}
+		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
+		if r.Metadata.Labels[util.InjectionLabelName] == util.InjectionLabelEnableValue || okNewInjectionLabel {
+			if okNewInjectionLabel {
+				injectedNamespaces[r.Metadata.FullName.String()] = nsRevision
+			} else {
+				injectedNamespaces[r.Metadata.FullName.String()] = "default"
+			}
+		} else {
+			return true
 		}
 
 		return true
 	})
 
 	c.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
+		var injectionCMName string
 		pod := r.Message.(*v1.Pod)
 
-		if _, ok := injectedNamespaces[pod.GetNamespace()]; !ok {
+		if nsRevision, ok := injectedNamespaces[pod.GetNamespace()]; ok {
+			// Generate the injection configmap name with different revision for every pod
+			injectionCMName = util.GetInjectorConfigMapName(nsRevision)
+		} else {
 			return true
 		}
 
@@ -111,6 +124,10 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 				continue
 			}
 
+			proxyImage, okImage := proxyImageMap[injectionCMName]
+			if !okImage {
+				return true
+			}
 			if container.Image != proxyImage {
 				m := msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage)
 

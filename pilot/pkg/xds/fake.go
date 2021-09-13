@@ -135,7 +135,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.Hostname),
+				Name:      string(svc.ClusterLocal.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
@@ -241,8 +241,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		s.ConfigUpdate(pushReq)
 	}
 	schemas := collections.Pilot.All()
-	if features.EnableServiceApis {
-		schemas = collections.PilotServiceApi.All()
+	if features.EnableGatewayAPI {
+		schemas = collections.PilotGatewayAPI.All()
 	}
 	for _, schema := range schemas {
 		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.

@@ -443,41 +443,65 @@ var (
 	}
 
 	services1 = []*Service{
-		{Hostname: "bar"},
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "bar",
+			},
+		},
 	}
 
 	services2 = []*Service{
 		{
-			Hostname: "bar",
-			Ports:    port8000,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar",
+			},
+			Ports: port8000,
 		},
-		{Hostname: "barprime"},
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime",
+			},
+		},
 	}
 
 	services3 = []*Service{
 		{
-			Hostname: "bar",
-			Ports:    port9000,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar",
+			},
+			Ports: port9000,
 		},
-		{Hostname: "barprime"},
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime",
+			},
+		},
 	}
 
 	services4 = []*Service{
-		{Hostname: "bar"},
-		{Hostname: "barprime"},
+		{
+			ClusterLocal: HostVIPs{Hostname: "bar"},
+		},
+		{
+			ClusterLocal: HostVIPs{Hostname: "barprime"},
+		},
 	}
 
 	services5 = []*Service{
 		{
-			Hostname: "bar",
-			Ports:    port8000,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar",
+			},
+			Ports: port8000,
 			Attributes: ServiceAttributes{
 				Name:      "bar",
 				Namespace: "foo",
 			},
 		},
 		{
-			Hostname: "barprime",
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime",
+			},
 			Attributes: ServiceAttributes{
 				Name:      "barprime",
 				Namespace: "foo",
@@ -487,8 +511,10 @@ var (
 
 	services6 = []*Service{
 		{
-			Hostname: "bar",
-			Ports:    twoPorts,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar",
+			},
+			Ports: twoPorts,
 			Attributes: ServiceAttributes{
 				Name:      "bar",
 				Namespace: "foo",
@@ -498,24 +524,30 @@ var (
 
 	services7 = []*Service{
 		{
-			Hostname: "bar",
-			Ports:    twoPorts,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar",
+			},
+			Ports: twoPorts,
 			Attributes: ServiceAttributes{
 				Name:      "bar",
 				Namespace: "foo",
 			},
 		},
 		{
-			Hostname: "barprime",
-			Ports:    port8000,
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime",
+			},
+			Ports: port8000,
 			Attributes: ServiceAttributes{
 				Name:      "barprime",
 				Namespace: "foo",
 			},
 		},
 		{
-			Hostname: "foo",
-			Ports:    allPorts,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo",
+			},
+			Ports: allPorts,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "foo",
@@ -525,15 +557,19 @@ var (
 
 	services8 = []*Service{
 		{
-			Hostname: "bookinginfo.com",
-			Ports:    port9999,
+			ClusterLocal: HostVIPs{
+				Hostname: "bookinginfo.com",
+			},
+			Ports: port9999,
 			Attributes: ServiceAttributes{
 				Name:      "bookinginfo.com",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "private.com",
+			ClusterLocal: HostVIPs{
+				Hostname: "private.com",
+			},
 			Attributes: ServiceAttributes{
 				Name:      "private.com",
 				Namespace: "ns1",
@@ -543,8 +579,10 @@ var (
 
 	services9 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "mesh",
@@ -554,32 +592,40 @@ var (
 
 	services10 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
 			},
 		},
 		{
-			Hostname: "bar.svc.cluster.local",
-			Ports:    port7442,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar.svc.cluster.local",
+			},
+			Ports: port7442,
 			Attributes: ServiceAttributes{
 				Name:      "bar",
 				Namespace: "ns2",
 			},
 		},
 		{
-			Hostname: "barprime.svc.cluster.local",
-			Ports:    port7442,
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime.svc.cluster.local",
+			},
+			Ports: port7442,
 			Attributes: ServiceAttributes{
 				Name:      "barprime",
 				Namespace: "ns3",
@@ -589,32 +635,40 @@ var (
 
 	services11 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
 			},
 		},
 		{
-			Hostname: "bar.svc.cluster.local",
-			Ports:    twoMatchingPorts,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar.svc.cluster.local",
+			},
+			Ports: twoMatchingPorts,
 			Attributes: ServiceAttributes{
 				Name:      "bar",
 				Namespace: "ns2",
 			},
 		},
 		{
-			Hostname: "barprime.svc.cluster.local",
-			Ports:    port7442,
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime.svc.cluster.local",
+			},
+			Ports: port7442,
 			Attributes: ServiceAttributes{
 				Name:      "barprime",
 				Namespace: "ns3",
@@ -624,24 +678,30 @@ var (
 
 	services12 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port8000,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port8000,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns2",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
@@ -651,24 +711,30 @@ var (
 
 	services13 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port8000,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port8000,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "mynamespace",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
@@ -678,8 +744,10 @@ var (
 
 	services14 = []*Service{
 		{
-			Hostname: "bar",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "bar",
 				Namespace: "foo",
@@ -689,8 +757,10 @@ var (
 
 	services15 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
@@ -698,16 +768,20 @@ var (
 			},
 		},
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port8000,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port8000,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns2",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
@@ -717,48 +791,60 @@ var (
 
 	services16 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
 			},
 		},
 		{
-			Hostname: "bar.svc.cluster.local",
-			Ports:    port7442,
+			ClusterLocal: HostVIPs{
+				Hostname: "bar.svc.cluster.local",
+			},
+			Ports: port7442,
 			Attributes: ServiceAttributes{
 				Name:      "bar",
 				Namespace: "ns2",
 			},
 		},
 		{
-			Hostname: "barprime.svc.cluster.local",
-			Ports:    port7442,
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime.svc.cluster.local",
+			},
+			Ports: port7442,
 			Attributes: ServiceAttributes{
 				Name:      "barprime",
 				Namespace: "ns3",
 			},
 		},
 		{
-			Hostname: "barprime.svc.cluster.local",
-			Ports:    port7442,
+			ClusterLocal: HostVIPs{
+				Hostname: "barprime.svc.cluster.local",
+			},
+			Ports: port7442,
 			Attributes: ServiceAttributes{
 				Name:      "barprime",
 				Namespace: "ns3",
 			},
 		},
 		{
-			Hostname: "random.svc.cluster.local",
-			Ports:    port9999,
+			ClusterLocal: HostVIPs{
+				Hostname: "random.svc.cluster.local",
+			},
+			Ports: port9999,
 			Attributes: ServiceAttributes{
 				Name:      "random",
 				Namespace: "randomns", // nolint
@@ -768,16 +854,20 @@ var (
 
 	services17 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7442,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7442,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "ns3",
@@ -787,16 +877,20 @@ var (
 
 	services18 = []*Service{
 		{
-			Hostname: "foo.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "foo.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "*",
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
-			Ports:    port7443,
+			ClusterLocal: HostVIPs{
+				Hostname: "baz.svc.cluster.local",
+			},
+			Ports: port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
 				Namespace: "*",
@@ -806,14 +900,18 @@ var (
 
 	services19 = []*Service{
 		{
-			Hostname: "en.wikipedia.org",
+			ClusterLocal: HostVIPs{
+				Hostname: "en.wikipedia.org",
+			},
 			Attributes: ServiceAttributes{
 				Name:      "en.wikipedia.org",
 				Namespace: "ns1",
 			},
 		},
 		{
-			Hostname: "*.wikipedia.org",
+			ClusterLocal: HostVIPs{
+				Hostname: "*.wikipedia.org",
+			},
 			Attributes: ServiceAttributes{
 				Name:      "*.wikipedia.org",
 				Namespace: "ns1",
@@ -884,7 +982,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 			},
 		},
@@ -903,7 +1003,9 @@ func TestCreateSidecarScope(t *testing.T) {
 
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 			},
 		},
@@ -914,10 +1016,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 				{
-					Hostname: "barprime",
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime",
+					},
 				},
 			},
 		},
@@ -928,10 +1034,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 				{
-					Hostname: "barprime",
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime",
+					},
 				},
 			},
 		},
@@ -949,10 +1059,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 				{
-					Hostname: "barprime",
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime",
+					},
 				},
 			},
 		},
@@ -970,10 +1084,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 				{
-					Hostname: "barprime",
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime",
+					},
 				},
 			},
 		},
@@ -984,10 +1102,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 				{
-					Hostname: "barprime",
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime",
+					},
 				},
 			},
 		},
@@ -998,7 +1120,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 			},
 		},
@@ -1009,8 +1133,10 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
-					Ports:    port8000,
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
+					Ports: port8000,
 				},
 			},
 		},
@@ -1021,8 +1147,10 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
-					Ports:    twoPorts,
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
+					Ports: twoPorts,
 				},
 			},
 		},
@@ -1033,16 +1161,22 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
-					Ports:    twoPorts,
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
+					Ports: twoPorts,
 				},
 				{
-					Hostname: "barprime",
-					Ports:    port8000,
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime",
+					},
+					Ports: port8000,
 				},
 				{
-					Hostname: "foo",
-					Ports:    twoPorts,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo",
+					},
+					Ports: twoPorts,
 				},
 			},
 		},
@@ -1053,11 +1187,15 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bookinginfo.com",
-					Ports:    port9999,
+					ClusterLocal: HostVIPs{
+						Hostname: "bookinginfo.com",
+					},
+					Ports: port9999,
 				},
 				{
-					Hostname: "private.com",
+					ClusterLocal: HostVIPs{
+						Hostname: "private.com",
+					},
 				},
 			},
 		},
@@ -1069,8 +1207,10 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1081,16 +1221,22 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "bar.svc.cluster.local",
-					Ports:    port7442,
+					ClusterLocal: HostVIPs{
+						Hostname: "bar.svc.cluster.local",
+					},
+					Ports: port7442,
 					Attributes: ServiceAttributes{
 						Name:      "bar",
 						Namespace: "ns2",
@@ -1105,32 +1251,42 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "bar.svc.cluster.local",
-					Ports:    port7442,
+					ClusterLocal: HostVIPs{
+						Hostname: "bar.svc.cluster.local",
+					},
+					Ports: port7442,
 					Attributes: ServiceAttributes{
 						Name:      "bar",
 						Namespace: "ns2",
 					},
 				},
 				{
-					Hostname: "barprime.svc.cluster.local",
-					Ports:    port7442,
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime.svc.cluster.local",
+					},
+					Ports: port7442,
 					Attributes: ServiceAttributes{
 						Name:      "barprime",
 						Namespace: "ns3",
 					},
 				},
 				{
-					Hostname: "random.svc.cluster.local",
-					Ports:    port9999,
+					ClusterLocal: HostVIPs{
+						Hostname: "random.svc.cluster.local",
+					},
+					Ports: port9999,
 					Attributes: ServiceAttributes{
 						Name:      "random",
 						Namespace: "randomns", // nolint
@@ -1145,16 +1301,22 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "bar.svc.cluster.local",
-					Ports:    twoMatchingPorts,
+					ClusterLocal: HostVIPs{
+						Hostname: "bar.svc.cluster.local",
+					},
+					Ports: twoMatchingPorts,
 					Attributes: ServiceAttributes{
 						Name:      "bar",
 						Namespace: "ns2",
@@ -1169,13 +1331,19 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
 				},
 				{
-					Hostname: "barprime",
+					ClusterLocal: HostVIPs{
+						Hostname: "barprime",
+					},
 				},
 				{
-					Hostname: "foo",
+					ClusterLocal: HostVIPs{
+						Hostname: "foo",
+					},
 				},
 			},
 		},
@@ -1186,12 +1354,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1202,8 +1374,10 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1214,14 +1388,18 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
 					// Ports should not be merged even though virtual service will select the service with 7443
 					// as ns1 comes before ns2, because 8000 was already picked explicitly and is in different namespace
 					Ports: port8000,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1232,12 +1410,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port8000,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port8000,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1250,12 +1432,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1268,12 +1454,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port8000,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port8000,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1284,8 +1474,10 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1296,12 +1488,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices2,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1312,12 +1508,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices2,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1328,12 +1528,16 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices2,
 			[]*Service{
 				{
-					Hostname: "foo.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "foo.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 				{
-					Hostname: "baz.svc.cluster.local",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "baz.svc.cluster.local",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1344,8 +1548,10 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "bar",
-					Ports:    port7443,
+					ClusterLocal: HostVIPs{
+						Hostname: "bar",
+					},
+					Ports: port7443,
 				},
 			},
 		},
@@ -1356,7 +1562,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "en.wikipedia.org",
+					ClusterLocal: HostVIPs{
+						Hostname: "en.wikipedia.org",
+					},
 				},
 			},
 		},
@@ -1367,10 +1575,14 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 			[]*Service{
 				{
-					Hostname: "en.wikipedia.org",
+					ClusterLocal: HostVIPs{
+						Hostname: "en.wikipedia.org",
+					},
 				},
 				{
-					Hostname: "*.wikipedia.org",
+					ClusterLocal: HostVIPs{
+						Hostname: "*.wikipedia.org",
+					},
 				},
 			},
 		},
@@ -1386,10 +1598,10 @@ func TestCreateSidecarScope(t *testing.T) {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, tt.services...)
 
 				for _, s := range tt.services {
-					if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
-						ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+					if _, f := ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname]; !f {
+						ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname] = map[string]*Service{}
 					}
-					ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+					ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname][s.Attributes.Namespace] = s
 				}
 			}
 			if tt.virtualServices != nil {
@@ -1421,7 +1633,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			for _, s1 := range sidecarScope.services {
 				found = false
 				for _, s2 := range tt.excpectedServices {
-					if s1.Hostname == s2.Hostname {
+					if s1.ClusterLocal.Hostname == s2.ClusterLocal.Hostname {
 						if len(s2.Ports) > 0 {
 							if reflect.DeepEqual(s2.Ports, s1.Ports) {
 								found = true
@@ -1434,20 +1646,20 @@ func TestCreateSidecarScope(t *testing.T) {
 					}
 				}
 				if !found {
-					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
+					t.Errorf("Expected service %v in SidecarScope but not found", s1.ClusterLocal.Hostname)
 				}
 			}
 
 			for _, s1 := range tt.excpectedServices {
 				found = false
 				for _, s2 := range sidecarScope.services {
-					if s1.Hostname == s2.Hostname {
+					if s1.ClusterLocal.Hostname == s2.ClusterLocal.Hostname {
 						found = true
 						break
 					}
 				}
 				if !found {
-					t.Errorf("UnExpected service %v in SidecarScope", s1.Hostname)
+					t.Errorf("UnExpected service %v in SidecarScope", s1.ClusterLocal.Hostname)
 				}
 			}
 			// TODO destination rule
@@ -1457,33 +1669,45 @@ func TestCreateSidecarScope(t *testing.T) {
 
 func TestIstioEgressListenerWrapper(t *testing.T) {
 	serviceA8000 := &Service{
-		Hostname:   "host",
+		ClusterLocal: HostVIPs{
+			Hostname: "host",
+		},
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "a"},
 	}
 	serviceA9000 := &Service{
-		Hostname:   "host",
+		ClusterLocal: HostVIPs{
+			Hostname: "host",
+		},
 		Ports:      port9000,
 		Attributes: ServiceAttributes{Namespace: "a"},
 	}
 	serviceAalt := &Service{
-		Hostname:   "alt",
+		ClusterLocal: HostVIPs{
+			Hostname: "alt",
+		},
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "a"},
 	}
 
 	serviceB8000 := &Service{
-		Hostname:   "host",
+		ClusterLocal: HostVIPs{
+			Hostname: "host",
+		},
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "b"},
 	}
 	serviceB9000 := &Service{
-		Hostname:   "host",
+		ClusterLocal: HostVIPs{
+			Hostname: "host",
+		},
 		Ports:      port9000,
 		Attributes: ServiceAttributes{Namespace: "b"},
 	}
 	serviceBalt := &Service{
-		Hostname:   "alt",
+		ClusterLocal: HostVIPs{
+			Hostname: "alt",
+		},
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "b"},
 	}
@@ -1619,8 +1843,18 @@ func TestContainsEgressDependencies(t *testing.T) {
 			ps.Mesh = &meshConfig
 
 			services := []*Service{
-				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
-				{Hostname: svcName, Attributes: ServiceAttributes{Namespace: nsName}},
+				{
+					ClusterLocal: HostVIPs{
+						Hostname: "nomatch",
+					},
+					Attributes: ServiceAttributes{Namespace: "nomatch"},
+				},
+				{
+					ClusterLocal: HostVIPs{
+						Hostname: svcName,
+					},
+					Attributes: ServiceAttributes{Namespace: nsName},
+				},
 			}
 			virtualServices := []config.Config{
 				{

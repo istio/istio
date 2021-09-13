@@ -132,7 +132,7 @@ func (ga *getAllLogLevelsState) run() (string, error) {
 	var output strings.Builder
 	switch ga.outputFormat {
 	case "short":
-		output.Write([]byte("active_scopes:\n"))
+		output.Write([]byte("Active scopes:\n"))
 		for _, sll := range resultScopeLogLevel {
 			_, _ = fmt.Fprintf(&output, "  %s:%s\n", sll.ScopeName, sll.LogLevel)
 		}

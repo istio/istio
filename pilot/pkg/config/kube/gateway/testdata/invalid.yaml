@@ -1,11 +1,11 @@
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -13,15 +13,15 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname: "*.domain.example"
+  - name: default
+    hostname: "*.domain.example"
     port: 80
     protocol: HTTP
-    routes:
+    allowedRoutes:
       namespaces:
         from: All
-      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: invalid-service
@@ -29,16 +29,15 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname: "*.example"
+  - name: default
+    hostname: "*.example"
     port: 80
     protocol: HTTP
-    routes:
-      kind: HTTPRoute
   addresses:
   - value: fake-service.com
-    type: NamedAddress
+    type: Hostname
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: target-port-reference
@@ -46,13 +45,12 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname: "*.example"
+  - name: default
+    hostname: "*.example"
     port: 8080 # Test service has port 80 with targetPort 8080
     protocol: HTTP
-    routes:
-      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: invalid-gateway-address
@@ -63,13 +61,12 @@ spec:
   - value: 1.2.3.4
     type: IPAddress
   listeners:
-  - hostname: "*.domain.example"
+  - name: default
+    hostname: "*.domain.example"
     port: 80
     protocol: HTTP
-    routes:
-      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: invalid-tls
@@ -77,11 +74,10 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname: "domain.example"
+  - name: default
+    hostname: "domain.example"
     port: 34000
     protocol: HTTPS
-    routes:
-      kind: HTTPRoute
     tls:
       mode: Terminate
       certificateRef:
@@ -89,73 +85,55 @@ spec:
         group: core
         kind: unknown
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: invalid-filter
   namespace: default
 spec:
   hostnames: ["first.domain.example"]
-  gateways:
-    allow: All
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
   rules:
   - filters:
     - type: ExtensionRef
-    forwardTo:
-    - serviceName: httpbin
+    backendRefs:
+    - name: httpbin
       port: 80
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: invalid-backendRef
   namespace: default
 spec:
-  gateways:
-    allow: All
-  hostnames: ["first.domain.example"]
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["second.domain.example"]
   rules:
-  - forwardTo:
-    - backendRef:
-        kind: Service
-        name: httpbin
-        group: core
-      port: 80
+  - backendRefs:
+    - name: httpbin
+      kind: GcsBucket
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
-  name: invalid-serviceName
+  name: invalid-mirror
   namespace: default
 spec:
-  gateways:
-    allow: All
-  hostnames: ["first.domain.example"]
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
   rules:
-  - forwardTo:
-    - serviceName: "httpbin.default.svc.cluster.local"
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: BackendPolicy
-metadata:
-  name: bad-ca-cert
-spec:
-  backendRefs:
-  - name: httpbin1
-    group: core
-    kind: Service
-  tls:
-    certificateAuthorityRef:
-      name: ca-cert
-      group: core
-      kind: unknown
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: BackendPolicy
-metadata:
-  name: bad-backend
-spec:
-  backendRefs:
-  - name: httpbin1
-    group: core
-    kind: unknown
+  - filters:
+    - type: RequestMirror
+      requestMirror:
+        backendRef:
+          kind: no-support
+          name: httpbin-mirror
+          port: 80
+    backendRefs:
+    - name: httpbin
+      port: 80

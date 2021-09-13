@@ -56,11 +56,16 @@ func TestMain(m *testing.M) {
 		RequireLocalControlPlane().
 		RequireMinVersion(17).
 		Setup(func(ctx resource.Context) error {
-			crd, err := os.ReadFile("../../testdata/mcs-serviceexport-crd.yaml")
-			if err != nil {
-				return err
+			for _, f := range []string{"mcs-serviceexport-crd.yaml", "mcs-serviceimport-crd.yaml"} {
+				crd, err := os.ReadFile("../../testdata/" + f)
+				if err != nil {
+					return err
+				}
+				if err := ctx.Config().ApplyYAML("", string(crd)); err != nil {
+					return err
+				}
 			}
-			return ctx.Config().ApplyYAML("", string(crd))
+			return nil
 		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `

@@ -99,10 +99,10 @@ rules:
     verbs: ["create"]
 
   # Use for Kubernetes Service APIs
-  - apiGroups: ["networking.x-k8s.io"]
+  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
-  - apiGroups: ["networking.x-k8s.io"]
+  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
     resources: ["*"] # TODO: should be on just */status but wildcard is not supported
     verbs: ["update"]
 
@@ -116,6 +116,10 @@ rules:
     resources: ["serviceexports"]
     verbs: ["get", "watch", "list", "create", "delete"]
 
+  # Used for MCS serviceimport management
+  - apiGroups: ["multicluster.x-k8s.io"]
+    resources: ["serviceimports"]
+    verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -156,6 +160,9 @@ rules:
     verbs: ["create"]
   - apiGroups: ["multicluster.x-k8s.io"]
     resources: ["serviceexports"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["multicluster.x-k8s.io"]
+    resources: ["serviceimports"]
     verbs: ["get", "watch", "list"]
 {{- if or .Values.global.externalIstiod }}
   - apiGroups: [""]

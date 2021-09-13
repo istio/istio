@@ -30,13 +30,20 @@ type LdsGenerator struct {
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[config.GroupVersionKind]struct{}{
-	gvk.DestinationRule: {},
-	gvk.WorkloadGroup:   {},
-	gvk.Secret:          {},
+var skippedLdsConfigs = map[model.NodeType]map[config.GroupVersionKind]struct{}{
+	model.Router: {
+		// for autopassthrough gateways, we build filterchains per-dr subset
+		gvk.WorkloadGroup: {},
+		gvk.Secret:        {},
+	},
+	model.SidecarProxy: {
+		gvk.DestinationRule: {},
+		gvk.WorkloadGroup:   {},
+		gvk.Secret:          {},
+	},
 }
 
-func ldsNeedsPush(req *model.PushRequest) bool {
+func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if req == nil {
 		return true
 	}
@@ -49,7 +56,7 @@ func ldsNeedsPush(req *model.PushRequest) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedLdsConfigs[config.Kind]; !f {
+		if _, f := skippedLdsConfigs[proxy.Type][config.Kind]; !f {
 			return true
 		}
 	}
@@ -58,7 +65,7 @@ func ldsNeedsPush(req *model.PushRequest) bool {
 
 func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource,
 	req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ldsNeedsPush(req) {
+	if !ldsNeedsPush(proxy, req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, push)

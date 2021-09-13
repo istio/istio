@@ -165,7 +165,7 @@ func sortExtKeyUsage(extKeyUsage []x509.ExtKeyUsage) []int {
 	return data
 }
 
-// find the root cert from cert chain
+// FindRootCertFromCertificateChainBytes find the root cert from cert chain
 func FindRootCertFromCertificateChainBytes(certBytes []byte) ([]byte, error) {
 	var block *pem.Block
 	cert := []byte{}
@@ -186,7 +186,7 @@ func FindRootCertFromCertificateChainBytes(certBytes []byte) ([]byte, error) {
 		return nil, fmt.Errorf("error parsing root certificate: %s", err.Error())
 	}
 	if !rootCert.IsCA {
-		return nil, fmt.Errorf("found root cert is not a ca type cert: %s", err.Error())
+		return nil, fmt.Errorf("found root cert is not a ca type cert: %v", rootCert)
 	}
 
 	return cert, nil

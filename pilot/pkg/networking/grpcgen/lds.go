@@ -46,7 +46,7 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 	log.Debugf("building lds for %s with filter:\n%v", node.ID, filter)
 
 	resp := make(model.Resources, 0, len(filter))
-	resp = append(resp, buildOutboundListeners(node, filter)...)
+	resp = append(resp, buildOutboundListeners(node, push, filter)...)
 	resp = append(resp, buildInboundListeners(node, push, filter.inboundNames())...)
 
 	return resp
@@ -117,13 +117,13 @@ func buildFilterChains(node *model.Proxy, push *model.PushContext, si *model.Ser
 	}
 
 	if mode == model.MTLSUnknown {
-		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		log.Warnf("could not find mTLS mode for %s on %s; defaulting to DISABLE", si.Service.ClusterLocal.Hostname, node.ID)
 		mode = model.MTLSDisable
 	}
 	if mode == model.MTLSPermissive {
 		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
-		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.Hostname, node.ID)
+		log.Warnf("cannot support PERMISSIVE mode for %s on %s; defaulting to DISABLE", si.Service.ClusterLocal.Hostname, node.ID)
 		mode = model.MTLSDisable
 	}
 
@@ -161,55 +161,53 @@ func buildFilterChain(nameSuffix string, tlsContext *tls.DownstreamTlsContext) *
 	return out
 }
 
-func buildOutboundListeners(node *model.Proxy, filter listenerNames) model.Resources {
+func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
-	for _, el := range node.SidecarScope.EgressListeners {
-		for _, sv := range el.Services() {
-			serviceHost := string(sv.Hostname)
-			match, ok := filter.includes(serviceHost)
-			if !ok {
-				continue
-			}
-			// we must duplicate the listener for every requested host - grpc may have watches for both foo and foo.ns
-			for _, matchedHost := range match.RequestedNames.SortedList() {
-				for _, p := range sv.Ports {
-					sPort := strconv.Itoa(p.Port)
-					if !match.includesPort(sPort) {
-						continue
-					}
-					ll := &listener.Listener{
-						Name: net.JoinHostPort(matchedHost, sPort),
-						Address: &core.Address{
-							Address: &core.Address_SocketAddress{
-								SocketAddress: &core.SocketAddress{
-									Address: sv.GetServiceAddressForProxy(node),
-									PortSpecifier: &core.SocketAddress_PortValue{
-										PortValue: uint32(p.Port),
-									},
+	for _, sv := range push.Services(node) {
+		serviceHost := string(sv.ClusterLocal.Hostname)
+		match, ok := filter.includes(serviceHost)
+		if !ok {
+			continue
+		}
+		// we must duplicate the listener for every requested host - grpc may have watches for both foo and foo.ns
+		for _, matchedHost := range match.RequestedNames.SortedList() {
+			for _, p := range sv.Ports {
+				sPort := strconv.Itoa(p.Port)
+				if !match.includesPort(sPort) {
+					continue
+				}
+				ll := &listener.Listener{
+					Name: net.JoinHostPort(matchedHost, sPort),
+					Address: &core.Address{
+						Address: &core.Address_SocketAddress{
+							SocketAddress: &core.SocketAddress{
+								Address: sv.GetClusterLocalAddressForProxy(node),
+								PortSpecifier: &core.SocketAddress_PortValue{
+									PortValue: uint32(p.Port),
 								},
 							},
 						},
-						ApiListener: &listener.ApiListener{
-							ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
-								RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-									// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
-									Rds: &hcm.Rds{
-										ConfigSource: &core.ConfigSource{
-											ConfigSourceSpecifier: &core.ConfigSource_Ads{
-												Ads: &core.AggregatedConfigSource{},
-											},
+					},
+					ApiListener: &listener.ApiListener{
+						ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
+							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+								// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
+								Rds: &hcm.Rds{
+									ConfigSource: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_Ads{
+											Ads: &core.AggregatedConfigSource{},
 										},
-										RouteConfigName: clusterKey(serviceHost, p.Port),
 									},
+									RouteConfigName: clusterKey(serviceHost, p.Port),
 								},
-							}),
-						},
-					}
-					out = append(out, &discovery.Resource{
-						Name:     ll.Name,
-						Resource: util.MessageToAny(ll),
-					})
+							},
+						}),
+					},
 				}
+				out = append(out, &discovery.Resource{
+					Name:     ll.Name,
+					Resource: util.MessageToAny(ll),
+				})
 			}
 		}
 	}

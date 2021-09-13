@@ -537,6 +537,10 @@ type NodeMetadata struct {
 	// ServiceAccount specifies the service account which is running the workload.
 	ServiceAccount string `json:"SERVICE_ACCOUNT,omitempty"`
 
+	// HTTPProxyPort enables http proxy on the port for the current sidecar.
+	// Same as MeshConfig.HttpProxyPort, but with per/sidecar scope.
+	HTTPProxyPort string `json:"HTTP_PROXY_PORT,omitempty"`
+
 	// RouterMode indicates whether the proxy is functioning as a SNI-DNAT router
 	// processing the AUTO_PASSTHROUGH gateway servers
 	RouterMode string `json:"ROUTER_MODE,omitempty"`
@@ -790,7 +794,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 		node.SidecarScope = ps.getSidecarScope(node, workloadLabels)
 	} else {
 		// Gateways should just have a default scope with egress: */*
-		node.SidecarScope = DefaultSidecarScopeForNamespace(ps, node.ConfigNamespace)
+		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
 	node.PrevSidecarScope = sidecarScope
 }
@@ -817,7 +821,7 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 				return instances[i].Service.CreationTime.Before(instances[j].Service.CreationTime)
 			}
 			// Additionally, sort by hostname just in case services created automatically at the same second.
-			return instances[i].Service.Hostname < instances[j].Service.Hostname
+			return instances[i].Service.ClusterLocal.Hostname < instances[j].Service.ClusterLocal.Hostname
 		}
 		return true
 	})

@@ -44,6 +44,9 @@ spec:
         {{- else }}
         istio: pilot
         {{- end }}
+        {{- range $key, $val := .Values.pilot.podLabels }}
+        {{ $key }}: "{{ $val }}"
+        {{- end }}
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15014"

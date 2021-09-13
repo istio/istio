@@ -1,11 +1,11 @@
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   name: gateway
@@ -13,46 +13,71 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-  - hostname: "*.example.com"
+  - name: default
+    hostname: "*.example.com"
     port: 80
     protocol: HTTP
-    routes:
+    allowedRoutes:
       namespaces:
         from: All
-      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: echo
   namespace: default
 spec:
-  gateways:
-    allow: FromList
-    gatewayRefs:
-      - name: mesh
-        namespace: istio-system
+  parentRefs:
+  - kind: Mesh
+    name: istio
   hostnames: ["echo.default.svc.cluster.local"]
   rules:
-  - forwardTo:
-    - serviceName: echo
+  - backendRefs:
+    - name: echo
       port: 80
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: echo
+  namespace: default
+spec:
+  parentRefs:
+  - kind: Mesh
+    name: istio
+  hostnames: ["some-sni.com"]
+  rules:
+  - backendRefs:
+    - name: echo
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: dual # applies to mesh and explicit gateway
   namespace: default
 spec:
-  gateways:
-    allow: FromList
-    gatewayRefs:
-      - name: mesh
-        namespace: istio-system
-      - name: gateway
-        namespace: istio-system
+  parentRefs:
+  - kind: Mesh
+    name: istio
+  - name: gateway
+    namespace: istio-system
   hostnames: ["foo.example.com"]
   rules:
-  - forwardTo:
-    - serviceName: example
+  - backendRefs:
+    - name: example
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: HTTPRoute
+metadata:
+  name: no-hostname
+  namespace: default
+spec:
+  parentRefs:
+  - kind: Mesh
+    name: istio
+  rules:
+  - backendRefs:
+    - name: example
       port: 80

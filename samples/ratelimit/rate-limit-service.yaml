@@ -130,14 +130,17 @@ spec:
           value: /data
         - name: RUNTIME_SUBDIRECTORY
           value: ratelimit
+        - name: RUNTIME_WATCH_ROOT
+          value: "false"
+        - name: RUNTIME_IGNOREDOTFILES
+          value: "true"
         ports:
         - containerPort: 8080
         - containerPort: 8081
         - containerPort: 6070
         volumeMounts:
         - name: config-volume
-          mountPath: /data/ratelimit/config/config.yaml
-          subPath: config.yaml
+          mountPath: /data/ratelimit/config
       volumes:
       - name: config-volume
         configMap:

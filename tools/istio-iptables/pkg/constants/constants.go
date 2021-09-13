@@ -55,6 +55,12 @@ const (
 	CT       = "CT"
 )
 
+const (
+	// IPVersionSpecific is used as an input to rules that will be replaced with an ip version (v4/v6)
+	// specific value
+	IPVersionSpecific = "PLACEHOLDER_IP_VERSION_SPECIFIC"
+)
+
 // iptables chains
 const (
 	ISTIOOUTPUT     = "ISTIO_OUTPUT"

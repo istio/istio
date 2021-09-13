@@ -44,6 +44,10 @@ type CallOptions struct {
 	// If true, h2c will be used in HTTP requests
 	HTTP2 bool
 
+	// If true, HTTP/3 request over QUIC will be used.
+	// It is mandatory to specify TLS settings
+	HTTP3 bool
+
 	// Address specifies the host name or IP address to be used on the request. If not provided,
 	// an appropriate default is chosen for the target Instance.
 	Address string

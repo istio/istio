@@ -346,8 +346,10 @@ const (
 	SecretTrigger TriggerReason = "secret"
 	// NetworksTrigger describes a push triggered for Networks change
 	NetworksTrigger TriggerReason = "networks"
-	// ProxyRequest desribes a push triggered based on proxy request
+	// ProxyRequest describes a push triggered based on proxy request
 	ProxyRequest TriggerReason = "proxyrequest"
+	// NamespaceUpdate describes a push triggered by a Namespace change
+	NamespaceUpdate TriggerReason = "namespace"
 )
 
 // Merge two update requests together
@@ -672,7 +674,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	gwSvcs := make([]*Service, 0, len(svcs))
 
 	for _, s := range svcs {
-		svcHost := string(s.Hostname)
+		svcHost := string(s.ClusterLocal.Hostname)
 
 		if _, ok := hostsFromGateways[svcHost]; ok {
 			gwSvcs = append(gwSvcs, s)
@@ -785,26 +787,36 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
-		for _, wrapper := range sidecars {
-			if wrapper.Sidecar != nil {
-				sidecar := wrapper.Sidecar
-				// if there is no workload selector, the config applies to all workloads
-				// if there is a workload selector, check for matching workload labels
-				if sidecar.GetWorkloadSelector() != nil {
-					workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
-					// exclude workload selector that not match
-					if !workloadLabels.IsSupersetOf(workloadSelector) {
-						continue
-					}
+		if proxy.Type == Router {
+			for _, wrapper := range sidecars {
+				// Gateways should just have a default scope with egress: */*
+				if wrapper.Sidecar == nil {
+					return wrapper
 				}
+			}
+		}
+		if proxy.Type == SidecarProxy {
+			for _, wrapper := range sidecars {
+				if wrapper.Sidecar != nil {
+					sidecar := wrapper.Sidecar
+					// if there is no workload selector, the config applies to all workloads
+					// if there is a workload selector, check for matching workload labels
+					if sidecar.GetWorkloadSelector() != nil {
+						workloadSelector := labels.Instance(sidecar.GetWorkloadSelector().GetLabels())
+						// exclude workload selector that not match
+						if !workloadLabels.IsSupersetOf(workloadSelector) {
+							continue
+						}
+					}
 
-				// it is guaranteed sidecars with selectors are put in front
-				// and the sidecars are sorted by creation timestamp,
-				// return exact/wildcard matching one directly
+					// it is guaranteed sidecars with selectors are put in front
+					// and the sidecars are sorted by creation timestamp,
+					// return exact/wildcard matching one directly
+					return wrapper
+				}
+				// this happens at last, it is the default sidecar scope
 				return wrapper
 			}
-			// this happens at last, it is the default sidecar scope
-			return wrapper
 		}
 	}
 
@@ -822,7 +834,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
-		return proxy.SidecarScope.destinationRules[service.Hostname]
+		return proxy.SidecarScope.destinationRules[service.ClusterLocal.Hostname]
 	}
 
 	// If the proxy config namespace is same as the root config namespace
@@ -838,7 +850,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace] != nil {
-			if hostname, ok := MostSpecificHostMatch(service.Hostname,
+			if hostname, ok := MostSpecificHostMatch(service.ClusterLocal.Hostname,
 				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hostsMap,
 				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts,
 			); ok {
@@ -849,7 +861,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		// If this is a namespace local DR in the same namespace, this must be meant for this proxy, so we do not
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
-		if hostname, ok := MostSpecificHostMatch(service.Hostname,
+		if hostname, ok := MostSpecificHostMatch(service.ClusterLocal.Hostname,
 			ps.destinationRuleIndex.rootNamespaceLocal.hostsMap,
 			ps.destinationRuleIndex.rootNamespaceLocal.hosts,
 		); ok {
@@ -865,7 +877,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// construct a fake service without setting Attributes at all.
 	if svcNs == "" {
 		for _, svc := range ps.Services(proxy) {
-			if service.Hostname == svc.Hostname && svc.Attributes.Namespace != "" {
+			if service.ClusterLocal.Hostname == svc.ClusterLocal.Hostname && svc.Attributes.Namespace != "" {
 				svcNs = svc.Attributes.Namespace
 				break
 			}
@@ -875,14 +887,14 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for exported rules
 	if svcNs != "" {
-		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxy.ConfigNamespace); out != nil {
+		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.ClusterLocal.Hostname, proxy.ConfigNamespace); out != nil {
 			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
-	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxy.ConfigNamespace); out != nil {
+	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.ClusterLocal.Hostname, proxy.ConfigNamespace); out != nil {
 		return out
 	}
 
@@ -935,7 +947,7 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 	if service == nil {
 		return false
 	}
-	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
+	return ps.clusterLocalHosts.IsClusterLocal(service.ClusterLocal.Hostname)
 }
 
 // SubsetToLabels returns the labels associated with a subset of a given service.
@@ -945,7 +957,11 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 		return nil
 	}
 
-	cfg := ps.DestinationRule(proxy, &Service{Hostname: hostname})
+	cfg := ps.DestinationRule(proxy, &Service{
+		ClusterLocal: HostVIPs{
+			Hostname: hostname,
+		},
+	})
 	if cfg == nil {
 		return nil
 	}
@@ -1074,7 +1090,7 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.ServiceApisGateway, gvk.TLSRoute:
+		case gvk.HTTPRoute, gvk.TCPRoute, gvk.GatewayClass, gvk.KubernetesGateway, gvk.TLSRoute:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
@@ -1193,10 +1209,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
 		}
 
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname]; !f {
+			ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname] = map[string]*Service{}
 		}
-		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname][s.Attributes.Namespace] = s
 
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
@@ -1245,14 +1261,14 @@ func sortServicesByCreationTime(services []*Service) []*Service {
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
-		if ps.ServiceAccounts[svc.Hostname] == nil {
-			ps.ServiceAccounts[svc.Hostname] = map[int][]string{}
+		if ps.ServiceAccounts[svc.ClusterLocal.Hostname] == nil {
+			ps.ServiceAccounts[svc.ClusterLocal.Hostname] = map[int][]string{}
 		}
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			ps.ServiceAccounts[svc.ClusterLocal.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
 		}
 	}
 }
@@ -1440,27 +1456,21 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 
 	sidecarNum := len(sidecarConfigs)
 	sidecarConfigs = make([]config.Config, 0, sidecarNum)
+	// sidecars with selector take preference
 	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithSelector...)
 	sidecarConfigs = append(sidecarConfigs, sidecarConfigWithoutSelector...)
-
-	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
-	for _, sidecarConfig := range sidecarConfigs {
-		sidecarConfig := sidecarConfig
-		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
-	}
 
 	// Hold reference root namespace's sidecar config
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	if ps.Mesh.RootNamespace != "" {
-		for i, sidecarConfig := range sidecarConfigs {
-			if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
-				sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
-				rootNSConfig = &sidecarConfigs[i]
-				break
-			}
+	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+	for i, sidecarConfig := range sidecarConfigs {
+		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
+			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
+		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
+			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
+			rootNSConfig = &sidecarConfigs[i]
 		}
 	}
 
@@ -1778,7 +1788,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
 			for _, si := range proxy.ServiceInstances {
-				if _, f := known[si.Service.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
+				if _, f := known[si.Service.ClusterLocal.Hostname]; f && si.Service.Attributes.Namespace == cfg.Namespace {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}
@@ -1856,9 +1866,9 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				// Fetch external IPs from all clusters
-				for _, externalIPs := range svc.Attributes.ClusterExternalAddresses {
+				svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {
 					foundExternal.Insert(externalIPs...)
-				}
+				})
 			} else {
 				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svcKey]) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))

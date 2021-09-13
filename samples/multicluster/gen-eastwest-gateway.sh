@@ -20,14 +20,12 @@ SINGLE_CLUSTER=0
 REVISION=""
 while (( "$#" )); do
   case "$1" in
-    # Node images can be found at https://github.com/kubernetes-sigs/kind/releases
-    # For example, kindest/node:v1.14.0
     --single-cluster)
       SINGLE_CLUSTER=1
       shift
     ;;
     --cluster)
-      CLUSTER=$2
+      # No longer does anything, but keep it around to avoid breaking users
       shift 2
     ;;
     --network)
@@ -35,7 +33,7 @@ while (( "$#" )); do
       shift 2
     ;;
     --mesh)
-      MESH=$2
+      # No longer does anything, but keep it around to avoid breaking users
       shift 2
     ;;
     --revision)
@@ -54,8 +52,8 @@ done
 # for non-single cluster, we add additional topology information
 SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
-  if [[ -z "${CLUSTER:-}" ]] || [[ -z "${NETWORK:-}" ]] || [[ -z "${MESH:-}" ]]; then
-    echo "Must specify either --single-cluster or --mesh, --cluster, and --network."
+  if [[ -z "${NETWORK:-}" ]]; then
+    echo "Must specify either --single-cluster or --network."
     exit 1
   fi
 fi
@@ -140,10 +138,7 @@ if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
   IOP=$(cat <<EOF
 $IOP
     global:
-      meshID: ${MESH}
       network: ${NETWORK}
-      multiCluster:
-        clusterName: ${CLUSTER}
 EOF
 )
 fi

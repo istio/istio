@@ -43,7 +43,11 @@ func TestXdsCacheToken(t *testing.T) {
 	mkv := func(n int32) *discovery.Resource {
 		return &discovery.Resource{Resource: &any.Any{TypeUrl: fmt.Sprint(n)}}
 	}
-	k := EndpointBuilder{clusterName: "key", service: &model.Service{Hostname: "foo.com"}}
+	k := EndpointBuilder{clusterName: "key", service: &model.Service{
+		ClusterLocal: model.HostVIPs{
+			Hostname: "foo.com",
+		},
+	}}
 	work := func(start time.Time, n int32) {
 		v := mkv(n)
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
@@ -78,11 +82,19 @@ func TestXdsCacheToken(t *testing.T) {
 func TestXdsCache(t *testing.T) {
 	ep1 := EndpointBuilder{
 		clusterName: "outbound|1||foo.com",
-		service:     &model.Service{Hostname: "foo.com"},
+		service: &model.Service{
+			ClusterLocal: model.HostVIPs{
+				Hostname: "foo.com",
+			},
+		},
 	}
 	ep2 := EndpointBuilder{
 		clusterName: "outbound|2||foo.com",
-		service:     &model.Service{Hostname: "foo.com"},
+		service: &model.Service{
+			ClusterLocal: model.HostVIPs{
+				Hostname: "foo.com",
+			},
+		},
 	}
 	t.Run("simple", func(t *testing.T) {
 		c := model.NewLenientXdsCache()

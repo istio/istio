@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
-	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -130,8 +129,10 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
 					// nolint: staticcheck
+					// Update to not use the deprecated fields later.
 					g.Expect(cluster.MaxRequestsPerConnection).To(Not(BeNil()))
 					// nolint: staticcheck
+					// Update to not use the deprecated fields later.
 					g.Expect(cluster.MaxRequestsPerConnection.Value).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
@@ -290,17 +291,17 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		},
 	}
 
-	serviceAttribute := model.ServiceAttributes{
-		Namespace: TestServiceNamespace,
-	}
 	service := &model.Service{
-		Hostname:     host.Name(c.serviceHostname),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name(c.serviceHostname),
+		},
 		Address:      "1.1.1.1",
-		ClusterVIPs:  make(map[cluster2.ID]string),
 		Ports:        servicePort,
 		Resolution:   c.serviceResolution,
 		MeshExternal: c.externalService,
-		Attributes:   serviceAttribute,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
 	}
 
 	instances := []*model.ServiceInstance{
@@ -1242,11 +1243,12 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		Hostname:    host.Name("*.example.org"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[cluster2.ID]string),
-		Ports:       model.PortList{servicePort},
-		Resolution:  model.ClientSideLB,
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("*.example.org"),
+		},
+		Address:    "1.1.1.1",
+		Ports:      model.PortList{servicePort},
+		Resolution: model.ClientSideLB,
 	}
 
 	instances := []*model.ServiceInstance{
@@ -1276,7 +1278,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	}
 	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
-	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
+	if instance == nil || instance.Service.ClusterLocal.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
 	if instance == instances[0] {
@@ -1349,11 +1351,12 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 	}
 
 	service := &model.Service{
-		Hostname:    host.Name("backend.default.svc.cluster.local"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[cluster2.ID]string),
-		Ports:       model.PortList{servicePort},
-		Resolution:  model.Passthrough,
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("backend.default.svc.cluster.local"),
+		},
+		Address:    "1.1.1.1",
+		Ports:      model.PortList{servicePort},
+		Resolution: model.Passthrough,
 	}
 
 	instances := []*model.ServiceInstance{
@@ -1493,11 +1496,12 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		Protocol: protocol.Redis,
 	}
 	service := &model.Service{
-		Hostname:    host.Name("redis.com"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[cluster2.ID]string),
-		Ports:       model.PortList{servicePort},
-		Resolution:  model.Passthrough,
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("redis.com"),
+		},
+		Address:    "1.1.1.1",
+		Ports:      model.PortList{servicePort},
+		Resolution: model.Passthrough,
 	}
 
 	cases := []struct {
@@ -1754,9 +1758,10 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	g := NewWithT(t)
 
 	service := &model.Service{
-		Hostname:    host.Name("static.test"),
-		Address:     "1.1.1.2",
-		ClusterVIPs: make(map[cluster2.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("static.test"),
+		},
+		Address: "1.1.1.2",
 		Ports: []*model.Port{
 			{
 				Name:     "default",
@@ -1782,8 +1787,10 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 
 func TestEnvoyFilterPatching(t *testing.T) {
 	service := &model.Service{
-		Hostname: host.Name("static.test"),
-		Address:  "1.1.1.1",
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("static.test"),
+		},
+		Address: "1.1.1.1",
 		Ports: []*model.Port{
 			{
 				Name:     "default",
@@ -1893,7 +1900,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						Hostname: "a.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "a.default",
+						},
 					},
 				},
 			},
@@ -1927,7 +1936,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						Hostname: "a.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "a.default",
+						},
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2000,7 +2011,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						Hostname: "a.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "a.default",
+						},
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2059,7 +2072,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						Hostname: "a.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "a.default",
+						},
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2071,7 +2086,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "b",
 							Namespace: "default",
 						},
-						Hostname: "b.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "b.default",
+						},
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2162,7 +2179,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						Hostname: "a.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "a.default",
+						},
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2218,7 +2237,9 @@ func TestTelemetryMetadata(t *testing.T) {
 					Name:      "a",
 					Namespace: "default",
 				},
-				Hostname: "a.default",
+				ClusterLocal: model.HostVIPs{
+					Hostname: "a.default",
+				},
 			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -2271,7 +2292,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						Hostname: "a.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "a.default",
+						},
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2283,7 +2306,9 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						Hostname: "a.default",
+						ClusterLocal: model.HostVIPs{
+							Hostname: "a.default",
+						},
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2342,6 +2367,92 @@ func TestTelemetryMetadata(t *testing.T) {
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
+			}
+		})
+	}
+}
+
+func resetVerifyCertAtClient() {
+	features.VerifyCertAtClient = false
+}
+
+func TestVerifyCertAtClient(t *testing.T) {
+	defer resetVerifyCertAtClient()
+
+	testCases := []struct {
+		name               string
+		policy             *networking.TrafficPolicy
+		verifyCertAtClient bool
+		expectedCARootPath string
+	}{
+		{
+			name: "VERIFY_CERTIFICATE_AT_CLIENT works as expected",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "",
+				},
+			},
+			verifyCertAtClient: true,
+			expectedCARootPath: "system",
+		},
+		{
+			name: "VERIFY_CERTIFICATE_AT_CLIENT does not override CaCertificates",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "file-root:certPath",
+				},
+			},
+			verifyCertAtClient: true,
+			expectedCARootPath: "file-root:certPath",
+		},
+		{
+			name: "Filled CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "file-root:certPath",
+				},
+			},
+			verifyCertAtClient: false,
+			expectedCARootPath: "file-root:certPath",
+		},
+		{
+			name: "Empty CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "",
+				},
+			},
+			verifyCertAtClient: false,
+			expectedCARootPath: "",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			features.VerifyCertAtClient = testCase.verifyCertAtClient
+			selectTrafficPolicyComponents(testCase.policy)
+			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
+				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)
 			}
 		})
 	}

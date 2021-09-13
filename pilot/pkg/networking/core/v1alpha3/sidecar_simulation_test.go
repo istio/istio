@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
-	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -77,9 +76,10 @@ func TestInboundClusters(t *testing.T) {
 		Metadata:    &model.NodeMetadata{},
 	}
 	service := &model.Service{
-		Hostname:    host.Name("backend.default.svc.cluster.local"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[cluster2.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("backend.default.svc.cluster.local"),
+		},
+		Address: "1.1.1.1",
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,
@@ -92,9 +92,10 @@ func TestInboundClusters(t *testing.T) {
 		Resolution: model.ClientSideLB,
 	}
 	serviceAlt := &model.Service{
-		Hostname:    host.Name("backend-alt.default.svc.cluster.local"),
-		Address:     "1.1.1.2",
-		ClusterVIPs: make(map[cluster2.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("backend-alt.default.svc.cluster.local"),
+		},
+		Address: "1.1.1.2",
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,
@@ -129,7 +130,7 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8080||": nil,
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8080||": {string(service.ClusterLocal.Hostname)},
 			},
 		},
 		{
@@ -143,8 +144,8 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8081||": nil,
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
+				"inbound|8080||": {string(service.ClusterLocal.Hostname)},
+				"inbound|8081||": {string(service.ClusterLocal.Hostname)},
 			},
 		},
 		{
@@ -162,10 +163,10 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8083||": nil,
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
-				"inbound|8082||": {string(serviceAlt.Hostname)},
-				"inbound|8083||": {string(serviceAlt.Hostname)},
+				"inbound|8080||": {string(service.ClusterLocal.Hostname)},
+				"inbound|8081||": {string(service.ClusterLocal.Hostname)},
+				"inbound|8082||": {string(serviceAlt.ClusterLocal.Hostname)},
+				"inbound|8083||": {string(serviceAlt.ClusterLocal.Hostname)},
 			},
 		},
 		{
@@ -181,8 +182,8 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8081||": nil,
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8081||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8080||": {string(serviceAlt.ClusterLocal.Hostname), string(service.ClusterLocal.Hostname)},
+				"inbound|8081||": {string(serviceAlt.ClusterLocal.Hostname), string(service.ClusterLocal.Hostname)},
 			},
 		},
 		{
@@ -319,7 +320,7 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8080||": {"127.0.0.1:8080"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
+				"inbound|8080||": {string(service.ClusterLocal.Hostname)},
 			},
 			disableInboundPassthrough: true,
 		},
@@ -334,8 +335,8 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8081||": {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
+				"inbound|8080||": {string(service.ClusterLocal.Hostname)},
+				"inbound|8081||": {string(service.ClusterLocal.Hostname)},
 			},
 			disableInboundPassthrough: true,
 		},
@@ -354,10 +355,10 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8083||": {"127.0.0.1:8083"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
-				"inbound|8082||": {string(serviceAlt.Hostname)},
-				"inbound|8083||": {string(serviceAlt.Hostname)},
+				"inbound|8080||": {string(service.ClusterLocal.Hostname)},
+				"inbound|8081||": {string(service.ClusterLocal.Hostname)},
+				"inbound|8082||": {string(serviceAlt.ClusterLocal.Hostname)},
+				"inbound|8083||": {string(serviceAlt.ClusterLocal.Hostname)},
 			},
 			disableInboundPassthrough: true,
 		},
@@ -374,8 +375,8 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|8081||": {"127.0.0.1:8081"},
 			},
 			telemetry: map[string][]string{
-				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8081||": {string(serviceAlt.Hostname), string(service.Hostname)},
+				"inbound|8080||": {string(serviceAlt.ClusterLocal.Hostname), string(service.ClusterLocal.Hostname)},
+				"inbound|8081||": {string(serviceAlt.ClusterLocal.Hostname), string(service.ClusterLocal.Hostname)},
 			},
 			disableInboundPassthrough: true,
 		},
@@ -433,7 +434,7 @@ func TestInboundClusters(t *testing.T) {
 				if tt.proxy.Metadata.IstioVersion != "" {
 					// This doesn't work with the legacy proxies which have issues (https://github.com/istio/istio/issues/29199)
 					for _, i := range tt.instances {
-						if len(hostname) > 0 && i.Service.Hostname != hostname {
+						if len(hostname) > 0 && i.Service.ClusterLocal.Hostname != hostname {
 							continue
 						}
 						if i.ServicePort.Port == port {

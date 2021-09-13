@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/pkg/log"
 )
@@ -84,7 +85,7 @@ var passthroughHttpProtocolOptions = util.MessageToAny(&http.HttpProtocolOptions
 // MutableCluster wraps Cluster object along with options.
 type MutableCluster struct {
 	cluster *cluster.Cluster
-	// httpProtocolOptions stores the HttpProtocolOptions which will marshaled when build is called.
+	// httpProtocolOptions stores the HttpProtocolOptions which will be marshaled when build is called.
 	httpProtocolOptions *http.HttpProtocolOptions
 }
 
@@ -175,10 +176,10 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
-		subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
-		defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+		subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, opts.port.Port)
+		defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, opts.port.Port)
 	} else {
-		subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, opts.port.Port)
+		subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, opts.port.Port)
 	}
 	// clusters with discovery type STATIC, STRICT_DNS rely on cluster.LoadAssignment field.
 	// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
@@ -207,7 +208,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 
 	if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 		subsetCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-			string(service.Hostname), subset.Name, opts.port, service.Attributes)
+			string(service.ClusterLocal.Hostname), subset.Name, opts.port, &service.Attributes)
 	}
 
 	// Apply traffic policy for subset cluster with the destination rule traffic policy.
@@ -231,7 +232,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config) []*cluster.Cluster {
+	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
@@ -243,14 +244,13 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		port:             port,
 		clusterMode:      clusterMode,
 		direction:        model.TrafficDirectionOutbound,
-		//	proxy:       cb.proxy,
-		cache: cb.cache,
+		cache:            cb.cache,
 	}
 
 	if clusterMode == DefaultClusterMode {
-		opts.serviceAccounts = cb.req.Push.ServiceAccounts[service.Hostname][port.Port]
-		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-		opts.simpleTLSSni = string(service.Hostname)
+		opts.serviceAccounts = serviceAccounts
+		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port.Port)
+		opts.simpleTLSSni = string(service.ClusterLocal.Hostname)
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
@@ -403,21 +403,15 @@ type clusterCache struct {
 	service         *model.Service
 	destinationRule *config.Config
 	envoyFilterKeys []string
-
-	// Push version is a very broad key. Any config key will invalidate it. Its still valuable to cache,
-	// as that means we can generate a cluster once and send it to all proxies, rather than N times for N proxies.
-	// Hypothetically we could get smarter and determine the exact set of all configs we use and their versions,
-	// which we probably will need for proper delta XDS, but for now this is sufficient.
-	pushVersion string
+	peerAuthVersion string   // identifies the versions of all peer authentications
+	serviceAccounts []string // contains all the service accounts associated with the service
 }
 
 func (t *clusterCache) Key() string {
 	params := []string{
 		t.clusterName, t.proxyVersion, util.LocalityToString(t.locality),
-
 		t.proxyClusterID, strconv.FormatBool(t.proxySidecar),
 		strconv.FormatBool(t.http2), strconv.FormatBool(t.downstreamAuto),
-		t.pushVersion,
 	}
 	if t.networkView != nil {
 		nv := make([]string, 0, len(t.networkView))
@@ -431,12 +425,14 @@ func (t *clusterCache) Key() string {
 		params = append(params, t.metadataCerts.String())
 	}
 	if t.service != nil {
-		params = append(params, string(t.service.Hostname)+"/"+t.service.Attributes.Namespace)
+		params = append(params, string(t.service.ClusterLocal.Hostname)+"/"+t.service.Attributes.Namespace)
 	}
 	if t.destinationRule != nil {
 		params = append(params, t.destinationRule.Name+"/"+t.destinationRule.Namespace)
 	}
 	params = append(params, t.envoyFilterKeys...)
+	params = append(params, t.peerAuthVersion)
+	params = append(params, t.serviceAccounts...)
 
 	hash := md5.New()
 	for _, param := range params {
@@ -452,7 +448,7 @@ func (t clusterCache) DependentConfigs() []model.ConfigKey {
 		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: t.destinationRule.Name, Namespace: t.destinationRule.Namespace})
 	}
 	if t.service != nil {
-		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace})
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(t.service.ClusterLocal.Hostname), Namespace: t.service.Attributes.Namespace})
 	}
 	for _, efKey := range t.envoyFilterKeys {
 		items := strings.Split(efKey, "/")
@@ -495,7 +491,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
 		localCluster.cluster.AltStatName = util.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
+			string(instance.Service.ClusterLocal.Hostname), "", instance.ServicePort, &instance.Service.Attributes)
 	}
 
 	opts := buildClusterOpts{
@@ -604,7 +600,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[network.
 		}
 		if overflowStatus {
 			log.Warnf("Sum of localityLbEndpoints weight is overflow: service:%s, port: %d, locality:%s",
-				service.Hostname, port, locality)
+				service.ClusterLocal.Hostname, port, locality)
 		}
 		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
 			Locality:    util.ConvertLocality(locality),
@@ -892,6 +888,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 
 		if settings.Http.MaxRequestsPerConnection > 0 {
 			// nolint: staticcheck
+			// Update to not use the deprecated fields later.
 			mc.cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
 		}
 
@@ -1042,7 +1039,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
 		} else {
 			// If CredentialName is not set fallback to files specified in DR.
-			res := model.SdsCertificateConfig{
+			res := security.SdsCertificateConfig{
 				CaCertificatePath: tls.CaCertificates,
 			}
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
@@ -1086,7 +1083,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			// These are certs being mounted from within the pod and specified in Destination Rules.
 			// Rather than reading directly in Envoy, which does not support rotation, we will
 			// serve them over SDS by reading the files.
-			res := model.SdsCertificateConfig{
+			res := security.SdsCertificateConfig{
 				CertificatePath:   tls.ClientCertificate,
 				PrivateKeyPath:    tls.PrivateKey,
 				CaCertificatePath: tls.CaCertificates,
@@ -1242,12 +1239,10 @@ func CastDestinationRule(config *config.Config) *networking.DestinationRule {
 
 // maybeApplyEdsConfig applies EdsClusterConfig on the passed in cluster if it is an EDS type of cluster.
 func maybeApplyEdsConfig(c *cluster.Cluster) {
-	switch v := c.ClusterDiscoveryType.(type) {
-	case *cluster.Cluster_Type:
-		if v.Type != cluster.Cluster_EDS {
-			return
-		}
+	if c.GetType() != cluster.Cluster_EDS {
+		return
 	}
+
 	c.EdsClusterConfig = &cluster.Cluster_EdsClusterConfig{
 		ServiceName: c.Name,
 		EdsConfig: &core.ConfigSource{

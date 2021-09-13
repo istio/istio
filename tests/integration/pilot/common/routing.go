@@ -1501,16 +1501,21 @@ spec:
   - name: http
     port: {{.Port}}
     targetPort: {{.TargetPort}}
+  - name: tcp
+    port: {{.TcpPort}}
+    targetPort: {{.TcpTargetPort}}
   selector:
     test.istio.io/class: standard
     {{- if .Network }}
     topology.istio.io/network: {{.Network}}
 	{{- end }}
 `, map[string]interface{}{
-			"Service":    svcName,
-			"Network":    c.Config().Cluster.NetworkName(),
-			"Port":       FindPortByName("http").ServicePort,
-			"TargetPort": FindPortByName("http").InstancePort,
+			"Service":       svcName,
+			"Network":       c.Config().Cluster.NetworkName(),
+			"Port":          FindPortByName("http").ServicePort,
+			"TargetPort":    FindPortByName("http").InstancePort,
+			"TcpPort":       FindPortByName("tcp").ServicePort,
+			"TcpTargetPort": FindPortByName("tcp").InstancePort,
 		})
 
 		destRule := fmt.Sprintf(`
@@ -1561,6 +1566,15 @@ spec:
 				ConsistentHostValidator,
 			),
 		}
+		tcpCallopts := echo.CallOptions{
+			Count:   10,
+			Address: svcName,
+			Port:    &echo.Port{ServicePort: FindPortByName("tcp").ServicePort, Protocol: protocol.TCP},
+			Validator: echo.And(
+				echo.ExpectOK(),
+				ConsistentHostValidator,
+			),
+		}
 		// Setup tests for various forms of the API
 		// TODO: it may be necessary to vary the inputs of the hash and ensure we get a different backend
 		// But its pretty hard to test that, so for now just ensure we hit the same one.
@@ -1579,6 +1593,11 @@ spec:
 			config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
 			call:   c.CallWithRetryOrFail,
 			opts:   callOpts,
+		}, TrafficTestCase{
+			name:   "source ip",
+			config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+			call:   c.CallWithRetryOrFail,
+			opts:   tcpCallopts,
 		})
 	}
 

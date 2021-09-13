@@ -84,7 +84,7 @@ func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 		svc := proxy.ServiceInstances[0].Service
 		if _, ok := req.ConfigsUpdated[model.ConfigKey{
 			Kind:      gvk.ServiceEntry,
-			Name:      string(svc.Hostname),
+			Name:      string(svc.ClusterLocal.Hostname),
 			Namespace: svc.Attributes.Namespace,
 		}]; ok {
 			return true

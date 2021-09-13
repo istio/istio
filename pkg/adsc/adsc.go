@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"sort"
@@ -55,6 +56,12 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
+)
+
+const (
+	defaultClientMaxReceiveMessageSize = math.MaxInt32
+	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
+	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
 // Config for the ADS connection.
@@ -115,6 +122,15 @@ type Config struct {
 	ResponseHandler ResponseHandler
 
 	GrpcOpts []grpc.DialOption
+}
+
+func DefaultGrpcDialOptions() []grpc.DialOption {
+	return []grpc.DialOption{
+		// TODO(SpecialYang) maybe need to make it configurable.
+		grpc.WithInitialWindowSize(int32(defaultInitialWindowSize)),
+		grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize)),
+	}
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -297,8 +313,12 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 func (a *ADSC) Dial() error {
 	opts := a.cfg
 
+	defaultGrpcDialOptions := DefaultGrpcDialOptions()
+	var grpcDialOptions []grpc.DialOption
+	grpcDialOptions = append(grpcDialOptions, defaultGrpcDialOptions...)
+	grpcDialOptions = append(grpcDialOptions, opts.GrpcOpts...)
+
 	var err error
-	grpcDialOptions := opts.GrpcOpts
 	// If we need MTLS - CertDir or Secrets provider is set.
 	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
 		tlsCfg, err := a.tlsConfig()
@@ -309,7 +329,7 @@ func (a *ADSC) Dial() error {
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
 	}
 
-	if len(grpcDialOptions) == 0 {
+	if len(grpcDialOptions) == len(defaultGrpcDialOptions) {
 		// Only disable transport security if the user didn't supply custom dial options
 		grpcDialOptions = append(grpcDialOptions, grpc.WithInsecure())
 	}
@@ -515,13 +535,10 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Process the resources.
-		listeners := []*listener.Listener{}
-		clusters := []*cluster.Cluster{}
-		routes := []*route.RouteConfiguration{}
-		eds := []*endpoint.ClusterLoadAssignment{}
 		a.VersionInfo[msg.TypeUrl] = msg.VersionInfo
 		switch msg.TypeUrl {
 		case v3.ListenerType:
+			listeners := make([]*listener.Listener, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				ll := &listener.Listener{}
@@ -530,6 +547,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleLDS(listeners)
 		case v3.ClusterType:
+			clusters := make([]*cluster.Cluster, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				cl := &cluster.Cluster{}
@@ -538,6 +556,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleCDS(clusters)
 		case v3.EndpointType:
+			eds := make([]*endpoint.ClusterLoadAssignment, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				el := &endpoint.ClusterLoadAssignment{}
@@ -546,6 +565,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleEDS(eds)
 		case v3.RouteType:
+			routes := make([]*route.RouteConfiguration, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				rl := &route.RouteConfiguration{}
@@ -1272,6 +1292,14 @@ func (a *ADSC) handleMCP(gvk []string, resources []*any.Any) {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
 			if err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil); err != nil {
 				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
+				continue
+			}
+			if a.LocalCacheDir != "" {
+				err = os.Remove(a.LocalCacheDir + "_res." +
+					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
+				if err != nil {
+					adscLog.Warnf("Error deleting received MCP config to local file %v", err)
+				}
 			}
 		}
 	}

@@ -24,6 +24,7 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,6 +45,23 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
 )
+
+// HostVIPs provides the VIPs in each cluster for a given host.
+type HostVIPs struct {
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
+
+	// ClusterVIPs specifies the service address of the load balancer
+	// in each of the clusters where the service resides
+	ClusterVIPs cluster.AddressMap `json:"clusterVIPs,omitempty"`
+}
+
+func (h *HostVIPs) DeepCopy() HostVIPs {
+	return HostVIPs{
+		Hostname:    h.Hostname,
+		ClusterVIPs: h.ClusterVIPs.DeepCopy(),
+	}
+}
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
@@ -70,11 +88,20 @@ type Service struct {
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
 
-	// Name of the service, e.g. "catalog.mystore.com"
-	Hostname host.Name `json:"hostname"`
+	// ClusterLocal specifies the cluster.local host and cluster VIPs for this service. Currently,
+	// The cluster.local host is used to address endpoints for the service across the entire mesh.
+	// Once Istio fully supports Kubernetes Multi-Cluster Services (MCS), the cluster.local
+	// host will be used only to address endpoints residing within the same cluster as the caller.
+	// In other words, cluster.local will actually be local to the cluster.
+	ClusterLocal HostVIPs `json:"clusterLocal,omitempty"`
+
+	// ClusterSetLocal specifies the Kubernetes Multi-Cluster Services (MCS) clusterset.local
+	// host and clusterset VIPs for this service. When MCS is enabled within Istio, this host
+	// will be used to address endpoints across the mesh.
+	ClusterSetLocal HostVIPs `json:"clusterSetLocal,omitempty"`
 
 	// Address specifies the service IPv4 address of the load balancer
-	// Do not access directly. Use GetServiceAddressForProxy
+	// Do not access directly. Use GetClusterLocalAddressForProxy
 	Address string `json:"address,omitempty"`
 
 	// AutoAllocatedAddress specifies the automatically allocated
@@ -88,13 +115,6 @@ type Service struct {
 	// istiods will allocate the exact same set of IPs for a given set of
 	// service entries.
 	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
-
-	// Protect concurrent ClusterVIPs read/write
-	Mutex sync.RWMutex
-
-	// ClusterVIPs specifies the service address of the load balancer
-	// in each of the clusters where the service resides
-	ClusterVIPs map[cluster.ID]string `json:"cluster-vips,omitempty"`
 
 	// Resolution indicates how the service instances need to be resolved before routing
 	// traffic. Most services in the service registry will use static load balancing wherein
@@ -117,7 +137,7 @@ func (s *Service) Key() string {
 		return ""
 	}
 
-	return s.Attributes.Namespace + "/" + string(s.Hostname)
+	return s.Attributes.Namespace + "/" + string(s.ClusterLocal.Hostname)
 }
 
 // Resolution indicates how the service instances need to be resolved before routing traffic.
@@ -487,7 +507,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses map[cluster.ID][]string
+	ClusterExternalAddresses cluster.AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -495,6 +515,14 @@ type ServiceAttributes struct {
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
+}
+
+// DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
+func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
+	// Nested mutexes are configured to be ignored by copystructure.Copy.
+	// Disabling `go vet` warning since this is actually safe in this case.
+	// nolint: vet
+	return copyInternal(*s).(ServiceAttributes)
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -559,6 +587,24 @@ type ServiceDiscovery interface {
 	// NetworkGateways returns a list of network gateways that can be used to access endpoints
 	// residing in this registry.
 	NetworkGateways() []*NetworkGateway
+
+	// ExportedServices returns information about the services that have been exported via the
+	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
+	// Kubernetes clusters.
+	ExportedServices() []ClusterServiceInfo
+
+	// ImportedServices returns information about the services that have been imported via the
+	// Kubernetes Multi-Cluster Services (MCS) ServiceImport API. Only applies to services in
+	// Kubernetes clusters.
+	ImportedServices() []ClusterServiceInfo
+}
+
+// ClusterServiceInfo combines the name of a service with a particular Kubernetes cluster. This
+// is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
+type ClusterServiceInfo struct {
+	Name      string
+	Namespace string
+	Cluster   cluster.ID
 }
 
 // GetNames returns port names
@@ -659,23 +705,22 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
-// GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
-func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
-	clusterIP := func() string {
-		if node.Metadata == nil || node.Metadata.ClusterID == "" {
-			return ""
+// GetClusterLocalAddressForProxy returns a Service's address specific to the cluster where the node resides
+func (s *Service) GetClusterLocalAddressForProxy(node *Proxy) string {
+	if node.Metadata != nil {
+		if node.Metadata.ClusterID != "" {
+			addresses := s.ClusterLocal.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			if len(addresses) > 0 {
+				return addresses[0]
+			}
 		}
-		s.Mutex.RLock()
-		defer s.Mutex.RUnlock()
-		return s.ClusterVIPs[node.Metadata.ClusterID]
-	}()
-	if clusterIP != "" {
-		return clusterIP
+
+		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
+			s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+			return s.AutoAllocatedAddress
+		}
 	}
-	if node.Metadata != nil && node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
-		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
-		return s.AutoAllocatedAddress
-	}
+
 	return s.Address
 }
 
@@ -718,21 +763,17 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 // TODO : See if there is any efficient alternative to this function - copystructure can not be used as is because
 // Service has sync.RWMutex that can not be copied.
 func (s *Service) DeepCopy() *Service {
-	attrs := copyInternal(s.Attributes)
 	ports := copyInternal(s.Ports)
 	accounts := copyInternal(s.ServiceAccounts)
-	s.Mutex.RLock()
-	clusterVIPs := copyInternal(s.ClusterVIPs)
-	s.Mutex.RUnlock()
 
 	return &Service{
-		Attributes:      attrs.(ServiceAttributes),
+		Attributes:      s.Attributes.DeepCopy(),
 		Ports:           ports.(PortList),
 		ServiceAccounts: accounts.([]string),
 		CreationTime:    s.CreationTime,
-		Hostname:        s.Hostname,
+		ClusterLocal:    s.ClusterLocal.DeepCopy(),
+		ClusterSetLocal: s.ClusterSetLocal.DeepCopy(),
 		Address:         s.Address,
-		ClusterVIPs:     clusterVIPs.(map[cluster.ID]string),
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,
 	}
@@ -743,8 +784,22 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
 }
 
+// Configure copystructure so that it will not copy mutexes.
+var copyInternalConfig = copystructure.Config{
+	Copiers: map[reflect.Type]copystructure.CopierFunc{
+		reflect.TypeOf(sync.Mutex{}): func(interface{}) (interface{}, error) {
+			// Return a new mutex.
+			return sync.Mutex{}, nil
+		},
+		reflect.TypeOf(sync.RWMutex{}): func(interface{}) (interface{}, error) {
+			// Return a new mutex.
+			return sync.RWMutex{}, nil
+		},
+	},
+}
+
 func copyInternal(v interface{}) interface{} {
-	copied, err := copystructure.Copy(v)
+	copied, err := copyInternalConfig.Copy(v)
 	if err != nil {
 		// There are 2 locations where errors are generated in copystructure.Copy:
 		//  * The reflection walk over the structure fails, which should never happen

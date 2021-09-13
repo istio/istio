@@ -15,6 +15,7 @@
 package matcher
 
 import (
+	"regexp"
 	"testing"
 
 	routepb "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -59,6 +60,166 @@ func TestHeaderMatcher(t *testing.T) {
 		if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
 			t.Errorf("expecting %v, but got %v", tc.Expect, actual)
 		}
+	}
+}
+
+func TestHostMatcherWithRegex(t *testing.T) {
+	testCases := []struct {
+		Name   string
+		K      string
+		V      string
+		Expect *routepb.HeaderMatcher
+	}{
+		{
+			Name: "present match",
+			K:    ":authority",
+			V:    "*",
+			Expect: &routepb.HeaderMatcher{
+				Name:                 ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{PresentMatch: true},
+			},
+		},
+		{
+			Name: "prefix match",
+			K:    ":authority",
+			V:    "*.example.com",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+					SafeRegexMatch: &matcherpb.RegexMatcher{
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+						Regex: `(?i).*\.example\.com`,
+					},
+				},
+			},
+		},
+		{
+			Name: "suffix match",
+			K:    ":authority",
+			V:    "example.*",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+					SafeRegexMatch: &matcherpb.RegexMatcher{
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+						Regex: `(?i)example\..*`,
+					},
+				},
+			},
+		},
+		{
+			Name: "exact match",
+			K:    ":authority",
+			V:    "example.com",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_SafeRegexMatch{
+					SafeRegexMatch: &matcherpb.RegexMatcher{
+						EngineType: &matcherpb.RegexMatcher_GoogleRe2{
+							GoogleRe2: &matcherpb.RegexMatcher_GoogleRE2{},
+						},
+						Regex: `(?i)example\.com`,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			actual := HostMatcherWithRegex(tc.K, tc.V)
+			// nolint: staticcheck
+			// Update to not use the deprecated fields later.
+			if re := actual.GetSafeRegexMatch().GetRegex(); re != "" {
+				_, err := regexp.Compile(re)
+				if err != nil {
+					t.Errorf("failed to compile regex %s: %v", re, err)
+				}
+			}
+			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
+			}
+		})
+	}
+}
+
+func TestHostMatcher(t *testing.T) {
+	testCases := []struct {
+		Name   string
+		K      string
+		V      string
+		Expect *routepb.HeaderMatcher
+	}{
+		{
+			Name: "present match",
+			K:    ":authority",
+			V:    "*",
+			Expect: &routepb.HeaderMatcher{
+				Name:                 ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_PresentMatch{PresentMatch: true},
+			},
+		},
+		{
+			Name: "suffix match",
+			K:    ":authority",
+			V:    "*.example.com",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcherpb.StringMatcher{
+						IgnoreCase: true,
+						MatchPattern: &matcherpb.StringMatcher_Suffix{
+							Suffix: ".example.com",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "prefix match",
+			K:    ":authority",
+			V:    "example.*",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcherpb.StringMatcher{
+						IgnoreCase: true,
+						MatchPattern: &matcherpb.StringMatcher_Prefix{
+							Prefix: "example.",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name: "exact match",
+			K:    ":authority",
+			V:    "example.com",
+			Expect: &routepb.HeaderMatcher{
+				Name: ":authority",
+				HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
+					StringMatch: &matcherpb.StringMatcher{
+						IgnoreCase: true,
+						MatchPattern: &matcherpb.StringMatcher_Exact{
+							Exact: "example.com",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			actual := HostMatcher(tc.K, tc.V)
+			if !cmp.Equal(tc.Expect, actual, protocmp.Transform()) {
+				t.Errorf("expecting %v, but got %v", tc.Expect, actual)
+			}
+		})
 	}
 }
 

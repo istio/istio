@@ -128,14 +128,14 @@ func (c *Controller) Services() ([]*model.Service, error) {
 			services = append(services, svcs...)
 		} else {
 			for _, s := range svcs {
-				sp, ok := smap[s.Hostname]
+				sp, ok := smap[s.ClusterLocal.Hostname]
 				if !ok {
 					// First time we see a service. The result will have a single service per hostname
 					// The first cluster will be listed first, so the services in the primary cluster
 					// will be used for default settings. If a service appears in multiple clusters,
 					// the order is less clear.
 					sp = s
-					smap[s.Hostname] = sp
+					smap[s.ClusterLocal.Hostname] = sp
 					services = append(services, sp)
 				} else {
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
@@ -174,14 +174,16 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 }
 
 func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
-	dst.Mutex.Lock()
-	defer dst.Mutex.Unlock()
-	if dst.ClusterVIPs == nil {
-		dst.ClusterVIPs = make(map[cluster.ID]string)
-	}
-	// prefer the k8s VIP where possible
-	if srcRegistry.Provider() == provider.Kubernetes || dst.ClusterVIPs[srcRegistry.Cluster()] == "" {
-		dst.ClusterVIPs[srcRegistry.Cluster()] = src.Address
+	mergeHostVIPs(&dst.ClusterLocal, &src.ClusterLocal, srcRegistry)
+	mergeHostVIPs(&dst.ClusterSetLocal, &src.ClusterSetLocal, srcRegistry)
+}
+
+func mergeHostVIPs(dst, src *model.HostVIPs, srcRegistry serviceregistry.Instance) {
+	// Prefer the k8s HostVIPs where possible
+	clusterID := srcRegistry.Cluster()
+	if srcRegistry.Provider() == provider.Kubernetes || len(dst.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
+		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
+		dst.ClusterVIPs.SetAddressesFor(clusterID, newAddresses)
 	}
 }
 
@@ -192,6 +194,22 @@ func (c *Controller) NetworkGateways() []*model.NetworkGateway {
 		gws = append(gws, r.NetworkGateways()...)
 	}
 	return gws
+}
+
+func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
+	var out []model.ClusterServiceInfo
+	for _, r := range c.GetRegistries() {
+		out = append(out, r.ExportedServices()...)
+	}
+	return out
+}
+
+func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
+	var out []model.ClusterServiceInfo
+	for _, r := range c.GetRegistries() {
+		out = append(out, r.ImportedServices()...)
+	}
+	return out
 }
 
 // InstancesByPort retrieves instances for a service on a given port that match
@@ -330,11 +348,11 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	for k := range out {
 		result = append(result, k)
 	}
-	tds := []string{}
+	tds := make([]string, 0)
 	if c.meshHolder != nil {
-		mesh := c.meshHolder.Mesh()
-		if mesh != nil {
-			tds = mesh.TrustDomainAliases
+		m := c.meshHolder.Mesh()
+		if m != nil {
+			tds = m.TrustDomainAliases
 		}
 	}
 	expanded := spiffe.ExpandWithTrustDomains(result, tds)

@@ -189,6 +189,8 @@ type AgentOptions struct {
 	// Disables all envoy agent features
 	DisableEnvoy          bool
 	DownstreamGrpcOptions []grpc.ServerOption
+
+	IstiodSAN string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and

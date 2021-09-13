@@ -1,4 +1,4 @@
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GatewayClass
 metadata:
   creationTimestamp: null
@@ -13,7 +13,7 @@ status:
     status: "True"
     type: Admitted
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -36,7 +36,8 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - conditions:
+  - attachedRoutes: 3
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -57,11 +58,12 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    hostname: '*.domain.example'
-    port: 80
-    protocol: HTTP
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -82,7 +84,8 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - conditions:
+  - attachedRoutes: 0
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -103,11 +106,12 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    hostname: '*.example'
-    port: 80
-    protocol: HTTP
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -130,7 +134,8 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - conditions:
+  - attachedRoutes: 0
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -151,11 +156,12 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    hostname: '*.example'
-    port: 8080
-    protocol: HTTP
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -165,7 +171,7 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: 'failed to assign to any requested addresses: Only NamedAddress is supported,
+    message: 'failed to assign to any requested addresses: Only Hostname is supported,
       ignoring [1.2.3.4]'
     reason: AddressNotAssigned
     status: "False"
@@ -176,7 +182,8 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - conditions:
+  - attachedRoutes: 0
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -197,11 +204,12 @@ status:
       reason: ListenerReady
       status: "True"
       type: ResolvedRefs
-    hostname: '*.domain.example'
-    port: 80
-    protocol: HTTP
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: Gateway
 metadata:
   creationTimestamp: null
@@ -211,7 +219,7 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: One or more listeners was not valid
+    message: 'Invalid listeners: [default]'
     reason: ListenersNotValid
     status: "False"
     type: Ready
@@ -221,7 +229,8 @@ status:
     status: "True"
     type: Scheduled
   listeners:
-  - conditions:
+  - attachedRoutes: 0
+    conditions:
     - lastTransitionTime: fake
       message: No errors found
       reason: ListenerReady
@@ -233,22 +242,23 @@ status:
       status: "False"
       type: Detached
     - lastTransitionTime: fake
-      message: invalid certificate reference {core unknown my-cert-http}, only secret
+      message: invalid certificate reference core/unknown/my-cert-http., only secret
         is allowed
       reason: Invalid
       status: "False"
       type: Ready
     - lastTransitionTime: fake
-      message: invalid certificate reference {core unknown my-cert-http}, only secret
+      message: invalid certificate reference core/unknown/my-cert-http., only secret
         is allowed
       reason: InvalidCertificateRef
       status: "False"
       type: ResolvedRefs
-    hostname: domain.example
-    port: 34000
-    protocol: HTTPS
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -256,19 +266,19 @@ metadata:
   namespace: default
 spec: null
 status:
-  gateways:
+  parents:
   - conditions:
     - lastTransitionTime: fake
       message: unsupported filter type "ExtensionRef"
       reason: InvalidFilter
       status: "False"
       type: Admitted
-    gatewayRef:
-      controller: istio.io/gateway-controller
+    controller: istio.io/gateway-controller
+    parentRef:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -276,77 +286,35 @@ metadata:
   namespace: default
 spec: null
 status:
-  gateways:
+  parents:
   - conditions:
     - lastTransitionTime: fake
-      message: referencing unsupported destination; backendRef is not supported
+      message: 'referencing unsupported backendRef: kind "GcsBucket"'
       reason: InvalidDestination
       status: "False"
       type: Admitted
-    gatewayRef:
-      controller: istio.io/gateway-controller
+    controller: istio.io/gateway-controller
+    parentRef:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: networking.x-k8s.io/v1alpha1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: invalid-serviceName
+  name: invalid-mirror
   namespace: default
 spec: null
 status:
-  gateways:
+  parents:
   - conditions:
     - lastTransitionTime: fake
-      message: serviceName invalid; the name of the Service must be used, not the
-        hostname.
+      message: 'referencing unsupported backendRef: kind "no-support"'
       reason: InvalidDestination
       status: "False"
       type: Admitted
-    gatewayRef:
-      controller: istio.io/gateway-controller
+    controller: istio.io/gateway-controller
+    parentRef:
       name: gateway
       namespace: istio-system
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: BackendPolicy
-metadata:
-  creationTimestamp: null
-  name: bad-ca-cert
-  namespace: default
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: invalid certificate reference {core unknown ca-cert}, only secret is
-      allowed
-    reason: InvalidTLS
-    status: "False"
-    type: Admitted
-  - lastTransitionTime: fake
-    message: All backends are valid
-    reason: BackendValid
-    status: "False"
-    type: NoSuchBackend
----
-apiVersion: networking.x-k8s.io/v1alpha1
-kind: BackendPolicy
-metadata:
-  creationTimestamp: null
-  name: bad-backend
-  namespace: default
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Configuration was valid
-    reason: Admitted
-    status: "True"
-    type: Admitted
-  - lastTransitionTime: fake
-    message: 'unsupported backendRef: {Group:core Kind:unknown Name:httpbin1 Port:<nil>}'
-    reason: InvalidDestination
-    status: "True"
-    type: NoSuchBackend
 ---

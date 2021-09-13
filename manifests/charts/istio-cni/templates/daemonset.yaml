@@ -124,6 +124,12 @@ spec:
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
               name: cni-log-dir
+          resources:
+{{- if .Values.cni.resources }}
+{{ toYaml .Values.cni.resources | trim | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{- end }}
 {{- if .Values.cni.taint.enabled }}
         - name: taint-controller
 {{- if contains "/" .Values.cni.image }}

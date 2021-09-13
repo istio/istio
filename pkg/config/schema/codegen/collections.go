@@ -114,10 +114,10 @@ var (
 	{{- end }}
 		Build()
 
-	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
-	PilotServiceApi = collection.NewSchemasBuilder().
+	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
+	PilotGatewayAPI = collection.NewSchemasBuilder().
 	{{- range .Entries }}
-		{{- if or (.Collection.Pilot) (hasPrefix .Collection.Name "k8s/service_apis") }}
+		{{- if or (.Collection.Pilot) (hasPrefix .Collection.Name "k8s/gateway_api") }}
 		MustAdd({{ .Collection.VariableName }}).
 		{{- end}}
 	{{- end }}
@@ -144,7 +144,7 @@ type colEntry struct {
 func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
 	customNames := map[string]string{
-		"k8s/service_apis/v1alpha1/gateways": "ServiceApisGateway",
+		"k8s/gateway_api/v1alpha2/gateways": "KubernetesGateway",
 	}
 	for _, c := range m.Collections {
 		// Filter out pilot ones, as these are duplicated

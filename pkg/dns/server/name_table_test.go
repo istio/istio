@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -88,9 +87,10 @@ func TestNameTable(t *testing.T) {
 	}
 
 	headlessService := &model.Service{
-		Hostname:    host.Name("headless-svc.testns.svc.cluster.local"),
-		Address:     constants.UnspecifiedIP,
-		ClusterVIPs: make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("headless-svc.testns.svc.cluster.local"),
+		},
+		Address: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -105,9 +105,10 @@ func TestNameTable(t *testing.T) {
 	}
 
 	headlessServiceForServiceEntry := &model.Service{
-		Hostname:    host.Name("foo.bar.com"),
-		Address:     constants.UnspecifiedIP,
-		ClusterVIPs: make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("foo.bar.com"),
+		},
+		Address: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -123,9 +124,10 @@ func TestNameTable(t *testing.T) {
 	}
 
 	wildcardService := &model.Service{
-		Hostname:    host.Name("*.testns.svc.cluster.local"),
-		Address:     "172.10.10.10",
-		ClusterVIPs: make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("*.testns.svc.cluster.local"),
+		},
+		Address: "172.10.10.10",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -147,9 +149,10 @@ func TestNameTable(t *testing.T) {
 	}
 
 	cidrService := &model.Service{
-		Hostname:    host.Name("*.testns.svc.cluster.local"),
-		Address:     "172.217.0.0/16",
-		ClusterVIPs: make(map[cluster.ID]string),
+		ClusterLocal: model.HostVIPs{
+			Hostname: host.Name("*.testns.svc.cluster.local"),
+		},
+		Address: "172.217.0.0/16",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",

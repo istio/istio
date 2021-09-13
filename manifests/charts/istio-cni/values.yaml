@@ -47,6 +47,11 @@ cni:
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
 
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+
   # Experimental taint controller for further race condition mitigation
   taint:
     enabled: false
@@ -81,3 +86,9 @@ global:
   # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
   # - private-registry-key
+
+  # Default resources allocated
+  defaultResources:
+     requests:
+       cpu: 100m
+       memory: 100Mi

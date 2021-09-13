@@ -116,7 +116,6 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 	// Set up test environment for Proxy
 	proxySetup := envoy.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
-	proxySetup.EnvoyParams = []string{"--bootstrap-version", "3"}
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
 	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
