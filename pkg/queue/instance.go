@@ -79,8 +79,11 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 			return
 		}
 
-		var task Task
-		task, q.tasks = q.tasks[0], q.tasks[1:]
+		task := q.tasks[0]
+		// Slicing will not free the underlying elements of the array, so explicitly clear them out here
+		q.tasks[0] = nil
+		q.tasks = q.tasks[1:]
+
 		q.cond.L.Unlock()
 
 		if err := task(); err != nil {
