@@ -88,7 +88,11 @@ func (p *PushQueue) Dequeue() (con *Connection, request *model.PushRequest, shut
 		return nil, nil, true
 	}
 
-	con, p.queue = p.queue[0], p.queue[1:]
+	con = p.queue[0]
+	// The underlying array will still exist, despite the slice changing, so the object may not GC without this
+	// See https://github.com/grpc/grpc-go/issues/4758
+	p.queue[0] = nil
+	p.queue = p.queue[1:]
 
 	request = p.pending[con]
 	delete(p.pending, con)
