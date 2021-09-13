@@ -1105,7 +1105,11 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
-		if tls.CredentialName != "" {
+		if tls.InsecureSkipVerify.Value == true || tls.CredentialName != "" {
+			tlsContext = &auth.UpstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{},
+				Sni:              tls.Sni,
+			}
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, cb.credentialSocketExist)
