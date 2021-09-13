@@ -293,3 +293,15 @@ func TestProxyQueue(t *testing.T) {
 		}
 	})
 }
+
+// TestPushQueueLeak is a regression test for https://github.com/grpc/grpc-go/issues/4758
+func TestPushQueueLeak(t *testing.T) {
+	ds := NewFakeDiscoveryServer(t, FakeOptions{})
+	p := ds.ConnectADS()
+	p.RequestResponseAck(nil)
+	for _, c := range ds.Discovery.AllClients() {
+		leak.MustGarbageCollect(t, c)
+	}
+	ds.Discovery.startPush(&model.PushRequest{})
+	p.Cleanup()
+}
