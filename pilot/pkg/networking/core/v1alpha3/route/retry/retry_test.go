@@ -30,6 +30,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
+type testCase struct {
+	name string
+}
+
 func TestNilRetryShouldReturnDefault(t *testing.T) {
 	g := NewWithT(t)
 
