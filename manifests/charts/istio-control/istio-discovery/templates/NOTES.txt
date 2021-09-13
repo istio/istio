@@ -11,3 +11,9 @@ Next steps:
     * https://istio.io/latest/docs/tasks/security/
     * https://istio.io/latest/docs/tasks/policy-enforcement/
     * https://istio.io/latest/docs/tasks/policy-enforcement/
+  * Review the list of actively supported releases, CVE publications and our hardening guide:
+    * https://istio.io/latest/docs/releases/supported-releases/
+    * https://istio.io/latest/news/security/
+    * https://istio.io/latest/docs/ops/best-practices/security/
+
+For further documentation see https://istio.io website
