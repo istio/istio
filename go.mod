@@ -32,7 +32,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20210804104954-38ab4c606ee3
-	github.com/envoyproxy/go-control-plane v0.9.10-0.20210804155723-c55ac1656905
+	github.com/envoyproxy/go-control-plane v0.9.10-0.20210902042146-151bc0c70919
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.5.0
 	github.com/fatih/color v1.12.0
