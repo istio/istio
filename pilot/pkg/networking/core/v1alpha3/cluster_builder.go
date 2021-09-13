@@ -1052,7 +1052,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		if opts.serviceRegistry == provider.External && len(tls.SubjectAltNames) == 0 {
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
-		if tls.CredentialName != "" {
+		if tls.InsecureSkipVerify.Value == true || tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
