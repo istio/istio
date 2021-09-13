@@ -508,40 +508,32 @@ func NewMetricReader(reader io.ReadCloser) *metricReader {
 // WriteTo io.copy will call this function first.
 // It will drop every blank line and incomplete line
 func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
-	var line, lastLine []byte
-	var isEmptyLine, isPrefix, isLastLinePrefix bool
+	var line []byte
+	var isEmptyLine, isBufferFull bool
 	newLine, EOFLine := []byte{'\n'}, []byte("# EOF")
 
 	for {
-		line, isPrefix, err = r.buf.ReadLine()
+		line, err = r.buf.ReadSlice(newLine[0])
 		// Once get unexpected error, drop last line that may be incomplete
-		if err != nil && err != io.EOF {
+		if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
 			break
 		}
-		// Return after all data is read
-		if err == io.EOF && len(lastLine) == 0 {
-			break
-		}
-		// Delay writing to process error
-		lastLine, line = line, lastLine
-		isLastLinePrefix, isPrefix = isPrefix, isLastLinePrefix
-
 		// Remove "# EOF" avoid terminates the full exposition
 		if bytes.HasPrefix(line, EOFLine) {
-			line = line[:0]
+			line = line[len(EOFLine):]
 		}
-		// If line length equal reader buffer size, need to add "\n"
-		isEmptyLine = len(line) == 0 && !isLastLinePrefix
+		// If last line size equal buffer size, need to add "\n"
+		isEmptyLine = bytes.Equal(line, newLine) && !isBufferFull
 		if isEmptyLine {
 			continue
 		}
-
-		if !isLastLinePrefix {
-			line = append(line, newLine...)
-		}
 		wLength, werr := w.Write(line)
 		n += int64(wLength)
-		if werr != nil || err != nil {
+
+		isBufferFull = false
+		if werr == nil && err == bufio.ErrBufferFull {
+			isBufferFull = true
+		} else if werr != nil || err != nil {
 			break
 		}
 	}

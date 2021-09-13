@@ -1143,8 +1143,7 @@ my_other_metric{} 0`,
 			wantW: `# TYPE my_metric counter
 my_metric{} 0
 # TYPE my_other_metric counter
-my_other_metric{} 0
-`,
+my_other_metric{} 0`,
 		},
 		{
 			name: "should remove tail /n/n",
@@ -1236,8 +1235,7 @@ my_other_metric{} 0`,
 			wantW: `# TYPE my_metric counter
 my_metric{} 0
 # TYPE my_other_metric counter
-my_other_metric{} 0
-`,
+my_other_metric{} 0`,
 		},
 		{
 			name: "remove all",
@@ -1285,6 +1283,70 @@ my_metric{} 0
 	}
 }
 
+func TestMetricReaderWriteToLongLine(t *testing.T) {
+	tests := []struct {
+		name        string
+		blockLength int
+		blockNums   int
+		insertBytes []byte
+		wantLength  int
+	}{
+		{name: "nothing left",
+			blockLength: 0,
+			blockNums:   4 * 4096,
+			insertBytes: []byte("\n"),
+			wantLength:  0,
+		},
+		{name: "normal",
+			blockLength: 1022,
+			blockNums:   4 * 2,
+			insertBytes: []byte("\n\n"),
+			wantLength:  2 * 4 * (1024 - 1),
+		},
+		// bufio reader default buffer size is 4096
+		{name: "line length less than buffer size",
+			blockLength: 4094,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4095,
+		},
+		{name: "line length equal buffer size",
+			blockLength: 4096,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4097,
+		},
+		{name: "line length greater than buffer size",
+			blockLength: 4097,
+			blockNums:   4,
+			insertBytes: []byte("\n\n"),
+			wantLength:  4 * 4098,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pipeR, pipeW := io.Pipe()
+			go func() {
+				block := make([]byte, tt.blockLength)
+				for i := 0; i < tt.blockNums; i++ {
+					_, _ = pipeW.Write(block)
+					_, _ = pipeW.Write(tt.insertBytes)
+				}
+				_ = pipeW.Close()
+			}()
+			r := &metricReader{
+				buf: bufio.NewReader(pipeR),
+			}
+			w := &bytes.Buffer{}
+			_, _ = r.WriteTo(w)
+			if w.Len() != tt.wantLength {
+				t.Errorf("WriteTo() gotL = %v, want %v", w.Len(), tt.wantLength)
+			}
+		})
+	}
+}
+
+
 func Test_metricReader_Read(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1296,8 +1358,7 @@ func Test_metricReader_Read(t *testing.T) {
 			content: `test
 test`,
 			wantW: `test
-test
-`,
+test`,
 		},
 		{
 			name: "should get compact content",
@@ -1328,8 +1389,7 @@ test
 			content: `
 
 test`,
-			wantW: `test
-`,
+			wantW: `test`,
 		},
 		{
 			name: "should remove all /n/n",
