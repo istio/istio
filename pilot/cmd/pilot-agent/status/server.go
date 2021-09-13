@@ -442,67 +442,46 @@ type PrometheusScrapeConfiguration struct {
 
 // handleStats handles prometheus stats scraping. This will scrape envoy metrics, and, if configured,
 // the application metrics and merge them together.
-// The merge here is a simple string concatenation. This works for almost all cases, assuming the application
-// is not exposing the same metrics as Envoy.
 // This merging works for both FmtText and FmtOpenMetrics and will use the format of the application metrics
 // Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
 // but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	metrics.ScrapeTotals.Increment()
-	var envoy, application io.ReadCloser
 	var agent []byte
 	var err error
-	// Gather all the metrics we will merge
-	if envoy, _, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
-		log.Errorf("failed scraping envoy metrics: %v", err)
-		metrics.EnvoyScrapeErrors.Increment()
-	}
-	if envoy != nil {
-		defer envoy.Close()
-		// Process envoy's metrics to make them compatible with FmtOpenMetrics
-		envoy = NewMetricReader(envoy)
-	}
 
-	// Scrape app metrics if defined and capture their format
-	var format expfmt.Format
+	// Scrape app metrices if configured
 	if s.prometheus != nil {
-		var contentType string
 		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-		if application, contentType, err = s.scrape(url, r.Header); err != nil {
+		// Scrape app metrics if defined and capture their format
+		if err = s.scrape(url, true, r.Header, w); err != nil {
 			log.Errorf("failed scraping application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
 		}
-		if application != nil {
-			defer application.Close()
-		}
-		format = negotiateMetricsFormat(contentType)
 	}
 
+	// Scrape envoy metrices
+	if err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), false,
+		r.Header, w); err != nil {
+		log.Errorf("failed scraping envoy metrics: %v", err)
+		metrics.EnvoyScrapeErrors.Increment()
+	}
+
+	// Gather all the metrics we will merge
 	if agent, err = scrapeAgentMetrics(); err != nil {
 		log.Errorf("failed scraping agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
-
-	w.Header().Set("Content-Type", string(format))
-
 	// Write out the metrics
 	if _, err := w.Write(agent); err != nil {
 		log.Errorf("failed to write agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
-	if envoy != nil {
-		if _, err := io.Copy(w, envoy); err != nil {
-			log.Errorf("failed to write envoy metrics: %v", err)
-			metrics.EnvoyScrapeErrors.Increment()
-		}
-	}
-	// App metrics must go last because if they are FmtOpenMetrics,
-	// they will have a trailing "# EOF" which terminates the full exposition
-	if application != nil {
-		if _, err := io.Copy(w, application); err != nil {
-			log.Errorf("failed to write application metrics: %v", err)
-			metrics.AppScrapeErrors.Increment()
-		}
+
+	// Completion "# EOF" if content-type is FmtOpenMetrics
+	mediaType, _, err := mime.ParseMediaType(w.Header().Get("Content-Type"))
+	if err == nil && mediaType == "application/openmetrics-text" {
+		_, _ = w.Write([]byte("# EOF\n"))
 	}
 }
 
@@ -514,40 +493,60 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	return expfmt.FmtText
 }
 
-// metricReader used to remove all the blank lines in envoy metrics.
+// metricReader used to remove all the blank, "# EOF" or incomplete lines in envoy metrics.
 // It makes the envoy metric compatible with FmtOpenMetrics (https://github.com/istio/istio/pull/33550)
 type metricReader struct {
+	reader  io.ReadCloser
 	buf     *bufio.Reader
 	readBuf *bytes.Buffer
 }
 
-func NewMetricReader(reader io.Reader) *metricReader {
-	return &metricReader{buf: bufio.NewReader(reader)}
+func NewMetricReader(reader io.ReadCloser) *metricReader {
+	return &metricReader{reader: reader, buf: bufio.NewReader(reader)}
 }
 
-// WriteTo io.copy will call this function first
+// WriteTo io.copy will call this function first.
+// It will drop every blank line and incomplete line
 func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
-	var length int
-	var line []byte
-	var isEmptyLine, isPrefix, isLastLineFinished bool
-	newLine := []byte{'\n'}
+	var line, lastLine []byte
+	var isEmptyLine, isPrefix, isLastLinePrefix bool
+	newLine, EOFLine := []byte{'\n'}, []byte("# EOF")
 
-	for ; err == nil; line, isPrefix, err = r.buf.ReadLine() {
-		// if line length equal reader buffer size, need to add new line
-		isEmptyLine = len(line) == 0 && !isPrefix && !isLastLineFinished
-		isLastLineFinished = isPrefix
+	for {
+		line, isPrefix, err = r.buf.ReadLine()
+		// Once get unexpected error, drop last line that may be incomplete
+		if err != nil && err != io.EOF {
+			break
+		}
+		// Return after all data is read
+		if err == io.EOF && len(lastLine) == 0 {
+			break
+		}
+		// Delay writing to process error
+		lastLine, line = line, lastLine
+		isLastLinePrefix, isPrefix = isPrefix, isLastLinePrefix
+
+		// Remove "# EOF" avoid terminates the full exposition
+		if bytes.HasPrefix(line, EOFLine) {
+			line = line[:0]
+		}
+		// If line length equal reader buffer size, need to add "\n"
+		isEmptyLine = len(line) == 0 && !isLastLinePrefix
 		if isEmptyLine {
 			continue
 		}
-		length, err = w.Write(line)
-		n += int64(length)
-		if err != nil {
-			return
+
+		if !isLastLinePrefix {
+			line = append(line, newLine...)
 		}
-		if !isPrefix {
-			length, err = w.Write(newLine)
-			n += int64(length)
+		wLength, werr := w.Write(line)
+		n += int64(wLength)
+		if werr != nil || err != nil {
+			break
 		}
+	}
+	if err == io.EOF {
+		err = nil
 	}
 	return
 }
@@ -563,7 +562,7 @@ func (r *metricReader) Read(p []byte) (n int, err error) {
 }
 
 func (r *metricReader) Close() (err error) {
-	return
+	return r.reader.Close()
 }
 
 func scrapeAgentMetrics() ([]byte, error) {
@@ -604,8 +603,8 @@ func getHeaderTimeout(timeout string) (time.Duration, error) {
 // scrape will send a request to the provided url to scrape metrics from
 // This will attempt to mimic some of Prometheus functionality by passing some of the headers through
 // such as accept, timeout, and user agent
-// Returns the scraped metrics as well as the response's "Content-Type" header to determine the metrics format
-func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, string, error) {
+// Then format and write the metrics to ResponseWriter by metricReader.
+func (s *Server) scrape(url string, replaceFormat bool, header http.Header, w http.ResponseWriter) error {
 	ctx := context.Background()
 	if timeoutString := header.Get("X-Prometheus-Scrape-Timeout-Seconds"); timeoutString != "" {
 		timeout, err := getHeaderTimeout(timeoutString)
@@ -619,7 +618,7 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, string, 
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, "", err
+		return err
 	}
 	applyHeaders(req.Header, header, "Accept",
 		"User-Agent",
@@ -628,14 +627,24 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, string, 
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, "", fmt.Errorf("error scraping %s: %v", url, err)
+		return fmt.Errorf("error scraping %s: %v", url, err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
+		return fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
 
-	format := resp.Header.Get("Content-Type")
-	return resp.Body, format, nil
+	if replaceFormat {
+		format := resp.Header.Get("Content-Type")
+		w.Header().Set("Content-Type", string(negotiateMetricsFormat(format)))
+	}
+
+	// Process metrics to make them compatible with FmtOpenMetrics
+	_, err = io.Copy(w, NewMetricReader(resp.Body))
+	if err != nil {
+		return fmt.Errorf("error copying %s: %v", url, err)
+	}
+	return nil
 }
 
 func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
