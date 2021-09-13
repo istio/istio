@@ -327,6 +327,7 @@ type PushRequest struct {
 
 type TriggerReason string
 
+// If adding a new reason, update xds/monitoring.go:triggerMetric
 const (
 	// EndpointUpdate describes a push triggered by an Endpoint change
 	EndpointUpdate TriggerReason = "endpoint"
