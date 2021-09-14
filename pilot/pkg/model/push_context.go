@@ -124,6 +124,33 @@ func newDestinationRuleIndex() destinationRuleIndex {
 	}
 }
 
+// sidecarIndex is the index of sidecar rules
+type sidecarIndex struct {
+	// sidecars for each namespace
+	sidecarsByNamespace map[string][]*SidecarScope
+	// the Sidecar for the root namespace (if present). This applies to any namespace without its own Sidecar.
+	rootConfig *config.Config
+	// computedSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar.
+	// These may be DefaultSidecarScopeForNamespace if rootConfig is empty or ConvertToSidecarScope if not.
+	// These are lazy-loaded. Access protected by defaultSidecarMu
+	computedSidecarsByNamespace map[string]*SidecarScope
+	// gatewayDefaultSidecarsByNamespace contains the default sidecar for namespaces that do not have a sidecar,
+	// for gateways.
+	// Unlike computedSidecarsByNamespace, this is *always* the output of DefaultSidecarScopeForNamespace.
+	// These are lazy-loaded. Access protected by defaultSidecarMu
+	gatewayDefaultSidecarsByNamespace map[string]*SidecarScope
+	defaultSidecarMu                  *sync.Mutex
+}
+
+func newSidecarIndex() sidecarIndex {
+	return sidecarIndex{
+		sidecarsByNamespace:               map[string][]*SidecarScope{},
+		computedSidecarsByNamespace:       map[string]*SidecarScope{},
+		gatewayDefaultSidecarsByNamespace: map[string]*SidecarScope{},
+		defaultSidecarMu:                  &sync.Mutex{},
+	}
+}
+
 // gatewayIndex is the index of gateways by various fields.
 type gatewayIndex struct {
 	// namespace contains gateways by namespace.
@@ -171,8 +198,8 @@ type PushContext struct {
 	// clusterLocalHosts extracted from the MeshConfig
 	clusterLocalHosts ClusterLocalHosts
 
-	// sidecars for each namespace
-	sidecarsByNamespace map[string][]*SidecarScope
+	// sidecarIndex stores sidecar resources
+	sidecarIndex sidecarIndex
 
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
@@ -553,7 +580,7 @@ func NewPushContext() *PushContext {
 		ServiceIndex:            newServiceIndex(),
 		virtualServiceIndex:     newVirtualServiceIndex(),
 		destinationRuleIndex:    newDestinationRuleIndex(),
-		sidecarsByNamespace:     map[string][]*SidecarScope{},
+		sidecarIndex:            newSidecarIndex(),
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{},
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
@@ -784,7 +811,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 	// config namespace If none found, construct a sidecarConfig on the fly
 	// that allows the sidecar to talk to any namespace (the default
 	// behavior in the absence of sidecars).
-	if sidecars, ok := ps.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
+	if sidecars, ok := ps.sidecarIndex.sidecarsByNamespace[proxy.ConfigNamespace]; ok {
 		// TODO: logic to merge multiple sidecar resources
 		// Currently we assume that there will be only one sidecar config for a namespace.
 		if proxy.Type == Router {
@@ -820,7 +847,36 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		}
 	}
 
-	return DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+	// We didn't have a Sidecar in the namespace. This means we should use the default - either an implicit
+	// default selecting everything, or pulling from the root namespace.
+	ps.sidecarIndex.defaultSidecarMu.Lock()
+	defer ps.sidecarIndex.defaultSidecarMu.Unlock()
+	if proxy.Type == Router {
+		sc, f := ps.sidecarIndex.gatewayDefaultSidecarsByNamespace[proxy.ConfigNamespace]
+		if f {
+			// We have already computed the scope for this namespace, just fetch it
+			return sc
+		}
+		computed := DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+		ps.sidecarIndex.gatewayDefaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
+		return computed
+	}
+	sc, f := ps.sidecarIndex.computedSidecarsByNamespace[proxy.ConfigNamespace]
+	if f {
+		// We have already computed the scope for this namespace, just fetch it
+		return sc
+	}
+	// We need to compute this namespace
+	var computed *SidecarScope
+	if ps.sidecarIndex.rootConfig != nil {
+		computed = ConvertToSidecarScope(ps, ps.sidecarIndex.rootConfig, proxy.ConfigNamespace)
+	} else {
+		computed = DefaultSidecarScopeForNamespace(ps, proxy.ConfigNamespace)
+		// Even though we are a sidecar, we can store this as a gateway one since it could be used by a gateway
+		ps.sidecarIndex.gatewayDefaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
+	}
+	ps.sidecarIndex.computedSidecarsByNamespace[proxy.ConfigNamespace] = computed
+	return computed
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
@@ -1182,7 +1238,7 @@ func (ps *PushContext) updateContext(
 			return err
 		}
 	} else {
-		ps.sidecarsByNamespace = oldPushContext.sidecarsByNamespace
+		ps.sidecarIndex.sidecarsByNamespace = oldPushContext.sidecarIndex.sidecarsByNamespace
 	}
 
 	return nil
@@ -1464,30 +1520,16 @@ func (ps *PushContext) initSidecarScopes(env *Environment) error {
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	ps.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
+	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, sidecarNum)
 	for i, sidecarConfig := range sidecarConfigs {
-		ps.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarsByNamespace[sidecarConfig.Namespace],
+		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
 			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
 		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 			rootNSConfig = &sidecarConfigs[i]
 		}
 	}
-
-	// build sidecar scopes for namespaces that do not have a non-workloadSelector sidecar CRD object.
-	// Derive the sidecar scope from the root namespace's sidecar object if present. Else fallback
-	// to the default Istio behavior mimicked by the DefaultSidecarScopeForNamespace function.
-	namespaces := sets.NewSet()
-	for _, nsMap := range ps.ServiceIndex.HostnameAndNamespace {
-		for ns := range nsMap {
-			namespaces.Insert(ns)
-		}
-	}
-	for ns := range namespaces {
-		if _, exist := sidecarsWithoutSelectorByNamespace[ns]; !exist {
-			ps.sidecarsByNamespace[ns] = append(ps.sidecarsByNamespace[ns], ConvertToSidecarScope(ps, rootNSConfig, ns))
-		}
-	}
+	ps.sidecarIndex.rootConfig = rootNSConfig
 
 	return nil
 }
