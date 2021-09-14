@@ -876,7 +876,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
 
 		// Add a workload instance, and use port map
-		fi1.PortMap = map[string]uint32 {"tcp-444": 4444, "http-445": 4445}
+		fi1.PortMap = map[string]uint32{"tcp-444": 4444, "http-445": 4445}
 		defer func() { fi1.PortMap = nil }()
 		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
 		instances = []*model.ServiceInstance{
