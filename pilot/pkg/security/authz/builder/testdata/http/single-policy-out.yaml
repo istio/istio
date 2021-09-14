@@ -10,11 +10,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[0]-host[1]
                     name: :authority
+                    stringMatch:
+                      exact: rule[0]-to[0]-host[1]
+                      ignoreCase: true
                 - header:
-                    exactMatch: rule[0]-to[0]-host[2]
                     name: :authority
+                    stringMatch:
+                      exact: rule[0]-to[0]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:
@@ -48,11 +52,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[1]-host[1]
                     name: :authority
+                    stringMatch:
+                      exact: rule[0]-to[1]-host[1]
+                      ignoreCase: true
                 - header:
-                    exactMatch: rule[0]-to[1]-host[2]
                     name: :authority
+                    stringMatch:
+                      exact: rule[0]-to[1]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:
@@ -238,11 +246,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[0]-host[1]
                     name: :authority
+                    stringMatch:
+                      exact: rule[1]-to[0]-host[1]
+                      ignoreCase: true
                 - header:
-                    exactMatch: rule[1]-to[0]-host[2]
                     name: :authority
+                    stringMatch:
+                      exact: rule[1]-to[0]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:
@@ -268,11 +280,15 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[1]-host[1]
                     name: :authority
+                    stringMatch:
+                      exact: rule[1]-to[1]-host[1]
+                      ignoreCase: true
                 - header:
-                    exactMatch: rule[1]-to[1]-host[2]
                     name: :authority
+                    stringMatch:
+                      exact: rule[1]-to[1]-host[2]
+                      ignoreCase: true
             - orRules:
                 rules:
                 - header:

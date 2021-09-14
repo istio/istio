@@ -195,11 +195,12 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
 			sniHosts = []string{string(service.ClusterLocal.Hostname)}
 		}
-
+		destRule := push.DestinationRule(node, service)
+		destinationRule := CastDestinationRule(destRule)
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
 		})
 	}
 
@@ -295,13 +296,15 @@ TcpLoop:
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port)
 		statPrefix := clusterName
+		destRule := push.DestinationRule(node, service)
+		destinationRule := CastDestinationRule(destRule)
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
 			statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), "", &model.Port{Port: port}, &service.Attributes)
 		}
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: []string{destinationCIDR},
-			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, listenPort),
+			networkFilters:   buildOutboundNetworkFiltersWithSingleDestination(push, node, statPrefix, clusterName, "", listenPort, destinationRule),
 		})
 	}
 

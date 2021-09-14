@@ -109,7 +109,7 @@ func newTestServiceExportCache(t *testing.T, stopCh chan struct{}) *serviceExpor
 	// Create the test service and endpoints.
 	createService(c, serviceExportName, serviceExportNamespace, map[string]string{},
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-	createEndpoints(c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, t)
+	createEndpoints(t, c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, nil)
 
 	ec := c.exports.(*serviceExportCacheImpl)
 

@@ -543,6 +543,11 @@ func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
+	// Check if CA Certificate should be System CA Certificate
+	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
+		tls.CaCertificates = "system"
+	}
+
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 

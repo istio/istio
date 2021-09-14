@@ -129,8 +129,10 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
 					// nolint: staticcheck
+					// Update to not use the deprecated fields later.
 					g.Expect(cluster.MaxRequestsPerConnection).To(Not(BeNil()))
 					// nolint: staticcheck
+					// Update to not use the deprecated fields later.
 					g.Expect(cluster.MaxRequestsPerConnection.Value).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
@@ -2365,6 +2367,92 @@ func TestTelemetryMetadata(t *testing.T) {
 			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
+			}
+		})
+	}
+}
+
+func resetVerifyCertAtClient() {
+	features.VerifyCertAtClient = false
+}
+
+func TestVerifyCertAtClient(t *testing.T) {
+	defer resetVerifyCertAtClient()
+
+	testCases := []struct {
+		name               string
+		policy             *networking.TrafficPolicy
+		verifyCertAtClient bool
+		expectedCARootPath string
+	}{
+		{
+			name: "VERIFY_CERTIFICATE_AT_CLIENT works as expected",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "",
+				},
+			},
+			verifyCertAtClient: true,
+			expectedCARootPath: "system",
+		},
+		{
+			name: "VERIFY_CERTIFICATE_AT_CLIENT does not override CaCertificates",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "file-root:certPath",
+				},
+			},
+			verifyCertAtClient: true,
+			expectedCARootPath: "file-root:certPath",
+		},
+		{
+			name: "Filled CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "file-root:certPath",
+				},
+			},
+			verifyCertAtClient: false,
+			expectedCARootPath: "file-root:certPath",
+		},
+		{
+			name: "Empty CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
+			policy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					CaCertificates: "",
+				},
+			},
+			verifyCertAtClient: false,
+			expectedCARootPath: "",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			features.VerifyCertAtClient = testCase.verifyCertAtClient
+			selectTrafficPolicyComponents(testCase.policy)
+			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
+				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)
 			}
 		})
 	}

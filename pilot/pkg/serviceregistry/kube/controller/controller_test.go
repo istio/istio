@@ -124,7 +124,7 @@ func TestServices(t *testing.T) {
 			})
 
 			// 2 ports 1001, 2 IPs
-			createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, t)
+			createEndpoints(t, ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, nil)
 
 			svc, err := sds.GetService(hostname)
 			if err != nil {
@@ -349,7 +349,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svc1Ips := []string{"128.0.0.1"}
 			portNames := []string{"tcp-port"}
 			// Create 1 endpoint that refers to a pod in the same namespace.
-			createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsA", portNames, svc1Ips, nil, nil)
 
 			// Creates 100 endpoints that refers to a pod in a different namespace.
 			fakeSvcCounts := 100
@@ -363,12 +363,12 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 				fx.Wait("service")
 
-				createEndpoints(controller, svcName, "nsfake", portNames, svc1Ips, nil, t)
+				createEndpoints(t, controller, svcName, "nsfake", portNames, svc1Ips, nil, nil)
 				fx.Wait("eds")
 			}
 
 			// Create 1 endpoint that refers to a pod in the same namespace.
-			createEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
 			fx.Wait("eds")
 
 			// this can test get pod by proxy ID
@@ -810,8 +810,8 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 			svc1Ips := []string{"128.0.0.2"}
 			svc2Ips := make([]string, 0)
 			portNames := []string{"tcp-port"}
-			createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, nil, t)
-			createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsA", portNames, svc1Ips, nil, nil)
+			createEndpoints(t, controller, "svc2", "nsA", portNames, svc2Ips, nil, nil)
 
 			// We expect only one EDS update with Endpoints.
 			<-fx.Events
@@ -1472,7 +1472,14 @@ func TestController_ExternalNameService(t *testing.T) {
 	}
 }
 
-func createEndpoints(controller *FakeController, name, namespace string, portNames, ips []string, refs []*coreV1.ObjectReference, t *testing.T) {
+func createEndpoints(t *testing.T, controller *FakeController, name, namespace string,
+	portNames, ips []string, refs []*coreV1.ObjectReference, labels map[string]string) {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	// Add the reference to the service. Used by EndpointSlice logic only.
+	labels[discovery.LabelServiceName] = name
+
 	if refs == nil {
 		refs = make([]*coreV1.ObjectReference, len(ips))
 	}
@@ -1491,6 +1498,7 @@ func createEndpoints(controller *FakeController, name, namespace string, portNam
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Subsets: []coreV1.EndpointSubset{{
 			Addresses: eas,
@@ -1524,9 +1532,7 @@ func createEndpoints(controller *FakeController, name, namespace string, portNam
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels: map[string]string{
-				discovery.LabelServiceName: name,
-			},
+			Labels:    labels,
 		},
 		Endpoints: sliceEndpoint,
 		Ports:     esps,
@@ -1849,7 +1855,7 @@ func TestEndpointUpdate(t *testing.T) {
 			svc1Ips := []string{"128.0.0.1"}
 			portNames := []string{"tcp-port"}
 			// Create 1 endpoint that refers to a pod in the same namespace.
-			createEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
 			if ev := fx.Wait("eds"); ev == nil {
 				t.Fatalf("Timeout incremental eds")
 			}
@@ -1935,7 +1941,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 						})
 					}
 				}
-				createEndpoints(controller, svcName, "nsA", []string{"tcp-port"}, ips, refs, t)
+				createEndpoints(t, controller, svcName, "nsA", []string{"tcp-port"}, ips, refs, nil)
 			}
 			assertEndpointsEvent := func(ips []string, pods []string) {
 				t.Helper()
@@ -2062,7 +2068,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	}
 	pod1Ips := []string{"172.0.1.1"}
 	portNames := []string{"tcp-port"}
-	createEndpoints(controller, "svc1", "nsA", portNames, pod1Ips, nil, t)
+	createEndpoints(t, controller, "svc1", "nsA", portNames, pod1Ips, nil, nil)
 	if ev := fx.Wait("eds"); ev == nil {
 		t.Fatal("Timeout incremental eds")
 	}

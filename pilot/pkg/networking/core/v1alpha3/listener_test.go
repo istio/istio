@@ -2556,10 +2556,11 @@ func buildServiceInstance(service *model.Service, instanceIP string) *model.Serv
 }
 
 func buildListenerEnv(services []*model.Service) *model.Environment {
-	return buildListenerEnvWithVirtualServices(services, nil)
+	return buildListenerEnvWithAdditionalConfig(services, nil, nil)
 }
 
-func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServices []*config.Config) *model.Environment {
+func buildListenerEnvWithAdditionalConfig(services []*model.Service, virtualServices []*config.Config,
+	destinationRules []*config.Config) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	instances := make([]*model.ServiceInstance, 0, len(services))
@@ -2597,7 +2598,9 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 		},
 	}
 	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-	for _, c := range append(virtualServices, &envoyFilter) {
+	istioConfig := append(virtualServices, destinationRules...)
+	istioConfig = append(istioConfig, &envoyFilter)
+	for _, c := range istioConfig {
 		if _, err := configStore.Create(*c); err != nil {
 			panic(err.Error())
 		}

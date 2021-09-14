@@ -125,7 +125,7 @@ func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string, re
 	defer cr.mutex.Unlock()
 	data, ok := cr.data[kind]
 	if !ok {
-		return errors.New("unknown type")
+		return fmt.Errorf("unknown type %v", kind)
 	}
 	ns, exists := data[namespace]
 	if !exists {
@@ -184,7 +184,7 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
-		return "", errors.New("unknown type")
+		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
 		if _, err := s.Resource().ValidateConfig(cfg); err != nil {
@@ -193,11 +193,6 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 	}
 
 	ns, exists := cr.data[kind][cfg.Namespace]
-	if !exists {
-		return "", errNotFound
-	}
-
-	_, exists = ns.Load(cfg.Name)
 	if !exists {
 		return "", errNotFound
 	}
@@ -231,7 +226,7 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 	gvk := orig.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(gvk)
 	if !ok {
-		return "", errors.New("unknown type")
+		return "", fmt.Errorf("unknown type %v", gvk)
 	}
 
 	cfg, _ := patchFn(orig)

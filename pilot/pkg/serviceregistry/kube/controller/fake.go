@@ -108,6 +108,10 @@ func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, _ string,
 }
 
 func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
+	return fx.WaitForDuration(et, 5*time.Second)
+}
+
+func (fx *FakeXdsUpdater) WaitForDuration(et string, d time.Duration) *FakeXdsEvent {
 	for {
 		select {
 		case e := <-fx.Events:
@@ -115,7 +119,7 @@ func (fx *FakeXdsUpdater) Wait(et string) *FakeXdsEvent {
 				return &e
 			}
 			continue
-		case <-time.After(5 * time.Second):
+		case <-time.After(d):
 			return nil
 		}
 	}

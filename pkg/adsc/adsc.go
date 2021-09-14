@@ -489,7 +489,10 @@ func (a *ADSC) handleRecv() {
 		if err != nil {
 			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
-			a.errChan <- err
+			select {
+			case a.errChan <- err:
+			default:
+			}
 			// if 'reconnect' enabled - schedule a new Run
 			if a.cfg.BackoffPolicy != nil {
 				time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
@@ -535,13 +538,10 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Process the resources.
-		listeners := []*listener.Listener{}
-		clusters := []*cluster.Cluster{}
-		routes := []*route.RouteConfiguration{}
-		eds := []*endpoint.ClusterLoadAssignment{}
 		a.VersionInfo[msg.TypeUrl] = msg.VersionInfo
 		switch msg.TypeUrl {
 		case v3.ListenerType:
+			listeners := make([]*listener.Listener, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				ll := &listener.Listener{}
@@ -550,6 +550,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleLDS(listeners)
 		case v3.ClusterType:
+			clusters := make([]*cluster.Cluster, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				cl := &cluster.Cluster{}
@@ -558,6 +559,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleCDS(clusters)
 		case v3.EndpointType:
+			eds := make([]*endpoint.ClusterLoadAssignment, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				el := &endpoint.ClusterLoadAssignment{}
@@ -566,6 +568,7 @@ func (a *ADSC) handleRecv() {
 			}
 			a.handleEDS(eds)
 		case v3.RouteType:
+			routes := make([]*route.RouteConfiguration, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
 				valBytes := rsc.Value
 				rl := &route.RouteConfiguration{}

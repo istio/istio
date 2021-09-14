@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/tests/util/leak"
 )
 
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
@@ -368,4 +369,16 @@ func TestProxyQueue(t *testing.T) {
 			t.Fatalf("expected order %v, but got %v", expected, processed)
 		}
 	})
+}
+
+// TestPushQueueLeak is a regression test for https://github.com/grpc/grpc-go/issues/4758
+func TestPushQueueLeak(t *testing.T) {
+	ds := NewFakeDiscoveryServer(t, FakeOptions{})
+	p := ds.ConnectADS()
+	p.RequestResponseAck(t, nil)
+	for _, c := range ds.Discovery.AllClients() {
+		leak.MustGarbageCollect(t, c)
+	}
+	ds.Discovery.startPush(&model.PushRequest{})
+	p.Cleanup()
 }
