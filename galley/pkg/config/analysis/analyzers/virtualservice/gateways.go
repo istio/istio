@@ -16,6 +16,7 @@ package virtualservice
 
 import (
 	"fmt"
+	"strings"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -75,7 +76,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
 
-		if !vsHostInGateway(c, gwFullName, vs.Hosts) {
+		if !vsHostInGateway(c, gwFullName, vs.Hosts, vsNs.String()) {
 			m := msg.NewVirtualServiceHostNotFoundInGateway(r, vs.Hosts, vsName.String(), gwFullName.String())
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
@@ -87,14 +88,16 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 	}
 }
 
-func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []string) bool {
+func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []string, vsNamespace string) bool {
 	var gatewayHosts []string
+	var gatewayNs string
 
 	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
 		if r.Metadata.FullName == gateway {
 			s := r.Message.(*v1alpha3.Gateway)
-
+			gatewayNs = r.Metadata.FullName.Namespace.String()
 			for _, v := range s.Servers {
+				sanitizeServerHostNamespace(v, gatewayNs)
 				gatewayHosts = append(gatewayHosts, v.Hosts...)
 			}
 		}
@@ -102,9 +105,10 @@ func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []st
 		return true
 	})
 
-	for _, gh := range gatewayHosts {
+	gatewayHostNames := host.NamesForNamespace(gatewayHosts, vsNamespace)
+	for _, gh := range gatewayHostNames {
 		for _, vsh := range vsHosts {
-			gatewayHost := host.Name(gh)
+			gatewayHost := gh
 			vsHost := host.Name(vsh)
 
 			if gatewayHost.Matches(vsHost) {
@@ -114,4 +118,24 @@ func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []st
 	}
 
 	return false
+}
+
+// convert ./host to currentNamespace/Host
+// */host to just host
+// */* to just *
+func sanitizeServerHostNamespace(server *v1alpha3.Server, namespace string) {
+	for i, h := range server.Hosts {
+		if strings.Contains(h, "/") {
+			parts := strings.Split(h, "/")
+			if parts[0] == "." {
+				server.Hosts[i] = fmt.Sprintf("%s/%s", namespace, parts[1])
+			} else if parts[0] == "*" {
+				if parts[1] == "*" {
+					server.Hosts = []string{"*"}
+					return
+				}
+				server.Hosts[i] = parts[1]
+			}
+		}
+	}
 }
