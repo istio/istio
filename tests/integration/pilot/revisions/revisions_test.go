@@ -92,6 +92,12 @@ func TestMultiRevision(t *testing.T) {
 						},
 					},
 				}).
+				// tests bootstrap
+				WithConfig(echo.Config{
+					Service:   "vm",
+					Namespace: canary,
+					Ports:     []echo.Port{},
+				}).
 				BuildOrFail(t)
 			retry.UntilSuccessOrFail(t, func() error {
 				resp, err := client.Call(echo.CallOptions{
