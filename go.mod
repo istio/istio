@@ -84,8 +84,8 @@ require (
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gomodules.xyz/jsonpatch/v2 v2.2.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	google.golang.org/api v0.54.0
-	google.golang.org/genproto v0.0.0-20210813162853-db860fec028c
+	google.golang.org/api v0.56.0
+	google.golang.org/genproto v0.0.0-20210909211513-a8c4777a87af
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -95,7 +95,7 @@ require (
 	istio.io/api v0.0.0-20210908191335-4c3fa7872b75
 	istio.io/client-go v0.0.0-20210908192230-c714593a9eb4
 	istio.io/gogo-genproto v0.0.0-20210806192525-32ebb2f9006c
-	istio.io/pkg v0.0.0-20210806192335-d58436bead18
+	istio.io/pkg v0.0.0-20210914184925-da9399ebffe5
 	k8s.io/api v0.22.1
 	k8s.io/apiextensions-apiserver v0.22.1
 	k8s.io/apimachinery v0.22.1
