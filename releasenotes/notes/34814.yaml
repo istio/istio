@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 34653
+releaseNotes:
+  - |
+    **Fixed** `istioctl analyze` has the unexpected [IST0132] message when analyzing the gateway of the virtual service.
