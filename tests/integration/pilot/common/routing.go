@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"reflect"
 	"sort"
 	"strings"
@@ -292,6 +293,46 @@ spec:
 						func(response echoclient.ParsedResponses, _ error) error {
 							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
 								return ExpectString(response.URL, "/new/path?key=value", "URL")
+							})
+						})),
+			},
+			workloadAgnostic: true,
+		},
+		TrafficTestCase{
+			name: "redirect port and scheme",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - {{ .dstSvc }}
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    redirect:
+      derivePort: FROM_REQUEST_PORT
+      scheme: https
+`,
+			opts: echo.CallOptions{
+				PortName:        "http",
+				Path:            "/foo",
+				FollowRedirects: false,
+				Count:           1,
+				Validator: echo.And(
+					echo.ExpectCode("301"),
+					echo.ValidatorFunc(
+						func(response echoclient.ParsedResponses, _ error) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								originalHostname, err := url.Parse(response.RequestURL)
+								if err != nil {
+									return err
+								}
+								return ExpectString(response.RawResponse["Location"],
+									fmt.Sprintf("https://%s:%d/foo", originalHostname.Hostname(), FindPortByName("http").ServicePort),
+									"Location")
 							})
 						})),
 			},
