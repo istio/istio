@@ -353,6 +353,9 @@ const (
 )
 
 // Merge two update requests together
+// Merge behaves similarly to a list append; usage should in the form `a = a.merge(b)`.
+// Importantly, Merge may decide to allocate a new PushRequest object or reuse the existing one - both
+// inputs should not be used after completion.
 func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if pr == nil {
 		return other
@@ -361,35 +364,27 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return pr
 	}
 
-	reason := make([]TriggerReason, 0, len(pr.Reason)+len(other.Reason))
-	reason = append(reason, pr.Reason...)
-	reason = append(reason, other.Reason...)
-	merged := &PushRequest{
-		// Keep the first (older) start time
-		Start: pr.Start,
+	// Keep the first (older) start time
 
-		// If either is full we need a full push
-		Full: pr.Full || other.Full,
+	// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
+	pr.Reason = append(pr.Reason, other.Reason...)
 
-		// The other push context is presumed to be later and more up to date
-		Push: other.Push,
+	// If either is full we need a full push
+	pr.Full = pr.Full || other.Full
 
-		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
-		Reason: reason,
-	}
+	// The other push context is presumed to be later and more up to date
+	pr.Push = other.Push
 
 	// Do not merge when any one is empty
-	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
-		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
-		for conf := range pr.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
-		}
+	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
+		pr.ConfigsUpdated = nil
+	} else {
 		for conf := range other.ConfigsUpdated {
-			merged.ConfigsUpdated[conf] = struct{}{}
+			pr.ConfigsUpdated[conf] = struct{}{}
 		}
 	}
 
-	return merged
+	return pr
 }
 
 func (pr *PushRequest) PushReason() string {

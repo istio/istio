@@ -107,7 +107,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
 				Kind: config.GroupVersionKind{Kind: "cfg2"},
 			}: {}}},
-			PushRequest{Full: true, ConfigsUpdated: nil, Reason: []TriggerReason{}},
+			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
 		},
 	}
 
@@ -115,7 +115,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.left.Merge(tt.right)
 			if !reflect.DeepEqual(&tt.merged, got) {
-				t.Fatalf("expected %v, got %v", &tt.merged, got)
+				t.Fatalf("expected %v, got %v: %v", &tt.merged, got, cmp.Diff(&tt.merged, got))
 			}
 		})
 	}
