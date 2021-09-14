@@ -115,7 +115,7 @@ type ClusterBuilder struct {
 	locality          *core.Locality           // Locality information of proxy.
 	proxyLabels       map[string]string        // Proxy labels.
 	networkView       map[network.ID]bool      // Proxy network view.
-	proxyIPAddresses  []string                 // IP addresses on which proxy is listenining on.
+	proxyIPAddresses  []string                 // IP addresses on which proxy is listening on.
 	configNamespace   string                   // Proxy config namespace.
 	// PushRequest to look for updates.
 	req   *model.PushRequest
@@ -875,6 +875,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 
 	threshold := getDefaultCircuitBreakerThresholds()
 	var idleTimeout *types.Duration
+	var maxRequestsPerConnection uint32
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
@@ -886,18 +887,13 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 			threshold.MaxPendingRequests = &wrappers.UInt32Value{Value: uint32(settings.Http.Http1MaxPendingRequests)}
 		}
 
-		if settings.Http.MaxRequestsPerConnection > 0 {
-			// nolint: staticcheck
-			// Update to not use the deprecated fields later.
-			mc.cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
-		}
-
 		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default
 		if settings.Http.MaxRetries > 0 {
 			threshold.MaxRetries = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
 
 		idleTimeout = settings.Http.IdleTimeout
+		maxRequestsPerConnection = uint32(settings.Http.MaxRequestsPerConnection)
 	}
 
 	cb.applyDefaultConnectionPool(mc.cluster)
@@ -917,14 +913,23 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig, mc *M
 		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
 	}
 
-	if idleTimeout != nil {
-		idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+	if idleTimeout != nil || maxRequestsPerConnection > 0 {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
 		commonOptions := mc.httpProtocolOptions
-		commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-			IdleTimeout: idleTimeoutDuration,
+		commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
+		if idleTimeout != nil {
+			idleTimeoutDuration := gogo.DurationToProtoDuration(idleTimeout)
+			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
+		}
+		if maxRequestsPerConnection > 0 {
+			if util.IsIstioVersionGE112(model.ParseIstioVersion(cb.proxyVersion)) {
+				commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: maxRequestsPerConnection}
+			} else {
+				// nolint: staticcheck
+				mc.cluster.MaxRequestsPerConnection = &wrappers.UInt32Value{Value: uint32(settings.Http.MaxRequestsPerConnection)}
+			}
 		}
 	}
 
