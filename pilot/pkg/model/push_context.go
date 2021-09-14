@@ -387,6 +387,51 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	return pr
 }
 
+// CopyMerge two update requests together. Unlike Merge, this will not mutate either input.
+// This should be used when we are modifying a shared PushRequest (typically any time it's in the context
+// of a single proxy)
+func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
+	if pr == nil {
+		return other
+	}
+	if other == nil {
+		return pr
+	}
+
+	var reason []TriggerReason
+	if len(pr.Reason)+len(other.Reason) > 0 {
+		reason = make([]TriggerReason, 0, len(pr.Reason)+len(other.Reason))
+		reason = append(reason, pr.Reason...)
+		reason = append(reason, other.Reason...)
+	}
+	merged := &PushRequest{
+		// Keep the first (older) start time
+		Start: pr.Start,
+
+		// If either is full we need a full push
+		Full: pr.Full || other.Full,
+
+		// The other push context is presumed to be later and more up to date
+		Push: other.Push,
+
+		// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
+		Reason: reason,
+	}
+
+	// Do not merge when any one is empty
+	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
+		merged.ConfigsUpdated = make(map[ConfigKey]struct{}, len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
+		for conf := range pr.ConfigsUpdated {
+			merged.ConfigsUpdated[conf] = struct{}{}
+		}
+		for conf := range other.ConfigsUpdated {
+			merged.ConfigsUpdated[conf] = struct{}{}
+		}
+	}
+
+	return merged
+}
+
 func (pr *PushRequest) PushReason() string {
 	if len(pr.Reason) == 1 && pr.Reason[0] == ProxyRequest {
 		return " request"
