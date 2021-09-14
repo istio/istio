@@ -7,7 +7,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-14.3.0
+    chart: prometheus-14.6.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -22,7 +22,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-14.3.0
+    chart: prometheus-14.6.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -250,7 +250,7 @@ data:
         - __meta_kubernetes_pod_name
         target_label: kubernetes_pod_name
       - action: drop
-        regex: Pending|Succeeded|Failed
+        regex: Pending|Succeeded|Failed|Completed
         source_labels:
         - __meta_kubernetes_pod_phase
     - job_name: kubernetes-pods-slow
@@ -289,7 +289,7 @@ data:
         - __meta_kubernetes_pod_name
         target_label: kubernetes_pod_name
       - action: drop
-        regex: Pending|Succeeded|Failed
+        regex: Pending|Succeeded|Failed|Completed
         source_labels:
         - __meta_kubernetes_pod_phase
       scrape_interval: 5m
@@ -307,7 +307,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-14.3.0
+    chart: prometheus-14.6.1
     heritage: Helm
   name: prometheus
 rules:
@@ -349,7 +349,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-14.3.0
+    chart: prometheus-14.6.1
     heritage: Helm
   name: prometheus
 subjects:
@@ -369,7 +369,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-14.3.0
+    chart: prometheus-14.6.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -394,7 +394,7 @@ metadata:
     component: "server"
     app: prometheus
     release: prometheus
-    chart: prometheus-14.3.0
+    chart: prometheus-14.6.1
     heritage: Helm
   name: prometheus
   namespace: istio-system
@@ -411,11 +411,12 @@ spec:
         component: "server"
         app: prometheus
         release: prometheus
-        chart: prometheus-14.3.0
+        chart: prometheus-14.6.1
         heritage: Helm
         
         sidecar.istio.io/inject: "false"
     spec:
+      enableServiceLinks: true
       serviceAccountName: prometheus
       containers:
         - name: prometheus-server-configmap-reload
