@@ -319,7 +319,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(li
 	// Endpoint IP is handled below and Service IP is handled by outbound routes.
 	// Traffic sent to our service VIP is redirected by remote services' kubeproxy to our specific endpoint IP.
 
-	listenerOpts.class = ListenerClassSidecarInbound
+	listenerOpts.class = istionetworking.ListenerClassSidecarInbound
 
 	if old, exists := listenerMap[listenerOpts.port.Port]; exists {
 		if old.protocol != listenerOpts.port.Protocol && old.instanceHostname != pluginParams.ServiceInstance.Service.ClusterLocal.Hostname {
@@ -914,7 +914,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(l
 	var ret bool
 	var opts []*filterChainOpts
 
-	listenerOpts.class = ListenerClassSidecarOutbound
+	listenerOpts.class = istionetworking.ListenerClassSidecarOutbound
 
 	conflictType := NoConflict
 
@@ -1212,16 +1212,6 @@ type filterChainOpts struct {
 	filterChain      istionetworking.FilterChain
 }
 
-// ListenerClass defines the class of the listener
-type ListenerClass int
-
-const (
-	ListenerClassUndefined ListenerClass = iota
-	ListenerClassSidecarInbound
-	ListenerClassSidecarOutbound
-	ListenerClassGateway
-)
-
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
@@ -1233,7 +1223,7 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
-	class             ListenerClass
+	class             istionetworking.ListenerClass
 	service           *model.Service
 	protocol          istionetworking.ListenerProtocol
 	transport         istionetworking.TransportProtocol
@@ -1317,6 +1307,10 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters := make([]*hcm.HttpFilter, len(httpFilters))
 	copy(filters, httpFilters)
 
+	if features.MetadataExchange {
+		filters = append(filters, xdsfilters.HTTPMx)
+	}
+
 	if httpOpts.addGRPCWebFilter {
 		filters = append(filters, xdsfilters.GrpcWeb)
 	}
@@ -1326,7 +1320,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
-	if listenerOpts.class == ListenerClassSidecarOutbound {
+	if listenerOpts.class == istionetworking.ListenerClassSidecarOutbound {
 		filters = append(filters, xdsfilters.Alpn)
 	}
 
@@ -1372,7 +1366,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	// match. We can do this for outbound as well, at which point this could be
 	// removed, but have not yet
 	if opts.transport == istionetworking.TransportProtocolTCP &&
-		(needTLSInspector || (opts.class == ListenerClassSidecarOutbound && opts.needHTTPInspector)) {
+		(needTLSInspector || (opts.class == istionetworking.ListenerClassSidecarOutbound && opts.needHTTPInspector)) {
 		listenerFiltersMap[wellknown.TlsInspector] = true
 		listenerFilters = append(listenerFilters, xdsfilters.TLSInspector)
 	}
