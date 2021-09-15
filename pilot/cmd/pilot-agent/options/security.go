@@ -116,7 +116,11 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	}
 	// TODO extract this logic out to a plugin
 	if o.CAProviderName == security.GoogleCAProvider || o.CAProviderName == security.GoogleCASProvider {
-		o.TokenExchanger = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
+		var err error
+		o.TokenExchanger, err = stsclient.NewSecureTokenServiceExchanger(o.CredFetcher, o.TrustDomain)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if o.ProvCert != "" && o.FileMountedCerts {
