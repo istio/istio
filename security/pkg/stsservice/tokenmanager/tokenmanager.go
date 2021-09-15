@@ -94,7 +94,7 @@ func CreateTokenManager(tokenManagerType string, config Config) (security.TokenM
 			}
 			// When err != nil, the error will be returned at the end
 		} else {
-			err = fmt.Errorf("%v token manager specified but failed to ready GCP project information", GoogleTokenExchange)
+			return nil, fmt.Errorf("%v token manager specified but failed to ready GCP project information", GoogleTokenExchange)
 		}
 	}
 	return tm, err
