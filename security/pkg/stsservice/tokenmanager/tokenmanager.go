@@ -16,11 +16,11 @@ package tokenmanager
 
 import (
 	"errors"
+	"fmt"
 
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -80,10 +80,11 @@ func GetGCPProjectInfo() GCPProjectInfo {
 
 // CreateTokenManager creates a token manager with specified type and returns
 // that token manager
-func CreateTokenManager(tokenManagerType string, config Config) security.TokenManager {
+func CreateTokenManager(tokenManagerType string, config Config) (security.TokenManager, error) {
 	tm := &TokenManager{
 		plugin: nil,
 	}
+	var err error
 	switch tokenManagerType {
 	case GoogleTokenExchange:
 		if projectInfo := GetGCPProjectInfo(); len(projectInfo.Number) > 0 {
@@ -91,11 +92,12 @@ func CreateTokenManager(tokenManagerType string, config Config) security.TokenMa
 				projectInfo.Number, projectInfo.clusterURL, true); err == nil {
 				tm.plugin = p
 			}
+			// When err != nil, the error will be returned at the end
 		} else {
-			log.Warnf("%v token manager specified but failed to ready GCP project information", GoogleTokenExchange)
+			err = fmt.Errorf("%v token manager specified but failed to ready GCP project information", GoogleTokenExchange)
 		}
 	}
-	return tm
+	return tm, err
 }
 
 func (tm *TokenManager) GenerateToken(parameters security.StsRequestParameters) ([]byte, error) {

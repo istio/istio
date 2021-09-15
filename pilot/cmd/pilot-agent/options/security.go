@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -30,6 +31,11 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	"istio.io/pkg/log"
+)
+
+const (
+	tokenManagerMaxNumRetries = 3
+	tokenManagerRetryInterval = 1 * time.Second
 )
 
 func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenManagerPlugin string) (*security.Options, error) {
@@ -65,8 +71,20 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 	var tokenManager security.TokenManager
 	if stsPort > 0 || xdsAuthProvider.Get() != "" {
 		// tokenManager is gcp token manager when using the default token manager plugin.
-		tokenManager = tokenmanager.CreateTokenManager(tokenManagerPlugin,
-			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
+		for retryCount := 1; retryCount <= tokenManagerMaxNumRetries; retryCount++ {
+			tokenManager, err = tokenmanager.CreateTokenManager(tokenManagerPlugin,
+				tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
+			if err != nil {
+				if retryCount < tokenManagerMaxNumRetries {
+					log.Errorf("failed to create token manager: %v, retry %v ...", err, retryCount)
+					time.Sleep(tokenManagerRetryInterval)
+				} else { // no more retries
+					log.Errorf("failed to create token manager: %v, after trying %v times", err, retryCount)
+				}
+			} else {
+				break
+			}
+		}
 	}
 	o.TokenManager = tokenManager
 
