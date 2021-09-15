@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 34058
+releaseNotes:
+  - |
+    **Fixed** `istioctl x workload` command output to set the correct `discoveryAddress` for revisioned control-planes.
