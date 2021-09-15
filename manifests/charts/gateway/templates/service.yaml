@@ -19,7 +19,7 @@ spec:
   loadBalancerSourceRanges:
 {{ toYaml . | indent 4 }}
 {{- end }}
-{{- if .Values.service.externalTrafficPolicy }}
+{{- with .Values.service.externalTrafficPolicy }}
   externalTrafficPolicy: "{{ . }}"
 {{- end }}
   type: {{ .Values.service.type }}
