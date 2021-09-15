@@ -202,9 +202,29 @@ func recordXDSClients(version string, delta float64) {
 	xdsClients.With(versionTag.Value(version)).Record(xdsClientTracker[version])
 }
 
+// triggerMetric is a precomputed monitoring.Metric for each trigger type. This saves on a lot of allocations
+var triggerMetric = map[model.TriggerReason]monitoring.Metric{
+	model.EndpointUpdate:  pushTriggers.With(typeTag.Value(string(model.EndpointUpdate))),
+	model.ConfigUpdate:    pushTriggers.With(typeTag.Value(string(model.ConfigUpdate))),
+	model.ServiceUpdate:   pushTriggers.With(typeTag.Value(string(model.ServiceUpdate))),
+	model.ProxyUpdate:     pushTriggers.With(typeTag.Value(string(model.ProxyUpdate))),
+	model.GlobalUpdate:    pushTriggers.With(typeTag.Value(string(model.GlobalUpdate))),
+	model.UnknownTrigger:  pushTriggers.With(typeTag.Value(string(model.UnknownTrigger))),
+	model.DebugTrigger:    pushTriggers.With(typeTag.Value(string(model.DebugTrigger))),
+	model.SecretTrigger:   pushTriggers.With(typeTag.Value(string(model.SecretTrigger))),
+	model.NetworksTrigger: pushTriggers.With(typeTag.Value(string(model.NetworksTrigger))),
+	model.ProxyRequest:    pushTriggers.With(typeTag.Value(string(model.ProxyRequest))),
+	model.NamespaceUpdate: pushTriggers.With(typeTag.Value(string(model.NamespaceUpdate))),
+}
+
 func recordPushTriggers(reasons ...model.TriggerReason) {
 	for _, r := range reasons {
-		pushTriggers.With(typeTag.Value(string(r))).Increment()
+		t, f := triggerMetric[r]
+		if f {
+			t.Increment()
+		} else {
+			pushTriggers.With(typeTag.Value(string(r))).Increment()
+		}
 	}
 }
 
