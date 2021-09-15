@@ -21,7 +21,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	golangproto "github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -100,18 +100,12 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 }
 
 func isBindtoPort(l *listener.Listener) bool {
-	// nolint: staticcheck
-	v1 := l.GetDeprecatedV1()
+	v1 := l.GetBindToPort()
 	if v1 == nil {
 		// Default is true
 		return true
 	}
-	bp := v1.BindToPort
-	if bp == nil {
-		// Default is true
-		return true
-	}
-	return bp.Value
+	return v1.GetValue()
 }
 
 // enabledInspector captures if for a given listener, listener filter inspectors are added
