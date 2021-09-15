@@ -94,9 +94,17 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
-	crd := r.Message.(*k8sext.CustomResourceDefinitionSpec)
 	for _, depCRD := range deprecatedCRDs {
-		if crd.Group == depCRD.Group && crd.Names.Kind == depCRD.Names.Kind {
+		var group, kind string
+		switch crd := r.Message.(type) {
+		case *k8sext.CustomResourceDefinition:
+			group = crd.Spec.Group
+			kind = crd.Spec.Names.Kind
+		case *k8sext.CustomResourceDefinitionSpec:
+			group = crd.Group
+			kind = crd.Names.Kind
+		}
+		if group == depCRD.Group && kind == depCRD.Names.Kind {
 			ctx.Report(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
 				msg.NewDeprecated(r, crRemovedMessage(depCRD.Group, depCRD.Names.Kind)))
 		}

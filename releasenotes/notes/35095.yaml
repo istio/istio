@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 35093
+releaseNotes:
+  - |
+    **Fixed** BenchmarkAnalyzersArtificialBlankData100 test. Also, fixed the gateway analyzer
+    message reporting if there is no selector in the gateway spec.
