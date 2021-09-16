@@ -63,7 +63,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=release-1.10-2021-09-08T21-00-27
+  export IMAGE_VERSION=release-1.10-2021-09-10T17-12-00
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
