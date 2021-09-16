@@ -88,9 +88,8 @@ func CreateTokenManager(tokenManagerType string, config Config) (security.TokenM
 	switch tokenManagerType {
 	case GoogleTokenExchange:
 		if projectInfo := GetGCPProjectInfo(); len(projectInfo.Number) > 0 {
-			p, errCreate := google.CreateTokenManagerPlugin(config.CredFetcher, config.TrustDomain,
-				projectInfo.Number, projectInfo.clusterURL, true)
-			if errCreate == nil {
+			if p, errCreate := google.CreateTokenManagerPlugin(config.CredFetcher, config.TrustDomain,
+				projectInfo.Number, projectInfo.clusterURL, true); errCreate == nil {
 				tm.plugin = p
 			} else {
 				// When errCreate != nil, the error will be returned at the end
