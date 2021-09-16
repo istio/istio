@@ -205,6 +205,11 @@ func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }
 
+func (c Config) IsDelta() bool {
+	// TODO this doesn't hold if delta is on by default
+	return len(c.Subsets) > 0 && c.Subsets[0].Annotations != nil && strings.Contains(c.Subsets[0].Annotations.Get(SidecarProxyConfig), "ISTIO_DELTA_XDS")
+}
+
 // DeepCopy creates a clone of IstioEndpoint.
 func (c Config) DeepCopy() Config {
 	newc := c
@@ -258,4 +263,42 @@ func ParseConfigs(bytes []byte) ([]Config, error) {
 	}
 
 	return configs, nil
+}
+
+type Class = string
+
+const (
+	Proxyless   Class = "proxyless"
+	VM          Class = "vm"
+	Delta       Class = "delta"
+	TProxy      Class = "tproxy"
+	Naked       Class = "naked"
+	External    Class = "external"
+	StatefulSet Class = "statefulset"
+	Headless    Class = "headless"
+	Standard    Class = "standard"
+)
+
+// Class returns the type of workload a given config is.
+func (cfg Config) Class() string {
+	if cfg.IsProxylessGRPC() {
+		return Proxyless
+	} else if cfg.IsVM() {
+		return VM
+	} else if cfg.IsTProxy() {
+		return TProxy
+	} else if cfg.IsNaked() {
+		return Naked
+	} else if cfg.IsExternal() {
+		return External
+	} else if cfg.IsStatefulSet() {
+		return StatefulSet
+	} else if cfg.IsDelta() {
+		// TODO remove if delta is on by default
+		return Delta
+	}
+	if cfg.IsHeadless() {
+		return Headless
+	}
+	return Standard
 }
