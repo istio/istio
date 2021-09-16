@@ -73,6 +73,7 @@ func TestRevisionCommand(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
+		RequiresLocalControlPlane().
 		Features("installation.istioctl.revision_centric_view").
 		Run(func(t framework.TestContext) {
 			skipIfUnsupportedKubernetesVersion(t)

@@ -55,6 +55,7 @@ type revisionedNamespace struct {
 func TestMultiVersionRevision(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
+		RequiresLocalControlPlane().
 		Features("installation.upgrade").
 		// Requires installation of CPs from manifests, won't succeed
 		// if existing CPs have different root cert
