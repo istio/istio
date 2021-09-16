@@ -381,6 +381,9 @@ const (
 )
 
 // Merge two update requests together
+// Merge behaves similarly to a list append; usage should in the form `a = a.merge(b)`.
+// Importantly, Merge may decide to allocate a new PushRequest object or reuse the existing one - both
+// inputs should not be used after completion.
 func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if pr == nil {
 		return other
@@ -389,9 +392,46 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		return pr
 	}
 
-	reason := make([]TriggerReason, 0, len(pr.Reason)+len(other.Reason))
-	reason = append(reason, pr.Reason...)
-	reason = append(reason, other.Reason...)
+	// Keep the first (older) start time
+
+	// Merge the two reasons. Note that we shouldn't deduplicate here, or we would under count
+	pr.Reason = append(pr.Reason, other.Reason...)
+
+	// If either is full we need a full push
+	pr.Full = pr.Full || other.Full
+
+	// The other push context is presumed to be later and more up to date
+	pr.Push = other.Push
+
+	// Do not merge when any one is empty
+	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
+		pr.ConfigsUpdated = nil
+	} else {
+		for conf := range other.ConfigsUpdated {
+			pr.ConfigsUpdated[conf] = struct{}{}
+		}
+	}
+
+	return pr
+}
+
+// CopyMerge two update requests together. Unlike Merge, this will not mutate either input.
+// This should be used when we are modifying a shared PushRequest (typically any time it's in the context
+// of a single proxy)
+func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
+	if pr == nil {
+		return other
+	}
+	if other == nil {
+		return pr
+	}
+
+	var reason []TriggerReason
+	if len(pr.Reason)+len(other.Reason) > 0 {
+		reason = make([]TriggerReason, 0, len(pr.Reason)+len(other.Reason))
+		reason = append(reason, pr.Reason...)
+		reason = append(reason, other.Reason...)
+	}
 	merged := &PushRequest{
 		// Keep the first (older) start time
 		Start: pr.Start,
