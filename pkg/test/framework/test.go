@@ -36,8 +36,6 @@ type Test interface {
 	// RequireIstioVersion ensures that all installed versions of Istio are at least the
 	// required version for the annotated test to pass
 	RequireIstioVersion(version string) Test
-	// RequireLocalControlPlane ensures that clusters are using locally-deployed control planes.
-	RequireLocalControlPlane() Test
 	// RequiresMinClusters ensures that the current environment contains at least the expected number of clusters.
 	// Otherwise it stops test execution and skips the test.
 	RequiresMinClusters(minClusters int) Test
@@ -46,6 +44,8 @@ type Test interface {
 	RequiresMaxClusters(maxClusters int) Test
 	// RequiresSingleCluster this a utility that requires the min/max clusters to both = 1.
 	RequiresSingleCluster() Test
+	// RequiresLocalControlPlane ensures that clusters are using locally-deployed control planes.
+	RequiresLocalControlPlane() Test
 	// Run the test, supplied as a lambda.
 	Run(fn func(t TestContext))
 	// RunParallel runs this test in parallel with other children of the same parent test/suite. Under the hood,
@@ -178,16 +178,16 @@ func (t *testImpl) RequiresMaxClusters(maxClusters int) Test {
 }
 
 func (t *testImpl) RequiresSingleCluster() Test {
-	return t.RequiresMaxClusters(1).RequiresMinClusters(1).RequireLocalControlPlane()
+	return t.RequiresMaxClusters(1).RequiresMinClusters(1)
+}
+
+func (t *testImpl) RequiresLocalControlPlane() Test {
+	t.requireLocalIstiod = true
+	return t
 }
 
 func (t *testImpl) RequireIstioVersion(version string) Test {
 	t.minIstioVersion = version
-	return t
-}
-
-func (t *testImpl) RequireLocalControlPlane() Test {
-	t.requireLocalIstiod = true
 	return t
 }
 
