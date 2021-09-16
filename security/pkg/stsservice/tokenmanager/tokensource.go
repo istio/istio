@@ -39,12 +39,16 @@ type TokenSource struct {
 var _ oauth2.TokenSource = &TokenSource{}
 
 // NewTokenSource creates a token source based on STS token exchange.
-func NewTokenSource(trustDomain, subjectToken, authScope string) *TokenSource {
+func NewTokenSource(trustDomain, subjectToken, authScope string) (*TokenSource, error) {
+	tmgr, err := CreateTokenManager(GoogleTokenExchange, Config{TrustDomain: trustDomain})
+	if err != nil {
+		return nil, err
+	}
 	return &TokenSource{
-		tm:           CreateTokenManager(GoogleTokenExchange, Config{TrustDomain: trustDomain}),
+		tm:           tmgr,
 		subjectToken: subjectToken,
 		authScope:    authScope,
-	}
+	}, err
 }
 
 // RefreshSubjectToken sets subject token with new expiry.

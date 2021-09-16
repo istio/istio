@@ -119,12 +119,18 @@ func TestStsTokenSource(t *testing.T) {
 				// if refreshing token is enabled. set dummy token initially and refresh it to desired subject token later.
 				st = "initial dummy token"
 			}
-			ts := NewTokenSource(mock.FakeTrustDomain, st, "https://www.googleapis.com/auth/cloud-platform")
+			ts, err := NewTokenSource(mock.FakeTrustDomain, st, "https://www.googleapis.com/auth/cloud-platform")
+			if err != nil {
+				t.Fatalf("failed to create token source: %v", err)
+			}
 
 			// Override token manager in token source to use mock plugin
 			tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
-			tokenManager := CreateTokenManager(GoogleTokenExchange,
+			tokenManager, err := CreateTokenManager(GoogleTokenExchange,
 				Config{TrustDomain: mock.FakeTrustDomain})
+			if err != nil {
+				t.Fatalf("failed to create token manager: %v", err)
+			}
 			tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
 			ts.tm = tokenManager
 
@@ -273,8 +279,11 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager
-	tokenManager := CreateTokenManager(GoogleTokenExchange,
+	tokenManager, err := CreateTokenManager(GoogleTokenExchange,
 		Config{CredFetcher: nil, TrustDomain: mock.FakeTrustDomain})
+	if err != nil {
+		t.Fatalf("failed to create a token manager: %v", err)
+	}
 	tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
 	// Create STS server
 	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: "127.0.0.1", LocalPort: 0}, tokenManager)
