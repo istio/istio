@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	"sort"
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -210,7 +209,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			continue
 		}
 		out.servicesByHostname[s.ClusterLocal.Hostname] = s
-		if dr := ps.DestinationRule(&dummyNode, s); dr != nil {
+		if dr := ps.DestinationRule(&dummyNode, s.ClusterLocal.Hostname, s.Attributes.Namespace); dr != nil {
 			out.destinationRules[s.ClusterLocal.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
@@ -308,17 +307,16 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		} else if foundSvc.Attributes.Namespace == s.Attributes.Namespace && s.Ports != nil && len(s.Ports) > 0 {
 			// merge the ports to service when each listener generates partial service
 			// we only merge if the found service is in the same namespace as the one we're trying to add
-			os := servicesAdded[s.ClusterLocal.Hostname]
 			for _, p := range s.Ports {
 				found := false
-				for _, osp := range os.Ports {
+				for _, osp := range foundSvc.Ports {
 					if p.Port == osp.Port {
 						found = true
 						break
 					}
 				}
 				if !found {
-					os.Ports = append(os.Ports, p)
+					foundSvc.Ports = append(foundSvc.Ports, p)
 				}
 			}
 		}
@@ -350,7 +348,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 			for _, h := range virtualServiceDestinationHosts(v) {
 				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
+				if s := ps.ServiceIndex().NamespacesForHost(host.Name(h)).Service(configNamespace); s != nil {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					var vss *Service
 					if matchPort {
@@ -366,28 +364,25 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 					// We couldn't find the hostname in our config namespace
 					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
 					// TODO: could we choose services more intelligently based on their ports?
-					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
-					if len(byNamespace) == 0 {
+					ni := ps.ServiceIndex().NamespacesForHost(host.Name(h))
+					if ni.Len() == 0 {
 						// This hostname isn't found anywhere
 						log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
 						continue
 					}
 
-					ns := make([]string, 0, len(byNamespace))
-					for k := range byNamespace {
-						if ps.IsServiceVisible(byNamespace[k], configNamespace) {
-							ns = append(ns, k)
-						}
-					}
-					if len(ns) > 0 {
-						sort.Strings(ns)
-						// Pick first namespace alphabetically
+					visibleNamespaces := ni.Namespaces(func(ns string, s *Service) bool {
+						return ps.IsServiceVisible(s, configNamespace)
+					})
+					if len(visibleNamespaces) > 0 {
+						// Pick first namespace alphabetically (results of the Namespaces function are in ascending order).
 						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+						ns := visibleNamespaces[0]
 						var vss *Service
 						if matchPort {
-							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
+							vss = serviceMatchingListenerPort(ni.Service(ns), listener)
 						} else {
-							vss = byNamespace[ns[0]]
+							vss = ni.Service(ns)
 						}
 						if vss != nil {
 							addService(vss)
@@ -405,7 +400,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	out.destinationRules = make(map[host.Name]*config.Config)
 	for _, s := range out.services {
 		out.servicesByHostname[s.ClusterLocal.Hostname] = s
-		dr := ps.DestinationRule(&dummyNode, s)
+		dr := ps.DestinationRule(&dummyNode, s.ClusterLocal.Hostname, s.Attributes.Namespace)
 		if dr != nil {
 			out.destinationRules[s.ClusterLocal.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
@@ -552,8 +547,8 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 		sc.configDependencies = make(map[uint64]struct{})
 	}
 
-	for _, config := range dependencies {
-		sc.configDependencies[config.HashCode()] = struct{}{}
+	for _, dep := range dependencies {
+		sc.configDependencies[dep.HashCode()] = struct{}{}
 	}
 }
 

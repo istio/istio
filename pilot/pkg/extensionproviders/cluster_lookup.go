@@ -31,20 +31,17 @@ func LookupCluster(push *model.PushContext, service string, port int) (hostname 
 	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
 	if parts := strings.Split(service, "/"); len(parts) == 2 {
 		namespace, name := parts[0], parts[1]
-		if svc := push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
+		if svc := push.ServiceIndex().NamespacesForHost(host.Name(name)).Service(namespace); svc != nil {
 			hostname = string(svc.ClusterLocal.Hostname)
 			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.ClusterLocal.Hostname, port)
 			return
 		}
 	} else {
-		namespaceToServices := push.ServiceIndex.HostnameAndNamespace[host.Name(service)]
-		var namespaces []string
-		for k := range namespaceToServices {
-			namespaces = append(namespaces, k)
-		}
+		ni := push.ServiceIndex().NamespacesForHost(host.Name(service))
+		namespaces := ni.Namespaces(nil)
 		// If namespace is omitted, return successfully if there is only one such host name in the service index.
 		if len(namespaces) == 1 {
-			svc := namespaceToServices[namespaces[0]]
+			svc := ni.Service(namespaces[0])
 			hostname = string(svc.ClusterLocal.Hostname)
 			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.ClusterLocal.Hostname, port)
 			return

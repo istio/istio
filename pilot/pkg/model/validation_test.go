@@ -180,8 +180,11 @@ func TestServiceValidate(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		if got := c.service.Validate(); (got == nil) != c.valid {
-			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
-		}
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			if got := c.service.Validate(); (got == nil) != c.valid {
+				t.Errorf("got valid=%v but wanted valid=%v: %v", got == nil, c.valid, got)
+			}
+		})
 	}
 }

@@ -292,8 +292,8 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 
 		var service *model.Service
 		// First, we obtain the service which has the same namespace as virtualService
-		s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]
-		if exist {
+		s := push.ServiceIndex().NamespacesForHost(hostname).Service(virtualService.Namespace)
+		if s != nil {
 			// We should check whether the selected service is visible to the proxy node.
 			if push.IsServiceVisible(s, node.ConfigNamespace) {
 				service = s
@@ -312,9 +312,9 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 			addService(host.Name(httpRoute.GetMirror().GetHost()))
 		}
 
-		for _, route := range httpRoute.GetRoute() {
-			if route.GetDestination() != nil {
-				addService(host.Name(route.GetDestination().GetHost()))
+		for _, r := range httpRoute.GetRoute() {
+			if r.GetDestination() != nil {
+				addService(host.Name(r.GetDestination().GetHost()))
 			}
 		}
 	}
@@ -854,8 +854,8 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 			// TODO: Bug..if there is a single virtual service with *.foo.com, and multiple TLS block
 			// matches, one for 1.foo.com, another for 2.foo.com, this code will produce duplicate filter
 			// chain matches
-			for _, tls := range vsvc.Tls {
-				for i, match := range tls.Match {
+			for _, tlsCfg := range vsvc.Tls {
+				for i, match := range tlsCfg.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
 						// Envoy will reject config that has multiple filter chain matches with the same matching rules
 						// To avoid this, we need to make sure we don't have duplicated SNI hosts, which will become
@@ -872,7 +872,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: buildOutboundNetworkFilters(node, tls.Route, push, port, v.Meta),
+							networkFilters: buildOutboundNetworkFilters(node, tlsCfg.Route, push, port, v.Meta),
 						})
 					}
 				}
@@ -911,7 +911,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
 				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), "", port, &service.Attributes)
 			}
-			destRule := push.DestinationRule(proxy, service)
+			destRule := push.DestinationRule(proxy, service.ClusterLocal.Hostname, service.Attributes.Namespace)
 			destinationRule := CastDestinationRule(destRule)
 
 			// First, we build the standard cluster. We match on the SNI matching the cluster name

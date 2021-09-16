@@ -49,35 +49,6 @@ type Metrics interface {
 
 var _ Metrics = &PushContext{}
 
-// serviceIndex is an index of all services by various fields for easy access during push.
-type serviceIndex struct {
-	// privateByNamespace are services that can reachable within the same namespace, with exportTo "."
-	privateByNamespace map[string][]*Service
-	// public are services reachable within the mesh with exportTo "*"
-	public []*Service
-	// exportedToNamespace are services that were made visible to this namespace
-	// by an exportTo explicitly specifying this namespace.
-	exportedToNamespace map[string][]*Service
-
-	// HostnameAndNamespace has all services, indexed by hostname then namespace.
-	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
-
-	// instancesByPort contains a map of service key and instances by port. It is stored here
-	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
-	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	instancesByPort map[string]map[int][]*ServiceInstance
-}
-
-func newServiceIndex() serviceIndex {
-	return serviceIndex{
-		public:               []*Service{},
-		privateByNamespace:   map[string][]*Service{},
-		exportedToNamespace:  map[string][]*Service{},
-		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		instancesByPort:      map[string]map[int][]*ServiceInstance{},
-	}
-}
-
 // exportToDefaults contains the default exportTo values.
 type exportToDefaults struct {
 	service         map[visibility.Instance]bool
@@ -181,7 +152,7 @@ type PushContext struct {
 	exportToDefaults exportToDefaults
 
 	// ServiceIndex is the index of services by various fields.
-	ServiceIndex serviceIndex
+	serviceIndex *serviceIndexImpl
 
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
@@ -474,6 +445,10 @@ type ProxyPushStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
+func (ps *PushContext) ServiceIndex() ServiceIndex {
+	return ps.serviceIndex
+}
+
 // AddMetric will add an case to the metric.
 func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
 	if ps == nil {
@@ -618,7 +593,7 @@ func init() {
 // NewPushContext creates a new PushContext structure to track push status.
 func NewPushContext() *PushContext {
 	return &PushContext{
-		ServiceIndex:            newServiceIndex(),
+		serviceIndex:            newServiceIndex(),
 		virtualServiceIndex:     newVirtualServiceIndex(),
 		destinationRuleIndex:    newDestinationRuleIndex(),
 		sidecarIndex:            newSidecarIndex(),
@@ -626,22 +601,6 @@ func NewPushContext() *PushContext {
 		gatewayIndex:            newGatewayIndex(),
 		ProxyStatus:             map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:         map[host.Name]map[int][]string{},
-	}
-}
-
-// AddPublicServices adds the services to context public services - mainly used in tests.
-func (ps *PushContext) AddPublicServices(services []*Service) {
-	ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
-}
-
-// AddServiceInstances adds instances to the context service instances - mainly used in tests.
-func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][]*ServiceInstance) {
-	svcKey := service.Key()
-	for port, inst := range instances {
-		if _, exists := ps.ServiceIndex.instancesByPort[svcKey]; !exists {
-			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
-		}
-		ps.ServiceIndex.instancesByPort[svcKey][port] = append(ps.ServiceIndex.instancesByPort[svcKey][port], inst...)
 	}
 }
 
@@ -731,8 +690,8 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 				return svcs
 			}
 
-			for _, host := range virtualServiceDestinationHosts(vs) {
-				hostsFromGateways[host] = struct{}{}
+			for _, hostName := range virtualServiceDestinationHosts(vs) {
+				hostsFromGateways[hostName] = struct{}{}
 			}
 		}
 	}
@@ -766,16 +725,16 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 
 	// First add private services and explicitly exportedTo services
 	if proxy == nil {
-		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
+		for _, privateServices := range ps.serviceIndex.privateByNamespace {
 			out = append(out, privateServices...)
 		}
 	} else {
-		out = append(out, ps.ServiceIndex.privateByNamespace[proxy.ConfigNamespace]...)
-		out = append(out, ps.ServiceIndex.exportedToNamespace[proxy.ConfigNamespace]...)
+		out = append(out, ps.serviceIndex.privateByNamespace[proxy.ConfigNamespace]...)
+		out = append(out, ps.serviceIndex.exportedToNamespace[proxy.ConfigNamespace]...)
 	}
 
 	// Second add public services
-	out = append(out, ps.ServiceIndex.public...)
+	out = append(out, ps.serviceIndex.public...)
 
 	return out
 }
@@ -788,8 +747,9 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
 	// so the selection must be undefined.
-	for _, service := range ps.ServiceIndex.HostnameAndNamespace[hostname] {
-		return service
+	ni := ps.ServiceIndex().NamespacesForHost(hostname)
+	for _, ns := range ni.Namespaces(nil) {
+		return ni.Service(ns)
 	}
 
 	// No service found
@@ -921,17 +881,13 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 }
 
 // DestinationRule returns a destination rule for a service name in a given domain.
-func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.Config {
-	if service == nil {
-		return nil
-	}
-
+func (ps *PushContext) DestinationRule(proxy *Proxy, hostName host.Name, svcNs string) *config.Config {
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
 	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {
 		// If there is a sidecar scope for this proxy, return the destination rule
 		// from the sidecar scope.
-		return proxy.SidecarScope.destinationRules[service.ClusterLocal.Hostname]
+		return proxy.SidecarScope.destinationRules[hostName]
 	}
 
 	// If the proxy config namespace is same as the root config namespace
@@ -947,7 +903,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// search through the DestinationRules in proxy's namespace first
 		if ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace] != nil {
-			if hostname, ok := MostSpecificHostMatch(service.ClusterLocal.Hostname,
+			if hostname, ok := MostSpecificHostMatch(hostName,
 				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hostsMap,
 				ps.destinationRuleIndex.namespaceLocal[proxy.ConfigNamespace].hosts,
 			); ok {
@@ -958,7 +914,7 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		// If this is a namespace local DR in the same namespace, this must be meant for this proxy, so we do not
 		// need to worry about overriding other DRs with *.local type rules here. If we ignore this, then exportTo=. in
 		// root namespace would always be ignored
-		if hostname, ok := MostSpecificHostMatch(service.ClusterLocal.Hostname,
+		if hostname, ok := MostSpecificHostMatch(hostName,
 			ps.destinationRuleIndex.rootNamespaceLocal.hostsMap,
 			ps.destinationRuleIndex.rootNamespaceLocal.hosts,
 		); ok {
@@ -966,15 +922,12 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 		}
 	}
 
-	// 2. select destination rule from service namespace
-	svcNs := service.Attributes.Namespace
-
 	// This can happen when finding the subset labels for a proxy in root namespace.
 	// Because based on a pure cluster's fqdn, we do not know the service and
 	// construct a fake service without setting Attributes at all.
 	if svcNs == "" {
 		for _, svc := range ps.Services(proxy) {
-			if service.ClusterLocal.Hostname == svc.ClusterLocal.Hostname && svc.Attributes.Namespace != "" {
+			if hostName == svc.ClusterLocal.Hostname && svc.Attributes.Namespace != "" {
 				svcNs = svc.Attributes.Namespace
 				break
 			}
@@ -984,14 +937,14 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *config.C
 	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for exported rules
 	if svcNs != "" {
-		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.ClusterLocal.Hostname, proxy.ConfigNamespace); out != nil {
+		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, hostName, proxy.ConfigNamespace); out != nil {
 			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
-	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.ClusterLocal.Hostname, proxy.ConfigNamespace); out != nil {
+	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, hostName, proxy.ConfigNamespace); out != nil {
 		return out
 	}
 
@@ -1054,11 +1007,7 @@ func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname 
 		return nil
 	}
 
-	cfg := ps.DestinationRule(proxy, &Service{
-		ClusterLocal: HostVIPs{
-			Hostname: hostname,
-		},
-	})
+	cfg := ps.DestinationRule(proxy, hostname, "")
 	if cfg == nil {
 		return nil
 	}
@@ -1204,7 +1153,7 @@ func (ps *PushContext) updateContext(
 		}
 	} else {
 		// make sure we copy over things that would be generated in initServiceRegistry
-		ps.ServiceIndex = oldPushContext.ServiceIndex
+		ps.serviceIndex = oldPushContext.serviceIndex
 		ps.ServiceAccounts = oldPushContext.ServiceAccounts
 	}
 
@@ -1294,36 +1243,31 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 	}
 	// Sort the services in order of creation.
 	allServices := sortServicesByCreationTime(services)
+
 	for _, s := range allServices {
 		svcKey := s.Key()
 		// Precache instances
 		for _, port := range s.Ports {
-			if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {
-				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
-			}
-			instances := make([]*ServiceInstance, 0)
+			var instances []*ServiceInstance
 			instances = append(instances, env.InstancesByPort(s, port.Port, nil)...)
-			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
+			ps.serviceIndex.setServiceInstancesForKeyAndPort(svcKey, port.Port, instances)
 		}
 
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname] = map[string]*Service{}
-		}
-		ps.ServiceIndex.HostnameAndNamespace[s.ClusterLocal.Hostname][s.Attributes.Namespace] = s
+		ps.serviceIndex.setServiceForHostAndNamespace(s.ClusterLocal.Hostname, s.Attributes.Namespace, s)
 
 		ns := s.Attributes.Namespace
 		if len(s.Attributes.ExportTo) == 0 {
 			if ps.exportToDefaults.service[visibility.Private] {
-				ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
+				ps.serviceIndex.privateByNamespace[ns] = append(ps.serviceIndex.privateByNamespace[ns], s)
 			} else if ps.exportToDefaults.service[visibility.Public] {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+				ps.serviceIndex.public = append(ps.serviceIndex.public, s)
 			}
 		} else {
 			// if service has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
 			// if service has exportTo *, make public and ignore all other exportTos
 			// if service has exportTo ., replace with current namespace
 			if s.Attributes.ExportTo[visibility.Public] {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+				ps.serviceIndex.public = append(ps.serviceIndex.public, s)
 				continue
 			} else if s.Attributes.ExportTo[visibility.None] {
 				continue
@@ -1332,10 +1276,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 				for exportTo := range s.Attributes.ExportTo {
 					if exportTo == visibility.Private || string(exportTo) == ns {
 						// exportTo with same namespace is effectively private
-						ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
+						ps.serviceIndex.privateByNamespace[ns] = append(ps.serviceIndex.privateByNamespace[ns], s)
 					} else {
 						// exportTo is a specific target namespace
-						ps.ServiceIndex.exportedToNamespace[string(exportTo)] = append(ps.ServiceIndex.exportedToNamespace[string(exportTo)], s)
+						ps.serviceIndex.exportedToNamespace[string(exportTo)] = append(ps.serviceIndex.exportedToNamespace[string(exportTo)], s)
 					}
 				}
 			}
@@ -1926,16 +1870,16 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 	}
 	foundInternal := sets.NewSet()
 	foundExternal := sets.NewSet()
-	warnings := []string{}
+	var warnings []string
 	for _, g := range gwsvcs {
-		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
-		if !f {
-			otherNamespaces := []string{}
-			for ns := range gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)] {
-				otherNamespaces = append(otherNamespaces, `"`+ns+`"`) // Wrap in quotes for output
-			}
+		svc := gc.ps.ServiceIndex().NamespacesForHost(host.Name(g)).Service(namespace)
+		if svc == nil {
+			otherNamespaces := gc.ps.ServiceIndex().NamespacesForHost(host.Name(g)).Namespaces(nil)
 			if len(otherNamespaces) > 0 {
-				sort.Strings(otherNamespaces)
+				// Surround each namespace with quotes for the log message.
+				for i := range otherNamespaces {
+					otherNamespaces[i] = "\"" + otherNamespaces[i] + "\""
+				}
 				warnings = append(warnings, fmt.Sprintf("hostname %q not found in namespace %q, but it was found in namespace(s) %v",
 					g, namespace, strings.Join(otherNamespaces, ", ")))
 			} else {
@@ -1944,8 +1888,9 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 			continue
 		}
 		svcKey := svc.Key()
+		instanceIndexForService := gc.ps.ServiceIndex().InstancesForKey(svcKey)
 		for port := range ports {
-			instances := gc.ps.ServiceIndex.instancesByPort[svcKey][port]
+			instances := instanceIndexForService.Instances(port)
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				// Fetch external IPs from all clusters
@@ -1953,17 +1898,16 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 					foundExternal.Insert(externalIPs...)
 				})
 			} else {
-				if instancesEmpty(gc.ps.ServiceIndex.instancesByPort[svcKey]) {
+				if instanceIndexForService.IsEmpty() {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
 					hintPort := sets.NewSet()
-					for _, instances := range gc.ps.ServiceIndex.instancesByPort[svcKey] {
-						for _, i := range instances {
-							if i.Endpoint.EndpointPort == uint32(port) {
-								hintPort.Insert(strconv.Itoa(i.ServicePort.Port))
-							}
+					instanceIndexForService.ForEach(func(inst *ServiceInstance) bool {
+						if inst.Endpoint.EndpointPort == uint32(port) {
+							hintPort.Insert(strconv.Itoa(inst.ServicePort.Port))
 						}
-					}
+						return true
+					})
 					if len(hintPort) > 0 {
 						warnings = append(warnings, fmt.Sprintf(
 							"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
@@ -1977,15 +1921,6 @@ func (gc GatewayContext) ResolveGatewayInstances(namespace string, gwsvcs []stri
 	}
 	sort.Strings(warnings)
 	return foundInternal.SortedList(), foundExternal.SortedList(), warnings
-}
-
-func instancesEmpty(m map[int][]*ServiceInstance) bool {
-	for _, instances := range m {
-		if len(instances) > 0 {
-			return false
-		}
-	}
-	return true
 }
 
 // pre computes gateways for each network
@@ -2038,8 +1973,8 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 
 // ServiceInstancesByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Collection) []*ServiceInstance {
-	out := []*ServiceInstance{}
-	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
+	var out []*ServiceInstance
+	if instances := ps.ServiceIndex().InstancesForKey(svc.Key()).Instances(port); len(instances) > 0 {
 		// Use cached version of instances by port when labels are empty.
 		if len(labels) == 0 {
 			return instances

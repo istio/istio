@@ -174,31 +174,31 @@ func TestNameTable(t *testing.T) {
 	}
 
 	push := model.NewPushContext()
-	push.AddPublicServices([]*model.Service{headlessService})
-	push.AddServiceInstances(headlessService,
+	model.AddServiceIndexPublicServicesForTesting(push.ServiceIndex(), headlessService)
+	model.AddServiceIndexServiceInstancesForTesting(push.ServiceIndex(), headlessService,
 		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc"))
-	push.AddServiceInstances(headlessService,
+	model.AddServiceIndexServiceInstancesForTesting(push.ServiceIndex(), headlessService,
 		makeServiceInstances(pod2, headlessService, "pod2", "headless-svc"))
-	push.AddServiceInstances(headlessService,
+	model.AddServiceIndexServiceInstancesForTesting(push.ServiceIndex(), headlessService,
 		makeServiceInstances(pod3, headlessService, "pod3", "headless-svc"))
-	push.AddServiceInstances(headlessService,
+	model.AddServiceIndexServiceInstancesForTesting(push.ServiceIndex(), headlessService,
 		makeServiceInstances(pod4, headlessService, "pod4", "headless-svc"))
 
 	wpush := model.NewPushContext()
-	wpush.AddPublicServices([]*model.Service{wildcardService})
+	model.AddServiceIndexPublicServicesForTesting(wpush.ServiceIndex(), wildcardService)
 
 	cpush := model.NewPushContext()
-	wpush.AddPublicServices([]*model.Service{cidrService})
+	model.AddServiceIndexPublicServicesForTesting(cpush.ServiceIndex(), cidrService)
 
 	sepush := model.NewPushContext()
-	sepush.AddPublicServices([]*model.Service{headlessServiceForServiceEntry})
-	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+	model.AddServiceIndexPublicServicesForTesting(sepush.ServiceIndex(), headlessServiceForServiceEntry)
+	model.AddServiceIndexServiceInstancesForTesting(sepush.ServiceIndex(), headlessServiceForServiceEntry,
 		makeServiceInstances(pod1, headlessServiceForServiceEntry, "", ""))
-	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+	model.AddServiceIndexServiceInstancesForTesting(sepush.ServiceIndex(), headlessServiceForServiceEntry,
 		makeServiceInstances(pod2, headlessServiceForServiceEntry, "", ""))
-	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+	model.AddServiceIndexServiceInstancesForTesting(sepush.ServiceIndex(), headlessServiceForServiceEntry,
 		makeServiceInstances(pod3, headlessServiceForServiceEntry, "", ""))
-	sepush.AddServiceInstances(headlessServiceForServiceEntry,
+	model.AddServiceIndexServiceInstancesForTesting(sepush.ServiceIndex(), headlessServiceForServiceEntry,
 		makeServiceInstances(pod4, headlessServiceForServiceEntry, "", ""))
 
 	cases := []struct {

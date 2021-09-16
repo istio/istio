@@ -1171,7 +1171,7 @@ func getHashForService(node *model.Proxy, push *model.PushContext,
 	if push == nil {
 		return nil, nil
 	}
-	destinationRule := push.DestinationRule(node, svc)
+	destinationRule := push.DestinationRule(node, svc.ClusterLocal.Hostname, svc.Attributes.Namespace)
 	if destinationRule == nil {
 		return nil, nil
 	}
@@ -1222,13 +1222,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	}
 
 	destination := dst.GetDestination()
-	destinationRule := push.DestinationRule(node,
-		&model.Service{
-			ClusterLocal: model.HostVIPs{
-				Hostname: host.Name(destination.Host),
-			},
-			Attributes: model.ServiceAttributes{Namespace: configNamespace},
-		})
+	destinationRule := push.DestinationRule(node, host.Name(destination.Host), configNamespace)
 	if destinationRule == nil {
 		return nil, nil
 	}

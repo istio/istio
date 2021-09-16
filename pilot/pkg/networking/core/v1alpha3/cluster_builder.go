@@ -510,7 +510,8 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(clusterPort int, bind 
 	// (not the defaults) to handle the increased traffic volume
 	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
 	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := cb.req.Push.DestinationRule(proxy, instance.Service)
+	svc := instance.Service
+	cfg := cb.req.Push.DestinationRule(proxy, svc.ClusterLocal.Hostname, svc.Attributes.Namespace)
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {

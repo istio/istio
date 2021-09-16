@@ -408,7 +408,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+			destRule := cb.req.Push.DestinationRule(proxy, tt.service.ClusterLocal.Hostname, tt.service.Attributes.Namespace)
 
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
@@ -2966,7 +2966,7 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
 			ec := NewMutableCluster(tt.cluster)
-			destRule := cb.req.Push.DestinationRule(proxy, tt.service)
+			destRule := cb.req.Push.DestinationRule(proxy, tt.service.ClusterLocal.Hostname, tt.service.Attributes.Namespace)
 
 			// ACT
 			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.networkView, destRule, nil)

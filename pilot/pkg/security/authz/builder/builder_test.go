@@ -453,7 +453,8 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig, version 
 			Mesh:          mc,
 		},
 	}
-	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+	model.NewServiceIndexForPushContextForTesting(ret.Push)
+	model.SetServiceIndexHostsAndNamespacesForTesting(ret.Push.ServiceIndex(), map[host.Name]map[string]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
 			"foo": &model.Service{
 				ClusterLocal: model.HostVIPs{
@@ -461,6 +462,6 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig, version 
 				},
 			},
 		},
-	}
+	})
 	return ret
 }

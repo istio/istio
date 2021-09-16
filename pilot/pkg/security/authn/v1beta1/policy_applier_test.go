@@ -691,12 +691,16 @@ func TestJwtFilter(t *testing.T) {
 		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
 	defer push.JwtKeyResolver.Close()
 
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("jwt-token-issuer.mesh.svc.cluster.local"),
+	model.SetServiceIndexHostsAndNamespacesForTesting(push.ServiceIndex(), map[host.Name]map[string]*model.Service{
+		"jwt-token-issuer.mesh": {
+			"foo": &model.Service{
+				ClusterLocal: model.HostVIPs{
+					Hostname: "jwt-token-issuer.mesh.svc.cluster.local",
+				},
+			},
 		},
-	}
+	})
+
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			defaultValue := features.EnableRemoteJwks

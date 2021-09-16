@@ -398,8 +398,8 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 	expectedns1 := []string{"testns-1/default-priority", "testns-1/a-medium-priority", "testns-1/b-medium-priority"}
 
-	for _, config := range envoyFilters {
-		store.Create(config)
+	for _, cfg := range envoyFilters {
+		_, _ = store.Create(cfg)
 	}
 	env.IstioConfigStore = &store
 	m := mesh.DefaultMeshConfig()
@@ -429,69 +429,76 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
-	env := &Environment{}
-	store := istioConfigStore{ConfigStore: NewFakeStore()}
 
-	env.IstioConfigStore = &store
-	env.ServiceDiscovery = &localServiceDiscovery{
-		services: []*Service{
-			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-unset",
-				},
-				Ports: allPorts,
-				Attributes: ServiceAttributes{
-					Namespace: "test1",
-				},
+	services := []*Service{
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "svc-unset",
 			},
-			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-public",
-				},
-				Ports: allPorts,
-				Attributes: ServiceAttributes{
-					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
-				},
-			},
-			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-private",
-				},
-				Ports: allPorts,
-				Attributes: ServiceAttributes{
-					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
-				},
-			},
-			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-none",
-				},
-				Ports: allPorts,
-				Attributes: ServiceAttributes{
-					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
-				},
-			},
-			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-namespace",
-				},
-				Ports: allPorts,
-				Attributes: ServiceAttributes{
-					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{"namespace": true},
-				},
+			Ports: allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
 			},
 		},
-		serviceInstances: []*ServiceInstance{{
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "svc-public",
+			},
+			Ports: allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+			},
+		},
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "svc-private",
+			},
+			Ports: allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+			},
+		},
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "svc-none",
+			},
+			Ports: allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+			},
+		},
+		{
+			ClusterLocal: HostVIPs{
+				Hostname: "svc-namespace",
+			},
+			Ports: allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  map[visibility.Instance]bool{"namespace": true},
+			},
+		},
+	}
+
+	serviceInstances := []*ServiceInstance{
+		{
 			Endpoint: &IstioEndpoint{
 				Address:      "192.168.1.2",
 				EndpointPort: 8000,
 				TLSMode:      DisabledTLSModeLabel,
 			},
-		}},
+		},
+	}
+
+	env := &Environment{}
+	store := istioConfigStore{ConfigStore: NewFakeStore()}
+
+	env.IstioConfigStore = &store
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services:         services,
+		serviceInstances: serviceInstances,
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(&m)
@@ -502,11 +509,11 @@ func TestServiceIndex(t *testing.T) {
 	if err := pc.InitContext(env, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	si := pc.ServiceIndex
+	si := pc.ServiceIndex().(*serviceIndexImpl)
 
 	// Should have all 5 services
-	g.Expect(si.instancesByPort).To(HaveLen(5))
-	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
+	g.Expect(si.serviceInstanceIndexesByKey).To(HaveLen(5))
+	g.Expect(si.hostnameAndNamespace).To(HaveLen(5))
 
 	// Should just have "namespace"
 	g.Expect(si.exportedToNamespace).To(HaveLen(1))
@@ -664,7 +671,7 @@ func serviceNames(svcs []*Service) []string {
 func TestInitPushContext(t *testing.T) {
 	env := &Environment{}
 	configStore := NewFakeStore()
-	configStore.Create(config.Config{
+	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -675,7 +682,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	configStore.Create(config.Config{
+	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -743,7 +750,7 @@ func TestInitPushContext(t *testing.T) {
 	// There is probably a better way to do this.
 	diff := cmp.Diff(old, newPush,
 		// Allow looking into exported fields for parts of push context
-		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
+		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndexImpl{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
 			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}),
 		// These are not feasible/worth comparing
@@ -759,9 +766,17 @@ func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
-	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
-	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc3.istio-system.cluster.local")] = map[string]*Service{"istio-system": nil}
+	SetServiceIndexHostsAndNamespacesForTesting(ps.ServiceIndex(), map[host.Name]map[string]*Service{
+		"svc1.default.cluster.local": {
+			"default": nil,
+		},
+		"svc2.nosidecar.cluster.local": {
+			"nosidecar": nil,
+		},
+		"svc3.istio-system.cluster.local": {
+			"istio-system": nil,
+		},
+	})
 
 	configStore := NewFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
@@ -809,38 +824,39 @@ func TestSidecarScope(t *testing.T) {
 		t.Fatalf("init sidecar scope failed: %v", err)
 	}
 	cases := []struct {
+		name       string
 		proxy      *Proxy
 		collection labels.Collection
 		sidecar    string
-		describe   string
 	}{
 		{
+			name:       "match local sidecar",
 			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
 			collection: labels.Collection{map[string]string{"app": "foo"}},
 			sidecar:    "default/foo",
-			describe:   "match local sidecar",
 		},
 		{
+			name:       "no match local sidecar",
 			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
 			collection: labels.Collection{map[string]string{"app": "bar"}},
 			sidecar:    "default/global",
-			describe:   "no match local sidecar",
 		},
 		{
+			name:       "no sidecar",
 			proxy:      &Proxy{Type: SidecarProxy, ConfigNamespace: "nosidecar"},
 			collection: labels.Collection{map[string]string{"app": "bar"}},
 			sidecar:    "nosidecar/global",
-			describe:   "no sidecar",
 		},
 		{
+			name:       "gateway sidecar scope",
 			proxy:      &Proxy{Type: Router, ConfigNamespace: "istio-system"},
 			collection: labels.Collection{map[string]string{"app": "istio-gateway"}},
 			sidecar:    "istio-system/default-sidecar",
-			describe:   "gateway sidecar scope",
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.describe, func(t *testing.T) {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
 			scope := ps.getSidecarScope(c.proxy, c.collection)
 			if c.sidecar != scopeToSidecar(scope) {
 				t.Errorf("should get sidecar %s but got %s", c.sidecar, scopeToSidecar(scope))
@@ -861,14 +877,16 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	configStore := NewFakeStore()
 
 	// Add beta policies
-	configStore.Create(*createTestPeerAuthenticationResource("default", wholeNS, time.Now(), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
+	_, _ = configStore.Create(*createTestPeerAuthenticationResource("default", wholeNS, time.Now(), nil,
+		securityBeta.PeerAuthentication_MutualTLS_STRICT))
 	// workload level beta policy.
-	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", partialNS, time.Now(), &selectorpb.WorkloadSelector{
-		MatchLabels: map[string]string{
-			"app":     "httpbin",
-			"version": "v1",
-		},
-	}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
+	_, _ = configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", partialNS, time.Now(),
+		&selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
+		}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
 
 	store := istioConfigStore{ConfigStore: configStore}
 	env.IstioConfigStore = &store
@@ -1154,15 +1172,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 	ps.SetDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2})
 
 	for _, tt := range testCases {
-		mergedConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
-			&Service{
-				ClusterLocal: HostVIPs{
-					Hostname: host.Name(tt.serviceHostname),
-				},
-				Attributes: ServiceAttributes{
-					Namespace: tt.serviceNs,
-				},
-			})
+		mergedConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs}, host.Name(tt.serviceHostname), tt.serviceNs)
 		if mergedConfig.Name != tt.expectedConfig {
 			t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v got %v", tt.name, tt.expectedConfig, mergedConfig.Name)
 		}
@@ -1435,15 +1445,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
-				&Service{
-					ClusterLocal: HostVIPs{
-						Hostname: host.Name(tt.host),
-					},
-					Attributes: ServiceAttributes{
-						Namespace: tt.serviceNs,
-					},
-				})
+			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs}, host.Name(tt.host), tt.serviceNs)
 			if destRuleConfig == nil {
 				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
 			}
@@ -1809,23 +1811,23 @@ func (l *localServiceDiscovery) Services() ([]*Service, error) {
 	return l.services, nil
 }
 
-func (l *localServiceDiscovery) GetService(hostname host.Name) (*Service, error) {
+func (l *localServiceDiscovery) GetService(host.Name) (*Service, error) {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance {
+func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Collection) []*ServiceInstance {
 	return l.serviceInstances
 }
 
-func (l *localServiceDiscovery) GetProxyServiceInstances(proxy *Proxy) []*ServiceInstance {
+func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInstance {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetProxyWorkloadLabels(proxy *Proxy) labels.Collection {
+func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Collection {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetIstioServiceAccounts(svc *Service, ports []int) []string {
+func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service, []int) []string {
 	return nil
 }
 

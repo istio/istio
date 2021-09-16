@@ -195,7 +195,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		if len(destinationCIDR) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
 			sniHosts = []string{string(service.ClusterLocal.Hostname)}
 		}
-		destRule := push.DestinationRule(node, service)
+		destRule := push.DestinationRule(node, service.ClusterLocal.Hostname, service.Attributes.Namespace)
 		destinationRule := CastDestinationRule(destRule)
 		out = append(out, &filterChainOpts{
 			sniHosts:         sniHosts,
@@ -296,7 +296,7 @@ TcpLoop:
 
 		clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port)
 		statPrefix := clusterName
-		destRule := push.DestinationRule(node, service)
+		destRule := push.DestinationRule(node, service.ClusterLocal.Hostname, service.Attributes.Namespace)
 		destinationRule := CastDestinationRule(destRule)
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {

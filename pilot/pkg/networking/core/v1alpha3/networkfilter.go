@@ -188,7 +188,10 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, configMeta config.Meta) []*listener.Filter {
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
-	destRule := push.DestinationRule(node, service)
+	var destRule *config.Config
+	if service != nil {
+		destRule = push.DestinationRule(node, service.ClusterLocal.Hostname, service.Attributes.Namespace)
+	}
 	destinationRule := CastDestinationRule(destRule)
 	if len(routes) == 1 {
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
