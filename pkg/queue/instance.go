@@ -26,8 +26,8 @@ import (
 type Task func() error
 
 type BackoffTask struct {
-	task Task
-	eb   *backoff.ExponentialBackOff
+	task    Task
+	backoff *backoff.ExponentialBackOff
 }
 
 // Instance of work tickets processed using a rate-limiting loop
@@ -39,18 +39,24 @@ type Instance interface {
 }
 
 type queueImpl struct {
-	delay   time.Duration
-	tasks   []*BackoffTask
-	cond    *sync.Cond
-	closing bool
+	delay        time.Duration
+	retryBackoff *backoff.ExponentialBackOff
+	tasks        []*BackoffTask
+	cond         *sync.Cond
+	closing      bool
 }
 
-func newExponentialBackOff(delay time.Duration) *backoff.ExponentialBackOff {
-	eb := backoff.NewExponentialBackOff()
-	eb.InitialInterval = delay
-	eb.MaxElapsedTime = 0                          // never elapses.
-	eb.MaxInterval = backoff.DefaultMaxElapsedTime // set max inteerval to 15 mins.
-	return eb
+func newExponentialBackOff(eb *backoff.ExponentialBackOff) *backoff.ExponentialBackOff {
+	if eb == nil {
+		return eb
+	}
+	teb := backoff.NewExponentialBackOff()
+	teb.InitialInterval = eb.InitialInterval
+	teb.MaxElapsedTime = eb.MaxElapsedTime
+	teb.MaxInterval = eb.MaxInterval
+	teb.Multiplier = eb.Multiplier
+	teb.RandomizationFactor = eb.RandomizationFactor
+	return teb
 }
 
 // NewQueue instantiates a queue with a processing function
@@ -63,11 +69,20 @@ func NewQueue(errorDelay time.Duration) Instance {
 	}
 }
 
+func NewBackOffQueue(backoff *backoff.ExponentialBackOff) Instance {
+	return &queueImpl{
+		retryBackoff: backoff,
+		tasks:        make([]*BackoffTask, 0),
+		closing:      false,
+		cond:         sync.NewCond(&sync.Mutex{}),
+	}
+}
+
 func (q *queueImpl) Push(item Task) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	if !q.closing {
-		q.tasks = append(q.tasks, &BackoffTask{item, newExponentialBackOff(q.delay)})
+		q.tasks = append(q.tasks, &BackoffTask{item, newExponentialBackOff(q.retryBackoff)})
 	}
 	q.cond.Signal()
 }
@@ -110,8 +125,12 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 		q.cond.L.Unlock()
 
 		if err := backoffTask.task(); err != nil {
-			log.Infof("Work item handle failed (%v), retry after delay %v", err, q.delay)
-			time.AfterFunc(backoffTask.eb.NextBackOff(), func() {
+			delay := q.delay
+			if q.retryBackoff != nil {
+				delay = backoffTask.backoff.NextBackOff()
+			}
+			log.Infof("Work item handle failed (%v), retry after delay %v", err, delay)
+			time.AfterFunc(delay, func() {
 				q.pushRetryTask(backoffTask)
 			})
 		}
