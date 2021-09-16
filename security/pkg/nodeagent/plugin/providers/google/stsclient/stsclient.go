@@ -164,9 +164,7 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) (st
 		if GKEClusterURL != "" {
 			provider = GKEClusterURL
 		} else if platform.IsGCP() {
-			var found bool
-			var clusterURL string
-			if clusterURL, found = platform.NewGCP().Metadata()[platform.GCPClusterURL]; found && len(clusterURL) > 0 {
+			if clusterURL, found := platform.NewGCP().Metadata()[platform.GCPClusterURL]; found && len(clusterURL) > 0 {
 				provider = clusterURL
 				stsClientLog.Infof("GKE_CLUSTER_URL is not set, fetched cluster URL from metadata server: %q", provider)
 			} else {
