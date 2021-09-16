@@ -84,22 +84,20 @@ func CreateTokenManager(tokenManagerType string, config Config) (security.TokenM
 	tm := &TokenManager{
 		plugin: nil,
 	}
-	var err error
 	switch tokenManagerType {
 	case GoogleTokenExchange:
 		if projectInfo := GetGCPProjectInfo(); len(projectInfo.Number) > 0 {
-			if p, errCreate := google.CreateTokenManagerPlugin(config.CredFetcher, config.TrustDomain,
-				projectInfo.Number, projectInfo.clusterURL, true); errCreate == nil {
+			if p, err := google.CreateTokenManagerPlugin(config.CredFetcher, config.TrustDomain,
+				projectInfo.Number, projectInfo.clusterURL, true); err == nil {
 				tm.plugin = p
 			} else {
-				// When errCreate != nil, the error will be returned at the end
-				err = errCreate
+				return nil, err
 			}
 		} else {
 			return nil, fmt.Errorf("%v token manager specified but failed to ready GCP project information", GoogleTokenExchange)
 		}
 	}
-	return tm, err
+	return tm, nil
 }
 
 func (tm *TokenManager) GenerateToken(parameters security.StsRequestParameters) ([]byte, error) {
