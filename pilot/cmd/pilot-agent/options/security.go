@@ -67,9 +67,6 @@ func NewSecurityOptions(proxyConfig *meshconfig.ProxyConfig, stsPort int, tokenM
 		// tokenManager is gcp token manager when using the default token manager plugin.
 		tokenManager, err = tokenmanager.CreateTokenManager(tokenManagerPlugin,
 			tokenmanager.Config{CredFetcher: o.CredFetcher, TrustDomain: o.TrustDomain})
-		if err != nil {
-			log.Errorf("failed to create token manager: %v", err)
-		}
 	}
 	o.TokenManager = tokenManager
 
