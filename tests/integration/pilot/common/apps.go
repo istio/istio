@@ -208,10 +208,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
-			Service:           PodTproxySvc,
-			Namespace:         apps.Namespace,
-			Ports:             common.EchoPorts,
-			Subsets:           []echo.SubsetConfig{{}},
+			Service:   PodTproxySvc,
+			Namespace: apps.Namespace,
+			Ports:     common.EchoPorts,
+			Subsets: []echo.SubsetConfig{{
+				Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+			}},
 			WorkloadOnlyPorts: common.WorkloadPorts,
 		}).
 		WithConfig(echo.Config{
