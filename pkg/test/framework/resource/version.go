@@ -118,6 +118,9 @@ func (rv *RevVerMap) Default() string {
 		panic("could not find revision with max IstioVersion")
 	}
 	sort.Strings(candidates)
+	if candidates[0] == "default" {
+		return ""
+	}
 	return candidates[0]
 }
 
