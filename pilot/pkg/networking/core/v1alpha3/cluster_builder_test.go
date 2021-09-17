@@ -69,7 +69,6 @@ func TestApplyDestinationRule(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("foo.default.svc.cluster.local"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
@@ -268,7 +267,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -293,7 +291,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -319,7 +316,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -348,7 +344,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -990,7 +985,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("*.example.org"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      model.PortList{servicePort},
 		Resolution: model.DNSLB,
 		Attributes: model.ServiceAttributes{
@@ -2783,7 +2777,6 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("foo.default.svc.cluster.local"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{

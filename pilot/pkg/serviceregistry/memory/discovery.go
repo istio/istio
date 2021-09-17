@@ -115,7 +115,7 @@ func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name(name),
 		},
-		Address: vip,
+		DefaultAddress: vip,
 		Ports: model.PortList{
 			{
 				Name:     "http-main",

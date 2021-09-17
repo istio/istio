@@ -87,8 +87,8 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "v0.default.example.org",
 					},
-					Address:      "9.9.9.9",
-					CreationTime: tnow,
+					DefaultAddress: "9.9.9.9",
+					CreationTime:   tnow,
 					Attributes: model.ServiceAttributes{
 						Namespace: "not-default",
 					},

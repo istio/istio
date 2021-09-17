@@ -100,9 +100,9 @@ type Service struct {
 	// will be used to address endpoints across the mesh.
 	ClusterSetLocal HostVIPs `json:"clusterSetLocal,omitempty"`
 
-	// Address specifies the service IPv4 address of the load balancer
-	// Do not access directly. Use GetClusterLocalAddressForProxy
-	Address string `json:"address,omitempty"`
+	// DefaultAddress specifies the default service IP of the load balancer.
+	// Do not access directly. Use GetAddressForProxy
+	DefaultAddress string `json:"defaultAddress,omitempty"`
 
 	// AutoAllocatedAddress specifies the automatically allocated
 	// IPv4 address out of the reserved Class E subnet
@@ -705,8 +705,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
-// GetClusterLocalAddressForProxy returns a Service's address specific to the cluster where the node resides
-func (s *Service) GetClusterLocalAddressForProxy(node *Proxy) string {
+// GetAddressForProxy returns a Service's address specific to the cluster where the node resides
+func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterLocal.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
@@ -716,12 +716,12 @@ func (s *Service) GetClusterLocalAddressForProxy(node *Proxy) string {
 		}
 
 		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
-			s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+			s.DefaultAddress == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
 			return s.AutoAllocatedAddress
 		}
 	}
 
-	return s.Address
+	return s.DefaultAddress
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
@@ -773,7 +773,7 @@ func (s *Service) DeepCopy() *Service {
 		CreationTime:    s.CreationTime,
 		ClusterLocal:    s.ClusterLocal.DeepCopy(),
 		ClusterSetLocal: s.ClusterSetLocal.DeepCopy(),
-		Address:         s.Address,
+		DefaultAddress:  s.DefaultAddress,
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,
 	}
