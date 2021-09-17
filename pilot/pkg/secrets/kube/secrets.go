@@ -24,10 +24,13 @@ import (
 	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	informersv1 "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	listersv1 "k8s.io/client-go/listers/core/v1"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -77,11 +80,26 @@ type authorizationResponse struct {
 var _ secrets.Controller = &SecretsController{}
 
 func NewSecretsController(client kube.Client, clusterID cluster.ID) *SecretsController {
-	// Informer is lazy loaded, load it now
-	_ = client.KubeInformer().Core().V1().Secrets().Informer()
+	informer := client.KubeInformer().InformerFor(&v1.Secret{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
+		return informersv1.NewFilteredSecretInformer(
+			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+			func(options *metav1.ListOptions) {
+				// We only care about TLS certificates. Unfortunately, it is not as simple as selecting type=kubernetes.io/tls.
+				// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
+				// Its also likely users have started to use random types and expect them to continue working.
+				// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
+				// large Secrets in clusters.
+				// This is a best effort optimization only; the code would behave correctly if we watched all Secrets.
+				options.FieldSelector = fields.AndSelectors(
+					fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
+					fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken)),
+				).String()
+			},
+		)
+	})
 
 	return &SecretsController{
-		secrets: client.KubeInformer().Core().V1().Secrets(),
+		secrets: informerAdapter{listersv1.NewSecretLister(informer.GetIndexer()), informer},
 
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
 		clusterID:          clusterID,
@@ -254,4 +272,18 @@ func (s *SecretsController) AddEventHandler(f func(name string, namespace string
 				handler(obj)
 			},
 		})
+}
+
+// informerAdapter allows treating a generic informer as an informersv1.SecretInformer
+type informerAdapter struct {
+	listersv1.SecretLister
+	cache.SharedIndexInformer
+}
+
+func (s informerAdapter) Informer() cache.SharedIndexInformer {
+	return s.SharedIndexInformer
+}
+
+func (s informerAdapter) Lister() listersv1.SecretLister {
+	return s.SecretLister
 }
