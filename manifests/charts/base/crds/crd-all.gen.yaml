@@ -5640,8 +5640,8 @@ spec:
                         type: string
                       type: array
                     forwardOriginalToken:
-                      description: If set to true, the orginal token will be kept
-                        for the ustream request.
+                      description: If set to true, the original token will be kept
+                        for the upstream request.
                       type: boolean
                     fromHeaders:
                       description: List of header locations from which JWT is expected.
