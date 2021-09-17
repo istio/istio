@@ -472,9 +472,9 @@ func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats
 		stats.prefixes = v2Prefixes + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
 	}
 	if stats.suffixes == "" {
-		stats.suffixes = rbacEnvoyStatsMatcherInclusionSuffix
+		stats.suffixes = requiredEnvoyStatsMatcherInclusionSuffixes
 	} else {
-		stats.suffixes += "," + rbacEnvoyStatsMatcherInclusionSuffix
+		stats.suffixes += "," + requiredEnvoyStatsMatcherInclusionSuffixes
 	}
 
 	if err := gsm.Validate(); err != nil {
