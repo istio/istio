@@ -85,6 +85,9 @@ type Settings struct {
 	// Skip Delta XDS related parts for all the tests.
 	SkipDelta bool
 
+	// Skip TProxy related parts for all the tests.
+	SkipTProxy bool
+
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
 	// on different control plane versions.
