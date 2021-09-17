@@ -936,7 +936,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		//   for NONE because we will not know the original DST IP that the application requested.
 		// 2. the address is not set (0.0.0.0)
 		// 3. the hostname is not a wildcard
-		if svc.Address == constants.UnspecifiedIP && !svc.ClusterLocal.Hostname.IsWildCarded() &&
+		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.ClusterLocal.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
 			x++
 			if x%255 == 0 {

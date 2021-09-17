@@ -48,7 +48,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			ClusterLocal: model.HostVIPs{
 				Hostname: "*.example.org",
 			},
-			Address: "1.1.1.1",
+			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",

@@ -90,7 +90,7 @@ func TestNameTable(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("headless-svc.testns.svc.cluster.local"),
 		},
-		Address: constants.UnspecifiedIP,
+		DefaultAddress: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -108,7 +108,7 @@ func TestNameTable(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("foo.bar.com"),
 		},
-		Address: constants.UnspecifiedIP,
+		DefaultAddress: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
 			Port:     9000,
@@ -127,7 +127,7 @@ func TestNameTable(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("*.testns.svc.cluster.local"),
 		},
-		Address: "172.10.10.10",
+		DefaultAddress: "172.10.10.10",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -152,7 +152,7 @@ func TestNameTable(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("*.testns.svc.cluster.local"),
 		},
-		Address: "172.217.0.0/16",
+		DefaultAddress: "172.217.0.0/16",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
