@@ -22,9 +22,13 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -261,6 +265,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.WatchedResources[res.TypeUrl].VersionSent = res.SystemVersionInfo
 			conn.proxy.WatchedResources[res.TypeUrl].LastSent = time.Now()
+			conn.proxy.WatchedResources[res.TypeUrl].LastMessage = applyDelta(conn.proxy.WatchedResources[res.TypeUrl].LastMessage, res)
 			conn.proxy.WatchedResources[res.TypeUrl].LastSize = sz
 			conn.proxy.Unlock()
 		}
@@ -269,6 +274,30 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err
+}
+
+func applyDelta(message model.Resources, resp *discovery.DeltaDiscoveryResponse) model.Resources {
+	deleted := sets.NewSet(resp.RemovedResources...)
+	byName := map[string]*discovery.Resource{}
+	for _, v := range resp.Resources {
+		byName[v.Name] = v
+	}
+	res := model.Resources{}
+	for _, m := range message {
+		if deleted.Contains(m.Name) {
+			continue
+		}
+		if replaced := byName[m.Name]; replaced != nil {
+			res = append(res, replaced)
+			delete(byName, m.Name)
+			continue
+		}
+		res = append(res, m)
+	}
+	for _, v := range byName {
+		res = append(res, v)
+	}
+	return res
 }
 
 // processRequest is handling one request. This is currently called from the 'main' thread, which also
@@ -433,6 +462,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	switch g := gen.(type) {
 	case model.XdsDeltaResourceGenerator:
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, push, req, w)
+		fullRes, _, _ := g.Generate(con.proxy, push, w, req)
+		s.compareDiff(con, w, fullRes, res, deletedRes, usedDelta)
 	case model.XdsResourceGenerator:
 		res, logdata, err = g.Generate(con.proxy, push, w, req)
 	}
@@ -497,7 +528,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, push *model.PushContext,
 	if len(logdata.AdditionalInfo) > 0 {
 		info = " " + logdata.AdditionalInfo
 	}
-
 	if err := con.sendDelta(resp); err != nil {
 		if recordSendError(w.TypeUrl, err) {
 			log.Warnf("%s: Send failure for node:%s resources:%d size:%s%s: %v",
@@ -568,13 +598,138 @@ func extractNames(res []*discovery.Resource) []string {
 
 // TODO: remove, just for development
 func debugRequest(req *discovery.DeltaDiscoveryRequest) {
-	debug, _ := (&jsonpb.Marshaler{Indent: " "}).MarshalToString(&discovery.DeltaDiscoveryRequest{
-		TypeUrl:                  req.TypeUrl,
-		ResourceNamesSubscribe:   req.ResourceNamesSubscribe,
-		ResourceNamesUnsubscribe: req.ResourceNamesUnsubscribe,
-		InitialResourceVersions:  req.InitialResourceVersions,
-		ResponseNonce:            req.ResponseNonce,
-		ErrorDetail:              req.ErrorDetail,
-	})
-	log.Debugf("delta request: %s", debug)
+	if log.DebugEnabled() {
+		debug, _ := (&jsonpb.Marshaler{Indent: " "}).MarshalToString(&discovery.DeltaDiscoveryRequest{
+			TypeUrl:                  req.TypeUrl,
+			ResourceNamesSubscribe:   req.ResourceNamesSubscribe,
+			ResourceNamesUnsubscribe: req.ResourceNamesUnsubscribe,
+			InitialResourceVersions:  req.InitialResourceVersions,
+			ResponseNonce:            req.ResponseNonce,
+			ErrorDetail:              req.ErrorDetail,
+		})
+		log.Debugf("delta request: %s", debug)
+	}
+}
+
+var knownOptimizationGaps = sets.NewSet(
+	"BlackHoleCluster",
+	"InboundPassthroughClusterIpv4",
+	"InboundPassthroughClusterIpv6",
+	"PassthroughCluster",
+)
+
+func (s *DiscoveryServer) compareDiff(con *Connection, w *model.WatchedResource,
+	full model.Resources, resp model.Resources, delete model.DeletedResources, usedDelta bool) {
+	current := con.Watched(w.TypeUrl).LastMessage
+	if current == nil {
+		log.Debugf("ADS:%s: resources initialized", v3.GetShortType(w.TypeUrl))
+		return
+	}
+	newByName := map[string]*discovery.Resource{}
+	for _, v := range full {
+		newByName[v.Name] = v
+	}
+	curByName := map[string]*discovery.Resource{}
+	for _, v := range current {
+		curByName[v.Name] = v
+	}
+
+	wantDeleted := sets.NewSet()
+	wantChanged := sets.NewSet()
+	wantUnchanged := sets.NewSet()
+	for _, c := range current {
+		n := newByName[c.Name]
+		if n == nil {
+			// We had a resource, but SotW didn't generate it.
+			wantDeleted.Insert(c.Name)
+		} else if diff := cmp.Diff(c.Resource, n.Resource, protocmp.Transform()); diff != "" {
+			// Resource was modified
+			wantChanged.Insert(c.Name)
+		} else {
+			// No diff. Ideally delta doesn't send any update here
+			wantUnchanged.Insert(c.Name)
+		}
+	}
+	for _, v := range full {
+		if _, f := curByName[v.Name]; !f {
+			// Resource is added. Delta doesn't distinguish add vs update, so just put it with changed
+			wantChanged.Insert(v.Name)
+		}
+	}
+
+	gotDeleted := sets.NewSet()
+	if usedDelta {
+		gotDeleted.Insert(delete...)
+	}
+	gotChanged := sets.NewSet()
+	for _, v := range resp {
+		gotChanged.Insert(v.Name)
+	}
+
+	// BUGS
+	extraDeletes := gotDeleted.Difference(wantDeleted).SortedList()
+	missedDeletes := wantDeleted.Difference(gotDeleted).SortedList()
+	missedChanges := wantChanged.Difference(gotChanged).SortedList()
+
+	// Optimization Potential
+	extraChanges := gotChanged.Difference(wantChanged).Difference(knownOptimizationGaps).SortedList()
+	if len(extraDeletes) > 0 {
+		log.Errorf("%s: TEST for node:%s unexpected deletions: %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, extraDeletes)
+	}
+	if len(missedDeletes) > 0 {
+		log.Errorf("%s: TEST for node:%s missed deletions: %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, missedDeletes)
+	}
+	if len(missedChanges) > 0 {
+		log.Errorf("%s: TEST for node:%s missed changes: %v", v3.GetShortType(w.TypeUrl), con.proxy.ID, missedChanges)
+	}
+	if len(extraChanges) > 0 && usedDelta {
+		log.Infof("%s: TEST for node:%s missed possible optimization: %v. deleted:%v changed:%v", v3.GetShortType(w.TypeUrl), con.proxy.ID, extraChanges, len(gotDeleted), len(gotChanged))
+	}
+}
+
+type ResourceFilter func(resourceName string) bool
+
+var MatchAll ResourceFilter = func(resourceName string) bool {
+	return true
+}
+
+var MatchNone ResourceFilter = func(resourceName string) bool {
+	return false
+}
+
+func (r ResourceFilter) And(r2 ResourceFilter) ResourceFilter {
+	return func(resourceName string) bool {
+		return r(resourceName) && r2(resourceName)
+	}
+}
+
+func (r ResourceFilter) Or(r2 ResourceFilter) ResourceFilter {
+	return func(resourceName string) bool {
+		return r(resourceName) || r2(resourceName)
+	}
+}
+
+func ChangedResources(req *model.PushRequest) map[string]ResourceFilter {
+	cu := req.ConfigsUpdated
+	resp := map[string]ResourceFilter{
+		v3.ClusterType:  MatchNone,
+		v3.ListenerType: MatchNone.Or(MatchAll),
+		v3.RouteType:    MatchNone.Or(MatchAll),
+		v3.EndpointType: MatchNone.Or(MatchAll),
+	}
+	log.Errorf("howardjohn: changes: %+v", cu)
+	if len(cu) == len(model.ConfigsOfKind(cu, gvk.ServiceEntry)) {
+		log.Errorf("howardjohn: set CDS based on service")
+		for c := range cu {
+			resp[v3.ClusterType] = resp[v3.ClusterType].Or(func(resourceName string) bool {
+				_, _, hn, _ := model.ParseSubsetKey(resourceName)
+				return hn == host.Name(c.Name)
+			})
+		}
+	} else {
+		log.Errorf("howardjohn: set CDS match all")
+		resp[v3.ClusterType] = resp[v3.ClusterType].Or(MatchAll)
+	}
+	resp[v3.EndpointType] = resp[v3.ClusterType]
+	return resp
 }

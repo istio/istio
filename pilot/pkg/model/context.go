@@ -351,6 +351,9 @@ type WatchedResource struct {
 	// Note that Envoy may send multiple requests for the same type, for
 	// example to update the set of watched resources or to ACK/NACK.
 	LastRequest *discovery.DiscoveryRequest
+
+	// LastMessage tracks the time of the generated push, to determine the time it takes the client to ack.
+	LastMessage Resources
 }
 
 var istioVersionRegexp = regexp.MustCompile(`^([1-9]+)\.([0-9]+)(\.([0-9]+))?`)
