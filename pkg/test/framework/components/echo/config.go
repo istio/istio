@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
@@ -265,40 +266,26 @@ func ParseConfigs(bytes []byte) ([]Config, error) {
 	return configs, nil
 }
 
-type Class = string
-
-const (
-	Proxyless   Class = "proxyless"
-	VM          Class = "vm"
-	Delta       Class = "delta"
-	TProxy      Class = "tproxy"
-	Naked       Class = "naked"
-	External    Class = "external"
-	StatefulSet Class = "statefulset"
-	Headless    Class = "headless"
-	Standard    Class = "standard"
-)
-
 // Class returns the type of workload a given config is.
-func (cfg Config) Class() string {
+func (cfg Config) Class() echotypes.Class {
 	if cfg.IsProxylessGRPC() {
-		return Proxyless
+		return echotypes.Proxyless
 	} else if cfg.IsVM() {
-		return VM
+		return echotypes.VM
 	} else if cfg.IsTProxy() {
-		return TProxy
+		return echotypes.TProxy
 	} else if cfg.IsNaked() {
-		return Naked
+		return echotypes.Naked
 	} else if cfg.IsExternal() {
-		return External
+		return echotypes.External
 	} else if cfg.IsStatefulSet() {
-		return StatefulSet
+		return echotypes.StatefulSet
 	} else if cfg.IsDelta() {
 		// TODO remove if delta is on by default
-		return Delta
+		return echotypes.Delta
 	}
 	if cfg.IsHeadless() {
-		return Headless
+		return echotypes.Headless
 	}
-	return Standard
+	return echotypes.Standard
 }

@@ -16,12 +16,12 @@ package resource
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/util/sets"
 	"path"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
