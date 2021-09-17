@@ -47,11 +47,15 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		return nil, err
 	}
 
+	s.SkipWorkloadClasses.Insert(s.skipWorkloadClasses...)
 	if s.SkipVM {
 		s.SkipWorkloadClasses.Insert(echo.VM)
 	}
+	if s.SkipTProxy {
+		s.SkipWorkloadClasses.Insert(echo.TProxy)
+	}
 	if s.SkipDelta {
-		// TODO check OR revs has at least 1.11?
+		// TODO we may also want to trigger this if we have an old verion
 		s.SkipWorkloadClasses.Insert(echo.Delta)
 	}
 

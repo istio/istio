@@ -69,6 +69,7 @@ type Settings struct {
 	SkipMatcher *Matcher
 
 	// SkipWorkloadClasses can be used to skip deploying special workload types like TPROXY, VMs, etc.
+	skipWorkloadClasses arrayFlags
 	SkipWorkloadClasses sets.Set
 
 	// The label selector, in parsed form.

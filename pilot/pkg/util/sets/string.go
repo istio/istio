@@ -14,14 +14,7 @@
 
 package sets
 
-import (
-	"flag"
-	"fmt"
-	"sort"
-	"strings"
-)
-
-var _ flag.Value = Set{}
+import "sort"
 
 type Set map[string]struct{}
 
@@ -145,16 +138,4 @@ func (s Set) Equals(other Set) bool {
 // Empty returns whether the set is the empty set.
 func (s Set) Empty() bool {
 	return len(s) == 0
-}
-
-func (s Set) Set(value string) error {
-	parts := strings.Split(value, ",")
-	for _, part := range parts {
-		s.Insert(part)
-	}
-	return nil
-}
-
-func (s Set) String() string {
-	return fmt.Sprint(s)
 }
