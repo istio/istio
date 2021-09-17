@@ -26,9 +26,11 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	kubeCore "k8s.io/api/core/v1"
+	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -65,6 +67,7 @@ func TestMain(m *testing.M) {
 		Setup(installMCSCRDs).
 		Setup(istio.Setup(&i, enableMCSServiceDiscovery)).
 		Setup(deployEchos).
+		Setup(importServiceInAllClusters).
 		Run()
 }
 
@@ -179,6 +182,26 @@ func deployEchos(t resource.Context) error {
 	return err
 }
 
+func importServiceInAllClusters(resource.Context) error {
+	clusters := echos.Match(echo.Service(serviceB)).Clusters()
+	grp := errgroup.Group{}
+	for _, c := range clusters {
+		c := c
+		grp.Go(func() error {
+			// Generate a dummy service in the cluster to reserve the ClusterSet VIP.
+			clusterSetIPSvc, err := genClusterSetIPService(c)
+			if err != nil {
+				return err
+			}
+
+			// Create a ServiceImport in the cluster with the ClusterSet VIP.
+			return createServiceImport(c, clusterSetIPSvc.Spec.ClusterIP)
+		})
+	}
+
+	return grp.Wait()
+}
+
 func sendTrafficBetweenAllClusters(
 	t framework.TestContext,
 	fn func(t framework.TestContext, src echo.Instance, dst echo.Instances)) {
@@ -190,13 +213,13 @@ func sendTrafficBetweenAllClusters(
 		Run(fn)
 }
 
-func newServiceExport(service string) *v1alpha1.ServiceExport {
-	return &v1alpha1.ServiceExport{
-		TypeMeta: v12.TypeMeta{
+func newServiceExport(service string) *mcs.ServiceExport {
+	return &mcs.ServiceExport{
+		TypeMeta: kubeMeta.TypeMeta{
 			Kind:       "ServiceExport",
 			APIVersion: "multicluster.x-k8s.io/v1alpha1",
 		},
-		ObjectMeta: v12.ObjectMeta{
+		ObjectMeta: kubeMeta.ObjectMeta{
 			Name:      service,
 			Namespace: testNS,
 		},
@@ -230,7 +253,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 		c := c
 		g.Go(func() error {
 			_, err := c.MCSApis().MulticlusterV1alpha1().ServiceExports(testNS).Create(context.TODO(),
-				serviceExport, v12.CreateOptions{})
+				serviceExport, kubeMeta.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("failed creating ServiceExport %s/%s in cluster %s: %v",
 					testNS, serviceB, c.Name(), err)
@@ -254,7 +277,7 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 				defer wg.Done()
 
 				err := c.MCSApis().MulticlusterV1alpha1().ServiceExports(testNS).Delete(context.TODO(),
-					serviceExport.Name, v12.DeleteOptions{})
+					serviceExport.Name, kubeMeta.DeleteOptions{})
 				if err != nil {
 					scopes.Framework.Warnf("failed deleting ServiceExport %s/%s in cluster %s: %v",
 						testNS, serviceB, c.Name(), err)
@@ -265,4 +288,84 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, clus
 
 		wg.Wait()
 	})
+}
+
+// genClusterSetIPService Generates a dummy service in order to allocate ClusterSet VIPs for
+// service B in the given cluster.
+func genClusterSetIPService(c cluster.Cluster) (*kubeCore.Service, error) {
+	// Get the definition for service B, so we can get the ports.
+	svc, err := c.CoreV1().Services(testNS).Get(context.TODO(), serviceB, kubeMeta.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	dummySvcName := "clusterset-vip-" + serviceB
+	dummySvc := &kubeCore.Service{
+		ObjectMeta: kubeMeta.ObjectMeta{
+			Name:      dummySvcName,
+			Namespace: testNS,
+			Annotations: map[string]string{
+				// Export the service nowhere, so that no proxy will receive it or its VIP.
+				annotation.NetworkingExportTo.Name: "~",
+			},
+		},
+		Spec: kubeCore.ServiceSpec{
+			Type:  kubeCore.ServiceTypeClusterIP,
+			Ports: svc.Spec.Ports,
+		},
+	}
+
+	if _, err := c.CoreV1().Services(testNS).Create(context.TODO(), dummySvc, kubeMeta.CreateOptions{}); err != nil {
+		return nil, err
+	}
+
+	// Wait until a ClusterIP has been assigned.
+	dummySvc = nil
+	err = retry.UntilSuccess(func() error {
+		var err error
+		dummySvc, err = c.CoreV1().Services(testNS).Get(context.TODO(), dummySvcName, kubeMeta.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(svc.Spec.ClusterIP) == 0 {
+			return fmt.Errorf("clusterSet VIP not set for service %s/%s in cluster %s",
+				testNS, dummySvcName, c.Name())
+		}
+		return nil
+	}, retry.Timeout(10*time.Second))
+
+	return dummySvc, err
+}
+
+func createServiceImport(c cluster.Cluster, vip string) error {
+	// Get the definition for service B, so we can get the ports.
+	svc, err := c.CoreV1().Services(testNS).Get(context.TODO(), serviceB, kubeMeta.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Convert the ports for the ServiceImport.
+	ports := make([]mcs.ServicePort, len(svc.Spec.Ports))
+	for i, p := range svc.Spec.Ports {
+		ports[i] = mcs.ServicePort{
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			Port:        p.Port,
+			AppProtocol: p.AppProtocol,
+		}
+	}
+
+	// Create the ServiceImport.
+	_, err = c.MCSApis().MulticlusterV1alpha1().ServiceImports(testNS).Create(context.TODO(), &mcs.ServiceImport{
+		ObjectMeta: kubeMeta.ObjectMeta{
+			Namespace: testNS,
+			Name:      serviceB,
+		},
+		Spec: mcs.ServiceImportSpec{
+			IPs:   []string{vip},
+			Type:  mcs.ClusterSetIP,
+			Ports: ports,
+		},
+	}, kubeMeta.CreateOptions{})
+	return err
 }

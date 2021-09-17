@@ -25,7 +25,6 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -40,12 +39,11 @@ import (
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
 	cases := []struct {
-		name        string
-		service     *model.Service
-		port        int
-		node        *model.Proxy
-		want        []string
-		wantWithMCS []string
+		name    string
+		service *model.Service
+		port    int
+		node    *model.Proxy
+		want    []string
 	}{
 		{
 			name: "same domain",
@@ -60,10 +58,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
-				"foo", "foo.local.campus.net",
-				"foo:80", "foo.local.campus.net:80",
-			},
-			wantWithMCS: []string{
 				"foo", "foo.local.campus.net",
 				"foo:80", "foo.local.campus.net:80",
 			},
@@ -84,10 +78,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"foo.local", "foo.local.campus", "foo.local.campus.net",
 				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
 			},
-			wantWithMCS: []string{
-				"foo.local", "foo.local.campus", "foo.local.campus.net",
-				"foo.local:80", "foo.local.campus:80", "foo.local.campus.net:80",
-			},
 		},
 		{
 			name: "different domains with no shared dns",
@@ -101,8 +91,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want:        []string{"foo.local.campus.net", "foo.local.campus.net:80"},
-			wantWithMCS: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
+			want: []string{"foo.local.campus.net", "foo.local.campus.net:80"},
 		},
 		{
 			name: "k8s service with default domain",
@@ -119,11 +108,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			want: []string{
 				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
 				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
-			},
-			wantWithMCS: []string{
-				"echo", "echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo:8123", "echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
-				"echo.default.svc.clusterset.local", "echo.default.svc.clusterset.local:8123",
 			},
 		},
 		{
@@ -142,11 +126,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
 				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
 			},
-			wantWithMCS: []string{
-				"echo.default", "echo.default.svc", "echo.default.svc.cluster.local",
-				"echo.default:8123", "echo.default.svc:8123", "echo.default.svc.cluster.local:8123",
-				"echo.default.svc.clusterset.local", "echo.default.svc.clusterset.local:8123",
-			},
 		},
 		{
 			name: "k8s service with custom domain 2",
@@ -160,8 +139,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "foo.svc.custom.k8s.local",
 			},
-			want:        []string{"google.local", "google.local:8123"},
-			wantWithMCS: []string{"google.local", "google.local:8123"},
+			want: []string{"google.local", "google.local:8123"},
 		},
 		{
 			name: "ipv4 domain",
@@ -175,8 +153,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want:        []string{"1.2.3.4", "1.2.3.4:8123"},
-			wantWithMCS: []string{"1.2.3.4", "1.2.3.4:8123"},
+			want: []string{"1.2.3.4", "1.2.3.4:8123"},
 		},
 		{
 			name: "ipv6 domain",
@@ -190,8 +167,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want:        []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
-			wantWithMCS: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
+			want: []string{"[2406:3003:2064:35b8:864:a648:4b96:e37d]", "[2406:3003:2064:35b8:864:a648:4b96:e37d]:8123"},
 		},
 	}
 
@@ -205,35 +181,14 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		return nil
 	}
 
-	t.Run("MCS disabled", func(t *testing.T) {
-		origEnableMCSHost := features.EnableMCSHost
-		features.EnableMCSHost = false
-		defer func() { features.EnableMCSHost = origEnableMCSHost }()
-
-		for _, c := range cases {
-			c := c
-			t.Run(c.name, func(t *testing.T) {
-				if err := testFn(c.service, c.port, c.node, c.want); err != nil {
-					t.Error(err)
-				}
-			})
-		}
-	})
-
-	t.Run("MCS enabled", func(t *testing.T) {
-		origEnableMCSHost := features.EnableMCSHost
-		features.EnableMCSHost = true
-		defer func() { features.EnableMCSHost = origEnableMCSHost }()
-
-		for _, c := range cases {
-			c := c
-			t.Run(c.name, func(t *testing.T) {
-				if err := testFn(c.service, c.port, c.node, c.wantWithMCS); err != nil {
-					t.Error(err)
-				}
-			})
-		}
-	})
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			if err := testFn(c.service, c.port, c.node, c.want); err != nil {
+				t.Error(err)
+			}
+		})
+	}
 }
 
 func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {

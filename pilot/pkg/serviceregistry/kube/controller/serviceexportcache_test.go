@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
@@ -46,22 +47,18 @@ var serviceExportNamespacedName = types.NamespacedName{
 }
 
 func TestServiceNotExported(t *testing.T) {
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
 	// Create and run the controller.
-	ec := newTestServiceExportCache(t, stopCh)
+	ec, cleanup := newTestServiceExportCache(t)
+	defer cleanup()
 
 	// Check that the endpoint is cluster-local
 	ec.checkServiceInstances(t, false)
 }
 
 func TestServiceExported(t *testing.T) {
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
 	// Create and run the controller.
-	ec := newTestServiceExportCache(t, stopCh)
+	ec, cleanup := newTestServiceExportCache(t)
+	defer cleanup()
 
 	// Export the service.
 	ec.export(t)
@@ -71,11 +68,9 @@ func TestServiceExported(t *testing.T) {
 }
 
 func TestServiceUnexported(t *testing.T) {
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-
 	// Create and run the controller.
-	ec := newTestServiceExportCache(t, stopCh)
+	ec, cleanup := newTestServiceExportCache(t)
+	defer cleanup()
 
 	// Export the service and then unexport it immediately.
 	ec.export(t)
@@ -98,12 +93,20 @@ func newServiceExport() *v1alpha1.ServiceExport {
 	}
 }
 
-func newTestServiceExportCache(t *testing.T, stopCh chan struct{}) *serviceExportCacheImpl {
+func newTestServiceExportCache(t *testing.T) (ec *serviceExportCacheImpl, cleanup func()) {
 	t.Helper()
+
+	stopCh := make(chan struct{})
+	prevValue := features.EnableMCSServiceDiscovery
+	features.EnableMCSServiceDiscovery = true
+	cleanup = func() {
+		close(stopCh)
+		features.EnableMCSServiceDiscovery = prevValue
+	}
+
 	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{
-		EnableMCSServiceDiscovery: true,
-		Stop:                      stopCh,
-		ClusterID:                 testCluster,
+		Stop:      stopCh,
+		ClusterID: testCluster,
 	})
 
 	// Create the test service and endpoints.
@@ -111,7 +114,7 @@ func newTestServiceExportCache(t *testing.T, stopCh chan struct{}) *serviceExpor
 		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 	createEndpoints(t, c, serviceExportName, serviceExportNamespace, []string{"tcp-port"}, []string{serviceExportPodIP}, nil, nil)
 
-	ec := c.exports.(*serviceExportCacheImpl)
+	ec = c.exports.(*serviceExportCacheImpl)
 
 	// Wait for the resources to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
@@ -121,8 +124,7 @@ func newTestServiceExportCache(t *testing.T, stopCh chan struct{}) *serviceExpor
 		inst := ec.getProxyServiceInstances()
 		return len(inst) == 1 && inst[0].Service != nil && inst[0].Endpoint != nil
 	}, retry.Timeout(2*time.Second))
-
-	return ec
+	return
 }
 
 func (ec *serviceExportCacheImpl) serviceHostname() host.Name {

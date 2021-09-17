@@ -88,3 +88,7 @@ func (n Name) SubsetOf(o Name) bool {
 func (n Name) IsWildCarded() bool {
 	return len(n) > 0 && n[0] == '*'
 }
+
+func (n Name) String() string {
+	return string(n)
+}
