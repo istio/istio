@@ -196,8 +196,19 @@ func TestServiceConversion(t *testing.T) {
 			service.ClusterLocal.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
 
-	if service.Address != ip {
-		t.Fatalf("service IP incorrect => %q, want %q", service.Address, ip)
+	ips := service.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)
+	if len(ips) != 1 {
+		t.Fatalf("number of ips incorrect => %q, want 1", len(ips))
+	}
+
+	if ips[0] != ip {
+		t.Fatalf("service IP incorrect => %q, want %q", ips[0], ip)
+	}
+
+	actualIPs := service.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)
+	expectedIPs := []string{ip}
+	if !reflect.DeepEqual(actualIPs, expectedIPs) {
+		t.Fatalf("service IPs incorrect => %q, want %q", actualIPs, expectedIPs)
 	}
 
 	if service.ClusterSetLocal.Hostname != ServiceClusterSetLocalHostname(NamespacedNameForK8sObject(&localSvc)) {

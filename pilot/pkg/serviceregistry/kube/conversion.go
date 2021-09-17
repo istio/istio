@@ -115,7 +115,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 			},
 		},
 		Ports:           ports,
-		Address:         addr,
+		DefaultAddress:  addr,
 		ServiceAccounts: serviceaccounts,
 		MeshExternal:    meshExternal,
 		Resolution:      resolution,

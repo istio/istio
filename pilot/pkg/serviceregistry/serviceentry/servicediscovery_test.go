@@ -1251,8 +1251,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "foo.com",
 					},
-					Resolution: model.Passthrough,
-					Address:    "0.0.0.0",
+					Resolution:     model.Passthrough,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 			wantServices: []*model.Service{
@@ -1260,8 +1260,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "foo.com",
 					},
-					Resolution: model.Passthrough,
-					Address:    "0.0.0.0",
+					Resolution:     model.Passthrough,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 		},
@@ -1272,8 +1272,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "foo.com",
 					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 			wantServices: []*model.Service{
@@ -1281,8 +1281,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "foo.com",
 					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 		},
@@ -1293,8 +1293,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "*.foo.com",
 					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 			wantServices: []*model.Service{
@@ -1302,8 +1302,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "*.foo.com",
 					},
-					Resolution: model.ClientSideLB,
-					Address:    "1.1.1.1",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "1.1.1.1",
 				},
 			},
 		},
@@ -1314,8 +1314,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "foo.com",
 					},
-					Resolution: model.ClientSideLB,
-					Address:    "0.0.0.0",
+					Resolution:     model.ClientSideLB,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 			wantServices: []*model.Service{
@@ -1324,7 +1324,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 						Hostname: "foo.com",
 					},
 					Resolution:           model.ClientSideLB,
-					Address:              "0.0.0.0",
+					DefaultAddress:       "0.0.0.0",
 					AutoAllocatedAddress: "240.240.0.1",
 				},
 			},
@@ -1336,8 +1336,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: "foo.com",
 					},
-					Resolution: model.DNSLB,
-					Address:    "0.0.0.0",
+					Resolution:     model.DNSLB,
+					DefaultAddress: "0.0.0.0",
 				},
 			},
 			wantServices: []*model.Service{
@@ -1346,7 +1346,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 						Hostname: "foo.com",
 					},
 					Resolution:           model.DNSLB,
-					Address:              "0.0.0.0",
+					DefaultAddress:       "0.0.0.0",
 					AutoAllocatedAddress: "240.240.0.1",
 				},
 			},
@@ -1368,8 +1368,8 @@ func Test_autoAllocateIP_values(t *testing.T) {
 			ClusterLocal: model.HostVIPs{
 				Hostname: "foo.com",
 			},
-			Resolution: model.ClientSideLB,
-			Address:    constants.UnspecifiedIP,
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
 		}
 		inServices[i] = &temp
 	}

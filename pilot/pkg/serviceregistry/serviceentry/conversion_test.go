@@ -427,7 +427,7 @@ func makeService(hostname host.Name, configNamespace, address string, ports map[
 		ClusterLocal: model.HostVIPs{
 			Hostname: hostname,
 		},
-		Address:         address,
+		DefaultAddress:  address,
 		MeshExternal:    external,
 		Resolution:      resolution,
 		ServiceAccounts: serviceAccounts,
