@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -565,13 +564,9 @@ var (
 		"If enabled, the default revision will steal leader locks from non-default revisions").Get()
 )
 
-// EnableEndpointSliceController gets the status of the feature flag.
-// The default behavior is conditional on the Kubernetes version.
-func EnableEndpointSliceController(kubeClient kube.Client) bool {
-	if kubeClient == nil || endpointSliceControllerSpecified {
-		return enableEndpointSliceController
-	}
-	return kube.IsAtLeastVersion(kubeClient, 21)
+// EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.
+func EnableEndpointSliceController() (value bool, ok bool) {
+	return enableEndpointSliceController, endpointSliceControllerSpecified
 }
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
