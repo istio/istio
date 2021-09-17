@@ -585,6 +585,7 @@ type buildClusterOpts struct {
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
 	cache           model.XdsCache
+	host            string
 }
 
 type upgradeTuple struct {

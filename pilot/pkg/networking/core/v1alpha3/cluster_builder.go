@@ -238,6 +238,11 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts, destRule *co
 func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode ClusterMode, service *model.Service,
 	port *model.Port, proxyNetworkView map[network.ID]bool, destRule *config.Config, serviceAccounts []string) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
+
+	host := ""
+	if destinationRule != nil {
+		host = destinationRule.Host
+	}
 	// merge applicable port level traffic policy settings
 	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
@@ -249,6 +254,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *MutableCluster, clusterMode C
 		clusterMode:      clusterMode,
 		direction:        model.TrafficDirectionOutbound,
 		cache:            cb.cache,
+		host:             host,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -1068,9 +1074,16 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			} else {
+				subjectAltNames := make([]string, 0)
+				if tls.SubjectAltNames != nil && len(tls.SubjectAltNames) != 0 {
+					subjectAltNames = tls.SubjectAltNames
+				} else if features.VerifyCertAtClient && opts != nil && opts.host != "" {
+					subjectAltNames = append(subjectAltNames, opts.host)
+					tls.SubjectAltNames = subjectAltNames
+				}
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
 						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 					},
 				}
