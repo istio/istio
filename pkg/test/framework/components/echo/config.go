@@ -267,24 +267,24 @@ func ParseConfigs(bytes []byte) ([]Config, error) {
 }
 
 // Class returns the type of workload a given config is.
-func (cfg Config) Class() echotypes.Class {
-	if cfg.IsProxylessGRPC() {
+func (c Config) Class() echotypes.Class {
+	if c.IsProxylessGRPC() {
 		return echotypes.Proxyless
-	} else if cfg.IsVM() {
+	} else if c.IsVM() {
 		return echotypes.VM
-	} else if cfg.IsTProxy() {
+	} else if c.IsTProxy() {
 		return echotypes.TProxy
-	} else if cfg.IsNaked() {
+	} else if c.IsNaked() {
 		return echotypes.Naked
-	} else if cfg.IsExternal() {
+	} else if c.IsExternal() {
 		return echotypes.External
-	} else if cfg.IsStatefulSet() {
+	} else if c.IsStatefulSet() {
 		return echotypes.StatefulSet
-	} else if cfg.IsDelta() {
+	} else if c.IsDelta() {
 		// TODO remove if delta is on by default
 		return echotypes.Delta
 	}
-	if cfg.IsHeadless() {
+	if c.IsHeadless() {
 		return echotypes.Headless
 	}
 	return echotypes.Standard
