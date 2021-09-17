@@ -99,6 +99,10 @@ func (b builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 		return b
 	}
 
+	if b.ctx.Settings().SkipTProxy && cfg.IsTProxy() {
+		return b
+	}
+
 	cfg = cfg.DeepCopy()
 	if err := common.FillInDefaults(b.ctx, &cfg); err != nil {
 		b.errs = multierror.Append(b.errs, err)
