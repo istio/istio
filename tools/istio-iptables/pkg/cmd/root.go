@@ -39,6 +39,8 @@ var (
 	// Enable interception of DNS.
 	dnsCaptureByAgent = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
+	dnsCaptureAll = env.RegisterBoolVar("ISTIO_META_DNS_CAPTURE_ALL",false,
+		"If set to true, capture all DNS traffic at port 53 instead of only capturing DNS traffic to DNS server IP.").Get()
 )
 
 var rootCmd = &cobra.Command{
@@ -306,7 +308,7 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	if err := viper.BindPFlag(constants.CaptureAllDNS, cmd.Flags().Lookup(constants.CaptureAllDNS)); err != nil {
 		handleError(err)
 	}
-	viper.SetDefault(constants.CaptureAllDNS, false)
+	viper.SetDefault(constants.CaptureAllDNS, dnsCaptureAll)
 
 	if err := viper.BindPFlag(constants.OutputPath, cmd.Flags().Lookup(constants.OutputPath)); err != nil {
 		handleError(err)
@@ -393,7 +395,7 @@ func init() {
 
 	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
 
-	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
+	rootCmd.Flags().Bool(constants.CaptureAllDNS, dnsCaptureAll,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
 
 	rootCmd.Flags().String(constants.OutputPath, "", "A file path to write the applied iptables rules to.")
