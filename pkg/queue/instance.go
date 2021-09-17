@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+
 	"istio.io/pkg/log"
 )
 
@@ -48,7 +49,7 @@ type queueImpl struct {
 
 func newExponentialBackOff(eb *backoff.ExponentialBackOff) *backoff.ExponentialBackOff {
 	if eb == nil {
-		return eb
+		return nil
 	}
 	teb := backoff.NewExponentialBackOff()
 	teb.InitialInterval = eb.InitialInterval
