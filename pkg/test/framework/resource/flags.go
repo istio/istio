@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 
+	"istio.io/istio/pkg/test/framework/components/echo/echotypes"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/label"
 )
@@ -44,6 +45,18 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	s.SkipMatcher, err = NewMatcher(s.SkipString)
 	if err != nil {
 		return nil, err
+	}
+
+	s.SkipWorkloadClasses.Insert(s.skipWorkloadClasses...)
+	if s.SkipVM {
+		s.SkipWorkloadClasses.Insert(echotypes.VM)
+	}
+	if s.SkipTProxy {
+		s.SkipWorkloadClasses.Insert(echotypes.TProxy)
+	}
+	if s.SkipDelta {
+		// TODO we may also want to trigger this if we have an old verion
+		s.SkipWorkloadClasses.Insert(echotypes.Delta)
 	}
 
 	if err = validate(s); err != nil {
@@ -100,6 +113,9 @@ func init() {
 
 	flag.Var(&settingsFromCommandLine.SkipString, "istio.test.skip",
 		"Skip tests matching the regular expression. This follows the semantics of -test.run.")
+
+	flag.Var(&settingsFromCommandLine.skipWorkloadClasses, "istio.test.skipWorkloads",
+		"Skips deploying and using workloads of the given comma-separated classes (e.g. vm, proxyless, etc.)")
 
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
 		"Number of times to retry tests")
