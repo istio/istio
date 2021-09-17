@@ -18,27 +18,26 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	uuid_extension "github.com/envoyproxy/go-control-plane/envoy/extensions/request_id/uuid/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-var (
-	UuidRequestIdExtension = &hcm.RequestIDExtension{
-		TypedConfig: util.MessageToAny(&uuid_extension.UuidRequestIdConfig{
-			UseRequestIdForTraceSampling: &wrapperspb.BoolValue{
-				Value: true,
-			},
-		}),
-	}
-)
+var UUIDRequestIDExtension = &hcm.RequestIDExtension{
+	TypedConfig: util.MessageToAny(&uuid_extension.UuidRequestIdConfig{
+		UseRequestIdForTraceSampling: &wrapperspb.BoolValue{
+			Value: true,
+		},
+	}),
+}
 
-func BuildUuidRequestIdExtension(ctx *UuidRequestIdExtensionContext) *hcm.RequestIDExtension {
+func BuildUUIDRequestIDExtension(ctx *UUIDRequestIDExtensionContext) *hcm.RequestIDExtension {
 	if ctx == nil {
-		return UuidRequestIdExtension
+		return UUIDRequestIDExtension
 	}
 	return &hcm.RequestIDExtension{
 		TypedConfig: util.MessageToAny(&uuid_extension.UuidRequestIdConfig{
 			UseRequestIdForTraceSampling: &wrapperspb.BoolValue{
-				Value: ctx.UseRequestIdForTraceSampliing,
+				Value: ctx.UseRequestIDForTraceSampling,
 			},
 		}),
 	}

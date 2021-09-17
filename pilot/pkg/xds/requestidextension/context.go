@@ -14,6 +14,6 @@
 
 package requestidextension
 
-type UuidRequestIdExtensionContext struct {
-	UseRequestIdForTraceSampliing bool
+type UUIDRequestIDExtensionContext struct {
+	UseRequestIDForTraceSampling bool
 }

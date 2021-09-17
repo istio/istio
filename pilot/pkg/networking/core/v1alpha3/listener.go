@@ -1334,7 +1334,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 	filters = append(filters, xdsfilters.Cors, xdsfilters.Fault, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters
-	connectionManager.RequestIdExtension = requestidextension.BuildUuidRequestIdExtension(nil)
+	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(nil)
 
 	return connectionManager
 }
