@@ -17,6 +17,7 @@ package webhooks
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,6 +26,8 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
@@ -163,6 +166,10 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	if v != w.revision || !ok {
 		return errWrongRevision
 	}
+	prev, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
 
 	found := false
 	caCertPem, err := util.LoadCABundle(w.CABundleWatcher)
@@ -180,7 +187,20 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 		return errNoWebhookWithName
 	}
 
-	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
+	curr, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, v1.MutatingWebhookConfiguration{})
+	if err != nil {
+		return err
+	}
+
+	if string(patch) != "{}" {
+		_, err = client.Patch(context.TODO(), webhookConfigName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	}
+
 	return err
 }
 
