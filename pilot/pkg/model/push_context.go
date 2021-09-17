@@ -1047,35 +1047,6 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 	return ps.clusterLocalHosts.IsClusterLocal(service.ClusterLocal.Hostname)
 }
 
-// SubsetToLabels returns the labels associated with a subset of a given service.
-func (ps *PushContext) SubsetToLabels(proxy *Proxy, subsetName string, hostname host.Name) labels.Collection {
-	// empty subset
-	if subsetName == "" {
-		return nil
-	}
-
-	cfg := ps.DestinationRule(proxy, &Service{
-		ClusterLocal: HostVIPs{
-			Hostname: hostname,
-		},
-	})
-	if cfg == nil {
-		return nil
-	}
-
-	rule := cfg.Spec.(*networking.DestinationRule)
-	for _, subset := range rule.Subsets {
-		if subset.Name == subsetName {
-			if len(subset.Labels) == 0 {
-				return nil
-			}
-			return []labels.Instance{subset.Labels}
-		}
-	}
-
-	return nil
-}
-
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
