@@ -172,7 +172,7 @@ var webhookName = fmt.Sprintf("istio-validator-revision-%s", namespace)
 
 func createTestController(t *testing.T) *fakeController {
 	fakeClient := kube.NewFakeClient()
-	watcher := &keycertbundle.Watcher{}
+	watcher := keycertbundle.NewWatcher()
 	o := Options{
 		WatchedNamespace: namespace,
 		ServiceName:      istiod,
@@ -280,6 +280,7 @@ func TestBackoff(t *testing.T) {
 	// This is fairly difficult to properly test. Basically what we do is setup the queue to retry 5x quickly, then extremely slowly.
 	// This ensures that we are actually retrying using the provided rate limiter.
 	retry.UntilOrFail(t, func() bool {
+		fmt.Println("len(c.istioFakeClient.Actions())  ", len(c.istioFakeClient.Actions()), " != ", (2*maxAttempts + 1))
 		return len(c.istioFakeClient.Actions()) == (2*maxAttempts + 1)
 	}, retry.Timeout(time.Second*5))
 }

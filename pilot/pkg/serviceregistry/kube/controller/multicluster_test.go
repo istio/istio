@@ -98,7 +98,7 @@ func Test_KubeSecretController(t *testing.T) {
 			SyncInterval:          time.Microsecond,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, nil, "default", nil, nil, s)
+		}, nil, nil, "default", false, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)
@@ -156,7 +156,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 			SyncInterval:          time.Microsecond,
 			MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 			MeshServiceController: mockserviceController,
-		}, nil, certWatcher, "default", nil, nil, s)
+		}, nil, certWatcher, "default", false, nil, s)
 	mc.InitSecretController(stop)
 	cache.WaitForCacheSync(stop, mc.HasSynced)
 	clientset.RunAndWait(stop)

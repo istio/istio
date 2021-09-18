@@ -25,8 +25,6 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/keycertbundle"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/chiron"
@@ -41,6 +39,9 @@ const (
 
 	// defaultMinCertGracePeriod is the default minimum grace period for workload cert rotation.
 	defaultMinCertGracePeriod = 10 * time.Minute
+
+	// the interval polling root cert and re sign istiod cert when it changes.
+	rootCertPollingInterval = 60 * time.Second
 
 	// Default CA certificate path
 	// Currently, custom CA path is not supported; no API to get custom CA cert yet.
@@ -167,7 +168,7 @@ func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 		select {
 		case <-stop:
 			return
-		case <-time.After(controller.NamespaceResyncPeriod):
+		case <-time.After(rootCertPollingInterval):
 			newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			if !bytes.Equal(caBundle, newRootCert) {
 				caBundle = newRootCert
@@ -239,13 +240,13 @@ func (s *Server) initCertificateWatches(tlsOptions TLSOptions) error {
 	return nil
 }
 
-func (s *Server) reloadIstiodCert(watchCh <-chan keycertbundle.KeyCertBundle, stopCh <-chan struct{}) {
+func (s *Server) reloadIstiodCert(watchCh <-chan struct{}, stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-stopCh:
 			return
-		default:
-			if err := s.loadIstiodCert(watchCh, stopCh); err != nil {
+		case <-watchCh:
+			if err := s.loadIstiodCert(); err != nil {
 				log.Errorf("reload istiod cert failed: %v", err)
 			}
 		}
@@ -253,13 +254,8 @@ func (s *Server) reloadIstiodCert(watchCh <-chan keycertbundle.KeyCertBundle, st
 }
 
 // loadIstiodCert load IstiodCert received from watchCh once
-func (s *Server) loadIstiodCert(watchCh <-chan keycertbundle.KeyCertBundle, stopCh <-chan struct{}) error {
-	var keyCertBundle keycertbundle.KeyCertBundle
-	select {
-	case keyCertBundle = <-watchCh:
-	case <-stopCh:
-		return nil
-	}
+func (s *Server) loadIstiodCert() error {
+	keyCertBundle := s.istiodCertBundleWatcher.GetKeyCertBundle()
 	keyPair, err := tls.X509KeyPair(keyCertBundle.CertPem, keyCertBundle.KeyPem)
 	if err != nil {
 		return fmt.Errorf("istiod loading x509 key pairs failed: %v", err)
