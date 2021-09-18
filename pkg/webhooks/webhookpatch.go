@@ -80,7 +80,7 @@ func NewWebhookCertPatcher(
 	retryBackoff.InitialInterval = 2 * time.Second
 	retryBackoff.MaxInterval = 15 * time.Minute // Max Backoff interval.
 	// If certificate has not been patched with in an hour of retries, let us stop retrying.
-	retryBackoff.MaxElapsedTime = 1 * time.Hour
+	retryBackoff.MaxElapsedTime = 0
 	return &WebhookCertPatcher{
 		client:          client,
 		revision:        revision,
