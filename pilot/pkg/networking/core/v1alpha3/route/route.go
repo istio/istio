@@ -424,6 +424,26 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			},
 		}
 
+		if redirect.Scheme != "" {
+			action.Redirect.SchemeRewriteSpecifier = &route.RedirectAction_SchemeRedirect{SchemeRedirect: redirect.Scheme}
+		}
+
+		if redirect.RedirectPort != nil {
+			switch rp := redirect.RedirectPort.(type) {
+			case *networking.HTTPRedirect_DerivePort:
+				if rp.DerivePort == networking.HTTPRedirect_FROM_REQUEST_PORT {
+					// Envoy doesn't actually support deriving the port from the request dynamically. However,
+					// we always generate routes in the context of a specific request port. As a result, we can just
+					// use that port
+					action.Redirect.PortRedirect = uint32(port)
+				}
+				// Otherwise, no port needed; HTTPRedirect_FROM_PROTOCOL_DEFAULT is Envoy's default behavior
+			case *networking.HTTPRedirect_Port:
+				action.Redirect.PortRedirect = rp.Port
+
+			}
+		}
+
 		switch in.Redirect.RedirectCode {
 		case 0, 301:
 			action.Redirect.ResponseCode = route.RedirectAction_MOVED_PERMANENTLY

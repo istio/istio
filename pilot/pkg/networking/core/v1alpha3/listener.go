@@ -30,6 +30,7 @@ import (
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -572,7 +573,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			}
 
 			for _, service := range services {
-				saddress := service.GetClusterLocalAddressForProxy(node)
+				saddress := service.GetAddressForProxy(node)
 				for _, servicePort := range service.Ports {
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
@@ -810,7 +811,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// ip:port. This will reduce the impact of a listener reload
 
 	if len(listenerOpts.bind) == 0 {
-		svcListenAddress := listenerOpts.service.GetClusterLocalAddressForProxy(listenerOpts.proxy)
+		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly
@@ -1441,16 +1442,13 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 		})
 	}
 
-	var deprecatedV1 *listener.Listener_DeprecatedV1
-	if !opts.bindToPort {
-		deprecatedV1 = &listener.Listener_DeprecatedV1{
-			BindToPort: proto.BoolFalse,
-		}
-	}
-
 	var res *listener.Listener
 	switch opts.transport {
 	case istionetworking.TransportProtocolTCP:
+		var bindToPort *wrappers.BoolValue
+		if !opts.bindToPort {
+			bindToPort = proto.BoolFalse
+		}
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
 			Name:             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
@@ -1458,7 +1456,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 			TrafficDirection: trafficDirection,
 			ListenerFilters:  listenerFilters,
 			FilterChains:     filterChains,
-			DeprecatedV1:     deprecatedV1,
+			BindToPort:       bindToPort,
 		}
 
 		if opts.proxy.Type != model.Router {

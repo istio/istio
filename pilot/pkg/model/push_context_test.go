@@ -107,13 +107,17 @@ func TestMergeUpdateRequest(t *testing.T) {
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
 				Kind: config.GroupVersionKind{Kind: "cfg2"},
 			}: {}}},
-			PushRequest{Full: true, ConfigsUpdated: nil, Reason: []TriggerReason{}},
+			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.left.Merge(tt.right)
+			got := tt.left.CopyMerge(tt.right)
+			if !reflect.DeepEqual(&tt.merged, got) {
+				t.Fatalf("expected %v, got %v", &tt.merged, got)
+			}
+			got = tt.left.Merge(tt.right)
 			if !reflect.DeepEqual(&tt.merged, got) {
 				t.Fatalf("expected %v, got %v", &tt.merged, got)
 			}
@@ -126,7 +130,7 @@ func TestConcurrentMerge(t *testing.T) {
 	reqB := &PushRequest{Reason: []TriggerReason{ServiceUpdate, ProxyUpdate}}
 	for i := 0; i < 50; i++ {
 		go func() {
-			reqA.Merge(reqB)
+			reqA.CopyMerge(reqB)
 		}()
 	}
 	if len(reqA.Reason) != 0 {
@@ -741,7 +745,7 @@ func TestInitPushContext(t *testing.T) {
 		// Allow looking into exported fields for parts of push context
 		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
 			destinationRuleIndex{}, gatewayIndex{}, processedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
-			AuthenticationPolicies{}, NetworkManager{}),
+			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
@@ -836,10 +840,12 @@ func TestSidecarScope(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		scope := ps.getSidecarScope(c.proxy, c.collection)
-		if c.sidecar != scopeToSidecar(scope) {
-			t.Errorf("case with %s should get sidecar %s but got %s", c.describe, c.sidecar, scopeToSidecar(scope))
-		}
+		t.Run(c.describe, func(t *testing.T) {
+			scope := ps.getSidecarScope(c.proxy, c.collection)
+			if c.sidecar != scopeToSidecar(scope) {
+				t.Errorf("should get sidecar %s but got %s", c.sidecar, scopeToSidecar(scope))
+			}
+		})
 	}
 }
 

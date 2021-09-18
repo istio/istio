@@ -749,7 +749,18 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirect) *istio.HTTPRedirect {
 	if filter.Hostname != nil {
 		resp.Authority = string(*filter.Hostname)
 	}
-	// TODO(https://github.com/istio/api/pull/2088) support port and protocol
+	if filter.Protocol != nil {
+		// Istio allows http and https
+		// Gateway allows HTTP and HTTPS.
+		resp.Scheme = strings.ToLower(*filter.Protocol)
+	}
+	if filter.Port != nil {
+		resp.RedirectPort = &istio.HTTPRedirect_Port{Port: uint32(*filter.Port)}
+	} else {
+		// "When empty, port (if specified) of the request is used."
+		// this differs from Istio default
+		resp.RedirectPort = &istio.HTTPRedirect_DerivePort{DerivePort: istio.HTTPRedirect_FROM_REQUEST_PORT}
+	}
 	return resp
 }
 

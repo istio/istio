@@ -79,7 +79,7 @@ func TestInboundClusters(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("backend.default.svc.cluster.local"),
 		},
-		Address: "1.1.1.1",
+		DefaultAddress: "1.1.1.1",
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,
@@ -95,7 +95,7 @@ func TestInboundClusters(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("backend-alt.default.svc.cluster.local"),
 		},
-		Address: "1.1.1.2",
+		DefaultAddress: "1.1.1.2",
 		Ports: model.PortList{&model.Port{
 			Name:     "default",
 			Port:     80,

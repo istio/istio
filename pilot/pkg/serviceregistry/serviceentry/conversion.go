@@ -63,7 +63,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
 		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
 		//
-		Addresses: []string{svc.GetClusterLocalAddressForProxy(proxy)},
+		Addresses: []string{svc.GetAddressForProxy(proxy)},
 
 		// Location:             0,
 
@@ -210,9 +210,9 @@ func buildServices(hostAddresses []*HostAddress, namespace string, ports model.P
 			ClusterLocal: model.HostVIPs{
 				Hostname: host.Name(ha.host),
 			},
-			Address:    ha.address,
-			Ports:      ports,
-			Resolution: resolution,
+			DefaultAddress: ha.address,
+			Ports:          ports,
+			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
 				ServiceRegistry: provider.External,
 				Name:            ha.host,

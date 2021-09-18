@@ -181,7 +181,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 					Address: &core.Address{
 						Address: &core.Address_SocketAddress{
 							SocketAddress: &core.SocketAddress{
-								Address: sv.GetClusterLocalAddressForProxy(node),
+								Address: sv.GetAddressForProxy(node),
 								PortSpecifier: &core.SocketAddress_PortValue{
 									PortValue: uint32(p.Port),
 								},

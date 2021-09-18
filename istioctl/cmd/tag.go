@@ -358,7 +358,7 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	}
 
 	// proceed with webhook deletion
-	err = tag.DeleteTagWebhooks(ctx, kubeClient, webhooks)
+	err = tag.DeleteTagWebhooks(ctx, kubeClient, tagName)
 	if err != nil {
 		return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
 	}

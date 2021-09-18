@@ -239,7 +239,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("test4.com"),
 		},
-		Address: wildcardIP,
+		DefaultAddress: wildcardIP,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "udp",
@@ -258,7 +258,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("test5.com"),
 		},
-		Address: "8.8.8.8",
+		DefaultAddress: "8.8.8.8",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "MySQL",
@@ -277,7 +277,7 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("test6.com"),
 		},
-		Address: "2.2.2.2",
+		DefaultAddress: "2.2.2.2",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "unknown",
@@ -531,7 +531,7 @@ func TestOutboundListenerConfig_WithDisabledSniffing_WithSidecar(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("test4.com"),
 		},
-		Address: wildcardIP,
+		DefaultAddress: wildcardIP,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -557,7 +557,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			ClusterLocal: model.HostVIPs{
 				Hostname: host.Name("test.com"),
 			},
-			Address: wildcardIP,
+			DefaultAddress: wildcardIP,
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -575,7 +575,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 			ClusterLocal: model.HostVIPs{
 				Hostname: host.Name("test1.com"),
 			},
-			Address: wildcardIP,
+			DefaultAddress: wildcardIP,
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "foo",
@@ -599,7 +599,7 @@ func TestOutboundTls(t *testing.T) {
 			ClusterLocal: model.HostVIPs{
 				Hostname: host.Name("test.com"),
 			},
-			Address: wildcardIP,
+			DefaultAddress: wildcardIP,
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "https",
@@ -2509,7 +2509,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name(hostname),
 		},
-		Address: ip,
+		DefaultAddress: ip,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -2530,7 +2530,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name(hostname),
 		},
-		Address: wildcardIP,
+		DefaultAddress: wildcardIP,
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "default",
@@ -2769,9 +2769,9 @@ func TestMergeTCPFilterChains(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.com"),
 				},
-				Address:    "192.168.1.1",
-				Ports:      []*model.Port{svcPort},
-				Resolution: model.DNSLB,
+				DefaultAddress: "192.168.1.1",
+				Ports:          []*model.Port{svcPort},
+				Resolution:     model.DNSLB,
 			}},
 			listener: &l,
 		},
