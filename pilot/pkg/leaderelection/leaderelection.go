@@ -16,6 +16,7 @@ package leaderelection
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/atomic"
@@ -40,11 +41,15 @@ const (
 	GatewayController = "istio-gateway-status-leader"
 	StatusController  = "istio-status-leader"
 	AnalyzeController = "istio-analyze-leader"
+	// Locks for webhook patching, these are per revision.
+	MutatingWebhookController   = "istio-mutating-webhook-election"
+	ValidatingWebhookController = "istio-validating-webhook-election"
 )
 
 type LeaderElection struct {
 	namespace string
 	name      string
+	revision  string
 	runFns    []func(stop <-chan struct{})
 	client    kubernetes.Interface
 	ttl       time.Duration
@@ -122,6 +127,7 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 	return l
 }
 
+// NewLeaderElection calls a leader election that can be won by a single istiod across all revisions.
 func NewLeaderElection(namespace, name, electionID string, client kubernetes.Interface) *LeaderElection {
 	if name == "" {
 		name = "unknown"
@@ -129,6 +135,28 @@ func NewLeaderElection(namespace, name, electionID string, client kubernetes.Int
 	return &LeaderElection{
 		namespace:  namespace,
 		name:       name,
+		electionID: electionID,
+		client:     client,
+		// Default to a 30s ttl. Overridable for tests
+		ttl:   time.Second * 30,
+		cycle: atomic.NewInt32(0),
+	}
+}
+
+// NewPerRevisionLeaderElection calls a leader election scoped to the replicas of a given revision.
+// For instance, in webhook patching, we want each revision to handle its own patching, but only a
+// single replica within that revision.
+func NewPerRevisionLeaderElection(namespace, name, revision, electionID string, client kubernetes.Interface) *LeaderElection {
+	if name == "" {
+		name = "unknown"
+	}
+	if revision != "" {
+		electionID = fmt.Sprintf("%s-%s", electionID, revision)
+	}
+	return &LeaderElection{
+		namespace:  namespace,
+		name:       name,
+		revision:   revision,
 		electionID: electionID,
 		client:     client,
 		// Default to a 30s ttl. Overridable for tests

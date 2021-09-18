@@ -32,10 +32,15 @@ import (
 
 const testLock = "test-lock"
 
-func createElection(t *testing.T, name string, expectLeader bool, client kubernetes.Interface,
-	fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
+// nolint: lll
+func createElection(t *testing.T, name string, revision string, expectLeader bool, client kubernetes.Interface, fns ...func(stop <-chan struct{})) (*LeaderElection, chan struct{}) {
 	t.Helper()
-	l := NewLeaderElection("ns", name, testLock, client)
+	var l *LeaderElection
+	if revision == "" {
+		l = NewLeaderElection("ns", name, testLock, client)
+	} else {
+		l = NewPerRevisionLeaderElection("ns", name, revision, testLock, client)
+	}
 	l.ttl = time.Second
 	gotLeader := make(chan struct{})
 	l.AddRunFunction(func(stop <-chan struct{}) {
@@ -66,18 +71,31 @@ func createElection(t *testing.T, name string, expectLeader bool, client kuberne
 func TestLeaderElection(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	// First pod becomes the leader
-	_, stop := createElection(t, "pod1", true, client)
+	_, stop := createElection(t, "pod1", "", true, client)
 	// A new pod is not the leader
-	_, stop2 := createElection(t, "pod2", false, client)
+	_, stop2 := createElection(t, "pod2", "", false, client)
 	// The first pod exists, now the new pod becomes the leader
 	close(stop2)
 	close(stop)
-	_, _ = createElection(t, "pod2", true, client)
+	_, _ = createElection(t, "pod2", "", true, client)
+}
+
+func TestPerRevisionLeaderElection(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	// First pod becomes the leader
+	_, stop := createElection(t, "pod1", "red", true, client)
+	// Second pod comes in with different revision, becomes leader
+	_, stop2 := createElection(t, "pod2", "green", true, client)
+	// Third pod comes in with same revision as pod1, does not become leader
+	_, stop3 := createElection(t, "pod3", "red", false, client)
+	close(stop3)
+	close(stop2)
+	close(stop)
 }
 
 func TestLeaderElectionConfigMapRemoved(t *testing.T) {
 	client := fake.NewSimpleClientset()
-	_, stop := createElection(t, "pod1", true, client)
+	_, stop := createElection(t, "pod1", "", true, client)
 	if err := client.CoreV1().ConfigMaps("ns").Delete(context.TODO(), testLock, v1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +123,7 @@ func TestLeaderElectionNoPermission(t *testing.T) {
 	})
 
 	completions := atomic.NewInt32(0)
-	l, stop := createElection(t, "pod1", true, client, func(stop <-chan struct{}) {
+	l, stop := createElection(t, "pod1", "", true, client, func(stop <-chan struct{}) {
 		completions.Add(1)
 	})
 	// Expect to run once

@@ -246,18 +246,24 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 		// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 		// operator or CI/CD
 		if features.InjectionWebhookConfigName != "" && m.caBundleWatcher != nil {
-			// TODO prevent istiods in primary clusters from trying to patch eachother. should we also leader-elect?
-			log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-			patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher)
-			if err != nil {
-				log.Errorf("could not initialize webhook cert patcher: %v", err)
-			} else {
-				patcher.Run(clusterStopCh)
-			}
+			go leaderelection.NewPerRevisionLeaderElection(options.SystemNamespace, m.serverID, m.revision, leaderelection.MutatingWebhookController, client.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("initializing webhook cert patch for cluster %s", clusterID)
+					patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher)
+					if err != nil {
+						log.Errorf("could not initialize webhook cert patcher: %v", err)
+					} else {
+						patcher.Run(clusterStopCh)
+					}
+				}).Run(clusterStopCh)
 		}
 		// Patch validation webhook cert
 		if m.caBundleWatcher != nil {
-			go controller.NewValidatingWebhookController(client, m.revision, m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
+			go leaderelection.NewPerRevisionLeaderElection(options.SystemNamespace, m.serverID, m.revision, leaderelection.MutatingWebhookController, client.Kube()).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("initializing validating webhook patcher for cluster %s", clusterID)
+					controller.NewValidatingWebhookController(client, m.revision, m.secretNamespace, m.caBundleWatcher).Run(clusterStopCh)
+				}).Run(clusterStopCh)
 		}
 	}
 
