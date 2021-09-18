@@ -55,7 +55,7 @@ const (
 
 	rbacEnvoyStatsMatcherInclusionSuffix = "rbac.allowed,rbac.denied,shadow_allowed,shadow_denied"
 
-	requiredEnvoyStatsMatcherInclusionSuffixes = rbacEnvoyStatsMatcherInclusionSuffix + "downstream_cx_active" // Needed for draining.
+	requiredEnvoyStatsMatcherInclusionSuffixes = rbacEnvoyStatsMatcherInclusionSuffix + ",downstream_cx_active" // Needed for draining.
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
