@@ -30,14 +30,12 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 )
 
-type testCase struct {
-	name       string
-	route      networking.HTTPRoute
-	assertFunc func(g *WithT, policy *envoyroute.RetryPolicy)
-}
-
 func TestRetry(t *testing.T) {
-	testCases := []testCase{
+	testCases := []struct {
+		name       string
+		route      networking.HTTPRoute
+		assertFunc func(g *WithT, policy *envoyroute.RetryPolicy)
+	}{
 		{
 			name: "TestNilRetryShouldReturnDefault",
 			// Create a route where no retry policy has been explicitly set.
