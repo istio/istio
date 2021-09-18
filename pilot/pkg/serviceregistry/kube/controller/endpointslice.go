@@ -109,10 +109,7 @@ func sliceServiceInstances(c *Controller, ep *discovery.EndpointSlice, proxy *mo
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(ep.Labels[discovery.LabelServiceName], ep.Namespace, c.opts.DomainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
+	svc := c.GetService(hostname)
 	if svc == nil {
 		return out
 	}

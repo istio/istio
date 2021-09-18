@@ -181,7 +181,6 @@ type ServiceDiscovery struct {
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
-	GetServiceError               error
 	GetProxyServiceInstancesError error
 }
 
@@ -198,12 +197,8 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements discovery interface
-func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
-	if sd.GetServiceError != nil {
-		return nil, sd.GetServiceError
-	}
-	val := sd.services[hostname]
-	return val, sd.GetServiceError
+func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
+	return sd.services[hostname]
 }
 
 // InstancesByPort implements discovery interface

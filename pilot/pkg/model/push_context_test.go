@@ -398,8 +398,8 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 	expectedns1 := []string{"testns-1/default-priority", "testns-1/a-medium-priority", "testns-1/b-medium-priority"}
 
-	for _, config := range envoyFilters {
-		store.Create(config)
+	for _, cfg := range envoyFilters {
+		_, _ = store.Create(cfg)
 	}
 	env.IstioConfigStore = &store
 	m := mesh.DefaultMeshConfig()
@@ -653,7 +653,7 @@ func TestIsServiceVisible(t *testing.T) {
 }
 
 func serviceNames(svcs []*Service) []string {
-	s := []string{}
+	var s []string
 	for _, ss := range svcs {
 		s = append(s, string(ss.ClusterLocal.Hostname))
 	}
@@ -664,7 +664,7 @@ func serviceNames(svcs []*Service) []string {
 func TestInitPushContext(t *testing.T) {
 	env := &Environment{}
 	configStore := NewFakeStore()
-	configStore.Create(config.Config{
+	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -675,7 +675,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	configStore.Create(config.Config{
+	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -759,9 +759,9 @@ func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc1.default.cluster.local")] = map[string]*Service{"default": nil}
-	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc2.nosidecar.cluster.local")] = map[string]*Service{"nosidecar": nil}
-	ps.ServiceIndex.HostnameAndNamespace[host.Name("svc3.istio-system.cluster.local")] = map[string]*Service{"istio-system": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
 
 	configStore := NewFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
@@ -861,9 +861,9 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	configStore := NewFakeStore()
 
 	// Add beta policies
-	configStore.Create(*createTestPeerAuthenticationResource("default", wholeNS, time.Now(), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
+	_, _ = configStore.Create(*createTestPeerAuthenticationResource("default", wholeNS, time.Now(), nil, securityBeta.PeerAuthentication_MutualTLS_STRICT))
 	// workload level beta policy.
-	configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", partialNS, time.Now(), &selectorpb.WorkloadSelector{
+	_, _ = configStore.Create(*createTestPeerAuthenticationResource("workload-beta-policy", partialNS, time.Now(), &selectorpb.WorkloadSelector{
 		MatchLabels: map[string]string{
 			"app":     "httpbin",
 			"version": "v1",
@@ -1809,23 +1809,23 @@ func (l *localServiceDiscovery) Services() ([]*Service, error) {
 	return l.services, nil
 }
 
-func (l *localServiceDiscovery) GetService(hostname host.Name) (*Service, error) {
+func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance {
+func (l *localServiceDiscovery) InstancesByPort(*Service, int, labels.Collection) []*ServiceInstance {
 	return l.serviceInstances
 }
 
-func (l *localServiceDiscovery) GetProxyServiceInstances(proxy *Proxy) []*ServiceInstance {
+func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInstance {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetProxyWorkloadLabels(proxy *Proxy) labels.Collection {
+func (l *localServiceDiscovery) GetProxyWorkloadLabels(*Proxy) labels.Collection {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) GetIstioServiceAccounts(svc *Service, ports []int) []string {
+func (l *localServiceDiscovery) GetIstioServiceAccounts(*Service, []int) []string {
 	return nil
 }
 

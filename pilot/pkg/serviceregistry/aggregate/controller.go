@@ -148,20 +148,15 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService retrieves a service by hostname if exists
-func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
-	var errs error
+func (c *Controller) GetService(hostname host.Name) *model.Service {
 	var out *model.Service
 	for _, r := range c.GetRegistries() {
-		service, err := r.GetService(hostname)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-			continue
-		}
+		service := r.GetService(hostname)
 		if service == nil {
 			continue
 		}
 		if r.Provider() != provider.Kubernetes {
-			return service, nil
+			return service
 		}
 		if out == nil {
 			out = service.DeepCopy()
@@ -170,7 +165,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 			mergeService(out, service, r)
 		}
 	}
-	return out, errs
+	return out
 }
 
 func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
