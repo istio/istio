@@ -15,7 +15,6 @@
 package injection
 
 import (
-	"encoding/json"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -65,7 +64,7 @@ func (a *ProxyConfigEnvAnalyzer) Analyze(c analysis.Context) {
 
 	// need to add istio-system for regular case
 	injectedNamespaces[constants.IstioSystemNamespace] = "default"
-	proxyConfigMap := make(map[string]*v1.ConfigMap)
+	proxyConfigMap := make(map[string]map[string]string)
 	// when multiple mesh configmaps exist, we may need to assess them respectively.
 	c.ForEach(collections.K8SCoreV1Configmaps.Name(), func(r *resource.Instance) bool {
 		cmName := r.Metadata.FullName.Name.String()
@@ -73,7 +72,11 @@ func (a *ProxyConfigEnvAnalyzer) Analyze(c analysis.Context) {
 		if nsRevision, ok := injectedNamespaces[cmNamespace]; ok {
 			meshCMName := util.GetMeshConfigMapName(nsRevision)
 			if cmName == meshCMName {
-				proxyConfigMap[meshCMName] = r.Message.(*v1.ConfigMap)
+				proxyConfig, err := loadMeshConfig(r.Message.(*v1.ConfigMap))
+				if err != nil {
+					return true
+				}
+				proxyConfigMap[meshCMName] = proxyConfig
 			}
 		}
 		return true
@@ -83,11 +86,7 @@ func (a *ProxyConfigEnvAnalyzer) Analyze(c analysis.Context) {
 		pod := r.Message.(*v1.Pod)
 		if nsRevision, ok := injectedNamespaces[pod.GetNamespace()]; ok {
 			meshCMName := util.GetMeshConfigMapName(nsRevision)
-			if cm, cmOK := proxyConfigMap[meshCMName]; cmOK {
-				proxyConfig, err := loadMeshConfig(cm)
-				if err != nil {
-					return true
-				}
+			if proxyConfig, cmOK := proxyConfigMap[meshCMName]; cmOK {
 				for _, container := range pod.Spec.Containers {
 					if container.Name != util.IstioProxyName {
 						continue
@@ -95,13 +94,22 @@ func (a *ProxyConfigEnvAnalyzer) Analyze(c analysis.Context) {
 					for _, envItem := range container.Env {
 						if pcElem, pcOK := proxyConfig[envItem.Name]; pcOK {
 							containerEnvVal := strings.Trim(envItem.Value, "\n")
-							if containerEnvVal == "" || containerEnvVal == "{}" {
-								continue
+							// handle environment PROXY_CONFIG here
+							if util.ProxyConfigEnv == envItem.Name {
+								if containerEnvVal == "" || containerEnvVal == "{}" {
+									continue
+								}
+								if strings.Contains(containerEnvVal, pcElem) {
+									continue
+								} else {
+									m := msg.NewIstioProxyConfigMismatch(r, envItem.Name+" : "+containerEnvVal, envItem.Name+" : "+pcElem)
+									c.Report(collections.K8SCoreV1Pods.Name(), m)
+								}
 							}
 							if pcElem == containerEnvVal {
 								continue
 							} else {
-								m := msg.NewIstioProxyConfigMismatch(r, containerEnvVal, pcElem)
+								m := msg.NewIstioProxyConfigMismatch(r, envItem.Name+" : "+containerEnvVal, envItem.Name+" : "+pcElem)
 								c.Report(collections.K8SCoreV1Pods.Name(), m)
 							}
 						}
@@ -122,15 +130,13 @@ func loadMeshConfig(meshCM *v1.ConfigMap) (map[string]string, error) {
 	if err := gogoprotomarshal.ApplyYAML(meshCM.Data[util.MeshConfig], meshConfig); err != nil {
 		return nil, err
 	}
-	// Only support to validate environment variable in ProxyMetadata and PROXY_CONFIG
+	// add environment variable of ProxyMetadata in proxyConfig
 	proxyConfig := meshConfig.DefaultConfig.ProxyMetadata
-	bTracing, err := json.Marshal(meshConfig.DefaultConfig.GetTracing())
+	sTracing, err := gogoprotomarshal.ToJSON(meshConfig.DefaultConfig.Tracing)
 	if err != nil {
 		return nil, err
 	}
-	// Handle the different field name between environment variable and mesh configmap
-	strTracing := strings.Replace(string(bTracing), "Tracer", "tracing", -1)
-	sTracing := strings.Trim(strTracing, "\n")
+	// add environment variable of PROXY_CONFIG in proxyConfig
 	proxyConfig[util.ProxyConfigEnv] = sTracing
 
 	return proxyConfig, nil
