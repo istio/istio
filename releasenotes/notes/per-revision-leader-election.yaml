@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Fixed** a bug causing multiple replicas of istiod to conflict when patching mutating or validating webhook configurations.
