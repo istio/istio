@@ -93,7 +93,7 @@ func (ic *serviceImportCacheImpl) updateService(si *mcsCore.ServiceImport, e mod
 	}
 
 	// Update the cached service object, if it exists.
-	if svc, _ := ic.GetService(kubesr.ServiceHostnameForKR(si, ic.opts.DomainSuffix)); svc != nil {
+	if svc := ic.GetService(kubesr.ServiceHostnameForKR(si, ic.opts.DomainSuffix)); svc != nil {
 		svc.ClusterSetLocal.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
 	}
 }

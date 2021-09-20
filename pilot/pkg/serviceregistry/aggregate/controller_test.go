@@ -248,10 +248,7 @@ func TestGetService(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get service from mockAdapter1
-	svc, err := aggregateCtl.GetService(mock.HelloService.ClusterLocal.Hostname)
-	if err != nil {
-		t.Fatalf("GetService() encountered unexpected error: %v", err)
-	}
+	svc := aggregateCtl.GetService(mock.HelloService.ClusterLocal.Hostname)
 	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
@@ -260,38 +257,9 @@ func TestGetService(t *testing.T) {
 	}
 
 	// Get service from mockAdapter2
-	svc, err = aggregateCtl.GetService(mock.WorldService.ClusterLocal.Hostname)
-	if err != nil {
-		t.Fatalf("GetService() encountered unexpected error: %v", err)
-	}
+	svc = aggregateCtl.GetService(mock.WorldService.ClusterLocal.Hostname)
 	if svc == nil {
 		t.Fatal("Fail to get service")
-	}
-	if svc.ClusterLocal.Hostname != mock.WorldService.ClusterLocal.Hostname {
-		t.Fatal("Returned service is incorrect")
-	}
-}
-
-func TestGetServiceError(t *testing.T) {
-	aggregateCtl := buildMockController()
-
-	discovery1.GetServiceError = errors.New("mock GetService() error")
-
-	// Get service from client with error
-	svc, err := aggregateCtl.GetService(mock.HelloService.ClusterLocal.Hostname)
-	if err == nil {
-		fmt.Println(svc)
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no service is found")
-	}
-	if svc != nil {
-		t.Fatal("GetService() should return nil if no service found")
-	}
-
-	// Get service from client without error
-	svc, err = aggregateCtl.GetService(mock.WorldService.ClusterLocal.Hostname)
-	if err != nil {
-		t.Fatal("Aggregate controller should not return error if service is found")
 	}
 	if svc.ClusterLocal.Hostname != mock.WorldService.ClusterLocal.Hostname {
 		t.Fatal("Returned service is incorrect")

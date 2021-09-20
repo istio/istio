@@ -106,7 +106,7 @@ func newTestServiceImportCache(t *testing.T, stopCh chan struct{}) *serviceImpor
 
 	// Wait for the resources to be processed by the controller.
 	retry.UntilSuccessOrFail(t, func() error {
-		if svc, _ := ic.GetService(ic.serviceHostname()); svc == nil {
+		if svc := ic.GetService(ic.serviceHostname()); svc == nil {
 			return fmt.Errorf("failed looking up service for host %s", ic.serviceHostname())
 		}
 		inst := ic.getProxyServiceInstances()
