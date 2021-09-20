@@ -1136,10 +1136,6 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 		t.Fatalf("failed to get HCM, config %v", hcm)
 	}
 
-	if hcm.DelayedCloseTimeout.AsDuration() != features.DelayedCloseTimeout.AsDuration() {
-		t.Fatalf("unexpected delayed close timeout expected :%v, got :%v", features.DelayedCloseTimeout, hcm.DelayedCloseTimeout)
-	}
-
 	hasAlpn := hasAlpnFilter(hcm.HttpFilters)
 
 	if direction == model.TrafficDirectionInbound && hasAlpn {
