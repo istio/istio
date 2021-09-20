@@ -219,12 +219,8 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager
-	tokenManager, err := CreateTokenManager(GoogleTokenExchange,
-		Config{CredFetcher: nil, TrustDomain: mock.FakeTrustDomain})
-	if err != nil {
-		t.Fatalf("failed to create a token manager: %v", err)
-	}
-	tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
+	tokenManager := &TokenManager{}
+	tokenManager.SetPlugin(tokenExchangePlugin)
 	// Create STS server
 	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: "127.0.0.1", LocalPort: 0}, tokenManager)
 	// Create test client
