@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -803,6 +804,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
+				Filters: []*cluster.Filter{xdsfilters.TCPClusterMx},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
 						util.IstioMetadataKey: {
@@ -889,6 +891,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
+				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LoadAssignment: &endpoint.ClusterLoadAssignment{
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{

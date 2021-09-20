@@ -414,6 +414,10 @@ var (
 		"If true, pilot will add telemetry related metadata to Endpoint resource, which will be consumed by telemetry filter.",
 	).Get()
 
+	MetadataExchange = env.RegisterBoolVar("PILOT_ENABLE_METADATA_EXCHANGE", true,
+		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
+	).Get()
+
 	WorkloadEntryAutoRegistration = env.RegisterBoolVar("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 

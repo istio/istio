@@ -173,3 +173,13 @@ func (t TunnelType) ToString() string {
 func (t TunnelAbility) SupportH2Tunnel() bool {
 	return (int(t) & int(H2Tunnel)) != 0
 }
+
+// ListenerClass defines the class of the listener
+type ListenerClass int
+
+const (
+	ListenerClassUndefined ListenerClass = iota
+	ListenerClassSidecarInbound
+	ListenerClassSidecarOutbound
+	ListenerClassGateway
+)

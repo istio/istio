@@ -102,9 +102,9 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				},
 			}
 
-			listeners := buildInboundNetworkFilters(env.PushContext, instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
+			listenerFilters := buildInboundNetworkFilters(env.PushContext, instance, model.BuildInboundSubsetKey(int(instance.Endpoint.EndpointPort)))
 			tcp := &tcp.TcpProxy{}
-			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
+			listenerFilters[len(listenerFilters)-1].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
 			}

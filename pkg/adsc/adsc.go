@@ -658,11 +658,14 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			// TODO: extract VIP and RDS or cluster
 			continue
 		}
-		filter := l.FilterChains[len(l.FilterChains)-1].Filters[0]
+		fc := l.FilterChains[len(l.FilterChains)-1]
+		// Find the terminal filter
+		filter := fc.Filters[len(fc.Filters)-1]
 
 		// The actual destination will be the next to the last if the last filter is a passthrough filter
-		if l.FilterChains[len(l.FilterChains)-1].GetName() == util.PassthroughFilterChain {
-			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
+		if fc.GetName() == util.PassthroughFilterChain {
+			fc = l.FilterChains[len(l.FilterChains)-2]
+			filter = fc.Filters[len(fc.Filters)-1]
 		}
 
 		switch filter.Name {
