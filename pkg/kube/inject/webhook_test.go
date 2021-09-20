@@ -459,6 +459,58 @@ func TestInjectRequired(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:      "policy-disabled-label-enabled",
+				Namespace: "test-namespace",
+				// Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels: map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-both-enabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-label-enabled-annotation-disabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "true"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "policy-disabled-label-disabled-annotation-enabled",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "true"},
+				Labels:      map[string]string{annotation.SidecarInject.Name: "false"},
+			},
+			want: false,
+		},
 	}
 
 	for _, c := range cases {

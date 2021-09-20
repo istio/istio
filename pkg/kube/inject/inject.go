@@ -185,13 +185,16 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	annos := metadata.GetAnnotations()
-	if annos == nil {
-		annos = map[string]string{}
-	}
 
 	var useDefault bool
 	var inject bool
-	switch strings.ToLower(annos[annotation.SidecarInject.Name]) {
+
+	objectSelector := annos[annotation.SidecarInject.Name]
+	if lbl, labelPresent := metadata.GetLabels()[annotation.SidecarInject.Name]; labelPresent {
+		// The label is the new API; if both are present we prefer the label
+		objectSelector = lbl
+	}
+	switch strings.ToLower(objectSelector) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":
 		inject = true
