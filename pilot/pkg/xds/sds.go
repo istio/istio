@@ -151,24 +151,24 @@ func (s *SecretGen) Generate(proxy *model.Proxy, push *model.PushContext, w *mod
 
 		isCAOnlySecret := strings.HasSuffix(sr.Name, GatewaySdsCaSuffix)
 		if isCAOnlySecret {
-			secret := secretController.GetCaCert(sr.Name, sr.Namespace)
-			if secret != nil {
+			secret, err := secretController.GetCaCert(sr.Name, sr.Namespace)
+			if err != nil {
+				pilotSDSCertificateErrors.Increment()
+				log.Warnf("failed to fetch ca certificate for %v: %v", sr.ResourceName, err)
+			} else {
 				res := toEnvoyCaSecret(sr.ResourceName, secret)
 				results = append(results, res)
 				s.cache.Add(sr, req, res)
-			} else {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch ca certificate for %v", sr.ResourceName)
 			}
 		} else {
-			key, cert := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
-			if key != nil && cert != nil {
+			key, cert, err := secretController.GetKeyAndCert(sr.Name, sr.Namespace)
+			if err != nil {
+				pilotSDSCertificateErrors.Increment()
+				log.Warnf("failed to fetch key and certificate for %v: %v", sr.ResourceName, err)
+			} else {
 				res := toEnvoyKeyCertSecret(sr.ResourceName, key, cert)
 				results = append(results, res)
 				s.cache.Add(sr, req, res)
-			} else {
-				pilotSDSCertificateErrors.Increment()
-				log.Warnf("failed to fetch key and certificate for %v", sr.ResourceName)
 			}
 		}
 	}
