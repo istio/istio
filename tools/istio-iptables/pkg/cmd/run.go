@@ -126,6 +126,7 @@ func (iptConfigurator *IptablesConfigurator) logConfig() {
 	b.WriteString(fmt.Sprintf("ISTIO_INBOUND_PORTS=%s\n", os.Getenv("ISTIO_INBOUND_PORTS")))
 	b.WriteString(fmt.Sprintf("ISTIO_OUTBOUND_PORTS=%s\n", os.Getenv("ISTIO_OUTBOUND_PORTS")))
 	b.WriteString(fmt.Sprintf("ISTIO_LOCAL_EXCLUDE_PORTS=%s\n", os.Getenv("ISTIO_LOCAL_EXCLUDE_PORTS")))
+	b.WriteString(fmt.Sprintf("ISTIO_EXCLUDE_INTERFACES=%s\n", os.Getenv("ISTIO_EXCLUDE_INTERFACES")))
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_CIDR")))
 	b.WriteString(fmt.Sprintf("ISTIO_SERVICE_EXCLUDE_CIDR=%s\n", os.Getenv("ISTIO_SERVICE_EXCLUDE_CIDR")))
 	b.WriteString(fmt.Sprintf("ISTIO_META_DNS_CAPTURE=%s", os.Getenv("ISTIO_META_DNS_CAPTURE")))
@@ -364,6 +365,33 @@ func (iptConfigurator *IptablesConfigurator) shortCircuitKubeInternalInterface()
 	}
 }
 
+func (iptConfigurator *IptablesConfigurator) shortCircuitExcludeInterfaces() {
+	for _, excludeInterface := range split(iptConfigurator.cfg.ExcludeInterfaces) {
+		iptConfigurator.iptables.AppendRuleV4(
+			constants.PREROUTING, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-o", excludeInterface, "-j", constants.RETURN)
+		if iptConfigurator.cfg.EnableInboundIPv6 {
+			iptConfigurator.iptables.AppendRuleV6(
+				constants.PREROUTING, constants.NAT, "-i", excludeInterface, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.NAT, "-o", excludeInterface, "-j", constants.RETURN)
+		}
+
+	}
+	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
+		for _, excludeInterface := range split(iptConfigurator.cfg.ExcludeInterfaces) {
+			iptConfigurator.iptables.AppendRuleV4(
+				constants.PREROUTING, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE, "-o", excludeInterface, "-j", constants.RETURN)
+
+			if iptConfigurator.cfg.EnableInboundIPv6 {
+				iptConfigurator.iptables.AppendRuleV6(
+					constants.PREROUTING, constants.MANGLE, "-i", excludeInterface, "-j", constants.RETURN)
+				iptConfigurator.iptables.AppendRuleV6(constants.OUTPUT, constants.MANGLE, "-o", excludeInterface, "-j", constants.RETURN)
+			}
+		}
+	}
+}
+
 func SplitV4V6(ips []string) (ipv4 []string, ipv6 []string) {
 	for _, i := range ips {
 		parsed := net.ParseIP(i)
@@ -409,6 +437,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		// TODO: (abhide): Move this out of this method
 		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
+
+	iptConfigurator.shortCircuitExcludeInterfaces()
 
 	// Do not capture internal interface.
 	iptConfigurator.shortCircuitKubeInternalInterface()

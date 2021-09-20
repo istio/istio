@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 34753
+releaseNotes:
+  - |
+    **Updated** allow specifying NICs that bypassing traffic capture in istio iptables.

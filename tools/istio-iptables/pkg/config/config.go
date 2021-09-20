@@ -42,6 +42,7 @@ type Config struct {
 	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
 	OutboundIPRangesExclude string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
 	KubevirtInterfaces      string        `json:"KUBEVIRT_INTERFACES"`
+	ExcludeInterfaces       string        `json:"EXCLUDE_INTERFACES"`
 	IptablesProbePort       uint16        `json:"IPTABLES_PROBE_PORT"`
 	ProbeTimeout            time.Duration `json:"PROBE_TIMEOUT"`
 	DryRun                  bool          `json:"DRY_RUN"`
@@ -89,6 +90,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
 	b.WriteString(fmt.Sprintf("OUTPUT_PATH=%s\n", c.OutputPath))
 	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
-	b.WriteString(fmt.Sprintf("CNI_MODE=%s", strconv.FormatBool(c.CNIMode)))
+	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.CNIMode)))
+	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
 	log.Infof("Istio iptables variables:\n%s", b.String())
 }
