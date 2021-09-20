@@ -67,7 +67,7 @@ func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 // NewWebhookCertPatcher creates a WebhookCertPatcher
 func NewWebhookCertPatcher(
 	client kubernetes.Interface,
-	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) (*WebhookCertPatcher, error) {
+	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher) *WebhookCertPatcher {
 	whcLw := cache.NewFilteredListWatchFromClient(
 		client.AdmissionregistrationV1().RESTClient(),
 		"mutatingwebhookconfigurations",
@@ -82,7 +82,7 @@ func NewWebhookCertPatcher(
 		CABundleWatcher: caBundleWatcher,
 		queue:           queue.NewQueue(time.Second * 2),
 		whcLw:           whcLw,
-	}, nil
+	}
 }
 
 func (w *WebhookCertPatcher) runWebhookController(stopChan <-chan struct{}) {

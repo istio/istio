@@ -95,12 +95,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 			go leaderelection.NewPerRevisionLeaderElection(args.Namespace, args.PodName, args.Revision, leaderelection.MutatingWebhookController, s.kubeClient.Kube()).
 				AddRunFunction(func(stop <-chan struct{}) {
 					// update webhook configuration by watching the cabundle
-					patcher, err := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, s.istiodCertBundleWatcher)
-					if err != nil {
-						// HANDLE THIS ERROR BETTER, CANNOT JUST RETURN?
-						log.Errorf("failed to create webhook cert patcher: %v", err)
-						return
-					}
+					patcher := webhooks.NewWebhookCertPatcher(s.kubeClient, args.Revision, webhookName, s.istiodCertBundleWatcher)
 					patcher.Run(stop)
 				}).Run(stop)
 			return nil

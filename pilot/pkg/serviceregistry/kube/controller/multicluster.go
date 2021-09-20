@@ -249,12 +249,8 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 			go leaderelection.NewPerRevisionLeaderElection(options.SystemNamespace, m.serverID, m.revision, leaderelection.MutatingWebhookController, client.Kube()).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("initializing webhook cert patch for cluster %s", clusterID)
-					patcher, err := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher)
-					if err != nil {
-						log.Errorf("could not initialize webhook cert patcher: %v", err)
-					} else {
-						patcher.Run(clusterStopCh)
-					}
+					patcher := webhooks.NewWebhookCertPatcher(client.Kube(), m.revision, webhookName, m.caBundleWatcher)
+					patcher.Run(clusterStopCh)
 				}).Run(clusterStopCh)
 		}
 		// Patch validation webhook cert
