@@ -41,7 +41,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	}
 
 	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			go leaderelection.NewPerRevisionLeaderElection(args.Namespace, args.PodName, args.Revision, leaderelection.MutatingWebhookController, s.kubeClient.Kube()).
 				AddRunFunction(func(stop <-chan struct{}) {
 					log.Infof("Starting validation controller")

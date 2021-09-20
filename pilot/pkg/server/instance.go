@@ -39,7 +39,7 @@ type Instance interface {
 	RunComponentAsync(t Component)
 
 	// RunComponentAsync runs the given component asynchronously. When
-	// the serer Instance is shutting down, it will wait for the component
+	// the server Instance is shutting down, it will wait for the component
 	// to complete before exiting.
 	// Note: this is best effort; a process can die at any time.
 	RunComponentAsyncAndWait(t Component)

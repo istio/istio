@@ -91,7 +91,7 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	// This requires RBAC permissions - a low-priv Istiod should not attempt to patch but rely on
 	// operator or CI/CD
 	if features.InjectionWebhookConfigName != "" {
-		s.addStartFunc(func(stop <-chan struct{}) error {
+		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			go leaderelection.NewPerRevisionLeaderElection(args.Namespace, args.PodName, args.Revision, leaderelection.MutatingWebhookController, s.kubeClient.Kube()).
 				AddRunFunction(func(stop <-chan struct{}) {
 					// update webhook configuration by watching the cabundle

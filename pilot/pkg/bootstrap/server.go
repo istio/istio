@@ -810,7 +810,7 @@ func (s *Server) addReadinessProbe(name string, fn readinessProbe) {
 
 // addTerminatingStartFunc adds a function that should terminate before the serve shuts down
 // This is useful to do cleanup activities
-// This is does not guarantee they will terminate gracefully - best effort only
+// This does not guarantee they will terminate gracefully - best effort only
 // Function should be synchronous; once it returns it is considered "done"
 func (s *Server) addTerminatingStartFunc(fn server.Component) {
 	s.server.RunComponentAsyncAndWait(fn)

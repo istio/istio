@@ -147,20 +147,10 @@ func NewLeaderElection(namespace, name, electionID string, client kubernetes.Int
 // For instance, in webhook patching, we want each revision to handle its own patching, but only a
 // single replica within that revision.
 func NewPerRevisionLeaderElection(namespace, name, revision, electionID string, client kubernetes.Interface) *LeaderElection {
-	if name == "" {
-		name = "unknown"
-	}
 	if revision != "" {
 		electionID = fmt.Sprintf("%s-%s", electionID, revision)
 	}
-	return &LeaderElection{
-		namespace:  namespace,
-		name:       name,
-		revision:   revision,
-		electionID: electionID,
-		client:     client,
-		// Default to a 30s ttl. Overridable for tests
-		ttl:   time.Second * 30,
-		cycle: atomic.NewInt32(0),
-	}
+	le := NewLeaderElection(namespace, name, electionID, client)
+	le.revision = revision
+	return le
 }
