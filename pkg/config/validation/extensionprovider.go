@@ -59,7 +59,7 @@ func validateExtensionProviderEnvoyExtAuthzStatusOnError(status string) error {
 	return nil
 }
 
-func validateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) (errs error) {
+func ValidateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider) (errs error) {
 	if config == nil {
 		return fmt.Errorf("nil EnvoyExternalAuthorizationHttpProvider")
 	}
@@ -83,7 +83,7 @@ func validateExtensionProviderEnvoyExtAuthzHTTP(config *meshconfig.MeshConfig_Ex
 	return
 }
 
-func validateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (errs error) {
+func ValidateExtensionProviderEnvoyExtAuthzGRPC(config *meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider) (errs error) {
 	if config == nil {
 		return fmt.Errorf("nil EnvoyExternalAuthorizationGrpcProvider")
 	}
@@ -195,9 +195,9 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 
 		switch provider := c.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyExtAuthzHTTP(provider.EnvoyExtAuthzHttp))
+			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzHTTP(provider.EnvoyExtAuthzHttp))
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			currentErrs = appendErrors(currentErrs, validateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
+			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingZipkin(provider.Zipkin))
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
