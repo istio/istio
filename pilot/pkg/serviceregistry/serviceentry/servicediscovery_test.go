@@ -101,7 +101,7 @@ func (fx *FakeXdsUpdater) ProxyUpdate(_ cluster.ID, ip string) {
 	fx.Events <- Event{kind: "xds", proxyIP: ip}
 }
 
-func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace string, event model.Event) {
+func (fx *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, hostname string, namespace string, _ model.Event) {
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
@@ -177,18 +177,12 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 
 	sd.refreshIndexes.Store(true)
 
-	service, err := sd.GetService(host.Name(hostDNE))
-	if err != nil {
-		t.Errorf("GetService() encountered unexpected error: %v", err)
-	}
+	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.ClusterLocal.Hostname)
 	}
 
-	service, err = sd.GetService(host.Name(hostname))
-	if err != nil {
-		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
-	}
+	service = sd.GetService(host.Name(hostname))
 	if service == nil {
 		t.Fatalf("GetService(%q) => should exist", hostname)
 	}
@@ -1419,10 +1413,7 @@ func TestWorkloadEntryOnlyMode(t *testing.T) {
 	if len(svcs) > 0 {
 		t.Fatalf("expected 0 services, got %d", len(svcs))
 	}
-	svc, err := registry.GetService("*.google.com")
-	if err != nil {
-		t.Fatal(err)
-	}
+	svc := registry.GetService("*.google.com")
 	if svc != nil {
 		t.Fatalf("expected nil, got %v", svc)
 	}

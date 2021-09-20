@@ -98,9 +98,9 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 
 	// Ensure that the service is available.
 	hostname := kube.ServiceHostname(svcName, ns, controller.opts.DomainSuffix)
-	svc, err := controller.GetService(hostname)
+	svc := controller.GetService(hostname)
 	if svc == nil {
-		t.Fatalf("failed to get service: %v", err)
+		t.Fatal("failed to get service")
 	}
 
 	// Create an endpoint that indicates it's an MCS endpoint for the service.

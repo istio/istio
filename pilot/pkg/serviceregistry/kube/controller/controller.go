@@ -778,11 +778,11 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation by hostname specified.
-func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) *model.Service {
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
-	return svc, nil
+	return svc
 }
 
 // getPodLocality retrieves the locality for a pod.
@@ -1015,10 +1015,7 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*mode
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
-			var service *model.Service
-			c.RLock()
-			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix)]
-			c.RUnlock()
+			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
 			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
@@ -1074,10 +1071,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
-			var service *model.Service
-			c.RLock()
-			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix)]
-			c.RUnlock()
+			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
 			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
@@ -1167,10 +1161,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	out := make([]*model.ServiceInstance, 0)
 	for _, svc := range services {
 		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)
-		c.RLock()
-		modelService, f := c.servicesMap[hostname]
-		c.RUnlock()
-		if !f {
+		modelService := c.GetService(hostname)
+		if modelService == nil {
 			return nil, fmt.Errorf("failed to find model service for %v", hostname)
 		}
 
@@ -1227,9 +1219,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(service.Name, service.Namespace, c.opts.DomainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
+	svc := c.GetService(hostname)
 
 	if svc == nil {
 		return out
