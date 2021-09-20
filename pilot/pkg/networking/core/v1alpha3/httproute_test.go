@@ -1082,7 +1082,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:70": {
-					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
+					"*": true,
 				},
 			},
 			registryOnly: true,
