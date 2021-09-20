@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 34679
+
+releaseNotes:
+- |
+  **Improved** support for headless services with undeclared protocols to not required specific `Host` headers.

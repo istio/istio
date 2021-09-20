@@ -463,7 +463,14 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	}
 
 	if len(virtualHosts) == 0 {
-		virtualHosts = vhosts
+		return virtualHosts
+	}
+	if len(virtualHosts) == 1 {
+		virtualHosts[0].Domains = []string{"*"}
+		return virtualHosts
+	}
+	if features.EnableUnsafeAssertions {
+		panic(fmt.Sprintf("unexpectedly matched multiple virtual hosts for %v: %v", routeName, virtualHosts))
 	}
 	return virtualHosts
 }
