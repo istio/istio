@@ -99,12 +99,8 @@ if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
   EXEC_USER=root
 fi
 
-# TODO this is a hack
-EXPLICITLY_SET_PILOT_ADDRESS=0
 if [ -z "${PILOT_ADDRESS:-}" ]; then
   PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
-else
-  EXPLICITLY_SET_PILOT_ADDRESS=1
 fi
 
 CA_ADDR=${CA_ADDR:-${PILOT_ADDRESS}}
@@ -125,12 +121,6 @@ serviceCluster: $SVC
 controlPlaneAuthPolicy: ${CONTROL_PLANE_AUTH_POLICY}
 discoveryAddress: ${PILOT_ADDRESS}
 "}
-
-if [ "${EXPLICITLY_SET_PILOT_ADDRESS}" ]; then
-  PROXY_CONFIG="$PROXY_CONFIG
-  discoveryAddress: ${PILOT_ADDRESS}
-"
-fi
 
 if [ ${EXEC_USER} == "${USER:-}" ] ; then
   # if started as istio-proxy (or current user), do a normal start, without
