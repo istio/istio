@@ -370,7 +370,7 @@ spec:
 
           # place mounted bootstrap files (token is mounted directly to the correct location)
           sudo cp /var/run/secrets/istio/bootstrap/root-cert.pem /var/run/secrets/istio/root-cert.pem
-          sudo cp /var/run/secrets/istio/bootstrap/cluster.env /var/lib/istio/envoy/cluster.env
+          sudo cp /var/run/secrets/istio/bootstrap/*.env /var/lib/istio/envoy/
           sudo cp /var/run/secrets/istio/bootstrap/mesh.yaml /etc/istio/config/mesh
           sudo sh -c 'cat /var/run/secrets/istio/bootstrap/hosts >> /etc/hosts'
 
@@ -835,8 +835,15 @@ spec:
 
 		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
-		for _, file := range []string{"cluster.env", "mesh.yaml", "root-cert.pem", "hosts"} {
-			cmData[file], err = os.ReadFile(path.Join(subsetDir, file))
+		generatedFiles, err := os.ReadDir(subsetDir)
+		if err != nil {
+			return err
+		}
+		for _, file := range generatedFiles {
+			if file.IsDir() {
+				continue
+			}
+			cmData[file.Name()], err = os.ReadFile(path.Join(subsetDir, file.Name()))
 			if err != nil {
 				return err
 			}
