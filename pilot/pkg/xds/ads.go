@@ -669,6 +669,11 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		proxy.SetSidecarScope(push)
 	case gateway && proxy.Type == model.Router:
 		proxy.SetGatewaysForProxy(push)
+		// If any config related to service entry changes like adding a new service entry
+		// we should recompute the default sidecar scope for gateways.
+		if sidecar {
+			proxy.SetSidecarScope(push)
+		}
 	default:
 		proxy.SetSidecarScope(push)
 		proxy.SetGatewaysForProxy(push)

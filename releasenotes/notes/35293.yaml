@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 35172
+releaseNotes:
+- |
+  **Fixed** an issue when creating a Service and Gateway at the same time, causing the Service to be ignored.
