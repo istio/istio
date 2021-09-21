@@ -95,9 +95,10 @@ func TestMultiRevision(t *testing.T) {
 				}).
 				// tests bootstrap
 				WithConfig(echo.Config{
-					Service:   "vm",
-					Namespace: canary,
-					Ports:     []echo.Port{},
+					Service:    "vm",
+					Namespace:  canary,
+					DeployAsVM: true,
+					Ports:      []echo.Port{},
 				}).
 				BuildOrFail(t)
 			retry.UntilSuccessOrFail(t, func() error {
