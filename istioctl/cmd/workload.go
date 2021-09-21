@@ -474,7 +474,8 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		return nil, err
 	}
 	if revision != "" && revision != "default" && meshConfig.DefaultConfig.DiscoveryAddress == "" {
-		meshConfig.DefaultConfig.DiscoveryAddress = fmt.Sprintf("istiod-%s.%s.svc.cluster.local", revision, istioNamespace)
+		// TODO make port configurable
+		meshConfig.DefaultConfig.DiscoveryAddress = fmt.Sprintf("istiod-%s.%s.svc.cluster.local:15012", revision, istioNamespace)
 	}
 
 	// performing separate map-merge, apply seems to completely overwrite all metadata
