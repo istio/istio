@@ -52,7 +52,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	}
 
 	for _, svc := range cfg.Push.Services(cfg.Node) {
-		svcAddress := svc.GetClusterLocalAddressForProxy(cfg.Node)
+		svcAddress := svc.GetAddressForProxy(cfg.Node)
 		var addressList []string
 
 		if svcAddress != constants.UnspecifiedIP {

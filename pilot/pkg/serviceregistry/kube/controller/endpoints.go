@@ -65,10 +65,7 @@ func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *mod
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.opts.DomainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-
+	svc := c.GetService(hostname)
 	if svc != nil {
 		pod := c.pods.getPodByProxy(proxy)
 		builder := NewEndpointBuilder(c, pod)

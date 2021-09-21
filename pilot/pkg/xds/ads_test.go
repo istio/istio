@@ -215,7 +215,7 @@ func TestAdsPushScoping(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: hostname,
 				},
-				Address: "10.11.0.1",
+				DefaultAddress: "10.11.0.1",
 				Ports: []*model.Port{
 					{
 						Name:     "http-main",
@@ -754,7 +754,7 @@ func TestAdsUpdate(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: "adsupdate.default.svc.cluster.local",
 		},
-		Address: "10.11.0.1",
+		DefaultAddress: "10.11.0.1",
 		Ports: []*model.Port{
 			{
 				Name:     "http-main",

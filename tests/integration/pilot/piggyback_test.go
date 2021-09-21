@@ -32,6 +32,7 @@ func TestPiggyback(t *testing.T) {
 	framework.
 		NewTest(t).Features("usability.observability.proxy-status"). // TODO create new "agent-piggyback" feature
 		RequiresSingleCluster().
+		RequiresLocalControlPlane().
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			execCmd := fmt.Sprintf(

@@ -85,8 +85,8 @@ func (ec *serviceExportCacheImpl) onEvent(obj interface{}, event model.Event) er
 
 func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
 	hostname := kubesr.ServiceHostnameForKR(se, ec.opts.DomainSuffix)
-	svc, err := ec.GetService(hostname)
-	if err != nil {
+	svc := ec.GetService(hostname)
+	if svc == nil {
 		// The service doesn't exist - nothing to update.
 		return
 	}

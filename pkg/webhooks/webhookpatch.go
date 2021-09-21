@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	v1 "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,12 +76,17 @@ func NewWebhookCertPatcher(
 		func(options *metav1.ListOptions) {
 			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 		})
+	retryBackoff := backoff.NewExponentialBackOff()
+	retryBackoff.InitialInterval = 2 * time.Second
+	retryBackoff.MaxInterval = 15 * time.Minute // Max Backoff interval.
+	// If certificate has not been patched with in an hour of retries, let us stop retrying.
+	retryBackoff.MaxElapsedTime = 0
 	return &WebhookCertPatcher{
 		client:          client,
 		revision:        revision,
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
-		queue:           queue.NewQueue(time.Second * 2),
+		queue:           queue.NewBackOffQueue(retryBackoff),
 		whcLw:           whcLw,
 	}, nil
 }

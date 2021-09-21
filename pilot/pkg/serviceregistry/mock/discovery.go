@@ -72,7 +72,7 @@ func MakeService(args ServiceArgs) *model.Service {
 				Addresses: map[cluster.ID][]string{args.ClusterID: args.ClusterSetIPs},
 			},
 		},
-		Address:         args.Address,
+		DefaultAddress:  args.Address,
 		ServiceAccounts: args.ServiceAccounts,
 		Ports: []*model.Port{
 			{
@@ -111,8 +111,8 @@ func MakeExternalHTTPService(hostname host.Name, isMeshExternal bool, address st
 		ClusterLocal: model.HostVIPs{
 			Hostname: hostname,
 		},
-		Address:      address,
-		MeshExternal: isMeshExternal,
+		DefaultAddress: address,
+		MeshExternal:   isMeshExternal,
 		Ports: []*model.Port{{
 			Name:     "http",
 			Port:     80,
@@ -128,8 +128,8 @@ func MakeExternalHTTPSService(hostname host.Name, isMeshExternal bool, address s
 		ClusterLocal: model.HostVIPs{
 			Hostname: hostname,
 		},
-		Address:      address,
-		MeshExternal: isMeshExternal,
+		DefaultAddress: address,
+		MeshExternal:   isMeshExternal,
 		Ports: []*model.Port{{
 			Name:     "https",
 			Port:     443,
@@ -169,7 +169,7 @@ func MakeIP(service *model.Service, version int) string {
 	if service.External() {
 		return ""
 	}
-	ip := net.ParseIP(service.Address).To4()
+	ip := net.ParseIP(service.DefaultAddress).To4()
 	ip[2] = byte(1)
 	ip[3] = byte(version)
 	return ip.String()
@@ -181,7 +181,6 @@ type ServiceDiscovery struct {
 	versions                      int
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
-	GetServiceError               error
 	GetProxyServiceInstancesError error
 }
 
@@ -198,12 +197,8 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 }
 
 // GetService implements discovery interface
-func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
-	if sd.GetServiceError != nil {
-		return nil, sd.GetServiceError
-	}
-	val := sd.services[hostname]
-	return val, sd.GetServiceError
+func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
+	return sd.services[hostname]
 }
 
 // InstancesByPort implements discovery interface

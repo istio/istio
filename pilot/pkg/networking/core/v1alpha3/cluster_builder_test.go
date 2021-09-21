@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -69,7 +70,6 @@ func TestApplyDestinationRule(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("foo.default.svc.cluster.local"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
@@ -241,6 +241,26 @@ func TestApplyDestinationRule(t *testing.T) {
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
 		{
+			name:        "destination rule with maxRequestsPerConnection",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			networkView: map[network.ID]bool{},
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:               10,
+							MaxRequestsPerConnection: 10,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
 			name:        "subset without labels in both",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
@@ -248,7 +268,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -273,7 +292,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -299,7 +317,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -328,7 +345,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterLocal: model.HostVIPs{
 					Hostname: host.Name("foo.example.com"),
 				},
-				Address:    "1.1.1.1",
 				Ports:      servicePort,
 				Resolution: model.DNSLB,
 				Attributes: model.ServiceAttributes{
@@ -407,6 +423,21 @@ func TestApplyDestinationRule(t *testing.T) {
 					ec.httpProtocolOptions.GetUseDownstreamProtocolConfig() == nil {
 					t.Errorf("Expected cluster %s to have downstream protocol options but not found", tt.cluster.Name)
 				}
+			}
+
+			// Validate that use client protocol configures cluster correctly.
+			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxRequestsPerConnection > 0 {
+				if ec.httpProtocolOptions == nil {
+					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
+				}
+				if ec.httpProtocolOptions.CommonHttpProtocolOptions == nil {
+					t.Errorf("Expected cluster %s to have common http protocol options but not found", tt.cluster.Name)
+				}
+				if ec.httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue() !=
+					uint32(tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxRequestsPerConnection) {
+					t.Errorf("Unexpected max_requests_per_connection found")
+				}
+
 			}
 
 			// Validate that ORIGINAL_DST cluster does not have load assignments
@@ -773,6 +804,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 				},
+				Filters: []*cluster.Filter{xdsfilters.TCPClusterMx},
 				Metadata: &core.Metadata{
 					FilterMetadata: map[string]*structpb.Struct{
 						util.IstioMetadataKey: {
@@ -859,6 +891,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Name:                 "foo",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 				ConnectTimeout:       &duration.Duration{Seconds: 10, Nanos: 1},
+				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LoadAssignment: &endpoint.ClusterLoadAssignment{
 					ClusterName: "foo",
 					Endpoints: []*endpoint.LocalityLbEndpoints{
@@ -955,7 +988,6 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("*.example.org"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      model.PortList{servicePort},
 		Resolution: model.DNSLB,
 		Attributes: model.ServiceAttributes{
@@ -2748,7 +2780,6 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("foo.default.svc.cluster.local"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{

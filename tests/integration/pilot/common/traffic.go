@@ -244,6 +244,11 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps *EchoDep
 	cases["tls-origination"] = tlsOriginationCases(apps)
 	cases["instanceip"] = instanceIPTests(apps)
 	cases["services"] = serviceCases(apps)
+	if h, err := hostCases(apps); err != nil {
+		t.Fatal("failed to setup host cases: %v", err)
+	} else {
+		cases["host"] = h
+	}
 	cases["envoyfilter"] = envoyFilterCases(apps)
 	if len(t.Clusters().ByNetwork()) == 1 {
 		// Consistent hashing does not work for multinetwork. The first request will consistently go to a

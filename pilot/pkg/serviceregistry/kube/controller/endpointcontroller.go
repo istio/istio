@@ -87,20 +87,18 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 }
 
 func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
-	host, svcName, ns := epc.getServiceInfo(ep)
+	hostName, svcName, ns := epc.getServiceInfo(ep)
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, ns)
 	var endpoints []*model.IstioEndpoint
 	if event == model.EventDelete {
 		endpoints = epc.forgetEndpoint(ep)
 	} else {
-		endpoints = epc.buildIstioEndpoints(ep, host)
+		endpoints = epc.buildIstioEndpoints(ep, hostName)
 	}
 
 	// handling k8s service selecting workload entries
 	if features.EnableK8SServiceSelectWorkloadEntries {
-		c.RLock()
-		svc := c.servicesMap[host]
-		c.RUnlock()
+		svc := c.GetService(hostName)
 		if svc != nil {
 			fep := c.collectWorkloadInstanceEndpoints(svc)
 			endpoints = append(endpoints, fep...)
@@ -110,7 +108,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
-	c.opts.XDSUpdater.EDSUpdate(shard, string(host), ns, endpoints)
+	c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), ns, endpoints)
 }
 
 // getPod fetches a pod by name or IP address.

@@ -32,10 +32,11 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20210804104954-38ab4c606ee3
-	github.com/envoyproxy/go-control-plane v0.9.10-0.20210804155723-c55ac1656905
+	github.com/envoyproxy/go-control-plane v0.9.10-0.20210902042146-151bc0c70919
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.5.0
 	github.com/fatih/color v1.12.0
+	github.com/florianl/go-nflog/v2 v2.0.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/gogo/protobuf v1.3.2
@@ -84,18 +85,18 @@ require (
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gomodules.xyz/jsonpatch/v2 v2.2.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	google.golang.org/api v0.54.0
-	google.golang.org/genproto v0.0.0-20210813162853-db860fec028c
+	google.golang.org/api v0.56.0
+	google.golang.org/genproto v0.0.0-20210909211513-a8c4777a87af
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.6.1-0.20210825143946-c635f6610384
-	istio.io/api v0.0.0-20210908191335-4c3fa7872b75
-	istio.io/client-go v0.0.0-20210908192230-c714593a9eb4
+	istio.io/api v0.0.0-20210917144548-f167acc88a31
+	istio.io/client-go v1.12.0-alpha.1.0.20210917145048-91f7936d185f
 	istio.io/gogo-genproto v0.0.0-20210806192525-32ebb2f9006c
-	istio.io/pkg v0.0.0-20210806192335-d58436bead18
+	istio.io/pkg v0.0.0-20210914184925-da9399ebffe5
 	k8s.io/api v0.22.1
 	k8s.io/apiextensions-apiserver v0.22.1
 	k8s.io/apimachinery v0.22.1

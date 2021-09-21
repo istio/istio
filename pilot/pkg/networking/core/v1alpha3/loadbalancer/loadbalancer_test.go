@@ -571,7 +571,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 			ClusterLocal: model.HostVIPs{
 				Hostname: "test.example.org",
 			},
-			Address: "1.1.1.1",
+			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -627,7 +627,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 			ClusterLocal: model.HostVIPs{
 				Hostname: "test.example.org",
 			},
-			Address: "1.1.1.1",
+			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",
@@ -688,7 +688,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 			ClusterLocal: model.HostVIPs{
 				Hostname: "test.example.org",
 			},
-			Address: "1.1.1.1",
+			DefaultAddress: "1.1.1.1",
 			Ports: model.PortList{
 				&model.Port{
 					Name:     "default",

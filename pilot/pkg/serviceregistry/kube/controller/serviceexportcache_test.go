@@ -115,7 +115,7 @@ func newTestServiceExportCache(t *testing.T, stopCh chan struct{}) *serviceExpor
 
 	// Wait for the resources to be processed by the controller.
 	retry.UntilOrFail(t, func() bool {
-		if svc, _ := ec.GetService(ec.serviceHostname()); svc == nil {
+		if svc := ec.GetService(ec.serviceHostname()); svc == nil {
 			return false
 		}
 		inst := ec.getProxyServiceInstances()

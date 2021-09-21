@@ -128,12 +128,12 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 					g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(s.Http.Http1MaxPendingRequests)))
 					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
-					// nolint: staticcheck
-					// Update to not use the deprecated fields later.
-					g.Expect(cluster.MaxRequestsPerConnection).To(Not(BeNil()))
-					// nolint: staticcheck
-					// Update to not use the deprecated fields later.
-					g.Expect(cluster.MaxRequestsPerConnection.Value).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
+					g.Expect(cluster.TypedExtensionProtocolOptions).To(Not(BeNil()))
+					anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+					g.Expect(anyOptions).To(Not(BeNil()))
+					httpProtocolOptions := &http.HttpProtocolOptions{}
+					anyOptions.UnmarshalTo(httpProtocolOptions)
+					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
 					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
 				}
@@ -295,7 +295,6 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name(c.serviceHostname),
 		},
-		Address:      "1.1.1.1",
 		Ports:        servicePort,
 		Resolution:   c.serviceResolution,
 		MeshExternal: c.externalService,
@@ -1246,7 +1245,6 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("*.example.org"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      model.PortList{servicePort},
 		Resolution: model.ClientSideLB,
 	}
@@ -1354,7 +1352,6 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("backend.default.svc.cluster.local"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      model.PortList{servicePort},
 		Resolution: model.Passthrough,
 	}
@@ -1499,7 +1496,6 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("redis.com"),
 		},
-		Address:    "1.1.1.1",
 		Ports:      model.PortList{servicePort},
 		Resolution: model.Passthrough,
 	}
@@ -1761,7 +1757,6 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("static.test"),
 		},
-		Address: "1.1.1.2",
 		Ports: []*model.Port{
 			{
 				Name:     "default",
@@ -1790,7 +1785,6 @@ func TestEnvoyFilterPatching(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name("static.test"),
 		},
-		Address: "1.1.1.1",
 		Ports: []*model.Port{
 			{
 				Name:     "default",

@@ -473,6 +473,9 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
 		return nil, err
 	}
+	if revision != "" && revision != "default" && meshConfig.DefaultConfig.DiscoveryAddress == "" {
+		meshConfig.DefaultConfig.DiscoveryAddress = fmt.Sprintf("istiod-%s.%s.svc.cluster.local", revision, istioNamespace)
+	}
 
 	// performing separate map-merge, apply seems to completely overwrite all metadata
 	proxyMetadata := meshConfig.DefaultConfig.ProxyMetadata

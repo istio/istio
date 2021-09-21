@@ -107,7 +107,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				bind:       bind,
 				port:       &model.Port{Port: int(port.Number)},
 				bindToPort: true,
-				class:      ListenerClassGateway,
+				class:      istionetworking.ListenerClassGateway,
 				transport:  transport,
 			}
 			lname := getListenerName(bind, int(port.Number), transport)
@@ -632,7 +632,6 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		ServerName:          EnvoyServerName,
 		HttpProtocolOptions: httpProtoOpts,
 		StripPortMode:       stripPortMode,
-		DelayedCloseTimeout: features.DelayedCloseTimeout,
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}

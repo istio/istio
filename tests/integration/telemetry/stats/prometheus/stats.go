@@ -113,23 +113,24 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
 						// Query client side metrics
 						if _, err := QueryPrometheus(t, c, sourceQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
+							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
 						// Query client side metrics for non-injected server
 						outOfMeshServerQuery := buildOutOfMeshServerQuery(sourceCluster)
 						if _, err := QueryPrometheus(t, c, outOfMeshServerQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
+							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
 						// Query server side metrics.
 						if _, err := QueryPrometheus(t, c, destinationQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_requests_total"))
+							t.Logf("prometheus values for istio_requests_total for cluster %v: \n%s", c.Name(), util.PromDump(c, promInst, "istio_requests_total"))
 							return err
 						}
 						// This query will continue to increase due to readiness probe; don't wait for it to converge
 						if err := QueryFirstPrometheus(t, c, appQuery, GetPromInstance()); err != nil {
-							t.Logf("prometheus values for istio_echo_http_requests_total for cluster %v: \n%s", c, util.PromDump(c, promInst, "istio_echo_http_requests_total"))
+							t.Logf("prometheus values for istio_echo_http_requests_total for cluster %v: \n%s",
+								c.Name(), util.PromDump(c, promInst, "istio_echo_http_requests_total"))
 							return err
 						}
 

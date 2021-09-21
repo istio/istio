@@ -301,7 +301,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 		ClusterLocal: model.HostVIPs{
 			Hostname: "service5.default.svc.cluster.local",
 		},
-		Address: "10.10.0.1",
+		DefaultAddress: "10.10.0.1",
 		Ports: []*model.Port{
 			{
 				Name:     "http-main",

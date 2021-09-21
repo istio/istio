@@ -17,9 +17,9 @@ package v1alpha3
 import (
 	"time"
 
+	mysql "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/network/mysql_proxy/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	mongo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mongo_proxy/v3"
-	mysql "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mysql_proxy/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	hashpolicy "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -29,8 +29,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -38,6 +40,17 @@ import (
 
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
+
+func buildTelemetryNetworkFilters(class istionetworking.ListenerClass) []*listener.Filter {
+	filterstack := make([]*listener.Filter, 0)
+
+	// We add metadata exchange on inbound only; outbound is handled in cluster filter
+	if class == istionetworking.ListenerClassSidecarInbound {
+		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
+	}
+
+	return filterstack
+}
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(push *model.PushContext, instance *model.ServiceInstance, clusterName string) []*listener.Filter {
@@ -52,7 +65,10 @@ func buildInboundNetworkFilters(push *model.PushContext, instance *model.Service
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
-	return buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)
+
+	filters := buildTelemetryNetworkFilters(istionetworking.ListenerClassSidecarInbound)
+	filters = append(filters, buildNetworkFiltersStack(instance.ServicePort, tcpFilter, statPrefix, clusterName)...)
+	return filters
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
@@ -82,7 +98,10 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
-	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
+
+	filters := buildTelemetryNetworkFilters(model.OutboundClassFromType(node.Type))
+	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	return filters
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
@@ -121,7 +140,10 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
-	return buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)
+
+	filters := buildTelemetryNetworkFilters(model.OutboundClassFromType(node.Type))
+	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
+	return filters
 }
 
 func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *tcp.TcpProxy, subsetName string) {
