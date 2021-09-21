@@ -589,7 +589,8 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 	if net.ParseIP(ingressIP) != nil {
 		hosts = fmt.Sprintf("%s %s\n", ingressIP, istiodHost(revision))
 	} else {
-		log.Warnf("Could not auto-detect IP for. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiodHost(revision), istioNamespace)
+		log.Warnf("Could not auto-detect IP for. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
+			istiodHost(revision), istioNamespace)
 	}
 	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }
