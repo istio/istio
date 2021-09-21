@@ -231,7 +231,6 @@ my_other_metric{} 0
 my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
-# EOF
 `,
 			output: `# TYPE my_metric counter
 my_metric{} 0
@@ -246,7 +245,6 @@ my_metric{} 0
 `,
 			app: `# TYPE my_other_metric counter
 my_other_metric{} 0
-# EOF
 `,
 			output: `# TYPE my_other_metric counter
 my_other_metric{} 0
@@ -274,7 +272,6 @@ my_other_metric{} 0
 `,
 			app: `# TYPE my_metric counter
 my_metric{} 0
-# EOF
 `,
 			output: `# TYPE my_metric counter
 my_metric{} 0
@@ -292,7 +289,6 @@ my_metric{app="foo"} 0
 `,
 			app: `# TYPE my_metric counter
 my_metric{app="bar"} 0
-# EOF
 `,
 			output: `# TYPE my_metric counter
 my_metric{app="bar"} 0
@@ -1146,6 +1142,18 @@ my_metric{} 0
 my_other_metric{} 0`,
 		},
 		{
+			name: "should '# EOF'",
+			content: `# TYPE my_metric counter
+my_metric{} 0
+# EOF
+# TYPE my_other_metric counter
+my_other_metric{} 0`,
+			wantW: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0`,
+		},
+		{
 			name: "should remove tail /n/n",
 			content: `# TYPE my_metric counter
 my_metric{} 0
@@ -1303,7 +1311,7 @@ func TestMetricReaderWriteToLongLine(t *testing.T) {
 			insertBytes: []byte("\n\n"),
 			wantLength:  2 * 4 * (1024 - 1),
 		},
-		// bufio reader default buffer size is 4096
+		// bufio sourceReader default buffer size is 4096
 		{name: "line length less than buffer size",
 			blockLength: 4094,
 			blockNums:   4,
@@ -1346,79 +1354,6 @@ func TestMetricReaderWriteToLongLine(t *testing.T) {
 	}
 }
 
-
-func Test_metricReader_Read(t *testing.T) {
-	tests := []struct {
-		name    string
-		content string
-		wantW   string
-	}{
-		{
-			name: "should write everything",
-			content: `test
-test`,
-			wantW: `test
-test`,
-		},
-		{
-			name: "should get compact content",
-			content: `test
-
-test
-test
-
-test
-
-`,
-			wantW: `test
-test
-test
-test
-`,
-		},
-		{
-			name: "should remove tail /n/n",
-			content: `test
-
-`,
-			wantW: `test
-`,
-		},
-		{
-			name: "should remove head /n",
-			content: `
-
-test`,
-			wantW: `test`,
-		},
-		{
-			name: "should remove all /n/n",
-			content: `test
-
-
-
-test
-
-`,
-			wantW: `test
-test
-`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &metricReader{
-				buf: bufio.NewReader(bytes.NewReader([]byte(tt.content))),
-			}
-			b := make([]byte, len(tt.wantW))
-			l, _ := r.Read(b)
-			if gotW := string(b[:l]); gotW != tt.wantW {
-				t.Errorf("Read() gotW = %v, want %v", gotW, tt.wantW)
-			}
-		})
-	}
-}
-
 func Benchmark_metricReader_WriteTo(b *testing.B) {
 	block := make([]byte, 1024)
 	doubleNewline := []byte("\n\n")
@@ -1449,23 +1384,5 @@ func Benchmark_not_metricReader(b *testing.B) {
 		buf := bytes.NewBuffer(data.Bytes())
 		raw, _ := io.ReadAll(buf)
 		bytes.ReplaceAll(raw, []byte("\n\n"), []byte("\n"))
-	}
-}
-
-func Benchmark_metricReader_Read(b *testing.B) {
-	block := make([]byte, 1024)
-	doubleNewline := []byte("\n\n")
-	data := &bytes.Buffer{}
-	for i := 0; i < 100*1024; i++ {
-		_, _ = data.Write(block)
-		_, _ = data.Write(doubleNewline)
-	}
-	for i := 0; i < b.N; i++ {
-		bs := data.Bytes()
-		r := &metricReader{
-			buf: bufio.NewReader(bytes.NewReader(bs)),
-		}
-		res := make([]byte, len(bs))
-		_, _ = r.Read(res)
 	}
 }

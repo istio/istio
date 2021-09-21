@@ -496,25 +496,23 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 // metricReader used to remove all the blank, "# EOF" or incomplete lines in envoy metrics.
 // It makes the envoy metric compatible with FmtOpenMetrics (https://github.com/istio/istio/pull/33550)
 type metricReader struct {
-	reader  io.ReadCloser
-	buf     *bufio.Reader
-	readBuf *bytes.Buffer
+	sourceReader io.ReadCloser
+	buf          *bufio.Reader
 }
 
 func NewMetricReader(reader io.ReadCloser) *metricReader {
-	return &metricReader{reader: reader, buf: bufio.NewReader(reader)}
+	return &metricReader{sourceReader: reader, buf: bufio.NewReader(reader)}
 }
 
-// WriteTo io.copy will call this function first.
-// It will drop every blank line and incomplete line
+// WriteTo will drop every blank line and incomplete line
 func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 	var line []byte
-	var isEmptyLine, isBufferFull bool
+	var isBufferFull bool
 	newLine, EOFLine := []byte{'\n'}, []byte("# EOF")
 
 	for {
 		line, err = r.buf.ReadSlice(newLine[0])
-		// Once get unexpected error, drop last line that may be incomplete
+		// Once get unexpected error, drop last line which is not complete
 		if err != nil && err != io.EOF && err != bufio.ErrBufferFull {
 			break
 		}
@@ -522,18 +520,20 @@ func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 		if bytes.HasPrefix(line, EOFLine) {
 			line = line[len(EOFLine):]
 		}
-		// If last line size equal buffer size, need to add "\n"
-		isEmptyLine = bytes.Equal(line, newLine) && !isBufferFull
-		if isEmptyLine {
+		// ReadSlice will keep slice in line.So if there is only '\n' in the line, it is an empty line.
+		// Mostly, we should just ignore empty line.But if last line size equal buffer size and new line is an empty line.
+		// It means that last line is as long as buffer size.So we should add a new \n after last line.
+		if bytes.Equal(line, newLine) && !isBufferFull {
 			continue
 		}
-		wLength, werr := w.Write(line)
-		n += int64(wLength)
+		wLen, wErr := w.Write(line)
+		n += int64(wLen)
 
 		isBufferFull = false
-		if werr == nil && err == bufio.ErrBufferFull {
+		// If the read error is buffio.errbufferfull, do not exit and continue reading
+		if wErr == nil && err == bufio.ErrBufferFull {
 			isBufferFull = true
-		} else if werr != nil || err != nil {
+		} else if wErr != nil || err != nil {
 			break
 		}
 	}
@@ -541,20 +541,6 @@ func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 		err = nil
 	}
 	return
-}
-
-// Read will not be used often, so WriteTo is reused
-func (r *metricReader) Read(p []byte) (n int, err error) {
-	if r.readBuf == nil {
-		r.readBuf = bytes.NewBuffer(make([]byte, 0, 4*1024))
-		_, _ = r.WriteTo(r.readBuf)
-	}
-	n, err = r.readBuf.Read(p)
-	return
-}
-
-func (r *metricReader) Close() (err error) {
-	return r.reader.Close()
 }
 
 func scrapeAgentMetrics() ([]byte, error) {
@@ -632,7 +618,8 @@ func (s *Server) scrape(url string, replaceFormat bool, header http.Header, w ht
 	}
 
 	// Process metrics to make them compatible with FmtOpenMetrics
-	_, err = io.Copy(w, NewMetricReader(resp.Body))
+	r := NewMetricReader(resp.Body)
+	_, err = r.WriteTo(w)
 	if err != nil {
 		return fmt.Errorf("error copying %s: %v", url, err)
 	}
