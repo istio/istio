@@ -71,6 +71,7 @@ var (
 	labels         []string
 	annotations    []string
 	svcAcctAnn     string
+	xdsPort        string
 )
 
 const (
@@ -606,7 +607,8 @@ func revisionedIstiodAddress(rev string) string {
 	if rev == "" || rev == "default" {
 		return ""
 	}
-	return fmt.Sprintf("istiod-%s.%s.svc.cluster.local", rev, istioNamespace)
+	// TODO make port configurable
+	return fmt.Sprintf("istiod-%s.%s.svc.cluster.local:15012", rev, istioNamespace)
 }
 
 // Returns a map with each k,v entry on a new line
