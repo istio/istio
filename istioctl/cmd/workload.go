@@ -301,10 +301,12 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir); err != nil {
 		return err
 	}
+	rev := kubeClient.Revision()
+
 	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
 		return err
 	}
-	if err := createSidecarEnv(internalIP, externalIP, outputDir); err != nil {
+	if err := createSidecarEnv(internalIP, externalIP, outputDir, rev); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
@@ -339,6 +341,7 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 			excludePorts += ",15020"
 		}
 	}
+
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	overrides := map[string]string{
 		"ISTIO_INBOUND_PORTS":       portBehavior,
@@ -361,8 +364,8 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
 
-func createSidecarEnv(internalIP string, externalIP, dir string) error {
-	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP)
+func createSidecarEnv(internalIP, externalIP, dir, rev string) error {
+	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP, rev)
 
 	// If there is no sidecar specific configuration, then don't write the file and exit first.
 	allEmpty := true
@@ -378,9 +381,12 @@ func createSidecarEnv(internalIP string, externalIP, dir string) error {
 	return os.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
 }
 
-func generateSidecarEnvAsMap(internalIP string, externalIP string) map[string]string {
+func generateSidecarEnvAsMap(internalIP string, externalIP string, rev string) map[string]string {
 	sidecarEnv := make(map[string]string)
 
+	if addr := revisionedIstiodAddress(rev); addr != "" {
+		sidecarEnv["PILOT_ADDRESS"] = addr
+	}
 	if len(internalIP) > 0 {
 		sidecarEnv["ISTIO_SVC_IP"] = internalIP
 	} else if len(externalIP) > 0 {
@@ -473,8 +479,8 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
 		return nil, err
 	}
-	if revision != "" && revision != "default" && meshConfig.DefaultConfig.DiscoveryAddress == "" {
-		meshConfig.DefaultConfig.DiscoveryAddress = fmt.Sprintf("istiod-%s.%s.svc.cluster.local", revision, istioNamespace)
+	if revIstiod := revisionedIstiodAddress(revision); revIstiod != "" {
+		meshConfig.DefaultConfig.DiscoveryAddress = revIstiod
 	}
 
 	// performing separate map-merge, apply seems to completely overwrite all metadata
@@ -594,6 +600,13 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)
 	}
 	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
+}
+
+func revisionedIstiodAddress(rev string) string {
+	if rev == "" || rev == "default" {
+		return ""
+	}
+	return fmt.Sprintf("istiod-%s.%s.svc.cluster.local", rev, istioNamespace)
 }
 
 // Returns a map with each k,v entry on a new line

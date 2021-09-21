@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -805,6 +806,11 @@ spec:
 		if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 			// LoadBalancer may not be supported and the command doesn't have NodePort fallback logic that the tests do
 			cmd = append(cmd, "--ingressIP", istiodAddr.IP.String())
+		}
+		if nsLabels, err := cfg.Namespace.Labels(); err != nil {
+			log.Warnf("failed fetching labels for %s; assuming no-revision (can cause failures): %v", cfg.Namespace.Name(), err)
+		} else if rev := nsLabels[label.IoIstioRev.Name]; rev != "" {
+			cmd = append(cmd, "--revision", rev)
 		}
 		// make sure namespace controller has time to create root-cert ConfigMap
 		if err := retry.UntilSuccess(func() error {
