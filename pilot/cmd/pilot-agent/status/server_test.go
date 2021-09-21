@@ -1142,7 +1142,7 @@ my_metric{} 0
 my_other_metric{} 0`,
 		},
 		{
-			name: "should '# EOF'",
+			name: "should remove '# EOF'",
 			content: `# TYPE my_metric counter
 my_metric{} 0
 # EOF
@@ -1311,7 +1311,7 @@ func TestMetricReaderWriteToLongLine(t *testing.T) {
 			insertBytes: []byte("\n\n"),
 			wantLength:  2 * 4 * (1024 - 1),
 		},
-		// bufio sourceReader default buffer size is 4096
+		// bufio reader default buffer size is 4096
 		{name: "line length less than buffer size",
 			blockLength: 4094,
 			blockNums:   4,

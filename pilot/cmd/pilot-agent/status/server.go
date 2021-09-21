@@ -493,15 +493,16 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 	return expfmt.FmtText
 }
 
-// metricReader used to remove all the blank, "# EOF" or incomplete lines in envoy metrics.
-// It makes the envoy metric compatible with FmtOpenMetrics (https://github.com/istio/istio/pull/33550)
+// metricReader metric compatible with FmtOpenMetrics (https://github.com/istio/istio/pull/33550)
+// All the blank line, incomplete lines or "# EOF" in metrics will be removed.
 type metricReader struct {
-	sourceReader io.ReadCloser
-	buf          *bufio.Reader
+	// original data reader, such as response.body
+	src io.ReadCloser
+	buf *bufio.Reader
 }
 
 func NewMetricReader(reader io.ReadCloser) *metricReader {
-	return &metricReader{sourceReader: reader, buf: bufio.NewReader(reader)}
+	return &metricReader{src: reader, buf: bufio.NewReader(reader)}
 }
 
 // WriteTo will drop every blank line and incomplete line
@@ -529,11 +530,15 @@ func (r *metricReader) WriteTo(w io.Writer) (n int64, err error) {
 		wLen, wErr := w.Write(line)
 		n += int64(wLen)
 
+		if wErr != nil {
+			err = wErr
+			break
+		}
+		// If the read error is buffio.errbufferfull, do not exit and continue reading.
 		isBufferFull = false
-		// If the read error is buffio.errbufferfull, do not exit and continue reading
-		if wErr == nil && err == bufio.ErrBufferFull {
+		if err == bufio.ErrBufferFull {
 			isBufferFull = true
-		} else if wErr != nil || err != nil {
+		} else if err != nil {
 			break
 		}
 	}
