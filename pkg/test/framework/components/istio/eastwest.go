@@ -37,7 +37,7 @@ import (
 var (
 	mcSamples              = path.Join(env.IstioSrc, "samples", "multicluster")
 	exposeIstiodGateway    = path.Join(mcSamples, "expose-istiod.yaml")
-	exposeIstiodGatewayRev = path.Join(mcSamples, "expose-istiod-rev.yaml")
+	exposeIstiodGatewayRev = path.Join(mcSamples, "expose-istiod-rev.yaml.tmpl")
 	exposeServicesGateway  = path.Join(mcSamples, "expose-services.yaml")
 	genGatewayScript       = path.Join(mcSamples, "gen-eastwest-gateway.sh")
 )

@@ -26,7 +26,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: istiod-vs
+  name: istiod-vs-{{.Revision}}
 spec:
   hosts:
   - "*"
@@ -36,7 +36,8 @@ spec:
   - match:
     - port: 15012
       sniHosts:
-      - "*"
+      - "istiod-{{.Revision}}.istio-system.svc"
+      - "istiod-{{.Revision}}.istio-system.svc.cluster.local"
     route:
     - destination:
         host: istiod-{{.Revision}}.istio-system.svc.cluster.local
@@ -45,7 +46,8 @@ spec:
   - match:
     - port: 15017
       sniHosts:
-      - "*"
+      - "istiod-{{.Revision}}.istio-system.svc"
+      - "istiod-{{.Revision}}.istio-system.svc.cluster.local"
     route:
     - destination:
         host: istiod-{{.Revision}}.istio-system.svc.cluster.local
