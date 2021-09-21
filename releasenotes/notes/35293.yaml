@@ -2,7 +2,7 @@ apiVersion: release-notes/v2
 kind: bug-fix
 area: traffic-management
 issue:
-- 35068
+- 35172
 releaseNotes:
 - |
-  **Fixed** An issue when service entry and gateway created at same time, the service entry is ignored some times.
+  **Fixed** an issue when creating a Service and Gateway at the same time, causing the Service to be ignored.
