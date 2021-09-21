@@ -1360,15 +1360,16 @@ type filterChainOpts struct {
 // buildListenerOpts are the options required to build a Listener
 type buildListenerOpts struct {
 	// nolint: maligned
-	env             *model.Environment
-	proxy           *model.Proxy
-	proxyInstances  []*model.ServiceInstance
-	proxyLabels     model.LabelsCollection
-	bind            string
-	port            int
-	bindToPort      bool
-	filterChainOpts []*filterChainOpts
-	skipUserFilters bool
+	env                           *model.Environment
+	proxy                         *model.Proxy
+	proxyInstances                []*model.ServiceInstance
+	proxyLabels                   model.LabelsCollection
+	bind                          string
+	port                          int
+	bindToPort                    bool
+	filterChainOpts               []*filterChainOpts
+	skipUserFilters               bool
+	perConnectionBufferLimitBytes *google_protobuf.UInt32Value
 }
 
 func buildHTTPConnectionManager(node *model.Proxy, env *model.Environment, httpOpts *httpListenerOpts,
@@ -1552,11 +1553,12 @@ func buildListener(opts buildListenerOpts) *xdsapi.Listener {
 	return &xdsapi.Listener{
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy
 		// doesn't like
-		Name:            fmt.Sprintf("%s_%d", opts.bind, opts.port),
-		Address:         util.BuildAddress(opts.bind, uint32(opts.port)),
-		ListenerFilters: listenerFilters,
-		FilterChains:    filterChains,
-		DeprecatedV1:    deprecatedV1,
+		Name:                          fmt.Sprintf("%s_%d", opts.bind, opts.port),
+		Address:                       util.BuildAddress(opts.bind, uint32(opts.port)),
+		ListenerFilters:               listenerFilters,
+		FilterChains:                  filterChains,
+		DeprecatedV1:                  deprecatedV1,
+		PerConnectionBufferLimitBytes: opts.perConnectionBufferLimitBytes,
 	}
 }
 

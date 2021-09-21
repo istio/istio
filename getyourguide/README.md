@@ -24,6 +24,8 @@
 3. In some cases, Envoy of ingress gateways doesn't startup as Listeners are not pushed by Pilot. The root cause lies somewhere in `SetServiceInstances` function. We were not able to tell exactly in which conditions and a hack was introduced to return an error on the first request from Envoy, forcing a re-discovery of listeners. We expect this is fixed in newer versions of Istio. See the [Post Mortem](https://docs.google.com/document/d/1x-QcBpl0tGv8IgRwOxstLA6M5hUcGBB0VZsbje8aslM/edit#) for more details.
 4. Create separate connectionManager for different filter chains [upstream patch](https://github.com/istio/istio/pull/13955)
 
+5. Increase the per connection buffer size limit on gateways listeners from the default of 1MB to 96MB. On EKS we do not need this as we can use async on_response calls to ingress-sidecar.
+
 ```shell
 docker build -t 130607246975.dkr.ecr.eu-central-1.amazonaws.com/sre/istio-pilot:1.1.8-patched -f getyourguide/pilot.dockerfile .
 docker push 130607246975.dkr.ecr.eu-central-1.amazonaws.com/sre/istio-pilot:1.1.8-patched

@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	google_protobuf "github.com/gogo/protobuf/types"
 	"istio.io/istio/pkg/features/pilot"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
@@ -62,11 +63,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
-			env:        env,
-			proxy:      node,
-			bind:       WildcardAddress,
-			port:       int(portNumber),
-			bindToPort: true,
+			env:                           env,
+			proxy:                         node,
+			bind:                          WildcardAddress,
+			port:                          int(portNumber),
+			bindToPort:                    true,
+			perConnectionBufferLimitBytes: &google_protobuf.UInt32Value{Value: 96 << 20},
 		}
 
 		protocol := model.ParseProtocol(servers[0].Port.Protocol)
