@@ -32,7 +32,7 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=867b21de70ad262ae29a9d67dc95a54f5d18a7d1
+BUILDER_SHA=e50761c08decef143ebcd7f9edc6f07e8a6aca89
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
