@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+releaseNotes:
+  - |
+    **Fixed** VMs are able to use a revisioned control plane specified by `--revision` on the `istioctl x workload entry`
+    command.
