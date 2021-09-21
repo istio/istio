@@ -800,7 +800,7 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		} else {
 			// If CredentialName is not set fallback to files specified in DR.
 			res := security.SdsCertificateConfig{
-				CaCertificatePath: tls.CaCertificates,
+				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
 			}
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
