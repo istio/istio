@@ -101,7 +101,7 @@ func (n *kubeNamespace) Labels() (map[string]string, error) {
 			continue
 		}
 		if diff := cmp.Diff(perCluster[0], clusterLabels); diff != "" {
-			log.Warnf("namespace labels are different accross clusters:\n%s", diff)
+			log.Warnf("namespace labels are different across clusters:\n%s", diff)
 		}
 	}
 	return perCluster[0], nil
