@@ -17,7 +17,6 @@ package istio
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/util/tmpl"
 	"os"
 	"os/exec"
 	"path"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/tmpl"
 )
 
 var (
@@ -140,5 +140,8 @@ func (i *operatorComponent) applyIstiodGateway(cluster cluster.Cluster, revision
 		return fmt.Errorf("failed loading template %s: %v", exposeIstiodGatewayRev, err)
 	}
 	out, err := tmpl.Evaluate(string(gwTmpl), map[string]string{"Revision": revision})
+	if err != nil {
+		return fmt.Errorf("failed running template %s: %v", exposeIstiodGatewayRev, err)
+	}
 	return i.ctx.Config(cluster).ApplyYAML(i.settings.SystemNamespace, out)
 }

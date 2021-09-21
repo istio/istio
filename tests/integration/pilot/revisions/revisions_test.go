@@ -18,6 +18,9 @@
 package revisions
 
 import (
+	"testing"
+	"time"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -27,8 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	"testing"
-	"time"
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
