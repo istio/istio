@@ -123,7 +123,7 @@ controlPlaneAuthPolicy: ${CONTROL_PLANE_AUTH_POLICY}
 "
 if [ -n "${CUSTOM_PILOT_ADDRESS}" ]; then
   PROXY_CONFIG="$PROXY_CONFIG
-  discoveryAddress: ${CUSTOM_PILOT_ADDRESS}
+discoveryAddress: ${CUSTOM_PILOT_ADDRESS}
 "
 fi
 
