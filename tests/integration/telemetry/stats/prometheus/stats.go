@@ -107,7 +107,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 						}
 						c := cltInstance.Config().Cluster
 						sourceCluster := "Kubernetes"
-						if len(ctx.Clusters()) > 1 {
+						if len(ctx.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
 						sourceQuery, destinationQuery, appQuery := buildQuery(sourceCluster)
@@ -182,7 +182,7 @@ func TestStatsTCPFilter(t *testing.T, feature features.Feature) {
 						}
 						c := cltInstance.Config().Cluster
 						sourceCluster := "Kubernetes"
-						if len(ctx.Clusters()) > 1 {
+						if len(ctx.AllClusters()) > 1 {
 							sourceCluster = c.Name()
 						}
 						destinationQuery := buildTCPQuery(sourceCluster)
