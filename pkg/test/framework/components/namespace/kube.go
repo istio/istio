@@ -23,8 +23,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
@@ -32,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -76,6 +79,34 @@ func (n *kubeNamespace) Prefix() string {
 	return n.prefix
 }
 
+func (n *kubeNamespace) Labels() (map[string]string, error) {
+	perCluster := make([]map[string]string, len(n.ctx.Clusters()))
+	errG := multierror.Group{}
+	for i, cluster := range n.ctx.Clusters() {
+		i, cluster := i, cluster
+		errG.Go(func() error {
+			ns, err := cluster.CoreV1().Namespaces().Get(context.TODO(), n.Name(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			perCluster[i] = ns.Labels
+			return nil
+		})
+	}
+	if err := errG.Wait().ErrorOrNil(); err != nil {
+		return nil, err
+	}
+	for i, clusterLabels := range perCluster {
+		if i == 0 {
+			continue
+		}
+		if diff := cmp.Diff(perCluster[0], clusterLabels); diff != "" {
+			log.Warnf("namespace labels are different across clusters:\n%s", diff)
+		}
+	}
+	return perCluster[0], nil
+}
+
 func (n *kubeNamespace) SetLabel(key, value string) error {
 	return n.setNamespaceLabel(key, value)
 }
@@ -108,11 +139,11 @@ func claimKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	for _, cluster := range ctx.Clusters().Kube() {
 		if !kube2.NamespaceExists(cluster, nsConfig.Prefix) {
 			if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-				ObjectMeta: kubeApiMeta.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   nsConfig.Prefix,
 					Labels: createNamespaceLabels(ctx, nsConfig),
 				},
-			}, kubeApiMeta.CreateOptions{}); err != nil {
+			}, metav1.CreateOptions{}); err != nil {
 				return nil, err
 			}
 		}
@@ -126,7 +157,7 @@ func (n *kubeNamespace) setNamespaceLabel(key, value string) error {
 	jsonPatchEscapedKey := strings.ReplaceAll(key, "/", "~1")
 	for _, cluster := range n.ctx.Clusters().Kube() {
 		nsLabelPatch := fmt.Sprintf(`[{"op":"replace","path":"/metadata/labels/%s","value":"%s"}]`, jsonPatchEscapedKey, value)
-		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), kubeApiMeta.PatchOptions{}); err != nil {
+		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{}); err != nil {
 			return err
 		}
 	}
@@ -140,7 +171,7 @@ func (n *kubeNamespace) removeNamespaceLabel(key string) error {
 	jsonPatchEscapedKey := strings.ReplaceAll(key, "/", "~1")
 	for _, cluster := range n.ctx.Clusters().Kube() {
 		nsLabelPatch := fmt.Sprintf(`[{"op":"remove","path":"/metadata/labels/%s"}]`, jsonPatchEscapedKey)
-		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), kubeApiMeta.PatchOptions{}); err != nil {
+		if _, err := cluster.CoreV1().Namespaces().Patch(context.TODO(), n.name, types.JSONPatchType, []byte(nsLabelPatch), metav1.PatchOptions{}); err != nil {
 			return err
 		}
 	}
@@ -167,11 +198,11 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 
 	for _, cluster := range n.ctx.Clusters().Kube() {
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-			ObjectMeta: kubeApiMeta.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:   ns,
 				Labels: createNamespaceLabels(ctx, nsConfig),
 			},
-		}, kubeApiMeta.CreateOptions{}); err != nil {
+		}, metav1.CreateOptions{}); err != nil {
 			return nil, err
 		}
 		settings, err := image.SettingsFromCommandLine()

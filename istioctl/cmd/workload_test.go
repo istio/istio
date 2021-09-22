@@ -354,7 +354,7 @@ func TestSidecarConfigGeneration(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		gotSidecarEnvMap := generateSidecarEnvAsMap(tt.internalIP, tt.externalIP)
+		gotSidecarEnvMap := generateSidecarEnvAsMap(tt.internalIP, tt.externalIP, "")
 		if !reflect.DeepEqual(gotSidecarEnvMap, tt.expectedSidecarEnv) {
 			t.Errorf("generateSidecarEnvAsMap() got = %v, want %v", gotSidecarEnvMap, tt.expectedSidecarEnv)
 		}

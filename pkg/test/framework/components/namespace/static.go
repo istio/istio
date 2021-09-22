@@ -30,6 +30,10 @@ func (s Static) Prefix() string {
 	return string(s)
 }
 
+func (s Static) Labels() (map[string]string, error) {
+	panic("implement me")
+}
+
 func (s Static) SetLabel(key, value string) error {
 	panic("implement me")
 }

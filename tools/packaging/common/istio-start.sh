@@ -46,10 +46,6 @@ NS=${ISTIO_NAMESPACE:-default}
 SVC=${ISTIO_SERVICE:-rawvm}
 ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
 
-# The default matches the default istio.yaml - use sidecar.env to override this if you
-# enable auth. This requires node-agent to be running.
-ISTIO_PILOT_PORT=${ISTIO_PILOT_PORT:-15012}
-
 # If set, override the default
 CONTROL_PLANE_AUTH_POLICY=${ISTIO_CP_AUTH:-"MUTUAL_TLS"}
 
@@ -99,11 +95,16 @@ if [ "${ISTIO_INBOUND_INTERCEPTION_MODE}" = "TPROXY" ] ; then
   EXEC_USER=root
 fi
 
-if [ -z "${PILOT_ADDRESS:-}" ]; then
-  PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
+# The default matches the default istio.yaml - use sidecar.env to override ISTIO_PILOT_PORT or CA_ADDR if you
+# enable auth. This requires node-agent to be running.
+DEFAULT_PILOT_ADDRESS="istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:15012"
+CUSTOM_PILOT_ADDRESS="${PILOT_ADDRESS:-}"
+if [ -z "${CUSTOM_PILOT_ADDRESS}" ] && [ -n "${ISTIO_PILOT_PORT:-}" ]; then
+  CUSTOM_PILOT_ADDRESS=istiod.${ISTIO_SYSTEM_NAMESPACE}.svc:${ISTIO_PILOT_PORT}
 fi
 
-CA_ADDR=${CA_ADDR:-${PILOT_ADDRESS}}
+# CA_ADDR > PILOT_ADDRESS > ISTIO_PILOT_PORT
+CA_ADDR=${CA_ADDR:-${CUSTOM_PILOT_ADDRESS:-${DEFAULT_PILOT_ADDRESS}}}
 PROV_CERT=${PROV_CERT-/etc/certs}
 OUTPUT_CERTS=${OUTPUT_CERTS-/etc/certs}
 
@@ -116,11 +117,18 @@ ISTIO_AGENT_FLAGS=${ISTIO_AGENT_FLAGS:-}
 # Split ISTIO_AGENT_FLAGS by spaces.
 IFS=' ' read -r -a ISTIO_AGENT_FLAGS_ARRAY <<< "$ISTIO_AGENT_FLAGS"
 
-export PROXY_CONFIG=${PROXY_CONFIG:-"
+DEFAULT_PROXY_CONFIG="
 serviceCluster: $SVC
 controlPlaneAuthPolicy: ${CONTROL_PLANE_AUTH_POLICY}
-discoveryAddress: ${PILOT_ADDRESS}
-"}
+"
+if [ -n "${CUSTOM_PILOT_ADDRESS}" ]; then
+  PROXY_CONFIG="$PROXY_CONFIG
+discoveryAddress: ${CUSTOM_PILOT_ADDRESS}
+"
+fi
+
+# PROXY_CONFIG > PILOT_ADDRESS > ISTIO_PILOT_PORT
+export PROXY_CONFIG=${PROXY_CONFIG:-${DEFAULT_PROXY_CONFIG}}
 
 if [ ${EXEC_USER} == "${USER:-}" ] ; then
   # if started as istio-proxy (or current user), do a normal start, without
