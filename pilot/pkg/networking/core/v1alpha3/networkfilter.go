@@ -99,7 +99,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 
-	filters := buildTelemetryNetworkFilters(model.OutboundClassFromType(node.Type))
+	filters := buildTelemetryNetworkFilters(model.OutboundListenerClass(node.Type))
 	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }
@@ -141,7 +141,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
 	tcpFilter := setAccessLogAndBuildTCPFilter(push, tcpProxy)
 
-	filters := buildTelemetryNetworkFilters(model.OutboundClassFromType(node.Type))
+	filters := buildTelemetryNetworkFilters(model.OutboundListenerClass(node.Type))
 	filters = append(filters, buildNetworkFiltersStack(port, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }
