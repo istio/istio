@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/filter"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 )
 
@@ -53,7 +54,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 			incrementEvent(otype, "add")
 			ns := obj.(*v1.Namespace)
 			if discoveryNamespacesFilter.NamespaceCreated(ns.ObjectMeta) {
-				c.queue.Push(func() error {
+				c.queue.Push(gvk.Namespace.Kind+"/"+ns.Name, func() error {
 					c.handleSelectedNamespace(endpointMode, ns.Name)
 					return nil
 				})
@@ -77,7 +78,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(
 						return nil
 					}
 				}
-				c.queue.Push(handleFunc)
+				c.queue.Push(gvk.Namespace.Kind+"/"+newNs.Name, handleFunc)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -115,16 +116,14 @@ func (c *Controller) initMeshWatcherHandler(
 		newSelectedNamespaces, deselectedNamespaces := discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 
 		for _, nsName := range newSelectedNamespaces {
-			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
-			c.queue.Push(func() error {
+			c.queue.Push(gvk.Namespace.Kind+"/"+nsName, func() error {
 				c.handleSelectedNamespace(endpointMode, nsName)
 				return nil
 			})
 		}
 
 		for _, nsName := range deselectedNamespaces {
-			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
-			c.queue.Push(func() error {
+			c.queue.Push(gvk.Namespace.Kind+"/"+nsName, func() error {
 				c.handleDeselectedNamespace(kubeClient, endpointMode, nsName)
 				return nil
 			})
