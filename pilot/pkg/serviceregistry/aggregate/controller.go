@@ -170,7 +170,6 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 
 func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance) {
 	mergeHostVIPs(&dst.ClusterLocal, &src.ClusterLocal, srcRegistry)
-	mergeHostVIPs(&dst.ClusterSetLocal, &src.ClusterSetLocal, srcRegistry)
 }
 
 func mergeHostVIPs(dst, src *model.HostVIPs, srcRegistry serviceregistry.Instance) {

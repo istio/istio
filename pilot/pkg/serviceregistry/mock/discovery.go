@@ -48,12 +48,10 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 }
 
 type ServiceArgs struct {
-	Hostname           host.Name
-	Address            string
-	ClusterSetHostname host.Name
-	ClusterSetIPs      []string
-	ServiceAccounts    []string
-	ClusterID          cluster.ID
+	Hostname        host.Name
+	Address         string
+	ServiceAccounts []string
+	ClusterID       cluster.ID
 }
 
 // MakeService creates a memory service
@@ -64,12 +62,6 @@ func MakeService(args ServiceArgs) *model.Service {
 			Hostname: args.Hostname,
 			ClusterVIPs: cluster.AddressMap{
 				Addresses: map[cluster.ID][]string{args.ClusterID: {args.Address}},
-			},
-		},
-		ClusterSetLocal: model.HostVIPs{
-			Hostname: args.ClusterSetHostname,
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: map[cluster.ID][]string{args.ClusterID: args.ClusterSetIPs},
 			},
 		},
 		DefaultAddress:  args.Address,

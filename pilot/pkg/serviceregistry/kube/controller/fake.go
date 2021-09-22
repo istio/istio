@@ -148,7 +148,6 @@ type FakeControllerOptions struct {
 	DomainSuffix              string
 	XDSUpdater                model.XDSUpdater
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
-	EnableMCSServiceDiscovery bool
 
 	// when calling from NewFakeDiscoveryServer, we wait for the aggregate cache to sync. Waiting here can cause deadlock.
 	SkipCacheSyncWait bool
@@ -186,7 +185,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		ClusterID:                 opts.ClusterID,
 		SyncInterval:              time.Microsecond,
 		DiscoveryNamespacesFilter: opts.DiscoveryNamespacesFilter,
-		EnableMCSServiceDiscovery: opts.EnableMCSServiceDiscovery,
 	}
 	c := NewController(opts.Client, options)
 	if opts.ServiceHandler != nil {
