@@ -33,9 +33,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -52,6 +49,8 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
+	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 const (

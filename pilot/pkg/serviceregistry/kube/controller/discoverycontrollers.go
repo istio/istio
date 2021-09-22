@@ -116,6 +116,7 @@ func (c *Controller) initMeshWatcherHandler(
 		newSelectedNamespaces, deselectedNamespaces := discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 
 		for _, nsName := range newSelectedNamespaces {
+			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(gvk.Namespace.Kind+"/"+nsName, func() error {
 				c.handleSelectedNamespace(endpointMode, nsName)
 				return nil
@@ -123,6 +124,7 @@ func (c *Controller) initMeshWatcherHandler(
 		}
 
 		for _, nsName := range deselectedNamespaces {
+			nsName := nsName // need to shadow variable to ensure correct value when evaluated inside the closure below
 			c.queue.Push(gvk.Namespace.Kind+"/"+nsName, func() error {
 				c.handleDeselectedNamespace(kubeClient, endpointMode, nsName)
 				return nil

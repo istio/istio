@@ -112,13 +112,12 @@ func (q *queue) pushTask(task *innerTask) {
 	if q.closing {
 		return
 	}
-	// If exist, update it; otherwise update it
+	// If exist, update it
 	if q.dirty[task.item] != nil {
 		q.dirty[task.item] = task
 		return
-	} else {
-		q.dirty[task.item] = task
 	}
+	q.dirty[task.item] = task
 	if q.processing.has(task.item) {
 		return
 	}
