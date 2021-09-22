@@ -897,7 +897,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			}
 			matchFound := false
 			for _, h := range hosts {
-				if service.ClusterLocal.Hostname.SubsetOf(host.Name(h)) {
+				if service.Hostname.SubsetOf(host.Name(h)) {
 					matchFound = true
 					break
 				}
@@ -905,10 +905,10 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 			if !matchFound {
 				continue
 			}
-			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.ClusterLocal.Hostname, port.Port)
+			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 			statPrefix := clusterName
 			if len(push.Mesh.OutboundClusterStatName) != 0 {
-				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), "", port, &service.Attributes)
+				statPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", port, &service.Attributes)
 			}
 			destRule := push.DestinationRule(proxy, service)
 			destinationRule := CastDestinationRule(destRule)
@@ -928,11 +928,11 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 
 			// Do the same, but for each subset
 			for _, subset := range destinationRule.GetSubsets() {
-				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.ClusterLocal.Hostname, port.Port)
+				subsetClusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 				subsetStatPrefix := subsetClusterName
 				// If stat name is configured, build the stat prefix from configured pattern.
 				if len(push.Mesh.OutboundClusterStatName) != 0 {
-					subsetStatPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.ClusterLocal.Hostname), subset.Name, port, &service.Attributes)
+					subsetStatPrefix = util.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), subset.Name, port, &service.Attributes)
 				}
 				filterChains = append(filterChains, &filterChainOpts{
 					sniHosts:       []string{subsetClusterName},

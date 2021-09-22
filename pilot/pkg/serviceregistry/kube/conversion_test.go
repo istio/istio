@@ -189,12 +189,12 @@ func TestServiceConversion(t *testing.T) {
 		t.Fatal("service should not be external")
 	}
 
-	if service.ClusterLocal.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
+	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
 		t.Fatalf("service hostname incorrect => %q, want %q",
-			service.ClusterLocal.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
+			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
 
-	ips := service.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)
+	ips := service.ClusterVIPs.GetAddressesFor(clusterID)
 	if len(ips) != 1 {
 		t.Fatalf("number of ips incorrect => %q, want 1", len(ips))
 	}
@@ -203,7 +203,7 @@ func TestServiceConversion(t *testing.T) {
 		t.Fatalf("service IP incorrect => %q, want %q", ips[0], ip)
 	}
 
-	actualIPs := service.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)
+	actualIPs := service.ClusterVIPs.GetAddressesFor(clusterID)
 	expectedIPs := []string{ip}
 	if !reflect.DeepEqual(actualIPs, expectedIPs) {
 		t.Fatalf("service IPs incorrect => %q, want %q", actualIPs, expectedIPs)
@@ -304,9 +304,9 @@ func TestExternalServiceConversion(t *testing.T) {
 		t.Fatal("service should be external")
 	}
 
-	if service.ClusterLocal.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
+	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
 		t.Fatalf("service hostname incorrect => %q, want %q",
-			service.ClusterLocal.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
+			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
 }
 
@@ -348,9 +348,9 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 		t.Fatal("ExternalName service (even if .cluster.local) should be external")
 	}
 
-	if service.ClusterLocal.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
+	if service.Hostname != ServiceHostname(serviceName, namespace, domainSuffix) {
 		t.Fatalf("service hostname incorrect => %q, want %q",
-			service.ClusterLocal.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
+			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
 }
 

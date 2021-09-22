@@ -114,7 +114,7 @@ func TestServices(t *testing.T) {
 				// port name is 'http'. It was working because the Service was created with
 				// an invalid protocol, and the code was ignoring that ( not TCP/UDP).
 				for _, item := range out {
-					if item.ClusterLocal.Hostname == hostname &&
+					if item.Hostname == hostname &&
 						len(item.Ports) == 1 &&
 						item.Ports[0].Protocol == protocol.HTTP {
 						return true
@@ -130,8 +130,8 @@ func TestServices(t *testing.T) {
 			if svc == nil {
 				t.Fatalf("GetService(%q) => should exists", hostname)
 			}
-			if svc.ClusterLocal.Hostname != hostname {
-				t.Fatalf("GetService(%q) => %q", hostname, svc.ClusterLocal.Hostname)
+			if svc.Hostname != hostname {
+				t.Fatalf("GetService(%q) => %q", hostname, svc.Hostname)
 			}
 
 			eventually(t, func() bool {
@@ -155,7 +155,7 @@ func TestServices(t *testing.T) {
 			missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
 			svc = sds.GetService(missing)
 			if svc != nil {
-				t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.ClusterLocal.Hostname)
+				t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
 			}
 		})
 	}
@@ -380,9 +380,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			}
 
 			hostname := kube.ServiceHostname("svc1", "nsa", defaultFakeDomainSuffix)
-			if serviceInstances[0].Service.ClusterLocal.Hostname != hostname {
+			if serviceInstances[0].Service.Hostname != hostname {
 				t.Fatalf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
-					serviceInstances[0].Service.ClusterLocal.Hostname, hostname)
+					serviceInstances[0].Service.Hostname, hostname)
 			}
 
 			// Test that we can look up instances just by Proxy metadata
@@ -403,11 +403,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 
 			expected := &model.ServiceInstance{
 				Service: &model.Service{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "svc1.nsa.svc.company.com",
-						ClusterVIPs: cluster.AddressMap{
-							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
-						},
+					Hostname: "svc1.nsa.svc.company.com",
+					ClusterVIPs: model.AddressMap{
+						Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 					},
 					DefaultAddress:  "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -479,11 +477,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			expected = &model.ServiceInstance{
 
 				Service: &model.Service{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "svc1.nsa.svc.company.com",
-						ClusterVIPs: cluster.AddressMap{
-							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
-						},
+					Hostname: "svc1.nsa.svc.company.com",
+					ClusterVIPs: model.AddressMap{
+						Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 					},
 					DefaultAddress:  "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -550,11 +546,9 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			expected = &model.ServiceInstance{
 
 				Service: &model.Service{
-					ClusterLocal: model.HostVIPs{
-						Hostname: "svc1.nsa.svc.company.com",
-						ClusterVIPs: cluster.AddressMap{
-							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
-						},
+					Hostname: "svc1.nsa.svc.company.com",
+					ClusterVIPs: model.AddressMap{
+						Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 					},
 					DefaultAddress:  "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
@@ -851,9 +845,7 @@ func TestController_Service(t *testing.T) {
 
 			expectedSvcList := []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -864,9 +856,7 @@ func TestController_Service(t *testing.T) {
 					},
 				},
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname:       kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -877,9 +867,7 @@ func TestController_Service(t *testing.T) {
 					},
 				},
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname:       kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
 					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -890,9 +878,7 @@ func TestController_Service(t *testing.T) {
 					},
 				},
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname:       kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
 					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -931,9 +917,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 	})
 
 	svc1 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -944,9 +928,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 		},
 	}
 	svc2 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -957,9 +939,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 		},
 	}
 	svc3 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -970,9 +950,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 		},
 	}
 	svc4 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc4", "nsB", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc4", "nsB", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -1070,9 +1048,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 
 func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 	svc1 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -1083,9 +1059,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		},
 	}
 	svc2 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -1096,9 +1070,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		},
 	}
 	svc3 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -1109,9 +1081,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		},
 	}
 	svc4 := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: kube.ServiceHostname("svc4", "nsC", defaultFakeDomainSuffix),
-		},
+		Hostname:       kube.ServiceHostname("svc4", "nsC", defaultFakeDomainSuffix),
 		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
@@ -1348,9 +1318,7 @@ func TestController_ExternalNameService(t *testing.T) {
 
 			expectedSvcList := []*model.Service{
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -1362,9 +1330,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Resolution:   model.DNSLB,
 				},
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -1376,9 +1342,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Resolution:   model.DNSLB,
 				},
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -1390,9 +1354,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Resolution:   model.DNSLB,
 				},
 				{
-					ClusterLocal: model.HostVIPs{
-						Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
-					},
+					Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -1410,8 +1372,8 @@ func TestController_ExternalNameService(t *testing.T) {
 				t.Fatalf("Expecting %d service but got %d\r\n", len(expectedSvcList), len(svcList))
 			}
 			for i, exp := range expectedSvcList {
-				if exp.ClusterLocal.Hostname != svcList[i].ClusterLocal.Hostname {
-					t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].ClusterLocal.Hostname, exp.ClusterLocal.Hostname)
+				if exp.Hostname != svcList[i].Hostname {
+					t.Fatalf("got hostname of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Hostname, exp.Hostname)
 				}
 				if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
 					t.Fatalf("got ports of %dst service, got:\n%#v\nwanted:\n%#v\n", i+1, svcList[i].Ports, exp.Ports)
@@ -1709,7 +1671,7 @@ func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
 		return false
 	}
 	for i, exp := range expectedSvcList {
-		if exp.ClusterLocal.Hostname != svcList[i].ClusterLocal.Hostname {
+		if exp.Hostname != svcList[i].Hostname {
 			return false
 		}
 		if exp.DefaultAddress != svcList[i].DefaultAddress {

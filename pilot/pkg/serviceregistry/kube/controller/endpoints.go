@@ -123,7 +123,7 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
 			var podLabels labels.Instance
-			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.ClusterLocal.Hostname)
+			pod, expectedPod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, svc.Hostname)
 			if pod == nil && expectedPod {
 				continue
 			}

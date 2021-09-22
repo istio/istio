@@ -35,10 +35,10 @@ const (
 // Validate ensures that the service object is well-defined
 func (s *Service) Validate() error {
 	var errs error
-	if len(s.ClusterLocal.Hostname) == 0 {
+	if len(s.Hostname) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("invalid empty hostname"))
 	}
-	parts := strings.Split(string(s.ClusterLocal.Hostname), ".")
+	parts := strings.Split(string(s.Hostname), ".")
 	for _, part := range parts {
 		if !labels.IsDNS1123Label(part) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid hostname part: %q", part))

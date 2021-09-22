@@ -28,9 +28,7 @@ var (
 	}
 
 	service1 = &Service{
-		ClusterLocal: HostVIPs{
-			Hostname: "one.service.com",
-		},
+		Hostname:       "one.service.com",
 		DefaultAddress: "192.168.3.1", // VIP
 		Ports: PortList{
 			&Port{Name: "http", Port: 81, Protocol: protocol.HTTP},
@@ -142,9 +140,7 @@ func TestServiceValidate(t *testing.T) {
 		{
 			name: "empty hostname",
 			service: &Service{
-				ClusterLocal: HostVIPs{
-					Hostname: "",
-				},
+				Hostname:       "",
 				DefaultAddress: address,
 				Ports:          ports,
 			},
@@ -152,9 +148,7 @@ func TestServiceValidate(t *testing.T) {
 		{
 			name: "invalid hostname",
 			service: &Service{
-				ClusterLocal: HostVIPs{
-					Hostname: "hostname.^.com",
-				},
+				Hostname:       "hostname.^.com",
 				DefaultAddress: address,
 				Ports:          ports,
 			},
@@ -162,18 +156,14 @@ func TestServiceValidate(t *testing.T) {
 		{
 			name: "empty ports",
 			service: &Service{
-				ClusterLocal: HostVIPs{
-					Hostname: "hostname",
-				},
+				Hostname:       "hostname",
 				DefaultAddress: address,
 			},
 		},
 		{
 			name: "bad ports",
 			service: &Service{
-				ClusterLocal: HostVIPs{
-					Hostname: "hostname",
-				},
+				Hostname:       "hostname",
 				DefaultAddress: address,
 				Ports:          badPorts,
 			},

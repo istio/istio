@@ -216,10 +216,10 @@ func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeControl
 			if si.Endpoint == nil {
 				return fmt.Errorf("proxy ServiceInstance has nil endpoint")
 			}
-			if _, found := expectedHosts[si.Service.ClusterLocal.Hostname]; !found {
-				return fmt.Errorf("found proxy ServiceInstance for unexpected host: %s", si.Service.ClusterLocal.Hostname)
+			if _, found := expectedHosts[si.Service.Hostname]; !found {
+				return fmt.Errorf("found proxy ServiceInstance for unexpected host: %s", si.Service.Hostname)
 			}
-			delete(expectedHosts, si.Service.ClusterLocal.Hostname)
+			delete(expectedHosts, si.Service.Hostname)
 		}
 
 		if len(expectedHosts) > 0 {
@@ -328,12 +328,12 @@ func (ic *serviceImportCacheImpl) checkServiceInstances(t *testing.T) {
 
 	for _, inst := range instances {
 		svc := inst.Service
-		if svc.ClusterLocal.Hostname == serviceImportClusterSetHost {
+		if svc.Hostname == serviceImportClusterSetHost {
 			if !expectMCSService {
 				t.Fatalf("found ServiceInstance for unexported service %s", serviceImportClusterSetHost)
 			}
 			// Check the ClusterSet IPs.
-			g.Expect(svc.ClusterLocal.ClusterVIPs.GetAddressesFor(ic.Cluster())).To(Equal(expectedIPs))
+			g.Expect(svc.ClusterVIPs.GetAddressesFor(ic.Cluster())).To(Equal(expectedIPs))
 			return
 		}
 	}
@@ -399,7 +399,7 @@ func (ic *serviceImportCacheImpl) setServiceImportVIPs(t *testing.T, vips []stri
 				return fmt.Errorf("failed to find service for %s", serviceImportClusterSetHost)
 			}
 
-			actualVIPs := svc.ClusterLocal.ClusterVIPs.GetAddressesFor(ic.Cluster())
+			actualVIPs := svc.ClusterVIPs.GetAddressesFor(ic.Cluster())
 			if !reflect.DeepEqual(vips, actualVIPs) {
 				return fmt.Errorf("expected ClusterSet VIPs %v, but found %v", vips, actualVIPs)
 			}
