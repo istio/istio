@@ -16,6 +16,8 @@ package leaderelection
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	"go.uber.org/atomic"
@@ -124,7 +126,8 @@ func (l *LeaderElection) AddRunFunction(f func(stop <-chan struct{})) *LeaderEle
 
 func NewLeaderElection(namespace, name, electionID string, client kubernetes.Interface) *LeaderElection {
 	if name == "" {
-		name = "unknown"
+		hn, _ := os.Hostname()
+		name = fmt.Sprintf("unknown-%s", hn)
 	}
 	return &LeaderElection{
 		namespace:  namespace,
