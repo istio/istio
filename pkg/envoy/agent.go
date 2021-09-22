@@ -137,35 +137,29 @@ func (a *Agent) terminate() {
 	if e != nil {
 		log.Warnf("Error in invoking drain listeners endpoint %v", e)
 	}
-	log.Infof("Agent draining proxy for %v, then waiting for active connections to terminate...", a.minDrainDuration)
-	time.Sleep(a.minDrainDuration)
-	log.Infof("Termination drain duration period is %v, checking for active connections...", a.terminationDrainDuration)
-	go a.waitForDrain()
-	select {
-	case <-a.drainCh:
-		log.Info("There are no more active connections. terminating proxy...")
+	// If terminationDrainDuration is configured, sleep for that duration while proxy is draining.
+	// If terminationDrainDuration is not configured, always sleep minimumDrainDuration then exit
+	// after min(all connections close, terminationGracePeriodSeconds-minimumDrainDuration).
+	if a.terminationDrainDuration != 0 {
+		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
+		time.Sleep(a.terminationDrainDuration)
+		log.Infof("Graceful termination period complete, terminating remaining proxies.")
 		a.abortCh <- errAbort
-	// TODO: remove terminationDrainDuration and rely on "terminationGracefulPeriodSeconds" of pod?
-	case <-time.After(a.terminationDrainDuration):
-		log.Info("Termination period complete, terminating proxy...")
-		a.abortCh <- errAbort
-		close(a.drainCh)
-	}
-	log.Warnf("Aborted all epochs")
-}
-
-func (a *Agent) waitForDrain() {
-	for {
-		select {
-		case <-time.After(activeConnectionCheckDelay):
+	} else {
+		log.Infof("Agent draining proxy for %v, then waiting for active connections to terminate...", a.minDrainDuration)
+		time.Sleep(a.minDrainDuration)
+		log.Infof("Checking for active connections...")
+		ticker := time.NewTicker(activeConnectionCheckDelay)
+		for range ticker.C {
 			if a.activeProxyConnections() == 0 {
-				close(a.drainCh)
+				log.Info("There are no more active connections. terminating proxy...")
+				a.abortCh <- errAbort
 				return
 			}
-		case <-a.drainCh:
-			return
 		}
+
 	}
+	log.Warnf("Aborted all epochs")
 }
 
 func (a *Agent) activeProxyConnections() int {
