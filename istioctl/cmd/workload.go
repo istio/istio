@@ -530,7 +530,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
 	labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
-	labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
+	labels["service.istio.io/canonical-revision"] = md["CANONICAL_REVISION"]
 	if labelsJSON, err := json.Marshal(labels); err == nil {
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
