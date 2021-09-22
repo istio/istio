@@ -171,7 +171,9 @@ func TestServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID)
+	clusterSetIPs := []string{"100.0.0.1"}
+
+	service := ConvertService(localSvc, domainSuffix, clusterID, clusterSetIPs)
 	if service == nil {
 		t.Fatalf("could not convert service")
 	}
@@ -194,8 +196,29 @@ func TestServiceConversion(t *testing.T) {
 			service.ClusterLocal.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
 
-	if service.Address != ip {
-		t.Fatalf("service IP incorrect => %q, want %q", service.Address, ip)
+	ips := service.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)
+	if len(ips) != 1 {
+		t.Fatalf("number of ips incorrect => %q, want 1", len(ips))
+	}
+
+	if ips[0] != ip {
+		t.Fatalf("service IP incorrect => %q, want %q", ips[0], ip)
+	}
+
+	actualIPs := service.ClusterLocal.ClusterVIPs.GetAddressesFor(clusterID)
+	expectedIPs := []string{ip}
+	if !reflect.DeepEqual(actualIPs, expectedIPs) {
+		t.Fatalf("service IPs incorrect => %q, want %q", actualIPs, expectedIPs)
+	}
+
+	if service.ClusterSetLocal.Hostname != ServiceClusterSetLocalHostname(NamespacedNameForK8sObject(&localSvc)) {
+		t.Fatalf("service ClusterSet hostname incorrect => %q, want %q",
+			service.ClusterSetLocal.Hostname, ServiceClusterSetLocalHostname(NamespacedNameForK8sObject(&localSvc)))
+	}
+
+	actualClusterSetIPs := service.ClusterSetLocal.ClusterVIPs.GetAddressesFor(clusterID)
+	if !reflect.DeepEqual(actualClusterSetIPs, clusterSetIPs) {
+		t.Fatalf("service ClusterSet IPs incorrect => %q, want %q", actualClusterSetIPs, clusterSetIPs)
 	}
 
 	if !reflect.DeepEqual(service.Attributes.LabelSelectors, localSvc.Spec.Selector) {
@@ -246,7 +269,7 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(localSvc, domainSuffix, clusterID)
+	service := ConvertService(localSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert service")
 	}
@@ -279,7 +302,7 @@ func TestExternalServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert external service")
 	}
@@ -323,7 +346,7 @@ func TestExternalClusterLocalServiceConversion(t *testing.T) {
 
 	domainSuffix := "cluster.local"
 
-	service := ConvertService(extSvc, domainSuffix, clusterID)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert external service")
 	}
@@ -384,7 +407,7 @@ func TestLBServiceConversion(t *testing.T) {
 		},
 	}
 
-	service := ConvertService(extSvc, domainSuffix, clusterID)
+	service := ConvertService(extSvc, domainSuffix, clusterID, nil)
 	if service == nil {
 		t.Fatalf("could not convert external service")
 	}

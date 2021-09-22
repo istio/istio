@@ -276,6 +276,11 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 		peerAddr = peerInfo.Addr.String()
 	}
 
+	if err := s.WaitForRequestLimit(stream.Context()); err != nil {
+		log.Warnf("ADS: %q exceeded rate limit: %v", peerAddr, err)
+		return status.Errorf(codes.ResourceExhausted, "request rate limit exceeded: %v", err)
+	}
+
 	ids, err := s.authenticate(ctx)
 	if err != nil {
 		return status.Error(codes.Unauthenticated, err.Error())
@@ -664,6 +669,11 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		proxy.SetSidecarScope(push)
 	case gateway && proxy.Type == model.Router:
 		proxy.SetGatewaysForProxy(push)
+		// If any config related to service entry changes like adding a new service entry
+		// we should recompute the default sidecar scope for gateways.
+		if sidecar {
+			proxy.SetSidecarScope(push)
+		}
 	default:
 		proxy.SetSidecarScope(push)
 		proxy.SetGatewaysForProxy(push)
@@ -747,7 +757,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			totalDelayedPushes.With(typeTag.Value(v3.GetMetricType(w.TypeUrl))).Increment()
 			log.Debugf("%s: QUEUE for node:%s", v3.GetShortType(w.TypeUrl), con.proxy.ID)
 			con.proxy.Lock()
-			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].Merge(pushEv.pushRequest)
+			con.blockedPushes[w.TypeUrl] = con.blockedPushes[w.TypeUrl].CopyMerge(pushEv.pushRequest)
 			con.proxy.Unlock()
 		}
 	}

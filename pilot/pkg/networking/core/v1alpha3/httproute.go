@@ -279,10 +279,10 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				ClusterLocal: model.HostVIPs{
 					Hostname: svc.ClusterLocal.Hostname,
 				},
-				Address:      svc.GetClusterLocalAddressForProxy(node),
-				MeshExternal: svc.MeshExternal,
-				Resolution:   svc.Resolution,
-				Ports:        []*model.Port{svcPort},
+				DefaultAddress: svc.GetAddressForProxy(node),
+				MeshExternal:   svc.MeshExternal,
+				Resolution:     svc.Resolution,
+				Ports:          []*model.Port{svcPort},
 				Attributes: model.ServiceAttributes{
 					ServiceRegistry: svc.Attributes.ServiceRegistry,
 				},
@@ -463,7 +463,14 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	}
 
 	if len(virtualHosts) == 0 {
-		virtualHosts = vhosts
+		return virtualHosts
+	}
+	if len(virtualHosts) == 1 {
+		virtualHosts[0].Domains = []string{"*"}
+		return virtualHosts
+	}
+	if features.EnableUnsafeAssertions {
+		panic(fmt.Sprintf("unexpectedly matched multiple virtual hosts for %v: %v", routeName, virtualHosts))
 	}
 	return virtualHosts
 }
@@ -482,7 +489,7 @@ func generateVirtualHostDomains(service *model.Service, port int, node *model.Pr
 		}
 	}
 
-	svcAddr := service.GetClusterLocalAddressForProxy(node)
+	svcAddr := service.GetAddressForProxy(node)
 	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 		// add a vhost match for the IP (if its non CIDR)
 		cidr := util.ConvertAddressToCidr(svcAddr)

@@ -124,12 +124,9 @@ func TestServices(t *testing.T) {
 			})
 
 			// 2 ports 1001, 2 IPs
-			createEndpoints(ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, t)
+			createEndpoints(t, ctl, testService, ns, []string{"http-example", "foo"}, []string{"10.10.1.1", "10.11.1.2"}, nil, nil)
 
-			svc, err := sds.GetService(hostname)
-			if err != nil {
-				t.Fatalf("GetService(%q) encountered unexpected error: %v", hostname, err)
-			}
+			svc := sds.GetService(hostname)
 			if svc == nil {
 				t.Fatalf("GetService(%q) => should exists", hostname)
 			}
@@ -156,10 +153,7 @@ func TestServices(t *testing.T) {
 			}
 
 			missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
-			svc, err = sds.GetService(missing)
-			if err != nil {
-				t.Fatalf("GetService(%q) encountered unexpected error: %v", missing, err)
-			}
+			svc = sds.GetService(missing)
 			if svc != nil {
 				t.Fatalf("GetService(%q) => %s, should not exist", missing, svc.ClusterLocal.Hostname)
 			}
@@ -349,7 +343,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svc1Ips := []string{"128.0.0.1"}
 			portNames := []string{"tcp-port"}
 			// Create 1 endpoint that refers to a pod in the same namespace.
-			createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsA", portNames, svc1Ips, nil, nil)
 
 			// Creates 100 endpoints that refers to a pod in a different namespace.
 			fakeSvcCounts := 100
@@ -363,12 +357,12 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					[]int32{8080}, map[string]string{"app": "prod-app"}, t)
 				fx.Wait("service")
 
-				createEndpoints(controller, svcName, "nsfake", portNames, svc1Ips, nil, t)
+				createEndpoints(t, controller, svcName, "nsfake", portNames, svc1Ips, nil, nil)
 				fx.Wait("eds")
 			}
 
 			// Create 1 endpoint that refers to a pod in the same namespace.
-			createEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
 			fx.Wait("eds")
 
 			// this can test get pod by proxy ID
@@ -415,7 +409,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 						},
 					},
-					Address:         "10.0.0.1",
+					ClusterSetLocal: model.HostVIPs{
+						Hostname: "svc1.nsa.svc.clusterset.local",
+					},
+					DefaultAddress:  "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
@@ -491,7 +488,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 						},
 					},
-					Address:         "10.0.0.1",
+					ClusterSetLocal: model.HostVIPs{
+						Hostname: "svc1.nsa.svc.clusterset.local",
+					},
+					DefaultAddress:  "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
@@ -562,7 +562,10 @@ func TestGetProxyServiceInstances(t *testing.T) {
 							Addresses: map[cluster.ID][]string{clusterID: {"10.0.0.1"}},
 						},
 					},
-					Address:         "10.0.0.1",
+					ClusterSetLocal: model.HostVIPs{
+						Hostname: "svc1.nsa.svc.clusterset.local",
+					},
+					DefaultAddress:  "10.0.0.1",
 					Ports:           []*model.Port{{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP}},
 					ServiceAccounts: []string{"acctvm2@gserviceaccount2.com", "spiffe://cluster.local/ns/nsa/sa/acct4"},
 					Attributes: model.ServiceAttributes{
@@ -801,17 +804,14 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 			svc1Ips := []string{"128.0.0.2"}
 			svc2Ips := make([]string, 0)
 			portNames := []string{"tcp-port"}
-			createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, nil, t)
-			createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsA", portNames, svc1Ips, nil, nil)
+			createEndpoints(t, controller, "svc2", "nsA", portNames, svc2Ips, nil, nil)
 
 			// We expect only one EDS update with Endpoints.
 			<-fx.Events
 
 			hostname := kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix)
-			svc, err := controller.GetService(hostname)
-			if err != nil {
-				t.Fatalf("failed to get service: %v", err)
-			}
+			svc := controller.GetService(hostname)
 			sa := controller.GetIstioServiceAccounts(svc, []int{8080})
 			sort.Strings(sa)
 			expected := []string{
@@ -824,10 +824,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 			}
 
 			hostname = kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix)
-			svc, err = controller.GetService(hostname)
-			if err != nil {
-				t.Fatalf("failed to get service: %v", err)
-			}
+			svc = controller.GetService(hostname)
 			sa = controller.GetIstioServiceAccounts(svc, []int{})
 			if len(sa) != 0 {
 				t.Fatal("Failure: Expected to resolve 0 service accounts, but got: ", sa)
@@ -866,7 +863,7 @@ func TestController_Service(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 					},
-					Address: "10.0.0.1",
+					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -879,7 +876,7 @@ func TestController_Service(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 					},
-					Address: "10.0.0.1",
+					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -892,7 +889,7 @@ func TestController_Service(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
 					},
-					Address: "10.0.0.1",
+					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -905,7 +902,7 @@ func TestController_Service(t *testing.T) {
 					ClusterLocal: model.HostVIPs{
 						Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
 					},
-					Address: "10.0.0.1",
+					DefaultAddress: "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -946,7 +943,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -959,7 +956,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -972,7 +969,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -985,7 +982,7 @@ func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc4", "nsB", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -1085,7 +1082,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -1098,7 +1095,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -1111,7 +1108,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc3", "nsB", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -1124,7 +1121,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: kube.ServiceHostname("svc4", "nsC", defaultFakeDomainSuffix),
 		},
-		Address: "10.0.0.1",
+		DefaultAddress: "10.0.0.1",
 		Ports: model.PortList{
 			&model.Port{
 				Name:     "tcp-port",
@@ -1463,7 +1460,14 @@ func TestController_ExternalNameService(t *testing.T) {
 	}
 }
 
-func createEndpoints(controller *FakeController, name, namespace string, portNames, ips []string, refs []*coreV1.ObjectReference, t *testing.T) {
+func createEndpoints(t *testing.T, controller *FakeController, name, namespace string,
+	portNames, ips []string, refs []*coreV1.ObjectReference, labels map[string]string) {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	// Add the reference to the service. Used by EndpointSlice logic only.
+	labels[discovery.LabelServiceName] = name
+
 	if refs == nil {
 		refs = make([]*coreV1.ObjectReference, len(ips))
 	}
@@ -1482,6 +1486,7 @@ func createEndpoints(controller *FakeController, name, namespace string, portNam
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Subsets: []coreV1.EndpointSubset{{
 			Addresses: eas,
@@ -1504,7 +1509,7 @@ func createEndpoints(controller *FakeController, name, namespace string, portNam
 		esps = append(esps, discovery.EndpointPort{Name: &n, Port: &portNum})
 	}
 
-	sliceEndpoint := []discovery.Endpoint{}
+	var sliceEndpoint []discovery.Endpoint
 	for i, ip := range ips {
 		sliceEndpoint = append(sliceEndpoint, discovery.Endpoint{
 			Addresses: []string{ip},
@@ -1515,9 +1520,7 @@ func createEndpoints(controller *FakeController, name, namespace string, portNam
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels: map[string]string{
-				discovery.LabelServiceName: name,
-			},
+			Labels:    labels,
 		},
 		Endpoints: sliceEndpoint,
 		Ports:     esps,
@@ -1718,7 +1721,7 @@ func servicesEqual(svcList, expectedSvcList []*model.Service) bool {
 		if exp.ClusterLocal.Hostname != svcList[i].ClusterLocal.Hostname {
 			return false
 		}
-		if exp.Address != svcList[i].Address {
+		if exp.DefaultAddress != svcList[i].DefaultAddress {
 			return false
 		}
 		if !reflect.DeepEqual(exp.Ports, svcList[i].Ports) {
@@ -1840,7 +1843,7 @@ func TestEndpointUpdate(t *testing.T) {
 			svc1Ips := []string{"128.0.0.1"}
 			portNames := []string{"tcp-port"}
 			// Create 1 endpoint that refers to a pod in the same namespace.
-			createEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, nil, t)
+			createEndpoints(t, controller, "svc1", "nsa", portNames, svc1Ips, nil, nil)
 			if ev := fx.Wait("eds"); ev == nil {
 				t.Fatalf("Timeout incremental eds")
 			}
@@ -1914,7 +1917,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				}
 			}
 			addEndpoint := func(svcName string, ips []string, pods []string) {
-				refs := []*coreV1.ObjectReference{}
+				var refs []*coreV1.ObjectReference
 				for _, pod := range pods {
 					if pod == "" {
 						refs = append(refs, nil)
@@ -1926,7 +1929,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 						})
 					}
 				}
-				createEndpoints(controller, svcName, "nsA", []string{"tcp-port"}, ips, refs, t)
+				createEndpoints(t, controller, svcName, "nsA", []string{"tcp-port"}, ips, refs, nil)
 			}
 			assertEndpointsEvent := func(ips []string, pods []string) {
 				t.Helper()
@@ -1934,12 +1937,12 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				if ev == nil {
 					t.Fatalf("Timeout incremental eds")
 				}
-				gotIps := []string{}
+				var gotIps []string
 				for _, e := range ev.Endpoints {
 					gotIps = append(gotIps, e.Address)
 				}
-				gotSA := []string{}
-				expectedSa := []string{}
+				var gotSA []string
+				var expectedSa []string
 				for _, e := range pods {
 					if e == "" {
 						expectedSa = append(expectedSa, "")
@@ -2053,7 +2056,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	}
 	pod1Ips := []string{"172.0.1.1"}
 	portNames := []string{"tcp-port"}
-	createEndpoints(controller, "svc1", "nsA", portNames, pod1Ips, nil, t)
+	createEndpoints(t, controller, "svc1", "nsA", portNames, pod1Ips, nil, nil)
 	if ev := fx.Wait("eds"); ev == nil {
 		t.Fatal("Timeout incremental eds")
 	}

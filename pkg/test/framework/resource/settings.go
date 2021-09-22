@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
@@ -67,6 +68,10 @@ type Settings struct {
 	SkipString  arrayFlags
 	SkipMatcher *Matcher
 
+	// SkipWorkloadClasses can be used to skip deploying special workload types like TPROXY, VMs, etc.
+	skipWorkloadClasses arrayFlags
+	SkipWorkloadClasses sets.Set
+
 	// The label selector, in parsed form.
 	Selector label.Selector
 
@@ -84,6 +89,9 @@ type Settings struct {
 
 	// Skip Delta XDS related parts for all the tests.
 	SkipDelta bool
+
+	// Skip TProxy related parts for all the tests.
+	SkipTProxy bool
 
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
@@ -122,7 +130,8 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		RunID: uuid.New(),
+		RunID:               uuid.New(),
+		SkipWorkloadClasses: sets.NewSet(),
 	}
 }
 

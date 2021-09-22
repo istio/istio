@@ -171,6 +171,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 			testdir := path.Join("testdata/vmconfig", dir.Name())
 			kubeClientWithRevision = func(_, _, _ string) (kube.ExtendedClient, error) {
 				return &kube.MockClient{
+					RevisionValue: "rev-1",
 					Interface: fake.NewSimpleClientset(
 						&v1.ServiceAccount{
 							ObjectMeta: metav1.ObjectMeta{Namespace: "bar", Name: "vm-serviceaccount"},
@@ -181,7 +182,7 @@ func TestWorkloadEntryConfigure(t *testing.T) {
 							Data:       map[string]string{"root-cert.pem": string(fakeCACert)},
 						},
 						&v1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio"},
+							ObjectMeta: metav1.ObjectMeta{Namespace: "istio-system", Name: "istio-rev-1"},
 							Data: map[string]string{
 								"mesh": string(util.ReadFile(path.Join(testdir, "meshconfig.yaml"), t)),
 							},

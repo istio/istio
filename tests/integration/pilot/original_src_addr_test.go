@@ -33,6 +33,9 @@ func TestTproxy(t *testing.T) {
 		Features("traffic.original-source-ip").
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			if t.Settings().SkipTProxy {
+				t.Skip()
+			}
 			workloads, err := apps.PodA[0].Workloads()
 			if err != nil {
 				t.Errorf("failed to get Subsets: %v", err)

@@ -221,6 +221,7 @@ type Controller struct {
 	nodeLister   listerv1.NodeLister
 
 	exports serviceExportCache
+	imports serviceImportCache
 	pods    *PodCache
 
 	serviceHandlers  []func(*model.Service, model.Event)
@@ -352,6 +353,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.registerHandlers(c.pods.informer, "Pods", c.pods.onEvent, nil)
 
 	c.exports = newServiceExportCache(c)
+	c.imports = newServiceImportCache(c)
 
 	return c
 }
@@ -371,8 +373,12 @@ func (c *Controller) discoverabilityPolicyForService(name types.NamespacedName) 
 	return model.DiscoverableFromSameCluster
 }
 
-func (c *Controller) ExportedServices() []string {
+func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
 	return c.exports.ExportedServices()
+}
+
+func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
+	return c.imports.ImportedServices()
 }
 
 func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {
@@ -444,7 +450,8 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 
 	log.Debugf("Handle event %s for service %s in namespace %s", event, svc.Name, svc.Namespace)
 
-	svcConv := kube.ConvertService(*svc, c.opts.DomainSuffix, c.Cluster())
+	svcConv := kube.ConvertService(*svc, c.opts.DomainSuffix, c.Cluster(),
+		c.imports.GetClusterSetIPs(kube.NamespacedNameForK8sObject(svc)))
 	switch event {
 	case model.EventDelete:
 		c.Lock()
@@ -656,7 +663,8 @@ func (c *Controller) informersSynced() bool {
 		!c.endpoints.HasSynced() ||
 		!c.pods.informer.HasSynced() ||
 		!c.nodeInformer.HasSynced() ||
-		!c.exports.HasSynced() {
+		!c.exports.HasSynced() ||
+		!c.imports.HasSynced() {
 		return false
 	}
 	return true
@@ -770,11 +778,11 @@ func (c *Controller) Services() ([]*model.Service, error) {
 }
 
 // GetService implements a service catalog operation by hostname specified.
-func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
+func (c *Controller) GetService(hostname host.Name) *model.Service {
 	c.RLock()
 	svc := c.servicesMap[hostname]
 	c.RUnlock()
-	return svc, nil
+	return svc
 }
 
 // getPodLocality retrieves the locality for a pod.
@@ -1007,10 +1015,7 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) []*mode
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
-			var service *model.Service
-			c.RLock()
-			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix)]
-			c.RUnlock()
+			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
 			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
@@ -1066,10 +1071,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
 	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
-			var service *model.Service
-			c.RLock()
-			service = c.servicesMap[kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix)]
-			c.RUnlock()
+			service := c.GetService(kube.ServiceHostname(k8sSvc.Name, k8sSvc.Namespace, c.opts.DomainSuffix))
 			// Note that this cannot be an external service because k8s external services do not have label selectors.
 			if service == nil || service.Resolution != model.ClientSideLB {
 				// may be a headless service
@@ -1159,10 +1161,8 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	out := make([]*model.ServiceInstance, 0)
 	for _, svc := range services {
 		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.opts.DomainSuffix)
-		c.RLock()
-		modelService, f := c.servicesMap[hostname]
-		c.RUnlock()
-		if !f {
+		modelService := c.GetService(hostname)
+		if modelService == nil {
 			return nil, fmt.Errorf("failed to find model service for %v", hostname)
 		}
 
@@ -1219,9 +1219,7 @@ func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod,
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(service.Name, service.Namespace, c.opts.DomainSuffix)
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
+	svc := c.GetService(hostname)
 
 	if svc == nil {
 		return out

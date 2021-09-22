@@ -2071,15 +2071,15 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		ClusterLocal: HostVIPs{
 			Hostname: host.Name(hostname),
 		},
-		Address:    ip,
-		Resolution: DNSLB,
+		DefaultAddress: ip,
+		Resolution:     DNSLB,
 		Attributes: ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
 			ExportTo:        map[visibility.Instance]bool{v: true},
 		},
 	}
-	if service.Address == wildcardIP {
+	if ip == wildcardIP {
 		service.Resolution = Passthrough
 	}
 

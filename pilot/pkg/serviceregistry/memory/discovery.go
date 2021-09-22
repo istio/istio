@@ -15,7 +15,6 @@
 package memory
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -66,7 +65,6 @@ type ServiceDiscovery struct {
 	ip2instance                   map[string][]*model.ServiceInstance
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
-	GetServiceError               error
 	InstancesError                error
 	GetProxyServiceInstancesError error
 	Controller                    model.Controller
@@ -115,7 +113,7 @@ func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name(name),
 		},
-		Address: vip,
+		DefaultAddress: vip,
 		Ports: model.PortList{
 			{
 				Name:     "http-main",
@@ -255,17 +253,10 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 
 // GetService implements discovery interface
 // Each call to GetService() should return a new *model.Service
-func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, error) {
+func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
-	if sd.GetServiceError != nil {
-		return nil, sd.GetServiceError
-	}
-	val := sd.services[hostname]
-	if val == nil {
-		return nil, errors.New("missing service")
-	}
-	return val, sd.GetServiceError
+	return sd.services[hostname]
 }
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
@@ -337,4 +328,12 @@ func (sd *ServiceDiscovery) AddGateways(gws ...*model.NetworkGateway) {
 
 func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	return sd.networkGateways
+}
+
+func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
+	return nil
+}
+
+func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
+	return nil
 }

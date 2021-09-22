@@ -85,12 +85,26 @@ func buildMockController() *Controller {
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.ClusterLocal.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0", []string{}, "cluster-1"),
+			mock.HelloService.ClusterLocal.Hostname: mock.MakeService(mock.ServiceArgs{
+				Hostname:           "hello.default.svc.cluster.local",
+				Address:            "10.1.1.0",
+				ClusterSetHostname: "hello.default.svc.clusterset.local",
+				ClusterSetIPs:      []string{"100.1.1.0"},
+				ServiceAccounts:    []string{},
+				ClusterID:          "cluster-1",
+			}),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.ClusterLocal.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}, "cluster-2"),
+			mock.HelloService.ClusterLocal.Hostname: mock.MakeService(mock.ServiceArgs{
+				Hostname:           "hello.default.svc.cluster.local",
+				Address:            "10.1.2.0",
+				ClusterSetHostname: "hello.default.svc.clusterset.local",
+				ClusterSetIPs:      []string{"100.1.2.0"},
+				ServiceAccounts:    []string{},
+				ClusterID:          "cluster-2",
+			}),
 			mock.WorldService.ClusterLocal.Hostname: mock.WorldService.DeepCopy(),
 		}, 2)
 
@@ -136,22 +150,35 @@ func TestServicesForMultiCluster(t *testing.T) {
 	}
 
 	// Set up ground truth hostname values
-	serviceMap := map[host.Name]bool{
+	clusterLocalHosts := map[host.Name]bool{
 		mock.HelloService.ClusterLocal.Hostname: false,
 		mock.WorldService.ClusterLocal.Hostname: false,
 	}
+	clusterSetLocalHosts := map[host.Name]bool{
+		mock.HelloService.ClusterSetLocal.Hostname: false,
+		mock.WorldService.ClusterSetLocal.Hostname: false,
+	}
 
-	svcCount := 0
+	clusterLocalCount := 0
+	clusterSetLocalCount := 0
 	// Compare return value to ground truth
 	for _, svc := range services {
-		if counted, existed := serviceMap[svc.ClusterLocal.Hostname]; existed && !counted {
-			svcCount++
-			serviceMap[svc.ClusterLocal.Hostname] = true
+		if counted, existed := clusterLocalHosts[svc.ClusterLocal.Hostname]; existed && !counted {
+			clusterLocalCount++
+			clusterLocalHosts[svc.ClusterLocal.Hostname] = true
+		}
+		if counted, existed := clusterSetLocalHosts[svc.ClusterSetLocal.Hostname]; existed && !counted {
+			clusterSetLocalCount++
+			clusterSetLocalHosts[svc.ClusterSetLocal.Hostname] = true
 		}
 	}
 
-	if svcCount != len(serviceMap) {
-		t.Fatalf("Service map expected size %d, actual %v", svcCount, serviceMap)
+	if clusterLocalCount != len(clusterLocalHosts) {
+		t.Fatalf("Cluster local service map expected size %d, actual %v", clusterLocalCount, clusterLocalHosts)
+	}
+
+	if clusterSetLocalCount != len(clusterSetLocalHosts) {
+		t.Fatalf("ClusterSet local service map expected size %d, actual %v", clusterSetLocalCount, clusterSetLocalHosts)
 	}
 
 	// Now verify ClusterVIPs for each service
@@ -164,10 +191,23 @@ func TestServicesForMultiCluster(t *testing.T) {
 			"cluster-2": []string{"10.2.0.0"},
 		},
 	}
+	ClusterSetVIPs := map[host.Name]map[cluster.ID][]string{
+		mock.HelloService.ClusterSetLocal.Hostname: {
+			"cluster-1": []string{"100.1.1.0"},
+			"cluster-2": []string{"100.1.2.0"},
+		},
+		mock.WorldService.ClusterSetLocal.Hostname: {
+			"cluster-2": []string{"100.2.0.0"},
+		},
+	}
 	for _, svc := range services {
 		if !reflect.DeepEqual(svc.ClusterLocal.ClusterVIPs.Addresses, ClusterVIPs[svc.ClusterLocal.Hostname]) {
 			t.Fatalf("Service %s ClusterVIPs actual %v, expected %v", svc.ClusterLocal.Hostname,
 				svc.ClusterLocal.ClusterVIPs.Addresses, ClusterVIPs[svc.ClusterLocal.Hostname])
+		}
+		if !reflect.DeepEqual(svc.ClusterSetLocal.ClusterVIPs.GetAddresses(), ClusterSetVIPs[svc.ClusterSetLocal.Hostname]) {
+			t.Fatalf("Service %s ClusterSetVIPs actual %v, expected %v", svc.ClusterSetLocal.Hostname,
+				svc.ClusterSetLocal.ClusterVIPs.Addresses, ClusterSetVIPs[svc.ClusterSetLocal.Hostname])
 		}
 	}
 	t.Logf("Return service ClusterVIPs match ground truth")
@@ -208,10 +248,7 @@ func TestGetService(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get service from mockAdapter1
-	svc, err := aggregateCtl.GetService(mock.HelloService.ClusterLocal.Hostname)
-	if err != nil {
-		t.Fatalf("GetService() encountered unexpected error: %v", err)
-	}
+	svc := aggregateCtl.GetService(mock.HelloService.ClusterLocal.Hostname)
 	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
@@ -220,38 +257,9 @@ func TestGetService(t *testing.T) {
 	}
 
 	// Get service from mockAdapter2
-	svc, err = aggregateCtl.GetService(mock.WorldService.ClusterLocal.Hostname)
-	if err != nil {
-		t.Fatalf("GetService() encountered unexpected error: %v", err)
-	}
+	svc = aggregateCtl.GetService(mock.WorldService.ClusterLocal.Hostname)
 	if svc == nil {
 		t.Fatal("Fail to get service")
-	}
-	if svc.ClusterLocal.Hostname != mock.WorldService.ClusterLocal.Hostname {
-		t.Fatal("Returned service is incorrect")
-	}
-}
-
-func TestGetServiceError(t *testing.T) {
-	aggregateCtl := buildMockController()
-
-	discovery1.GetServiceError = errors.New("mock GetService() error")
-
-	// Get service from client with error
-	svc, err := aggregateCtl.GetService(mock.HelloService.ClusterLocal.Hostname)
-	if err == nil {
-		fmt.Println(svc)
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no service is found")
-	}
-	if svc != nil {
-		t.Fatal("GetService() should return nil if no service found")
-	}
-
-	// Get service from client without error
-	svc, err = aggregateCtl.GetService(mock.WorldService.ClusterLocal.Hostname)
-	if err != nil {
-		t.Fatal("Aggregate controller should not return error if service is found")
 	}
 	if svc.ClusterLocal.Hostname != mock.WorldService.ClusterLocal.Hostname {
 		t.Fatal("Returned service is incorrect")

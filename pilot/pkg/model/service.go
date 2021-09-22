@@ -56,6 +56,13 @@ type HostVIPs struct {
 	ClusterVIPs cluster.AddressMap `json:"clusterVIPs,omitempty"`
 }
 
+func (h *HostVIPs) DeepCopy() HostVIPs {
+	return HostVIPs{
+		Hostname:    h.Hostname,
+		ClusterVIPs: h.ClusterVIPs.DeepCopy(),
+	}
+}
+
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
 // ports where the service is listening for connections. *Optionally*, a
@@ -81,12 +88,21 @@ type Service struct {
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
 
-	// ClusterLocal specifies the cluster.local host and cluster VIPs for this service.
-	ClusterLocal HostVIPs `json:"clusterLocalHostVIPs,omitempty"`
+	// ClusterLocal specifies the cluster.local host and cluster VIPs for this service. Currently,
+	// The cluster.local host is used to address endpoints for the service across the entire mesh.
+	// Once Istio fully supports Kubernetes Multi-Cluster Services (MCS), the cluster.local
+	// host will be used only to address endpoints residing within the same cluster as the caller.
+	// In other words, cluster.local will actually be local to the cluster.
+	ClusterLocal HostVIPs `json:"clusterLocal,omitempty"`
 
-	// Address specifies the service IPv4 address of the load balancer
-	// Do not access directly. Use GetClusterLocalAddressForProxy
-	Address string `json:"address,omitempty"`
+	// ClusterSetLocal specifies the Kubernetes Multi-Cluster Services (MCS) clusterset.local
+	// host and clusterset VIPs for this service. When MCS is enabled within Istio, this host
+	// will be used to address endpoints across the mesh.
+	ClusterSetLocal HostVIPs `json:"clusterSetLocal,omitempty"`
+
+	// DefaultAddress specifies the default service IP of the load balancer.
+	// Do not access directly. Use GetAddressForProxy
+	DefaultAddress string `json:"defaultAddress,omitempty"`
 
 	// AutoAllocatedAddress specifies the automatically allocated
 	// IPv4 address out of the reserved Class E subnet
@@ -516,7 +532,7 @@ type ServiceDiscovery interface {
 	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	GetService(hostname host.Name) (*Service, error)
+	GetService(hostname host.Name) *Service
 
 	// InstancesByPort retrieves instances for a service on the given ports with labels that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -571,6 +587,24 @@ type ServiceDiscovery interface {
 	// NetworkGateways returns a list of network gateways that can be used to access endpoints
 	// residing in this registry.
 	NetworkGateways() []*NetworkGateway
+
+	// ExportedServices returns information about the services that have been exported via the
+	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
+	// Kubernetes clusters.
+	ExportedServices() []ClusterServiceInfo
+
+	// ImportedServices returns information about the services that have been imported via the
+	// Kubernetes Multi-Cluster Services (MCS) ServiceImport API. Only applies to services in
+	// Kubernetes clusters.
+	ImportedServices() []ClusterServiceInfo
+}
+
+// ClusterServiceInfo combines the name of a service with a particular Kubernetes cluster. This
+// is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
+type ClusterServiceInfo struct {
+	Name      string
+	Namespace string
+	Cluster   cluster.ID
 }
 
 // GetNames returns port names
@@ -671,8 +705,8 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
-// GetClusterLocalAddressForProxy returns a Service's address specific to the cluster where the node resides
-func (s *Service) GetClusterLocalAddressForProxy(node *Proxy) string {
+// GetAddressForProxy returns a Service's address specific to the cluster where the node resides
+func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterLocal.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
@@ -682,12 +716,12 @@ func (s *Service) GetClusterLocalAddressForProxy(node *Proxy) string {
 		}
 
 		if node.Metadata.DNSCapture && node.Metadata.DNSAutoAllocate &&
-			s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+			s.DefaultAddress == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
 			return s.AutoAllocatedAddress
 		}
 	}
 
-	return s.Address
+	return s.DefaultAddress
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
@@ -737,15 +771,11 @@ func (s *Service) DeepCopy() *Service {
 		Ports:           ports.(PortList),
 		ServiceAccounts: accounts.([]string),
 		CreationTime:    s.CreationTime,
-		ClusterLocal: HostVIPs{
-			Hostname: s.ClusterLocal.Hostname,
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: s.ClusterLocal.ClusterVIPs.GetAddresses(),
-			},
-		},
-		Address:      s.Address,
-		Resolution:   s.Resolution,
-		MeshExternal: s.MeshExternal,
+		ClusterLocal:    s.ClusterLocal.DeepCopy(),
+		ClusterSetLocal: s.ClusterSetLocal.DeepCopy(),
+		DefaultAddress:  s.DefaultAddress,
+		Resolution:      s.Resolution,
+		MeshExternal:    s.MeshExternal,
 	}
 }
 

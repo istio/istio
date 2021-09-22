@@ -75,6 +75,12 @@ var (
 	tlsMtlsCertSplitCa = makeSecret("tls-mtls-split-cacert", map[string]string{
 		TLSSecretCaCert: "tls-mtls-split-ca",
 	})
+	emptyCert = makeSecret("empty-cert", map[string]string{
+		TLSSecretCert: "", TLSSecretKey: "tls-key",
+	})
+	wrongKeys = makeSecret("wrong-keys", map[string]string{
+		"foo-bar": "my-cert", TLSSecretKey: "tls-key",
+	})
 )
 
 func TestSecretsController(t *testing.T) {
@@ -89,6 +95,8 @@ func TestSecretsController(t *testing.T) {
 		tlsMtlsCert,
 		tlsMtlsCertSplit,
 		tlsMtlsCertSplitCa,
+		emptyCert,
+		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
 	sc := NewSecretsController(client, "")
@@ -98,39 +106,122 @@ func TestSecretsController(t *testing.T) {
 	})
 	client.RunAndWait(stop)
 	cases := []struct {
-		name      string
-		namespace string
-		cert      string
-		key       string
-		caCert    string
+		name            string
+		namespace       string
+		cert            string
+		key             string
+		caCert          string
+		expectedError   string
+		expectedCAError string
 	}{
-		{"generic", "default", "generic-cert", "generic-key", ""},
-		{"generic-mtls", "default", "generic-mtls-cert", "generic-mtls-key", "generic-mtls-ca"},
-		{"generic-mtls-split", "default", "generic-mtls-split-cert", "generic-mtls-split-key", ""},
-		{"generic-mtls-split-cacert", "default", "", "", "generic-mtls-split-ca"},
+		{
+			name:            "generic",
+			namespace:       "default",
+			cert:            "generic-cert",
+			key:             "generic-key",
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: cert, key",
+		},
+		{
+			name:      "generic-mtls",
+			namespace: "default",
+			cert:      "generic-mtls-cert",
+			key:       "generic-mtls-key",
+			caCert:    "generic-mtls-ca",
+		},
+		{
+			name:            "generic-mtls-split",
+			namespace:       "default",
+			cert:            "generic-mtls-split-cert",
+			key:             "generic-mtls-split-key",
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: cert, key",
+		},
+		{
+			name:          "generic-mtls-split-cacert",
+			namespace:     "default",
+			caCert:        "generic-mtls-split-ca",
+			expectedError: "found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: cacert",
+		},
 		// The -cacert secret has precedence
-		{"overlap-cacert", "default", "", "", "split-ca"},
-		{"tls", "default", "tls-cert", "tls-key", ""},
-		{"tls-mtls", "default", "tls-mtls-cert", "tls-mtls-key", "tls-mtls-ca"},
-		{"tls-mtls-split", "default", "tls-mtls-split-cert", "tls-mtls-split-key", ""},
-		{"tls-mtls-split-cacert", "default", "", "", "tls-mtls-split-ca"},
-		{"generic", "wrong-namespace", "", "", ""},
+		{
+			name:          "overlap-cacert",
+			namespace:     "default",
+			caCert:        "split-ca",
+			expectedError: "found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: cacert",
+		},
+		{
+			name:            "tls",
+			namespace:       "default",
+			cert:            "tls-cert",
+			key:             "tls-key",
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: tls.crt, tls.key",
+		},
+		{
+			name:      "tls-mtls",
+			namespace: "default",
+			cert:      "tls-mtls-cert",
+			key:       "tls-mtls-key",
+			caCert:    "tls-mtls-ca",
+		},
+		{
+			name:            "tls-mtls-split",
+			namespace:       "default",
+			cert:            "tls-mtls-split-cert",
+			key:             "tls-mtls-split-key",
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: tls.crt, tls.key",
+		},
+		{
+			name:          "tls-mtls-split-cacert",
+			namespace:     "default",
+			caCert:        "tls-mtls-split-ca",
+			expectedError: "found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: ca.crt",
+		},
+		{
+			name:            "generic",
+			namespace:       "wrong-namespace",
+			expectedError:   `secret wrong-namespace/generic not found`,
+			expectedCAError: `secret wrong-namespace/generic not found`,
+		},
+		{
+			name:            "empty-cert",
+			namespace:       "default",
+			expectedError:   `found keys "tls.crt" and "tls.key", but they were empty`,
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: tls.crt, tls.key",
+		},
+		{
+			name:            "wrong-keys",
+			namespace:       "default",
+			expectedError:   `found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: foo-bar, tls.key`,
+			expectedCAError: "found secret, but didn't have expected keys cacert or ca.crt; found: foo-bar, tls.key",
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			key, cert := sc.GetKeyAndCert(tt.name, tt.namespace)
+			key, cert, err := sc.GetKeyAndCert(tt.name, tt.namespace)
 			if tt.key != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.key)
 			}
 			if tt.cert != string(cert) {
 				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
 			}
-			caCert := sc.GetCaCert(tt.name, tt.namespace)
+			if tt.expectedError != errString(err) {
+				t.Errorf("got err %q, wanted %q", errString(err), tt.expectedError)
+			}
+			caCert, err := sc.GetCaCert(tt.name, tt.namespace)
 			if tt.caCert != string(caCert) {
 				t.Errorf("got caCert %q, wanted %q", string(caCert), tt.caCert)
 			}
+			if tt.expectedCAError != errString(err) {
+				t.Errorf("got ca err %q, wanted %q", errString(err), tt.expectedCAError)
+			}
 		})
 	}
+}
+
+func errString(e error) string {
+	if e == nil {
+		return ""
+	}
+	return e.Error()
 }
 
 func allowIdentities(c kube.Client, identities ...string) {
@@ -302,16 +393,16 @@ func TestSecretsControllerMulticluster(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			key, cert := con.GetKeyAndCert(tt.name, tt.namespace)
+			key, cert, _ := con.GetKeyAndCert(tt.name, tt.namespace)
 			if tt.key != string(key) {
 				t.Errorf("got key %q, wanted %q", string(key), tt.key)
 			}
 			if tt.cert != string(cert) {
 				t.Errorf("got cert %q, wanted %q", string(cert), tt.cert)
 			}
-			caCert := con.GetCaCert(tt.name, tt.namespace)
+			caCert, err := con.GetCaCert(tt.name, tt.namespace)
 			if tt.caCert != string(caCert) {
-				t.Errorf("got caCert %q, wanted %q", string(caCert), tt.caCert)
+				t.Errorf("got caCert %q, wanted %q with err %v", string(caCert), tt.caCert, err)
 			}
 		})
 	}

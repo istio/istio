@@ -39,6 +39,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
+		RequireLocalControlPlane().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
@@ -91,6 +92,12 @@ func TestMultiRevision(t *testing.T) {
 							InstancePort: 8090,
 						},
 					},
+				}).
+				// tests bootstrap
+				WithConfig(echo.Config{
+					Service:   "vm",
+					Namespace: canary,
+					Ports:     []echo.Port{},
 				}).
 				BuildOrFail(t)
 			retry.UntilSuccessOrFail(t, func() error {

@@ -512,19 +512,19 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 
 // GetService retrieves a service by host name if it exists.
 // NOTE: The service entry implementation is used only for tests.
-func (s *ServiceEntryStore) GetService(hostname host.Name) (*model.Service, error) {
+func (s *ServiceEntryStore) GetService(hostname host.Name) *model.Service {
 	if !s.processServiceEntry {
-		return nil, nil
+		return nil
 	}
 	// TODO(@hzxuzhonghu): only get the specific service instead of converting all the serviceEntries
 	services, _ := s.Services()
 	for _, service := range services {
 		if service.ClusterLocal.Hostname == hostname {
-			return service, nil
+			return service
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
@@ -848,6 +848,14 @@ func (s *ServiceEntryStore) NetworkGateways() []*model.NetworkGateway {
 	return nil
 }
 
+func (s *ServiceEntryStore) ExportedServices() []model.ClusterServiceInfo {
+	return nil
+}
+
+func (s *ServiceEntryStore) ImportedServices() []model.ClusterServiceInfo {
+	return nil
+}
+
 func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
 	var added, deleted, updated, unchanged []*model.Service
 
@@ -928,7 +936,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		//   for NONE because we will not know the original DST IP that the application requested.
 		// 2. the address is not set (0.0.0.0)
 		// 3. the hostname is not a wildcard
-		if svc.Address == constants.UnspecifiedIP && !svc.ClusterLocal.Hostname.IsWildCarded() &&
+		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.ClusterLocal.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
 			x++
 			if x%255 == 0 {

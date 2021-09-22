@@ -1082,7 +1082,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:70": {
-					"test-private.com": true, "test-private.com:70": true, "9.9.9.9": true, "9.9.9.9:70": true,
+					"*": true,
 				},
 			},
 			registryOnly: true,
@@ -1292,7 +1292,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	p := &fakePlugin{}
 	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
-	env := buildListenerEnvWithVirtualServices(services, virtualServices)
+	env := buildListenerEnvWithAdditionalConfig(services, virtualServices, nil)
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatalf("failed to initialize push context")
@@ -1359,15 +1359,15 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		ClusterLocal: model.HostVIPs{
 			Hostname: host.Name(hostname),
 		},
-		Address:    ip,
-		Resolution: model.DNSLB,
+		DefaultAddress: ip,
+		Resolution:     model.DNSLB,
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
 			ExportTo:        map[visibility.Instance]bool{v: true},
 		},
 	}
-	if service.Address == wildcardIP {
+	if ip == wildcardIP {
 		service.Resolution = model.Passthrough
 	}
 
