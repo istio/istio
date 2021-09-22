@@ -1068,8 +1068,8 @@ type GatewayController interface {
 	SecretAllowed(resourceName string, namespace string) bool
 }
 
-// OutboundClassFromType is a help to turn a NodeType for outbound config into a Gateway or SidecarOutbound
-func OutboundClassFromType(t NodeType) istionetworking.ListenerClass {
+// OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.
+func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 	if t == Router {
 		return istionetworking.ListenerClassGateway
 	}
