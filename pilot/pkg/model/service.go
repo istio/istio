@@ -95,11 +95,6 @@ type Service struct {
 	// In other words, cluster.local will actually be local to the cluster.
 	ClusterLocal HostVIPs `json:"clusterLocal,omitempty"`
 
-	// ClusterSetLocal specifies the Kubernetes Multi-Cluster Services (MCS) clusterset.local
-	// host and clusterset VIPs for this service. When MCS is enabled within Istio, this host
-	// will be used to address endpoints across the mesh.
-	ClusterSetLocal HostVIPs `json:"clusterSetLocal,omitempty"`
-
 	// DefaultAddress specifies the default service IP of the load balancer.
 	// Do not access directly. Use GetAddressForProxy
 	DefaultAddress string `json:"defaultAddress,omitempty"`
@@ -772,7 +767,6 @@ func (s *Service) DeepCopy() *Service {
 		ServiceAccounts: accounts.([]string),
 		CreationTime:    s.CreationTime,
 		ClusterLocal:    s.ClusterLocal.DeepCopy(),
-		ClusterSetLocal: s.ClusterSetLocal.DeepCopy(),
 		DefaultAddress:  s.DefaultAddress,
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,

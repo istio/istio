@@ -531,16 +531,6 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 	if strings.Contains(proxyDomain, ".svc.") {
 		// Proxy is k8s.
 
-		// If Kubernetes MCS host is enabled, also add a virtual host for 'clusterset.local'
-		if features.EnableMCSHost {
-			svcIndex := strings.LastIndex(hostname, ".svc.")
-			if svcIndex > 0 {
-				// The host is also k8s. Add the virtual host for MCS.
-				mcsHost := hostname[:svcIndex+len(".svc.")] + mcsServiceDomain
-				vhosts = append(vhosts, mcsHost, domainName(mcsHost, port))
-			}
-		}
-
 		if len(uniqueHostnameParts) == 2 {
 			// This is the case of uniqHostname having namespace already.
 			dnsHostName := uniqueHostname + "." + sharedDNSDomainParts[0]
