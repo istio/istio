@@ -81,7 +81,7 @@ type Client struct {
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]*cacheHandler
 	kindsMu sync.RWMutex
-	queue   queue.Instance
+	queue   queue.Queue
 
 	// handlers defines a list of event handlers per-type
 	handlers map[config.GroupVersionKind][]model.EventHandler
@@ -123,7 +123,7 @@ func NewForSchemas(ctx context.Context, client kube.Client, revision, domainSuff
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
 		revision:         revision,
-		queue:            queue.NewQueue(1 * time.Second),
+		queue:            queue.NewFixedDelayQueue(1 * time.Second),
 		kinds:            map[config.GroupVersionKind]*cacheHandler{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
 		client:           client,

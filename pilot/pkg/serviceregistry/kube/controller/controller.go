@@ -33,6 +33,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
+	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -45,11 +48,10 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/queue"
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -201,7 +203,7 @@ type Controller struct {
 
 	client kubelib.Client
 
-	queue queue.Instance
+	queue queue.Queue
 
 	nsInformer cache.SharedIndexInformer
 	nsLister   listerv1.NamespaceLister
@@ -282,7 +284,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c := &Controller{
 		opts:                        options,
 		client:                      kubeClient,
-		queue:                       queue.NewQueue(1 * time.Second),
+		queue:                       queue.NewFixedDelayQueue(1 * time.Second),
 		servicesMap:                 make(map[host.Name]*model.Service),
 		nodeSelectorsForServices:    make(map[host.Name]labels.Instance),
 		nodeInfoMap:                 make(map[string]kubernetesNode),
@@ -389,7 +391,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return
 		}
 		if shouldEnqueue("Pods", c.beginSync) {
-			c.queue.Push(func() error {
+			c.queue.Push(gvk.Endpoints.Kind+"/"+key, func() error {
 				return c.endpoints.onEvent(item, model.EventUpdate)
 			})
 		}
@@ -686,7 +688,11 @@ func (c *Controller) registerHandlers(
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
-				c.queue.Push(func() error {
+				key, err := keyFunc(otype, obj)
+				if err != nil {
+					return
+				}
+				c.queue.Push(key, func() error {
 					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
@@ -702,7 +708,11 @@ func (c *Controller) registerHandlers(
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
-				c.queue.Push(func() error {
+				key, err := keyFunc(otype, cur)
+				if err != nil {
+					return
+				}
+				c.queue.Push(key, func() error {
 					return wrappedHandler(cur, model.EventUpdate)
 				})
 			},
@@ -711,7 +721,11 @@ func (c *Controller) registerHandlers(
 				if !shouldEnqueue(otype, c.beginSync) {
 					return
 				}
-				c.queue.Push(func() error {
+				key, err := keyFunc(otype, obj)
+				if err != nil {
+					return
+				}
+				c.queue.Push(key, func() error {
 					return handler(obj, model.EventDelete)
 				})
 			},

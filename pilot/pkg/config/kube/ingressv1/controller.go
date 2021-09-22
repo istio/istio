@@ -79,7 +79,7 @@ type controller struct {
 	meshWatcher  mesh.Holder
 	domainSuffix string
 
-	queue                  queue.Instance
+	queue                  queue.Queue
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
 
@@ -99,7 +99,7 @@ var errUnsupportedOp = errors.New("unsupported operation: the ingress config sto
 func NewController(client kube.Client, meshWatcher mesh.Holder,
 	options kubecontroller.Options) model.ConfigStoreCache {
 	// queue requires a time duration for a retry delay after a handler error
-	q := queue.NewQueue(1 * time.Second)
+	q := queue.NewFixedDelayQueue(1 * time.Second)
 
 	if ingressNamespace == "" {
 		ingressNamespace = constants.IstioIngressNamespace
@@ -125,19 +125,31 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	ingressInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				q.Push(func() error {
+				key, err := keyFunc(obj)
+				if err != nil {
+					return
+				}
+				q.Push(key, func() error {
 					return c.onEvent(nil, obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
-					q.Push(func() error {
+					key, err := keyFunc(cur)
+					if err != nil {
+						return
+					}
+					q.Push(key, func() error {
 						return c.onEvent(old, cur, model.EventUpdate)
 					})
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				q.Push(func() error {
+				key, err := keyFunc(obj)
+				if err != nil {
+					return
+				}
+				q.Push(key, func() error {
 					return c.onEvent(nil, obj, model.EventDelete)
 				})
 			},
@@ -359,4 +371,13 @@ func (c *controller) Patch(_ config.Config, _ config.PatchFunc) (string, error) 
 
 func (c *controller) Delete(_ config.GroupVersionKind, _, _ string, _ *string) error {
 	return errUnsupportedOp
+}
+
+func keyFunc(obj interface{}) (string, error) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		return "", err
+	}
+
+	return key, nil
 }

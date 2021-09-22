@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	v1 "k8s.io/api/admissionregistration/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +49,7 @@ type WebhookCertPatcher struct {
 	revision    string
 	webhookName string
 
-	queue queue.Instance
+	queue queue.Queue
 
 	// File path to the x509 certificate bundle used by the webhook server
 	// and patched into the webhook config.
@@ -76,16 +75,17 @@ func NewWebhookCertPatcher(
 		func(options *metav1.ListOptions) {
 			options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
 		})
-	retryBackoff := backoff.NewExponentialBackOff()
-	retryBackoff.InitialInterval = 2 * time.Second
-	retryBackoff.MaxInterval = 15 * time.Minute // Max Backoff interval.
-	retryBackoff.MaxElapsedTime = 0             // Never stop retrying.
+	backoffOption := queue.BackOffOption{
+		InitialInterval: 2 * time.Second,
+		MaxInterval:     15 * time.Minute,
+		MaxElapsedTime:  0,
+	}
 	return &WebhookCertPatcher{
 		client:          client,
 		revision:        revision,
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
-		queue:           queue.NewBackOffQueue(retryBackoff),
+		queue:           queue.NewBackOffQueue(backoffOption),
 		whcLw:           whcLw,
 	}, nil
 }
@@ -119,7 +119,7 @@ func (w *WebhookCertPatcher) updateWebhookHandler(oldConfig, newConfig *v1.Mutat
 	if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 		for i, wh := range newConfig.Webhooks {
 			if strings.HasSuffix(wh.Name, w.webhookName) && !bytes.Equal(newConfig.Webhooks[i].ClientConfig.CABundle, caCertPem) {
-				w.queue.Push(func() error {
+				w.queue.Push(newConfig.Name, func() error {
 					return w.webhookPatchTask(newConfig.Name)
 				})
 				break
@@ -132,7 +132,7 @@ func (w *WebhookCertPatcher) addWebhookHandler(config *v1.MutatingWebhookConfigu
 	for _, wh := range config.Webhooks {
 		if strings.HasSuffix(wh.Name, w.webhookName) {
 			log.Infof("New webhook config added, patching MutatingWebhookConfiguration for %s", config.Name)
-			w.queue.Push(func() error {
+			w.queue.Push(config.Name, func() error {
 				return w.webhookPatchTask(config.Name)
 			})
 			break
@@ -204,7 +204,7 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 			whcList := lists.(*v1.MutatingWebhookConfigurationList)
 			for _, whc := range whcList.Items {
 				log.Debugf("updating caBundle for webhook %q", whc.Name)
-				w.queue.Push(func() error {
+				w.queue.Push(whc.Name, func() error {
 					return w.webhookPatchTask(whc.Name)
 				})
 			}

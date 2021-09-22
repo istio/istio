@@ -89,7 +89,11 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			if !cl.beginSync.Load() {
 				return
 			}
-			cl.queue.Push(func() error {
+			key, err := keyFunc(kind, obj)
+			if err != nil {
+				return
+			}
+			cl.queue.Push(key, func() error {
 				return h.onEvent(nil, obj, model.EventAdd)
 			})
 		},
@@ -98,7 +102,11 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			if !cl.beginSync.Load() {
 				return
 			}
-			cl.queue.Push(func() error {
+			key, err := keyFunc(kind, cur)
+			if err != nil {
+				return
+			}
+			cl.queue.Push(key, func() error {
 				return h.onEvent(old, cur, model.EventUpdate)
 			})
 		},
@@ -107,10 +115,23 @@ func createCacheHandler(cl *Client, schema collection.Schema, i informers.Generi
 			if !cl.beginSync.Load() {
 				return
 			}
-			cl.queue.Push(func() error {
+			key, err := keyFunc(kind, obj)
+			if err != nil {
+				return
+			}
+			cl.queue.Push(key, func() error {
 				return h.onEvent(nil, obj, model.EventDelete)
 			})
 		},
 	})
 	return h
+}
+
+func keyFunc(kind string, obj interface{}) (string, error) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		return "", err
+	}
+
+	return kind + "/" + key, nil
 }

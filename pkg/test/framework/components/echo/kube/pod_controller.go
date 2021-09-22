@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/pkg/log"
@@ -37,7 +38,7 @@ type podHandlers struct {
 }
 
 type podController struct {
-	q        queue.Instance
+	q        queue.Queue
 	informer cache.Controller
 }
 
@@ -52,15 +53,23 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 			}
 			options.LabelSelector += s.String()
 		})
-	q := queue.NewQueue(1 * time.Second)
+	q := queue.NewFixedDelayQueue(1 * time.Second)
 	_, informer := cache.NewInformer(podListWatch, &kubeCore.Pod{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
-			q.Push(func() error {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(newObj)
+			if err != nil {
+				return
+			}
+			q.Push(gvk.Pod.Kind+"/"+key, func() error {
 				return handlers.added(newObj.(*kubeCore.Pod))
 			})
 		},
 		UpdateFunc: func(old, cur interface{}) {
-			q.Push(func() error {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(cur)
+			if err != nil {
+				return
+			}
+			q.Push(gvk.Pod.Kind+"/"+key, func() error {
 				oldObj := old.(metav1.Object)
 				newObj := cur.(metav1.Object)
 
@@ -71,7 +80,11 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 			})
 		},
 		DeleteFunc: func(curr interface{}) {
-			q.Push(func() error {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(curr)
+			if err != nil {
+				return
+			}
+			q.Push(gvk.Pod.Kind+"/"+key, func() error {
 				pod, ok := curr.(*kubeCore.Pod)
 				if !ok {
 					tombstone, ok := curr.(cache.DeletedFinalStateUnknown)

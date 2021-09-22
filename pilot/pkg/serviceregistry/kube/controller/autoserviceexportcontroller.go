@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	serviceRegistryKube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 )
@@ -38,7 +39,7 @@ type autoServiceExportController struct {
 	client        versioned.Interface
 	serviceClient corev1.CoreV1Interface
 
-	queue           queue.Instance
+	queue           queue.Queue
 	serviceInformer cache.SharedInformer
 
 	// We use this flag to short-circuit the logic and stop the controller
@@ -60,7 +61,7 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 		autoServiceExportOptions: opts,
 		client:                   opts.Client.MCSApis(),
 		serviceClient:            opts.Client.Kube().CoreV1(),
-		queue:                    queue.NewQueue(time.Second),
+		queue:                    queue.NewFixedDelayQueue(time.Second),
 		mcsSupported:             true,
 	}
 
@@ -80,7 +81,11 @@ func newAutoServiceExportController(opts autoServiceExportOptions) *autoServiceE
 }
 
 func (c *autoServiceExportController) onServiceAdd(obj interface{}) {
-	c.queue.Push(func() error {
+	key, err := keyFunc(gvk.Service.Kind, obj)
+	if err != nil {
+		return
+	}
+	c.queue.Push(key, func() error {
 		if !c.mcsSupported {
 			// Don't create ServiceExport if MCS is not supported on the cluster.
 			return nil

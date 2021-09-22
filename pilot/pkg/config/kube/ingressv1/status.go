@@ -46,7 +46,7 @@ type StatusSyncer struct {
 	meshHolder mesh.Holder
 	client     kubernetes.Interface
 
-	queue              queue.Instance
+	queue              queue.Queue
 	ingressLister      ingresslister.IngressLister
 	podLister          listerv1.PodLister
 	serviceLister      listerv1.ServiceLister
@@ -63,7 +63,7 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 // NewStatusSyncer creates a new instance
 func NewStatusSyncer(meshHolder mesh.Holder, client kubelib.Client) *StatusSyncer {
 	// queue requires a time duration for a retry delay after a handler error
-	q := queue.NewQueue(5 * time.Second)
+	q := queue.NewFixedDelayQueue(5 * time.Second)
 
 	return &StatusSyncer{
 		meshHolder:         meshHolder,
@@ -104,7 +104,7 @@ func (s *StatusSyncer) runUpdateStatus(stop <-chan struct{}) {
 		}
 	}
 	err := wait.PollUntil(updateInterval, func() (bool, error) {
-		s.queue.Push(s.onEvent)
+		s.queue.Push("ingress status", s.onEvent)
 		return false, nil
 	}, stop)
 	if err != nil {

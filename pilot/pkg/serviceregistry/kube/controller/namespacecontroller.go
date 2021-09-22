@@ -25,6 +25,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/queue"
@@ -48,7 +49,7 @@ type NamespaceController struct {
 	getData func() map[string]string
 	client  corev1.CoreV1Interface
 
-	queue              queue.Instance
+	queue              queue.Queue
 	namespacesInformer cache.SharedInformer
 	configMapInformer  cache.SharedInformer
 	namespaceLister    listerv1.NamespaceLister
@@ -60,7 +61,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 	c := &NamespaceController{
 		getData: data,
 		client:  kubeClient.CoreV1(),
-		queue:   queue.NewQueue(time.Second),
+		queue:   queue.NewFixedDelayQueue(time.Second),
 	}
 
 	c.configMapInformer = kubeClient.KubeInformer().Core().V1().ConfigMaps().Informer()
@@ -79,7 +80,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 			if cm.Name != CACertNamespaceConfigMap {
 				return
 			}
-			c.queue.Push(func() error {
+			c.queue.Push(gvk.Namespace.Kind+"/"+cm.Namespace, func() error {
 				return c.configMapChange(cm)
 			})
 		},
@@ -93,7 +94,7 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 			if cm.Name != CACertNamespaceConfigMap {
 				return
 			}
-			c.queue.Push(func() error {
+			c.queue.Push(gvk.Namespace.Kind+"/"+cm.Namespace, func() error {
 				ns, err := c.namespaceLister.Get(cm.Namespace)
 				if err != nil {
 					// namespace is deleted before
@@ -114,12 +115,20 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 
 	c.namespacesInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.queue.Push(func() error {
+			key, err := keyFunc(gvk.Namespace.Kind, obj)
+			if err != nil {
+				return
+			}
+			c.queue.Push(key, func() error {
 				return c.namespaceChange(obj.(*v1.Namespace))
 			})
 		},
 		UpdateFunc: func(_, obj interface{}) {
-			c.queue.Push(func() error {
+			key, err := keyFunc(gvk.Namespace.Kind, obj)
+			if err != nil {
+				return
+			}
+			c.queue.Push(key, func() error {
 				return c.namespaceChange(obj.(*v1.Namespace))
 			})
 		},

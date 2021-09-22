@@ -36,6 +36,14 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
+func keyFunc(kind string, obj interface{}) (string, error) {
+	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	if err != nil {
+		return "", err
+	}
+	return kind + "/" + key, nil
+}
+
 func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
 	for _, addr := range addresses {
 		if addr.IP == proxyIP {
