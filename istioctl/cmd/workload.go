@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -181,7 +180,6 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-// TODO: extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 func configureCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
@@ -239,7 +237,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 			if err = createConfig(kubeClient, wg, clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
-			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
+			fmt.Printf("Configuration generation into directory %s was successful\n", outputDir)
 			return nil
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -361,7 +359,7 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		}
 	}
 
-	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
+	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
 
 func createSidecarEnv(internalIP, externalIP, dir, revision string) error {
@@ -378,7 +376,7 @@ func createSidecarEnv(internalIP, externalIP, dir, revision string) error {
 		return nil
 	}
 
-	return ioutil.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
+	return os.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
 }
 
 func generateSidecarEnvAsMap(internalIP string, externalIP string, revision string) map[string]string {
@@ -405,7 +403,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("configmap %s was not found in namespace %s: %v", controller.CACertNamespaceConfigMap, wg.Namespace, err)
 	}
-	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert.pem"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
+	if err = os.WriteFile(filepath.Join(dir, "root-cert.pem"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
 		return err
 	}
 
@@ -427,7 +425,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
+		if err := os.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated "+
@@ -450,7 +448,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("could not create a token under service account %s in namespace %s: %v", serviceAccount, wg.Namespace, err)
 	}
-	if err := ioutil.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
+	if err := os.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated and "+
@@ -555,7 +553,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		return nil, err
 	}
 
-	return meshConfig.DefaultConfig, ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
+	return meshConfig.DefaultConfig, os.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
 }
 
 func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
@@ -594,7 +592,7 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision
 		log.Warnf("Could not auto-detect IP for. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
 			istiodHost(revision), istioNamespace)
 	}
-	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
+	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }
 
 func isRevisioned(revision string) bool {
