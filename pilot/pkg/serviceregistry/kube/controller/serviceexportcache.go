@@ -29,7 +29,8 @@ import (
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
-// serviceExportCache provides export state for all services in the cluster.
+// serviceExportCache reads Kubernetes Multi-Cluster Services (MCS) ServiceExport resources in the
+// cluster and generates discoverability policies for the endpoints.
 type serviceExportCache interface {
 	// EndpointDiscoverabilityPolicy returns the policy for Service endpoints residing within the current cluster.
 	EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy
