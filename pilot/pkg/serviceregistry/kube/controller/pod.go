@@ -167,7 +167,7 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 			}
 		}
 		// fire instance handles for workload
-		for _, handler := range pc.c.workloadHandlers {
+		for _, handler := range pc.c.handlers.GetWorkloadHandlers() {
 			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "", model.AlwaysDiscoverable)
 			handler(&model.WorkloadInstance{
 				Name:      pod.Name,
