@@ -410,12 +410,43 @@ func (c *Controller) Cluster() cluster.ID {
 	return c.opts.ClusterID
 }
 
-func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
-	return c.exports.ExportedServices()
-}
+func (c *Controller) MCSServices() []model.MCSServiceInfo {
+	outMap := make(map[types.NamespacedName]*model.MCSServiceInfo)
 
-func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
-	return c.imports.ImportedServices()
+	// Add the ServiceExport info.
+	for _, se := range c.exports.ExportedServices() {
+		mcsService := outMap[se]
+		if mcsService == nil {
+			mcsService = &model.MCSServiceInfo{}
+			outMap[se] = mcsService
+		}
+		mcsService.Name = se.Name
+		mcsService.Namespace = se.Namespace
+		mcsService.Exported = true
+		mcsService.Cluster = c.Cluster()
+	}
+
+	// Add the ServiceImport info.
+	for _, si := range c.imports.ImportedServices() {
+		mcsService := outMap[si.namespacedName]
+		if mcsService == nil {
+			mcsService = &model.MCSServiceInfo{}
+			outMap[si.namespacedName] = mcsService
+		}
+		mcsService.Name = si.namespacedName.Name
+		mcsService.Namespace = si.namespacedName.Namespace
+		mcsService.ClusterSetHost = si.clusterSetHost
+		mcsService.ClusterSetVIP = si.clusterSetVIP
+		mcsService.Imported = true
+		mcsService.Cluster = c.Cluster()
+	}
+
+	out := make([]model.MCSServiceInfo, 0, len(outMap))
+	for _, v := range outMap {
+		out = append(out, *v)
+	}
+
+	return out
 }
 
 func (c *Controller) networkFromMeshNetworks(endpointIP string) network.ID {

@@ -1804,10 +1804,6 @@ func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
 	return nil
 }
 
-func (l *localServiceDiscovery) ExportedServices() []ClusterServiceInfo {
-	return nil
-}
-
-func (l *localServiceDiscovery) ImportedServices() []ClusterServiceInfo {
+func (l *localServiceDiscovery) MCSServices() []MCSServiceInfo {
 	return nil
 }
