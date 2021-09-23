@@ -473,7 +473,7 @@ func (c *Controller) Cleanup() error {
 	}
 	for _, s := range svcs {
 		for _, svc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(s)) {
-			c.opts.XDSUpdater.SvcUpdate(model.ShardKeyFromRegistry(c), svc.ClusterLocal.Hostname.String(),
+			c.opts.XDSUpdater.SvcUpdate(model.ShardKeyFromRegistry(c), svc.Hostname.String(),
 				s.Namespace, model.EventDelete)
 		}
 	}
@@ -503,11 +503,11 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 
 func (c *Controller) deleteService(svc *model.Service) {
 	c.Lock()
-	delete(c.servicesMap, svc.ClusterLocal.Hostname)
-	delete(c.nodeSelectorsForServices, svc.ClusterLocal.Hostname)
-	delete(c.externalNameSvcInstanceMap, svc.ClusterLocal.Hostname)
-	_, isNetworkGateway := c.networkGateways[svc.ClusterLocal.Hostname]
-	delete(c.networkGateways, svc.ClusterLocal.Hostname)
+	delete(c.servicesMap, svc.Hostname)
+	delete(c.nodeSelectorsForServices, svc.Hostname)
+	delete(c.externalNameSvcInstanceMap, svc.Hostname)
+	_, isNetworkGateway := c.networkGateways[svc.Hostname]
+	delete(c.networkGateways, svc.Hostname)
 	c.Unlock()
 
 	if isNetworkGateway {
@@ -517,7 +517,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 
 	shard := model.ShardKeyFromRegistry(c)
 	event := model.EventDelete
-	c.opts.XDSUpdater.SvcUpdate(shard, string(svc.ClusterLocal.Hostname), svc.Attributes.Namespace, event)
+	c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
 
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
@@ -537,7 +537,7 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 		nodeSelector := getNodeSelectorsForService(svc)
 		c.Lock()
 		// only add when it is nodePort gateway service
-		c.nodeSelectorsForServices[svcConv.ClusterLocal.Hostname] = nodeSelector
+		c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
 		c.Unlock()
 		needsFullPush = c.updateServiceNodePortAddresses(svcConv)
 	}
@@ -545,9 +545,9 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	// instance conversion is only required when service is added/updated.
 	instances := kube.ExternalNameServiceInstances(svc, svcConv)
 	c.Lock()
-	c.servicesMap[svcConv.ClusterLocal.Hostname] = svcConv
+	c.servicesMap[svcConv.Hostname] = svcConv
 	if len(instances) > 0 {
-		c.externalNameSvcInstanceMap[svcConv.ClusterLocal.Hostname] = instances
+		c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 	}
 	c.Unlock()
 
@@ -563,10 +563,10 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	endpoints := c.buildEndpointsForService(svcConv)
 	ns := svcConv.Attributes.Namespace
 	if len(endpoints) > 0 {
-		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.ClusterLocal.Hostname), ns, endpoints)
+		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
 	}
 
-	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.ClusterLocal.Hostname), ns, event)
+	c.opts.XDSUpdater.SvcUpdate(shard, string(svcConv.Hostname), ns, event)
 	// Notify service handlers.
 	for _, f := range c.serviceHandlers {
 		f(svcConv, event)
@@ -574,7 +574,7 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 }
 
 func (c *Controller) buildEndpointsForService(svc *model.Service) []*model.IstioEndpoint {
-	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.ClusterLocal.Hostname)
+	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname)
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		fep := c.collectWorkloadInstanceEndpoints(svc)
 		endpoints = append(endpoints, fep...)
@@ -830,7 +830,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		out = append(out, svc)
 	}
 	c.RUnlock()
-	sort.Slice(out, func(i, j int) bool { return out[i].ClusterLocal.Hostname < out[j].ClusterLocal.Hostname })
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 	return out, nil
 }
 
@@ -889,7 +889,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labelsL
 
 	// Fall back to external name service since we did not find any instances of normal services
 	c.RLock()
-	externalNameInstances := c.externalNameSvcInstanceMap[svc.ClusterLocal.Hostname]
+	externalNameInstances := c.externalNameSvcInstanceMap[svc.Hostname]
 	c.RUnlock()
 	if externalNameInstances != nil {
 		inScopeInstances := make([]*model.ServiceInstance, 0)
@@ -911,7 +911,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	var workloadInstancesExist bool
 	c.RLock()
 	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
-	_, inRegistry := c.servicesMap[svc.ClusterLocal.Hostname]
+	_, inRegistry := c.servicesMap[svc.Hostname]
 	c.RUnlock()
 
 	// Only select internal Kubernetes services with selectors
@@ -1150,7 +1150,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 			}
 			// fire off eds update
-			c.opts.XDSUpdater.EDSUpdate(shard, string(service.ClusterLocal.Hostname), service.Attributes.Namespace, endpoints)
+			c.opts.XDSUpdater.EDSUpdate(shard, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
 }

@@ -121,7 +121,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	// compute Services missing virtual service configs
 	for _, wrapper := range out {
 		for _, service := range wrapper.Services {
-			delete(serviceRegistry, service.ClusterLocal.Hostname)
+			delete(serviceRegistry, service.Hostname)
 		}
 	}
 
@@ -131,10 +131,10 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
 				hash, destinationRule := getHashForService(node, push, svc, port)
 				if hash != nil {
-					if _, ok := hashByService[svc.ClusterLocal.Hostname]; !ok {
-						hashByService[svc.ClusterLocal.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
+					if _, ok := hashByService[svc.Hostname]; !ok {
+						hashByService[svc.Hostname] = map[int]*networking.LoadBalancerSettings_ConsistentHashLB{}
 					}
-					hashByService[svc.ClusterLocal.Hostname][port.Port] = hash
+					hashByService[svc.Hostname][port.Port] = hash
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
 				}
 			}
@@ -255,12 +255,12 @@ func buildSidecarVirtualHostsForService(
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.ClusterLocal.Hostname, port.Port)
-				traceOperation := traceOperation(string(svc.ClusterLocal.Hostname), port.Port)
+				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				traceOperation := traceOperation(string(svc.Hostname), port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation)
 
 				// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-				if hashByPort, ok := hashByService[svc.ClusterLocal.Hostname]; ok {
+				if hashByPort, ok := hashByService[svc.Hostname]; ok {
 					hashPolicy := consistentHashToHashPolicy(hashByPort[port.Port])
 					if hashPolicy != nil {
 						httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
@@ -1224,9 +1224,7 @@ func GetHashForHTTPDestination(push *model.PushContext, node *model.Proxy, dst *
 	destination := dst.GetDestination()
 	destinationRule := push.DestinationRule(node,
 		&model.Service{
-			ClusterLocal: model.HostVIPs{
-				Hostname: host.Name(destination.Host),
-			},
+			Hostname:   host.Name(destination.Host),
 			Attributes: model.ServiceAttributes{Namespace: configNamespace},
 		})
 	if destinationRule == nil {

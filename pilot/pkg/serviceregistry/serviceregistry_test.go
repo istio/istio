@@ -176,9 +176,7 @@ func TestWorkloadInstances(t *testing.T) {
 		},
 	}
 	expectedSvc := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "service.namespace.svc.cluster.local",
-		},
+		Hostname: "service.namespace.svc.cluster.local",
 		Ports: []*model.Port{{
 			Name:     "http",
 			Port:     80,
@@ -202,7 +200,7 @@ func TestWorkloadInstances(t *testing.T) {
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    pod.Status.PodIP,
 			Port:       80,
@@ -219,7 +217,7 @@ func TestWorkloadInstances(t *testing.T) {
 		xdsUpdater.WaitOrFail(t, "eds")
 		xdsUpdater.WaitOrFail(t, "xds")
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    pod.Status.PodIP,
 			Port:       80,
@@ -239,7 +237,7 @@ func TestWorkloadInstances(t *testing.T) {
 		waitForEdsUpdate(t, xdsUpdater, 1)
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    pod.Status.PodIP,
 			Port:       80,
@@ -253,7 +251,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, store, workloadEntry)
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       80,
@@ -281,7 +279,7 @@ func TestWorkloadInstances(t *testing.T) {
 		})
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       8080,
@@ -314,7 +312,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, store, workloadEntry)
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       8080,
@@ -361,7 +359,7 @@ func TestWorkloadInstances(t *testing.T) {
 		})
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       8080,
@@ -390,7 +388,7 @@ func TestWorkloadInstances(t *testing.T) {
 		})
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       80,
@@ -404,7 +402,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, store, workloadEntry)
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       80,
@@ -430,7 +428,7 @@ func TestWorkloadInstances(t *testing.T) {
 		}
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       80,
@@ -452,13 +450,13 @@ func TestWorkloadInstances(t *testing.T) {
 
 		instances := []ServiceInstanceResponse{
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    pod.Status.PodIP,
 				Port:       80,
 			},
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 				Port:       80,
@@ -487,13 +485,13 @@ func TestWorkloadInstances(t *testing.T) {
 
 		instances := []ServiceInstanceResponse{
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    pod.Status.PodIP,
 				Port:       80,
 			},
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 				Port:       80,
@@ -535,7 +533,7 @@ func TestWorkloadInstances(t *testing.T) {
 		})
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       8080,
@@ -577,7 +575,7 @@ func TestWorkloadInstances(t *testing.T) {
 		})
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       8080,
@@ -623,7 +621,7 @@ func TestWorkloadInstances(t *testing.T) {
 		})
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       8080,
@@ -631,7 +629,7 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, s.KubeRegistry, expectedSvc, 80, instances)
 		expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", []string{"2.3.4.5:8080"})
 		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       9090,
@@ -646,7 +644,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    pod.Status.PodIP,
 			Port:       80,
@@ -660,7 +658,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    pod.Status.PodIP,
 			Port:       80,
@@ -708,7 +706,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 
 		instances := []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    pod.Status.PodIP,
 			Port:       8080,
@@ -727,13 +725,13 @@ func TestWorkloadInstances(t *testing.T) {
 
 		instances := []ServiceInstanceResponse{
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    pod.Status.PodIP,
 				Port:       80,
 			},
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 				Port:       80,
@@ -755,13 +753,13 @@ func TestWorkloadInstances(t *testing.T) {
 
 		instances := []ServiceInstanceResponse{
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    pod.Status.PodIP,
 				Port:       80,
 			},
 			{
-				Hostname:   expectedSvc.ClusterLocal.Hostname,
+				Hostname:   expectedSvc.Hostname,
 				Namestring: expectedSvc.Attributes.Namespace,
 				Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 				Port:       80,
@@ -898,7 +896,7 @@ func TestWorkloadInstances(t *testing.T) {
 		// Mark healthy, get instances
 		makeIstioObject(t, store, setHealth(workloadEntry, true))
 		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       80,
@@ -913,7 +911,7 @@ func TestWorkloadInstances(t *testing.T) {
 		// Remove health status entirely
 		makeIstioObject(t, store, workloadEntry)
 		instances = []ServiceInstanceResponse{{
-			Hostname:   expectedSvc.ClusterLocal.Hostname,
+			Hostname:   expectedSvc.Hostname,
 			Namestring: expectedSvc.Attributes.Namespace,
 			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
 			Port:       80,
@@ -1006,9 +1004,7 @@ func TestEndpointsDeduping(t *testing.T) {
 
 	// Ensure there is nothing is left over
 	expectServiceInstances(t, s.KubeRegistry, &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: "service.namespace.svc.cluster.local",
-		},
+		Hostname: "service.namespace.svc.cluster.local",
 		Ports: []*model.Port{{
 			Name:     "http",
 			Port:     80,
@@ -1151,7 +1147,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 		got := []ServiceInstanceResponse{}
 		for _, i := range instances {
 			got = append(got, ServiceInstanceResponse{
-				Hostname:   i.Service.ClusterLocal.Hostname,
+				Hostname:   i.Service.Hostname,
 				Namestring: i.Service.Attributes.Namespace,
 				Address:    i.Endpoint.Address,
 				Port:       i.Endpoint.EndpointPort,
@@ -1170,10 +1166,10 @@ func compare(t *testing.T, actual, expected interface{}) error {
 
 func sortServiceInstances(instances []*model.ServiceInstance) {
 	sort.Slice(instances, func(i, j int) bool {
-		if instances[i].Service.ClusterLocal.Hostname == instances[j].Service.ClusterLocal.Hostname {
+		if instances[i].Service.Hostname == instances[j].Service.Hostname {
 			return instances[i].Endpoint.Address < instances[j].Endpoint.Address
 		}
-		return instances[i].Service.ClusterLocal.Hostname < instances[j].Service.ClusterLocal.Hostname
+		return instances[i].Service.Hostname < instances[j].Service.Hostname
 	})
 }
 

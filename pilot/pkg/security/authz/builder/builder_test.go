@@ -456,9 +456,7 @@ func inputParams(t *testing.T, input string, mc *meshconfig.MeshConfig, version 
 	ret.Push.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
 			"foo": &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
-				},
+				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
 			},
 		},
 	}

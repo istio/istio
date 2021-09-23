@@ -86,12 +86,12 @@ var (
 	// MockDiscovery is an in-memory ServiceDiscover with mock services
 	MockDiscovery = &ServiceDiscovery{
 		services: map[host.Name]*model.Service{
-			HelloService.ClusterLocal.Hostname:   HelloService,
-			WorldService.ClusterLocal.Hostname:   WorldService,
-			ExtHTTPService.ClusterLocal.Hostname: ExtHTTPService,
+			HelloService.Hostname:   HelloService,
+			WorldService.Hostname:   WorldService,
+			ExtHTTPService.Hostname: ExtHTTPService,
 			// TODO external https is not currently supported - this service
 			// should NOT be in any of the .golden json files
-			ExtHTTPSService.ClusterLocal.Hostname: ExtHTTPSService,
+			ExtHTTPSService.Hostname: ExtHTTPSService,
 		},
 		versions: 2,
 	}

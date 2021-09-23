@@ -50,7 +50,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	for _, svc := range cfg.Push.Services(cfg.Node) {
 		svcAddress := svc.GetAddressForProxy(cfg.Node)
 		var addressList []string
-		hostName := svc.ClusterLocal.Hostname
+		hostName := svc.Hostname
 		if svcAddress != constants.UnspecifiedIP {
 			// Filter out things we cannot parse as IP. Generally this means CIDRs, as anything else
 			// should be caught in validation.
