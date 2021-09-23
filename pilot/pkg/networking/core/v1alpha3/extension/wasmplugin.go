@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	wasmFilterType = "envoy.extensions.filters.http.wasm.v3.Wasm"
+	wasmFilterType  = "envoy.extensions.filters.http.wasm.v3.Wasm"
+	statsFilterName = "istio.stats"
 )
 
 var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
@@ -68,7 +69,26 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 		extMap[phase] = append(extMap[phase], list...)
 	}
 	newHTTPFilters := make([]*hcm_filter.HttpFilter, 0)
-	for _, httpFilter := range filterChain {
+	// The following algorithm tries to make as few assumptions as possible about the filter
+	// chain - it might contain any number of filters that will have to retain their ordering.
+	// The one assumption we make is about the ordering of the builtin filters. This is used to
+	// position WasmPlugins relatively to the builtin filters according to their phase: when
+	// we see the Stats filter, we know that all WasmPlugins with phases AUTHN, AUTHZ and STATS
+	// must be injected before it. This method allows us to inject WasmPlugins in the right spots
+	// while retaining any filters that were unknown at the time of writing this algorithm,
+	// in linear time. The assumed ordering of builtin filters is:
+	//
+	// 1. Istio JWT, 2. Istio AuthN, 3. RBAC, 4. Stats, 5. Metadata Exchange
+	//
+	// The only exception being ext-auch, where two additional filters are at the beginning:
+	//
+	// -1. RBAC, 0. ext-auth
+	//
+	// In this case, we have to just skip over the RBAC filter instead of using it for phase
+	// positioning. WasmPlugins with phase `AUTHZ` will still be injected before the 'real'
+	// RBAC filter at position 3. The ext-auth filter will be treated like any unknown filter
+	// and simply skipped while retaining its position in the chain.
+	for index, httpFilter := range filterChain {
 		switch httpFilter.Name {
 		case securitymodel.EnvoyJwtFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
@@ -77,19 +97,26 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
 		case authzmodel.RBACHTTPFilterName:
+			// when using ext-auth, the first filter will be an RBAC filter. we ignore that one
+			if index > 0 {
+				newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
+				newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
+			}
+			newHTTPFilters = append(newHTTPFilters, httpFilter)
+		case statsFilterName:
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
+			newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_STATS)
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
 		default:
 			newHTTPFilters = append(newHTTPFilters, httpFilter)
 		}
 	}
-	// append all remaining extensions at the end (router is not yet in the chain so this is correct)
+	// append all remaining extensions at the end. This is required because not all builtin filters
+	// are always present (e.g. RBAC is only present when an AuthorizationPolicy was created), so
+	// we might not have emptied all slices in the map.
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHN)
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_AUTHZ)
-	// TODO: stats are currently injected using EnvoyFilter, but they're about to be migrated to
-	// native code (see https://github.com/istio/istio/pull/33583). When that's done, we can properly
-	// implement the STATS phase here
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_STATS)
 	newHTTPFilters = popAppend(newHTTPFilters, extMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	return newHTTPFilters
