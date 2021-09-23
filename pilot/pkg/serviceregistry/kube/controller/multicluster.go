@@ -272,7 +272,7 @@ func (m *Multicluster) AddMemberCluster(clusterID cluster.ID, rc *secretcontroll
 				NewLeaderElection(options.SystemNamespace, m.serverID, leaderelection.ServiceExportController, client.Kube()).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("starting service export controller for cluster %s", clusterID)
-					serviceExportController := NewServiceExportController(ServiceExportOptions{
+					serviceExportController := newAutoServiceExportController(autoServiceExportOptions{
 						Client:       client,
 						ClusterID:    m.opts.ClusterID,
 						DomainSuffix: m.opts.DomainSuffix,
@@ -342,7 +342,7 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
-				Name:      string(svc.ClusterLocal.Hostname),
+				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},

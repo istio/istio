@@ -19,10 +19,6 @@ spec:
   - name: tcp
     port: 9090
     targetPort: 19090
-  - name: grpc
-    port: 7070
-    protocol: TCP
-    targetPort: 17070
 ---
 apiVersion: apps/v1
 kind: Deployment

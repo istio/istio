@@ -249,12 +249,8 @@ func setupSTS(stsPort int, backendURL string, enableCache bool) (*stsServer.Serv
 	accessTokenTestingEndpoint := backendURL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager
-	tm, err := tokenmanager.CreateTokenManager(tokenmanager.GoogleTokenExchange,
-		tokenmanager.Config{TrustDomain: tokenBackend.FakeTrustDomain})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create token manager %v", err)
-	}
-	tm.(*tokenmanager.TokenManager).SetPlugin(tokenExchangePlugin)
+	tm := &tokenmanager.TokenManager{}
+	tm.SetPlugin(tokenExchangePlugin)
 	// Create STS server
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", stsPort))
 	if err != nil {

@@ -358,7 +358,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 			for _, p := range ss.Ports {
 				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 				for _, svc := range all {
-					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.ClusterLocal.Hostname,
+					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.Hostname,
 						p.Name, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
 						svc.Endpoint.ServiceAccount)
 				}
@@ -373,7 +373,7 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 		for _, p := range ss.Ports {
 			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port, nil)
 			resp = append(resp, endpointzResponse{
-				Service:   fmt.Sprintf("%s:%s", ss.ClusterLocal.Hostname, p.Name),
+				Service:   fmt.Sprintf("%s:%s", ss.Hostname, p.Name),
 				Endpoints: all,
 			})
 		}

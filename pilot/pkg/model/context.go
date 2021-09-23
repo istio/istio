@@ -822,7 +822,7 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 				return instances[i].Service.CreationTime.Before(instances[j].Service.CreationTime)
 			}
 			// Additionally, sort by hostname just in case services created automatically at the same second.
-			return instances[i].Service.ClusterLocal.Hostname < instances[j].Service.ClusterLocal.Hostname
+			return instances[i].Service.Hostname < instances[j].Service.Hostname
 		}
 		return true
 	})
@@ -1068,8 +1068,8 @@ type GatewayController interface {
 	SecretAllowed(resourceName string, namespace string) bool
 }
 
-// OutboundClassFromType is a help to turn a NodeType for outbound config into a Gateway or SidecarOutbound
-func OutboundClassFromType(t NodeType) istionetworking.ListenerClass {
+// OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.
+func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 	if t == Router {
 		return istionetworking.ListenerClassGateway
 	}

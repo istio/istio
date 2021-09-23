@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cluster_test
+package model_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 )
 
@@ -32,23 +33,23 @@ var (
 	c2Addresses = []string{"2.1.1.1", "2.1.1.2"}
 )
 
-func TestIsEmpty(t *testing.T) {
+func TestAddressMapIsEmpty(t *testing.T) {
 	cases := []struct {
 		name     string
-		newMap   func() *cluster.AddressMap
+		newMap   func() *model.AddressMap
 		expected bool
 	}{
 		{
 			name: "created empty",
-			newMap: func() *cluster.AddressMap {
-				return &cluster.AddressMap{}
+			newMap: func() *model.AddressMap {
+				return &model.AddressMap{}
 			},
 			expected: true,
 		},
 		{
 			name: "set nil addresses",
-			newMap: func() *cluster.AddressMap {
-				m := cluster.AddressMap{}
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
 				m.SetAddressesFor(c1ID, nil)
 				return &m
 			},
@@ -56,8 +57,8 @@ func TestIsEmpty(t *testing.T) {
 		},
 		{
 			name: "set empty addresses",
-			newMap: func() *cluster.AddressMap {
-				m := cluster.AddressMap{}
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
 				m.SetAddressesFor(c1ID, make([]string, 0))
 				return &m
 			},
@@ -65,8 +66,8 @@ func TestIsEmpty(t *testing.T) {
 		},
 		{
 			name: "set addresses",
-			newMap: func() *cluster.AddressMap {
-				m := cluster.AddressMap{}
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
 				m.SetAddressesFor(c1ID, c1Addresses)
 				return &m
 			},
@@ -74,8 +75,8 @@ func TestIsEmpty(t *testing.T) {
 		},
 		{
 			name: "add nil addresses",
-			newMap: func() *cluster.AddressMap {
-				m := cluster.AddressMap{}
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
 				m.AddAddressesFor(c1ID, nil)
 				return &m
 			},
@@ -83,8 +84,8 @@ func TestIsEmpty(t *testing.T) {
 		},
 		{
 			name: "add empty addresses",
-			newMap: func() *cluster.AddressMap {
-				m := cluster.AddressMap{}
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
 				m.AddAddressesFor(c1ID, make([]string, 0))
 				return &m
 			},
@@ -92,8 +93,8 @@ func TestIsEmpty(t *testing.T) {
 		},
 		{
 			name: "add addresses",
-			newMap: func() *cluster.AddressMap {
-				m := cluster.AddressMap{}
+			newMap: func() *model.AddressMap {
+				m := model.AddressMap{}
 				m.AddAddressesFor(c1ID, c1Addresses)
 				return &m
 			},
@@ -108,10 +109,10 @@ func TestIsEmpty(t *testing.T) {
 	}
 }
 
-func TestGetAddressesFor(t *testing.T) {
+func TestAddressMapGetAddressesFor(t *testing.T) {
 	g := NewWithT(t)
 
-	m := cluster.AddressMap{
+	m := model.AddressMap{
 		Addresses: map[cluster.ID][]string{
 			c1ID: c1Addresses,
 			c2ID: c2Addresses,
@@ -122,10 +123,10 @@ func TestGetAddressesFor(t *testing.T) {
 	g.Expect(m.GetAddressesFor(c2ID)).To(Equal(c2Addresses))
 }
 
-func TestSetAddressesFor(t *testing.T) {
+func TestAddressMapSetAddressesFor(t *testing.T) {
 	g := NewWithT(t)
 
-	m := cluster.AddressMap{}
+	m := model.AddressMap{}
 	m.SetAddressesFor(c1ID, c1Addresses)
 	m.SetAddressesFor(c2ID, c2Addresses)
 
@@ -133,20 +134,20 @@ func TestSetAddressesFor(t *testing.T) {
 	g.Expect(m.GetAddressesFor(c2ID)).To(Equal(c2Addresses))
 }
 
-func TestAddAddressesFor(t *testing.T) {
+func TestAddressMapAddAddressesFor(t *testing.T) {
 	g := NewWithT(t)
 
-	m := cluster.AddressMap{}
+	m := model.AddressMap{}
 	m.SetAddressesFor(c1ID, c1Addresses)
 	m.AddAddressesFor(c1ID, []string{"1.1.1.3", "1.1.1.4"})
 
 	g.Expect(m.GetAddressesFor(c1ID)).To(Equal([]string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4"}))
 }
 
-func TestForEach(t *testing.T) {
+func TestAddressMapForEach(t *testing.T) {
 	g := NewWithT(t)
 
-	m := cluster.AddressMap{
+	m := model.AddressMap{
 		Addresses: map[cluster.ID][]string{
 			c1ID: c1Addresses,
 			c2ID: c2Addresses,

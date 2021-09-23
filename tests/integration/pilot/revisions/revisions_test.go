@@ -75,7 +75,7 @@ func TestMultiRevision(t *testing.T) {
 				Revision: "canary",
 			})
 
-			var client, server echo.Instance
+			var client, server, vm echo.Instance
 			echoboot.NewBuilder(t).
 				With(&client, echo.Config{
 					Service:   "client",
@@ -94,21 +94,28 @@ func TestMultiRevision(t *testing.T) {
 					},
 				}).
 				// tests bootstrap
-				WithConfig(echo.Config{
-					Service:   "vm",
-					Namespace: canary,
-					Ports:     []echo.Port{},
+				With(&vm, echo.Config{
+					Service:    "vm",
+					Namespace:  canary,
+					DeployAsVM: true,
+					Ports:      []echo.Port{},
 				}).
 				BuildOrFail(t)
-			retry.UntilSuccessOrFail(t, func() error {
-				resp, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "http",
+
+			for _, src := range []echo.Instance{client, vm} {
+				src := src
+				t.NewSubTestf("from %s", src.Config().Service).Run(func(t framework.TestContext) {
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := src.Call(echo.CallOptions{
+							Target:   server,
+							PortName: "http",
+						})
+						if err != nil {
+							return err
+						}
+						return resp.CheckOK()
+					}, retry.Delay(time.Millisecond*100))
 				})
-				if err != nil {
-					return err
-				}
-				return resp.CheckOK()
-			}, retry.Delay(time.Millisecond*100))
+			}
 		})
 }

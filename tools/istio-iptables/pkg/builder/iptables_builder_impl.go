@@ -64,10 +64,6 @@ func (rb *IptablesBuilder) InsertRule(command log.Command, chain string, table s
 
 func (rb *IptablesBuilder) insertInternal(ipt *[]*Rule, command log.Command, chain string, table string, position int, params ...string) *IptablesBuilder {
 	rules := params
-	// If we have a comment for this entry, insert it
-	if command.Comment != "" {
-		rules = append(rules, "-m", "comment", "--comment", fmt.Sprintf(`%q`, command.Comment))
-	}
 	*ipt = append(*ipt, &Rule{
 		chain:  chain,
 		table:  table,
@@ -125,9 +121,6 @@ func (rb *IptablesBuilder) appendInternal(ipt *[]*Rule, command log.Command, cha
 		})
 	}
 	rules := params
-	if command.Comment != "" {
-		rules = append(rules, "-m", "comment", "--comment", fmt.Sprintf(`%q`, command.Comment))
-	}
 	*ipt = append(*ipt, &Rule{
 		chain:  chain,
 		table:  table,

@@ -5,11 +5,11 @@
 -N ISTIO_OUTPUT
 -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
--A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006 -m comment --comment "redirect inbound request to proxy"
--A PREROUTING -p tcp -j ISTIO_INBOUND -m comment --comment "direct all traffic through ISTIO_INBOUND chain"
--A ISTIO_INBOUND -p tcp --dport 1111 -j ISTIO_IN_REDIRECT -m comment --comment "include inbound port for capture"
--A ISTIO_INBOUND -p tcp --dport 2222 -j ISTIO_IN_REDIRECT -m comment --comment "include inbound port for capture"
--A OUTPUT -p tcp -j ISTIO_OUTPUT -m comment --comment "direct all traffic through ISTIO_OUTBOUND chain"
+-A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
+-A PREROUTING -p tcp -j ISTIO_INBOUND
+-A ISTIO_INBOUND -p tcp --dport 1111 -j ISTIO_IN_REDIRECT
+-A ISTIO_INBOUND -p tcp --dport 2222 -j ISTIO_IN_REDIRECT
+-A OUTPUT -p tcp -j ISTIO_OUTPUT
 -A ISTIO_OUTPUT -p tcp --dport 5555 -j RETURN
 -A ISTIO_OUTPUT -p tcp --dport 6666 -j RETURN
 -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN

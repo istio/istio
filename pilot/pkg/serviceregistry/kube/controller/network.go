@@ -164,12 +164,12 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		return false
 	}
 
-	if c.networkGateways[svc.ClusterLocal.Hostname] == nil {
-		c.networkGateways[svc.ClusterLocal.Hostname] = make(map[network.ID]gatewaySet)
+	if c.networkGateways[svc.Hostname] == nil {
+		c.networkGateways[svc.Hostname] = make(map[network.ID]gatewaySet)
 	}
 	// Create the entry for this network, if doesn't exist.
-	if c.networkGateways[svc.ClusterLocal.Hostname][nw] == nil {
-		c.networkGateways[svc.ClusterLocal.Hostname][nw] = make(gatewaySet)
+	if c.networkGateways[svc.Hostname][nw] == nil {
+		c.networkGateways[svc.Hostname][nw] = make(gatewaySet)
 	}
 
 	newGateways := make(gatewaySet)
@@ -198,9 +198,9 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 		}
 	}
 
-	previousGateways := c.networkGateways[svc.ClusterLocal.Hostname][nw]
+	previousGateways := c.networkGateways[svc.Hostname][nw]
 	gatewaysChanged := !newGateways.equals(previousGateways)
-	c.networkGateways[svc.ClusterLocal.Hostname][nw] = newGateways
+	c.networkGateways[svc.Hostname][nw] = newGateways
 
 	return gatewaysChanged
 }
@@ -221,7 +221,7 @@ func (c *Controller) getGatewayDetails(svc *model.Service) (uint32, network.ID) 
 	}
 
 	// meshNetworks registryServiceName+fromRegistry
-	if port, ok := c.registryServiceNameGateways[svc.ClusterLocal.Hostname]; ok {
+	if port, ok := c.registryServiceNameGateways[svc.Hostname]; ok {
 		return port, c.networkForRegistry
 	}
 
@@ -240,7 +240,7 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 	}
 	for _, svc := range svcs {
 		c.RLock()
-		nodeSelector := c.nodeSelectorsForServices[svc.ClusterLocal.Hostname]
+		nodeSelector := c.nodeSelectorsForServices[svc.Hostname]
 		c.RUnlock()
 		// update external address
 		var nodeAddresses []string

@@ -595,7 +595,7 @@ func installControlPlaneCluster(i *operatorComponent, cfg Config, c cluster.Clus
 			return err
 		}
 		// Other clusters should only use this for discovery if its a config cluster.
-		if err := i.applyIstiodGateway(c); err != nil {
+		if err := i.applyIstiodGateway(c, spec.Revision); err != nil {
 			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", c.Name(), err)
 		}
 		if err := waitForIstioReady(i.ctx, c, cfg); err != nil {
