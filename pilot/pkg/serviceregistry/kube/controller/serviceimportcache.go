@@ -73,7 +73,7 @@ type serviceImportCacheImpl struct {
 }
 
 func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model.Event) {
-	if strings.HasSuffix(svc.ClusterLocal.Hostname.String(), mcsDomainSuffix) {
+	if strings.HasSuffix(svc.Hostname.String(), mcsDomainSuffix) {
 		// Ignore events for MCS services that were triggered by this controller.
 		return
 	}
@@ -81,7 +81,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 	vips := ic.imports.GetClusterSetIPs(namespacedNameForService(svc))
 	mcsService := ic.newMCSService(svc, vips)
 
-	exists := ic.GetService(mcsService.ClusterLocal.Hostname) != nil
+	exists := ic.GetService(mcsService.Hostname) != nil
 	if event == model.EventDelete || len(vips) == 0 {
 		if exists {
 			// There are no vips in this cluster. Just delete the MCS service now.
@@ -152,7 +152,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event mo
 		event = model.EventUpdate
 
 		// Update the VIPs
-		mcsService.ClusterLocal.ClusterVIPs.SetAddressesFor(ic.Cluster(), si.Spec.IPs)
+		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), si.Spec.IPs)
 		needsFullPush = true
 	}
 
@@ -166,16 +166,16 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event mo
 
 func (ic *serviceImportCacheImpl) newMCSService(svc *model.Service, vips []string) *model.Service {
 	mcsService := svc.DeepCopy()
-	mcsService.ClusterLocal.Hostname = serviceClusterSetLocalHostname(namespacedNameForService(mcsService))
+	mcsService.Hostname = serviceClusterSetLocalHostname(namespacedNameForService(mcsService))
 
 	if len(vips) > 0 {
 		mcsService.DefaultAddress = vips[0]
-		mcsService.ClusterLocal.ClusterVIPs.SetAddresses(map[cluster.ID][]string{
+		mcsService.ClusterVIPs.SetAddresses(map[cluster.ID][]string{
 			ic.Cluster(): vips,
 		})
 	} else {
 		mcsService.DefaultAddress = ""
-		mcsService.ClusterLocal.ClusterVIPs.SetAddresses(nil)
+		mcsService.ClusterVIPs.SetAddresses(nil)
 	}
 	return mcsService
 }

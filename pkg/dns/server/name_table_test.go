@@ -87,9 +87,7 @@ func TestNameTable(t *testing.T) {
 	}
 
 	headlessService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("headless-svc.testns.svc.cluster.local"),
-		},
+		Hostname:       host.Name("headless-svc.testns.svc.cluster.local"),
 		DefaultAddress: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
@@ -105,9 +103,7 @@ func TestNameTable(t *testing.T) {
 	}
 
 	headlessServiceForServiceEntry := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("foo.bar.com"),
-		},
+		Hostname:       host.Name("foo.bar.com"),
 		DefaultAddress: constants.UnspecifiedIP,
 		Ports: model.PortList{&model.Port{
 			Name:     "tcp-port",
@@ -124,9 +120,7 @@ func TestNameTable(t *testing.T) {
 	}
 
 	wildcardService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.testns.svc.cluster.local"),
-		},
+		Hostname:       host.Name("*.testns.svc.cluster.local"),
 		DefaultAddress: "172.10.10.10",
 		Ports: model.PortList{
 			&model.Port{
@@ -149,9 +143,7 @@ func TestNameTable(t *testing.T) {
 	}
 
 	cidrService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.testns.svc.cluster.local"),
-		},
+		Hostname:       host.Name("*.testns.svc.cluster.local"),
 		DefaultAddress: "172.217.0.0/16",
 		Ports: model.PortList{
 			&model.Port{

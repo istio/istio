@@ -292,9 +292,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 	}
 
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name(c.serviceHostname),
-		},
+		Hostname:     host.Name(c.serviceHostname),
 		Ports:        servicePort,
 		Resolution:   c.serviceResolution,
 		MeshExternal: c.externalService,
@@ -1242,9 +1240,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		Protocol: protocol.HTTP,
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("*.example.org"),
-		},
+		Hostname:   host.Name("*.example.org"),
 		Ports:      model.PortList{servicePort},
 		Resolution: model.ClientSideLB,
 	}
@@ -1276,7 +1272,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	}
 	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
-	if instance == nil || instance.Service.ClusterLocal.Hostname.Matches("sidecar.sidecarns") {
+	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
 	if instance == instances[0] {
@@ -1349,9 +1345,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 	}
 
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("backend.default.svc.cluster.local"),
-		},
+		Hostname:   host.Name("backend.default.svc.cluster.local"),
 		Ports:      model.PortList{servicePort},
 		Resolution: model.Passthrough,
 	}
@@ -1493,9 +1487,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		Protocol: protocol.Redis,
 	}
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("redis.com"),
-		},
+		Hostname:   host.Name("redis.com"),
 		Ports:      model.PortList{servicePort},
 		Resolution: model.Passthrough,
 	}
@@ -1754,9 +1746,7 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	g := NewWithT(t)
 
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("static.test"),
-		},
+		Hostname: host.Name("static.test"),
 		Ports: []*model.Port{
 			{
 				Name:     "default",
@@ -1782,9 +1772,7 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 
 func TestEnvoyFilterPatching(t *testing.T) {
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("static.test"),
-		},
+		Hostname: host.Name("static.test"),
 		Ports: []*model.Port{
 			{
 				Name:     "default",
@@ -1894,9 +1882,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 				},
 			},
@@ -1930,9 +1916,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2005,9 +1989,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2066,9 +2048,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2080,9 +2060,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "b",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "b.default",
-						},
+						Hostname: "b.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2173,9 +2151,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2231,9 +2207,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					Name:      "a",
 					Namespace: "default",
 				},
-				ClusterLocal: model.HostVIPs{
-					Hostname: "a.default",
-				},
+				Hostname: "a.default",
 			},
 			want: &core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -2286,9 +2260,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,
@@ -2300,9 +2272,7 @@ func TestTelemetryMetadata(t *testing.T) {
 							Name:      "a",
 							Namespace: "default",
 						},
-						ClusterLocal: model.HostVIPs{
-							Hostname: "a.default",
-						},
+						Hostname: "a.default",
 					},
 					ServicePort: &model.Port{
 						Port: 80,

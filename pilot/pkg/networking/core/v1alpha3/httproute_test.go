@@ -48,9 +48,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "same domain",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "foo.local.campus.net",
-				},
+				Hostname:     "foo.local.campus.net",
 				MeshExternal: false,
 			},
 			port: 80,
@@ -65,9 +63,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "different domains with some shared dns",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "foo.local.campus.net",
-				},
+				Hostname:     "foo.local.campus.net",
 				MeshExternal: false,
 			},
 			port: 80,
@@ -82,9 +78,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "different domains with no shared dns",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "foo.local.campus.net",
-				},
+				Hostname:     "foo.local.campus.net",
 				MeshExternal: false,
 			},
 			port: 80,
@@ -96,9 +90,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "k8s service with default domain",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "echo.default.svc.cluster.local",
-				},
+				Hostname:     "echo.default.svc.cluster.local",
 				MeshExternal: false,
 			},
 			port: 8123,
@@ -113,9 +105,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "k8s service with default domain and different namespace",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "echo.default.svc.cluster.local",
-				},
+				Hostname:     "echo.default.svc.cluster.local",
 				MeshExternal: false,
 			},
 			port: 8123,
@@ -130,9 +120,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "k8s service with custom domain 2",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "google.local",
-				},
+				Hostname:     "google.local",
 				MeshExternal: false,
 			},
 			port: 8123,
@@ -144,9 +132,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "ipv4 domain",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "1.2.3.4",
-				},
+				Hostname:     "1.2.3.4",
 				MeshExternal: false,
 			},
 			port: 8123,
@@ -158,9 +144,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 		{
 			name: "ipv6 domain",
 			service: &model.Service{
-				ClusterLocal: model.HostVIPs{
-					Hostname: "2406:3003:2064:35b8:864:a648:4b96:e37d",
-				},
+				Hostname:     "2406:3003:2064:35b8:864:a648:4b96:e37d",
 				MeshExternal: false,
 			},
 			port: 8123,
@@ -1310,10 +1294,8 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 
 func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *model.Service {
 	service := &model.Service{
-		CreationTime: tnow,
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name(hostname),
-		},
+		CreationTime:   tnow,
+		Hostname:       host.Name(hostname),
 		DefaultAddress: ip,
 		Resolution:     model.DNSLB,
 		Attributes: model.ServiceAttributes{

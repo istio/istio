@@ -162,7 +162,7 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[hos
 	out := make(map[host.Name][]*model.IstioEndpoint)
 	for _, svc := range esc.c.servicesForNamespacedName(esc.getServiceNamespacedName(slice)) {
 		// endpointSlice cache update
-		hostName := svc.ClusterLocal.Hostname
+		hostName := svc.Hostname
 		esc.endpointCache.Delete(hostName, slice.Name)
 		out[hostName] = esc.endpointCache.Get(hostName)
 	}
@@ -249,7 +249,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 		for _, e := range slice.Endpoints {
 			for _, a := range e.Addresses {
 				var podLabels labels.Instance
-				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.ClusterLocal.Hostname)
+				pod, expectedPod := getPod(c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, svc.Hostname)
 				if pod == nil && expectedPod {
 					continue
 				}

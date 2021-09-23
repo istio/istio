@@ -93,12 +93,10 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 	}
 
 	istioService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: map[cluster.ID][]string{
-					clusterID: {addr},
-				},
+		Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
+		ClusterVIPs: model.AddressMap{
+			Addresses: map[cluster.ID][]string{
+				clusterID: {addr},
 			},
 		},
 		Ports:           ports,
