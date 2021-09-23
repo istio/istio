@@ -1105,7 +1105,15 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 			tls = tls.DeepCopy()
 			tls.SubjectAltNames = opts.serviceAccounts
 		}
-		if tls.InsecureSkipVerify.Value == true || tls.CredentialName != "" {
+		if tls.InsecureSkipVerify.Value {
+			tls.CaCertificates = ""
+			tls.SubjectAltNames = []string{}
+
+			tlsContext = &auth.UpstreamTlsContext{
+				CommonTlsContext: &auth.CommonTlsContext{},
+				Sni:              tls.Sni,
+			}
+		} else if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
