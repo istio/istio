@@ -38,7 +38,7 @@ var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
 		Ads: &envoy_config_core_v3.AggregatedConfigSource{},
 	},
 	ResourceApiVersion:  envoy_config_core_v3.ApiVersion_V3,
-	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
 }
 
 // AddWasmPluginsToMutableObjects adds WasmPlugins to HTTP filterChains
