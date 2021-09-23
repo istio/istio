@@ -18,6 +18,7 @@
 package revisions
 
 import (
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"testing"
 	"time"
 
@@ -38,7 +39,6 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		RequireLocalControlPlane().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
@@ -75,14 +75,14 @@ func TestMultiRevision(t *testing.T) {
 				Revision: "canary",
 			})
 
-			var client, server, vm echo.Instance
-			echoboot.NewBuilder(t).
-				With(&client, echo.Config{
+			echos := echoboot.NewBuilder(t).
+				WithClusters(t.Clusters()...).
+				WithConfig(echo.Config{
 					Service:   "client",
 					Namespace: stable,
 					Ports:     []echo.Port{},
 				}).
-				With(&server, echo.Config{
+				WithConfig(echo.Config{
 					Service:   "server",
 					Namespace: canary,
 					Ports: []echo.Port{
@@ -93,8 +93,7 @@ func TestMultiRevision(t *testing.T) {
 						},
 					},
 				}).
-				// tests bootstrap
-				With(&vm, echo.Config{
+				WithConfig(echo.Config{
 					Service:    "vm",
 					Namespace:  canary,
 					DeployAsVM: true,
@@ -102,13 +101,18 @@ func TestMultiRevision(t *testing.T) {
 				}).
 				BuildOrFail(t)
 
-			for _, src := range []echo.Instance{client, vm} {
-				src := src
-				t.NewSubTestf("from %s", src.Config().Service).Run(func(t framework.TestContext) {
+			echotest.New(t, echos).
+				From(echotest.FilterMatch(echo.Service("client"))).
+				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := src.Call(echo.CallOptions{
-							Target:   server,
+							Target:   dst[0],
 							PortName: "http",
+							Count:    len(t.Clusters()) * 3,
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ExpectReachedClusters(t.Clusters()),
+							),
 						})
 						if err != nil {
 							return err
@@ -116,6 +120,5 @@ func TestMultiRevision(t *testing.T) {
 						return resp.CheckOK()
 					}, retry.Delay(time.Millisecond*100))
 				})
-			}
 		})
 }

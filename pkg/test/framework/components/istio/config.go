@@ -189,7 +189,7 @@ type Config struct {
 	OperatorOptions map[string]string
 
 	// EnableCNI indicates the test should have CNI enabled.
-	EnableCNI bool
+	EnableCNI            bool
 }
 
 func (c *Config) OverridesYAML() string {
