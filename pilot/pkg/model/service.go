@@ -566,23 +566,22 @@ type ServiceDiscovery interface {
 	// residing in this registry.
 	NetworkGateways() []*NetworkGateway
 
-	// ExportedServices returns information about the services that have been exported via the
+	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
-	ExportedServices() []ClusterServiceInfo
-
-	// ImportedServices returns information about the services that have been imported via the
-	// Kubernetes Multi-Cluster Services (MCS) ServiceImport API. Only applies to services in
-	// Kubernetes clusters.
-	ImportedServices() []ClusterServiceInfo
+	MCSServices() []MCSServiceInfo
 }
 
-// ClusterServiceInfo combines the name of a service with a particular Kubernetes cluster. This
+// MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
 // is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
-type ClusterServiceInfo struct {
-	Name      string
-	Namespace string
-	Cluster   cluster.ID
+type MCSServiceInfo struct {
+	Name           string
+	Namespace      string
+	ClusterSetHost host.Name
+	ClusterSetVIP  string
+	Exported       bool
+	Imported       bool
+	Cluster        cluster.ID
 }
 
 // GetNames returns port names

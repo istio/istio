@@ -328,10 +328,6 @@ func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	return sd.networkGateways
 }
 
-func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
-	return nil
-}
-
-func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
+func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
 	return nil
 }

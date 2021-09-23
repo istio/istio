@@ -36,7 +36,7 @@ type serviceExportCache interface {
 	EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy
 
 	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
-	ExportedServices() []model.ClusterServiceInfo
+	ExportedServices() []types.NamespacedName
 
 	// HasSynced indicates whether the kube client has synced for the watched resources.
 	HasSynced() bool
@@ -120,21 +120,16 @@ func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 	return err == nil
 }
 
-func (ec *serviceExportCacheImpl) ExportedServices() []model.ClusterServiceInfo {
+func (ec *serviceExportCacheImpl) ExportedServices() []types.NamespacedName {
 	// List all exports in this cluster.
 	exports, err := ec.lister.List(klabels.NewSelector())
 	if err != nil {
-		return make([]model.ClusterServiceInfo, 0)
+		return make([]types.NamespacedName, 0)
 	}
 
-	// Convert to ExportedService
-	out := make([]model.ClusterServiceInfo, 0, len(exports))
+	out := make([]types.NamespacedName, 0, len(exports))
 	for _, export := range exports {
-		out = append(out, model.ClusterServiceInfo{
-			Name:      export.Name,
-			Namespace: export.Namespace,
-			Cluster:   ec.Cluster(),
-		})
+		out = append(out, kubesr.NamespacedNameForK8sObject(export))
 	}
 
 	return out
@@ -156,7 +151,7 @@ func (c disabledServiceExportCache) HasSynced() bool {
 	return true
 }
 
-func (c disabledServiceExportCache) ExportedServices() []model.ClusterServiceInfo {
+func (c disabledServiceExportCache) ExportedServices() []types.NamespacedName {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
 }

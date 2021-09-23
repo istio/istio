@@ -186,18 +186,10 @@ func (c *Controller) NetworkGateways() []*model.NetworkGateway {
 	return gws
 }
 
-func (c *Controller) ExportedServices() []model.ClusterServiceInfo {
-	var out []model.ClusterServiceInfo
+func (c *Controller) MCSServices() []model.MCSServiceInfo {
+	var out []model.MCSServiceInfo
 	for _, r := range c.GetRegistries() {
-		out = append(out, r.ExportedServices()...)
-	}
-	return out
-}
-
-func (c *Controller) ImportedServices() []model.ClusterServiceInfo {
-	var out []model.ClusterServiceInfo
-	for _, r := range c.GetRegistries() {
-		out = append(out, r.ImportedServices()...)
+		out = append(out, r.MCSServices()...)
 	}
 	return out
 }
