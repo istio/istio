@@ -21,10 +21,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"golang.org/x/sync/errgroup"
 	kubeCore "k8s.io/api/core/v1"
 	kubeMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,13 +236,77 @@ func checkClustersReached(t framework.TestContext, src, dest echo.Instance, clus
 		dest.Config().Service,
 		dest.Config().Namespace.Name())
 
-	src.CallWithRetryOrFail(t, echo.CallOptions{
+	_, err := src.CallWithRetry(echo.CallOptions{
 		Address:   address,
 		Target:    dest,
 		Count:     50,
 		PortName:  "http",
 		Validator: echo.And(echo.ExpectOK(), echo.ExpectReachedClusters(clusters)),
 	}, retryTimeout)
+	if err != nil {
+		t.Fatal(fmt.Errorf("%v\nCluster Details:\n%s", err, getClusterDetailsYAML(t, src, dest)))
+	}
+}
+
+func getClusterDetailsYAML(t framework.TestContext, src, dest echo.Instance) string {
+	// Add details about the configuration to the error message.
+	type ClusterInfo struct {
+		Cluster            string   `json:"cluster"`
+		DestinationPodIPs  []string `json:"destinationPodIPs,omitempty"`
+		EastWestGatewayIPs []string `json:"eastWestGatewayIPs,omitempty"`
+	}
+
+	type Details struct {
+		SourceOutboundIPs []string      `json:"sourceOutboundIPs,omitempty"`
+		Clusters          []ClusterInfo `json:"clusters,omitempty"`
+	}
+	details := Details{}
+
+	destName := dest.Config().Service
+	destNS := dest.Config().Namespace.Name()
+	istioNS := istio.GetOrFail(t, t).Settings().SystemNamespace
+
+	for _, c := range t.Clusters() {
+		info := ClusterInfo{
+			Cluster: c.StableName(),
+		}
+
+		// Get pod IPs for service B.
+		pods, err := c.PodsForSelector(context.TODO(), destNS, "app="+destName)
+		if err == nil {
+			for _, destPod := range pods.Items {
+				info.DestinationPodIPs = append(info.DestinationPodIPs, destPod.Status.PodIP)
+			}
+		}
+
+		// Get the East-West Gateway IP
+		svc, err := c.Kube().CoreV1().Services(istioNS).Get(context.TODO(), "istio-eastwestgateway", kubeMeta.GetOptions{})
+		if err == nil {
+			info.EastWestGatewayIPs = append(info.EastWestGatewayIPs, svc.Spec.ExternalIPs...)
+		}
+
+		details.Clusters = append(details.Clusters, info)
+	}
+
+	// Populate the source Envoy's outbound clusters to the dest service.
+	srcWorkload := src.WorkloadsOrFail(t)[0]
+	envoyClusters, err := srcWorkload.Sidecar().Clusters()
+	if err == nil {
+		for _, status := range envoyClusters.GetClusterStatuses() {
+			if strings.Contains(status.Name, destName+"."+destNS) {
+				for _, hostStatus := range status.GetHostStatuses() {
+					details.SourceOutboundIPs = append(details.SourceOutboundIPs, hostStatus.Address.GetSocketAddress().GetAddress())
+				}
+			}
+		}
+	}
+
+	detailsYAML, err := yaml.Marshal(&details)
+	if err != nil {
+		return fmt.Sprintf("failed writing cluster details: %v", err)
+	}
+
+	return string(detailsYAML)
 }
 
 func createAndCleanupServiceExport(t framework.TestContext, service string, clusters cluster.Clusters) {
