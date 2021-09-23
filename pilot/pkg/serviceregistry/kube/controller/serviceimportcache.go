@@ -29,12 +29,19 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 const (
 	mcsDomainSuffix = "." + constants.DefaultClusterSetLocalDomain
 )
+
+type importedService struct {
+	namespacedName types.NamespacedName
+	clusterSetHost host.Name
+	clusterSetVIP  string
+}
 
 // serviceImportCache reads Kubernetes Multi-Cluster Services (MCS) ServiceImport resources in the
 // cluster and generates a synthetic service for the MCS host (i.e. clusterset.local) that contains
@@ -44,7 +51,7 @@ const (
 type serviceImportCache interface {
 	GetClusterSetIPs(name types.NamespacedName) []string
 	HasSynced() bool
-	ImportedServices() []model.ClusterServiceInfo
+	ImportedServices() []importedService
 }
 
 // newServiceImportCache creates a new cache of ServiceImport resources in the cluster.
@@ -205,22 +212,35 @@ func (ic *serviceImportCacheImpl) GetClusterSetIPs(name types.NamespacedName) []
 	return nil
 }
 
-func (ic *serviceImportCacheImpl) ImportedServices() []model.ClusterServiceInfo {
-	objs, err := ic.lister.List(klabels.NewSelector())
+func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
+	sis, err := ic.lister.List(klabels.Everything())
 	if err != nil {
-		return make([]model.ClusterServiceInfo, 0)
+		return make([]importedService, 0)
 	}
 
-	out := make([]model.ClusterServiceInfo, 0, len(objs))
-	for _, obj := range objs {
-		if isClusterSetIP(obj) && len(obj.Spec.IPs) > 0 {
-			out = append(out, model.ClusterServiceInfo{
-				Name:      obj.Name,
-				Namespace: obj.Namespace,
-				Cluster:   ic.Cluster(),
-			})
+	// Iterate over the ServiceImport resources in this cluster.
+	out := make([]importedService, 0, len(sis))
+
+	ic.RLock()
+	for _, si := range sis {
+		info := importedService{
+			namespacedName: kube.NamespacedNameForK8sObject(si),
 		}
+
+		// Lookup the synthetic MCS service.
+		hostName := serviceClusterSetLocalHostnameForKR(si)
+		svc := ic.servicesMap[hostName]
+		if svc != nil {
+			// Only set the hostname if the service exists.
+			info.clusterSetHost = hostName
+			if vips := svc.ClusterVIPs.GetAddressesFor(ic.Cluster()); len(vips) > 0 {
+				info.clusterSetVIP = vips[0]
+			}
+		}
+
+		out = append(out, info)
 	}
+	ic.RUnlock()
 
 	return out
 }
@@ -245,7 +265,7 @@ func (c disabledServiceImportCache) HasSynced() bool {
 	return true
 }
 
-func (c disabledServiceImportCache) ImportedServices() []model.ClusterServiceInfo {
+func (c disabledServiceImportCache) ImportedServices() []importedService {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
 }

@@ -253,12 +253,8 @@ func (sd *ServiceDiscovery) NetworkGateways() []*model.NetworkGateway {
 	return []*model.NetworkGateway{}
 }
 
-func (sd *ServiceDiscovery) ExportedServices() []model.ClusterServiceInfo {
-	return []model.ClusterServiceInfo{}
-}
-
-func (sd *ServiceDiscovery) ImportedServices() []model.ClusterServiceInfo {
-	return []model.ClusterServiceInfo{}
+func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {
+	return []model.MCSServiceInfo{}
 }
 
 type Controller struct{}
