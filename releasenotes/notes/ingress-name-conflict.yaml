@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 31833
+releaseNotes:
+- |
+  **Fixed** and issue causing Ingress resources with the same name but different namespaces from conflicting.
