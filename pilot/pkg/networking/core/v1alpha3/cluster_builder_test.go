@@ -3988,11 +3988,9 @@ func TestInsecureSkipVerify(t *testing.T) {
 			Protocol: protocol.Unsupported,
 		},
 	}
+
 	service := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: host.Name("foo.default.svc.cluster.local"),
-		},
-		Address:    "1.1.1.1",
+		Hostname:   host.Name("foo.default.svc.cluster.local"),
 		Ports:      servicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
