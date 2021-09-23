@@ -36,7 +36,11 @@ const (
 	mcsDomainSuffix = "." + constants.DefaultClusterSetLocalDomain
 )
 
-// serviceImportCache provides import state for all services in the cluster.
+// serviceImportCache reads Kubernetes Multi-Cluster Services (MCS) ServiceImport resources in the
+// cluster and generates a synthetic service for the MCS host (i.e. clusterset.local) that contains
+// the ClusterSet VIP. The synthetic service is a copy of the regular kube Service (e.g. cluster.local)
+// with the same namespaced name, but with the hostname and VIPs changed to the appropriate values for
+// the ClusterSet.
 type serviceImportCache interface {
 	GetClusterSetIPs(name types.NamespacedName) []string
 	HasSynced() bool
