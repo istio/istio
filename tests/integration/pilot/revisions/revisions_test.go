@@ -18,7 +18,6 @@
 package revisions
 
 import (
-	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"testing"
 	"time"
 
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -102,7 +102,8 @@ func TestMultiRevision(t *testing.T) {
 				BuildOrFail(t)
 
 			echotest.New(t, echos).
-				From(echotest.FilterMatch(echo.Service("client"))).
+				ConditionallyTo(echotest.ReachableDestinations).
+				To(echotest.FilterMatch(echo.Service("server"))).
 				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := src.Call(echo.CallOptions{
