@@ -32,7 +32,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20210921140121-a60a3f69eb54
-	github.com/envoyproxy/go-control-plane v0.9.10-0.20210902042146-151bc0c70919
+	github.com/envoyproxy/go-control-plane v0.9.10-0.20210907150352-cf90f659a021
 	github.com/evanphx/json-patch v4.11.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.5.0
 	github.com/fatih/color v1.12.0
@@ -87,7 +87,7 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	google.golang.org/api v0.57.0
 	google.golang.org/genproto v0.0.0-20210921142501-181ce0d877f6
-	google.golang.org/grpc v1.40.0
+	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
