@@ -814,8 +814,11 @@ spec:
 		}
 		// make sure namespace controller has time to create root-cert ConfigMap
 		if err := retry.UntilSuccess(func() error {
-			_, _, err = istioCtl.Invoke(cmd)
-			return err
+			stdout, stderr, err := istioCtl.Invoke(cmd)
+			if err != nil {
+				return fmt.Errorf("%v:\nstdout: %s\nstderr: %s", err, stdout, stderr)
+			}
+			return nil
 		}, retry.Timeout(20*time.Second)); err != nil {
 			return err
 		}
