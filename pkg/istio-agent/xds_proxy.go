@@ -15,7 +15,6 @@
 package istioagent
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -33,9 +32,6 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogotypes "github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -44,6 +40,8 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/encoding/protojson"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -158,8 +156,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	if ia.localDNSServer != nil {
 		proxy.handlers[v3.NameTableType] = func(resp *any.Any) error {
 			var nt dnsProto.NameTable
-			// nolint: staticcheck
-			if err := ptypes.UnmarshalAny(resp, &nt); err != nil {
+			if err := resp.UnmarshalTo(&nt); err != nil {
 				log.Errorf("failed to unmarshal name table: %v", err)
 				return err
 			}
@@ -800,13 +797,11 @@ func (p *XdsProxy) makeTapHandler() func(w http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		// Try to unmarshal Istiod's response using jsonpb (needed for Envoy protobufs)
+		// Try to unmarshal Istiod's response using protojson (needed for Envoy protobufs)
 		w.Header().Add("Content-Type", "application/json")
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		var buf bytes.Buffer
-		err = jsonm.Marshal(&buf, response)
+		b, err := protojson.MarshalOptions{Indent: "  "}.Marshal(response)
 		if err == nil {
-			_, err = w.Write(buf.Bytes())
+			_, err = w.Write(b)
 			if err != nil {
 				log.Infof("fail to write debug response: %v", err)
 			}

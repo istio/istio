@@ -21,10 +21,10 @@ import (
 	"strings"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	kubeCore "k8s.io/api/core/v1"
 
 	// Import all XDS config types
@@ -203,8 +203,7 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 			s.podNamespace, s.podName, err, command, stdout+stderr)
 	}
 
-	jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
-	if err := jspb.Unmarshal(strings.NewReader(stdout), out); err != nil {
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal([]byte(stdout), out)); err != nil {
 		return fmt.Errorf("failed parsing Envoy admin response from '/%s': %v\nResponse JSON: %s", path, err, stdout)
 	}
 	return nil

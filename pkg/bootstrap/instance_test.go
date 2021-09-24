@@ -34,8 +34,8 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/api/annotation"
@@ -369,7 +369,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to convert: %s %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(jgolden), goldenM); err != nil {
+			if err = protojson.Unmarshal(jgolden, goldenM); err != nil {
 				t.Fatalf("invalid json %s %s\n%v", c.base, err, string(jgolden))
 			}
 
@@ -377,7 +377,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid golden %s: %v", c.base, err)
 			}
 
-			if err = jsonpb.UnmarshalString(string(read), realM); err != nil {
+			if err = protojson.Unmarshal(read, realM); err != nil {
 				t.Fatalf("invalid json %v\n%s", err, string(read))
 			}
 

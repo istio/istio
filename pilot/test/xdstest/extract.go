@@ -29,14 +29,14 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/proto"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
@@ -338,7 +338,7 @@ func Dump(t test.Failer, p proto.Message) string {
 	if p == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
 		return "nil"
 	}
-	s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(p)
+	s, err := protomarshal.ToJSONWithIndent(p, "  ")
 	if err != nil {
 		t.Fatal(err)
 	}

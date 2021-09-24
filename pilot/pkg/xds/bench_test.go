@@ -27,8 +27,8 @@ import (
 	"github.com/Masterminds/sprig/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/encoding/protojson"
+	any "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -460,7 +460,7 @@ func logDebug(b *testing.B, m model.Resources) {
 
 	if debugGeneration.Get() {
 		for i, r := range m {
-			s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(r)
+			s, err := protojson.MarshalOptions{Indent: "  "}.Marshal(r)
 			if err != nil {
 				b.Fatal(err)
 			}

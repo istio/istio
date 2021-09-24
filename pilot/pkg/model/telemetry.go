@@ -25,9 +25,9 @@ import (
 	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	sd "istio.io/api/envoy/extensions/stackdriver/config/v1alpha1"
 	"istio.io/api/envoy/extensions/stats"
@@ -668,7 +668,7 @@ var metricToSDClientMetrics = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "",
 }
 
-func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *any.Any {
+func generateSDMetricsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *anypb.Any {
 	cfg := sd.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}
@@ -715,7 +715,7 @@ var metricToPrometheusMetric = map[string]string{
 	"GRPC_RESPONSE_MESSAGES": "response_messages_total",
 }
 
-func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *any.Any {
+func generateStatsConfig(class networking.ListenerClass, metricsCfg telemetryMetricsMode) *anypb.Any {
 	cfg := stats.PluginConfig{
 		DisableHostHeaderFallback: disableHostHeaderFallback(class),
 	}

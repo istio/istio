@@ -28,11 +28,11 @@ import (
 	"testing"
 
 	"cloud.google.com/go/compute/metadata"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"golang.org/x/sync/errgroup"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -95,7 +95,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	if err != nil {
 		return err
 	}
-	return jsonpb.UnmarshalString(resource, out)
+	return protojson.Unmarshal([]byte(resource), out)
 }
 
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.

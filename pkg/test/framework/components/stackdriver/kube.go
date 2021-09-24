@@ -22,11 +22,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	jsonpb "github.com/golang/protobuf/jsonpb"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+	"google.golang.org/protobuf/encoding/protojson"
 	kubeApiCore "k8s.io/api/core/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -136,7 +136,7 @@ func (c *kubeComponent) ListTimeSeries(_ string) ([]*monitoringpb.TimeSeries, er
 		return []*monitoringpb.TimeSeries{}, err
 	}
 	var r monitoringpb.ListTimeSeriesResponse
-	err = jsonpb.UnmarshalString(string(body), &r)
+	err = protojson.Unmarshal(body, &r)
 	if err != nil {
 		return []*monitoringpb.TimeSeries{}, err
 	}
@@ -159,7 +159,7 @@ func (c *kubeComponent) ListLogEntries(lt LogType, _ string) ([]*loggingpb.LogEn
 		return []*loggingpb.LogEntry{}, err
 	}
 	var r loggingpb.ListLogEntriesResponse
-	err = jsonpb.UnmarshalString(string(body), &r)
+	err = protojson.Unmarshal(body, &r)
 	if err != nil {
 		return []*loggingpb.LogEntry{}, err
 	}
@@ -180,7 +180,7 @@ func (c *kubeComponent) ListTraces(_ string) ([]*cloudtracepb.Trace, error) {
 		return []*cloudtracepb.Trace{}, err
 	}
 	var traceResp cloudtracepb.ListTracesResponse
-	err = jsonpb.UnmarshalString(string(body), &traceResp)
+	err = protojson.Unmarshal(body, &traceResp)
 	if err != nil {
 		return []*cloudtracepb.Trace{}, err
 	}

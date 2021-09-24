@@ -15,17 +15,17 @@
 package bootstrap
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"reflect"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test"
 )
 
 func TestParseDownwardApi(t *testing.T) {
@@ -123,15 +123,13 @@ func TestConvertNodeMetadata(t *testing.T) {
 
 	out := ConvertNodeToXDSNode(node)
 	{
-		buf := &bytes.Buffer{}
-		if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, out); err != nil {
+		b, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(out)
+		if err != nil {
 			t.Fatalf("failed to marshal: %v", err)
 		}
 		// nolint: lll
-		want := "{\"id\":\"test\",\"cluster\":\"cluster\",\"metadata\":{\"A\":1,\"B\":{\"b\":1},\"OWNER\":\"real-owner\",\"PROXY_CONFIG\":{\"serviceCluster\":\"cluster\"},\"UNKNOWN\":\"new-field\"}}"
-		if want != buf.String() {
-			t.Fatalf("ConvertNodeToXDSNode: got %q, want %q", buf.String(), want)
-		}
+		want := `{"id":"test","cluster":"cluster","metadata":{"A":1,"B":{"b":1},"OWNER":"real-owner","PROXY_CONFIG":{"serviceCluster":"cluster"},"UNKNOWN":"new-field"}}`
+		test.JSONEquals(t, want, string(b))
 	}
 
 	node2 := ConvertXDSNodeToNode(out)
@@ -141,7 +139,7 @@ func TestConvertNodeMetadata(t *testing.T) {
 			t.Fatalf("failed to marshal: %v", err)
 		}
 		// nolint: lll
-		want := "{\"ID\":\"test\",\"Metadata\":{\"PROXY_CONFIG\":{\"serviceCluster\":\"cluster\"},\"OWNER\":\"real-owner\"},\"RawMetadata\":null,\"Locality\":null}"
+		want := `{"ID":"test","Metadata":{"PROXY_CONFIG":{"serviceCluster":"cluster"},"OWNER":"real-owner"},"RawMetadata":null,"Locality":null}`
 		if want != string(got) {
 			t.Fatalf("ConvertXDSNodeToNode: got %q, want %q", string(got), want)
 		}

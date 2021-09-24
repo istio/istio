@@ -29,8 +29,8 @@ import (
 	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
@@ -323,7 +323,7 @@ func TestProxyConfig(t *testing.T) {
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
 			dump := &admin.SecretsConfigDump{}
-			if err := jsonpb.UnmarshalString(output, dump); err != nil {
+			if err := protojson.Unmarshal([]byte(output), dump); err != nil {
 				t.Fatal(err)
 			}
 			if len(dump.DynamicWarmingSecrets) > 0 {

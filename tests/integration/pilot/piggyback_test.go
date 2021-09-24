@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/shell"
@@ -44,7 +44,7 @@ func TestPiggyback(t *testing.T) {
 				t.Fatalf("couldn't curl sidecar: %v", err)
 			}
 			dr := xdsapi.DiscoveryResponse{}
-			if err := jsonpb.UnmarshalString(out, &dr); err != nil {
+			if err := protojson.Unmarshal([]byte(out), &dr); err != nil {
 				t.Fatal(err)
 			}
 			if dr.TypeUrl != "istio.io/debug/syncz" {

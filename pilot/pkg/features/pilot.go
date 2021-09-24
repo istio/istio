@@ -17,7 +17,6 @@ package features
 import (
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/istio/pkg/config/constants"
@@ -326,7 +325,7 @@ var (
 		"Default Http and gRPC Request timeout",
 	)
 
-	DefaultRequestTimeout = func() *duration.Duration {
+	DefaultRequestTimeout = func() *durationpb.Duration {
 		return durationpb.New(defaultRequestTimeoutVar.Get())
 	}()
 

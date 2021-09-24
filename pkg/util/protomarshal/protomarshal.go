@@ -15,22 +15,29 @@
 package protomarshal
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	protoV2 "google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"istio.io/pkg/log"
 )
 
 // ToJSON marshals a proto to canonical JSON
 func ToJSON(msg proto.Message) (string, error) {
-	return ToJSONWithIndent(msg, "")
+	if msg == nil {
+		return "", errors.New("unexpected nil message")
+	}
+
+	// Marshal from proto to json bytes
+	b, err := protojson.Marshal(msg)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 // ToJSONWithIndent marshals a proto to canonical JSON with pretty printed string
@@ -40,8 +47,16 @@ func ToJSONWithIndent(msg proto.Message, indent string) (string, error) {
 	}
 
 	// Marshal from proto to json bytes
-	m := jsonpb.Marshaler{Indent: indent}
-	return m.MarshalToString(msg)
+	b, err := protojson.Marshal(msg)
+	if err != nil {
+		return "", err
+	}
+	buf := bytes.Buffer{}
+	// protojson is not deterministic, pass through json formatter to add format
+	if err := json.Indent(&buf, b, "", indent); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // ToYAML marshals a proto to canonical YAML
@@ -74,22 +89,16 @@ func ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
 
 // ApplyJSON unmarshals a JSON string into a proto message.
 func ApplyJSON(js string, pb proto.Message) error {
-	reader := strings.NewReader(js)
-	m := jsonpb.Unmarshaler{}
-	if err := m.Unmarshal(reader, pb); err != nil {
+	if err := protojson.Unmarshal([]byte(js), pb); err != nil {
 		log.Debugf("Failed to decode proto: %q. Trying decode with AllowUnknownFields=true", err)
-		m.AllowUnknownFields = true
-		reader.Reset(js)
-		return m.Unmarshal(reader, pb)
+		return protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal([]byte(js), pb)
 	}
 	return nil
 }
 
 // ApplyJSONStrict unmarshals a JSON string into a proto message.
 func ApplyJSONStrict(js string, pb proto.Message) error {
-	reader := strings.NewReader(js)
-	m := jsonpb.Unmarshaler{}
-	return m.Unmarshal(reader, pb)
+	return protojson.Unmarshal([]byte(js), pb)
 }
 
 // ApplyYAML unmarshals a YAML string into a proto message.
@@ -100,24 +109,4 @@ func ApplyYAML(yml string, pb proto.Message) error {
 		return err
 	}
 	return ApplyJSON(string(js), pb)
-}
-
-// TODO(https://github.com/golang/protobuf/issues/1155) switch to upstream implementation
-func ShallowCopy(src protoV2.Message) protoV2.Message {
-	if src == nil {
-		return nil
-	}
-	srcm := src.ProtoReflect()
-	if !srcm.IsValid() {
-		return srcm.Type().Zero().Interface()
-	}
-	dstm := srcm.New()
-	if dstm.Type() != srcm.Type() {
-		panic("mismatching message types")
-	}
-	srcm.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		dstm.Set(fd, v)
-		return true
-	})
-	return dstm.Interface()
 }

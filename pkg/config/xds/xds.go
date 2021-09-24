@@ -27,8 +27,8 @@ import (
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 )
@@ -83,5 +83,5 @@ func GogoStructToMessage(pbst *types.Struct, out proto.Message, strict bool) err
 
 	// If strict is not set, ignore unknown fields as they may be sending versions of
 	// the proto we are not internally using
-	return (&jsonpb.Unmarshaler{AllowUnknownFields: !strict}).Unmarshal(buf, out)
+	return protojson.UnmarshalOptions{DiscardUnknown: !strict}.Unmarshal(buf.Bytes(), out)
 }

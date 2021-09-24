@@ -24,7 +24,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -464,12 +464,12 @@ func extractClusterMetadataServices(t test.Failer, c *cluster.Cluster) []string 
 	if got == nil {
 		return nil
 	}
-	s, err := (&jsonpb.Marshaler{}).MarshalToString(got)
+	s, err := protojson.Marshal(got)
 	if err != nil {
 		t.Fatal(err)
 	}
 	meta := clusterServicesMetadata{}
-	if err := json.Unmarshal([]byte(s), &meta); err != nil {
+	if err := json.Unmarshal(s, &meta); err != nil {
 		t.Fatal(err)
 	}
 	res := []string{}

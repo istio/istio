@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {
@@ -104,7 +103,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		config.DefaultConfig.ProxyMetadata = map[string]string{
 			"foo": "bar",
 		}
-		orig, err := protomarshal.ToYAML(&config)
+		orig, err := gogoprotomarshal.ToYAML(&config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,7 +111,7 @@ func TestApplyProxyConfig(t *testing.T) {
 		if _, err := mesh.ApplyProxyConfig(`proxyMetadata: {"merged":"override","override":"bar"}`, config); err != nil {
 			t.Fatal(err)
 		}
-		after, err := protomarshal.ToYAML(&config)
+		after, err := gogoprotomarshal.ToYAML(&config)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -342,7 +341,7 @@ trustDomainAliases:
 			minimal.TrustDomainAliases = res.TrustDomainAliases
 
 			want := &meshconfig.MeshConfig{}
-			protomarshal.ApplyYAML(tt.out, want)
+			gogoprotomarshal.ApplyYAML(tt.out, want)
 			if d := cmp.Diff(want, minimal, protocmp.Transform()); d != "" {
 				t.Fatalf("got diff %v", d)
 			}

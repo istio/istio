@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -209,7 +209,7 @@ func checkInstallStatus(cs istioKube.ExtendedClient, revision string) error {
 			return fmt.Errorf("failed to marshal istioOperator status: %v", err)
 		}
 		status := &api.InstallStatus{}
-		jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
+		jspb := gogojsonpb.Unmarshaler{AllowUnknownFields: true}
 		if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
 			return fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
 		}

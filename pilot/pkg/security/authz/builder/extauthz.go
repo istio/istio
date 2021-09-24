@@ -29,8 +29,8 @@ import (
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/extensionproviders"
@@ -371,10 +371,10 @@ func generateFilterMatcher(name string) *envoy_type_matcher_v3.MetadataMatcher {
 	}
 }
 
-func timeoutOrDefault(t *types.Duration) *duration.Duration {
+func timeoutOrDefault(t *types.Duration) *durationpb.Duration {
 	if t == nil {
 		// Default timeout is 600s.
-		return &duration.Duration{Seconds: 600}
+		return &durationpb.Duration{Seconds: 600}
 	}
 	return gogo.DurationToProtoDuration(t)
 }

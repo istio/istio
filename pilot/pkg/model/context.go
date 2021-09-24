@@ -30,9 +30,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/ptypes/any"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/encoding/protojson"
+	any "google.golang.org/protobuf/types/known/anypb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -695,7 +695,7 @@ func (m NodeMetadata) ToStruct() *structpb.Struct {
 	}
 
 	pbs := &structpb.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewBuffer(j), pbs); err != nil {
+	if err := protojson.Unmarshal(j, pbs); err != nil {
 		return nil
 	}
 
@@ -903,13 +903,13 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 		return &NodeMetadata{}, nil
 	}
 
-	buf := &bytes.Buffer{}
-	if err := (&jsonpb.Marshaler{OrigName: true}).Marshal(buf, metadata); err != nil {
+	b, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(metadata)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read node metadata %v: %v", metadata, err)
 	}
 	meta := &BootstrapNodeMetadata{}
-	if err := json.Unmarshal(buf.Bytes(), meta); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal node metadata (%v): %v", buf.String(), err)
+	if err := json.Unmarshal(b, meta); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal node metadata (%v): %v", string(b), err)
 	}
 	return &meta.NodeMetadata, nil
 }

@@ -15,7 +15,6 @@
 package istioagent
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -32,9 +31,9 @@ import (
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -365,13 +364,12 @@ func (b *bootstrapDiscoveryRequest) Send(resp *discovery.DiscoveryResponse) erro
 			b.envoyWaitCh <- fmt.Errorf("failed to unmarshal bootstrap: %v", err)
 			return nil
 		}
-		js := jsonpb.Marshaler{OrigName: true, Indent: "  "}
-		var buf bytes.Buffer
-		if err := js.Marshal(&buf, &bs); err != nil {
+		by, err := protojson.MarshalOptions{UseProtoNames: true, Indent: "  "}.Marshal(&bs)
+		if err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to marshal bootstrap as JSON: %v", err)
 			return nil
 		}
-		if err := b.envoyUpdate(buf.Bytes()); err != nil {
+		if err := b.envoyUpdate(by); err != nil {
 			b.envoyWaitCh <- fmt.Errorf("failed to update bootstrap from discovery: %v", err)
 			return nil
 		}

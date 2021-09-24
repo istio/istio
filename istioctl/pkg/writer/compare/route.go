@@ -19,25 +19,33 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/pmezard/go-difflib/difflib"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // RouteDiff prints a diff between Istiod and Envoy routes to the passed writer
 func (c *Comparator) RouteDiff() error {
-	jsonm := &jsonpb.Marshaler{Indent: "   "}
 	envoyBytes, istiodBytes := &bytes.Buffer{}, &bytes.Buffer{}
 	envoyRouteDump, err := c.envoy.GetDynamicRouteDump(true)
 	if err != nil {
 		envoyBytes.WriteString(err.Error())
-	} else if err := jsonm.Marshal(envoyBytes, envoyRouteDump); err != nil {
-		return err
+	} else {
+		envoy, err := protomarshal.ToJSONWithIndent(envoyRouteDump, "    ")
+		if err != nil {
+			return err
+		}
+		envoyBytes.WriteString(envoy)
 	}
 	istiodRouteDump, err := c.istiod.GetDynamicRouteDump(true)
 	if err != nil {
 		istiodBytes.WriteString(err.Error())
-	} else if err := jsonm.Marshal(istiodBytes, istiodRouteDump); err != nil {
-		return err
+	} else {
+		istiod, err := protomarshal.ToJSONWithIndent(istiodRouteDump, "    ")
+		if err != nil {
+			return err
+		}
+		istiodBytes.WriteString(istiod)
 	}
 	diff := difflib.UnifiedDiff{
 		FromFile: "Istiod Routes",

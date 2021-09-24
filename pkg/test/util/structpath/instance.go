@@ -23,9 +23,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/client-go/util/jsonpath"
 
 	"istio.io/istio/pkg/test"
@@ -77,12 +77,12 @@ func newErrorInstance(err error) *Instance {
 
 func protoToParsedJSON(message proto.Message) (interface{}, error) {
 	// Convert proto to json and then parse into struct
-	jsonText, err := (&jsonpb.Marshaler{Indent: " "}).MarshalToString(message)
+	jsonText, err := protojson.MarshalOptions{Indent: "  "}.Marshal(message)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert proto to JSON: %v", err)
 	}
 	var parsed interface{}
-	err = json.Unmarshal([]byte(jsonText), &parsed)
+	err = json.Unmarshal(jsonText, &parsed)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse into JSON struct: %v", err)
 	}
