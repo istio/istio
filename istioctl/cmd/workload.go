@@ -315,7 +315,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 }
 
 // Write cluster.env into the given directory
-func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, revision, dir, internalIP, externalIP string) error {
+func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.ProxyConfig, revision, internalIP, externalIP, dir string) error {
 	we := wg.Spec.Template
 	ports := []string{}
 	for _, v := range we.Ports {
