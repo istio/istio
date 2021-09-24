@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -83,6 +84,10 @@ type controller struct {
 	queue                  queue.Instance
 	virtualServiceHandlers []model.EventHandler
 	gatewayHandlers        []model.EventHandler
+
+	mutex sync.RWMutex
+	// processed ingresses
+	ingresses map[string]struct{}
 
 	ingressInformer cache.SharedInformer
 	serviceInformer cache.SharedInformer
@@ -161,6 +166,7 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		meshWatcher:     meshWatcher,
 		domainSuffix:    options.DomainSuffix,
 		queue:           q,
+		ingresses:       make(map[string]struct{}),
 		ingressInformer: ingressInformer,
 		classes:         classes,
 		serviceInformer: serviceInformer.Informer(),
@@ -204,13 +210,23 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingres
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}) (bool, error) {
+func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}, event model.Event) (bool, error) {
 	var shouldProcess bool
 
 	// should always have curObj passed
 	ing, ok := curObj.(*ingress.Ingress)
 	if !ok {
 		return false, nil
+	}
+
+	c.mutex.Lock()
+	_, preProcessed := c.ingresses[ing.Namespace+"/"+ing.Name]
+	if event == model.EventDelete {
+		delete(c.ingresses, ing.Namespace+"/"+ing.Name)
+	}
+	c.mutex.Unlock()
+	if preProcessed {
+		return true, nil
 	}
 
 	if oldObj == nil { // corresponds to additions and deletions of ingresses, update handlers if the current version should be targeted
@@ -247,7 +263,7 @@ func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) erro
 		return errors.New("waiting till full synchronization")
 	}
 
-	shouldProcess, err := c.shouldProcessIngressUpdate(oldObj, curObj)
+	shouldProcess, err := c.shouldProcessIngressUpdate(oldObj, curObj, event)
 	if err != nil {
 		return err
 	}
@@ -269,6 +285,11 @@ func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) erro
 		// Set this label so that we do not compare configs and just push.
 		Labels: map[string]string{constants.AlwaysPushLabel: "true"},
 	}
+
+	// record processed ingress
+	c.mutex.Lock()
+	c.ingresses[ing.Namespace+"/"+ing.Name] = struct{}{}
+	c.mutex.Unlock()
 
 	// Trigger updates for Gateway and VirtualService
 	// TODO: we could be smarter here and only trigger when real changes were found
