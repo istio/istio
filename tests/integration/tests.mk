@@ -73,13 +73,13 @@ check-go-tag:
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 -vet=off ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(GO) test -p 1 -vet=off ${T} -tags=integ ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Generate integration fuzz test targets for kubernetes environment.
 test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 -vet=off ${T} -tags="integfuzz integ" ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	$(GO) test -p 1 -vet=off ${T} -tags="integfuzz integ" ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
@@ -90,14 +90,14 @@ test.integration.%.kube.presubmit:
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 -vet=off ${T} -tags=integ $(shell go list -tags=integ ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
+	$(GO) test -p 1 -vet=off ${T} -tags=integ $(shell go list -tags=integ ./tests/integration/... | grep -v /qualification | grep -v /examples) -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 # Defines a target to run a minimal reachability testing basic traffic
 .PHONY: test.integration.kube.reachability
 test.integration.kube.reachability: | $(JUNIT_REPORT) check-go-tag
-	PATH=${PATH}:${ISTIO_OUT} $(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ -timeout 30m \
+	$(GO) test -p 1 ${T} -tags=integ ./tests/integration/security/ -timeout 30m \
 	${_INTEGRATION_TEST_FLAGS} \
 	--test.run=TestReachability \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
