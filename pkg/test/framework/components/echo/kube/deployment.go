@@ -983,7 +983,7 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	return containerPorts
 }
 
-func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) (error) {
+func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv string, istiodAddr net.TCPAddr) error {
 	f, err := os.OpenFile(clusterEnv, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		return fmt.Errorf("failed opening %s: %v", clusterEnv, err)
