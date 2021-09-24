@@ -403,7 +403,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 	dirty := false
 	for i := range current.Webhooks {
 		if !bytes.Equal(current.Webhooks[i].ClientConfig.CABundle, caBundle) ||
-			*current.Webhooks[i].FailurePolicy != failurePolicy {
+			(current.Webhooks[i].FailurePolicy != nil && *current.Webhooks[i].FailurePolicy != failurePolicy) {
 			dirty = true
 			break
 		}
