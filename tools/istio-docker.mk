@@ -235,6 +235,7 @@ dockerx:
 		VERSION=$(VERSION) \
 		DOCKER_ALL_VARIANTS="$(DOCKER_ALL_VARIANTS)" \
 		ISTIO_DOCKER_TAR=$(ISTIO_DOCKER_TAR) \
+		INCLUDE_TAGGED_DEFAULT=$(INCLUDE_TAGGED_DEFAULT) \
 		BASE_VERSION=$(BASE_VERSION) \
 		DOCKERX_PUSH=$(DOCKERX_PUSH) \
 		DOCKER_ARCHITECTURES=$(DOCKER_ARCHITECTURES) \
@@ -303,10 +304,11 @@ docker.distroless: docker/Dockerfile.distroless
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
-# DOCKER_BUILD_VARIANTS ?=default distroless
+# DOCKER_BUILD_VARIANTS ?=debug distroless
 DOCKER_BUILD_VARIANTS ?= default
-DOCKER_ALL_VARIANTS ?= default distroless
-DEFAULT_DISTRIBUTION=default
+DOCKER_ALL_VARIANTS ?= debug distroless
+INCLUDE_TAGGED_DEFAULT ?= false
+DEFAULT_DISTRIBUTION=debug
 DOCKER_RULE ?= $(foreach VARIANT,$(DOCKER_BUILD_VARIANTS), time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && TARGET_ARCH=$(TARGET_ARCH) ./tools/docker-copy.sh $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ $(BUILD_PRE) && docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$(VARIANT) -t $(HUB)/$(subst docker.,,$@):$(subst -$(DEFAULT_DISTRIBUTION),,$(TAG)-$(VARIANT)) -f Dockerfile$(suffix $@) . ); )
 RENAME_TEMPLATE ?= mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp $(ECHO_DOCKER)/$(VM_OS_DOCKERFILE_TEMPLATE) $(DOCKER_BUILD_TOP)/$@/Dockerfile$(suffix $@)
 

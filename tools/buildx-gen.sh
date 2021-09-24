@@ -23,6 +23,9 @@ out="${1}"
 config="${out}/docker-bake.hcl"
 shift
 
+DEFAULT_VARIANT="${DEFAULT_VARIANT:-debug}"
+INCLUDE_TAGGED_DEFAULT="${INCLUDE_TAGGED_DEFAULT:-false}"
+
 function to_platform_list() {
   image="${1}"
   platforms="${2}"
@@ -35,6 +38,9 @@ variants=\"$(for i in ${DOCKER_ALL_VARIANTS}; do echo "\"${i}\""; done | xargs |
 cat <<EOF > "${config}"
 group "all" {
     targets = [${variants}]
+}
+group "default" {
+    targets = ["${DEFAULT_VARIANT}"]
 }
 EOF
 
@@ -55,11 +61,7 @@ done
 for file in "$@"; do
   for variant in ${DOCKER_ALL_VARIANTS}; do
     image=${file#docker.}
-    tag="${TAG}"
-    # The default variant has no suffix, others do
-    if [[ "${variant}" != "default" ]]; then
-      tag+="-${variant}"
-    fi
+    tag="${TAG}-${variant}"
 
     # Output locally (like `docker build`) by default, or push
     # Push requires using container driver. See https://github.com/docker/buildx#working-with-builder-instances
@@ -83,7 +85,14 @@ for file in "$@"; do
     tags=""
     for hub in ${HUBS};
     do
-      tags=${tags}"\"${hub}/${image}:${tag}\", "
+      if [[ "${variant}" = "${DEFAULT_VARIANT}" ]]; then
+        tags=${tags}"\"${hub}/${image}:${TAG}\", "
+        if [[ "${INCLUDE_TAGGED_DEFAULT}" == "true" ]]; then
+          tags=${tags}"\"${hub}/${image}:${tag}\", "
+        fi
+      else
+        tags=${tags}"\"${hub}/${image}:${tag}\", "
+      fi
     done
     tags="${tags%, *}" # remove training ', '
 
@@ -104,13 +113,5 @@ target "$image-$variant" {
     ${output}
 }
 EOF
-    # For the default variant, create an alias so we can do things like `build pilot` instead of `build pilot-default`
-    if [[ "${variant}" == "default" ]]; then
-    cat <<EOF >> "${config}"
-target "$image" {
-    inherits = ["$image-$variant"]
-}
-EOF
-    fi
   done
 done
