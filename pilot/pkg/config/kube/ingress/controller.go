@@ -211,8 +211,6 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *ingres
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
 func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}, event model.Event) (bool, error) {
-	var shouldProcess bool
-
 	// should always have curObj passed
 	ing, ok := curObj.(*ingress.Ingress)
 	if !ok {
@@ -229,31 +227,9 @@ func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}, even
 		return true, nil
 	}
 
-	if oldObj == nil { // corresponds to additions and deletions of ingresses, update handlers if the current version should be targeted
-		shouldProcessUpdate, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
-		if err != nil {
-			return false, err
-		}
-		shouldProcess = shouldProcessUpdate
-	} else { // this case corresponds to an update to an existing ingress resource
-		oldIng, ok := oldObj.(*ingress.Ingress)
-		if !ok {
-			return false, nil
-		}
-
-		shouldProcessOld, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), oldIng)
-		if err != nil {
-			return false, err
-		}
-		shouldProcessNew, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
-		if err != nil {
-			return false, err
-		}
-
-		// the singular case we want to ignore is where neither the old nor new version of the ingress
-		// should be targeted. otherwise we need to delete the ingress routes, add the ingress routes,
-		// or change something about the ingress configuration
-		shouldProcess = shouldProcessOld || shouldProcessNew
+	shouldProcess, err := c.shouldProcessIngress(c.meshWatcher.Mesh(), ing)
+	if err != nil {
+		return false, err
 	}
 	return shouldProcess, nil
 }
