@@ -6698,6 +6698,13 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"valid http",
 			&extensions.WasmPlugin{
 				Url: "http://test.com/test",
+			},
+			"", "",
+		},
+		{
+			"valid http w/ sha",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
 				XSha256: &extensions.WasmPlugin_Sha256{
 					Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
 				},
@@ -6725,7 +6732,24 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"sha256 field must be 64 characters long", "",
 		},
 		{
+			"invalid sha characters",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				XSha256: &extensions.WasmPlugin_Sha256{
+					Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+				},
+			},
+			"sha256 field must match [a-z0-9]{64} pattern", "",
+		},
+		{
 			"valid oci",
+			&extensions.WasmPlugin{
+				Url: "oci://test.com/test",
+			},
+			"", "",
+		},
+		{
+			"valid oci no scheme",
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 			},

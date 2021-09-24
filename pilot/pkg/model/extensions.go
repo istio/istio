@@ -62,15 +62,15 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 			return nil
 		}
 		if wasmPlugin.XSha256 == nil {
-			if u.Scheme == "http" || u.Scheme == "https" {
-				// SHA256 is required for .wasm deployments fetched from HTTP/HTTPS URLs
-				return nil
-			}
 			// field is required, so we're setting a string for unmarshaling to not fail
 			// on the agent side. this will never reach envoy
 			sha256 = "nil"
 		} else {
 			sha256 = wasmPlugin.GetSha256()
+		}
+		// when no scheme is given, default to oci://
+		if u.Scheme == "" {
+			u.Scheme = "oci"
 		}
 		if u.Scheme == "file" {
 			datasource = &envoy_config_core_v3.AsyncDataSource{
@@ -87,7 +87,7 @@ func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
 				Specifier: &envoy_config_core_v3.AsyncDataSource_Remote{
 					Remote: &envoy_config_core_v3.RemoteDataSource{
 						HttpUri: &envoy_config_core_v3.HttpUri{
-							Uri:     wasmPlugin.Url,
+							Uri:     u.String(),
 							Timeout: durationpb.New(30 * time.Second),
 							HttpUpstreamType: &envoy_config_core_v3.HttpUri_Cluster{
 								// this will be fetched by the agent anyway, so no need for a cluster

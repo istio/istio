@@ -3517,18 +3517,14 @@ func validateWasmPluginURL(pluginURL string) error {
 
 func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 	if plugin.XSha256 == nil {
-		if strings.HasPrefix(plugin.Url, "http") {
-			return fmt.Errorf("sha256 field must be set when fetching .wasm module from HTTP(s) URL")
-		}
 		return nil
 	}
 	if len(plugin.GetSha256()) != 64 {
 		return fmt.Errorf("sha256 field must be 64 characters long")
 	}
-	validCharacters := "0123456789abcdef"
-	for _, char := range plugin.GetSha256() {
-		if !strings.ContainsRune(validCharacters, char) {
-			return fmt.Errorf("sha256 field must be alphanumeric: %s", plugin.GetSha256())
+	for _, r := range plugin.GetSha256() {
+		if !('a' <= r && r <= 'z' || '0' <= r && r <= '9') {
+			return fmt.Errorf("sha256 field must match [a-z0-9]{64} pattern")
 		}
 	}
 	return nil
