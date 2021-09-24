@@ -329,7 +329,10 @@ $(foreach bin,$(AGENT_BINARIES),$(eval $(call build-linux,$(bin),"agent")))
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
 $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
+ifneq ($(ISTIO_OUT_LINUX),$(LOCAL_OUT))
+# if we are on linux already, then this rule is handled by build-linux above, which handles BUILD_ALL variable
 $(foreach bin,$(BINARIES),${LOCAL_OUT}/$(shell basename $(bin))): build
+endif
 
 MARKDOWN_LINT_ALLOWLIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
