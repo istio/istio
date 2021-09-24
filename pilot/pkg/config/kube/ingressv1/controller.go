@@ -132,19 +132,19 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				q.Push(func() error {
-					return c.onEvent(nil, obj, model.EventAdd)
+					return c.onEvent(obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !reflect.DeepEqual(old, cur) {
 					q.Push(func() error {
-						return c.onEvent(old, cur, model.EventUpdate)
+						return c.onEvent(cur, model.EventUpdate)
 					})
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				q.Push(func() error {
-					return c.onEvent(nil, obj, model.EventDelete)
+					return c.onEvent(obj, model.EventDelete)
 				})
 			},
 		})
@@ -165,7 +165,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetwo
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event
-func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}, event model.Event) (bool, error) {
+func (c *controller) shouldProcessIngressUpdate(curObj interface{}, event model.Event) (bool, error) {
 	// should always have curObj passed
 	ing, ok := curObj.(*knetworking.Ingress)
 	if !ok {
@@ -190,12 +190,12 @@ func (c *controller) shouldProcessIngressUpdate(oldObj, curObj interface{}, even
 	return shouldProcess, nil
 }
 
-func (c *controller) onEvent(oldObj, curObj interface{}, event model.Event) error {
+func (c *controller) onEvent(curObj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
 
-	shouldProcess, err := c.shouldProcessIngressUpdate(oldObj, curObj, event)
+	shouldProcess, err := c.shouldProcessIngressUpdate(curObj, event)
 	if err != nil {
 		return err
 	}
