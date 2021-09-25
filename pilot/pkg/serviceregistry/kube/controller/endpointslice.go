@@ -169,11 +169,16 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) map[hos
 	return out
 }
 
-func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
+func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, hostName host.Name) []*model.IstioEndpoint {
 	slice := es.(*discovery.EndpointSlice)
+	esc.updateEndpointCacheForSlice(hostName, slice)
+	return esc.endpointCache.Get(hostName)
+}
+
+func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *discovery.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
 
-	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(host))
+	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(esc.c.GetService(hostName))
 
 	for _, e := range slice.Endpoints {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
@@ -181,7 +186,7 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			continue
 		}
 		for _, a := range e.Addresses {
-			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
+			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
 				continue
 			}
@@ -202,11 +207,10 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			}
 		}
 	}
-	esc.endpointCache.Update(host, slice.Name, endpoints)
-	return esc.endpointCache.Get(host)
+	esc.endpointCache.Update(hostName, slice.Name, endpoints)
 }
 
-func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, hostName host.Name, updateCache bool) []*model.IstioEndpoint {
 	esLabelSelector := endpointSliceSelectorForService(name)
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
 	if err != nil || len(slices) == 0 {
@@ -214,7 +218,14 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 		return nil
 	}
 
-	return esc.endpointCache.Get(host)
+	if updateCache {
+		// A cache update was requested. Rebuild the endpoints for these slices.
+		for _, slice := range slices {
+			esc.updateEndpointCacheForSlice(hostName, slice)
+		}
+	}
+
+	return esc.endpointCache.Get(hostName)
 }
 
 func (esc *endpointSliceController) getServiceNamespacedName(es interface{}) types.NamespacedName {
@@ -310,7 +321,7 @@ func getLocalityFromTopology(topology map[string]string) string {
 }
 
 // endpointKey unique identifies an endpoint by IP and port name
-// This is used for deduping endpoints accros slices.
+// This is used for deduping endpoints across slices.
 type endpointKey struct {
 	ip   string
 	port string
