@@ -92,16 +92,17 @@ func NewNamespaceController(data func() map[string]string, kubeClient kube.Clien
 
 // Run starts the NamespaceController until a value is sent to stopCh.
 func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
+	defer nc.queue.ShutDown()
+
 	if !cache.WaitForCacheSync(stopCh, nc.namespacesInformer.HasSynced, nc.configMapInformer.HasSynced) {
 		log.Error("Failed to sync namespace controller cache")
+		return
 	}
 	log.Infof("Namespace controller started")
 
 	go wait.Until(nc.runWorker, time.Second, stopCh)
-	go func() {
-		<-stopCh
-		nc.queue.ShutDown()
-	}()
+
+	<-stopCh
 }
 
 func (nc *NamespaceController) runWorker() {
@@ -148,7 +149,7 @@ func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
 	}
 }
 
-// On configMap change(update or delete), try to create or update thr config map.
+// On configMap change(update or delete), try to create or update the config map.
 func (nc *NamespaceController) configMapChange(obj interface{}) {
 	cm, err := convertToConfigMap(obj)
 	if err != nil {
