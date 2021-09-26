@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
@@ -85,7 +86,7 @@ type ServiceEntryStore struct { // nolint:golint
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
-	services         []*model.Service
+	servicesBySE     map[string][]*model.Service
 	refreshIndexes   *atomic.Bool
 	workloadHandlers []func(*model.WorkloadInstance, model.Event)
 
@@ -267,36 +268,23 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 }
 
 // serviceEntryHandler defines the handler for service entries
-func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event model.Event) {
+func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event model.Event) {
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
-
+	key := kube.KeyFunc(curr.Name, curr.Namespace)
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 	// only when services have changed - otherwise, just push endpoint updates.
 	var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
-
 	switch event {
 	case model.EventUpdate:
-		os := convertServices(old)
-		if selectorChanged(old, curr) {
-			// Consider all services are updated.
-			mark := make(map[host.Name]*model.Service, len(cs))
-			for _, svc := range cs {
-				mark[svc.Hostname] = svc
-				updatedSvcs = append(updatedSvcs, svc)
-			}
-			for _, svc := range os {
-				if _, f := mark[svc.Hostname]; !f {
-					updatedSvcs = append(updatedSvcs, svc)
-				}
-			}
-		} else {
-			addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs = servicesDiff(os, cs)
-		}
+		addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs = servicesDiff(s.servicesBySE[key], cs)
+		s.servicesBySE[key] = cs
 	case model.EventDelete:
 		deletedSvcs = cs
+		delete(s.servicesBySE, key)
 	case model.EventAdd:
 		addedSvcs = cs
+		s.servicesBySE[key] = cs
 	default:
 		// this should not happen
 		unchangedSvcs = cs
@@ -321,17 +309,15 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 
 	if len(unchangedSvcs) > 0 {
 		currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
-		oldServiceEntry := old.Spec.(*networking.ServiceEntry)
 		// If this service entry had endpoints with IPs (i.e. resolution STATIC), then we do EDS update.
 		// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
 		// full push (as fqdn endpoints go via strict_dns clusters in cds).
-		// Non DNS service entries are sent via EDS. So we should compare and update if such endpoints change.
+		// Non DNS service entries are sent via EDS.
+		// Trigger full push when DNS resolution ServiceEntry in case endpoint changes.
 		if currentServiceEntry.Resolution == networking.ServiceEntry_DNS || currentServiceEntry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
-			if !reflect.DeepEqual(currentServiceEntry.Endpoints, oldServiceEntry.Endpoints) {
-				// fqdn endpoints have changed. Need full push
-				for _, svc := range unchangedSvcs {
-					configsUpdated[makeConfigKey(svc)] = struct{}{}
-				}
+			// fqdn endpoints have changed. Need full push
+			for _, svc := range unchangedSvcs {
+				configsUpdated[makeConfigKey(svc)] = struct{}{}
 			}
 		}
 
@@ -507,7 +493,11 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	s.maybeRefreshIndexes()
 	s.storeMutex.RLock()
 	defer s.storeMutex.RUnlock()
-	return autoAllocateIPs(s.services), nil
+	allServices := []*model.Service{}
+	for _, cfg := range s.store.ServiceEntries() {
+		allServices = append(allServices, s.servicesBySE[kube.KeyFunc(cfg.Name, cfg.Namespace)]...)
+	}
+	return autoAllocateIPs(allServices), nil
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -668,7 +658,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 
 	// First refresh service entry
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
-	allServices := []*model.Service{}
+	servicesBySE := map[string][]*model.Service{}
 	if s.processServiceEntry {
 		for _, cfg := range s.store.ServiceEntries() {
 			key := configKey{
@@ -684,7 +674,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 			if se.WorkloadSelector != nil {
 				seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace], servicesWithEntry{se, services})
 			}
-			allServices = append(allServices, services...)
+			servicesBySE[kube.KeyFunc(cfg.Name, cfg.Namespace)] = services
 		}
 	}
 
@@ -737,7 +727,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 	}
 
 	s.seWithSelectorByNamespace = seWithSelectorByNamespace
-	s.services = allServices
+	s.servicesBySE = servicesBySE
 	s.instances = instanceMap
 	s.ip2instance = ip2instances
 }
