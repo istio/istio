@@ -275,14 +275,14 @@ func Analyze() *cobra.Command {
 
 			// Return code is based on the unfiltered validation message list/parse errors
 			// We're intentionally keeping failure threshold and output threshold decoupled for now
-			var returnError error
-			if msgOutputFormat == formatting.LogFormat {
-				returnError = errorIfMessagesExceedThreshold(result.Messages)
-				if returnError == nil && parseErrors > 0 {
-					returnError = FileParseError{}
-				}
+			if err = errorIfMessagesExceedThreshold(result.Messages); err != nil {
+				return err
 			}
-			return returnError
+			if parseErrors > 0 {
+				return FileParseError{}
+			}
+
+			return nil
 		},
 	}
 
@@ -398,17 +398,11 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 }
 
 func errorIfMessagesExceedThreshold(messages []diag.Message) error {
-	foundIssues := false
 	for _, m := range messages {
 		if m.Type.Level().IsWorseThanOrEqualTo(failureThreshold.Level) {
-			foundIssues = true
+			return AnalyzerFoundIssuesError{}
 		}
 	}
-
-	if foundIssues {
-		return AnalyzerFoundIssuesError{}
-	}
-
 	return nil
 }
 
