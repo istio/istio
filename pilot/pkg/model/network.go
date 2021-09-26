@@ -64,18 +64,18 @@ func NewNetworkManager(env *Environment) *NetworkManager {
 				}
 			}
 		}
-	} else {
-		// Second, load registry-specific gateways.
-		for _, gw := range env.NetworkGateways() {
-			if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
-				// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
-				// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
-				gatewaySet[*gw] = struct{}{}
-			} else {
-				log.Warnf("Failed parsing gateway address %s from Service Registry. "+
-					"Hostnames are not supported for gateways",
-					gw.Addr)
-			}
+	}
+
+	// Second, load registry-specific gateways.
+	for _, gw := range env.NetworkGateways() {
+		if gwIP := net.ParseIP(gw.Addr); gwIP != nil {
+			// - the internal map of label gateways - these get deleted if the service is deleted, updated if the ip changes etc.
+			// - the computed map from meshNetworks (triggered by reloadNetworkLookup, the ported logic from getGatewayAddresses)
+			gatewaySet[*gw] = struct{}{}
+		} else {
+			log.Warnf("Failed parsing gateway address %s from Service Registry. "+
+				"Hostnames are not supported for gateways",
+				gw.Addr)
 		}
 	}
 
