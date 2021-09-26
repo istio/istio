@@ -292,12 +292,18 @@ func (s gatewaySet) addAll(other gatewaySet) {
 }
 
 func (s gatewaySet) toArray() []*model.NetworkGateway {
-	gws := make([]*model.NetworkGateway, 0, len(s))
+	gws := make([]model.NetworkGateway, 0, len(s))
 	for gw := range s {
 		gw := gw
-		gws = append(gws, &gw)
+		gws = append(gws, gw)
 	}
 
 	// Sort the array so that it's stable.
-	return model.SortGateways(gws)
+	gws = model.SortGateways(gws)
+
+	out := make([]*model.NetworkGateway, len(gws))
+	for i := range gws {
+		out[i] = &gws[i]
+	}
+	return out
 }
