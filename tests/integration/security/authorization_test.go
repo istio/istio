@@ -827,6 +827,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							},
 						}
 						if tc.token != "" {
+							t.Skip("https://github.com/istio/istio/issues/35384")
 							request.Headers = append(request.Headers, &epb.Header{
 								Key:   "Authorization",
 								Value: "Bearer " + tc.token,
