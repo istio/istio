@@ -132,6 +132,8 @@ func NewServiceDiscovery(
 		instances:                  map[instancesKey]map[configKey][]*model.ServiceInstance{},
 		workloadInstancesByIP:      map[string]*model.WorkloadInstance{},
 		workloadInstancesIPsByName: map[string]string{},
+		servicesBySE:               make(map[string][]*model.Service),
+		seByWorkloadEntry:          make(map[configKey]map[types.NamespacedName]struct{}),
 		refreshIndexes:             atomic.NewBool(true),
 		processServiceEntry:        true,
 	}
