@@ -681,6 +681,29 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
+	t.Run("ServiceEntry ignores inactive pods at start", func(t *testing.T) {
+		_, wc, store, kube, _ := setupTest(t)
+
+		inactivePod := pod.DeepCopy()
+		inactivePod.Name = "pod-inactive"
+		inactivePod.Status.Phase = v1.PodSucceeded
+		_, _ = kube.CoreV1().Pods(pod.Namespace).Create(context.TODO(), inactivePod, metav1.CreateOptions{})
+		makeIstioObject(t, store, serviceEntry)
+
+		expectServiceInstances(t, wc, expectedSvc, 80, []ServiceInstanceResponse{})
+
+		// when new pod with the same ip is created, we can see the instance
+		makePod(t, kube, pod)
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       80,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
 		_, wc, store, kube, _ := setupTest(t)
 		makeIstioObject(t, store, config.Config{

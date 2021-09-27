@@ -134,6 +134,8 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				if !IsPodReady(pod) {
 					ev = model.EventDelete
 				}
+			default:
+				return nil
 			}
 		case model.EventUpdate:
 			if pod.DeletionTimestamp != nil {
