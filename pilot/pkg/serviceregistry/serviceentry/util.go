@@ -18,36 +18,39 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 )
 
-func getWorkloadServiceEntries(ses []servicesWithEntry, wle *networking.WorkloadEntry) map[types.NamespacedName]struct{} {
+func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntry) map[types.NamespacedName]struct{} {
 	workloadLabels := labels.Collection{wle.Labels}
 	out := make(map[types.NamespacedName]struct{})
-	for _, se := range ses {
-		if workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-			out[se.key] = struct{}{}
+	for _, cfg := range ses {
+		se := cfg.Spec.(*networking.ServiceEntry)
+
+		if se.WorkloadSelector != nil && workloadLabels.IsSupersetOf(se.WorkloadSelector.Labels) {
+			out[types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}] = struct{}{}
 		}
 	}
 
 	return out
 }
 
-func compareServiceEntries(old, curr map[types.NamespacedName]struct{}) (newSelected, deSelected, unchanged map[types.NamespacedName]struct{}) {
-	newSelected = make(map[types.NamespacedName]struct{})
-	deSelected = make(map[types.NamespacedName]struct{})
-	unchanged = make(map[types.NamespacedName]struct{})
+func compareServiceEntries(old []types.NamespacedName, curr map[types.NamespacedName]struct{}) (newSelected, deSelected, unchanged []types.NamespacedName) {
+	oldSet := map[types.NamespacedName]struct{}{}
+	for _, key := range old {
+		oldSet[key] = struct{}{}
+	}
 	for key := range curr {
-		if _, ok := old[key]; !ok {
-			newSelected[key] = struct{}{}
+		if _, ok := oldSet[key]; !ok {
+			newSelected = append(newSelected, key)
 		} else {
-			unchanged[key] = struct{}{}
+			unchanged = append(unchanged, key)
 		}
 	}
-
-	for key := range old {
+	for key := range oldSet {
 		if _, ok := curr[key]; !ok {
-			deSelected[key] = struct{}{}
+			deSelected = append(unchanged, key)
 		}
 	}
 

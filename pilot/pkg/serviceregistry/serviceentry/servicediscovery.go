@@ -20,10 +20,11 @@ import (
 	"strconv"
 	"sync"
 
-	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
@@ -38,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
-	"istio.io/pkg/log"
 )
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
@@ -78,18 +78,15 @@ type ServiceEntryStore struct { // nolint:golint
 	storeMutex sync.RWMutex
 
 	ip2instance map[string][]*model.ServiceInstance
-	// Endpoints table
+	// Endpoints hostname -> config -> service instances
 	instances map[instancesKey]map[configKey][]*model.ServiceInstance
 	// workload instances from kubernetes pods - map of ip -> workload instance
 	workloadInstancesByIP map[string]*model.WorkloadInstance
 	// Stores a map of workload instance name/namespace to address
 	workloadInstancesIPsByName map[string]string
-	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
-	seWithSelectorByNamespace map[string][]servicesWithEntry
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
 	servicesBySE      map[string][]*model.Service
-	seByWorkloadEntry map[configKey]map[types.NamespacedName]struct{}
-	refreshIndexes    *atomic.Bool
+	seByWorkloadEntry map[configKey][]types.NamespacedName
 	workloadHandlers  []func(*model.WorkloadInstance, model.Event)
 
 	// cb function used to get the networkID according to workload ip and labels.
@@ -133,8 +130,7 @@ func NewServiceDiscovery(
 		workloadInstancesByIP:      map[string]*model.WorkloadInstance{},
 		workloadInstancesIPsByName: map[string]string{},
 		servicesBySE:               make(map[string][]*model.Service),
-		seByWorkloadEntry:          make(map[configKey]map[types.NamespacedName]struct{}),
-		refreshIndexes:             atomic.NewBool(true),
+		seByWorkloadEntry:          make(map[configKey][]types.NamespacedName),
 		processServiceEntry:        true,
 	}
 	for _, o := range options {
@@ -176,18 +172,6 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 		}
 	}
 
-	s.storeMutex.RLock()
-	// We will only select entries in the same namespace
-	entries := s.seWithSelectorByNamespace[curr.Namespace]
-	s.storeMutex.RUnlock()
-
-	// if there are no service entries, return now to avoid taking unnecessary locks
-	if len(entries) == 0 {
-		s.storeMutex.Lock()
-		delete(s.seByWorkloadEntry, key)
-		s.storeMutex.Unlock()
-		return
-	}
 	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
 	instancesAdded := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
@@ -195,41 +179,47 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	fullPush := false
 	configsUpdated := map[model.ConfigKey]struct{}{}
 
-	currSes := getWorkloadServiceEntries(entries, wle)
+	cfgs, _ := s.store.List(gvk.ServiceEntry, curr.Namespace)
+	currSes := getWorkloadServiceEntries(cfgs, wle)
 	oldSes := s.seByWorkloadEntry[key]
+	addConfigs := func(se *networking.ServiceEntry, services []*model.Service) {
+		// If serviceentry's resolution is DNS, make a full push
+		// TODO: maybe cds?
+		if se.Resolution == networking.ServiceEntry_DNS || se.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
+			fullPush = true
+			for key, value := range getUpdatedConfigs(services) {
+				configsUpdated[key] = value
+			}
+		}
+	}
 
 	newSelected, deselected, unchanged := compareServiceEntries(oldSes, currSes)
 	log.Debugf("workloadEntry %v select serviceEntry, new %v, deselected %v, unchanged %v", key, newSelected, deselected, unchanged)
-	for _, se := range entries {
-		selected := false
-		if _, ok := newSelected[se.key]; ok {
-			selected = true
-			instance := s.convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
-			instancesAdded = append(instancesAdded, instance...)
-		}
+	for _, namespacedName := range newSelected {
+		services := s.servicesBySE[namespacedName.String()]
+		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
+		se := cfg.Spec.(*networking.ServiceEntry)
+		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
+		instancesAdded = append(instancesAdded, instance...)
+		addConfigs(se, services)
+	}
 
-		if _, ok := deselected[se.key]; ok {
-			selected = true
-			instance := s.convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
-			instancesDeleted = append(instancesDeleted, instance...)
-		}
+	for _, namespacedName := range deselected {
+		services := s.servicesBySE[namespacedName.String()]
+		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
+		se := cfg.Spec.(*networking.ServiceEntry)
+		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
+		instancesDeleted = append(instancesDeleted, instance...)
+		addConfigs(se, services)
+	}
 
-		if _, ok := unchanged[se.key]; ok {
-			selected = true
-			instance := s.convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
-			instancesUnchanged = append(instancesUnchanged, instance...)
-		}
-
-		if selected {
-			// If serviceentry's resolution is DNS, make a full push
-			// TODO: maybe cds?
-			if se.entry.Resolution == networking.ServiceEntry_DNS || se.entry.Resolution == networking.ServiceEntry_DNS_ROUND_ROBIN {
-				fullPush = true
-				for key, value := range getUpdatedConfigs(se.services) {
-					configsUpdated[key] = value
-				}
-			}
-		}
+	for _, namespacedName := range unchanged {
+		services := s.servicesBySE[namespacedName.String()]
+		cfg := s.store.Get(gvk.ServiceEntry, namespacedName.Name, namespacedName.Namespace)
+		se := cfg.Spec.(*networking.ServiceEntry)
+		instance := s.convertWorkloadEntryToServiceInstances(wle, services, se, &key, s.Cluster())
+		instancesUnchanged = append(instancesUnchanged, instance...)
+		addConfigs(se, services)
 	}
 
 	if len(instancesDeleted) > 0 {
@@ -239,7 +229,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	if event != model.EventDelete {
 		s.updateExistingInstances(key, append(instancesAdded, instancesUnchanged...))
 		s.storeMutex.Lock()
-		s.seByWorkloadEntry[key] = newSelected
+		s.seByWorkloadEntry[key] = append(unchanged, newSelected...)
 		s.storeMutex.Unlock()
 	} else {
 		s.deleteExistingInstances(key, append(instancesAdded, instancesUnchanged...))
@@ -287,9 +277,11 @@ func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
 
 // serviceEntryHandler defines the handler for service entries
 func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event model.Event) {
+	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
 	key := kube.KeyFunc(curr.Name, curr.Namespace)
+
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 	// only when services have changed - otherwise, just push endpoint updates.
 	var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
@@ -328,7 +320,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	}
 
 	if len(unchangedSvcs) > 0 {
-		currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 		// If this service entry had endpoints with IPs (i.e. resolution STATIC), then we do EDS update.
 		// If the service entry had endpoints with FQDNs (i.e. resolution DNS), then we need to do
 		// full push (as fqdn endpoints go via strict_dns clusters in cds).
@@ -340,31 +331,28 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 				configsUpdated[makeConfigKey(svc)] = struct{}{}
 			}
 		}
-
 	}
+
+	ckey := configKey{
+		kind:      serviceEntryConfigType,
+		name:      curr.Name,
+		namespace: curr.Namespace,
+	}
+	serviceInstances := s.convertServiceEntryToInstances(curr, cs, s.Cluster())
+	s.storeMutex.Lock()
+	if event == model.EventDelete {
+		s.deleteExistingInstances(ckey, serviceInstances)
+	} else {
+		s.updateExistingInstances(ckey, serviceInstances)
+	}
+	s.storeMutex.Unlock()
 
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
 	if !fullPush {
-		// IP endpoints in a STATIC service entry has changed. We need EDS update
-		// If will do full-push, leave the edsUpdate to that.
-		// XXX We should do edsUpdate for all unchangedSvcs since we begin to calculate service
-		// data according to this "configsUpdated" and thus remove the "!willFullPush" condition.
-		instances := s.convertServiceEntryToInstances(curr, unchangedSvcs, s.Cluster())
-		key := configKey{
-			kind:      serviceEntryConfigType,
-			name:      curr.Name,
-			namespace: curr.Namespace,
-		}
-		// If only instances have changed, just update the indexes for the changed instances.
-		s.updateExistingInstances(key, instances)
-		s.edsUpdate(instances, true)
+		s.edsUpdate(serviceInstances, true)
 		return
 	}
-
-	// Recomputing the index here is too expensive - lazy build when it is needed.
-	// Only recompute indexes if services have changed.
-	s.refreshIndexes.Store(true)
 
 	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
@@ -438,12 +426,12 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		s.workloadInstancesByIP[wi.Endpoint.Address] = wi
 		s.workloadInstancesIPsByName[k] = wi.Endpoint.Address
 	}
-	// We will only select entries in the same namespace
-	entries := s.seWithSelectorByNamespace[wi.Namespace]
 	s.storeMutex.Unlock()
 
+	// We will only select entries in the same namespace
+	cfgs, _ := s.store.List(gvk.ServiceEntry, wi.Namespace)
 	// nothing useful to do.
-	if len(entries) == 0 || redundantEventForPod {
+	if len(cfgs) == 0 || redundantEventForPod {
 		return
 	}
 
@@ -451,13 +439,15 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(wi *model.WorkloadInstance, 
 		wi.Endpoint.Address, wi.Namespace)
 	instances := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
-	for _, se := range entries {
+	for _, cfg := range cfgs {
+		se := cfg.Spec.(*networking.ServiceEntry)
 		workloadLabels := labels.Collection{wi.Endpoint.Labels}
-		if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
+		if se.WorkloadSelector == nil || !workloadLabels.IsSupersetOf(se.WorkloadSelector.Labels) {
 			// Not a match, skip this one
 			continue
 		}
-		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, se.services, se.entry)
+		services := s.servicesBySE[cfg.Namespace+"/"+cfg.Name]
+		instance := convertWorkloadInstanceToServiceInstance(wi.Endpoint, services, se)
 		instances = append(instances, instance...)
 		if addressToDelete != "" {
 			for _, i := range instance {
@@ -510,7 +500,6 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	if !s.processServiceEntry {
 		return nil, nil
 	}
-	s.maybeRefreshIndexes()
 	s.storeMutex.RLock()
 	defer s.storeMutex.RUnlock()
 	allServices := []*model.Service{}
@@ -540,8 +529,6 @@ func (s *ServiceEntryStore) GetService(hostname host.Name) *model.Service {
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
 func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {
-	s.maybeRefreshIndexes()
-
 	out := make([]*model.ServiceInstance, 0)
 	s.storeMutex.RLock()
 	defer s.storeMutex.RUnlock()
@@ -562,7 +549,6 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels
 
 // servicesWithEntry contains a ServiceEntry and associated model.Services
 type servicesWithEntry struct {
-	key      types.NamespacedName
 	entry    *networking.ServiceEntry
 	services []*model.Service
 }
@@ -571,7 +557,6 @@ type servicesWithEntry struct {
 // the config handlers.
 // This should probably not be used in production code.
 func (s *ServiceEntryStore) ResyncEDS() {
-	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()
 	for _, imap := range s.instances {
@@ -586,9 +571,6 @@ func (s *ServiceEntryStore) ResyncEDS() {
 // edsUpdate triggers an EDS cache update for the given instances.
 // And triggers a push if `push` is true.
 func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
-	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new added instances
-	s.maybeRefreshIndexes()
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
 	for _, i := range instances {
@@ -598,9 +580,6 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 }
 
 func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push bool) {
-	// must call it here to refresh s.instances if necessary
-	// otherwise may get no instances or miss some new added instances
-	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()
 	for key := range keys {
@@ -656,111 +635,6 @@ func (s *ServiceEntryStore) edsUpdateByKeys(keys map[instancesKey]struct{}, push
 	}
 }
 
-// maybeRefreshIndexes will iterate all ServiceEntries, convert to ServiceInstance (expensive),
-// and populate the 'by host' and 'by ip' maps, if needed.
-func (s *ServiceEntryStore) maybeRefreshIndexes() {
-	// We need to take a full lock here, rather than just a read lock and then later updating s.instances
-	// otherwise, what may happen is both the refresh thread and workload entry/pod handler both generate their own
-	// view of s.instances and then write them, leading to inconsistent state. This lock ensures that both threads do
-	// a full R+W before the other can start, rather than R,R,W,W.
-	s.storeMutex.Lock()
-	defer s.storeMutex.Unlock()
-
-	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects
-	// - the N_clusters * N_update generates too much garbage ( yaml to proto)
-	// This is reset on any change in ServiceEntries that needs index recomputation.
-	if !s.refreshIndexes.Load() {
-		return
-	}
-	defer s.refreshIndexes.Store(false)
-
-	instanceMap := map[instancesKey]map[configKey][]*model.ServiceInstance{}
-	ip2instances := map[string][]*model.ServiceInstance{}
-
-	// First refresh service entry
-	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
-	servicesBySE := map[string][]*model.Service{}
-	if s.processServiceEntry {
-		for _, cfg := range s.store.ServiceEntries() {
-			key := configKey{
-				kind:      serviceEntryConfigType,
-				name:      cfg.Name,
-				namespace: cfg.Namespace,
-			}
-			updateInstances(key, s.convertServiceEntryToInstances(cfg, nil, s.Cluster()), instanceMap, ip2instances)
-			services := convertServices(cfg)
-
-			se := cfg.Spec.(*networking.ServiceEntry)
-			// If we have a workload selector, we will add all instances from WorkloadEntries. Otherwise, we continue
-			if se.WorkloadSelector != nil {
-				seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace],
-					servicesWithEntry{
-						key: types.NamespacedName{
-							Namespace: cfg.Namespace,
-							Name:      cfg.Name,
-						},
-						entry:    se,
-						services: services,
-					})
-			}
-			servicesBySE[kube.KeyFunc(cfg.Name, cfg.Namespace)] = services
-		}
-	}
-
-	// Second, refresh workload instances(pods)
-	for _, workloadInstance := range s.workloadInstancesByIP {
-		key := configKey{
-			kind:      workloadInstanceConfigType,
-			name:      workloadInstance.Name,
-			namespace: workloadInstance.Namespace,
-		}
-
-		instances := []*model.ServiceInstance{}
-		// We will only select entries in the same namespace
-		entries := seWithSelectorByNamespace[workloadInstance.Namespace]
-		for _, se := range entries {
-			workloadLabels := labels.Collection{workloadInstance.Endpoint.Labels}
-			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-				// Not a match, skip this one
-				continue
-			}
-			instance := convertWorkloadInstanceToServiceInstance(workloadInstance.Endpoint, se.services, se.entry)
-			instances = append(instances, instance...)
-		}
-		updateInstances(key, instances, instanceMap, ip2instances)
-	}
-
-	// Third, refresh workload entry
-	wles, err := s.store.List(gvk.WorkloadEntry, model.NamespaceAll)
-	if err != nil {
-		log.Errorf("Error listing workload entries: %v", err)
-	}
-
-	for _, wcfg := range wles {
-		wle := wcfg.Spec.(*networking.WorkloadEntry)
-		key := configKey{
-			kind:      workloadEntryConfigType,
-			name:      wcfg.Name,
-			namespace: wcfg.Namespace,
-		}
-		// We will only select entries in the same namespace
-		entries := seWithSelectorByNamespace[wcfg.Namespace]
-		for _, se := range entries {
-			workloadLabels := labels.Collection{wle.Labels}
-			if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-				// Not a match, skip this one
-				continue
-			}
-			updateInstances(key, s.convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster()), instanceMap, ip2instances)
-		}
-	}
-
-	s.seWithSelectorByNamespace = seWithSelectorByNamespace
-	s.servicesBySE = servicesBySE
-	s.instances = instanceMap
-	s.ip2instance = ip2instances
-}
-
 func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []*model.ServiceInstance) {
 	s.storeMutex.Lock()
 	defer s.storeMutex.Unlock()
@@ -810,8 +684,6 @@ func portMatchSingle(instance *model.ServiceInstance, port int) bool {
 // GetProxyServiceInstances lists service instances co-located with a given proxy
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
 func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
-	s.maybeRefreshIndexes()
-
 	s.storeMutex.RLock()
 	defer s.storeMutex.RUnlock()
 
@@ -835,8 +707,6 @@ func (s *ServiceEntryStore) GetProxyServiceInstances(node *model.Proxy) []*model
 }
 
 func (s *ServiceEntryStore) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Collection {
-	s.maybeRefreshIndexes()
-
 	s.storeMutex.RLock()
 	defer s.storeMutex.RUnlock()
 

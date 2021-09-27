@@ -154,8 +154,6 @@ func TestServiceDiscoveryServices(t *testing.T) {
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
 
-	sd.refreshIndexes.Store(true)
-
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
@@ -175,8 +173,6 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-
-	sd.refreshIndexes.Store(true)
 
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
