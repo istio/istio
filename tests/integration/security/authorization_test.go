@@ -110,7 +110,6 @@ func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/35384")
 			ns := apps.Namespace1
 			b := apps.B.Match(echo.Namespace(ns.Name()))
 			c := apps.C.Match(echo.Namespace(ns.Name()))
@@ -827,7 +826,6 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							},
 						}
 						if tc.token != "" {
-							t.Skip("https://github.com/istio/istio/issues/35384")
 							request.Headers = append(request.Headers, &epb.Header{
 								Key:   "Authorization",
 								Value: "Bearer " + tc.token,
