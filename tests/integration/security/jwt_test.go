@@ -49,7 +49,6 @@ func TestRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.jwt").
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/35384")
 			ns := apps.Namespace1
 			args := map[string]string{"Namespace": ns.Name()}
 			applyYAML := func(filename string, ns namespace.Instance) []string {
@@ -355,7 +354,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authentication.ingressjwt").
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/35384")
 			ns := apps.Namespace1
 
 			// Apply the policy.
