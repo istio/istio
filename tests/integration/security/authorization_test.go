@@ -110,6 +110,7 @@ func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.jwt-token").
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/issues/35384")
 			ns := apps.Namespace1
 			b := apps.B.Match(echo.Namespace(ns.Name()))
 			c := apps.C.Match(echo.Namespace(ns.Name()))
