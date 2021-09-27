@@ -170,8 +170,21 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj interface{}, event mo
 	ic.addOrUpdateService(nil, mcsService, event)
 
 	if needsFullPush {
-		ic.updateXDS(si)
+		// Request a full push for all hostnames for this service.
+		for _, hostName := range ic.hostNamesForNamespacedName(namespacedNameForService(mcsService)) {
+			pushReq := &model.PushRequest{
+				Full: true,
+				ConfigsUpdated: map[model.ConfigKey]struct{}{{
+					Kind:      gvk.ServiceEntry,
+					Name:      hostName.String(),
+					Namespace: si.Namespace,
+				}: {}},
+				Reason: []model.TriggerReason{model.ServiceUpdate},
+			}
+			ic.opts.XDSUpdater.ConfigUpdate(pushReq)
+		}
 	}
+
 	return nil
 }
 
@@ -189,20 +202,6 @@ func (ic *serviceImportCacheImpl) newMCSService(svc *model.Service, vips []strin
 		mcsService.ClusterVIPs.SetAddresses(nil)
 	}
 	return mcsService
-}
-
-func (ic *serviceImportCacheImpl) updateXDS(si *mcs.ServiceImport) {
-	hostname := serviceClusterSetLocalHostnameForKR(si)
-	pushReq := &model.PushRequest{
-		Full: true,
-		ConfigsUpdated: map[model.ConfigKey]struct{}{{
-			Kind:      gvk.ServiceEntry,
-			Name:      string(hostname),
-			Namespace: si.Namespace,
-		}: {}},
-		Reason: []model.TriggerReason{model.ServiceUpdate},
-	}
-	ic.opts.XDSUpdater.ConfigUpdate(pushReq)
 }
 
 func (ic *serviceImportCacheImpl) GetClusterSetIPs(name types.NamespacedName) []string {

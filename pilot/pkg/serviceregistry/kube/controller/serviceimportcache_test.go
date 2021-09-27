@@ -53,112 +53,148 @@ var (
 )
 
 func TestServiceNotImported(t *testing.T) {
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
+			ic.createKubeService(t, c)
 
-	// Check that the service does not have ClusterSet IPs.
-	ic.checkServiceInstances(t)
+			// Check that the service does not have ClusterSet IPs.
+			ic.checkServiceInstances(t)
+		})
+	}
 }
 
 func TestServiceImportedAfterCreated(t *testing.T) {
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
-	ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
 
-	// Check that the service has been assigned ClusterSet IPs.
-	ic.checkServiceInstances(t)
+			// Check that the service has been assigned ClusterSet IPs.
+			ic.checkServiceInstances(t)
+		})
+	}
 }
 
 func TestServiceCreatedAfterImported(t *testing.T) {
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
-	ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.createKubeService(t, c)
 
-	// Check that the service has been assigned ClusterSet IPs.
-	ic.checkServiceInstances(t)
+			// Check that the service has been assigned ClusterSet IPs.
+			ic.checkServiceInstances(t)
+		})
+	}
 }
 
 func TestUpdateImportedService(t *testing.T) {
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
-	ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
-	ic.checkServiceInstances(t)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
 
-	// Update the k8s service and verify that both services are updated.
-	ic.updateKubeService(t)
+			// Update the k8s service and verify that both services are updated.
+			ic.updateKubeService(t)
+		})
+	}
 }
 
 func TestHeadlessServiceImported(t *testing.T) {
-	// Create and run the controller.
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
-	ic.createServiceImport(t, mcs.Headless, nil)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.Headless, nil)
 
-	// Verify that we did not generate the synthetic service for the headless service.
-	ic.checkServiceInstances(t)
+			// Verify that we did not generate the synthetic service for the headless service.
+			ic.checkServiceInstances(t)
+		})
+	}
 }
 
 func TestDeleteImportedService(t *testing.T) {
-	// Create and run the controller.
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
-	ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
-	ic.checkServiceInstances(t)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
 
-	// Delete the k8s service and verify that all internal services are removed.
-	ic.deleteKubeService(t)
+			// Delete the k8s service and verify that all internal services are removed.
+			ic.deleteKubeService(t)
+		})
+	}
 }
 
 func TestUnimportService(t *testing.T) {
-	// Create and run the controller.
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
-	ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
-	ic.checkServiceInstances(t)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
 
-	ic.unimportService(t)
+			ic.unimportService(t)
+		})
+	}
 }
 
 func TestAddServiceImportVIPs(t *testing.T) {
-	// Create and run the controller.
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
-	ic.createServiceImport(t, mcs.ClusterSetIP, nil)
-	ic.checkServiceInstances(t)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, nil)
+			ic.checkServiceInstances(t)
 
-	ic.setServiceImportVIPs(t, serviceImportVIPs)
+			ic.setServiceImportVIPs(t, serviceImportVIPs)
+		})
+	}
 }
 
 func TestUpdateServiceImportVIPs(t *testing.T) {
-	// Create and run the controller.
-	c, ic, cleanup := newTestServiceImportCache()
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			c, ic, cleanup := newTestServiceImportCache(mode)
+			defer cleanup()
 
-	ic.createKubeService(t, c)
-	ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
-	ic.checkServiceInstances(t)
+			ic.createKubeService(t, c)
+			ic.createServiceImport(t, mcs.ClusterSetIP, serviceImportVIPs)
+			ic.checkServiceInstances(t)
 
-	updatedVIPs := []string{"1.1.1.1", "1.1.1.2"}
-	ic.setServiceImportVIPs(t, updatedVIPs)
+			updatedVIPs := []string{"1.1.1.1", "1.1.1.2"}
+			ic.setServiceImportVIPs(t, updatedVIPs)
+		})
+	}
 }
 
-func newTestServiceImportCache() (c *FakeController, ic *serviceImportCacheImpl, cleanup func()) {
+func newTestServiceImportCache(mode EndpointMode) (c *FakeController, ic *serviceImportCacheImpl, cleanup func()) {
 	stopCh := make(chan struct{})
 	prevEnableMCSHost := features.EnableMCSHost
 	features.EnableMCSHost = true
@@ -170,6 +206,7 @@ func newTestServiceImportCache() (c *FakeController, ic *serviceImportCacheImpl,
 	c, _ = NewFakeControllerWithOptions(FakeControllerOptions{
 		Stop:      stopCh,
 		ClusterID: serviceImportCluster,
+		Mode:      mode,
 	})
 
 	ic = c.imports.(*serviceImportCacheImpl)

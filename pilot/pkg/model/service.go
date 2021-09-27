@@ -436,27 +436,53 @@ func (ep *IstioEndpoint) GetLoadBalancingWeight() uint32 {
 	return 1
 }
 
-// IsDiscoverableFromProxy indicates whether or not this endpoint is discoverable from the given Proxy.
+// IsDiscoverableFromProxy indicates whether this endpoint is discoverable from the given Proxy.
 func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 	if ep == nil || ep.DiscoverabilityPolicy == nil {
 		// If no policy was assigned, default to discoverable mesh-wide.
+		// TODO(nmittler): Will need to re-think this default when cluster.local is actually cluster-local.
 		return true
 	}
-	return ep.DiscoverabilityPolicy(ep, p)
+	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
 }
 
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
-type EndpointDiscoverabilityPolicy func(*IstioEndpoint, *Proxy) bool
+type EndpointDiscoverabilityPolicy interface {
+	// IsDiscoverableFromProxy indicates whether an endpoint is discoverable from the given Proxy.
+	IsDiscoverableFromProxy(*IstioEndpoint, *Proxy) bool
+
+	// String returns name of this policy.
+	String() string
+}
+
+type endpointDiscoverabilityPolicyImpl struct {
+	name string
+	f    func(*IstioEndpoint, *Proxy) bool
+}
+
+func (p *endpointDiscoverabilityPolicyImpl) IsDiscoverableFromProxy(ep *IstioEndpoint, proxy *Proxy) bool {
+	return p.f(ep, proxy)
+}
+
+func (p *endpointDiscoverabilityPolicyImpl) String() string {
+	return p.name
+}
 
 // AlwaysDiscoverable is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
-var AlwaysDiscoverable = func(*IstioEndpoint, *Proxy) bool {
-	return true
+var AlwaysDiscoverable EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
+	name: "AlwaysDiscoverable",
+	f: func(*IstioEndpoint, *Proxy) bool {
+		return true
+	},
 }
 
 // DiscoverableFromSameCluster is an EndpointDiscoverabilityPolicy that only allows an endpoint to be discoverable
 // from proxies within the same cluster.
-var DiscoverableFromSameCluster = func(ep *IstioEndpoint, p *Proxy) bool {
-	return p.InCluster(ep.Locality.ClusterID)
+var DiscoverableFromSameCluster EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
+	name: "DiscoverableFromSameCluster",
+	f: func(ep *IstioEndpoint, p *Proxy) bool {
+		return p.InCluster(ep.Locality.ClusterID)
+	},
 }
 
 // ServiceAttributes represents a group of custom attributes of the service.
@@ -575,13 +601,14 @@ type ServiceDiscovery interface {
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
 // is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
 type MCSServiceInfo struct {
-	Name           string
-	Namespace      string
-	ClusterSetHost host.Name
-	ClusterSetVIP  string
-	Exported       bool
-	Imported       bool
-	Cluster        cluster.ID
+	Cluster                       cluster.ID
+	Name                          string
+	Namespace                     string
+	Exported                      bool
+	Imported                      bool
+	EndpointDiscoverabilityPolicy string
+	ClusterSetHost                host.Name
+	ClusterSetVIP                 string
 }
 
 // GetNames returns port names

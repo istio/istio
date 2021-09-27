@@ -415,15 +415,16 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 	// Add the ServiceExport info.
 	for _, se := range c.exports.ExportedServices() {
-		mcsService := outMap[se]
+		mcsService := outMap[se.namespacedName]
 		if mcsService == nil {
 			mcsService = &model.MCSServiceInfo{}
-			outMap[se] = mcsService
+			outMap[se.namespacedName] = mcsService
 		}
-		mcsService.Name = se.Name
-		mcsService.Namespace = se.Namespace
-		mcsService.Exported = true
 		mcsService.Cluster = c.Cluster()
+		mcsService.Name = se.namespacedName.Name
+		mcsService.Namespace = se.namespacedName.Namespace
+		mcsService.Exported = true
+		mcsService.EndpointDiscoverabilityPolicy = se.endpointDiscoverabilityPolicy
 	}
 
 	// Add the ServiceImport info.
@@ -433,12 +434,12 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 			mcsService = &model.MCSServiceInfo{}
 			outMap[si.namespacedName] = mcsService
 		}
+		mcsService.Cluster = c.Cluster()
 		mcsService.Name = si.namespacedName.Name
 		mcsService.Namespace = si.namespacedName.Namespace
+		mcsService.Imported = true
 		mcsService.ClusterSetHost = si.clusterSetHost
 		mcsService.ClusterSetVIP = si.clusterSetVIP
-		mcsService.Imported = true
-		mcsService.Cluster = c.Cluster()
 	}
 
 	out := make([]model.MCSServiceInfo, 0, len(outMap))
@@ -591,7 +592,7 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	// We also need to update when the Service changes. For Kubernetes, a service change will result in Endpoint updates,
 	// but workload entries will also need to be updated.
 	// TODO(nmittler): Build different sets of endpoints for cluster.local and clusterset.local.
-	endpoints := c.buildEndpointsForService(svcConv)
+	endpoints := c.buildEndpointsForService(svcConv, false)
 	ns := svcConv.Attributes.Namespace
 	if len(endpoints) > 0 {
 		c.opts.XDSUpdater.EDSCacheUpdate(shard, string(svcConv.Hostname), ns, endpoints)
@@ -604,8 +605,8 @@ func (c *Controller) addOrUpdateService(svc *v1.Service, svcConv *model.Service,
 	}
 }
 
-func (c *Controller) buildEndpointsForService(svc *model.Service) []*model.IstioEndpoint {
-	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname)
+func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
+	endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Attributes.Name, svc.Attributes.Namespace, svc.Hostname, updateCache)
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		fep := c.collectWorkloadInstanceEndpoints(svc)
 		endpoints = append(endpoints, fep...)
