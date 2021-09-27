@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"go.uber.org/atomic"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -86,9 +87,10 @@ type ServiceEntryStore struct { // nolint:golint
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	// services keeps track of all services - mainly used to return from Services() to avoid reconversion.
-	servicesBySE     map[string][]*model.Service
-	refreshIndexes   *atomic.Bool
-	workloadHandlers []func(*model.WorkloadInstance, model.Event)
+	servicesBySE      map[string][]*model.Service
+	seByWorkloadEntry map[configKey]map[types.NamespacedName]struct{}
+	refreshIndexes    *atomic.Bool
+	workloadHandlers  []func(*model.WorkloadInstance, model.Event)
 
 	// cb function used to get the networkID according to workload ip and labels.
 	getNetworkIDCb func(IP string, labels labels.Instance) network.ID
@@ -148,14 +150,7 @@ func NewServiceDiscovery(
 }
 
 // workloadEntryHandler defines the handler for workload entries
-// kube registry controller also calls this function indirectly via the Share interface
-// When invoked via the kube registry controller, the old object is nil as the registry
-// controller does its own deduping and has no notion of object versions
-func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event model.Event) {
-	var oldWle *networking.WorkloadEntry
-	if old.Spec != nil {
-		oldWle = old.Spec.(*networking.WorkloadEntry)
-	}
+func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event model.Event) {
 	wle := curr.Spec.(*networking.WorkloadEntry)
 	key := configKey{
 		kind:      workloadEntryConfigType,
@@ -186,29 +181,41 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 
 	// if there are no service entries, return now to avoid taking unnecessary locks
 	if len(entries) == 0 {
+		s.storeMutex.Lock()
+		delete(s.seByWorkloadEntry, key)
+		s.storeMutex.Unlock()
 		return
 	}
 	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
-	instancesUpdated := []*model.ServiceInstance{}
+	instancesAdded := []*model.ServiceInstance{}
 	instancesDeleted := []*model.ServiceInstance{}
-	workloadLabels := labels.Collection{wle.Labels}
+	instancesUnchanged := []*model.ServiceInstance{}
 	fullPush := false
 	configsUpdated := map[model.ConfigKey]struct{}{}
+
+	currSes := getWorkloadServiceEntries(entries, wle)
+	oldSes := s.seByWorkloadEntry[key]
+
+	newSelected, deselected, unchanged := compareServiceEntries(oldSes, currSes)
+
 	for _, se := range entries {
 		selected := false
-		if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-			if oldWle != nil {
-				oldWorkloadLabels := labels.Collection{oldWle.Labels}
-				if oldWorkloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-					selected = true
-					instance := s.convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry, &key, s.Cluster())
-					instancesDeleted = append(instancesDeleted, instance...)
-				}
-			}
-		} else {
+		if _, ok := newSelected[se.key]; ok {
 			selected = true
 			instance := s.convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
-			instancesUpdated = append(instancesUpdated, instance...)
+			instancesAdded = append(instancesAdded, instance...)
+		}
+
+		if _, ok := deselected[se.key]; ok {
+			selected = true
+			instance := s.convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
+			instancesDeleted = append(instancesDeleted, instance...)
+		}
+
+		if _, ok := unchanged[se.key]; ok {
+			selected = true
+			instance := s.convertWorkloadEntryToServiceInstances(wle, se.services, se.entry, &key, s.Cluster())
+			instancesUnchanged = append(instancesUnchanged, instance...)
 		}
 
 		if selected {
@@ -228,13 +235,22 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	}
 
 	if event != model.EventDelete {
-		s.updateExistingInstances(key, instancesUpdated)
+		s.updateExistingInstances(key, append(instancesAdded, instancesDeleted...))
+		s.storeMutex.Lock()
+		s.seByWorkloadEntry[key] = newSelected
+		s.storeMutex.Unlock()
 	} else {
-		s.deleteExistingInstances(key, instancesUpdated)
+		s.deleteExistingInstances(key, append(instancesAdded, instancesDeleted...))
+		s.storeMutex.Lock()
+		delete(s.seByWorkloadEntry, key)
+		s.storeMutex.Unlock()
 	}
 
+	allInstances := append(instancesAdded, instancesDeleted...)
+	allInstances = append(allInstances, instancesUnchanged...)
+
 	if !fullPush {
-		s.edsUpdate(append(instancesUpdated, instancesDeleted...), true)
+		s.edsUpdate(allInstances, true)
 		// trigger full xds push to the related sidecar proxy
 		if event == model.EventAdd {
 			s.XdsUpdater.ProxyUpdate(s.Cluster(), wle.Address)
@@ -243,7 +259,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr config.Config, event 
 	}
 
 	// update eds cache only
-	s.edsUpdate(append(instancesUpdated, instancesDeleted...), false)
+	s.edsUpdate(allInstances, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
@@ -275,6 +291,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 	// only when services have changed - otherwise, just push endpoint updates.
 	var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
+	s.storeMutex.Lock()
 	switch event {
 	case model.EventUpdate:
 		addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs = servicesDiff(s.servicesBySE[key], cs)
@@ -289,6 +306,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		// this should not happen
 		unchangedSvcs = cs
 	}
+	s.storeMutex.Unlock()
 
 	shard := model.ShardKeyFromRegistry(s)
 	for _, svc := range addedSvcs {
@@ -542,6 +560,7 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels
 
 // servicesWithEntry contains a ServiceEntry and associated model.Services
 type servicesWithEntry struct {
+	key      types.NamespacedName
 	entry    *networking.ServiceEntry
 	services []*model.Service
 }
@@ -672,7 +691,15 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 			se := cfg.Spec.(*networking.ServiceEntry)
 			// If we have a workload selector, we will add all instances from WorkloadEntries. Otherwise, we continue
 			if se.WorkloadSelector != nil {
-				seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace], servicesWithEntry{se, services})
+				seWithSelectorByNamespace[cfg.Namespace] = append(seWithSelectorByNamespace[cfg.Namespace],
+					servicesWithEntry{
+						key: types.NamespacedName{
+							Namespace: cfg.Namespace,
+							Name:      cfg.Name,
+						},
+						entry:    se,
+						services: services,
+					})
 			}
 			servicesBySE[kube.KeyFunc(cfg.Name, cfg.Namespace)] = services
 		}
