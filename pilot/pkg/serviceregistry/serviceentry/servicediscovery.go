@@ -874,39 +874,33 @@ func (s *ServiceEntryStore) MCSServices() []model.MCSServiceInfo {
 func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
 	var added, deleted, updated, unchanged []*model.Service
 
-	oldServiceHosts := make(map[string]*model.Service, len(os))
-	newServiceHosts := make(map[string]*model.Service, len(ns))
+	oldServiceHosts := make(map[host.Name]*model.Service, len(os))
+	newServiceHosts := make(map[host.Name]*model.Service, len(ns))
 	for _, s := range os {
-		oldServiceHosts[string(s.Hostname)] = s
+		oldServiceHosts[s.Hostname] = s
 	}
 	for _, s := range ns {
-		newServiceHosts[string(s.Hostname)] = s
+		newServiceHosts[s.Hostname] = s
 	}
 
-	for name, oldSvc := range oldServiceHosts {
-		newSvc, f := newServiceHosts[name]
+	for _, s := range os {
+		newSvc, f := newServiceHosts[s.Hostname]
 		if !f {
-			deleted = append(deleted, oldSvc)
-		} else if !reflect.DeepEqual(oldSvc, newSvc) {
+			deleted = append(deleted, s)
+		} else if !reflect.DeepEqual(s, newSvc) {
 			updated = append(updated, newSvc)
 		} else {
 			unchanged = append(unchanged, newSvc)
 		}
 	}
-	for name, newSvc := range newServiceHosts {
-		if _, f := oldServiceHosts[name]; !f {
-			added = append(added, newSvc)
+
+	for _, s := range ns {
+		if _, f := oldServiceHosts[s.Hostname]; !f {
+			added = append(added, s)
 		}
 	}
 
 	return added, deleted, updated, unchanged
-}
-
-// This method compares if the selector on a service entry has changed, meaning that it needs full push.
-func selectorChanged(old, curr config.Config) bool {
-	o := old.Spec.(*networking.ServiceEntry)
-	n := curr.Spec.(*networking.ServiceEntry)
-	return !reflect.DeepEqual(o.WorkloadSelector, n.WorkloadSelector)
 }
 
 // Automatically allocates IPs for service entry services WITHOUT an
