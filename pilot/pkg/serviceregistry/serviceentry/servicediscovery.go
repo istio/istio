@@ -23,13 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/informermetric"
 	"istio.io/istio/pkg/cluster"
@@ -39,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/pkg/log"
 )
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
@@ -280,8 +278,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := map[model.ConfigKey]struct{}{}
-	key := kube.KeyFunc(curr.Name, curr.Namespace)
-
+	key := curr.Namespace + "/" + curr.Name
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
 	// only when services have changed - otherwise, just push endpoint updates.
 	var addedSvcs, deletedSvcs, updatedSvcs, unchangedSvcs []*model.Service
@@ -339,13 +336,11 @@ func (s *ServiceEntryStore) serviceEntryHandler(_, curr config.Config, event mod
 		namespace: curr.Namespace,
 	}
 	serviceInstances := s.convertServiceEntryToInstances(curr, cs, s.Cluster())
-	s.storeMutex.Lock()
 	if event == model.EventDelete {
 		s.deleteExistingInstances(ckey, serviceInstances)
 	} else {
 		s.updateExistingInstances(ckey, serviceInstances)
 	}
-	s.storeMutex.Unlock()
 
 	fullPush := len(configsUpdated) > 0
 	// if not full push needed, at least one service unchanged
@@ -504,7 +499,7 @@ func (s *ServiceEntryStore) Services() ([]*model.Service, error) {
 	defer s.storeMutex.RUnlock()
 	allServices := []*model.Service{}
 	for _, cfg := range s.store.ServiceEntries() {
-		allServices = append(allServices, s.servicesBySE[kube.KeyFunc(cfg.Name, cfg.Namespace)]...)
+		allServices = append(allServices, s.servicesBySE[cfg.Namespace+"/"+cfg.Name]...)
 	}
 	return autoAllocateIPs(allServices), nil
 }

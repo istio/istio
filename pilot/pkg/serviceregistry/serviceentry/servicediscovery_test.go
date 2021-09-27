@@ -130,7 +130,6 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 	go configController.Run(stop)
 
 	eventch := make(chan Event, 100)
-
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
 	}
@@ -143,7 +142,7 @@ func initServiceDiscoveryWithOpts(opts ...ServiceDiscoveryOption) (model.IstioCo
 }
 
 func TestServiceDiscoveryServices(t *testing.T) {
-	store, sd, _, stopFn := initServiceDiscovery()
+	store, sd, eventCh, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	expectedServices := []*model.Service{
@@ -153,7 +152,8 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	}
 
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
-
+	<-eventCh
+	<-eventCh
 	services, err := sd.Services()
 	if err != nil {
 		t.Errorf("Services() encountered unexpected error: %v", err)
@@ -169,11 +169,12 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	hostname := "*.google.com"
 	hostDNE := "does.not.exist.local"
 
-	store, sd, _, stopFn := initServiceDiscovery()
+	store, sd, eventCh, stopFn := initServiceDiscovery()
 	defer stopFn()
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-
+	<-eventCh
+	<-eventCh
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
@@ -243,6 +244,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	}
 
 	t.Run("simple entry", func(t *testing.T) {
+		fmt.Println("----", len(events))
 		// Create a SE, expect the base instances
 		createConfigs([]*config.Config{httpStatic}, store, t)
 		instances := baseInstances
