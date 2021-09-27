@@ -1720,9 +1720,6 @@ func (ps *PushContext) initWasmPlugins(env *Environment) error {
 	sortConfigByCreationTime(wasmplugins)
 	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
 	for _, plugin := range wasmplugins {
-		if ps.wasmPluginsByNamespace[plugin.Namespace] == nil {
-			ps.wasmPluginsByNamespace[plugin.Namespace] = []*WasmPluginWrapper{}
-		}
 		if pluginWrapper := convertToWasmPluginWrapper(&plugin); pluginWrapper != nil {
 			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
 		}
@@ -1736,6 +1733,10 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	if proxy == nil {
 		return nil
 	}
+	var workloadLabels labels.Collection
+	if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
+		workloadLabels = labels.Collection{proxy.Metadata.Labels}
+	}
 	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
 	// First get all the extension configs from the config root namespace
 	// and then add the ones from proxy's own namespace
@@ -1743,10 +1744,6 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			var workloadLabels labels.Collection
-			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-				workloadLabels = labels.Collection{proxy.Metadata.Labels}
-			}
 			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
@@ -1756,10 +1753,6 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			var workloadLabels labels.Collection
-			if proxy.Metadata != nil && len(proxy.Metadata.Labels) > 0 {
-				workloadLabels = labels.Collection{proxy.Metadata.Labels}
-			}
 			if plugin.Selector == nil || workloadLabels.IsSupersetOf(plugin.Selector.MatchLabels) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}

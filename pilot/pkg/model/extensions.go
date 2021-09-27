@@ -46,77 +46,84 @@ type WasmPluginWrapper struct {
 }
 
 func convertToWasmPluginWrapper(plugin *config.Config) *WasmPluginWrapper {
-	if wasmPlugin, ok := plugin.Spec.(*extensions.WasmPlugin); ok {
-		cfg := &any.Any{}
-		if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
-			cfgJSON, _ := protojson.Marshal(proto.MessageV2(wasmPlugin.PluginConfig))
-			cfg = gogo.MessageToAny(&types.StringValue{
-				Value: string(cfgJSON),
-			})
-		}
-		var datasource *envoy_config_core_v3.AsyncDataSource
-		var sha256 string
-		u, err := url.Parse(wasmPlugin.Url)
+	var ok bool
+	var wasmPlugin *extensions.WasmPlugin
+	if wasmPlugin, ok = plugin.Spec.(*extensions.WasmPlugin); !ok {
+		return nil
+	}
+
+	cfg := &any.Any{}
+	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
+		cfgJSON, err := protojson.Marshal(proto.MessageV2(wasmPlugin.PluginConfig))
 		if err != nil {
-			log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
+			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
-		if wasmPlugin.XSha256 == nil {
-			// field is required, so we're setting a string for unmarshaling to not fail
-			// on the agent side. this will never reach envoy
-			sha256 = "nil"
-		} else {
-			sha256 = wasmPlugin.GetSha256()
-		}
-		// when no scheme is given, default to oci://
-		if u.Scheme == "" {
-			u.Scheme = "oci"
-		}
-		if u.Scheme == "file" {
-			datasource = &envoy_config_core_v3.AsyncDataSource{
-				Specifier: &envoy_config_core_v3.AsyncDataSource_Local{
-					Local: &envoy_config_core_v3.DataSource{
-						Specifier: &envoy_config_core_v3.DataSource_Filename{
-							Filename: strings.TrimPrefix(wasmPlugin.Url, "file://"),
-						},
-					},
-				},
-			}
-		} else {
-			datasource = &envoy_config_core_v3.AsyncDataSource{
-				Specifier: &envoy_config_core_v3.AsyncDataSource_Remote{
-					Remote: &envoy_config_core_v3.RemoteDataSource{
-						HttpUri: &envoy_config_core_v3.HttpUri{
-							Uri:     u.String(),
-							Timeout: durationpb.New(30 * time.Second),
-							HttpUpstreamType: &envoy_config_core_v3.HttpUri_Cluster{
-								// this will be fetched by the agent anyway, so no need for a cluster
-								Cluster: "_",
-							},
-						},
-						Sha256: sha256,
-					},
-				},
-			}
-		}
-		return &WasmPluginWrapper{
-			Name:       plugin.Name,
-			Namespace:  plugin.Namespace,
-			WasmPlugin: *wasmPlugin,
-			ExtensionConfiguration: &envoy_extensions_filters_http_wasm_v3.Wasm{
-				Config: &envoy_extensions_wasm_v3.PluginConfig{
-					Name:          plugin.Name,
-					RootId:        wasmPlugin.PluginName,
-					Configuration: cfg,
-					Vm: &envoy_extensions_wasm_v3.PluginConfig_VmConfig{
-						VmConfig: &envoy_extensions_wasm_v3.VmConfig{
-							Runtime: defaultRuntime,
-							Code:    datasource,
-						},
+		cfg = gogo.MessageToAny(&types.StringValue{
+			Value: string(cfgJSON),
+		})
+	}
+	var datasource *envoy_config_core_v3.AsyncDataSource
+	var sha256 string
+	u, err := url.Parse(wasmPlugin.Url)
+	if err != nil {
+		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
+		return nil
+	}
+	if wasmPlugin.XSha256 == nil {
+		// field is required, so we're setting a string for unmarshaling to not fail
+		// on the agent side. this will never reach envoy
+		sha256 = "nil"
+	} else {
+		sha256 = wasmPlugin.GetSha256()
+	}
+	// when no scheme is given, default to oci://
+	if u.Scheme == "" {
+		u.Scheme = "oci"
+	}
+	if u.Scheme == "file" {
+		datasource = &envoy_config_core_v3.AsyncDataSource{
+			Specifier: &envoy_config_core_v3.AsyncDataSource_Local{
+				Local: &envoy_config_core_v3.DataSource{
+					Specifier: &envoy_config_core_v3.DataSource_Filename{
+						Filename: strings.TrimPrefix(wasmPlugin.Url, "file://"),
 					},
 				},
 			},
 		}
+	} else {
+		datasource = &envoy_config_core_v3.AsyncDataSource{
+			Specifier: &envoy_config_core_v3.AsyncDataSource_Remote{
+				Remote: &envoy_config_core_v3.RemoteDataSource{
+					HttpUri: &envoy_config_core_v3.HttpUri{
+						Uri:     u.String(),
+						Timeout: durationpb.New(30 * time.Second),
+						HttpUpstreamType: &envoy_config_core_v3.HttpUri_Cluster{
+							// this will be fetched by the agent anyway, so no need for a cluster
+							Cluster: "_",
+						},
+					},
+					Sha256: sha256,
+				},
+			},
+		}
 	}
-	return nil
+	return &WasmPluginWrapper{
+		Name:       plugin.Name,
+		Namespace:  plugin.Namespace,
+		WasmPlugin: *wasmPlugin,
+		ExtensionConfiguration: &envoy_extensions_filters_http_wasm_v3.Wasm{
+			Config: &envoy_extensions_wasm_v3.PluginConfig{
+				Name:          plugin.Name,
+				RootId:        wasmPlugin.PluginName,
+				Configuration: cfg,
+				Vm: &envoy_extensions_wasm_v3.PluginConfig_VmConfig{
+					VmConfig: &envoy_extensions_wasm_v3.VmConfig{
+						Runtime: defaultRuntime,
+						Code:    datasource,
+					},
+				},
+			},
+		},
+	}
 }

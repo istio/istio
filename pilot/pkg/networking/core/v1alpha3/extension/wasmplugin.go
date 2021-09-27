@@ -80,7 +80,7 @@ func injectExtensions(filterChain []*hcm_filter.HttpFilter, exts map[extensions.
 	//
 	// 1. Istio JWT, 2. Istio AuthN, 3. RBAC, 4. Stats, 5. Metadata Exchange
 	//
-	// The only exception being ext-auch, where two additional filters are at the beginning:
+	// The only exception being ext-auth, where two additional filters are at the beginning:
 	//
 	// -1. RBAC, 0. ext-auth
 	//
@@ -126,9 +126,7 @@ func popAppend(list []*hcm_filter.HttpFilter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	phase extensions.PluginPhase) []*hcm_filter.HttpFilter {
 	for _, ext := range filterMap[phase] {
-		if filter := toEnvoyHTTPFilter(ext); filter != nil {
-			list = append(list, filter)
-		}
+		list = append(list, toEnvoyHTTPFilter(ext))
 	}
 	filterMap[phase] = []*model.WasmPluginWrapper{}
 	return list
@@ -146,7 +144,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm_filter.HttpFilt
 	}
 }
 
-// InsertedExtensionConfigurations returns extension configurations added via EnvoyFilter.
+// InsertedExtensionConfigurations returns pre-generated extension configurations added via WasmPlugin.
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	names []string) []*envoy_config_core_v3.TypedExtensionConfig {
@@ -160,14 +158,15 @@ func InsertedExtensionConfigurations(
 	}
 	for _, list := range wasmPlugins {
 		for _, p := range list {
+			if _, ok := hasName[p.Name]; !ok {
+				continue
+			}
 			typedConfig, _ := anypb.New(p.ExtensionConfiguration)
 			ec := &envoy_config_core_v3.TypedExtensionConfig{
 				Name:        p.Name,
 				TypedConfig: typedConfig,
 			}
-			if _, ok := hasName[ec.GetName()]; ok {
-				result = append(result, proto.Clone(ec).(*envoy_config_core_v3.TypedExtensionConfig))
-			}
+			result = append(result, proto.Clone(ec).(*envoy_config_core_v3.TypedExtensionConfig))
 		}
 	}
 	return result
