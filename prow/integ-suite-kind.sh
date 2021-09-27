@@ -29,6 +29,8 @@ set -u
 # Print commands
 set -x
 
+# https://github.com/kubernetes/test-infra/issues/23741 ????
+iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
