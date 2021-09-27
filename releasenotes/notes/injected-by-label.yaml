@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** the `istio.io/injectedBy` pod label to indicate which control plane revision injected a given pod.
