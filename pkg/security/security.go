@@ -214,7 +214,7 @@ type Options struct {
 	CertChainFilePath string
 	// The path for an existing key file
 	KeyFilePath string
-	// The path for an existing root certificate file
+	// The path for an existing root certificate bundle
 	RootCertFilePath string
 }
 
