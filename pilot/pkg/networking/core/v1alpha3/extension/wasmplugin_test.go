@@ -17,10 +17,12 @@ package extension
 import (
 	"testing"
 
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,11 +32,20 @@ import (
 )
 
 var (
+	istioJWT = &http_conn.HttpFilter{
+		Name: securitymodel.EnvoyJwtFilterName,
+	}
 	istioAuthN = &http_conn.HttpFilter{
 		Name: securitymodel.AuthnFilterName,
 	}
 	istioAuthZ = &http_conn.HttpFilter{
 		Name: authzmodel.RBACHTTPFilterName,
+	}
+	istioStats = &http_conn.HttpFilter{
+		Name: "istio.stats",
+	}
+	unknown = &http_conn.HttpFilter{
+		Name: "unknown.filter",
 	}
 	someAuthNFilter = &model.WasmPluginWrapper{
 		Name: "someAuthNFilter",
@@ -70,12 +81,33 @@ func TestAddWasmPluginsToMutableObjects(t *testing.T) {
 			expectedResult: []networking.FilterChain{},
 		},
 		{
+			name: "ignore tcp",
+			filterChains: []networking.FilterChain{
+				{
+					ListenerProtocol: networking.ListenerProtocolTCP,
+				},
+			},
+			extensions: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					someImportantAuthNFilter,
+					someAuthNFilter,
+				},
+			},
+			expectedResult: []networking.FilterChain{
+				{
+					ListenerProtocol: networking.ListenerProtocolTCP,
+				},
+			},
+		},
+		{
 			name: "authN",
 			filterChains: []networking.FilterChain{
 				{
 					ListenerProtocol: networking.ListenerProtocolHTTP,
 					HTTP: []*http_conn.HttpFilter{
+						istioJWT,
 						istioAuthN,
+						istioStats,
 					},
 				},
 			},
@@ -91,7 +123,9 @@ func TestAddWasmPluginsToMutableObjects(t *testing.T) {
 					HTTP: []*http_conn.HttpFilter{
 						toEnvoyHTTPFilter(someImportantAuthNFilter),
 						toEnvoyHTTPFilter(someAuthNFilter),
+						istioJWT,
 						istioAuthN,
+						istioStats,
 					},
 				},
 			},
@@ -103,7 +137,9 @@ func TestAddWasmPluginsToMutableObjects(t *testing.T) {
 					ListenerProtocol: networking.ListenerProtocolHTTP,
 					HTTP: []*http_conn.HttpFilter{
 						istioAuthN,
+						unknown,
 						istioAuthZ,
+						istioStats,
 					},
 				},
 			},
@@ -123,8 +159,10 @@ func TestAddWasmPluginsToMutableObjects(t *testing.T) {
 						toEnvoyHTTPFilter(someImportantAuthNFilter),
 						toEnvoyHTTPFilter(someAuthNFilter),
 						istioAuthN,
+						unknown,
 						toEnvoyHTTPFilter(someAuthZFilter),
 						istioAuthZ,
+						istioStats,
 					},
 				},
 			},
@@ -140,5 +178,50 @@ func TestAddWasmPluginsToMutableObjects(t *testing.T) {
 				t.Fatal(diff)
 			}
 		})
+	}
+}
+
+func TestInsertedExtensionConfigurations(t *testing.T) {
+	testCases := []struct {
+		name        string
+		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper
+		names       []string
+		expectedECs []*envoy_config_core_v3.TypedExtensionConfig
+	}{
+		{
+			name:        "empty",
+			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{},
+			names:       []string{someAuthNFilter.Name},
+			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{},
+		},
+		{
+			name: "authn",
+			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					someAuthNFilter,
+					someAuthZFilter,
+				},
+			},
+			names: []string{someAuthNFilter.Name},
+			expectedECs: []*envoy_config_core_v3.TypedExtensionConfig{
+				getTypedConfig(someAuthNFilter),
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ecs := InsertedExtensionConfigurations(tc.wasmPlugins, tc.names)
+			if diff := cmp.Diff(tc.expectedECs, ecs, protocmp.Transform()); diff != "" {
+				t.Fatal(diff)
+			}
+		})
+	}
+}
+
+func getTypedConfig(wasmPlugin *model.WasmPluginWrapper) *envoy_config_core_v3.TypedExtensionConfig {
+	any, _ := anypb.New(wasmPlugin.ExtensionConfiguration)
+	return &envoy_config_core_v3.TypedExtensionConfig{
+		Name:        wasmPlugin.Name,
+		TypedConfig: any,
 	}
 }

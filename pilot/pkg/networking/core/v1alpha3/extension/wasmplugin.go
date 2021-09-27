@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	securitymodel "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -33,13 +34,16 @@ const (
 	statsFilterName = "istio.stats"
 )
 
-var defaultConfigSource = &envoy_config_core_v3.ConfigSource{
-	ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
-		Ads: &envoy_config_core_v3.AggregatedConfigSource{},
-	},
-	ResourceApiVersion:  envoy_config_core_v3.ApiVersion_V3,
-	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
-}
+var (
+	defaultConfigSource = &envoy_config_core_v3.ConfigSource{
+		ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_Ads{
+			Ads: &envoy_config_core_v3.AggregatedConfigSource{},
+		},
+		ResourceApiVersion:  envoy_config_core_v3.ApiVersion_V3,
+		InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
+	}
+	scope = log.RegisterScope("wasm", "WasmPlugin support", 0)
+)
 
 // AddWasmPluginsToMutableObjects adds WasmPlugins to HTTP filterChains
 // Note that the slices in the map must already be ordered by plugin
@@ -161,7 +165,11 @@ func InsertedExtensionConfigurations(
 			if _, ok := hasName[p.Name]; !ok {
 				continue
 			}
-			typedConfig, _ := anypb.New(p.ExtensionConfiguration)
+			typedConfig, err := anypb.New(p.ExtensionConfiguration)
+			if err != nil {
+				scope.Warnf("wasmplugin %s/%s failed to marshal to TypedExtensionConfig: %s", p.Namespace, p.Name, err)
+				continue
+			}
 			ec := &envoy_config_core_v3.TypedExtensionConfig{
 				Name:        p.Name,
 				TypedConfig: typedConfig,
