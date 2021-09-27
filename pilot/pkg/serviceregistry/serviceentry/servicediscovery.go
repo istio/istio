@@ -199,7 +199,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	oldSes := s.seByWorkloadEntry[key]
 
 	newSelected, deselected, unchanged := compareServiceEntries(oldSes, currSes)
-
+	log.Debugf("workloadEntry %v select serviceEntry, new %v, deselected %v, unchanged %v", key, newSelected, deselected, unchanged)
 	for _, se := range entries {
 		selected := false
 		if _, ok := newSelected[se.key]; ok {
@@ -237,12 +237,12 @@ func (s *ServiceEntryStore) workloadEntryHandler(_, curr config.Config, event mo
 	}
 
 	if event != model.EventDelete {
-		s.updateExistingInstances(key, append(instancesAdded, instancesDeleted...))
+		s.updateExistingInstances(key, append(instancesAdded, instancesUnchanged...))
 		s.storeMutex.Lock()
 		s.seByWorkloadEntry[key] = newSelected
 		s.storeMutex.Unlock()
 	} else {
-		s.deleteExistingInstances(key, append(instancesAdded, instancesDeleted...))
+		s.deleteExistingInstances(key, append(instancesAdded, instancesUnchanged...))
 		s.storeMutex.Lock()
 		delete(s.seByWorkloadEntry, key)
 		s.storeMutex.Unlock()
