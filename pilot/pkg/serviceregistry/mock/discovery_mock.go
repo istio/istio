@@ -23,21 +23,17 @@ var (
 	// HelloService is a mock service with `hello.default.svc.cluster.local` as
 	// a hostname and `10.1.0.0` for ip
 	HelloService = MakeService(ServiceArgs{
-		Hostname:           "hello.default.svc.cluster.local",
-		Address:            "10.1.0.0",
-		ClusterSetHostname: "hello.default.svc.clusterset.local",
-		ClusterSetIPs:      []string{"100.1.0.0"},
-		ServiceAccounts:    []string{},
-		ClusterID:          "cluster-1",
+		Hostname:        "hello.default.svc.cluster.local",
+		Address:         "10.1.0.0",
+		ServiceAccounts: []string{},
+		ClusterID:       "cluster-1",
 	})
 
 	// ReplicatedFooServiceName is a service replicated in all clusters.
 	ReplicatedFooServiceName = host.Name("foo.default.svc.cluster.local")
 	ReplicatedFooServiceV1   = MakeService(ServiceArgs{
-		Hostname:           ReplicatedFooServiceName,
-		Address:            "10.3.0.0",
-		ClusterSetHostname: "foo.default.svc.clusterset.local",
-		ClusterSetIPs:      []string{"100.3.0.0"},
+		Hostname: ReplicatedFooServiceName,
+		Address:  "10.3.0.0",
 		ServiceAccounts: []string{
 			"spiffe://cluster.local/ns/default/sa/foo1",
 			"spiffe://cluster.local/ns/default/sa/foo-share",
@@ -45,10 +41,8 @@ var (
 		ClusterID: "",
 	})
 	ReplicatedFooServiceV2 = MakeService(ServiceArgs{
-		Hostname:           ReplicatedFooServiceName,
-		Address:            "10.3.0.1",
-		ClusterSetHostname: "foo.default.svc.clusterset.local",
-		ClusterSetIPs:      []string{"100.3.0.1"},
+		Hostname: ReplicatedFooServiceName,
+		Address:  "10.3.0.1",
 		ServiceAccounts: []string{
 			"spiffe://cluster.local/ns/default/sa/foo2",
 			"spiffe://cluster.local/ns/default/sa/foo-share",
@@ -59,10 +53,8 @@ var (
 	// WorldService is a mock service with `world.default.svc.cluster.local` as
 	// a hostname and `10.2.0.0` for ip
 	WorldService = MakeService(ServiceArgs{
-		Hostname:           "world.default.svc.cluster.local",
-		Address:            "10.2.0.0",
-		ClusterSetHostname: "world.default.svc.clusterset.local",
-		ClusterSetIPs:      []string{"100.2.0.0"},
+		Hostname: "world.default.svc.cluster.local",
+		Address:  "10.2.0.0",
 		ServiceAccounts: []string{
 			"spiffe://cluster.local/ns/default/sa/world1",
 			"spiffe://cluster.local/ns/default/sa/world2",
@@ -94,12 +86,12 @@ var (
 	// MockDiscovery is an in-memory ServiceDiscover with mock services
 	MockDiscovery = &ServiceDiscovery{
 		services: map[host.Name]*model.Service{
-			HelloService.ClusterLocal.Hostname:   HelloService,
-			WorldService.ClusterLocal.Hostname:   WorldService,
-			ExtHTTPService.ClusterLocal.Hostname: ExtHTTPService,
+			HelloService.Hostname:   HelloService,
+			WorldService.Hostname:   WorldService,
+			ExtHTTPService.Hostname: ExtHTTPService,
 			// TODO external https is not currently supported - this service
 			// should NOT be in any of the .golden json files
-			ExtHTTPSService.ClusterLocal.Hostname: ExtHTTPSService,
+			ExtHTTPSService.Hostname: ExtHTTPSService,
 		},
 		versions: 2,
 	}

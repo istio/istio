@@ -436,49 +436,39 @@ func TestServiceIndex(t *testing.T) {
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-unset",
-				},
-				Ports: allPorts,
+				Hostname: "svc-unset",
+				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 				},
 			},
 			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-public",
-				},
-				Ports: allPorts,
+				Hostname: "svc-public",
+				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
 				},
 			},
 			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-private",
-				},
-				Ports: allPorts,
+				Hostname: "svc-private",
+				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
 				},
 			},
 			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-none",
-				},
-				Ports: allPorts,
+				Hostname: "svc-none",
+				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
 				},
 			},
 			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc-namespace",
-				},
-				Ports: allPorts,
+				Hostname: "svc-namespace",
+				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{"namespace": true},
@@ -655,7 +645,7 @@ func TestIsServiceVisible(t *testing.T) {
 func serviceNames(svcs []*Service) []string {
 	var s []string
 	for _, ss := range svcs {
-		s = append(s, string(ss.ClusterLocal.Hostname))
+		s = append(s, string(ss.Hostname))
 	}
 	sort.Strings(s)
 	return s
@@ -691,19 +681,15 @@ func TestInitPushContext(t *testing.T) {
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc1",
-				},
-				Ports: allPorts,
+				Hostname: "svc1",
+				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 				},
 			},
 			{
-				ClusterLocal: HostVIPs{
-					Hostname: "svc2",
-				},
-				Ports: allPorts,
+				Hostname: "svc2",
+				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
 					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
@@ -927,18 +913,14 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			service := &Service{
-				ClusterLocal: HostVIPs{
-					Hostname: host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
-				},
+				Hostname:   host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
 				Resolution: tc.serviceResolution,
 				Attributes: ServiceAttributes{Namespace: tc.serviceNamespace},
 			}
 			// Intentionally use the externalService with the same name and namespace for test, though
 			// these attributes don't matter.
 			externalService := &Service{
-				ClusterLocal: HostVIPs{
-					Hostname: host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
-				},
+				Hostname:     host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, tc.serviceNamespace)),
 				Resolution:   tc.serviceResolution,
 				Attributes:   ServiceAttributes{Namespace: tc.serviceNamespace},
 				MeshExternal: true,
@@ -1156,9 +1138,7 @@ func TestSetDestinationRuleInheritance(t *testing.T) {
 	for _, tt := range testCases {
 		mergedConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
 			&Service{
-				ClusterLocal: HostVIPs{
-					Hostname: host.Name(tt.serviceHostname),
-				},
+				Hostname: host.Name(tt.serviceHostname),
 				Attributes: ServiceAttributes{
 					Namespace: tt.serviceNs,
 				},
@@ -1437,9 +1417,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
 			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
 				&Service{
-					ClusterLocal: HostVIPs{
-						Hostname: host.Name(tt.host),
-					},
+					Hostname: host.Name(tt.host),
 					Attributes: ServiceAttributes{
 						Namespace: tt.serviceNs,
 					},
@@ -1712,18 +1690,14 @@ func TestServiceWithExportTo(t *testing.T) {
 	ps.Mesh = env.Mesh()
 
 	svc1 := &Service{
-		ClusterLocal: HostVIPs{
-			Hostname: "svc1",
-		},
+		Hostname: "svc1",
 		Attributes: ServiceAttributes{
 			Namespace: "test1",
 			ExportTo:  map[visibility.Instance]bool{visibility.Private: true, visibility.Instance("ns1"): true},
 		},
 	}
 	svc2 := &Service{
-		ClusterLocal: HostVIPs{
-			Hostname: "svc2",
-		},
+		Hostname: "svc2",
 		Attributes: ServiceAttributes{
 			Namespace: "test2",
 			ExportTo: map[visibility.Instance]bool{
@@ -1734,9 +1708,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	svc3 := &Service{
-		ClusterLocal: HostVIPs{
-			Hostname: "svc3",
-		},
+		Hostname: "svc3",
 		Attributes: ServiceAttributes{
 			Namespace: "test3",
 			ExportTo: map[visibility.Instance]bool{
@@ -1747,9 +1719,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	svc4 := &Service{
-		ClusterLocal: HostVIPs{
-			Hostname: "svc4",
-		},
+		Hostname: "svc4",
 		Attributes: ServiceAttributes{
 			Namespace: "test4",
 		},
@@ -1787,7 +1757,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		services := ps.Services(&Proxy{ConfigNamespace: tt.proxyNs})
 		gotHosts := make([]string, 0)
 		for _, r := range services {
-			gotHosts = append(gotHosts, string(r.ClusterLocal.Hostname))
+			gotHosts = append(gotHosts, string(r.Hostname))
 		}
 		if !reflect.DeepEqual(gotHosts, tt.wantHosts) {
 			t.Errorf("proxy in %s namespace: want %+v, got %+v", tt.proxyNs, tt.wantHosts, gotHosts)
@@ -1834,10 +1804,6 @@ func (l *localServiceDiscovery) NetworkGateways() []*NetworkGateway {
 	return nil
 }
 
-func (l *localServiceDiscovery) ExportedServices() []ClusterServiceInfo {
-	return nil
-}
-
-func (l *localServiceDiscovery) ImportedServices() []ClusterServiceInfo {
+func (l *localServiceDiscovery) MCSServices() []MCSServiceInfo {
 	return nil
 }

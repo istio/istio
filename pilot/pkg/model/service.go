@@ -46,23 +46,6 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
-// HostVIPs provides the VIPs in each cluster for a given host.
-type HostVIPs struct {
-	// Name of the service, e.g. "catalog.mystore.com"
-	Hostname host.Name `json:"hostname"`
-
-	// ClusterVIPs specifies the service address of the load balancer
-	// in each of the clusters where the service resides
-	ClusterVIPs cluster.AddressMap `json:"clusterVIPs,omitempty"`
-}
-
-func (h *HostVIPs) DeepCopy() HostVIPs {
-	return HostVIPs{
-		Hostname:    h.Hostname,
-		ClusterVIPs: h.ClusterVIPs.DeepCopy(),
-	}
-}
-
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
 // Each service has a fully qualified domain name (FQDN) and one or more
 // ports where the service is listening for connections. *Optionally*, a
@@ -88,17 +71,12 @@ type Service struct {
 	// CreationTime records the time this service was created, if available.
 	CreationTime time.Time `json:"creationTime,omitempty"`
 
-	// ClusterLocal specifies the cluster.local host and cluster VIPs for this service. Currently,
-	// The cluster.local host is used to address endpoints for the service across the entire mesh.
-	// Once Istio fully supports Kubernetes Multi-Cluster Services (MCS), the cluster.local
-	// host will be used only to address endpoints residing within the same cluster as the caller.
-	// In other words, cluster.local will actually be local to the cluster.
-	ClusterLocal HostVIPs `json:"clusterLocal,omitempty"`
+	// Name of the service, e.g. "catalog.mystore.com"
+	Hostname host.Name `json:"hostname"`
 
-	// ClusterSetLocal specifies the Kubernetes Multi-Cluster Services (MCS) clusterset.local
-	// host and clusterset VIPs for this service. When MCS is enabled within Istio, this host
-	// will be used to address endpoints across the mesh.
-	ClusterSetLocal HostVIPs `json:"clusterSetLocal,omitempty"`
+	// ClusterVIPs specifies the service address of the load balancer
+	// in each of the clusters where the service resides
+	ClusterVIPs AddressMap `json:"clusterVIPs,omitempty"`
 
 	// DefaultAddress specifies the default service IP of the load balancer.
 	// Do not access directly. Use GetAddressForProxy
@@ -137,7 +115,7 @@ func (s *Service) Key() string {
 		return ""
 	}
 
-	return s.Attributes.Namespace + "/" + string(s.ClusterLocal.Hostname)
+	return s.Attributes.Namespace + "/" + string(s.Hostname)
 }
 
 // Resolution indicates how the service instances need to be resolved before routing traffic.
@@ -507,7 +485,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses cluster.AddressMap
+	ClusterExternalAddresses AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -588,23 +566,22 @@ type ServiceDiscovery interface {
 	// residing in this registry.
 	NetworkGateways() []*NetworkGateway
 
-	// ExportedServices returns information about the services that have been exported via the
+	// MCSServices returns information about the services that have been exported/imported via the
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
-	ExportedServices() []ClusterServiceInfo
-
-	// ImportedServices returns information about the services that have been imported via the
-	// Kubernetes Multi-Cluster Services (MCS) ServiceImport API. Only applies to services in
-	// Kubernetes clusters.
-	ImportedServices() []ClusterServiceInfo
+	MCSServices() []MCSServiceInfo
 }
 
-// ClusterServiceInfo combines the name of a service with a particular Kubernetes cluster. This
+// MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
 // is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
-type ClusterServiceInfo struct {
-	Name      string
-	Namespace string
-	Cluster   cluster.ID
+type MCSServiceInfo struct {
+	Name           string
+	Namespace      string
+	ClusterSetHost host.Name
+	ClusterSetVIP  string
+	Exported       bool
+	Imported       bool
+	Cluster        cluster.ID
 }
 
 // GetNames returns port names
@@ -709,7 +686,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
-			addresses := s.ClusterLocal.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 0 {
 				return addresses[0]
 			}
@@ -771,8 +748,8 @@ func (s *Service) DeepCopy() *Service {
 		Ports:           ports.(PortList),
 		ServiceAccounts: accounts.([]string),
 		CreationTime:    s.CreationTime,
-		ClusterLocal:    s.ClusterLocal.DeepCopy(),
-		ClusterSetLocal: s.ClusterSetLocal.DeepCopy(),
+		Hostname:        s.Hostname,
+		ClusterVIPs:     s.ClusterVIPs.DeepCopy(),
 		DefaultAddress:  s.DefaultAddress,
 		Resolution:      s.Resolution,
 		MeshExternal:    s.MeshExternal,

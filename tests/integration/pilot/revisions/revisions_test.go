@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
@@ -38,7 +39,6 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		RequireLocalControlPlane().
 		// Requires two CPs with specific names to be configured.
 		Label(label.CustomSetup).
@@ -75,14 +75,14 @@ func TestMultiRevision(t *testing.T) {
 				Revision: "canary",
 			})
 
-			var client, server echo.Instance
-			echoboot.NewBuilder(t).
-				With(&client, echo.Config{
+			echos := echoboot.NewBuilder(t).
+				WithClusters(t.Clusters()...).
+				WithConfig(echo.Config{
 					Service:   "client",
 					Namespace: stable,
 					Ports:     []echo.Port{},
 				}).
-				With(&server, echo.Config{
+				WithConfig(echo.Config{
 					Service:   "server",
 					Namespace: canary,
 					Ports: []echo.Port{
@@ -93,22 +93,33 @@ func TestMultiRevision(t *testing.T) {
 						},
 					},
 				}).
-				// tests bootstrap
 				WithConfig(echo.Config{
-					Service:   "vm",
-					Namespace: canary,
-					Ports:     []echo.Port{},
+					Service:    "vm",
+					Namespace:  canary,
+					DeployAsVM: true,
+					Ports:      []echo.Port{},
 				}).
 				BuildOrFail(t)
-			retry.UntilSuccessOrFail(t, func() error {
-				resp, err := client.Call(echo.CallOptions{
-					Target:   server,
-					PortName: "http",
+
+			echotest.New(t, echos).
+				ConditionallyTo(echotest.ReachableDestinations).
+				To(echotest.FilterMatch(echo.Service("server"))).
+				Run(func(t framework.TestContext, src echo.Instance, dst echo.Instances) {
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := src.Call(echo.CallOptions{
+							Target:   dst[0],
+							PortName: "http",
+							Count:    len(t.Clusters()) * 3,
+							Validator: echo.And(
+								echo.ExpectOK(),
+								echo.ExpectReachedClusters(t.Clusters()),
+							),
+						})
+						if err != nil {
+							return err
+						}
+						return resp.CheckOK()
+					}, retry.Delay(time.Millisecond*100))
 				})
-				if err != nil {
-					return err
-				}
-				return resp.CheckOK()
-			}, retry.Delay(time.Millisecond*100))
 		})
 }

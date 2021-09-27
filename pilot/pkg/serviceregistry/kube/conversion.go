@@ -53,7 +53,7 @@ func convertPort(port coreV1.ServicePort) *model.Port {
 	}
 }
 
-func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID, clustersetIPs []string) *model.Service {
+func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.ID) *model.Service {
 	addr := constants.UnspecifiedIP
 	resolution := model.ClientSideLB
 	meshExternal := false
@@ -92,26 +92,11 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 		}
 	}
 
-	var clusterSetIPMap map[cluster.ID][]string
-	if len(clustersetIPs) > 0 {
-		clusterSetIPMap = map[cluster.ID][]string{
-			clusterID: clustersetIPs,
-		}
-	}
-
 	istioService := &model.Service{
-		ClusterLocal: model.HostVIPs{
-			Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: map[cluster.ID][]string{
-					clusterID: {addr},
-				},
-			},
-		},
-		ClusterSetLocal: model.HostVIPs{
-			Hostname: ServiceClusterSetLocalHostname(NamespacedNameForK8sObject(&svc)),
-			ClusterVIPs: cluster.AddressMap{
-				Addresses: clusterSetIPMap,
+		Hostname: ServiceHostname(svc.Name, svc.Namespace, domainSuffix),
+		ClusterVIPs: model.AddressMap{
+			Addresses: map[cluster.ID][]string{
+				clusterID: {addr},
 			},
 		},
 		Ports:           ports,
@@ -171,7 +156,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID cluster.I
 }
 
 func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []*model.ServiceInstance {
-	if k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+	if k8sSvc == nil || k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
 	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
@@ -207,7 +192,6 @@ func NamespacedNameForK8sObject(obj metav1.Object) types.NamespacedName {
 }
 
 // ServiceHostname produces FQDN for a k8s service
-// TODO(nmittler): Rename this to ServiceClusterLocalHostname to differentiate with ServiceClusterSetLocalHostname.
 func ServiceHostname(name, namespace, domainSuffix string) host.Name {
 	return host.Name(name + "." + namespace + "." + "svc" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
 }
@@ -215,11 +199,6 @@ func ServiceHostname(name, namespace, domainSuffix string) host.Name {
 // ServiceHostnameForKR calls ServiceHostname with the name and namespace of the given kubernetes resource.
 func ServiceHostnameForKR(obj metav1.Object, domainSuffix string) host.Name {
 	return ServiceHostname(obj.GetName(), obj.GetNamespace(), domainSuffix)
-}
-
-// ServiceClusterSetLocalHostname produces Kubernetes Multi-Cluster Services (MCS) ClusterSet FQDN for a k8s service
-func ServiceClusterSetLocalHostname(nn types.NamespacedName) host.Name {
-	return host.Name(nn.Name + "." + nn.Namespace + "." + "svc" + "." + constants.DefaultClusterSetLocalDomain)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

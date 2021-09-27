@@ -32,8 +32,8 @@ func LookupCluster(push *model.PushContext, service string, port int) (hostname 
 	if parts := strings.Split(service, "/"); len(parts) == 2 {
 		namespace, name := parts[0], parts[1]
 		if svc := push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
-			hostname = string(svc.ClusterLocal.Hostname)
-			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.ClusterLocal.Hostname, port)
+			hostname = string(svc.Hostname)
+			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
 			return
 		}
 	} else {
@@ -45,8 +45,8 @@ func LookupCluster(push *model.PushContext, service string, port int) (hostname 
 		// If namespace is omitted, return successfully if there is only one such host name in the service index.
 		if len(namespaces) == 1 {
 			svc := namespaceToServices[namespaces[0]]
-			hostname = string(svc.ClusterLocal.Hostname)
-			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.ClusterLocal.Hostname, port)
+			hostname = string(svc.Hostname)
+			cluster = model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port)
 			return
 		} else if len(namespaces) > 1 {
 			err = fmt.Errorf("found %s in multiple namespaces %v, specify the namespace explicitly in "+

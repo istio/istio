@@ -24,20 +24,27 @@ import (
 	mcsCore "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsLister "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
 )
 
-// serviceExportCache provides export state for all services in the cluster.
+// serviceExportCache reads Kubernetes Multi-Cluster Services (MCS) ServiceExport resources in the
+// cluster and generates discoverability policies for the endpoints.
 type serviceExportCache interface {
-	isExported(name types.NamespacedName) bool
+	// EndpointDiscoverabilityPolicy returns the policy for Service endpoints residing within the current cluster.
+	EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy
+
+	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
+	ExportedServices() []types.NamespacedName
+
+	// HasSynced indicates whether the kube client has synced for the watched resources.
 	HasSynced() bool
-	ExportedServices() []model.ClusterServiceInfo
 }
 
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
 func newServiceExportCache(c *Controller) serviceExportCache {
-	if c.opts.EnableMCSServiceDiscovery {
+	if features.EnableMCSServiceDiscovery {
 		informer := c.client.MCSApisInformer().Multicluster().V1alpha1().ServiceExports().Informer()
 		sec := &serviceExportCacheImpl{
 			Controller: c,
@@ -99,26 +106,30 @@ func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
 	}
 }
 
+func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Service) model.EndpointDiscoverabilityPolicy {
+	if svc == nil || !ec.isExported(namespacedNameForService(svc)) {
+		return model.DiscoverableFromSameCluster
+	}
+
+	// TODO(nmittler): Once we can configure cluster.local to actually be cluster.local, consider the hostname.
+	return model.AlwaysDiscoverable
+}
+
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
 	_, err := ec.lister.ServiceExports(name.Namespace).Get(name.Name)
 	return err == nil
 }
 
-func (ec *serviceExportCacheImpl) ExportedServices() []model.ClusterServiceInfo {
+func (ec *serviceExportCacheImpl) ExportedServices() []types.NamespacedName {
 	// List all exports in this cluster.
 	exports, err := ec.lister.List(klabels.NewSelector())
 	if err != nil {
-		return make([]model.ClusterServiceInfo, 0)
+		return make([]types.NamespacedName, 0)
 	}
 
-	// Convert to ExportedService
-	out := make([]model.ClusterServiceInfo, 0, len(exports))
+	out := make([]types.NamespacedName, 0, len(exports))
 	for _, export := range exports {
-		out = append(out, model.ClusterServiceInfo{
-			Name:      export.Name,
-			Namespace: export.Namespace,
-			Cluster:   ec.Cluster(),
-		})
+		out = append(out, kubesr.NamespacedNameForK8sObject(export))
 	}
 
 	return out
@@ -132,16 +143,15 @@ type disabledServiceExportCache struct{}
 
 var _ serviceExportCache = disabledServiceExportCache{}
 
-func (c disabledServiceExportCache) isExported(types.NamespacedName) bool {
-	// When disabled, assume all services are exported (default Istio behavior).
-	return true
+func (c disabledServiceExportCache) EndpointDiscoverabilityPolicy(*model.Service) model.EndpointDiscoverabilityPolicy {
+	return model.AlwaysDiscoverable
 }
 
 func (c disabledServiceExportCache) HasSynced() bool {
 	return true
 }
 
-func (c disabledServiceExportCache) ExportedServices() []model.ClusterServiceInfo {
+func (c disabledServiceExportCache) ExportedServices() []types.NamespacedName {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
 }
