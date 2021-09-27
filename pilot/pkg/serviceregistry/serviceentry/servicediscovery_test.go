@@ -1144,17 +1144,13 @@ func TestServicesDiff(t *testing.T) {
 		},
 	}
 
-	servicesHostnames := func(services []*model.Service) map[host.Name]struct{} {
-		ret := make(map[host.Name]struct{})
-		for _, svc := range services {
-			ret[svc.Hostname] = struct{}{}
+	servicesHostnames := func(services []*model.Service) []host.Name {
+		if len(services) == 0 {
+			return nil
 		}
-		return ret
-	}
-	hostnamesToMap := func(hostnames []host.Name) map[host.Name]struct{} {
-		ret := make(map[host.Name]struct{})
-		for _, hostname := range hostnames {
-			ret[hostname] = struct{}{}
+		ret := make([]host.Name, len(services))
+		for i, svc := range services {
+			ret[i] = svc.Hostname
 		}
 		return ret
 	}
@@ -1173,8 +1169,8 @@ func TestServicesDiff(t *testing.T) {
 				{tt.updated, updated},
 				{tt.unchanged, unchanged},
 			} {
-				if !reflect.DeepEqual(servicesHostnames(item.services), hostnamesToMap(item.hostnames)) {
-					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), hostnamesToMap(item.hostnames))
+				if !reflect.DeepEqual(servicesHostnames(item.services), item.hostnames) {
+					t.Errorf("ServicesChanged %d got %v, want %v", i, servicesHostnames(item.services), item.hostnames)
 				}
 			}
 		})
