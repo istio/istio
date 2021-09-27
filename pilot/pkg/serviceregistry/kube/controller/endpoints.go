@@ -212,7 +212,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	return endpoints
 }
 
-func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name, _ bool) []*model.IstioEndpoint {
 	ep, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(namespace).Get(name)
 	if err != nil || ep == nil {
 		log.Debugf("endpoints(%s, %s) not found => error %v", name, namespace, err)

@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -141,8 +142,14 @@ func installMCSCRDs(t resource.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := t.Config().ApplyYAML("", string(crd)); err != nil {
-			return err
+		if t.Settings().NoCleanup {
+			if err := t.Config().ApplyYAMLNoCleanup("", string(crd)); err != nil {
+				return err
+			}
+		} else {
+			if err := t.Config().ApplyYAML("", string(crd)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -153,6 +160,7 @@ func enableMCSServiceDiscovery(_ resource.Context, cfg *istio.Config) {
 values:
   pilot:
     env:
+      PILOT_USE_ENDPOINT_SLICE: "true"
       ENABLE_MCS_SERVICE_DISCOVERY: "true"
       ENABLE_MCS_HOST: "true"`
 }
@@ -277,6 +285,7 @@ func getClusterDetailsYAML(t framework.TestContext, src, dest echo.Instance) str
 			for _, destPod := range pods.Items {
 				info.DestinationPodIPs = append(info.DestinationPodIPs, destPod.Status.PodIP)
 			}
+			sort.Strings(info.DestinationPodIPs)
 		}
 
 		// Get the East-West Gateway IP
@@ -292,13 +301,18 @@ func getClusterDetailsYAML(t framework.TestContext, src, dest echo.Instance) str
 	srcWorkload := src.WorkloadsOrFail(t)[0]
 	envoyClusters, err := srcWorkload.Sidecar().Clusters()
 	if err == nil {
+		ipSet := make(map[string]struct{})
 		for _, status := range envoyClusters.GetClusterStatuses() {
 			if strings.Contains(status.Name, destName+"."+destNS) {
 				for _, hostStatus := range status.GetHostStatuses() {
-					details.SourceOutboundIPs = append(details.SourceOutboundIPs, hostStatus.Address.GetSocketAddress().GetAddress())
+					ipSet[hostStatus.Address.GetSocketAddress().GetAddress()] = struct{}{}
 				}
 			}
 		}
+		for ip := range ipSet {
+			details.SourceOutboundIPs = append(details.SourceOutboundIPs, ip)
+		}
+		sort.Strings(details.SourceOutboundIPs)
 	}
 
 	detailsYAML, err := yaml.Marshal(&details)

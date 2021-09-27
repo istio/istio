@@ -47,37 +47,49 @@ var serviceExportNamespacedName = types.NamespacedName{
 }
 
 func TestServiceNotExported(t *testing.T) {
-	// Create and run the controller.
-	ec, cleanup := newTestServiceExportCache(t)
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			ec, cleanup := newTestServiceExportCache(t, mode)
+			defer cleanup()
 
-	// Check that the endpoint is cluster-local
-	ec.checkServiceInstances(t, false)
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstances(t, false)
+		})
+	}
 }
 
 func TestServiceExported(t *testing.T) {
-	// Create and run the controller.
-	ec, cleanup := newTestServiceExportCache(t)
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			ec, cleanup := newTestServiceExportCache(t, mode)
+			defer cleanup()
 
-	// Export the service.
-	ec.export(t)
+			// Export the service.
+			ec.export(t)
 
-	// Check that the endpoint is mesh-wide
-	ec.checkServiceInstances(t, true)
+			// Check that the endpoint is mesh-wide
+			ec.checkServiceInstances(t, true)
+		})
+	}
 }
 
 func TestServiceUnexported(t *testing.T) {
-	// Create and run the controller.
-	ec, cleanup := newTestServiceExportCache(t)
-	defer cleanup()
+	for _, mode := range []EndpointMode{EndpointsOnly, EndpointSliceOnly} {
+		t.Run(mode.String(), func(t *testing.T) {
+			// Create and run the controller.
+			ec, cleanup := newTestServiceExportCache(t, mode)
+			defer cleanup()
 
-	// Export the service and then unexport it immediately.
-	ec.export(t)
-	ec.unExport(t)
+			// Export the service and then unexport it immediately.
+			ec.export(t)
+			ec.unExport(t)
 
-	// Check that the endpoint is cluster-local
-	ec.checkServiceInstances(t, false)
+			// Check that the endpoint is cluster-local
+			ec.checkServiceInstances(t, false)
+		})
+	}
 }
 
 func newServiceExport() *v1alpha1.ServiceExport {
@@ -93,7 +105,7 @@ func newServiceExport() *v1alpha1.ServiceExport {
 	}
 }
 
-func newTestServiceExportCache(t *testing.T) (ec *serviceExportCacheImpl, cleanup func()) {
+func newTestServiceExportCache(t *testing.T, mode EndpointMode) (ec *serviceExportCacheImpl, cleanup func()) {
 	t.Helper()
 
 	stopCh := make(chan struct{})
@@ -107,6 +119,7 @@ func newTestServiceExportCache(t *testing.T) (ec *serviceExportCacheImpl, cleanu
 	c, _ := NewFakeControllerWithOptions(FakeControllerOptions{
 		Stop:      stopCh,
 		ClusterID: testCluster,
+		Mode:      mode,
 	})
 
 	// Create the test service and endpoints.
