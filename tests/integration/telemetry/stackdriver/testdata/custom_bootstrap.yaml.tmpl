@@ -14,8 +14,7 @@ data:
           "STACKDRIVER_MONITORING_EXPORT_INTERVAL_SECS": "10",
           "MESH_ID": "proj-test-mesh",
         }
-      },
-      {{- if not .UseRealSD }}
+      }{{- if not .UseRealSD }},
       "tracing": {
         "http": {
           "name": "envoy.tracers.opencensus",
@@ -52,6 +51,6 @@ data:
             ]
           }
         }
-      },
+      }
       {{- end }}
     }
