@@ -43,9 +43,9 @@ var (
 func (o *Origin) FriendlyName() string {
 	parts := strings.Split(o.FullName.String(), "/")
 	if len(parts) == 2 {
-		// The istioctl convention is <type> <name>[.<namespace>].
+		// The istioctl convention is <type> [<namespace>/]<name>.
 		// This code has no notion of a default and always shows the namespace.
-		return fmt.Sprintf("%s %s.%s", o.Kind, parts[1], parts[0])
+		return fmt.Sprintf("%s %s/%s", o.Kind, parts[0], parts[1])
 	}
 	return fmt.Sprintf("%s %s", o.Kind, o.FullName.String())
 }
