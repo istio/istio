@@ -96,7 +96,7 @@ type AdsClient struct {
 	ConnectionID string              `json:"connectionId"`
 	ConnectedAt  time.Time           `json:"connectedAt"`
 	PeerAddress  string              `json:"address"`
-	Metadata     *model.NodeMetadata `json:"metadata"`
+	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
 }
 
