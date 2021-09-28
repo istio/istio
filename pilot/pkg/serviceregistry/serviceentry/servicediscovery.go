@@ -330,9 +330,11 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr config.Config, event m
 	if event == model.EventDelete {
 		s.deleteExistingInstances(ckey, serviceInstances)
 	} else {
-		oldInstances := s.convertServiceEntryToInstances(old, cs, s.Cluster())
-		// First, delete the existing instances to avoid leaking memory.
-		s.serviceInstances.deleteInstances(ckey, oldInstances)
+		if old.Spec != nil {
+			oldInstances := s.convertServiceEntryToInstances(old, cs, s.Cluster())
+			// First, delete the existing instances to avoid leaking memory.
+			s.serviceInstances.deleteInstances(ckey, oldInstances)
+		}
 		// Update the indexes with new instances.
 		s.serviceInstances.updateInstances(ckey, serviceInstances)
 	}
