@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -39,6 +38,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -180,7 +180,6 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-// TODO: extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 func configureCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
@@ -222,10 +221,23 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
+
+			// extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
+			if !validateFlagIsSetManuallyOrNot(cmd, "clusterID") {
+				// extract the cluster ID from the injector config if it is not set by user
+				clusterName, err := extractClusterIDFromInjectionConfig(kubeClient)
+				if err != nil {
+					return fmt.Errorf("failed to automatically determine the --clusterID: %v", err)
+				}
+				if clusterName != "" {
+					clusterID = clusterName
+				}
+			}
+
 			if err = createConfig(kubeClient, wg, clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
-			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
+			fmt.Printf("Configuration generation into directory %s was successful\n", outputDir)
 			return nil
 		},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -239,7 +251,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
 	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
-	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "Kubernetes", "The ID used to identify the cluster")
+	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&ingressSvc, "ingressService", multicluster.IstioEastWestGatewayServiceName, "Name of the Service to be"+
 		" used as the ingress gateway, in the format <service>.<namespace>. If no namespace is provided, the default "+istioNamespace+" namespace will be used.")
@@ -255,7 +267,7 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 // Reads a WorkloadGroup yaml. Additionally populates default values if unset
 // TODO: add WorkloadGroup validation in pkg/config/validation
 func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error {
-	f, err := ioutil.ReadFile(filename)
+	f, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
@@ -286,19 +298,20 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 		err         error
 		proxyConfig *meshconfig.ProxyConfig
 	)
-	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir); err != nil {
+	revision := kubeClient.Revision()
+	if proxyConfig, err = createMeshConfig(kubeClient, wg, clusterID, outputDir, revision); err != nil {
 		return err
 	}
 	if err := createClusterEnv(wg, proxyConfig, outputDir); err != nil {
 		return err
 	}
-	if err := createSidecarEnv(internalIP, externalIP, outputDir); err != nil {
+	if err := createSidecarEnv(internalIP, externalIP, outputDir, revision); err != nil {
 		return err
 	}
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
 		return err
 	}
-	if err := createHosts(kubeClient, ingressIP, outputDir); err != nil {
+	if err := createHosts(kubeClient, ingressIP, outputDir, revision); err != nil {
 		return err
 	}
 	return nil
@@ -346,11 +359,11 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, config *meshconfig.Proxy
 		}
 	}
 
-	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
+	return os.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
 
-func createSidecarEnv(internalIP string, externalIP, dir string) error {
-	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP)
+func createSidecarEnv(internalIP, externalIP, dir, revision string) error {
+	sidecarEnv := generateSidecarEnvAsMap(internalIP, externalIP, revision)
 
 	// If there is no sidecar specific configuration, then don't write the file and exit first.
 	allEmpty := true
@@ -363,12 +376,15 @@ func createSidecarEnv(internalIP string, externalIP, dir string) error {
 		return nil
 	}
 
-	return ioutil.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
+	return os.WriteFile(filepath.Join(dir, "sidecar.env"), []byte(mapToString(sidecarEnv)), filePerms)
 }
 
-func generateSidecarEnvAsMap(internalIP string, externalIP string) map[string]string {
+func generateSidecarEnvAsMap(internalIP string, externalIP string, revision string) map[string]string {
 	sidecarEnv := make(map[string]string)
 
+	if isRevisioned(revision) {
+		sidecarEnv["CA_ADDR"] = istiodAddr(revision)
+	}
 	if len(internalIP) > 0 {
 		sidecarEnv["ISTIO_SVC_IP"] = internalIP
 	} else if len(externalIP) > 0 {
@@ -387,7 +403,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("configmap %s was not found in namespace %s: %v", controller.CACertNamespaceConfigMap, wg.Namespace, err)
 	}
-	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert.pem"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
+	if err = os.WriteFile(filepath.Join(dir, "root-cert.pem"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
 		return err
 	}
 
@@ -409,7 +425,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
+		if err := os.WriteFile(tokenPath, secret.Data["token"], filePerms); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated "+
@@ -432,7 +448,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("could not create a token under service account %s in namespace %s: %v", serviceAccount, wg.Namespace, err)
 	}
-	if err := ioutil.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
+	if err := os.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "Warning: a security token for namespace %q and service account %q has been generated and "+
@@ -440,11 +456,10 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	return nil
 }
 
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir string) (*meshconfig.ProxyConfig, error) {
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir, revision string) (*meshconfig.ProxyConfig, error) {
 	istioCM := "istio"
 	// Case with multiple control planes
-	revision := kubeClient.Revision()
-	if revision != "" && revision != "default" {
+	if isRevisioned(revision) {
 		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
 	}
 	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
@@ -461,8 +476,8 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
 		return nil, err
 	}
-	if revision != "" && revision != "default" && meshConfig.DefaultConfig.DiscoveryAddress == "" {
-		meshConfig.DefaultConfig.DiscoveryAddress = fmt.Sprintf("istiod-%s.%s.svc.cluster.local", revision, istioNamespace)
+	if isRevisioned(revision) && meshConfig.DefaultConfig.DiscoveryAddress == "" {
+		meshConfig.DefaultConfig.DiscoveryAddress = istiodAddr(revision)
 	}
 
 	// performing separate map-merge, apply seems to completely overwrite all metadata
@@ -538,7 +553,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		return nil, err
 	}
 
-	return meshConfig.DefaultConfig, ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
+	return meshConfig.DefaultConfig, os.WriteFile(filepath.Join(dir, "mesh.yaml"), proxyYAML, filePerms)
 }
 
 func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
@@ -550,7 +565,7 @@ func workloadEntryToPodPortsMeta(p map[string]uint32) model.PodPortList {
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
+func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string, revision string) error {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
@@ -571,17 +586,30 @@ func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	}
 
 	var hosts string
+	if net.ParseIP(ingressIP) != nil {
+		hosts = fmt.Sprintf("%s %s\n", ingressIP, istiodHost(revision))
+	} else {
+		log.Warnf("Could not auto-detect IP for. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
+			istiodHost(revision), istioNamespace)
+	}
+	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
+}
+
+func isRevisioned(revision string) bool {
+	return revision != "" && revision != "default"
+}
+
+func istiodHost(revision string) string {
 	istiod := "istiod"
-	revision := kubeClient.Revision()
-	if revision != "" && revision != "default" {
+	if isRevisioned(revision) {
 		istiod = fmt.Sprintf("%s-%s", istiod, revision)
 	}
-	if net.ParseIP(ingressIP) != nil {
-		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
-	} else {
-		log.Warnf("Could not auto-detect IP for %s.%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.", istiod, istioNamespace)
-	}
-	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
+	return fmt.Sprintf("%s.%s.svc", istiod, istioNamespace)
+}
+
+func istiodAddr(revision string) string {
+	// TODO make port configurable
+	return fmt.Sprintf("%s:%d", istiodHost(revision), 15012)
 }
 
 // Returns a map with each k,v entry on a new line
@@ -592,4 +620,32 @@ func mapToString(m map[string]string) string {
 	}
 	sort.Strings(lines)
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// extractClusterIDFromInjectionConfig can extract clusterID from injection configmap
+func extractClusterIDFromInjectionConfig(kubeClient kube.ExtendedClient) (string, error) {
+	injectionConfigMap := "istio-sidecar-injector"
+	// Case with multiple control planes
+	revision := kubeClient.Revision()
+	if isRevisioned(revision) {
+		injectionConfigMap = fmt.Sprintf("%s-%s", injectionConfigMap, revision)
+	}
+	istioInjectionCM, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), injectionConfigMap, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("fetch injection template: %v", err)
+	}
+
+	var injectedCMValues map[string]interface{}
+	if err := json.Unmarshal([]byte(istioInjectionCM.Data[valuesConfigMapKey]), &injectedCMValues); err != nil {
+		return "", err
+	}
+	v, f, err := tpath.GetFromStructPath(injectedCMValues, "global.multiCluster.clusterName")
+	if err != nil {
+		return "", err
+	}
+	vs, ok := v.(string)
+	if !f || !ok {
+		return "", fmt.Errorf("could not retrieve global.multiCluster.clusterName from injection config")
+	}
+	return vs, nil
 }
