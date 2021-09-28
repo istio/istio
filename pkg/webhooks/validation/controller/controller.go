@@ -319,8 +319,8 @@ func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 		return false, err
 	}
 
-	scope.Infof("Reconcile(enter): %v", req)
-	defer func() { scope.Infof("Reconcile(exit)") }()
+	scope.Debugf("Reconcile(enter): %v", req)
+	defer func() { scope.Debugf("Reconcile(exit)") }()
 
 	caBundle, err := util.LoadCABundle(c.o.CABundleWatcher)
 	if err != nil {
