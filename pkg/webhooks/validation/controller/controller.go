@@ -329,18 +329,12 @@ func (c *Controller) reconcileRequest(req reconcileRequest) (bool, error) {
 		// no point in retrying unless cert file changes.
 		return false, nil
 	}
-	failurePolicy := kubeApiAdmission.Fail
-	// Only cheeck for fail open if webhooks are not already configured for fail.
-	for i := range configuration.Webhooks {
-		if configuration.Webhooks[i].FailurePolicy != nil && *configuration.Webhooks[i].FailurePolicy == kubeApiAdmission.Ignore {
-			failurePolicy = kubeApiAdmission.Ignore
-			break
-		}
-	}
-	if failurePolicy != kubeApiAdmission.Fail && c.readyForFailClose() {
+	failurePolicy := kubeApiAdmission.Ignore
+	ready := c.readyForFailClose()
+	if ready {
 		failurePolicy = kubeApiAdmission.Fail
 	}
-	return failurePolicy != kubeApiAdmission.Fail, c.updateValidatingWebhookConfiguration(configuration, caBundle, failurePolicy)
+	return !ready, c.updateValidatingWebhookConfiguration(configuration, caBundle, failurePolicy)
 }
 
 func (c *Controller) readyForFailClose() bool {
