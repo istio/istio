@@ -165,6 +165,7 @@ func TestAgent(t *testing.T) {
 		// they also need to set ISTIO_META_TLS_CLIENT* to specify the file paths.
 		// CA communication is disabled. mTLS is always used for authentication with Istiod, never JWT.
 		dir := mktemp()
+		dir = filepath.Join(dir, "./var/run/secrets/workload-spiffe-credentials")
 		// The cert and key names of GKE workload certificates differ from
 		// the default file mounted cert and key names.
 		copyGkeWorkloadCerts(t, dir)
