@@ -159,6 +159,33 @@ func TestAgent(t *testing.T) {
 			return a
 		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
 	})
+	t.Run("GKE workload certificates", func(t *testing.T) {
+		// GKE workload certificates belong to FileMountedCerts and their cert and key names differ from
+		// the default file mounted cert and key names. Same as FileMountedCerts,
+		// they also need to set ISTIO_META_TLS_CLIENT* to specify the file paths.
+		// CA communication is disabled. mTLS is always used for authentication with Istiod, never JWT.
+		dir := mktemp()
+		// The cert and key names of GKE workload certificates differ from
+		// the default file mounted cert and key names.
+		copyGkeWorkloadCerts(t, dir)
+		cfg := security.SdsCertificateConfig{
+			CertificatePath:   filepath.Join(dir, "certificates.pem"),
+			PrivateKeyPath:    filepath.Join(dir, "private_key.pem"),
+			CaCertificatePath: filepath.Join(dir, "ca_certificates.pem"),
+		}
+		Setup(t, func(a AgentTest) AgentTest {
+			// Ensure we use the mTLS certs for XDS
+			a.XdsAuthenticator.Set("", preProvisionID)
+			// Ensure we don't try to connect to CA
+			a.CaAuthenticator.Set("", "")
+			a.ProxyConfig.ProxyMetadata = map[string]string{}
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertChain] = filepath.Join(dir, "certificates.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientCertKey] = filepath.Join(dir, "private_key.pem")
+			a.ProxyConfig.ProxyMetadata[MetadataClientRootCert] = filepath.Join(dir, "ca_certificates.pem")
+			a.Security.FileMountedCerts = true
+			return a
+		}).Check(t, cfg.GetRootResourceName(), cfg.GetResourceName())
+	})
 	t.Run("OS CA Certs are able to be accessed", func(t *testing.T) {
 		// Try loading an OS CA Cert from OS CA Certs file paths.
 		dir := mktemp()
@@ -562,6 +589,22 @@ func copyCerts(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"), dir, "root-cert.pem"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func copyGkeWorkloadCerts(t *testing.T, dir string) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/cert-chain.pem"), dir, "certificates.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/key.pem"), dir, "private_key.pem"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Copy(filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem"), dir, "ca_certificates.pem"); err != nil {
 		t.Fatal(err)
 	}
 }

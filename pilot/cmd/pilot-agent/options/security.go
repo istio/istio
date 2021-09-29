@@ -112,14 +112,23 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 		o.CredFetcher = credFetcher
 	}
 
-	if UseGkeWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
-		security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath) {
+	if o.CAProviderName == security.GoogleGkeWorkloadCertificateProvider {
+		if !CheckGkeWorkloadCertificate(security.GkeWorkloadCertChainFilePath,
+			security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath) {
+			return nil, fmt.Errorf("GKE workload certificate files (%v, %v, %v) not present",
+				security.GkeWorkloadCertChainFilePath, security.GkeWorkloadKeyFilePath, security.GkeWorkloadRootCertFilePath)
+		}
+		if o.ProvCert != "" {
+			return nil, fmt.Errorf(
+				"invalid options: PROV_CERT and FILE_MOUNTED_CERTS of GKE workload cert are mutually exclusive")
+		}
 		o.FileMountedCerts = true
 		o.CertChainFilePath = security.GkeWorkloadCertChainFilePath
 		o.KeyFilePath = security.GkeWorkloadKeyFilePath
 		o.RootCertFilePath = security.GkeWorkloadRootCertFilePath
 		return o, nil
 	}
+
 	// Default the CA provider where possible
 	if strings.Contains(o.CAEndpoint, "googleapis.com") {
 		o.CAProviderName = security.GoogleCAProvider
@@ -139,9 +148,9 @@ func SetupSecurityOptions(proxyConfig *meshconfig.ProxyConfig, secOpt *security.
 	return o, nil
 }
 
-// UseGkeWorkloadCertificate returns true when the GKE workload certificate
-// files are present under the well-known path. Otherwise, return false.
-func UseGkeWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath string) bool {
+// CheckGkeWorkloadCertificate returns true when the GKE workload certificate
+// files are present under the path for GKE workload certificate. Otherwise, return false.
+func CheckGkeWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath string) bool {
 	if _, err := os.Stat(certChainFilePath); err != nil {
 		return false
 	}

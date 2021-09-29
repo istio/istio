@@ -42,16 +42,14 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// GkeWorkloadCertChainFilePath is the well-known path for the GKE workload certificate chain file.
-	// Quoted from https://cloud.google.com/traffic-director/docs/security-proxyless-setup#create-service:
-	// "On creation, each Pod gets a volume at /var/run/secrets/workload-spiffe-credentials."
-	GkeWorkloadCertChainFilePath = "./var/run/secrets/workload-spiffe-credentials/certificates.pem"
+	// GkeWorkloadCertChainFilePath is the path for the GKE workload certificate chain file.
+	GkeWorkloadCertChainFilePath = "./etc/certs/certificates.pem"
 
-	// GkeWorkloadKeyFilePath is the well-known path for the GKE workload certificate key file
-	GkeWorkloadKeyFilePath = "./var/run/secrets/workload-spiffe-credentials/private_key.pem"
+	// GkeWorkloadKeyFilePath is the path for the GKE workload certificate key file
+	GkeWorkloadKeyFilePath = "./etc/certs/private_key.pem"
 
-	// GkeWorkloadRootCertFilePath is the well-known path for the GKE workload root certificate file
-	GkeWorkloadRootCertFilePath = "./var/run/secrets/workload-spiffe-credentials/ca_certificates.pem"
+	// GkeWorkloadRootCertFilePath is the path for the GKE workload root certificate file
+	GkeWorkloadRootCertFilePath = "./etc/certs/ca_certificates.pem"
 
 	// SystemRootCerts is special case input for root cert configuration to use system root certificates.
 	SystemRootCerts = "SYSTEM"
@@ -75,6 +73,9 @@ const (
 
 	// GoogleCASProvider uses the Google certificate Authority Service to sign workload certificates
 	GoogleCASProvider = "GoogleCAS"
+
+	// GoogleGkeWorkloadCertificateProvider uses the GKE workload certificates
+	GoogleGkeWorkloadCertificateProvider = "GoogleGkeWorkloadCertificate"
 
 	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
 	FileRootSystemCACert = "file-root:system"

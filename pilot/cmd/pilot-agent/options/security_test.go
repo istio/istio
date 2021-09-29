@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestUseGkeWorkloadCertificate(t *testing.T) {
+func TestCheckGkeWorkloadCertificate(t *testing.T) {
 	cert, err := ioutil.TempFile("", "existing-cert-file")
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestUseGkeWorkloadCertificate(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		result := UseGkeWorkloadCertificate(tt.paths[0], tt.paths[1], tt.paths[2])
+		result := CheckGkeWorkloadCertificate(tt.paths[0], tt.paths[1], tt.paths[2])
 		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
 		}
