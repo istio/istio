@@ -13,19 +13,19 @@ typedConfig:
                     name: :authority
                     stringMatch:
                       safeRegex:
-                        googleRe2: { }
+                        googleRe2: {}
                         regex: (?i)example\.com
                 - header:
                     name: :authority
                     stringMatch:
                       safeRegex:
-                        googleRe2: { }
+                        googleRe2: {}
                         regex: (?i)prefix\.example\..*
                 - header:
                     name: :authority
                     stringMatch:
                       safeRegex:
-                        googleRe2: { }
+                        googleRe2: {}
                         regex: (?i).*\.example\.com
                 - header:
                     name: :authority
@@ -37,19 +37,19 @@ typedConfig:
                       name: :authority
                       stringMatch:
                         safeRegex:
-                          googleRe2: { }
+                          googleRe2: {}
                           regex: (?i)not-example\.com
                   - header:
                       name: :authority
                       stringMatch:
                         safeRegex:
-                          googleRe2: { }
+                          googleRe2: {}
                           regex: (?i)prefix\.not-example\..*
                   - header:
                       name: :authority
                       stringMatch:
                         safeRegex:
-                          googleRe2: { }
+                          googleRe2: {}
                           regex: (?i).*\.not-example\.com
                   - header:
                       name: :authority
