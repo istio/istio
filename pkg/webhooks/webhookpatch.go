@@ -98,13 +98,11 @@ func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
 	go wait.Until(w.worker, time.Second, stopChan)
 }
 
-// Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) worker() {
 	for w.processNextItem() {
 	}
 }
 
-// Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) processNextItem() bool {
 	item, shutdown := w.queue.Get()
 	if shutdown {
