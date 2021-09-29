@@ -169,11 +169,14 @@ func TestIsCatchAllRoute(t *testing.T) {
 					Headers: []*route.HeaderMatcher{
 						{
 							Name: "Authentication",
-							HeaderMatchSpecifier: &route.HeaderMatcher_SafeRegexMatch{
-								SafeRegexMatch: &matcher.RegexMatcher{
-									// nolint: staticcheck
-									EngineType: &matcher.RegexMatcher_GoogleRe2{},
-									Regex:      "*",
+							HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+								StringMatch: &matcher.StringMatcher{
+									MatchPattern: &matcher.StringMatcher_SafeRegex{
+										SafeRegex: &matcher.RegexMatcher{
+											EngineType: regexEngine,
+											Regex:      "*",
+										},
+									},
 								},
 							},
 						},

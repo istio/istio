@@ -607,7 +607,7 @@ func mirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 	case in.MirrorPercent != nil:
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
-				DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.GetValue()))),
+				DefaultValue: translateIntegerToFractionalPercent(int32(in.MirrorPercent.GetValue())),
 			}
 		}
 		// If zero percent is provided explicitly, we should not mirror.
@@ -890,19 +890,9 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 		return out
 	}
 
-	switch m := in.MatchType.(type) {
-	case *networking.StringMatch_Exact:
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_ExactMatch{ExactMatch: m.Exact}
-	case *networking.StringMatch_Prefix:
-		// Envoy regex grammar is RE2 (https://github.com/google/re2/wiki/Syntax)
-		// Golang has a slightly different regex grammar
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_PrefixMatch{PrefixMatch: m.Prefix}
-	case *networking.StringMatch_Regex:
-		out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
-			SafeRegexMatch: &matcher.RegexMatcher{
-				EngineType: regexEngine,
-				Regex:      m.Regex,
-			},
+	if stringMatch := convertToStringMatch(in); stringMatch != nil {
+		out.HeaderMatchSpecifier = &route.HeaderMatcher_StringMatch{
+			StringMatch: stringMatch,
 		}
 	}
 
@@ -923,24 +913,32 @@ func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher 
 	res := make([]*matcher.StringMatcher, 0, len(in))
 
 	for _, istioMatcher := range in {
-		switch m := istioMatcher.MatchType.(type) {
-		case *networking.StringMatch_Exact:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}})
-		case *networking.StringMatch_Prefix:
-			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}})
-		case *networking.StringMatch_Regex:
-			res = append(res, &matcher.StringMatcher{
-				MatchPattern: &matcher.StringMatcher_SafeRegex{
-					SafeRegex: &matcher.RegexMatcher{
-						EngineType: regexEngine,
-						Regex:      m.Regex,
-					},
-				},
-			})
+		if stringMatch := convertToStringMatch(istioMatcher); stringMatch != nil {
+			res = append(res, stringMatch)
 		}
 	}
 
 	return res
+}
+
+func convertToStringMatch(istioMatcher *networking.StringMatch) *matcher.StringMatcher {
+	switch m := istioMatcher.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		return &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: m.Exact}}
+	case *networking.StringMatch_Prefix:
+		return &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: m.Prefix}}
+	case *networking.StringMatch_Regex:
+		return &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					EngineType: regexEngine,
+					Regex:      m.Regex,
+				},
+			},
+		}
+	}
+
+	return nil
 }
 
 // translateCORSPolicy translates CORS policy

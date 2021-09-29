@@ -197,7 +197,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// nolint: staticcheck
 		// Update to not use the deprecated fields later.
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
 	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
@@ -209,7 +209,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// nolint: staticcheck
 		// Update to not use the deprecated fields later.
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(true))
 	})
 
@@ -1451,9 +1451,11 @@ func TestCombineVHostRoutes(t *testing.T) {
 			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
-					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
-					InvertMatch:          false,
+					Name: "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_StringMatch{
+						StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: "bar"}},
+					},
+					InvertMatch: false,
 				},
 			},
 		}},
@@ -1485,9 +1487,11 @@ func TestCombineVHostRoutes(t *testing.T) {
 			},
 			Headers: []*envoyroute.HeaderMatcher{
 				{
-					Name:                 "foo",
-					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_ExactMatch{ExactMatch: "bar"},
-					InvertMatch:          false,
+					Name: "foo",
+					HeaderMatchSpecifier: &envoyroute.HeaderMatcher_StringMatch{
+						StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: "bar"}},
+					},
+					InvertMatch: false,
 				},
 			},
 		}},
