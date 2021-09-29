@@ -90,8 +90,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deprecation.yaml"},
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
-			{msg.Deprecated, "VirtualService productpage.foo"},
-			{msg.Deprecated, "Sidecar no-selector.default"},
+			{msg.Deprecated, "VirtualService foo/productpage"},
+			{msg.Deprecated, "Sidecar default/no-selector"},
 		},
 	},
 	{
@@ -167,7 +167,7 @@ var testGrid = []testCase{
 		analyzer:   &injection.Analyzer{},
 		expected: []message{
 			{msg.NamespaceNotInjected, "Namespace bar"},
-			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
+			{msg.PodMissingProxy, "Pod default/noninjectedpod"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
 		},
 	},
@@ -180,7 +180,7 @@ var testGrid = []testCase{
 		analyzer: &injection.Analyzer{},
 		expected: []message{
 			{msg.NamespaceInjectionEnabledByDefault, "Namespace bar"},
-			{msg.PodMissingProxy, "Pod noninjectedpod.default"},
+			{msg.PodMissingProxy, "Pod default/noninjectedpod"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
 		},
 	},
@@ -192,7 +192,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
 		},
 	},
 	{
@@ -203,7 +203,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
 		},
 	},
 	{
@@ -215,8 +215,8 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
-			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
-			{msg.IstioProxyImageMismatch, "Pod revision-details-v1-pod-old.revision-namespace"},
+			{msg.IstioProxyImageMismatch, "Pod enabled-namespace/details-v1-pod-old"},
+			{msg.IstioProxyImageMismatch, "Pod revision-namespace/revision-details-v1-pod-old"},
 		},
 	},
 	{
@@ -224,9 +224,9 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/service-no-port-name.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},
 		expected: []message{
-			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
-			{msg.PortNameIsNotUnderNamingConvention, "Service my-service1.my-namespace1"},
-			{msg.PortNameIsNotUnderNamingConvention, "Service my-service2.my-namespace2"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-namespace1/my-service1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-namespace1/my-service1"},
+			{msg.PortNameIsNotUnderNamingConvention, "Service my-namespace2/my-service2"},
 		},
 	},
 	{
@@ -246,8 +246,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
 		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
 		expected: []message{
-			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-2.ns2"},
-			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar has-conflict-1.ns2"},
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-2"},
+			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-1"},
 		},
 	},
 	{
@@ -255,12 +255,12 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/sidecar-selector.yaml"},
 		analyzer:   &sidecar.SelectorAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "Sidecar maps-to-nonexistent.default"},
-			{msg.ReferencedResourceNotFound, "Sidecar maps-to-different-ns.other"},
-			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-1.default"},
-			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar dupe-2.default"},
-			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-1.default"},
-			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar overlap-2.default"},
+			{msg.ReferencedResourceNotFound, "Sidecar default/maps-to-nonexistent"},
+			{msg.ReferencedResourceNotFound, "Sidecar other/maps-to-different-ns"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar default/dupe-1"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar default/dupe-2"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar default/overlap-1"},
+			{msg.ConflictingSidecarWorkloadSelectors, "Sidecar default/overlap-2"},
 		},
 	},
 	{
@@ -268,12 +268,12 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_conflictingmeshgatewayhosts.yaml"},
 		analyzer:   &virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
 		expected: []message{
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team3"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.team4"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.foo"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService ratings.bar"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService productpage.foo"},
-			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bogus-productpage.foo"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService team3/ratings"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService team4/ratings"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/ratings"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService bar/ratings"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/productpage"},
+			{msg.ConflictingMeshGatewayVirtualServiceHosts, "VirtualService foo/bogus-productpage"},
 		},
 	},
 	{
@@ -281,12 +281,12 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_destinationhosts.yaml"},
 		analyzer:   &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogushost.default"},
-			{msg.ReferencedResourceNotFound, "VirtualService reviews-bookinfo-other.default"},
-			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogushost.default"},
-			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogusport.default"},
-			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService reviews-2port-missing.default"},
-			{msg.ReferencedResourceNotFound, "VirtualService cross-namespace-details.istio-system"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogushost"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bookinfo-other"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-mirror-bogushost"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogusport"},
+			{msg.VirtualServiceDestinationPortSelectorRequired, "VirtualService default/reviews-2port-missing"},
+			{msg.ReferencedResourceNotFound, "VirtualService istio-system/cross-namespace-details"},
 		},
 	},
 	{
@@ -294,8 +294,8 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/virtualservice_destinationrules.yaml"},
 		analyzer:   &virtualservice.DestinationRuleAnalyzer{},
 		expected: []message{
-			{msg.ReferencedResourceNotFound, "VirtualService reviews-bogussubset.default"},
-			{msg.ReferencedResourceNotFound, "VirtualService reviews-mirror-bogussubset.default"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-bogussubset"},
+			{msg.ReferencedResourceNotFound, "VirtualService default/reviews-mirror-bogussubset"},
 		},
 	},
 	{
@@ -305,7 +305,7 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ReferencedResourceNotFound, "VirtualService httpbin-bogus"},
 
-			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService cross-test.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/cross-test"},
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService httpbin-bogus"},
 			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService httpbin"},
 		},
@@ -315,11 +315,11 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
 		expected: []message{
-			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-svc-multiple-prot.bookinfo"},
-			{msg.DeploymentAssociatedToMultipleServices, "Deployment multiple-without-port.bookinfo"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment no-services.bookinfo"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment ann-enabled-ns-disabled.injection-disabled-ns"},
-			{msg.DeploymentConflictingPorts, "Deployment conflicting-ports.bookinfo"},
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-svc-multiple-prot"},
+			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-without-port"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment bookinfo/no-services"},
+			{msg.DeploymentRequiresServiceAssociated, "Deployment injection-disabled-ns/ann-enabled-ns-disabled"},
+			{msg.DeploymentConflictingPorts, "Deployment bookinfo/conflicting-ports"},
 		},
 	},
 	{
@@ -353,8 +353,8 @@ var testGrid = []testCase{
 		meshNetworksFile: "testdata/common/meshnetworks.yaml",
 		analyzer:         &multicluster.MeshNetworksAnalyzer{},
 		expected: []message{
-			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
-			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks istio-system/meshnetworks"},
+			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks istio-system/meshnetworks"},
 		},
 	},
 	{
@@ -364,13 +364,13 @@ var testGrid = []testCase{
 		},
 		analyzer: &authz.AuthorizationPoliciesAnalyzer{},
 		expected: []message{
-			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy meshwide-httpbin-v1.istio-system"},
-			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-empty-namespace-wide.httpbin-empty"},
-			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods.httpbin"},
-			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
-			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
-			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
-			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy istio-system/meshwide-httpbin-v1"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-empty/httpbin-empty-namespace-wide"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin/httpbin-nopods"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-ns"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-ns"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin/httpbin-bogus-not-ns"},
 		},
 	},
 	{
@@ -452,7 +452,7 @@ var testGrid = []testCase{
 		analyzer: schemaValidation.CollectionValidationAnalyzer(collections.IstioNetworkingV1Alpha3Virtualservices),
 		expected: []message{
 			{msg.VirtualServiceUnreachableRule, "VirtualService duplicate-match"},
-			{msg.VirtualServiceUnreachableRule, "VirtualService sample-foo-cluster01.foo"},
+			{msg.VirtualServiceUnreachableRule, "VirtualService foo/sample-foo-cluster01"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService almost-duplicate-match"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService duplicate-match"},
 
@@ -461,9 +461,9 @@ var testGrid = []testCase{
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService almost-duplicate-tcp-match"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService duplicate-tcp-match"},
 
-			{msg.VirtualServiceUnreachableRule, "VirtualService tls-routing.none"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing-almostmatch.none"},
-			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing.none"},
+			{msg.VirtualServiceUnreachableRule, "VirtualService none/tls-routing"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService none/tls-routing-almostmatch"},
+			{msg.VirtualServiceIneffectiveMatch, "VirtualService none/tls-routing"},
 
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService non-method-get"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService overlapping-in-single-match"},
@@ -478,10 +478,10 @@ var testGrid = []testCase{
 		},
 		analyzer: &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-01.default"},
-			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-02.default"},
-			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-02-test-03.default"},
-			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-03-test-04.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-01"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-02"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-02-test-03"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-03-test-04"},
 		},
 	},
 	{
@@ -491,9 +491,9 @@ var testGrid = []testCase{
 		},
 		analyzer: &serviceentry.ProtocolAdressesAnalyzer{},
 		expected: []message{
-			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-03.default"},
-			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-04.default"},
-			{msg.ServiceEntryAddressesRequired, "ServiceEntry service-entry-test-07.default"},
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-03"},
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-04"},
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry default/service-entry-test-07"},
 		},
 	},
 	{
@@ -503,10 +503,10 @@ var testGrid = []testCase{
 		},
 		analyzer: &gateway.CertificateAnalyzer{},
 		expected: []message{
-			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-01.istio-system"},
-			{msg.GatewayDuplicateCertificate, "Gateway gateway-02-test-01.istio-system"},
-			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-02.istio-system"},
-			{msg.GatewayDuplicateCertificate, "Gateway gateway-01-test-03.default"},
+			{msg.GatewayDuplicateCertificate, "Gateway istio-system/gateway-01-test-01"},
+			{msg.GatewayDuplicateCertificate, "Gateway istio-system/gateway-02-test-01"},
+			{msg.GatewayDuplicateCertificate, "Gateway istio-system/gateway-01-test-02"},
+			{msg.GatewayDuplicateCertificate, "Gateway default/gateway-01-test-03"},
 		},
 	},
 	{
@@ -528,7 +528,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &virtualservice.DestinationHostAnalyzer{},
 		expected: []message{
-			{msg.IngressRouteRulesNotAffected, "VirtualService testing-service-01-test-01.default"},
+			{msg.IngressRouteRulesNotAffected, "VirtualService default/testing-service-01-test-01"},
 		},
 	},
 	{
@@ -578,8 +578,8 @@ var testGrid = []testCase{
 		},
 		analyzer: &injection.ImageAutoAnalyzer{},
 		expected: []message{
-			{msg.ImageAutoWithoutInjectionWarning, "Deployment non-injected-gateway-deployment.not-injected"},
-			{msg.ImageAutoWithoutInjectionError, "Pod injected-pod.default"},
+			{msg.ImageAutoWithoutInjectionWarning, "Deployment not-injected/non-injected-gateway-deployment"},
+			{msg.ImageAutoWithoutInjectionError, "Pod default/injected-pod"},
 		},
 	},
 }
