@@ -857,6 +857,14 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 				},
 			},
 		}
+	case *networking.StringMatch_Prefix:
+		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_Prefix{
+					Prefix: m.Prefix,
+				},
+			},
+		}
 	}
 
 	return out
