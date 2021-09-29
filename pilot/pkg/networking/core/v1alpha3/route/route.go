@@ -475,7 +475,7 @@ func translateRoute(node *model.Proxy, in *networking.HTTPRoute,
 			d = features.DefaultRequestTimeout
 		}
 		action.Timeout = d
-		if node.Metadata.Generator == "grpc" {
+		if node.IsProxylessGrpc() {
 			// TODO(stevenctl) merge these paths; grpc's xDS impl will not read the deprecated value
 			action.MaxStreamDuration = &route.RouteAction_MaxStreamDuration{MaxStreamDuration: d}
 		} else {
