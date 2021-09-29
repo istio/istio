@@ -491,7 +491,7 @@ var testGrid = []testCase{
 		},
 		analyzer: &virtualservice.GatewayAnalyzer{},
 		expected: []message{
-			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService testing-service-01-test-01.default"},
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/testing-service-01-test-01"},
 		},
 	},
 	{
