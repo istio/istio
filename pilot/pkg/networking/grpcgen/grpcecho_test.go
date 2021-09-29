@@ -335,7 +335,7 @@ spec:
 		t.Fatal(err)
 	}
 	if duration < time.Second {
-		t.Fatal("expected to take over 1s but took %v", duration)
+		t.Fatalf("expected to take over 1s but took %v", duration)
 	}
 
 	// TODO test timeouts, aborts
