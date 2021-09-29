@@ -3088,6 +3088,7 @@ func TestApplyDestinationRuleSAN(t *testing.T) {
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: TestServiceNamespace,
+			ServiceRegistry: provider.External,
 		},
 	}
 
