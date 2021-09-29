@@ -322,7 +322,7 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 	}
 	s := AnalysisSuppression{
 		Code:         "IST0001", // InternalError, reported by analyzerMock
-		ResourceName: "Kind1 r2.includedNamespace",
+		ResourceName: "Kind1 includedNamespace/r2",
 	}
 	d := NewInMemoryDistributor()
 
@@ -380,7 +380,7 @@ func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
 	}
 	s := AnalysisSuppression{
 		Code:         "IST0001",                    // InternalError, reported by analyzerMock
-		ResourceName: "Kind1 r*.includedNamespace", // should catch r1/r2 but not x1
+		ResourceName: "Kind1 includedNamespace/r*", // should catch r1/r2 but not x1
 	}
 	d := NewInMemoryDistributor()
 
